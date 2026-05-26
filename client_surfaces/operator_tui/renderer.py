@@ -696,6 +696,7 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :plan track filter status=... priority=... risk=... type=...")
             lines.append("    :plan track clear-filter")
             lines.append("    :plan track adopt <output-id> | reject <output-id>")
+            lines.append("    :plan track execute-next | sync-status <plan-task-id> <status>")
             lines.append("    :plan track diff <left-output-id> <right-output-id>")
 
     return [_clip(line, width) for line in lines]
@@ -732,6 +733,10 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
     goal = str(selected_track.get("goal") or goal_id)
     progress = dict(selected_track.get("progress_summary") or {})
     summary = dict(selected_track.get("tasks_status_summary") or {})
+    provenance = dict(selected_track.get("provenance") or {})
+    mapping = dict(selected_track.get("task_mapping") or {})
+    source_refs = [str(item) for item in list(selected_track.get("source_references") or []) if str(item).strip()]
+    context_refs = [str(item) for item in list(selected_track.get("context_references") or []) if str(item).strip()]
     lines.append(f"  Header: owner={owner} track={track} goal={goal}")
     lines.append(
         _clip(
@@ -770,6 +775,15 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
 
     critical = [str(item) for item in list(selected_track.get("critical_path_tasks") or []) if str(item).strip()]
     lines.append(f"  Critical path: {', '.join(critical) if critical else 'none'}")
+    if provenance:
+        lines.append(
+            _clip(
+                f"  Provenance: {provenance.get('provenance_id') or '-'} model={dict(provenance.get('model_ref') or {}).get('model_id') or '-'}",
+                width,
+            )
+        )
+    lines.append(_clip(f"  Plan mapping: {len(mapping)} task refs", width))
+    lines.append(_clip(f"  Sources: {len(source_refs)} refs  Context: {len(context_refs)} refs", width))
 
     if warnings:
         lines.append("  [Quality warnings]")

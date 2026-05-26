@@ -30,6 +30,7 @@ def _payload() -> dict:
                 "output_artifact_id": "out-1",
                 "status": "created",
                 "verification_status": "valid",
+                "provenance": {"provenance_id": "prov-1", "model_ref": {"model_id": "planner-test"}},
                 "payload": {},
             }
         ],
@@ -52,6 +53,10 @@ def _payload() -> dict:
             ],
             "critical_path_tasks": ["T01"],
             "quality_gate_warnings": [{"path": "tasks/0", "reason_code": "quality_p1_acceptance_not_testable"}],
+            "provenance": {"provenance_id": "prov-1", "model_ref": {"model_id": "planner-test"}},
+            "task_mapping": {"T01": "ptask-1"},
+            "source_references": ["usage-1"],
+            "context_references": ["artifact:allowed"],
         },
     }
 
@@ -64,6 +69,7 @@ def test_renderer_shows_planning_track_header_and_sections() -> None:
     assert "[Milestones]" in output
     assert "[Tasks]" in output
     assert "Critical path: T01" in output
+    assert "Provenance: prov-1" in output
     assert "[Quality warnings]" in output
 
 
@@ -85,4 +91,3 @@ def test_renderer_shows_plan_diff_summary() -> None:
     output = render_operator_shell(_state(payload), width=170, height=36)
     assert "[Plan diff]" in output
     assert "out-1 -> out-2" in output
-
