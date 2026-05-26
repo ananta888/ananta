@@ -3,15 +3,24 @@ from __future__ import annotations
 import json
 
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
+from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, event_for_prediction_feedback
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
+from client_surfaces.operator_tui.ai_snake_training_import_export import export_training_bundle_to_path
 from client_surfaces.operator_tui.ai_snake_training_store import (
+    append_behavior_event,
     build_training_bundle,
+    compact_training_data,
     data_path_status,
     data_show_status,
+    delete_events,
+    delete_patterns,
     pattern_detail,
     patterns_status_lines,
     read_active_profile,
+    read_patterns,
+    reset_training_data,
+    save_patterns,
     save_active_profile,
 )
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
@@ -202,8 +211,6 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             if action == "export":
                 tail = [str(token).strip() for token in args[2:]]
                 options = {token.lower() for token in tail}
-                if "--stdout" not in options:
-                    return CommandResult(state, "ai data export requires --stdout", handled=False)
                 fmt = "json"
                 if "--format" in options:
                     try:
@@ -214,8 +221,24 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 if fmt != "json":
                     return CommandResult(state, "ai data export supports --format json", handled=False)
                 include_events = "--include-events" in options
+                export_target = ""
+                positional = [token for token in tail if not token.startswith("--")]
+                if positional and "--format" in options:
+                    # ignore format value in positional list
+                    lowered = [token.lower() for token in tail]
+                    fidx = lowered.index("--format")
+                    format_value = tail[fidx + 1] if fidx + 1 < len(tail) else ""
+                    positional = [token for token in positional if token != format_value]
+                if positional:
+                    export_target = positional[0]
                 try:
-                    bundle = build_training_bundle(include_events=include_events)
+                    if "--stdout" in options or not export_target:
+                        bundle = build_training_bundle(include_events=include_events)
+                        return CommandResult(
+                            state.with_updates(header_logo_game=game, status_message="ai data export stdout"),
+                            json.dumps(bundle, ensure_ascii=False),
+                        )
+                    target = export_training_bundle_to_path(output_path=export_target, include_events=include_events)
                 except ValueError as exc:
                     return CommandResult(
                         state.with_updates(header_logo_game=game, status_message=f"ai data export failed: {exc}"),
@@ -223,13 +246,79 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                         handled=False,
                     )
                 return CommandResult(
-                    state.with_updates(header_logo_game=game, status_message="ai data export stdout"),
-                    json.dumps(bundle, ensure_ascii=False),
+                    state.with_updates(header_logo_game=game, status_message=f"ai data export file={target}"),
+                    f"ai data export {target}",
+                )
+            if action == "compact":
+                result = compact_training_data()
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        status_message=(
+                            "ai data compact "
+                            f"patterns={result['patterns_total']} "
+                            f"events={result['event_before_bytes']}->{result['event_after_bytes']}"
+                        ),
+                    ),
+                    "ai data compact",
+                )
+            if action == "delete":
+                if len(args) < 3:
+                    return CommandResult(state, "ai data delete: events | patterns", handled=False)
+                target = str(args[2]).lower()
+                if target == "events":
+                    delete_events(backup=True)
+                    return CommandResult(
+                        state.with_updates(header_logo_game=game, status_message="ai data delete events"),
+                        "ai data delete events",
+                    )
+                if target == "patterns":
+                    delete_patterns(backup=True)
+                    return CommandResult(
+                        state.with_updates(header_logo_game=game, status_message="ai data delete patterns"),
+                        "ai data delete patterns",
+                    )
+                return CommandResult(state, "ai data delete: events | patterns", handled=False)
+            if action == "reset":
+                reset_training_data(backup=True)
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message="ai data reset"),
+                    "ai data reset",
                 )
             return CommandResult(
                 state,
-                "ai data: path | show | export --stdout --format json [--include-events]",
+                "ai data: path | show | export [--stdout|<path>] --format json [--include-events] | compact | delete ... | reset",
                 handled=False,
+            )
+        if sub == "prediction":
+            if len(args) < 2:
+                return CommandResult(state, "ai prediction: good | bad [reason]", handled=False)
+            action = str(args[1]).lower()
+            prediction = game.get("ai_snake_prediction") if isinstance(game.get("ai_snake_prediction"), dict) else {}
+            target_ref = str(prediction.get("target_ref") or "")
+            if not target_ref:
+                return CommandResult(state, "ai prediction: no active target", handled=False)
+            positive = action == "good"
+            if action not in {"good", "bad"}:
+                return CommandResult(state, "ai prediction: good | bad [reason]", handled=False)
+            patterns = read_patterns()
+            updated, changed = apply_prediction_feedback(patterns=patterns, target_ref=target_ref, positive=positive)
+            if changed:
+                save_patterns(updated, backup=True)
+            reason = " ".join(args[2:]).strip()
+            event = event_for_prediction_feedback(target_ref=target_ref, positive=positive, reason=reason)
+            append_behavior_event(
+                event_type=str(event.get("event_type") or "prediction_feedback"),
+                value_norm=str(event.get("value_norm") or ""),
+                refs=list(event.get("refs") or []),
+                privacy_class=str(event.get("privacy_class") or "workspace"),
+                retention_hint=str(event.get("retention_hint") or "rolling_30d"),
+                reason=str(event.get("reason") or ""),
+            )
+            label = "good" if positive else "bad"
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=f"ai prediction {label}"),
+                f"ai prediction {label}",
             )
         if sub == "patterns":
             lines = patterns_status_lines(max_items=8)
@@ -254,6 +343,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 learning["paused"] = False
                 profile["learning_settings"] = learning
                 save_active_profile(profile, backup=True)
+                game["ai_learning_session_paused"] = False
                 return CommandResult(
                     state.with_updates(header_logo_game=game, status_message="ai learning on"),
                     "ai learning on",
@@ -263,22 +353,20 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 learning["paused"] = False
                 profile["learning_settings"] = learning
                 save_active_profile(profile, backup=True)
+                game["ai_learning_session_paused"] = False
                 return CommandResult(
                     state.with_updates(header_logo_game=game, status_message="ai learning off"),
                     "ai learning off",
                 )
             if action == "pause":
-                learning["enabled"] = True
-                learning["paused"] = True
-                profile["learning_settings"] = learning
-                save_active_profile(profile, backup=True)
+                game["ai_learning_session_paused"] = True
                 return CommandResult(
                     state.with_updates(header_logo_game=game, status_message="ai learning paused"),
                     "ai learning paused",
                 )
             if action == "status":
                 enabled = bool(learning.get("enabled"))
-                paused = bool(learning.get("paused"))
+                paused = bool(learning.get("paused")) or bool(game.get("ai_learning_session_paused"))
                 mode = "paused" if paused else ("active" if enabled else "off")
                 return CommandResult(
                     state.with_updates(header_logo_game=game, status_message=f"ai learning {mode} enabled={enabled}"),
@@ -287,7 +375,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(state, "ai learning: on | off | pause | status", handled=False)
         return CommandResult(
             state,
-            "ai: follow | lurk | quiet | explain | off | status | ctx | data ... | patterns | pattern <id> | learning ...",
+            "ai: follow | lurk | quiet | explain | off | status | ctx | data ... | patterns | pattern <id> | prediction ... | learning ...",
             handled=False,
         )
     if command == "inspect":

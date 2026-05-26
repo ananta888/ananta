@@ -7,7 +7,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from client_surfaces.operator_tui.ai_snake_learning import compact_event_log, merge_patterns, mine_patterns_from_events
 from client_surfaces.operator_tui.ai_snake_training_data import (
+    BEHAVIOR_EVENT_SCHEMA_FILE,
     TRAINING_BUNDLE_SCHEMA_FILE,
     default_profile,
     validate_payload,
@@ -121,6 +123,57 @@ def save_patterns(patterns: list[dict[str, Any]], *, backup: bool = False) -> No
     paths["learned_patterns"].write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def read_events(*, max_items: int = 2000) -> list[dict[str, Any]]:
+    paths = ensure_training_layout()
+    if not paths["events_log"].exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    lines = paths["events_log"].read_text(encoding="utf-8").splitlines()
+    for raw in lines[-max(1, int(max_items)) :]:
+        if not raw.strip():
+            continue
+        try:
+            item = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(item, dict):
+            rows.append(item)
+    return rows
+
+
+def append_behavior_event(
+    *,
+    event_type: str,
+    value_norm: str,
+    refs: list[str] | None = None,
+    privacy_class: str = "workspace",
+    retention_hint: str = "rolling_30d",
+    reason: str = "",
+) -> bool:
+    paths = ensure_training_layout()
+    refs_list = [str(item).strip() for item in (refs or []) if str(item).strip()][:8]
+    payload = {
+        "schema_version": "ai_snake_behavior_event.v1",
+        "event_id": f"evt_{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}",
+        "event_type": str(event_type or "").strip()[:40],
+        "occurred_at": _now_iso(),
+        "context_ref": "operator_tui",
+        "target_ref": refs_list[0] if refs_list else "",
+        "value_norm": str(value_norm or "").strip()[:200],
+        "refs": refs_list,
+        "privacy_class": str(privacy_class or "workspace"),
+        "retention_hint": retention_hint if retention_hint in {"ephemeral", "rolling_7d", "rolling_30d"} else "rolling_30d",
+        "source": {"component": "operator_tui", "mode": "training"},
+        "extensions": {"reason": str(reason or "")[:160]} if reason else {},
+    }
+    errors = validate_payload(payload, schema_filename=BEHAVIOR_EVENT_SCHEMA_FILE)
+    if errors:
+        return False
+    with paths["events_log"].open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    return True
+
+
 def count_event_lines() -> int:
     paths = ensure_training_layout()
     if not paths["events_log"].exists():
@@ -180,15 +233,71 @@ def build_training_bundle(*, include_events: bool = False) -> dict[str, Any]:
     return bundle
 
 
+def compact_training_data(
+    *,
+    max_event_bytes: int = 5 * 1024 * 1024,
+    min_cases: int = 3,
+    backup: bool = True,
+) -> dict[str, Any]:
+    paths = ensure_training_layout()
+    events = read_events(max_items=5000)
+    mined = mine_patterns_from_events(events=events, min_cases=min_cases)
+    merged = merge_patterns(existing=read_patterns(), mined=mined)
+    save_patterns(merged, backup=backup)
+    compaction = compact_event_log(
+        events_path=paths["events_log"],
+        max_bytes=max_event_bytes,
+        keep_last_lines=500,
+        backup=backup,
+    )
+    return {
+        "patterns_total": len(merged),
+        "patterns_mined": len(mined),
+        "event_before_bytes": int(compaction.get("before_bytes") or 0),
+        "event_after_bytes": int(compaction.get("after_bytes") or 0),
+        "event_kept_lines": int(compaction.get("kept_lines") or 0),
+        "backup": bool(backup),
+    }
+
+
+def delete_events(*, backup: bool = True) -> bool:
+    paths = ensure_training_layout()
+    if not paths["events_log"].exists():
+        return True
+    if backup:
+        shutil.copy2(paths["events_log"], paths["events_log"].with_suffix(".jsonl.bak"))
+    paths["events_log"].write_text("", encoding="utf-8")
+    return True
+
+
+def delete_patterns(*, backup: bool = True) -> bool:
+    if backup:
+        save_patterns(read_patterns(), backup=True)
+    save_patterns([], backup=False)
+    return True
+
+
+def reset_training_data(*, backup: bool = True) -> dict[str, Any]:
+    profile = default_profile()
+    save_active_profile(profile, backup=backup)
+    delete_patterns(backup=backup)
+    delete_events(backup=backup)
+    return {"profile_id": str(profile.get("profile_id") or "default"), "backup": bool(backup)}
+
+
 def data_show_status() -> str:
     paths = ensure_training_layout()
     profile = read_active_profile()
     patterns = read_patterns()
     events_count = count_event_lines()
+    learning = dict(profile.get("learning_settings") or {})
+    enabled = bool(learning.get("enabled"))
+    paused = bool(learning.get("paused"))
+    mode = "paused" if paused else ("on" if enabled else "off")
     return (
         f"ai-data profile={profile.get('display_name') or 'unknown'} "
         f"patterns={len(patterns)} events={events_count} "
-        f"updated={profile.get('updated_at') or '-'} path={paths['active_profile']}"
+        f"learning={mode} updated={profile.get('updated_at') or '-'} path={paths['active_profile']}"
     )
 
 

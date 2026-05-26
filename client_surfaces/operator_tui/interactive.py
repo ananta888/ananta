@@ -44,8 +44,15 @@ from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
 from client_surfaces.operator_tui.ai_snake_lm_budget import AiSnakeLmBudget
 from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, build_prediction_trace, quick_predict
 from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
+from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, merge_patterns, mine_patterns_from_events
 from client_surfaces.operator_tui.ai_snake_training_recorder import AiSnakeTrainingRecorder
-from client_surfaces.operator_tui.ai_snake_training_store import read_active_profile
+from client_surfaces.operator_tui.ai_snake_training_store import (
+    append_behavior_event,
+    read_active_profile,
+    read_events,
+    read_patterns,
+    save_patterns,
+)
 from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
@@ -128,6 +135,7 @@ class InteractiveOperatorTui:
         learning_cfg = dict(read_active_profile().get("learning_settings") or {})
         self._ai_learning_settings = learning_cfg
         self._ai_learning_settings_loaded_at = 0.0
+        self._ai_learning_last_mined_at = 0.0
         self._ai_training_recorder = AiSnakeTrainingRecorder(enabled=bool(learning_cfg.get("enabled", True)))
         self._ai_training_recorder.set_paused(bool(learning_cfg.get("paused", False)))
         self._ai_worker_task: WorkerTask | None = None
@@ -1402,6 +1410,8 @@ class InteractiveOperatorTui:
         profile_learning = self._ai_learning_settings
         self._ai_training_recorder.set_enabled(bool(profile_learning.get("enabled", True)))
         self._ai_training_recorder.set_paused(bool(profile_learning.get("paused", False)))
+        learning_enabled = bool(profile_learning.get("enabled", True))
+        learning_paused = bool(profile_learning.get("paused", False)) or bool(game.get("ai_learning_session_paused"))
         self._ai_training_recorder.record_event(
             event_type="section_visit",
             value_norm=section,
@@ -1648,6 +1658,44 @@ class InteractiveOperatorTui:
                 forced=forced,
                 cooldown_seconds=20,
             ) if (allow_proactive_comment or forced) else None
+
+        target_ref = str(prediction.get("target_ref") or "")
+        reached_target = False
+        if target_ref.startswith("section:"):
+            reached_target = target_ref.removeprefix("section:") == section
+        elif target_ref and isinstance(artifact_ref, dict):
+            artifact_path = str(artifact_ref.get("path") or artifact_ref.get("label") or "")
+            reached_target = bool(artifact_path) and artifact_path in target_ref
+        auto_feedback_key = f"{target_ref}|{section}"
+        if (
+            learning_enabled
+            and not learning_paused
+            and reached_target
+            and target_ref
+            and str(game.get("ai_last_auto_feedback_key") or "") != auto_feedback_key
+        ):
+            patterns = read_patterns()
+            updated, changed = apply_prediction_feedback(patterns=patterns, target_ref=target_ref, positive=True)
+            if changed:
+                save_patterns(updated, backup=False)
+            append_behavior_event(
+                event_type="prediction_feedback",
+                value_norm="implicit_good",
+                refs=[target_ref],
+                privacy_class="workspace",
+                retention_hint="rolling_30d",
+                reason="target_reached",
+            )
+            game["ai_last_auto_feedback_key"] = auto_feedback_key
+
+        min_cases = max(1, int(profile_learning.get("evidence_min_cases") or 3))
+        if learning_enabled and not learning_paused and (now - float(self._ai_learning_last_mined_at or 0.0)) >= 5.0:
+            events = read_events(max_items=5000)
+            mined = mine_patterns_from_events(events=events, min_cases=min_cases)
+            if mined:
+                merged = merge_patterns(existing=read_patterns(), mined=mined)
+                save_patterns(merged, backup=False)
+            self._ai_learning_last_mined_at = now
 
         game["ai_snake_prediction"] = prediction
         game["ai_snake_context_envelope"] = envelope

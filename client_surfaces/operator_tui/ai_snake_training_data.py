@@ -30,6 +30,10 @@ def validate_prediction_profile(payload: dict[str, Any]) -> list[str]:
     return validate_payload(payload, schema_filename=PROFILE_SCHEMA_FILE)
 
 
+def validate_learned_pattern(payload: dict[str, Any]) -> list[str]:
+    return validate_payload(payload, schema_filename=LEARNED_PATTERN_SCHEMA_FILE)
+
+
 def default_profile(*, profile_id: str = "default", display_name: str = "Default Profile", workspace_ref: str = "local") -> dict[str, Any]:
     return {
         "schema_version": "ai_snake_prediction_profile.v1",
