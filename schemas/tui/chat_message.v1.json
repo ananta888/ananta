@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "schemas/tui/chat_message.v1.json",
+  "title": "ChatMessage-v1",
+  "description": "TUI snake-mode chat message with sender, visibility, delivery and policy metadata",
+  "type": "object",
+  "required": ["id", "created_at", "channel_id", "channel_type", "sender_id", "sender_kind", "target_ids", "text", "visibility", "delivery_state"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique message id (UUID4)"
+    },
+    "created_at": {
+      "type": "number",
+      "description": "Unix timestamp (float)"
+    },
+    "channel_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "e.g. room:main, direct:s-abc, ai:tutor, notes:self"
+    },
+    "channel_type": {
+      "type": "string",
+      "enum": ["room", "direct", "ai", "notes", "system"]
+    },
+    "sender_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sender_kind": {
+      "type": "string",
+      "enum": ["user", "ai", "system"]
+    },
+    "target_ids": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Empty = broadcast; populated for direct messages"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["local_only", "room", "direct", "ai_context", "system"]
+    },
+    "delivery_state": {
+      "type": "string",
+      "enum": ["draft", "queued", "sent", "received", "failed", "blocked"]
+    },
+    "policy_decision_ref": {
+      "type": ["string", "null"],
+      "description": "Reference id of the policy decision that allowed or blocked this message"
+    }
+  }
+}

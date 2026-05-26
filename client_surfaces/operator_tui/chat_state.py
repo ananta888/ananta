@@ -1,0 +1,235 @@
+"""T02.01 + T02.03: Chat-State – Channel-Modell und ChatMessage-v1.
+
+Channel types: room, direct, ai, notes, system
+Message fields: id, created_at, channel_id, channel_type, sender_id, sender_kind,
+                target_ids, text, visibility, delivery_state, policy_decision_ref
+"""
+from __future__ import annotations
+
+import time
+import uuid
+from enum import Enum
+from typing import Any
+
+
+# ── Enums ─────────────────────────────────────────────────────────────────────
+
+
+class ChannelType(str, Enum):
+    ROOM = "room"
+    DIRECT = "direct"
+    AI = "ai"
+    NOTES = "notes"
+    SYSTEM = "system"
+
+
+class Visibility(str, Enum):
+    LOCAL_ONLY = "local_only"
+    ROOM = "room"
+    DIRECT = "direct"
+    AI_CONTEXT = "ai_context"
+    SYSTEM = "system"
+
+
+class DeliveryState(str, Enum):
+    DRAFT = "draft"
+    QUEUED = "queued"
+    SENT = "sent"
+    RECEIVED = "received"
+    FAILED = "failed"
+    BLOCKED = "blocked"
+
+
+class SenderKind(str, Enum):
+    USER = "user"
+    AI = "ai"
+    SYSTEM = "system"
+
+
+# ── Persistence policy ────────────────────────────────────────────────────────
+
+
+_PERSISTENCE_POLICY: dict[str, str] = {
+    ChannelType.ROOM: "hub",
+    ChannelType.DIRECT: "hub",
+    ChannelType.AI: "local",
+    ChannelType.NOTES: "local_only",
+    ChannelType.SYSTEM: "ephemeral",
+}
+
+
+# ── Channel factory ───────────────────────────────────────────────────────────
+
+
+def make_channel(
+    channel_id: str,
+    channel_type: str,
+    display_name: str,
+    participants: list[str] | None = None,
+    visibility: str | None = None,
+) -> dict[str, Any]:
+    if visibility is None:
+        if channel_type == ChannelType.NOTES:
+            visibility = Visibility.LOCAL_ONLY
+        elif channel_type == ChannelType.AI:
+            visibility = Visibility.AI_CONTEXT
+        else:
+            visibility = Visibility.ROOM
+    return {
+        "id": channel_id,
+        "channel_type": channel_type,
+        "display_name": display_name,
+        "visibility": visibility,
+        "participants": participants or [],
+        "persistence_policy": _PERSISTENCE_POLICY.get(channel_type, "local"),
+        "unread": 0,
+        "messages": [],
+        "scroll_offset": 0,
+    }
+
+
+# ── Default channels ──────────────────────────────────────────────────────────
+
+
+def default_channels() -> dict[str, dict[str, Any]]:
+    return {
+        "room:main": make_channel("room:main", ChannelType.ROOM, "#room"),
+        "ai:tutor": make_channel("ai:tutor", ChannelType.AI, "AI tutor-ai", participants=["s-ai"]),
+        "notes:self": make_channel("notes:self", ChannelType.NOTES, "notes local-only", participants=["self"]),
+        "system": make_channel("system", ChannelType.SYSTEM, "system"),
+    }
+
+
+# ── ChatMessage factory ───────────────────────────────────────────────────────
+
+
+def make_message(
+    *,
+    channel_id: str,
+    channel_type: str,
+    sender_id: str,
+    text: str,
+    sender_kind: str = SenderKind.USER,
+    target_ids: list[str] | None = None,
+    visibility: str | None = None,
+    delivery_state: str = DeliveryState.DRAFT,
+    policy_decision_ref: str | None = None,
+) -> dict[str, Any]:
+    if visibility is None:
+        if channel_type == ChannelType.NOTES:
+            visibility = Visibility.LOCAL_ONLY
+        elif channel_type == ChannelType.AI:
+            visibility = Visibility.AI_CONTEXT
+        elif channel_type == ChannelType.DIRECT:
+            visibility = Visibility.DIRECT
+        else:
+            visibility = Visibility.ROOM
+    return {
+        "id": str(uuid.uuid4()),
+        "created_at": time.time(),
+        "channel_id": channel_id,
+        "channel_type": channel_type,
+        "sender_id": sender_id,
+        "sender_kind": sender_kind,
+        "target_ids": target_ids or [],
+        "text": str(text)[:500],
+        "visibility": visibility,
+        "delivery_state": delivery_state,
+        "policy_decision_ref": policy_decision_ref,
+    }
+
+
+# ── Chat state (top-level game dict key: "chat_state") ────────────────────────
+
+
+def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:
+    return {
+        "local_snake_id": local_snake_id,
+        "active_channel": "room:main",
+        "channels": default_channels(),
+        "chat_focus": False,
+        "chat_input_buffer": "",
+        "notes_context_released": False,
+        "ai_typing": False,
+    }
+
+
+def get_chat_state(game: dict[str, Any]) -> dict[str, Any]:
+    raw = game.get("chat_state")
+    if isinstance(raw, dict):
+        return raw
+    local_id = str(game.get("local_snake_id") or "s1")
+    return default_chat_state(local_id)
+
+
+def set_chat_state(game: dict[str, Any], chat: dict[str, Any]) -> None:
+    game["chat_state"] = chat
+
+
+# ── Channel helpers ───────────────────────────────────────────────────────────
+
+
+def get_channel(chat: dict[str, Any], channel_id: str) -> dict[str, Any] | None:
+    channels = chat.get("channels") or {}
+    return channels.get(channel_id)
+
+
+def get_active_channel(chat: dict[str, Any]) -> dict[str, Any] | None:
+    return get_channel(chat, str(chat.get("active_channel") or "room:main"))
+
+
+def switch_channel(chat: dict[str, Any], channel_id: str) -> bool:
+    if channel_id not in (chat.get("channels") or {}):
+        return False
+    ch = chat["channels"][channel_id]
+    ch["unread"] = 0
+    chat["active_channel"] = channel_id
+    chat["scroll_offset"] = 0
+    chat["chat_input_buffer"] = ""
+    return True
+
+
+def add_direct_channel(chat: dict[str, Any], snake_id: str, display_name: str) -> str:
+    ch_id = f"direct:{snake_id}"
+    if ch_id not in (chat.get("channels") or {}):
+        chat.setdefault("channels", {})[ch_id] = make_channel(
+            ch_id, ChannelType.DIRECT, f"@{display_name}", participants=[snake_id]
+        )
+    return ch_id
+
+
+# ── Message helpers ───────────────────────────────────────────────────────────
+
+_MAX_MESSAGES = 200
+
+
+def append_message(chat: dict[str, Any], msg: dict[str, Any]) -> None:
+    ch_id = str(msg.get("channel_id") or "")
+    channels = chat.setdefault("channels", {})
+    if ch_id not in channels:
+        return
+    ch = channels[ch_id]
+    msgs: list[dict[str, Any]] = list(ch.get("messages") or [])
+    # deduplicate by id
+    existing_ids = {m.get("id") for m in msgs}
+    if msg.get("id") in existing_ids:
+        return
+    msgs.append(msg)
+    if len(msgs) > _MAX_MESSAGES:
+        msgs = msgs[-_MAX_MESSAGES:]
+    ch["messages"] = msgs
+    # bump unread if channel not active
+    if ch_id != chat.get("active_channel"):
+        ch["unread"] = int(ch.get("unread") or 0) + 1
+
+
+def sanitize_text(text: str) -> str:
+    """Strip ANSI and control chars from user-supplied message text."""
+    import re
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
+    return text.strip()[:500]
+
+
+def unread_total(chat: dict[str, Any]) -> int:
+    return sum(int(ch.get("unread") or 0) for ch in (chat.get("channels") or {}).values())
