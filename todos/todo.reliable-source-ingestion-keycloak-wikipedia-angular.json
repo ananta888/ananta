@@ -1,0 +1,604 @@
+{
+  "meta": {
+    "project": "ananta",
+    "feature": "reliable-source-ingestion-keycloak-wikipedia-angular",
+    "title": "Zuverlässige Quellen: schneller Nachlade-Source und dokumentierte Quellenangabe für Keycloak und Wikipedia",
+    "description": "Plan für zwei robuste Quellarten im Ananta/CodeCompass/RAG-System: (1) schnelle, standardisierte Nachladequelle für regelmäßiges Aktualisieren und lokalen Cache; (2) gut dokumentierte Quellenangabe mit Herkunft, Version, Lizenz, Snapshot, Hash und Zitierdaten. Erste Quellen: offizielle Keycloak-Dokumentation/API und ein sinnvoller erster Wikipedia-/Wikimedia-Dump. Zusätzlich soll das Angular-Frontend die Quellen sichtbar, bedienbar und im Smartphone/Android-Modus gut nutzbar machen.",
+    "created": "2026-05-26",
+    "last_updated": "2026-05-26",
+    "version": "1.0",
+    "source_references": {
+      "keycloak_documentation": "https://www.keycloak.org/documentation",
+      "keycloak_guides": "https://www.keycloak.org/guides",
+      "wikimedia_downloads": "https://dumps.wikimedia.org/",
+      "wikimedia_data_dumps_docs": "https://meta.wikimedia.org/wiki/Data_dumps"
+    },
+    "legend": {
+      "priority": "P1 = muss, P2 = soll, P3 = kann",
+      "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
+      "status": "open | in_progress | done | blocked"
+    }
+  },
+  "core_goal": "Ananta braucht Quellen, die schnell nachladbar sind und gleichzeitig sauber als zitierfähige, dokumentierte Quellen geführt werden. Für Keycloak soll die offizielle Dokumentation/API als vertrauenswürdige technische Referenz eingebunden werden. Für Wikipedia soll ein erster sinnvoller Wikimedia-Dump als breite Wissensbasis importierbar werden. Das Angular-Frontend zeigt diese Quellen, Snapshots, Aktualisierungen, Lizenz-/Herkunftsinformationen und Importstatus verständlich an.",
+  "source_model_principles": [
+    "Jede Quelle hat zwei Ebenen: fetch_source für schnelles Nachladen und citation_source für dokumentierte Nachweisbarkeit.",
+    "Jeder Snapshot ist immutable: Inhalt, Hash, Zeit, Version und Lizenz werden festgehalten.",
+    "Schneller Cache darf aktualisiert werden; zitierfähige Snapshots bleiben nachvollziehbar.",
+    "Quellen dürfen nie still überschrieben werden, ohne neuen snapshot_id/hash.",
+    "Frontend muss Quelle, Status, letzte Aktualisierung und Zitierdaten anzeigen.",
+    "Große Dumps werden streaming/chunked verarbeitet, nicht vollständig in Memory geladen.",
+    "Imports sind wiederholbar, abbrechbar, validierbar und auditierbar."
+  ],
+  "epics": [
+    {
+      "id": "E01",
+      "title": "Source Registry und Zwei-Ebenen-Quellmodell",
+      "goal": "Ein einheitliches Modell trennt schnelle Nachladequelle und dokumentierte Quellenangabe.",
+      "tasks": [
+        {
+          "id": "T01.01",
+          "title": "SourceDescriptor-v1 Schema definieren",
+          "description": "Ein JSON-Schema beschreibt Quellen mit fetch_source, citation_source, Lizenz, Version, Snapshot und Vertrauensklasse.",
+          "repo": "tui",
+          "files": [
+            "schemas/sources/source_descriptor.v1.json",
+            "agent/sources/source_registry.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält source_id, source_type, display_name, trust_level, fetch_source, citation_source, license, snapshot_policy und retention_policy.",
+            "fetch_source enthält url, method, refresh_interval, cache_policy und expected_format.",
+            "citation_source enthält canonical_url, title, publisher, version_label, retrieved_at, license_ref und citation_text.",
+            "Schema erlaubt source_type mindestens `keycloak_docs`, `wikimedia_dump`, `web_doc`, `local_dump`.",
+            "Schema erlaubt extensions nur unter `extensions`, nicht als beliebige Top-Level-Felder.",
+            "Beispieldateien für Keycloak und Wikipedia validieren erfolgreich.",
+            "Ungültige Quellen ohne citation_source werden abgelehnt."
+          ]
+        },
+        {
+          "id": "T01.02",
+          "title": "SourceSnapshot-v1 Schema definieren",
+          "description": "Jeder konkrete Import/Nachladevorgang erzeugt einen Snapshot mit Hashes, Zeit, Version, Größe und Importstatus.",
+          "repo": "tui",
+          "files": [
+            "schemas/sources/source_snapshot.v1.json",
+            "agent/sources/source_snapshot_store.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Snapshot enthält snapshot_id, source_id, created_at, retrieved_at, content_hash, metadata_hash, byte_size, item_count und status.",
+            "status erlaubt queued, downloading, validating, indexed, failed, superseded.",
+            "Snapshot speichert canonical source descriptor hash.",
+            "Snapshot ist immutable; Änderungen erzeugen neuen Snapshot.",
+            "Fehlerstatus enthält reason_code und human_message.",
+            "Schema-Tests decken success, failed und superseded ab."
+          ]
+        },
+        {
+          "id": "T01.03",
+          "title": "Source Registry Store implementieren",
+          "description": "Lokaler Store verwaltet SourceDescriptor und SourceSnapshot mit einfacher Datei-/DB-Struktur.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/source_registry.py",
+            "agent/sources/source_snapshot_store.py",
+            "tests/test_source_registry.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.01", "T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Registry kann Quellen anlegen, aktualisieren, deaktivieren und listen.",
+            "Store kann Snapshots pro source_id speichern und latest indexed snapshot ermitteln.",
+            "Registry verhindert zwei aktive Quellen mit gleicher source_id.",
+            "Deaktivierte Quelle wird nicht automatisch nachgeladen.",
+            "Store ist testbar ohne Netzwerk.",
+            "Tests decken create/update/disable/list/latest ab."
+          ]
+        },
+        {
+          "id": "T01.04",
+          "title": "Zitierfähige Source Reference in RAG-Artefakten",
+          "description": "Jeder importierte Chunk/Indexeintrag muss auf source_id, snapshot_id und citation_source verweisen.",
+          "repo": "tui",
+          "files": [
+            "rag_helper/",
+            "codecompass/",
+            "schemas/sources/source_reference.v1.json"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.01", "T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "SourceReference enthält source_id, snapshot_id, chunk_id, canonical_url, title, license_ref und retrieved_at.",
+            "Jeder RAG-Chunk aus Keycloak/Wikipedia hat eine SourceReference.",
+            "Antworten/Artefakte können SourceReference in gut lesbarer Form ausgeben.",
+            "Fehlende SourceReference gilt als Validierungsfehler für importierte externe Quellen.",
+            "Tests prüfen, dass Chunks ohne source_id/snapshot_id abgelehnt werden."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "title": "Keycloak als zuverlässige technische Quelle",
+      "goal": "Offizielle Keycloak-Dokumentation und API werden schnell nachladbar und zitierfähig eingebunden.",
+      "tasks": [
+        {
+          "id": "T02.01",
+          "title": "Keycloak SourceDescriptor anlegen",
+          "description": "Initiale Quelle für Keycloak-Dokumentation, Guides und Admin/API-Referenzen definieren.",
+          "repo": "tui",
+          "files": [
+            "sources/keycloak/source_descriptor.json",
+            "agent/sources/builtin_sources.py"
+          ],
+          "priority": "P1",
+          "effort": "S",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "source_id ist `keycloak-official-docs`.",
+            "fetch_source nutzt offizielle URLs von keycloak.org.",
+            "citation_source nennt Keycloak Authors / keycloak.org als Publisher.",
+            "Descriptor enthält version_policy für sichtbare Keycloak-Version, z. B. Dokumentationsversion aus Seite.",
+            "Descriptor markiert trust_level als `official_vendor_project` oder gleichwertig.",
+            "Descriptor enthält license_ref oder offene license_unknown Kennzeichnung, wenn Lizenz nicht automatisch ermittelt werden kann."
+          ]
+        },
+        {
+          "id": "T02.02",
+          "title": "Keycloak Docs Fetcher implementieren",
+          "description": "Fetcher lädt definierte Keycloak-Dokumentationsseiten schnell und cachebar nach.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/keycloak_fetcher.py",
+            "tests/test_keycloak_fetcher.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.01", "T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Fetcher lädt mindestens Documentation Landing Page, Guides Landing Page und Admin/API-Referenzlinks aus Descriptor.",
+            "Fetcher respektiert HTTP Cache Header, soweit vorhanden.",
+            "Fetcher speichert raw HTML/text getrennt von extrahiertem Text.",
+            "Fetcher erzeugt SourceSnapshot mit Hash und Status.",
+            "Fetcher kann dry-run ohne Schreiben ausführen.",
+            "Tests mocken HTTP und prüfen Snapshot-Erzeugung."
+          ]
+        },
+        {
+          "id": "T02.03",
+          "title": "Keycloak Chunking und Zitationsanker",
+          "description": "Keycloak-Dokumente werden in sinnvolle Abschnitte zerlegt, mit Titel, URL, Abschnitt und Snapshot referenziert.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/keycloak_ingest.py",
+            "rag_helper/"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.02", "T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Chunk enthält doc_title, section_title, canonical_url und source_reference.",
+            "Chunkgröße ist konfigurierbar, Default 800-1600 Wörter oder äquivalentes Tokenbudget.",
+            "Navigation/Indexseiten werden anders klassifiziert als Inhaltsseiten.",
+            "Doppelte Abschnitte werden über Hash dedupliziert.",
+            "Chunks aus Keycloak können in Antwort als Quellenangabe angezeigt werden.",
+            "Tests prüfen Chunking einer Beispielseite mit mehreren Abschnitten."
+          ]
+        },
+        {
+          "id": "T02.04",
+          "title": "Keycloak Quellenanzeige im Angular-Frontend",
+          "description": "Angular zeigt Keycloak als offizielle Quelle mit Status, Version, letzter Aktualisierung und Snapshot-Historie.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/angular/src/app/",
+            "client_surfaces/angular/src/app/sources/"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T02.01", "T02.02", "T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Angular-Frontend hat eine Sources-Ansicht oder erweitert bestehende Knowledge/CodeCompass-Ansicht.",
+            "Keycloak-Quelle zeigt Name, trust_level, canonical URL, latest snapshot status und retrieved_at.",
+            "Nutzer kann manuell `Reload` auslösen.",
+            "Reload-Button zeigt loading/error/success.",
+            "Smartphone/Android-Layout zeigt Quelle ohne horizontales Scrollen.",
+            "Bei Fehler zeigt UI reason_code und human_message."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E03",
+      "title": "Wikipedia/Wikimedia erster Dump",
+      "goal": "Ein sinnvoller erster Wikimedia-Dump wird als breite Wissensquelle importierbar, aber kontrolliert und nicht zu groß für den Start.",
+      "tasks": [
+        {
+          "id": "T03.01",
+          "title": "Wikipedia SourceDescriptor anlegen",
+          "description": "Initialer Wikimedia/Wikipedia SourceDescriptor nutzt offizielle Wikimedia-Dump-Quellen und dokumentiert Dump-Art, Sprache und Lizenzhinweise.",
+          "repo": "tui",
+          "files": [
+            "sources/wikipedia/source_descriptor.json",
+            "agent/sources/builtin_sources.py"
+          ],
+          "priority": "P1",
+          "effort": "S",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "source_id ist `wikimedia-wikipedia-initial-dump`.",
+            "Descriptor verweist auf offizielle Wikimedia Downloads / Dumps.",
+            "Descriptor enthält Sprache als konfigurierbares Feld, Default `de` und optional `en`.",
+            "Descriptor unterscheidet Dump-Typen: content file export, pages-articles, abstracts oder zim als mögliche Strategien.",
+            "Descriptor enthält Lizenz-/Attribution-Hinweis als Pflichtfeld.",
+            "Descriptor markiert Dump als large_source und streaming_required."
+          ]
+        },
+        {
+          "id": "T03.02",
+          "title": "Sinnigen ersten Wikipedia-Dump auswählen",
+          "description": "Für den ersten Import wird nicht blind alles geladen, sondern eine kontrollierte Startvariante gewählt.",
+          "repo": "tui",
+          "files": [
+            "docs/sources/wikipedia_initial_dump.md",
+            "sources/wikipedia/source_descriptor.json"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Dokumentiert ist eine Default-Strategie für Start: z. B. dewiki pages-articles/content export oder kleinerer Abstract/Subset-Modus.",
+            "Dokument enthält Pro/Contra für full pages-articles, abstracts, Kiwix/OpenZIM und Wikimedia Enterprise HTML dumps.",
+            "Dokument erklärt Speicherbedarf, Laufzeit, Lizenz/Attribution und Update-Frequenz.",
+            "MVP erlaubt einen kleinen Testdump/Subset, bevor großer Dump geladen wird.",
+            "Akzeptanzkriterium nennt konkrete erste Sprache und Dump-Art.",
+            "Dokument verweist auf offizielle Wikimedia-Dump-Seiten."
+          ]
+        },
+        {
+          "id": "T03.03",
+          "title": "Streaming Dump Downloader",
+          "description": "Große Wikipedia-Dumps werden streaming geladen, mit Resume, Hashprüfung und Rate-Limit-freundlichem Verhalten.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/wikimedia_downloader.py",
+            "tests/test_wikimedia_downloader.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T03.01", "T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Downloader lädt große Dateien streamend in Chunks.",
+            "Downloader unterstützt Resume, wenn Server/Datei es zulässt.",
+            "Downloader respektiert konfigurierbare parallele Downloads, Default 1.",
+            "Downloader speichert partial files eindeutig und räumt fehlgeschlagene Downloads kontrolliert auf.",
+            "Downloader erzeugt Snapshot-Status downloading/failed/indexed.",
+            "Tests mocken große Datei ohne hohen Speicherverbrauch."
+          ]
+        },
+        {
+          "id": "T03.04",
+          "title": "Wikipedia Dump Parser und Chunker",
+          "description": "Dump-Inhalte werden aus Wikitext/XML oder gewähltem Format extrahiert, gereinigt, chunked und mit SourceReference versehen.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/wikipedia_ingest.py",
+            "rag_helper/"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T03.03", "T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Parser verarbeitet gewählte MVP-Dump-Art streamend oder chunkweise.",
+            "Jeder Artikel/Chunk enthält title, page_id sofern vorhanden, revision/timestamp sofern vorhanden und SourceReference.",
+            "Redirects, Disambiguation und leere/stubhafte Inhalte werden markiert.",
+            "Chunking begrenzt Größe und erhält Abschnittsüberschriften soweit möglich.",
+            "Parser kann bei Fehlern einzelne Artikel überspringen, ohne gesamten Import abzubrechen.",
+            "Tests nutzen kleinen Fixture-Dump."
+          ]
+        },
+        {
+          "id": "T03.05",
+          "title": "Wikipedia Attribution und Quellenangabe",
+          "description": "Wikipedia-Inhalte brauchen sichtbare Herkunfts-/Lizenz-/Attribution-Informationen im System.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/wikipedia_ingest.py",
+            "schemas/sources/source_reference.v1.json",
+            "docs/sources/wikipedia_initial_dump.md"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T03.01", "T03.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Jeder Wikipedia-Chunk enthält license_ref und attribution_text.",
+            "Attribution nennt Wikipedia/Wikimedia, Artikeltitel, Snapshot/Dump und canonical URL soweit möglich.",
+            "Antworten aus Wikipedia-Kontext können die Quellenangabe ausgeben.",
+            "Angular-Frontend zeigt Lizenz-/Attribution-Hinweis für Wikipedia-Quelle.",
+            "Import ohne Lizenz-/Attribution-Feld schlägt fehl.",
+            "Tests prüfen Attribution im Chunk und SourceReference."
+          ]
+        },
+        {
+          "id": "T03.06",
+          "title": "Wikipedia Quellenanzeige im Angular-Frontend",
+          "description": "Angular zeigt Wikipedia-Dump-Quelle, Sprache, Größe, Snapshot, Importstatus und Attribution verständlich an, auch im Smartphone-Layout.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/angular/src/app/",
+            "client_surfaces/angular/src/app/sources/"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T03.01", "T03.03", "T03.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "UI zeigt Sprache, Dump-Art, byte_size, item_count, retrieved_at und latest status.",
+            "UI zeigt Attribution/Lizenz-Hinweis gut sichtbar.",
+            "UI zeigt Fortschritt während Download/Import.",
+            "UI erlaubt Reload/Refresh nur mit Hinweis auf Größe/Laufzeit.",
+            "Smartphone/Android-Layout funktioniert ohne horizontales Scrollen.",
+            "Fehlerzustände sind verständlich und enthalten reason_code."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E04",
+      "title": "Schnelles Nachladen und Standard-Refresh",
+      "goal": "Quellen können schnell und standardisiert nachgeladen werden, ohne Zitierbarkeit zu verlieren.",
+      "tasks": [
+        {
+          "id": "T04.01",
+          "title": "Standard Refresh Service",
+          "description": "Ein Dienst entscheidet, welche Quellen nachgeladen werden müssen, und erzeugt neue Snapshots.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/source_refresh_service.py",
+            "tests/test_source_refresh_service.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.03", "T02.02", "T03.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Service kann einzelne Quelle per source_id refreshen.",
+            "Service kann alle due sources refreshen.",
+            "Refresh erzeugt neuen Snapshot statt alten zu überschreiben.",
+            "Refresh respektiert refresh_interval und disabled sources.",
+            "Refresh kann dry-run ausführen und geplante Aktionen anzeigen.",
+            "Tests decken due/not-due/disabled/failure/success ab."
+          ]
+        },
+        {
+          "id": "T04.02",
+          "title": "CLI/TUI Commands für Quellen",
+          "description": "Operator kann Quellen schnell nachladen, Status sehen und Snapshot-Historie prüfen.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "agent/sources/source_refresh_service.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:sources list` zeigt alle Quellen mit Status.",
+            "`:sources refresh keycloak-official-docs` startet Keycloak Refresh.",
+            "`:sources refresh wikimedia-wikipedia-initial-dump` startet Wikipedia Refresh mit Größenhinweis.",
+            "`:sources snapshots <source-id>` zeigt Snapshot-Historie.",
+            "`:sources cite <source-id>` zeigt dokumentierte Quellenangabe.",
+            "Fehler werden mit reason_code und human_message angezeigt."
+          ]
+        },
+        {
+          "id": "T04.03",
+          "title": "Cache Policy und Deduplizierung",
+          "description": "Schneller Cache vermeidet unnötige Downloads und dedupliziert identische Inhalte über Hashes.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/source_cache.py",
+            "agent/sources/source_snapshot_store.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.02", "T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Identischer content_hash erzeugt keinen neuen indexed Snapshot oder markiert Snapshot als duplicate.",
+            "Raw cache und extracted cache sind getrennt.",
+            "Cache kann pro Quelle geleert werden, ohne SourceDescriptor zu löschen.",
+            "Cachegröße ist konfigurierbar.",
+            "Tests prüfen dedupe, cache clear und raw/extracted separation."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E05",
+      "title": "Gut dokumentierte Quellenangabe und UI",
+      "goal": "Quellen sind nicht nur technisch importiert, sondern für User/AI nachvollziehbar zitierbar.",
+      "tasks": [
+        {
+          "id": "T05.01",
+          "title": "Citation Formatter implementieren",
+          "description": "Aus SourceDescriptor und Snapshot wird eine menschenlesbare Quellenangabe erzeugt.",
+          "repo": "tui",
+          "files": [
+            "agent/sources/citation_formatter.py",
+            "tests/test_citation_formatter.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01", "T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Formatter erzeugt Kurzform und Langform.",
+            "Langform enthält title, publisher, canonical_url, retrieved_at, snapshot_id/hash und license_ref.",
+            "Keycloak-Format nennt Dokumentationsversion, wenn verfügbar.",
+            "Wikipedia-Format nennt Dump/Snapshot, Sprache, Lizenz/Attribution.",
+            "Formatter kann JSON und Markdown ausgeben.",
+            "Tests prüfen Keycloak, Wikipedia und missing optional fields."
+          ]
+        },
+        {
+          "id": "T05.02",
+          "title": "Angular Source Center",
+          "description": "Angular-Frontend bekommt eine robuste Quellenübersicht für Desktop und Smartphone/Android-Modus.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/angular/src/app/sources/",
+            "client_surfaces/angular/src/app/app.routes.ts"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T01.03", "T04.01", "T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Route/Ansicht `Sources` oder `Knowledge Sources` existiert.",
+            "Liste zeigt Keycloak und Wikipedia mit Status, trust_level, latest snapshot und refresh action.",
+            "Detailansicht zeigt fetch_source und citation_source getrennt.",
+            "Snapshot-Historie ist sichtbar.",
+            "Quellenangabe kann kopiert werden.",
+            "Smartphone/Android-Layout nutzt Cards statt breiter Tabellen.",
+            "Loading/Error/Empty States sind implementiert."
+          ]
+        },
+        {
+          "id": "T05.03",
+          "title": "Backend API für Angular Sources",
+          "description": "Angular benötigt API-Endpunkte für Quellenliste, Snapshots, Refresh und Citation.",
+          "repo": "tui",
+          "files": [
+            "agent/routes/sources.py",
+            "agent/bootstrap/routes.py",
+            "tests/test_sources_api.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.03", "T04.01", "T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "GET /sources liefert Quellenliste.",
+            "GET /sources/{id} liefert Descriptor und latest snapshot.",
+            "GET /sources/{id}/snapshots liefert Snapshot-Historie.",
+            "POST /sources/{id}/refresh startet Refresh oder gibt job/status zurück.",
+            "GET /sources/{id}/citation liefert formatierte Quellenangabe.",
+            "Tests decken success, unknown source, refresh failure und citation ab."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E06",
+      "title": "Tests, Dokumentation und Akzeptanz",
+      "goal": "Quellenfunktion ist reproduzierbar, testbar und dokumentiert.",
+      "tasks": [
+        {
+          "id": "T06.01",
+          "title": "End-to-End Test mit Keycloak Mini-Import",
+          "description": "Ein E2E-/Integrationstest importiert eine kleine Keycloak-Doku-Fixture und prüft Chunk, Snapshot und Citation.",
+          "repo": "tui",
+          "files": [
+            "tests/test_source_ingestion_keycloak_e2e.py",
+            "tests/fixtures/sources/keycloak/"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.02", "T02.03", "T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Test erzeugt SourceSnapshot aus Fixture.",
+            "Test erzeugt mindestens einen RAG-Chunk mit SourceReference.",
+            "Test formatiert Citation erfolgreich.",
+            "Test läuft ohne Internetzugriff.",
+            "Test prüft Snapshot-Hash-Stabilität."
+          ]
+        },
+        {
+          "id": "T06.02",
+          "title": "End-to-End Test mit kleinem Wikipedia Fixture-Dump",
+          "description": "Ein kleiner Fixture-Dump testet Wikipedia-Parsing, Chunking, Attribution und Snapshot.",
+          "repo": "tui",
+          "files": [
+            "tests/test_source_ingestion_wikipedia_e2e.py",
+            "tests/fixtures/sources/wikipedia/"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T03.04", "T03.05", "T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Test verarbeitet kleinen Fixture-Dump ohne hohen Speicherbedarf.",
+            "Test erzeugt Chunks mit Artikeltitel und SourceReference.",
+            "Test prüft Attribution/Lizenzfeld.",
+            "Test prüft Redirect/Stub-Markierung, wenn Fixture diese enthält.",
+            "Test läuft ohne Internetzugriff."
+          ]
+        },
+        {
+          "id": "T06.03",
+          "title": "Dokumentation für Quellenmodell",
+          "description": "Dokumentation erklärt zwei Quellarten, Keycloak, Wikipedia, Refresh, Snapshot und Citation.",
+          "repo": "tui",
+          "files": [
+            "docs/sources/reliable_sources.md",
+            "docs/sources/keycloak.md",
+            "docs/sources/wikipedia_initial_dump.md"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01", "T02.01", "T03.01", "T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Doku erklärt fetch_source vs citation_source.",
+            "Doku erklärt Keycloak-Quelle mit offiziellen URLs.",
+            "Doku erklärt Wikipedia-Dump-Auswahl und Speicher-/Lizenzthemen.",
+            "Doku enthält Mermaid-Flow: SourceDescriptor -> Fetch -> Snapshot -> Chunk -> Citation.",
+            "Doku enthält Angular-Frontend-Bedienung.",
+            "Doku enthält Smartphone/Android-Hinweis für Source Center."
+          ]
+        }
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Es gibt ein einheitliches SourceDescriptor-v1 Schema mit fetch_source und citation_source.",
+    "Keycloak ist als offizielle Quelle registriert und schnell nachladbar.",
+    "Wikipedia/Wikimedia ist als erster kontrollierter Dump registriert und streaming-importierbar.",
+    "Jeder importierte Chunk hat source_id, snapshot_id und zitierfähige SourceReference.",
+    "Refresh erzeugt neue Snapshots und überschreibt keine zitierfähige Historie.",
+    "Angular-Frontend zeigt Quellen, Status, Snapshot, Refresh und Citation auch im Smartphone/Android-Layout.",
+    "Quellenangaben können als Kurz-/Langform angezeigt und kopiert werden.",
+    "Keycloak- und Wikipedia-Import haben Offline-Fixture-Tests.",
+    "Dokumentation erklärt offizielle Quellen, Lizenz/Attribution, Refresh und Dump-Auswahl."
+  ],
+  "suggested_implementation_order": [
+    "E01 SourceDescriptor/SourceSnapshot/SourceReference Schemas und Store",
+    "E02 Keycloak SourceDescriptor, Fetcher und Chunking",
+    "E03 Wikipedia SourceDescriptor, Dump-Auswahl, Downloader und Parser",
+    "E04 Refresh Service und Cache/Dedupe",
+    "E05 Citation Formatter, API und Angular Source Center",
+    "E06 E2E-Fixtures und Dokumentation"
+  ]
+}
