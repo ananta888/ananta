@@ -28,6 +28,7 @@ from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.ai_snake_context import (
     artifact_ref_from_game,
     build_context_envelope_ref,
+    compact_observation_summary,
     default_ai_context,
     load_codecompass_artifact,
     relevance_refs_for_intent,
@@ -40,7 +41,8 @@ from client_surfaces.operator_tui.ai_snake_follow import (
 )
 from client_surfaces.operator_tui.ai_snake_policy import apply_policy_to_payload
 from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
-from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, quick_predict
+from client_surfaces.operator_tui.ai_snake_lm_budget import AiSnakeLmBudget
+from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, build_prediction_trace, quick_predict
 from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
 from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
@@ -119,6 +121,7 @@ class InteractiveOperatorTui:
         self._ai_observation = ObservationBuffer(max_events=100)
         self._ai_prediction_gate = PredictionGate(min_interval_seconds=3.0, min_confidence=0.35, stable_ms=500)
         self._ai_prediction_cache = PredictionCache(ttl_seconds=30)
+        self._ai_lm_budget = AiSnakeLmBudget()
         self._ai_worker_client = AiSnakeWorkerClient()
         self._ai_worker_task: WorkerTask | None = None
         self._ai_last_signature = ""
@@ -1402,7 +1405,7 @@ class InteractiveOperatorTui:
             value=bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False,
             timestamp=now,
         )
-        summary = self._ai_observation.compact_summary(max_facts=20)
+        summary = compact_observation_summary(self._ai_observation.compact_summary(max_facts=20), max_facts=20)
         quick = quick_predict(self._ai_observation.events(), now=now)
         prediction = quick.as_dict()
         codecompass = load_codecompass_artifact()
@@ -1433,6 +1436,15 @@ class InteractiveOperatorTui:
             signature=signature,
             now=now,
             selected_artifact=isinstance(artifact_ref, dict),
+        )
+        prediction_trace = build_prediction_trace(
+            mode="predict_intent",
+            prediction=quick,
+            context_hash=str(envelope.get("context_hash") or "missing"),
+            used_refs=list(envelope.get("retrieval_refs") or []),
+            provider_ref="local_quick",
+            cache_hit=cache_hit,
+            skipped_reason=gate_decision.reason if not gate_decision.allow_worker_request else "",
         )
         selected_allowed = isinstance(artifact_ref, dict) or str(prediction.get("target_ref") or "").startswith("section:")
         notes_released = bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False
@@ -1468,15 +1480,26 @@ class InteractiveOperatorTui:
             and isinstance(worker_payload, dict)
             and not bool(worker_payload.get("blocked"))
         ):
+            game["ai_snake_budget_deny_reason"] = ""
+            prompt = self._ai_worker_client.render_prompt(
+                mode="predict_intent",
+                observation_summary=dict(worker_payload.get("observation_summary") or {}),
+                context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
+                max_chars=int(self._ai_lm_budget.max_prompt_chars),
+            )
+            budget_allowed, budget_reason = self._ai_lm_budget.allow_predict(prompt=prompt, now=now)
             request = self._ai_worker_client.build_request(
                 mode="predict_intent",
                 observation_summary=dict(worker_payload.get("observation_summary") or {}),
                 quick_prediction=dict(worker_payload.get("quick_prediction") or {}),
                 context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
             )
-            submitted = self._ai_worker_client.submit(request, signature=signature)
-            if submitted is not None:
-                self._ai_worker_task = submitted
+            if budget_allowed:
+                submitted = self._ai_worker_client.submit(request, signature=signature)
+                if submitted is not None:
+                    self._ai_worker_task = submitted
+            else:
+                game["ai_snake_budget_deny_reason"] = budget_reason
 
         worker_result: dict[str, Any] | None = None
         if self._ai_worker_task is not None:
@@ -1484,6 +1507,8 @@ class InteractiveOperatorTui:
             if worker_result is not None:
                 self._ai_worker_task = None
                 game["ai_snake_worker_response"] = worker_result
+                if worker_result.get("status") == "ok":
+                    prediction_trace["provider_ref"] = "worker:default"
                 if (
                     worker_result.get("status") == "degraded"
                     and str(worker_result.get("error") or "") == "timeout"
@@ -1597,9 +1622,12 @@ class InteractiveOperatorTui:
                 "lmstudio_prompt": prompt_payload,
             },
             "allow_proactive_comment": allow_proactive_comment,
+            "lm_budget": self._ai_lm_budget.debug_state(now=now),
+            "budget_deny_reason": str(game.get("ai_snake_budget_deny_reason") or ""),
             "worker_result_status": str((game.get("ai_snake_worker_response") or {}).get("status") or ""),
             "worker_result_error": str((game.get("ai_snake_worker_response") or {}).get("error") or ""),
             "pending_worker_request": self._ai_worker_task is not None,
+            "last_prediction_trace": prediction_trace,
         }
 
     def _update_multi_snake_state(
