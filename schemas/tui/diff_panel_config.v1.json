@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/tui/diff_panel_config.v1.json",
+  "title": "DiffPanelConfig v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "panel_id",
+    "render_mode",
+    "filters"
+  ],
+  "properties": {
+    "schema": {
+      "const": "diff_panel_config.v1"
+    },
+    "panel_id": {
+      "type": "string",
+      "enum": ["A", "B", "C"]
+    },
+    "render_mode": {
+      "type": "string",
+      "enum": [
+        "unified",
+        "side_by_side",
+        "summary",
+        "files_only",
+        "hunks_only",
+        "ai_chat",
+        "ai_review"
+      ]
+    },
+    "title_template": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "compact_title": {
+      "type": "string",
+      "maxLength": 60
+    },
+    "follow_active_file": {
+      "type": "boolean"
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path_filter": {
+          "type": "string"
+        },
+        "status_filter": {
+          "type": "string"
+        },
+        "hunk_filter": {
+          "type": "string"
+        },
+        "search_text": {
+          "type": "string"
+        },
+        "only_security_relevant": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

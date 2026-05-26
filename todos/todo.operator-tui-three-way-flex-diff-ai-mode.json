@@ -117,7 +117,7 @@
     {
       "id": "T01.02",
       "title": "DiffSourceRef-v1 Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -132,7 +132,7 @@
     {
       "id": "T01.03",
       "title": "DiffPanelConfig-v1 definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -150,7 +150,7 @@
     {
       "id": "T02.01",
       "title": "DiffSourceResolver implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
@@ -169,7 +169,7 @@
     {
       "id": "T02.02",
       "title": "DiffEngine für Unified und Side-by-Side",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
@@ -187,7 +187,7 @@
     {
       "id": "T02.03",
       "title": "Current-Diff Preset und frei wählbare Quellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "backend",

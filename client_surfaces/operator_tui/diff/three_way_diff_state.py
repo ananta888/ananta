@@ -7,6 +7,8 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from .diff_sources import build_current_diff_source_ref, build_diff_panel_config
+
 _SCHEMA_FILE = Path(__file__).resolve().parents[3] / "schemas" / "tui" / "three_way_diff_session.v1.json"
 
 
@@ -61,3 +63,59 @@ def build_three_way_diff_session(
         raise ValueError(f"invalid_three_way_diff_session:{'; '.join(errors)}")
     return payload
 
+
+def set_panel_state(
+    session: dict[str, Any],
+    *,
+    panel_id: str,
+    panel_type: str,
+    source_left: dict[str, Any] | None,
+    source_right: dict[str, Any] | None,
+    render_mode: str,
+) -> dict[str, Any]:
+    payload = dict(session)
+    panels = [dict(item) for item in list(payload.get("panels") or [])]
+    target = next((item for item in panels if str(item.get("panel_id") or "") == panel_id), None)
+    if target is None:
+        raise ValueError("unknown_panel_id")
+    build_diff_panel_config(panel_id=panel_id, render_mode=render_mode, filters=target.get("filters") or {})
+    target["panel_type"] = panel_type
+    target["source_left"] = dict(source_left) if isinstance(source_left, dict) else source_left
+    target["source_right"] = dict(source_right) if isinstance(source_right, dict) else source_right
+    target["render_mode"] = render_mode
+    payload["panels"] = panels
+    payload["updated_at"] = _now_iso()
+    errors = validate_three_way_diff_session(payload)
+    if errors:
+        raise ValueError(f"invalid_three_way_diff_session:{'; '.join(errors)}")
+    return payload
+
+
+def build_current_diff_three_panel_session(*, session_id: str, goal_id: str | None = None) -> dict[str, Any]:
+    session = build_three_way_diff_session(session_id=session_id, goal_id=goal_id)
+    current = build_current_diff_source_ref()
+    session = set_panel_state(
+        session,
+        panel_id="A",
+        panel_type="diff",
+        source_left=current,
+        source_right=None,
+        render_mode="unified",
+    )
+    session = set_panel_state(
+        session,
+        panel_id="B",
+        panel_type="diff",
+        source_left=current,
+        source_right=None,
+        render_mode="summary",
+    )
+    session = set_panel_state(
+        session,
+        panel_id="C",
+        panel_type="ai_review",
+        source_left=None,
+        source_right=None,
+        render_mode="ai_review",
+    )
+    return session
