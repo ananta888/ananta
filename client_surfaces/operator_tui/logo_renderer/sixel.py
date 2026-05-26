@@ -7,7 +7,7 @@ import tempfile
 
 from client_surfaces.operator_tui.logo_renderer.base import LogoFrame, LogoRendererProbe
 from client_surfaces.operator_tui.logo_renderer.detect import detect_sixel_support
-from client_surfaces.operator_tui.logo_renderer.frame_cache import encode_png_bytes, rasterize_svg_rgba
+from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame, frame_from_svg
 
 _DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
 
@@ -56,19 +56,20 @@ class SixelRenderer:
         t: float = 0.0,
         writer=None,
     ) -> LogoFrame:
-        image = rasterize_svg_rgba(
+        frame = frame_from_svg(
             svg_path=_DEFAULT_SVG,
             width_px=max(2, int(width_cells)),
             height_px=max(2, int(height_cells * 2)),
+            metadata={"renderer": self.name},
         )
-        if image is None or self._tool is None:
+        if frame.is_empty or self._tool is None:
             return LogoFrame(
                 kind="stream_sequences",
                 sequence="",
                 metadata={"renderer": self.name, "ok": False, "error": "img2sixel_missing_or_rasterize_failed"},
             )
 
-        payload = self._encode_sixel_from_image(image)
+        payload = self._encode_sixel_from_frame(frame)
         if not payload:
             return LogoFrame(
                 kind="stream_sequences",
@@ -98,8 +99,8 @@ class SixelRenderer:
         frames = [self.render_frame(width_cells=width_cells, height_cells=height_cells, t=i / max(1, fps), writer=writer) for i in range(count)]
         return frames
 
-    def _encode_sixel_from_image(self, image) -> str:
-        png_bytes = encode_png_bytes(image)
+    def _encode_sixel_from_frame(self, frame: PixelFrame) -> str:
+        png_bytes = frame.to_png_bytes()
         if not png_bytes:
             return ""
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as handle:

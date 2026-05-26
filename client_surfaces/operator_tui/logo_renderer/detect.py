@@ -72,15 +72,15 @@ def detect_iterm2_support(env: dict[str, str] | None = None) -> bool:
 
 def detect_terminal_graphics_capabilities(env: dict[str, str] | None = None) -> GraphicsCapabilities:
     values = env or os.environ
+    no_color = values.get("NO_COLOR", "").strip().lower() in {"1", "true", "yes", "on"}
+    colorterm = values.get("COLORTERM", "").lower()
+    term = values.get("TERM", "").lower()
+    truecolor = (("truecolor" in colorterm or "24bit" in colorterm or term.endswith("-direct")) and not no_color)
     return GraphicsCapabilities(
         kitty=detect_kitty_support(values),
         sixel=detect_sixel_support(values),
         iterm2_inline=detect_iterm2_support(values),
-        truecolor=(
-            "truecolor" in values.get("COLORTERM", "").lower()
-            or values.get("TERM", "").lower().endswith("-direct")
-            or values.get("NO_COLOR", "").strip() == ""
-        ),
+        truecolor=truecolor,
         source_term=values.get("TERM", ""),
         source_program=values.get("TERM_PROGRAM", ""),
     )
