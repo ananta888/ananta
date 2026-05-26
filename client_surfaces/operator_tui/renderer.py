@@ -711,9 +711,13 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
         if bool(payload.get("mail_mode")):
             lines.append("    :mail")
             lines.append("    :mail account list|status|create|use|disable|delete")
-            lines.append("    :mail mailbox <name> | :mail open <message-id|uid>")
-            lines.append("    :mail load-body [message-id|uid] | :mail scroll <delta>")
-            lines.append("    :mail filter from=... subject=... unread=true mailbox=...")
+            lines.append("    :mail mailbox <name> | :mail open <message-id|uid> | :mail load-body [id]")
+            lines.append("    :mail search from:... to:... subject:... mailbox:... date:YYYY..YYYY unread:true")
+            lines.append("    :mail filter key=value ... | :mail scroll <delta>")
+            lines.append("    :mail note add <text> | :mail link-current-to-goal <goal-id>")
+            lines.append("    :mail artifact register-current [--scope metadata_only|excerpt|full_body]")
+            lines.append("    :mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body]")
+            lines.append("    :mail revoke-grant <goal-id> <grant-id> | :mail context-envelope <goal-id> [--target ...]")
 
     return [_clip(line, width) for line in lines]
 
@@ -958,12 +962,19 @@ def _mail_content_lines(payload: dict, *, width: int, compact: bool) -> list[str
     total_messages = int(payload.get("total_messages") or 0)
     selected_key = str(payload.get("selected_message_key") or "")
     detail = dict(payload.get("selected_detail") or {})
+    last_search_query = str(payload.get("last_search_query") or "")
+    search_refs = [str(item) for item in list(payload.get("search_result_refs") or []) if str(item).strip()]
+    notes = [dict(item) for item in list(payload.get("notes") or []) if isinstance(item, dict)]
+    linked_goal_refs = [str(item) for item in list(payload.get("linked_goal_refs") or []) if str(item).strip()]
+    current_artifact_ref = str(payload.get("current_artifact_ref") or "")
     lines = [
         "  Mail",
         f"  Accounts: {len(accounts)} selected={selected_account_id or '-'} mailbox={selected_mailbox or '-'}",
         f"  Mailboxes: {', '.join(mailboxes) if mailboxes else '-'}",
         f"  Filters: {', '.join([f'{k}={v}' for k, v in filters.items()]) if filters else 'none'}",
         f"  Messages: showing={len(rows)} total={total_messages} offset={int(payload.get('list_offset') or 0)}",
+        f"  Search: query={last_search_query or '-'} refs={len(search_refs)}",
+        f"  Notes={len(notes)} linked-goals={len(linked_goal_refs)} artifacts={int(payload.get('artifact_count') or 0)}",
     ]
     if accounts:
         lines.append("  [Accounts]")
@@ -1014,6 +1025,7 @@ def _mail_content_lines(payload: dict, *, width: int, compact: bool) -> list[str
             width,
         )
     )
+    lines.append(_clip(f"  Artifact: {current_artifact_ref or '-'}", width))
     body_text = str(detail.get("body_text") or "").strip()
     lines.append(_clip(f"  Body preview: {body_text[:200] if body_text else '(not loaded)'}", width))
     return lines

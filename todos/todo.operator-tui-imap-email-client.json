@@ -65,7 +65,7 @@
         "T04.04",
         "T04.05"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M05",
@@ -76,7 +76,7 @@
         "T05.03",
         "T05.04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M06",
@@ -411,7 +411,7 @@
     {
       "id": "T04.04",
       "title": "TUI Mail Suche",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -425,12 +425,12 @@
         "Suchergebnisse können geöffnet und als Artefakt referenziert werden.",
         "Tests prüfen Search Command und Ergebnisrenderer."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.05",
       "title": "TUI Mail Notiz-/Linking Workflow",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "tui",
@@ -444,12 +444,12 @@
         "User kann kurze lokale Notiz zu Mail speichern.",
         "Notiz kann später als Goal-Quelle freigegeben werden."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.01",
       "title": "Mail als SourceArtifact registrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "artifact",
@@ -465,12 +465,12 @@
         "Artifact enthält account_id/mailbox/uid, aber keine Credentials.",
         "Tests prüfen metadata-only Artifact und freigegebenen Excerpt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.02",
       "title": "Mail für Goal freigeben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "artifact",
@@ -485,12 +485,12 @@
         "GoalArtifactGraph zeigt Mail als freigegebene Quelle.",
         "Tests prüfen Grant und Revocation."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.03",
       "title": "Worker ContextEnvelope für Mail-Kontext",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "worker",
@@ -505,7 +505,7 @@
         "Worker Antwort kann MailSourceRef zitieren.",
         "Tests prüfen denied default und local-worker allowed."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.04",
@@ -752,13 +752,13 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 16,
+      "todo": 11,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 15
+      "done": 20
     },
-    "progress_percent_done": 48.4,
+    "progress_percent_done": 64.52,
     "by_priority": {
       "P1": 24,
       "P2": 6,
@@ -771,15 +771,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 11,
-      "remaining": 4
+      "done": 14,
+      "remaining": 1
     },
     "milestones": {
       "total": 8,
-      "todo": 4,
+      "todo": 3,
       "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -844,44 +844,44 @@
       "tui": {
         "total": 5,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 3
+          "done": 5
         },
-        "done": 3,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 60.0
+        "progress_percent": 100.0
       },
       "artifact": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "worker": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "ai": {
         "total": 1,
@@ -971,13 +971,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 16,
+    "todo_remaining": 11,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 15,
-    "count_based_percent": 48.4,
-    "weighted_percent": 51.5
+    "done": 20,
+    "count_based_percent": 64.5,
+    "weighted_percent": 68.4
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1021,10 +1021,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 59.25,
-    "done_weight": 30.5,
-    "remaining_weight": 28.75,
+    "done_weight": 40.5,
+    "remaining_weight": 18.75,
     "blocked_weight": 0.0,
-    "weighted_percent": 51.5
+    "weighted_percent": 68.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1054,19 +1054,19 @@
       },
       "M04": {
         "total_tasks": 5,
-        "done": 3,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 60.0,
-        "weighted_percent": 73.7,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M05": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 75.0,
+        "weighted_percent": 88.2,
+        "status": "in_progress"
       },
       "M06": {
         "total_tasks": 3,
@@ -1097,10 +1097,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:38:38.207839Z",
+    "generated_at": "2026-05-26T22:42:25.180044Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "181ebdd29dabcc729a76afda927e230f3dadff6582ac1696fd9f77e0d4dfb628",
+    "source_hash": "c0a526cc813e537fceeaa7e5bcd0f8f0e83f9b1585212f2be798dace98cf503e",
     "is_stale": false
   }
 }
