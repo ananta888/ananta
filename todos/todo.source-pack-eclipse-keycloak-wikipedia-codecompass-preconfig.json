@@ -311,7 +311,7 @@
     {
       "id": "T04.01",
       "title": "CodeCompass Source Abstraction Profile definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "codecompass",
@@ -334,7 +334,7 @@
     {
       "id": "T04.02",
       "title": "Eclipse CodeCompass Index Profile",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "codecompass",
@@ -353,7 +353,7 @@
     {
       "id": "T04.03",
       "title": "Cross-Source Retrieval Regeln definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "codecompass",
@@ -373,7 +373,7 @@
     {
       "id": "T04.04",
       "title": "CodeCompass Snapshot Bundle für SourcePack erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "codecompass",
@@ -393,7 +393,7 @@
     {
       "id": "T05.01",
       "title": "CLI Bootstrap Command für SourcePack",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "cli",

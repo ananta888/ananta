@@ -1127,6 +1127,46 @@ def list_modes():
         _print_terminal("  - {}: {}", mode.get("id"), mode.get("title"))
 
 
+def _handle_sources_command(subcommand: str, extra: list[str], args) -> int:
+    from agent.sources.source_pack_service import SourcePackService
+
+    service = SourcePackService()
+    if subcommand == "list-packs":
+        packs = service.list_packs()
+        if not packs:
+            _print_terminal("No source packs found")
+            return 0
+        for pack in packs:
+            _print_terminal("{}\t{}", pack.get("source_pack_id", "-"), pack.get("display_name", "-"))
+        return 0
+    if subcommand == "bootstrap":
+        source_pack_id = str(extra[0]).strip() if extra else ""
+        if not source_pack_id:
+            print("Error: 'sources bootstrap' requires <source_pack_id>", file=sys.stderr)
+            return 2
+        result = service.bootstrap(
+            source_pack_id=source_pack_id,
+            dry_run=bool(getattr(args, "dry_run", False)),
+            skip_source_ids=list(getattr(args, "skip_source", []) or []),
+            include_optional=bool(getattr(args, "include_optional_sources", False)),
+        )
+        _print_terminal("status: {}", result.get("status", "unknown"))
+        _print_terminal("source_pack_id: {}", result.get("source_pack_id", "-"))
+        _print_terminal("selected_sources: {}", len(list(result.get("selected_sources") or [])))
+        if result.get("skip_source_ids"):
+            _print_terminal("skipped: {}", ", ".join(list(result.get("skip_source_ids") or [])))
+        for warning in list(result.get("warnings") or []):
+            _print_terminal("warning: {}", warning)
+        if str(result.get("status") or "") == "ok":
+            bundle = dict(result.get("codecompass_bundle") or {})
+            _print_terminal("snapshots: {}", ", ".join(list(result.get("snapshot_ids") or [])) or "-")
+            _print_terminal("bundle_id: {}", bundle.get("bundle_id", "-"))
+            _print_terminal("bundle_path: {}", bundle.get("bundle_path", "-"))
+        return 0
+    print(f"Error: unknown sources subcommand '{subcommand}'", file=sys.stderr)
+    return 2
+
+
 def list_artifacts(limit: int = 20):
     response = _request("GET", "/artifacts", timeout=10)
     if response.status_code != 200:
@@ -1250,7 +1290,7 @@ Examples:
     parser.add_argument(
         "goal",
         nargs="?",
-        help="Goal description to submit, or shortcut: ask/plan/analyze/review/diagnose/patch/new-project/evolve-project/repair-admin/repair-script",
+        help="Goal description to submit, or shortcut: ask/plan/analyze/review/diagnose/patch/new-project/evolve-project/repair-admin/repair-script/sources",
     )
     parser.add_argument("extra", nargs="*", help="Additional words for shortcut goals")
     parser.add_argument("--goal", "-g", dest="goal_flag", help="Goal description (alternative)")
@@ -1298,6 +1338,9 @@ Examples:
     parser.add_argument("--cancel-tree", metavar="GOAL_ID", help="Cancel all tasks for a goal and mark it failed (admin, requires --yes)")
     parser.add_argument("--kill-requests", metavar="GOAL_ID", help="Abort all in-flight LM Studio requests for a goal (admin)")
     parser.add_argument("--kill-all-requests", action="store_true", help="Abort all in-flight LM Studio requests across all goals (admin)")
+    parser.add_argument("--dry-run", action="store_true", help="Preview operation without writing state (sources bootstrap)")
+    parser.add_argument("--skip-source", action="append", default=[], help="Source ID to skip (repeatable, sources bootstrap)")
+    parser.add_argument("--include-optional-sources", action="store_true", help="Include optional sources in source-pack bootstrap")
 
     args = parser.parse_args(argv)
 
@@ -1363,6 +1406,12 @@ Examples:
         list_artifacts(limit=args.limit)
     elif args.analyze_task:
         analyze_task_followups(args.analyze_task, output=args.output)
+    elif args.goal == "sources":
+        subcommand = str(args.extra[0]).strip() if args.extra else ""
+        if not subcommand:
+            print("Error: 'sources' requires a subcommand (list-packs|bootstrap)", file=sys.stderr)
+            sys.exit(2)
+        sys.exit(_handle_sources_command(subcommand, args.extra[1:], args))
     elif args.goal == "repair-script":
         shortcut_text = " ".join(args.extra).strip()
         if not shortcut_text:
