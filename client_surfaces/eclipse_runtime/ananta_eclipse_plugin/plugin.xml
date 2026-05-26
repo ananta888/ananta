@@ -56,6 +56,11 @@
             description="Open Ananta Chat"
             id="io.ananta.eclipse.command.chat"
             name="Ananta Chat"/>
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Toggle Ananta Snake overlay and open Snake view"
+            id="io.ananta.eclipse.command.snake_toggle"
+            name="Ananta Snake Toggle"/>
    </extension>
 
    <extension
@@ -78,6 +83,9 @@
       <handler
             class="io.ananta.eclipse.runtime.commands.handlers.ChatCommandHandler"
             commandId="io.ananta.eclipse.command.chat"/>
+      <handler
+            class="io.ananta.eclipse.runtime.commands.handlers.SnakeToggleCommandHandler"
+            commandId="io.ananta.eclipse.command.snake_toggle"/>
    </extension>
 
    <extension
@@ -126,6 +134,10 @@
             id="io.ananta.eclipse.view.policy_fallback"
             name="Ananta Policy and Browser Fallback"
             class="io.ananta.eclipse.runtime.views.eclipse.AnantaPolicyFallbackViewPart"/>
+      <view
+            id="io.ananta.eclipse.view.snake"
+            name="Ananta Snake"
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaSnakeViewPart"/>
    </extension>
 
    <extension
@@ -142,5 +154,33 @@
             id="io.ananta.eclipse.preferences"
             name="Ananta"
             class="io.ananta.eclipse.runtime.preferences.AnantaWorkbenchPreferencePage"/>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.menus">
+      <menuContribution
+            locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+         <menu
+               id="io.ananta.eclipse.menu.snake"
+               label="Ananta Snake"
+               mnemonic="S">
+            <command
+                  commandId="io.ananta.eclipse.command.snake_toggle"
+                  id="io.ananta.eclipse.menu.snake.toggle"
+                  label="Toggle Snake Overlay"
+                  style="push"/>
+         </menu>
+      </menuContribution>
+      <menuContribution
+            locationURI="toolbar:org.eclipse.ui.main.toolbar?after=additions">
+         <toolbar
+               id="io.ananta.eclipse.toolbar.snake">
+            <command
+                  commandId="io.ananta.eclipse.command.snake_toggle"
+                  id="io.ananta.eclipse.toolbar.snake.toggle"
+                  label="Ananta Snake"
+                  style="push"/>
+         </toolbar>
+      </menuContribution>
    </extension>
 </plugin>
