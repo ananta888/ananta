@@ -103,6 +103,9 @@ def build_planning_track_envelope(
     model_ref: str,
     prompt_template_ref: str,
     validation_errors: list[str] | None = None,
+    summary_recalculation_status: str = "not_needed",
+    old_summary_hash: str = "",
+    new_summary_hash: str = "",
 ) -> dict[str, Any]:
     errors = [str(item) for item in list(validation_errors or []) if str(item).strip()]
     return {
@@ -115,6 +118,9 @@ def build_planning_track_envelope(
         "prompt_template_ref": str(prompt_template_ref or "").strip(),
         "validation_status": "valid" if not errors else "invalid",
         "validation_errors": errors,
+        "summary_recalculation_status": str(summary_recalculation_status or "not_needed"),
+        "old_summary_hash": str(old_summary_hash or "").strip(),
+        "new_summary_hash": str(new_summary_hash or "").strip(),
         "payload": dict(payload or {}),
     }
 

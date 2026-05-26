@@ -76,11 +76,17 @@ def test_planning_track_envelope_roundtrip_keeps_payload() -> None:
         generated_by="planner-worker",
         model_ref="model:planner",
         prompt_template_ref="prompt:planning/track_planning",
+        summary_recalculation_status="recalculated",
+        old_summary_hash="old",
+        new_summary_hash="new",
     )
     unwrapped, envelope_raw = unwrap_planning_track_payload(envelope)
     assert unwrapped["track"] == payload["track"]
     assert envelope_raw is not None
     assert envelope["validation_status"] == "valid"
+    assert envelope["summary_recalculation_status"] == "recalculated"
+    assert envelope["old_summary_hash"] == "old"
+    assert envelope["new_summary_hash"] == "new"
 
 
 def test_planning_track_fixtures_validate_against_schema() -> None:

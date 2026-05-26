@@ -30,6 +30,33 @@ def _stable_hash(payload: Any) -> str:
     return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
+def _summary_blocks(payload: dict[str, Any]) -> dict[str, Any]:
+    candidate = dict(payload or {})
+    return {
+        "tasks_status_summary": dict(candidate.get("tasks_status_summary") or {}),
+        "tasks_type_summary": dict(candidate.get("tasks_type_summary") or {}),
+        "progress_summary": dict(candidate.get("progress_summary") or {}),
+        "weighted_progress_summary": dict(candidate.get("weighted_progress_summary") or {}),
+        "milestone_progress_summary": dict(candidate.get("milestone_progress_summary") or {}),
+        "derived_summary_metadata": dict(candidate.get("derived_summary_metadata") or {}),
+    }
+
+
+def _diff_summary_fields(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    fields: list[str] = []
+    for key in (
+        "tasks_status_summary",
+        "tasks_type_summary",
+        "progress_summary",
+        "weighted_progress_summary",
+        "milestone_progress_summary",
+        "derived_summary_metadata",
+    ):
+        if dict(before.get(key) or {}) != dict(after.get(key) or {}):
+            fields.append(key)
+    return fields
+
+
 def load_track_schema(*, schema_ref: str | None = None, schema_store: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     ref = str(schema_ref or planning_contract_ref()["schema_ref"]).strip()
     if schema_store and ref in schema_store:
@@ -133,9 +160,38 @@ def validate_summary_consistency(payload: dict[str, Any], *, repair_mode: bool =
         )
     issues.extend(list(progress_issues or []))
 
+    before_blocks = _summary_blocks(candidate)
+    after_blocks = _summary_blocks(computed_candidate)
+    changed_fields = _diff_summary_fields(before_blocks, after_blocks)
+    old_summary_hash = _stable_hash(before_blocks)
+    new_summary_hash = _stable_hash(after_blocks)
+    recalculation_status = (
+        "repaired"
+        if issues and repair_mode
+        else ("recalculated" if changed_fields else "not_needed")
+    )
+
     if issues and repair_mode:
-        return {"valid": True, "issues": issues, "repaired_payload": computed_candidate, "repaired": True}
-    return {"valid": not issues, "issues": issues, "repaired_payload": candidate, "repaired": False}
+        return {
+            "valid": True,
+            "issues": issues,
+            "repaired_payload": computed_candidate,
+            "repaired": True,
+            "repaired_fields": changed_fields,
+            "summary_recalculation_status": recalculation_status,
+            "old_summary_hash": old_summary_hash,
+            "new_summary_hash": new_summary_hash,
+        }
+    return {
+        "valid": not issues,
+        "issues": issues,
+        "repaired_payload": computed_candidate if changed_fields else candidate,
+        "repaired": False,
+        "repaired_fields": changed_fields,
+        "summary_recalculation_status": recalculation_status,
+        "old_summary_hash": old_summary_hash,
+        "new_summary_hash": new_summary_hash,
+    }
 
 
 def evaluate_planning_quality_gates(
@@ -298,14 +354,40 @@ def persist_planning_track_result(
     envelope: dict[str, Any] | None = None
     quality_warnings: list[dict[str, str]] = []
     quality_blocks: list[dict[str, str]] = []
+    repaired_fields: list[str] = []
+    prefilled_summary_fields: list[str] = []
+    summary_recalculation_status = "not_needed"
+    old_summary_hash = ""
+    new_summary_hash = ""
     if not parse_errors and isinstance(candidate, dict):
         payload, envelope = unwrap_planning_track_payload(candidate)
+        if "tasks_status_summary" not in payload:
+            before_blocks = _summary_blocks(payload)
+            payload, _ = PlanningSummaryEngine().recompute(payload)
+            prefilled_summary_fields = _diff_summary_fields(before_blocks, _summary_blocks(payload))
+            summary_recalculation_status = "recalculated" if prefilled_summary_fields else summary_recalculation_status
         validation_issues = validate_planning_track_with_details(payload, schema_store=schema_store)
         summary_result = validate_summary_consistency(payload, repair_mode=True)
-        if summary_result.get("repaired"):
-            payload = dict(summary_result.get("repaired_payload") or payload)
-        else:
+        payload = dict(summary_result.get("repaired_payload") or payload)
+        repaired_fields = [
+            str(item)
+            for item in list(summary_result.get("repaired_fields") or []) + list(prefilled_summary_fields or [])
+            if str(item).strip()
+        ]
+        repaired_fields = sorted(set(repaired_fields))
+        summary_recalculation_status = str(summary_result.get("summary_recalculation_status") or summary_recalculation_status)
+        if summary_recalculation_status == "not_needed" and repaired_fields:
+            summary_recalculation_status = "recalculated"
+        old_summary_hash = str(summary_result.get("old_summary_hash") or "")
+        new_summary_hash = str(summary_result.get("new_summary_hash") or "")
+        if not summary_result.get("repaired"):
             validation_issues.extend(list(summary_result.get("issues") or []))
+
+        if isinstance(envelope, dict):
+            envelope["summary_recalculation_status"] = summary_recalculation_status
+            envelope["old_summary_hash"] = old_summary_hash
+            envelope["new_summary_hash"] = new_summary_hash
+
         quality_result = evaluate_planning_quality_gates(
             payload,
             large_goal_mode=bool(payload.get("large_goal_mode")),
@@ -381,6 +463,10 @@ def persist_planning_track_result(
                 "schema_ref": planning_contract_ref()["schema_ref"],
                 "schema_hash": planning_contract_hash(),
                 "repair_attempt_count": repair_attempt_count,
+                "summary_recalculation_status": summary_recalculation_status,
+                "repaired_fields": repaired_fields,
+                "old_summary_hash": old_summary_hash,
+                "new_summary_hash": new_summary_hash,
                 "source_references": list(usage_tracking.get("source_usage_refs") or []),
                 "context_references": [ref for ref in artifact_refs if ref],
                 "context_hash": context_hash,
