@@ -1,3 +1,5 @@
+from .artifact_access_policy import ArtifactAccessPolicy, ArtifactAccessPolicyDecision
+from .artifact_candidate_service import ArtifactCandidateService
 from .artifact_grants import is_grant_active, validate_source_artifact_grant_payload
 from .artifact_usage import validate_source_artifact_usage_payload
 from .goal_artifact_graph import build_empty_goal_artifact_graph, validate_goal_artifact_graph_payload
@@ -7,6 +9,9 @@ from .output_artifacts import validate_goal_output_artifact_payload
 __all__ = [
     "GoalArtifactService",
     "GoalArtifactServiceError",
+    "ArtifactAccessPolicy",
+    "ArtifactAccessPolicyDecision",
+    "ArtifactCandidateService",
     "build_empty_goal_artifact_graph",
     "is_grant_active",
     "validate_goal_artifact_graph_payload",

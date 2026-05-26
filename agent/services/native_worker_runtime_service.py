@@ -443,9 +443,28 @@ class NativeWorkerRuntimeService:
                 "execution_result": execution_result,
             },
             "artifact_refs": [
-                {"kind": "native_worker_command_plan", "task_id": tid, "trace_bundle_ref": "native_worker_runtime:command_plan"},
-                {"kind": "native_worker_test_result", "task_id": tid, "trace_bundle_ref": "native_worker_runtime:test_result"},
-                {"kind": "native_worker_verification", "task_id": tid, "trace_bundle_ref": "native_worker_runtime:verification"},
+                {
+                    "kind": "native_worker_command_plan",
+                    "task_id": tid,
+                    "trace_bundle_ref": "native_worker_runtime:command_plan",
+                    "content_hash": str(command_plan.get("command_hash") or ""),
+                },
+                {
+                    "kind": "native_worker_test_result",
+                    "task_id": tid,
+                    "trace_bundle_ref": "native_worker_runtime:test_result",
+                    "content_hash": hashlib.sha256(
+                        json.dumps(test_result, ensure_ascii=False, sort_keys=True).encode("utf-8")
+                    ).hexdigest(),
+                },
+                {
+                    "kind": "native_worker_verification",
+                    "task_id": tid,
+                    "trace_bundle_ref": "native_worker_runtime:verification",
+                    "content_hash": hashlib.sha256(
+                        json.dumps(verification_artifact, ensure_ascii=False, sort_keys=True).encode("utf-8")
+                    ).hexdigest(),
+                },
             ],
             "approval_decision": {
                 "classification": "allow",

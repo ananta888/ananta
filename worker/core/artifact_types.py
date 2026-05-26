@@ -84,3 +84,20 @@ def enforce_artifact_first(
             f"artifact_first_violation:mode={mode!r} success requires at least one typed artifact"
         ]
     return []
+
+
+def map_reference_kind_to_output_artifact_type(kind: str) -> str | None:
+    normalized = str(kind or "").strip().lower()
+    if not normalized:
+        return None
+    if "patch" in normalized:
+        return "patch"
+    if "test_result" in normalized:
+        return "test_result"
+    if "plan" in normalized:
+        return "plan"
+    if normalized in {"workspace_file", "file"}:
+        return "file"
+    if "summary" in normalized or "review" in normalized:
+        return "report"
+    return None

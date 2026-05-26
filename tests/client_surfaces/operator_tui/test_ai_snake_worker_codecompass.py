@@ -115,6 +115,21 @@ def test_context_envelope_and_relevance_refs() -> None:
     assert refs[0]["score"] >= refs[-1]["score"]
 
 
+def test_context_envelope_includes_grants_usages_and_denied_refs() -> None:
+    ctx = default_ai_context()
+    envelope = build_context_envelope_ref(
+        ctx,
+        codecompass_artifact={"context_hash": "ctx-base", "refs": []},
+        artifact_grant_refs=["grant-1"],
+        source_usage_refs=["usage-1"],
+        denied_context_refs=["artifact:blocked"],
+    )
+    assert envelope["artifact_grant_refs"] == ["grant-1"]
+    assert envelope["source_usage_refs"] == ["usage-1"]
+    assert envelope["denied_context_refs"] == ["artifact:blocked"]
+    assert envelope["context_hash"] != "ctx-base"
+
+
 def test_provider_unavailable_returns_degraded_reason() -> None:
     client = AiSnakeWorkerClient()
     payload = client.build_request(

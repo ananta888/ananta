@@ -1444,6 +1444,13 @@ class TaskScopedExecutionService:
                     "missing_expected_paths": missing,
                     "final_status": final_status,
                 }
+                goal_output_artifacts = self._register_goal_artifact_outputs(
+                    task=task,
+                    tid=tid,
+                    artifact_refs=list(combined_artifact_refs or []),
+                )
+                if goal_output_artifacts:
+                    response_payload["goal_output_artifacts"] = goal_output_artifacts
 
             verification_status = dict((task.get("verification_status") or {}))
             source_catalog_status = dict(verification_status.get("source_catalog") or {})
@@ -1523,6 +1530,51 @@ class TaskScopedExecutionService:
             policy_service=policy_service,
             bridge_adapter_registry=bridge_adapter_registry,
         )
+
+    @staticmethod
+    def _register_goal_artifact_outputs(*, task: dict, tid: str, artifact_refs: list[dict]) -> list[dict]:
+        goal_id = str((task or {}).get("goal_id") or "").strip()
+        if not goal_id:
+            return []
+        if not list(artifact_refs or []):
+            return []
+        from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
+
+        execution_context = dict((task or {}).get("worker_execution_context") or {})
+        context_envelope = execution_context.get("context_envelope_ref")
+        context_envelope = dict(context_envelope or {}) if isinstance(context_envelope, dict) else {}
+        source_usage_refs = [str(item) for item in list(context_envelope.get("source_usage_refs") or []) if str(item).strip()]
+        context_artifact_refs = [
+            str(item.get("artifact_ref") or item.get("ref") or "").strip()
+            for item in list(context_envelope.get("retrieval_refs") or [])
+            if isinstance(item, dict)
+        ]
+        service = GoalArtifactService()
+        if context_artifact_refs and not source_usage_refs:
+            context_tracking = service.validate_and_record_context_usages(
+                goal_id=goal_id,
+                artifact_refs=[item for item in context_artifact_refs if item],
+                task_id=tid,
+                worker_id=str((task or {}).get("assigned_worker_id") or "").strip() or None,
+                context_hash=str(context_envelope.get("context_hash") or "").strip() or None,
+            )
+            source_usage_refs = list(context_tracking.get("source_usage_refs") or [])
+        try:
+            return service.register_output_artifacts_from_refs(
+                goal_id=goal_id,
+                task_id=str(tid),
+                worker_id=str((task or {}).get("assigned_worker_id") or "").strip() or None,
+                artifact_refs=list(artifact_refs or []),
+                input_usage_refs=source_usage_refs,
+            )
+        except GoalArtifactServiceError as exc:
+            return [
+                {
+                    "status": "failed",
+                    "reason_code": exc.reason_code,
+                    "detail": exc.detail,
+                }
+            ]
 
     @staticmethod
     def _resolve_domain_action_payload(*, task: dict, command: str | None) -> dict:

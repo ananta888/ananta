@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from worker.core.context_resolver import (
     ContextBlock,
@@ -35,6 +35,9 @@ class ContextEnvelopeRef:
     redacted_block_count: int = 0 # T018
     summarized_block_count: int = 0 # T018
     context_access_summary: Optional[str] = None # T018
+    artifact_grant_refs: list[str] = field(default_factory=list)
+    source_usage_refs: list[str] = field(default_factory=list)
+    denied_context_refs: list[str] = field(default_factory=list)
 
     @classmethod
     def from_raw(cls, raw: str | dict[str, Any]) -> "ContextEnvelopeRef":
@@ -55,6 +58,9 @@ class ContextEnvelopeRef:
             redacted_block_count=int(d.get("redacted_block_count") or 0),
             summarized_block_count=int(d.get("summarized_block_count") or 0),
             context_access_summary=d.get("context_access_summary"),
+            artifact_grant_refs=[str(item) for item in list(d.get("artifact_grant_refs") or []) if str(item).strip()],
+            source_usage_refs=[str(item) for item in list(d.get("source_usage_refs") or []) if str(item).strip()],
+            denied_context_refs=[str(item) for item in list(d.get("denied_context_refs") or []) if str(item).strip()],
         )
 
     def is_empty(self) -> bool:
@@ -74,6 +80,9 @@ class ContextEnvelopeRef:
             "redacted_block_count": self.redacted_block_count,
             "summarized_block_count": self.summarized_block_count,
             "context_access_summary": self.context_access_summary,
+            "artifact_grant_refs": self.artifact_grant_refs,
+            "source_usage_refs": self.source_usage_refs,
+            "denied_context_refs": self.denied_context_refs,
         }
 
 

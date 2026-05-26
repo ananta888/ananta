@@ -166,7 +166,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Policy prüft goal_id, artifact sensitivity, requested_usage, worker_kind, provider_location und data_boundary.",
             "Default ist deny für unbekannte Artefakte oder unbekannte Usage.",
@@ -189,7 +189,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.01", "T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "ContextEnvelope enthält artifact_grant_refs oder source_usage_refs.",
             "Beim Bauen des Kontextes wird jeder artifact_ref gegen GoalArtifactService geprüft.",
@@ -213,7 +213,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T02.01", "T02.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Worker Result mit artifacts registriert pro Artifact ein GoalOutputArtifact.",
             "input_usage_refs aus ContextEnvelope werden dem Output zugeordnet.",
@@ -243,7 +243,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "GET /goals/{goal_id}/artifacts/graph liefert GoalArtifactGraph.",
             "GET /goals/{goal_id}/artifacts/sources liefert SourceGrants und Usages.",
@@ -267,7 +267,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.02", "T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "GET /goals/{goal_id}/artifacts/source-candidates liefert mögliche Artefakte mit sensitivity, type, origin und suggested_usages.",
             "Candidates enthalten Keycloak/Wikipedia SourceChunks, CodeCompass-Kontextartefakte, lokale Goal-Artefakte und manuelle Uploads, soweit vorhanden.",
