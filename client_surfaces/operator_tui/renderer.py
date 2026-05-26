@@ -744,10 +744,17 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        if game.get("paused"):
-            hints = "[Space] Resume  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
+        chat_raw = game.get("chat_state")
+        chat_focus = isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus"))
+        if chat_focus:
+            active_ch = ""
+            if isinstance(chat_raw, dict):
+                active_ch = str(chat_raw.get("active_channel") or "room:main")
+            hints = f"[Esc] game  [Enter] send  [PageUp/Down] scroll  [{active_ch}]"
+        elif game.get("paused"):
+            hints = "[Space] Resume  [c] chat  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select  [Z] Clear"
         else:
-            hints = "[Ctrl+S] Snake  [Space] Pause  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
+            hints = "[Ctrl+S] Snake  [Space] Pause  [c] chat  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [Z] Clear"
     return _clip(hints, width)
 
 
@@ -806,10 +813,12 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     if not isinstance(local_snake, list) or not local_snake:
         return lines
 
-    # Split-view: if wide enough, reserve right portion for AI panel (T01.01)
+    # Split-view: if wide enough, reserve right portion for AI+Chat panels (T01.01)
     ai_panel_width = 40
     split_col = width - ai_panel_width - 2  # 2 for divider
     split_view = width >= 100
+    # Chat panel: bottom portion of the right column (requires width>=120, height>=32)
+    chat_panel_enabled = width >= 120 and len(lines) >= 32
 
     out = list(lines)
     local_id = str(game.get("local_snake_id") or "s1")
@@ -902,8 +911,19 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         out = _overlay_snake_paused(out, width=width, height=len(out))
 
     # Split-view AI panel (T01.01)
+    ai_panel_height = len(out)
+    if split_view and chat_panel_enabled:
+        # Reserve bottom portion for chat panel
+        ai_panel_height = max(8, len(out) - 10)
     if split_view:
-        out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=len(out))
+        out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=ai_panel_height)
+
+    # Chat panel (E01)
+    if split_view and chat_panel_enabled:
+        out = _overlay_snake_chat_panel(out, game, split_col=split_col, panel_width=ai_panel_width, ai_rows=ai_panel_height, height=len(out))
+    elif split_view:
+        # Compact unread status line at bottom-right when chat panel doesn't fit
+        out = _overlay_snake_chat_unread(out, game, split_col=split_col, panel_width=ai_panel_width, height=len(out))
 
     # Score / highscore header (T01.05)
     out = _overlay_snake_score_header(out, game, width=width)
@@ -1101,6 +1121,179 @@ def _overlay_snake_ai_panel(
                 padded = visible + (" " * pad)
                 out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, padded)
 
+    return out
+
+
+def _overlay_snake_chat_panel(
+    lines: list[str],
+    game: dict[str, object],
+    *,
+    split_col: int,
+    panel_width: int,
+    ai_rows: int,
+    height: int,
+) -> list[str]:
+    """Render Chat/Notes panel below the AI panel in the right column (E01)."""
+    out = list(lines)
+    if not out or height <= ai_rows:
+        return out
+
+    from client_surfaces.operator_tui.chat_state import get_chat_state, sanitize_text
+
+    chat = get_chat_state(dict(game))
+    active_ch_id = str(chat.get("active_channel") or "room:main")
+    channels = chat.get("channels") or {}
+    ch = channels.get(active_ch_id) or {}
+    ch_type = str(ch.get("channel_type") or "room")
+    display_name = str(ch.get("display_name") or active_ch_id)
+    unread_total = sum(int(c.get("unread") or 0) for c in channels.values())
+    chat_focus = bool(chat.get("chat_focus"))
+    ai_typing = bool(chat.get("ai_typing"))
+
+    panel_lines: list[str] = []
+
+    # Separator between AI panel and Chat panel
+    panel_lines.append("═" * panel_width)
+
+    # Header: channel name, visibility, unread
+    is_notes = ch_type == "notes"
+    header_color = (160, 100, 220) if is_notes else (100, 180, 255)
+    focus_marker = "▶" if chat_focus else " "
+    visibility_marker = " local-only" if is_notes else ""
+    unread_str = f" +{unread_total}" if unread_total > 0 else ""
+    header_text = f"{focus_marker}CHAT {display_name[:14]}{visibility_marker}{unread_str}"
+    hcol = header_color
+    panel_lines.append(
+        f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m{header_text[:panel_width]}\x1b[0m"
+    )
+    if ai_typing:
+        panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")
+
+    panel_lines.append("─" * panel_width)
+
+    # Messages
+    msgs: list[dict] = list(ch.get("messages") or [])
+    available_rows = max(2, height - ai_rows - len(panel_lines) - 2)  # -2 for input line
+    scroll_offset = int(chat.get("scroll_offset") or 0)
+
+    # Build rendered message lines (with word-wrap)
+    rendered: list[str] = []
+    snakes_raw = game.get("snakes") or {}
+    for msg in msgs:
+        if not isinstance(msg, dict):
+            continue
+        sender = str(msg.get("sender_id") or "?")
+        sender_kind = str(msg.get("sender_kind") or "user")
+        text = sanitize_text(str(msg.get("text") or ""))
+        delivery = str(msg.get("delivery_state") or "")
+
+        # Color by sender kind
+        if sender_kind == "system":
+            line_col = (100, 100, 100)
+            prefix = "* "
+        elif sender_kind == "ai":
+            line_col = (255, 205, 130)
+            prefix = f"[ai] "
+        else:
+            # Try to match snake color
+            snap = snakes_raw.get(sender) if isinstance(snakes_raw, dict) else None
+            color_name = str(snap.get("snake_color") or "mint") if isinstance(snap, dict) else "mint"
+            pal = _snake_palette(color_name)
+            line_col = pal["head"]
+            short_sender = sender[:8]
+            state_mark = "" if delivery in {"sent", "received", ""} else f"[{delivery}]"
+            prefix = f"{short_sender}{state_mark}: "
+
+        col_str = f"\x1b[38;2;{line_col[0]};{line_col[1]};{line_col[2]}m"
+        # First line has prefix; continuation lines indent
+        words = text.split()
+        row = prefix
+        first = True
+        for word in words:
+            if len(row) + len(word) + 1 > panel_width - 1:
+                if first:
+                    rendered.append(f"{col_str}{row}\x1b[0m")
+                    first = False
+                else:
+                    rendered.append(f"{col_str}  {row}\x1b[0m")
+                row = word
+            else:
+                row = (row + " " + word).strip() if row.strip() else word
+        remainder = row.strip()
+        if remainder:
+            if first:
+                rendered.append(f"{col_str}{remainder}\x1b[0m")
+            else:
+                rendered.append(f"{col_str}  {remainder}\x1b[0m")
+
+    # Apply scroll
+    total = len(rendered)
+    if scroll_offset > 0:
+        start = max(0, total - available_rows - scroll_offset)
+    else:
+        start = max(0, total - available_rows)
+    visible_msgs = rendered[start:start + available_rows]
+    panel_lines.extend(visible_msgs)
+
+    # Pad to fill panel
+    while len(panel_lines) < height - ai_rows - 2:
+        panel_lines.append("")
+
+    # Input line
+    if chat_focus:
+        buf = str(chat.get("chat_input_buffer") or "")
+        prompt_map = {"room": "#room>", "direct": "@>", "ai": "@ai>", "notes": "notes>", "system": ">"}
+        prompt = prompt_map.get(ch_type, ">")
+        input_line = f"\x1b[38;2;200;200;80m{prompt}\x1b[0m {buf[:panel_width - len(prompt) - 2]}_"
+        panel_lines.append(input_line)
+    else:
+        panel_lines.append(f"\x1b[38;2;80;80;80m[c] chat focus\x1b[0m")
+
+    # Render panel lines into right column starting at ai_rows
+    divider_col = split_col
+    for row_idx_offset, pline in enumerate(panel_lines):
+        row_idx = ai_rows + row_idx_offset
+        if row_idx >= height or row_idx >= len(out):
+            break
+        # vertical divider
+        out[row_idx] = _overlay_at_visible_col(out[row_idx], divider_col, "\x1b[38;2;60;60;80m│\x1b[0m")
+        pcol = divider_col + 2
+        raw = _ANSI_STRIP.sub("", pline)
+        total_width = split_col + panel_width + 4
+        if pcol < total_width and raw:
+            pad = max(0, panel_width - len(raw))
+            padded = pline + (" " * pad)
+            out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, padded)
+
+    return out
+
+
+def _overlay_snake_chat_unread(
+    lines: list[str],
+    game: dict[str, object],
+    *,
+    split_col: int,
+    panel_width: int,
+    height: int,
+) -> list[str]:
+    """Compact unread indicator when chat panel doesn't fit (E01.01)."""
+    out = list(lines)
+    if not out or height < 1:
+        return out
+
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    chat = get_chat_state(dict(game))
+    unread = sum(int(c.get("unread") or 0) for c in (chat.get("channels") or {}).values())
+    if unread == 0:
+        return out
+
+    last_row = min(height - 1, len(out) - 1)
+    label = f"chat +{unread}"
+    col = (160, 100, 220)
+    text = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{label}\x1b[0m"
+    pcol = split_col + 2
+    out[last_row] = _overlay_at_visible_col(out[last_row], pcol, text)
     return out
 
 

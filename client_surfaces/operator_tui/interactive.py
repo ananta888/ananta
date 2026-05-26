@@ -120,6 +120,10 @@ class InteractiveOperatorTui:
         except Exception:
             pass
         self._command_buffer = ""
+        # E03: Chat transport (initialized lazily when snake registers with Hub)
+        self._chat_transport: Any = None
+        # E05: Load initial notes into notes:self channel
+        self._init_notes_channel()
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
         self._output = Window(content=self._control, wrap_lines=False)
@@ -197,6 +201,9 @@ class InteractiveOperatorTui:
             if self._snake_message_mode_active():
                 self._snake_commit_message()
                 return
+            if self._chat_focus_active():
+                self._chat_send_message()
+                return
             if self._snake_mode_active():
                 # T04.04: Enter advances guided tour immediately
                 game = self.state.header_logo_game or {}
@@ -225,6 +232,9 @@ class InteractiveOperatorTui:
             if self._snake_message_mode_active():
                 self._snake_cancel_message()
                 return
+            if self._chat_focus_active():
+                self._chat_focus_leave()
+                return
             if self._snake_mode_active():
                 return
             self._command_buffer = ""
@@ -234,6 +244,9 @@ class InteractiveOperatorTui:
         def _(event) -> None:
             if self._snake_message_mode_active():
                 self._snake_message_backspace()
+                return
+            if self._chat_focus_active():
+                self._chat_backspace()
                 return
             if self._snake_mode_active():
                 return
@@ -354,7 +367,10 @@ class InteractiveOperatorTui:
                 return
             if not self._snake_mode_active():
                 return
-            self._snake_copy_selection()
+            if self._chat_focus_active():
+                self._chat_append("c")
+                return
+            self._chat_focus_enter()
 
         @bindings.add("v")
         def _(event) -> None:
@@ -475,10 +491,35 @@ class InteractiveOperatorTui:
                 if data and data.isprintable():
                     self._snake_message_append(data)
                 return
+            if self._chat_focus_active():
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._chat_append(data)
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
                     self._append_command(data)
+
+        @bindings.add("pageup")
+        def _(event) -> None:
+            if self._chat_focus_active():
+                self._chat_scroll(-5)
+
+        @bindings.add("pagedown")
+        def _(event) -> None:
+            if self._chat_focus_active():
+                self._chat_scroll(5)
+
+        @bindings.add("escape", "up")  # Alt+Up
+        def _(event) -> None:
+            if self._chat_focus_active():
+                self._chat_scroll(-1)
+
+        @bindings.add("escape", "down")  # Alt+Down
+        def _(event) -> None:
+            if self._chat_focus_active():
+                self._chat_scroll(1)
 
         @bindings.add(Keys.Vt100MouseEvent)
         def _(event) -> None:
@@ -498,6 +539,196 @@ class InteractiveOperatorTui:
             )
 
         return bindings
+
+    # ── Chat focus helpers (E01.04) ───────────────────────────────────────────
+
+    def _chat_focus_active(self) -> bool:
+        game = self.state.header_logo_game or {}
+        chat_raw = game.get("chat_state")
+        return isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus")) and self._snake_mode_active()
+
+    def _chat_focus_enter(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        chat["chat_focus"] = True
+        chat["chat_input_buffer"] = ""
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: focus"))
+
+    def _chat_focus_leave(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        chat["chat_focus"] = False
+        chat["chat_input_buffer"] = ""
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: game focus"))
+
+    def _chat_append(self, ch: str) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        buf = str(chat.get("chat_input_buffer") or "")
+        chat["chat_input_buffer"] = (buf + ch)[:200]
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _chat_backspace(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        buf = str(chat.get("chat_input_buffer") or "")
+        chat["chat_input_buffer"] = buf[:-1]
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _chat_scroll(self, delta: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        current = int(chat.get("scroll_offset") or 0)
+        chat["scroll_offset"] = max(0, current + delta)
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _chat_send_message(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import (
+            get_chat_state, set_chat_state, get_active_channel, make_message,
+            append_message, sanitize_text, ChannelType, DeliveryState,
+        )
+        from client_surfaces.operator_tui.chat_policy import check_policy, audit, system_message_for_deny
+        from client_surfaces.operator_tui.snake_notes import append_note
+
+        chat = get_chat_state(game)
+        buf = sanitize_text(str(chat.get("chat_input_buffer") or ""))
+        if not buf:
+            return
+        chat["chat_input_buffer"] = ""
+        ch = get_active_channel(chat)
+        if ch is None:
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        ch_id = str(ch.get("id") or "room:main")
+        ch_type = str(ch.get("channel_type") or "room")
+        local_id = str(game.get("local_snake_id") or "s1")
+
+        if ch_type == "notes":
+            # Local notes: persist and show
+            note = append_note(buf)
+            if note:
+                msg = make_message(
+                    channel_id=ch_id, channel_type=ch_type,
+                    sender_id=local_id, sender_kind="user",
+                    text=buf, visibility="local_only",
+                    delivery_state="sent",
+                )
+                msg["id"] = note["id"]
+                append_message(chat, msg)
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="note saved"))
+            return
+
+        if ch_type == "ai":
+            # AI chat: trigger ask flow
+            msg = make_message(
+                channel_id=ch_id, channel_type=ch_type,
+                sender_id=local_id, sender_kind="user",
+                text=buf, visibility="ai_context",
+                delivery_state="sent",
+            )
+            append_message(chat, msg)
+            # Reuse tutor ask mechanism
+            game["tutor_ask_question"] = buf
+            game["tutor_ask_at"] = time.monotonic()
+            game["tutor_ask_answered"] = False
+            game["paused"] = True
+            chat["ai_typing"] = True
+            chat["ai_pending_msg_channel"] = ch_id
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"ask: {buf[:40]}"))
+            return
+
+        # Room or direct: policy check then queue
+        action = "send_hub"
+        notes_released = bool(chat.get("notes_context_released"))
+        msg = make_message(
+            channel_id=ch_id, channel_type=ch_type,
+            sender_id=local_id, sender_kind="user",
+            text=buf,
+            target_ids=[p for p in (ch.get("participants") or []) if p != local_id] if ch_type == "direct" else [],
+            delivery_state="queued",
+        )
+        decision = check_policy(msg, action, notes_context_released=notes_released)
+        audit(decision)
+        if decision["decision"] == "deny":
+            sys_msg = make_message(
+                channel_id=ch_id, channel_type=ch_type,
+                sender_id="system", sender_kind="system",
+                text=system_message_for_deny(decision), visibility="system",
+                delivery_state="received",
+            )
+            append_message(chat, sys_msg)
+            msg["delivery_state"] = "blocked"
+            msg["policy_decision_ref"] = decision.get("decision_ref")
+        append_message(chat, msg)
+
+        if decision["decision"] == "allow" and self._chat_transport is not None:
+            self._chat_transport.enqueue(msg)
+
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    # ── Notes ops from command (E05.03) ───────────────────────────────────────
+
+    def _process_notes_ops(self, game: dict[str, Any]) -> None:
+        """Process pin/unpin/delete/search commands set by commands.py."""
+        from client_surfaces.operator_tui.snake_notes import (
+            load_notes, pin_note, unpin_note, delete_note, search_notes, rewrite_notes, visible_notes,
+        )
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
+        changed = False
+        notes = load_notes()
+
+        pin_id = str(game.pop("notes_pin_id", "") or "")
+        unpin_id = str(game.pop("notes_unpin_id", "") or "")
+        delete_id = str(game.pop("notes_delete_id", "") or "")
+        search_q = str(game.pop("notes_search_query", "") or "")
+
+        if pin_id:
+            if pin_note(notes, pin_id):
+                rewrite_notes(notes)
+                changed = True
+        if unpin_id:
+            if unpin_note(notes, unpin_id):
+                rewrite_notes(notes)
+                changed = True
+        if delete_id:
+            if delete_note(notes, delete_id):
+                rewrite_notes(notes)
+                changed = True
+
+        if changed or search_q:
+            visible = search_notes(notes, search_q) if search_q else visible_notes(notes)
+            chat = get_chat_state(game)
+            ch = (chat.get("channels") or {}).get("notes:self")
+            if isinstance(ch, dict):
+                from client_surfaces.operator_tui.chat_state import make_message
+                synced: list[dict[str, Any]] = []
+                for n in visible[-200:]:
+                    synced.append(make_message(
+                        channel_id="notes:self", channel_type="notes",
+                        sender_id=str(game.get("local_snake_id") or "s1"),
+                        sender_kind="user",
+                        text=str(n.get("text") or ""),
+                        visibility="local_only",
+                        delivery_state="sent",
+                    ))
+                ch["messages"] = synced
+            set_chat_state(game, chat)
 
     def _normal_or_text(self, text: str, normal_action) -> None:
         if self._snake_message_mode_active():
@@ -1082,6 +1313,16 @@ class InteractiveOperatorTui:
         self._snake_last_event_fired = ""
         # T04.04: guided tour auto-advance
         self._tick_guided_tour(game, now=now)
+
+        # E01: process pending notes ops (pin/unpin/delete/search)
+        if game.get("notes_pin_id") or game.get("notes_unpin_id") or game.get("notes_delete_id") or game.get("notes_search_query"):
+            self._process_notes_ops(game)
+
+        # E03: poll chat transport and handle incoming messages
+        self._tick_chat(game, now=now)
+
+        # E04: sync AI ask result back to AI chat channel
+        self._tick_chat_ai_response(game)
 
         # T01.05: record section visit for first-visit explanation
         current_section = str(self.state.section_id or "dashboard")
@@ -2467,6 +2708,128 @@ class InteractiveOperatorTui:
         self._inject_tutor_tip(game, tip, source=f"section:{section_id}")
         self._fire_tutorial_event(game, "section_visited")
 
+    # ── E05: Notes init ───────────────────────────────────────────────────────
+
+    def _init_notes_channel(self) -> None:
+        try:
+            from client_surfaces.operator_tui.snake_notes import load_notes, visible_notes
+            from client_surfaces.operator_tui.chat_state import (
+                get_chat_state, set_chat_state, make_message, default_chat_state,
+            )
+            game = dict(self.state.header_logo_game or {})
+            local_id = str(game.get("local_snake_id") or "s1")
+            chat = get_chat_state(game)
+            if "notes:self" not in (chat.get("channels") or {}):
+                chat = default_chat_state(local_id)
+            notes = load_notes()
+            visible = visible_notes(notes)
+            ch = (chat.get("channels") or {}).get("notes:self")
+            if isinstance(ch, dict):
+                synced = []
+                for n in visible[-200:]:
+                    synced.append(make_message(
+                        channel_id="notes:self", channel_type="notes",
+                        sender_id=local_id, sender_kind="user",
+                        text=str(n.get("text") or ""), visibility="local_only",
+                        delivery_state="sent",
+                    ))
+                ch["messages"] = synced
+            set_chat_state(game, chat)
+            self.state = self.state.with_updates(header_logo_game=game)
+        except Exception:
+            pass
+
+    # ── E03: Chat transport tick ──────────────────────────────────────────────
+
+    def _tick_chat(self, game: dict[str, Any], now: float) -> None:
+        # Poll transport for incoming messages
+        if self._chat_transport is not None:
+            try:
+                self._chat_transport.tick(now)
+            except Exception:
+                pass
+        # Handle retry request from :chat retry command
+        if game.pop("chat_retry_requested", False) and self._chat_transport is not None:
+            try:
+                self._chat_transport.retry_failed()
+            except Exception:
+                pass
+        # Sync outbox delivery states back to chat state
+        if self._chat_transport is not None:
+            try:
+                from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+                chat = get_chat_state(game)
+                outbox = self._chat_transport.outbox_snapshot()
+                outbox_by_id = {m.get("id"): m for m in outbox}
+                for ch in (chat.get("channels") or {}).values():
+                    for msg in (ch.get("messages") or []):
+                        mid = msg.get("id")
+                        if mid in outbox_by_id:
+                            msg["delivery_state"] = outbox_by_id[mid].get("delivery_state", msg["delivery_state"])
+                set_chat_state(game, chat)
+            except Exception:
+                pass
+
+    def _on_chat_messages_received(self, messages: list[dict[str, Any]]) -> None:
+        """Called from transport thread when new messages arrive."""
+        try:
+            game = dict(self.state.header_logo_game or {})
+            from client_surfaces.operator_tui.chat_state import (
+                get_chat_state, set_chat_state, append_message, make_message, ChannelType,
+            )
+            chat = get_chat_state(game)
+            for raw in messages:
+                ch_type = str(raw.get("channel_type") or "room")
+                if ch_type not in {"room", "direct", "system"}:
+                    continue
+                ch_id = str(raw.get("channel_id") or "room:main")
+                msg = make_message(
+                    channel_id=ch_id, channel_type=ch_type,
+                    sender_id=str(raw.get("sender_id") or "?"),
+                    sender_kind=str(raw.get("sender_kind") or "user"),
+                    text=str(raw.get("text") or ""),
+                    delivery_state="received",
+                )
+                if raw.get("id"):
+                    msg["id"] = str(raw["id"])
+                append_message(chat, msg)
+            set_chat_state(game, chat)
+            self.state = self.state.with_updates(header_logo_game=game)
+        except Exception:
+            pass
+
+    # ── E04: AI chat response sync ────────────────────────────────────────────
+
+    def _tick_chat_ai_response(self, game: dict[str, Any]) -> None:
+        """When tutor_ask is answered, post the reply to the AI chat channel."""
+        if not bool(game.get("tutor_ask_answered")):
+            return
+        answer = str(game.get("tutor_ask_answer") or "")
+        channel_id = str((game.get("chat_state") or {}).get("ai_pending_msg_channel") or "ai:tutor")
+        if not answer or not channel_id:
+            return
+        # Only post once (check if already posted)
+        if bool(game.get("_chat_ai_answer_posted")):
+            return
+        game["_chat_ai_answer_posted"] = True
+        try:
+            from client_surfaces.operator_tui.chat_state import (
+                get_chat_state, set_chat_state, append_message, make_message,
+            )
+            chat = get_chat_state(game)
+            chat["ai_typing"] = False
+            ai_msg = make_message(
+                channel_id=channel_id, channel_type="ai",
+                sender_id="s-ai", sender_kind="ai",
+                text=answer, visibility="ai_context",
+                delivery_state="received",
+            )
+            append_message(chat, ai_msg)
+            chat.pop("ai_pending_msg_channel", None)
+            set_chat_state(game, chat)
+        except Exception:
+            pass
+
     # ── T02.03: :ask command processing ──────────────────────────────────────
 
     def _poll_tutor_ask_result(self, game: dict[str, object]) -> None:
@@ -2492,6 +2855,7 @@ class InteractiveOperatorTui:
                 answer = "Fehler beim Abrufen der Antwort."
             game["tutor_ask_answered"] = True
             game["tutor_ask_answer"] = answer
+            game["_chat_ai_answer_posted"] = False  # allow _tick_chat_ai_response to post
             game["paused"] = False  # resume after answer
             game["last_move"] = time.monotonic()
             game["_ask_submitted"] = False

@@ -1,0 +1,30 @@
+[
+  {
+    "ts": 0,
+    "title": "Intro \u2013 Snake-Modus mit Chat"
+  },
+  {
+    "ts": 10.0,
+    "title": "Zweite Snake tritt dem Room bei"
+  },
+  {
+    "ts": 19.0,
+    "title": "Room-Chat aktiv"
+  },
+  {
+    "ts": 27.0,
+    "title": ":chat ai \u2013 Frage an AI-Snake"
+  },
+  {
+    "ts": 43.6,
+    "title": ":notes \u2013 privater Notizblock"
+  },
+  {
+    "ts": 51.6,
+    "title": "Notes bleiben local-only"
+  },
+  {
+    "ts": 62.6,
+    "title": "Outro"
+  }
+]

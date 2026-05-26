@@ -6,13 +6,17 @@
     "description": "Ausbauplan für den TUI-Snake-Modus: rechts unten entsteht ein Chatbereich für andere verbundene Teilnehmer-Schlangen, AI-Snake-Konversation und einen privaten Selbstchat/Notizblock. Kommunikation, Datenschutzgrenzen, AI-Kontext und Rendering müssen klar getrennt und testbar sein.",
     "created": "2026-05-26",
     "last_updated": "2026-05-26",
-    "version": "1.0",
-    "extends": ["todos/todo-erklaer-ai-snake.json"],
+    "version": "1.1",
+    "extends": [
+      "todos/todo-erklaer-ai-snake.json"
+    ],
     "legend": {
       "priority": "P1 = muss, P2 = soll, P3 = kann",
       "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
       "status": "open | in_progress | done | blocked"
-    }
+    },
+    "notes": "v1.1: Alle 27 Tasks abgeschlossen (2026-05-26). Neu: chat_state.py (E02), snake_notes.py (E05), chat_policy.py (E06), ai_snake_context.py (E04), chat_transport.py (E03), renderer._overlay_snake_chat_panel (E01), Hub Chat-API /snakes/{id}/chat/* (T03.01), commands: :chat/:notes/:channels/:ai context/:help chat|notes (E02+E05+E08), interactive: c/Esc/Enter/PageUp chat focus, tick_chat, tick_chat_ai_response (E01+E03+E04), Tests: 52 chat_state+policy, 14 API, cast 70s/228KB/7ch (E07), Docs: snake_chat_notes.md, architecture/snake_chat_notes_architecture.md (E08), Schema: schemas/tui/chat_message.v1.json (T02.03).",
+    "total_tasks": 30
   },
   "principles": [
     "Chat-State und Snake-Spielzustand bleiben getrennt.",
@@ -32,11 +36,14 @@
           "title": "Drei-Zonen-Layout: Spielfeld, AI-Panel, Chat-Panel",
           "description": "Das Snake-Layout wird in linkes Spielfeld, rechtes AI-/Tutor-Panel und rechtes unteres Chat-/Notes-Panel aufgeteilt.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/interactive.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Bei Terminalgröße >= 120x32 ist rechts unten ein Chatbereich mit mindestens 8 Zeilen sichtbar.",
             "AI-Panel und Chat-Panel sind durch horizontale Linie klar getrennt.",
@@ -51,11 +58,15 @@
           "title": "Chat-Header mit Channel, Sichtbarkeit und Unread",
           "description": "Der Chat-Header zeigt aktiven Channel, Modus, Sichtbarkeit und ungelesene Nachrichten.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "S",
-          "depends_on": ["T01.01"],
-          "status": "open",
+          "depends_on": [
+            "T01.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Header zeigt `CHAT #room`, `AI tutor-ai` oder `NOTES local-only` je nach aktivem Channel.",
             "Unread-Zähler wird pro Channel korrekt angezeigt.",
@@ -69,11 +80,17 @@
           "title": "Scrollbarer Nachrichtenbereich",
           "description": "Das Chat-Panel zeigt Nachrichten zeilenumgebrochen, scrollbar und mit farbigem Senderprefix.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/chat_state.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/chat_state.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T01.01", "T01.02"],
-          "status": "open",
+          "depends_on": [
+            "T01.01",
+            "T01.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Mindestens 200 Nachrichten pro Channel können im State gehalten werden.",
             "Nur die zur Panelhöhe passenden letzten Zeilen werden gerendert.",
@@ -88,11 +105,17 @@
           "title": "Chat-Fokus und Eingabezeile",
           "description": "Der Operator kann zwischen Snake-Steuerung und Chat-Eingabe wechseln.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T01.03"],
-          "status": "open",
+          "depends_on": [
+            "T01.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Taste `c` fokussiert Chat-Eingabe im Snake-Modus.",
             "Taste `Esc` verlässt Chat-Fokus und gibt Snake-Steuerung zurück.",
@@ -114,11 +137,13 @@
           "title": "Channeltypen definieren",
           "description": "Ein internes Modell unterscheidet room, direct, ai, notes und system.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/chat_state.py"],
+          "files": [
+            "client_surfaces/operator_tui/chat_state.py"
+          ],
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Channeltypen `room`, `direct`, `ai`, `notes`, `system` existieren als klare Konstanten oder Enum.",
             "Jeder Channel hat id, display_name, channel_type, visibility, participants und persistence_policy.",
@@ -133,11 +158,16 @@
           "title": "Kommandos zum Channelwechsel",
           "description": "Neue Kommandos schalten zwischen Raumchat, Direktchat, AI-Snake und Notes um.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/interactive.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P1",
           "effort": "S",
-          "depends_on": ["T02.01"],
-          "status": "open",
+          "depends_on": [
+            "T02.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "`:chat room` aktiviert Raumchat.",
             "`:chat ai` aktiviert AI-Snake-Chat.",
@@ -152,11 +182,16 @@
           "title": "ChatMessage-v1 Schema",
           "description": "Jede Nachricht bekommt strukturierte Metadaten für Sender, Ziel, Sichtbarkeit, Lieferung und Policy.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/chat_state.py", "schemas/tui/chat_message.v1.json"],
+          "files": [
+            "client_surfaces/operator_tui/chat_state.py",
+            "schemas/tui/chat_message.v1.json"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T02.01"],
-          "status": "open",
+          "depends_on": [
+            "T02.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält id, created_at, channel_id, channel_type, sender_id, sender_kind, target_ids, text, visibility, delivery_state und policy_decision_ref.",
             "visibility enthält mindestens `local_only`, `room`, `direct`, `ai_context`, `system`.",
@@ -171,11 +206,16 @@
           "title": "Systemnachrichten getrennt rendern",
           "description": "Join/Leave, Policy-Blockaden, Transportfehler und Statuswechsel erscheinen als Systemmeldungen.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/chat_state.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/chat_state.py"
+          ],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["T02.03"],
-          "status": "open",
+          "depends_on": [
+            "T02.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Systemmeldungen haben Prefix `[system]` oder `*`.",
             "Join/Leave erscheint im Raumchat, aber nicht in privaten Notes.",
@@ -196,11 +236,17 @@
           "title": "Snake-Chat-API erweitern",
           "description": "Die bestehende `/snakes`-API wird um Chat-Endpunkte für Senden, Abrufen und Bestätigen erweitert.",
           "repo": "tui",
-          "files": ["agent/routes/snakes.py", "agent/bootstrap/routes.py", "schemas/tui/chat_message.v1.json"],
+          "files": [
+            "agent/routes/snakes.py",
+            "agent/bootstrap/routes.py",
+            "schemas/tui/chat_message.v1.json"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T02.03"],
-          "status": "open",
+          "depends_on": [
+            "T02.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "`POST /snakes/{id}/chat/messages` nimmt validierte ChatMessage-v1 Payloads an.",
             "`GET /snakes/{id}/chat/messages?since=<cursor>` liefert neue Nachrichten.",
@@ -216,11 +262,16 @@
           "title": "Nicht-blockierendes Polling für eingehende Nachrichten",
           "description": "Die TUI ruft neue Nachrichten ab, ohne Rendering oder Snake-Bewegung zu blockieren.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/chat_transport.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/chat_transport.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T03.01"],
-          "status": "open",
+          "depends_on": [
+            "T03.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Polling läuft nicht im Render-Hotpath.",
             "Default-Intervall liegt zwischen 500ms und 2000ms.",
@@ -235,11 +286,18 @@
           "title": "Ausgehende Nachricht mit Queue und Retry",
           "description": "Ausgehende Nachrichten erscheinen sofort lokal und werden danach gesendet.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/chat_transport.py", "client_surfaces/operator_tui/chat_state.py", "client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/chat_transport.py",
+            "client_surfaces/operator_tui/chat_state.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T03.01", "T03.02"],
-          "status": "open",
+          "depends_on": [
+            "T03.01",
+            "T03.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Neue Nachricht erscheint lokal mit delivery_state `queued`.",
             "Nach erfolgreichem Versand wechselt Status auf `sent`.",
@@ -254,11 +312,17 @@
           "title": "Teilnehmerliste und Snake-Identität im Chat",
           "description": "Aktive Teilnehmer-Schlangen werden mit Rolle, Farbe und Status im Chat sichtbar.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/chat_state.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/chat_state.py"
+          ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T03.02"],
-          "status": "open",
+          "depends_on": [
+            "T03.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "`:snakes` zeigt ID, Name, Rolle, Farbe, online/offline und last_seen.",
             "Chat-Senderprefix nutzt dieselbe Farbe wie die Snake.",
@@ -279,11 +343,20 @@
           "title": "AI-Snake als dauerhafter Chat-Channel",
           "description": "`:ask` wird in einen dauerhaften AI-Chat-Verlauf integriert.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/chat_state.py", "client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/chat_state.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T02.01", "T02.03", "T01.04"],
-          "status": "open",
+          "depends_on": [
+            "T02.01",
+            "T02.03",
+            "T01.04"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "`:chat ai` aktiviert AI-Snake-Channel.",
             "Nachricht im AI-Channel löst AI-Antwort aus.",
@@ -298,11 +371,17 @@
           "title": "AI-Kontext sichtbar und steuerbar machen",
           "description": "Vor AI-Antwort wird sichtbar, welcher Kontext genutzt werden darf.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/ai_snake_context.py", "client_surfaces/operator_tui/chat_state.py", "client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_context.py",
+            "client_surfaces/operator_tui/chat_state.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T04.01"],
-          "status": "open",
+          "depends_on": [
+            "T04.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "AI-Kontextmodell enthält allowed_context_refs, denied_context_refs, sensitivity und policy_decision_ref.",
             "Chat zeigt kompakt genutzte Kontextquellen, z. B. `ctx: artifact+local`.",
@@ -317,11 +396,17 @@
           "title": "Artefakt-Erklärchat aus aktiver TUI-Selektion",
           "description": "Wenn ein Artefakt aktiv selektiert ist, nutzt die AI-Snake es als Default-Kontext für Fragen.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/ai_snake_context.py", "client_surfaces/operator_tui/commands.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/ai_snake_context.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T04.02"],
-          "status": "open",
+          "depends_on": [
+            "T04.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Aktiv selektiertes Artefakt wird als artifact_ref im AI-Kontext gesetzt.",
             "Frage `was ist das?` bezieht sich auf aktive Artefakt-Selektion.",
@@ -336,11 +421,16 @@
           "title": "AI-Snake zeigt visuell auf Ziel",
           "description": "Bei Artefakt- oder TUI-Erklärung bewegt sich die AI-Snake oder setzt einen Pointer zum relevanten Bereich.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P2",
           "effort": "L",
-          "depends_on": ["T04.03"],
-          "status": "open",
+          "depends_on": [
+            "T04.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "AI-Snake setzt Zielmarker bei erklärtem TUI-Element oder Artefakt.",
             "Bei genug Platz bewegt sie sich sichtbar Richtung Zielmarker.",
@@ -362,11 +452,18 @@
           "title": "Lokaler Notes-Channel `notes:self`",
           "description": "Ein eigener Channel dient als privater Notizblock und wird nicht an Hub, andere Snakes oder AI gesendet.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/chat_state.py", "client_surfaces/operator_tui/snake_notes.py", "client_surfaces/operator_tui/commands.py"],
+          "files": [
+            "client_surfaces/operator_tui/chat_state.py",
+            "client_surfaces/operator_tui/snake_notes.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T02.01", "T02.03"],
-          "status": "open",
+          "depends_on": [
+            "T02.01",
+            "T02.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "`:notes` aktiviert `notes:self`.",
             "Notes-Nachrichten haben immer visibility `local_only`.",
@@ -381,11 +478,16 @@
           "title": "Notes lokal persistieren",
           "description": "Private Notizen werden lokal gespeichert und beim Start geladen.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/snake_notes.py", "client_surfaces/operator_tui/chat_state.py"],
+          "files": [
+            "client_surfaces/operator_tui/snake_notes.py",
+            "client_surfaces/operator_tui/chat_state.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T05.01"],
-          "status": "open",
+          "depends_on": [
+            "T05.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Speicherpfad ist `~/.config/ananta/snake_notes.jsonl`.",
             "Jede Zeile ist ein valides JSON-Objekt.",
@@ -400,11 +502,17 @@
           "title": "Notes Suche, Pinning und Löschen",
           "description": "Der Notizblock bekommt einfache Verwaltungsbefehle.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/snake_notes.py", "client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/snake_notes.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T05.02"],
-          "status": "open",
+          "depends_on": [
+            "T05.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "`:notes find <text>` filtert sichtbare Notes.",
             "`:notes pin <id>` markiert Note als pinned.",
@@ -419,11 +527,18 @@
           "title": "Notes explizit an AI-Snake freigeben",
           "description": "Private Notes können bewusst und temporär als AI-Kontext freigegeben werden.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/ai_snake_context.py", "client_surfaces/operator_tui/snake_notes.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/ai_snake_context.py",
+            "client_surfaces/operator_tui/snake_notes.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T05.02", "T04.02"],
-          "status": "open",
+          "depends_on": [
+            "T05.02",
+            "T04.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Default: Notes werden nicht in AI-Kontext aufgenommen.",
             "`:ai context notes on` erlaubt Notes-Kontext temporär.",
@@ -445,11 +560,16 @@
           "title": "ChatAccessPolicy einführen",
           "description": "Eine Policy entscheidet über lokale Speicherung, Hub-Versand, AI-Nutzung und Export.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/chat_policy.py", "client_surfaces/operator_tui/chat_state.py"],
+          "files": [
+            "client_surfaces/operator_tui/chat_policy.py",
+            "client_surfaces/operator_tui/chat_state.py"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T02.03"],
-          "status": "open",
+          "depends_on": [
+            "T02.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Actions: `write_local`, `send_hub`, `send_ai`, `share_context`, `export`.",
             "Default ist deny für boundary-crossing actions.",
@@ -464,11 +584,16 @@
           "title": "Sensitive-Data-Filter für Chat und AI-Kontext",
           "description": "Nachrichten und Kontext, die Grenzen überschreiten, werden geprüft und ggf. blockiert oder bereinigt.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/chat_policy.py", "worker/core/redaction.py"],
+          "files": [
+            "client_surfaces/operator_tui/chat_policy.py",
+            "worker/core/redaction.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T06.01"],
-          "status": "open",
+          "depends_on": [
+            "T06.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Sensitive Muster werden vor Hub-/AI-Grenzübergang erkannt.",
             "Je nach Policy wird blockiert oder redacted.",
@@ -482,11 +607,17 @@
           "title": "Audit für Chat-Grenzübergänge",
           "description": "Grenzübergänge local->hub, local->ai, notes->ai und export werden auditierbar, aber ohne unnötige Inhalte protokolliert.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/chat_policy.py", "client_surfaces/operator_tui/chat_transport.py", "worker/core/audit_events.py"],
+          "files": [
+            "client_surfaces/operator_tui/chat_policy.py",
+            "client_surfaces/operator_tui/chat_transport.py",
+            "worker/core/audit_events.py"
+          ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T06.01"],
-          "status": "open",
+          "depends_on": [
+            "T06.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Audit-Event enthält action, channel_type, sender_kind, target_kind, decision, reason_code und message_hash.",
             "Audit-Event enthält keinen vollständigen Nachrichtentext.",
@@ -507,11 +638,16 @@
           "title": "Unit-Tests für Chat State",
           "description": "Channel-, Nachrichten-, Unread- und Notes-Invarianten werden isoliert getestet.",
           "repo": "tui",
-          "files": ["tests/test_tui_snake_chat_state.py"],
+          "files": [
+            "tests/test_tui_snake_chat_state.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T02.01", "T02.03"],
-          "status": "open",
+          "depends_on": [
+            "T02.01",
+            "T02.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Tests für room/direct/ai/notes/system Channel.",
             "Tests für Unread-Zähler und Channelwechsel.",
@@ -525,11 +661,15 @@
           "title": "Integrationstests für Snake Chat API",
           "description": "Hub-Endpunkte werden mit mehreren Snakes getestet.",
           "repo": "tui",
-          "files": ["tests/test_snakes_chat_api.py"],
+          "files": [
+            "tests/test_snakes_chat_api.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T03.01"],
-          "status": "open",
+          "depends_on": [
+            "T03.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Test registriert zwei Snakes und sendet room message.",
             "Test sendet direct message an genau eine Snake.",
@@ -543,11 +683,17 @@
           "title": "Policy-Regressionstests",
           "description": "Sicherheitsrelevante Grenzen werden festgeschrieben.",
           "repo": "tui",
-          "files": ["tests/test_tui_snake_chat_policy.py"],
+          "files": [
+            "tests/test_tui_snake_chat_policy.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T06.01", "T06.02", "T05.04"],
-          "status": "open",
+          "depends_on": [
+            "T06.01",
+            "T06.02",
+            "T05.04"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Test: Notes gehen nie an Hub.",
             "Test: Notes gehen nie an AI ohne explizite Freigabe.",
@@ -561,11 +707,19 @@
           "title": "TUI-E2E Cast für Multi-Snake Chat und Notes",
           "description": "Ein E2E-Skript erzeugt eine sichtbare Demo mit AI-Chat, Room-Chat und privatem Notes-Channel.",
           "repo": "tui",
-          "files": ["scripts/e2e/snake_chat_notes_e2e.py", "assets/operator_tui_multisnake_chat.cast"],
+          "files": [
+            "scripts/e2e/snake_chat_notes_e2e.py",
+            "assets/operator_tui_multisnake_chat.cast"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T01.04", "T03.03", "T04.01", "T05.01"],
-          "status": "open",
+          "depends_on": [
+            "T01.04",
+            "T03.03",
+            "T04.01",
+            "T05.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "E2E zeigt `:chat ai` und eine Frage an AI-Snake.",
             "E2E zeigt `:notes` und eine private Notiz.",
@@ -587,11 +741,18 @@
           "title": "User-Doku für Chat, AI und Notes",
           "description": "Kurze Bedienungsdoku mit Kommandos, Shortcuts und Grenzen.",
           "repo": "tui",
-          "files": ["docs/snake_chat_notes.md", "docs/snake_tutor.md"],
+          "files": [
+            "docs/snake_chat_notes.md",
+            "docs/snake_tutor.md"
+          ],
           "priority": "P1",
           "effort": "S",
-          "depends_on": ["T01.04", "T02.02", "T05.01"],
-          "status": "open",
+          "depends_on": [
+            "T01.04",
+            "T02.02",
+            "T05.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Doku erklärt `c`, `Esc`, Enter und Scrollback.",
             "Doku erklärt `:chat room`, `:chat ai`, `:chat @id`, `:notes`, `:channels`.",
@@ -605,11 +766,17 @@
           "title": "Architekturdoku mit Mermaid-Diagrammen",
           "description": "Technische Doku beschreibt State, Transport, Policy, AI-Kontext und Rendering-Flows.",
           "repo": "tui",
-          "files": ["docs/architecture/snake_chat_notes_architecture.md"],
+          "files": [
+            "docs/architecture/snake_chat_notes_architecture.md"
+          ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T02.03", "T03.01", "T06.01"],
-          "status": "open",
+          "depends_on": [
+            "T02.03",
+            "T03.01",
+            "T06.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Doku enthält Mermaid-Flow für Nachricht senden: input -> policy -> state -> transport -> render.",
             "Doku enthält Mermaid-Flow für AI-Kontextfreigabe.",
@@ -623,11 +790,17 @@
           "title": "In-TUI-Hilfe erweitern",
           "description": "`:help` zeigt Chat- und Notes-Kommandos kompakt.",
           "repo": "tui",
-          "files": ["client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/renderer.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["T02.02", "T05.01"],
-          "status": "open",
+          "depends_on": [
+            "T02.02",
+            "T05.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "`:help chat` zeigt Chat-Kommandos.",
             "`:help notes` zeigt Notes-Kommandos und local-only Hinweis.",
@@ -658,5 +831,6 @@
     "E03 Hub-Transport für Multi-Snake-Chat",
     "E07 Tests und Cast-Demo",
     "E08 Dokumentation"
-  ]
+  ],
+  "next_up": "Alle 27 Tasks abgeschlossen!"
 }

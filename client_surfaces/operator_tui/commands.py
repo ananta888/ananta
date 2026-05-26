@@ -66,6 +66,14 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(state, f"unknown mode: {requested}", handled=False)
         return CommandResult(state.with_updates(mode=mode, status_message=f"mode {mode.value}"), f"mode {mode.value}")
     if command in {"help", "?"}:
+        if args:
+            sub = args[0].lower()
+            if sub == "chat":
+                msg = "chat: [c] focus | Esc game | :chat room|ai|@id | :channels | :chat retry"
+                return CommandResult(state.with_updates(status_message=msg), "help chat")
+            if sub == "notes":
+                msg = "notes: :notes | :notes find <t> | :notes pin/unpin/delete <id> | LOCAL ONLY"
+                return CommandResult(state.with_updates(status_message=msg), "help notes")
         return CommandResult(state.with_updates(show_help=not state.show_help, status_message="help toggled"), "help toggled")
     if command == "mouse":
         mode = (args[0].strip().lower() if args else "toggle")
@@ -388,5 +396,148 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"msg → {target_id}: {text[:40]}"),
             f"msg sent to {target_id}",
         )
+
+    # ── chat ──────────────────────────────────────────────────────────────────
+    if command == "chat":
+        sub = args[0].lower() if args else ""
+        if not sub:
+            return CommandResult(state, "chat: room | ai | @<snake-id> | retry", handled=False)
+        game = dict(state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel, add_direct_channel
+        chat = get_chat_state(game)
+
+        if sub == "retry":
+            # retry failed outbox messages
+            game["chat_retry_requested"] = True
+            set_chat_state(game, chat)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: retry fehlgeschlagene Nachrichten"),
+                "chat retry",
+            )
+        if sub == "room":
+            switch_channel(chat, "room:main")
+            set_chat_state(game, chat)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: #room"),
+                "chat room",
+            )
+        if sub == "ai":
+            switch_channel(chat, "ai:tutor")
+            set_chat_state(game, chat)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="chat: AI tutor-ai"),
+                "chat ai",
+            )
+        if sub.startswith("@"):
+            snake_id = sub[1:].strip()
+            if not snake_id:
+                return CommandResult(state, "chat @: snake-id erforderlich", handled=False)
+            snakes_raw = game.get("snakes") or {}
+            snap = snakes_raw.get(snake_id) if isinstance(snakes_raw, dict) else None
+            if snap is None:
+                return CommandResult(state.with_updates(status_message=f"chat: Snake '{snake_id}' nicht gefunden"), f"chat: unknown snake {snake_id}", handled=False)
+            display = str(snap.get("pseudonym") or snake_id) if isinstance(snap, dict) else snake_id
+            ch_id = add_direct_channel(chat, snake_id, display)
+            switch_channel(chat, ch_id)
+            set_chat_state(game, chat)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"chat: @{display}"),
+                f"chat direct {snake_id}",
+            )
+        return CommandResult(state, f"chat: unbekannte Option '{sub}'", handled=False)
+
+    # ── notes ─────────────────────────────────────────────────────────────────
+    if command == "notes":
+        sub = args[0].lower() if args else ""
+        game = dict(state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+        chat = get_chat_state(game)
+
+        if not sub or sub == "open":
+            switch_channel(chat, "notes:self")
+            set_chat_state(game, chat)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="notes: NOTES local-only"),
+                "notes open",
+            )
+        if sub == "find":
+            query = " ".join(args[1:]).strip()
+            game["notes_search_query"] = query
+            switch_channel(chat, "notes:self")
+            set_chat_state(game, chat)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: suche '{query}'"),
+                f"notes find {query}",
+            )
+        if sub == "pin" and len(args) > 1:
+            note_id = args[1].strip()
+            game["notes_pin_id"] = note_id
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: pin {note_id[:12]}"),
+                f"notes pin {note_id}",
+            )
+        if sub == "unpin" and len(args) > 1:
+            note_id = args[1].strip()
+            game["notes_unpin_id"] = note_id
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: unpin {note_id[:12]}"),
+                f"notes unpin {note_id}",
+            )
+        if sub == "delete" and len(args) > 1:
+            note_id = args[1].strip()
+            game["notes_delete_id"] = note_id
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"notes: delete {note_id[:12]}"),
+                f"notes delete {note_id}",
+            )
+        return CommandResult(state, "notes: open | find <text> | pin <id> | unpin <id> | delete <id>", handled=False)
+
+    # ── channels ──────────────────────────────────────────────────────────────
+    if command == "channels":
+        game = state.header_logo_game or {}
+        from client_surfaces.operator_tui.chat_state import get_chat_state
+        chat = get_chat_state(game)
+        channels = chat.get("channels") or {}
+        parts = []
+        for ch_id, ch in sorted(channels.items()):
+            unread = int(ch.get("unread") or 0)
+            display = str(ch.get("display_name") or ch_id)
+            marker = "*" if unread else " "
+            parts.append(f"{marker}{display}({'!' + str(unread) if unread else 'ok'})")
+        msg = "channels: " + "  ".join(parts) if parts else "channels: keine"
+        return CommandResult(state.with_updates(status_message=msg), "channels listed")
+
+    # ── ai context ────────────────────────────────────────────────────────────
+    if command == "ai" and args and args[0].lower() == "context":
+        sub = args[1].lower() if len(args) > 1 else ""
+        opt = args[2].lower() if len(args) > 2 else ""
+        game = dict(state.header_logo_game or {})
+        from client_surfaces.operator_tui.ai_snake_context import get_ai_context, set_ai_context, release_notes_context
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, make_message, append_message
+        ctx = get_ai_context(game)
+        chat = get_chat_state(game)
+
+        if sub == "notes":
+            released = opt == "on"
+            release_notes_context(ctx, released=released)
+            set_ai_context(game, ctx)
+            # update chat state notes_context_released flag
+            chat["notes_context_released"] = released
+            # log to AI channel
+            sys_text = f"* [system] Notes-Kontext {'freigegeben' if released else 'gesperrt'}"
+            sys_msg = make_message(
+                channel_id="ai:tutor", channel_type="ai",
+                sender_id="system", sender_kind="system",
+                text=sys_text, visibility="ai_context",
+                delivery_state="received",
+            )
+            append_message(chat, sys_msg)
+            set_chat_state(game, chat)
+            label = "on" if released else "off"
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"ai context notes {label}"),
+                f"ai context notes {label}",
+            )
+        return CommandResult(state, "ai context notes on|off", handled=False)
 
     return CommandResult(state.with_updates(status_message=f"unknown command: {command}"), f"unknown command: {command}", handled=False)
