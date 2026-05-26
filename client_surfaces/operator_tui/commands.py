@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import json
+
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
-from client_surfaces.operator_tui.ai_snake_training_store import data_path_status
+from client_surfaces.operator_tui.ai_snake_training_store import (
+    build_training_bundle,
+    data_path_status,
+    data_show_status,
+    pattern_detail,
+    patterns_status_lines,
+    read_active_profile,
+    save_active_profile,
+)
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id, section_ids
 
@@ -184,14 +194,100 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     state.with_updates(header_logo_game=game, status_message=data_path_status()),
                     "ai data path",
                 )
+            if action == "show":
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message=data_show_status()),
+                    "ai data show",
+                )
+            if action == "export":
+                tail = [str(token).strip() for token in args[2:]]
+                options = {token.lower() for token in tail}
+                if "--stdout" not in options:
+                    return CommandResult(state, "ai data export requires --stdout", handled=False)
+                fmt = "json"
+                if "--format" in options:
+                    try:
+                        idx = [item.lower() for item in tail].index("--format")
+                        fmt = str(tail[idx + 1]).lower() if idx + 1 < len(tail) else ""
+                    except ValueError:
+                        fmt = ""
+                if fmt != "json":
+                    return CommandResult(state, "ai data export supports --format json", handled=False)
+                include_events = "--include-events" in options
+                try:
+                    bundle = build_training_bundle(include_events=include_events)
+                except ValueError as exc:
+                    return CommandResult(
+                        state.with_updates(header_logo_game=game, status_message=f"ai data export failed: {exc}"),
+                        "ai data export failed",
+                        handled=False,
+                    )
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message="ai data export stdout"),
+                    json.dumps(bundle, ensure_ascii=False),
+                )
             return CommandResult(
                 state,
-                "ai data: path",
+                "ai data: path | show | export --stdout --format json [--include-events]",
                 handled=False,
             )
+        if sub == "patterns":
+            lines = patterns_status_lines(max_items=8)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=("patterns: " + " | ".join(lines))[:240]),
+                "\n".join(lines),
+            )
+        if sub == "pattern":
+            if len(args) < 2:
+                return CommandResult(state, "ai pattern requires an id", handled=False)
+            detail = pattern_detail(args[1])
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=detail[:240]),
+                detail,
+            )
+        if sub == "learning":
+            action = str(args[1]).lower() if len(args) > 1 else "status"
+            profile = read_active_profile()
+            learning = dict(profile.get("learning_settings") or {})
+            if action == "on":
+                learning["enabled"] = True
+                learning["paused"] = False
+                profile["learning_settings"] = learning
+                save_active_profile(profile, backup=True)
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message="ai learning on"),
+                    "ai learning on",
+                )
+            if action == "off":
+                learning["enabled"] = False
+                learning["paused"] = False
+                profile["learning_settings"] = learning
+                save_active_profile(profile, backup=True)
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message="ai learning off"),
+                    "ai learning off",
+                )
+            if action == "pause":
+                learning["enabled"] = True
+                learning["paused"] = True
+                profile["learning_settings"] = learning
+                save_active_profile(profile, backup=True)
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message="ai learning paused"),
+                    "ai learning paused",
+                )
+            if action == "status":
+                enabled = bool(learning.get("enabled"))
+                paused = bool(learning.get("paused"))
+                mode = "paused" if paused else ("active" if enabled else "off")
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message=f"ai learning {mode} enabled={enabled}"),
+                    f"ai learning status: mode={mode} enabled={enabled}",
+                )
+            return CommandResult(state, "ai learning: on | off | pause | status", handled=False)
         return CommandResult(
             state,
-            "ai: follow | lurk | quiet | explain | off | status | ctx | data path",
+            "ai: follow | lurk | quiet | explain | off | status | ctx | data ... | patterns | pattern <id> | learning ...",
             handled=False,
         )
     if command == "inspect":
