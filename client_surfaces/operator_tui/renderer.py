@@ -246,16 +246,15 @@ def _assemble_header_lines(logo_lines: list[str], right_lines: list[str], n_rows
 
 
 def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
-    """Compact logo + live status (or interactive config when HEADER focused)."""
+    """Snake-focused header (left: snake roster/help, right: status/config)."""
     from agent.cli.logo_layout import COMPACT_HEADER_LINES
     from agent.cli.status_snapshot import collect_status
 
     no_color = state.terminal_graphics.get("no_color", False) if state.terminal_graphics else False
     color = not no_color
-    logo_cols = _logo_cols_for_width(width)
-    right_width = max(20, width - logo_cols - len(_LOGO_SEP))
-
-    logo_lines = _load_logo_lines(cols=logo_cols, color=color, state=state)
+    left_cols = max(34, min(56, _logo_cols_for_width(width)))
+    right_width = max(20, width - left_cols - len(_LOGO_SEP))
+    left_lines = _render_header_snake_lines(state, left_cols)
 
     if state.focus == FocusPane.HEADER or bool((state.header_logo_game or {}).get("active")):
         right_lines = _render_header_config_lines(state, right_width)
@@ -272,7 +271,71 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
     while len(right_lines) < COMPACT_HEADER_LINES:
         right_lines.append("")
 
-    return _assemble_header_lines(logo_lines, right_lines, COMPACT_HEADER_LINES, logo_cols=logo_cols)
+    while len(left_lines) < COMPACT_HEADER_LINES:
+        left_lines.append("")
+
+    return _assemble_header_lines(left_lines, right_lines, COMPACT_HEADER_LINES, logo_cols=left_cols)
+
+
+def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
+    game = dict(state.header_logo_game or {})
+    local_id = str(game.get("local_snake_id") or "s1")
+    active = bool(game.get("active") and game.get("ui_steering"))
+    score = int(game.get("score", 0))
+    status = "running" if game.get("alive", True) else "game over"
+    remote_access_raw = game.get("remote_access")
+    remote_access = dict(remote_access_raw) if isinstance(remote_access_raw, dict) else {}
+
+    snakes_raw = game.get("snakes")
+    snakes: dict[str, dict[str, object]] = (
+        {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)}
+        if isinstance(snakes_raw, dict)
+        else {}
+    )
+    if not snakes:
+        snakes = {
+            local_id: {
+                "id": local_id,
+                "pseudonym": str(game.get("pseudonym") or "local-snake"),
+                "snake_color": str(game.get("snake_color") or "mint"),
+            },
+            "s-ai": {
+                "id": "s-ai",
+                "pseudonym": "tutorial-ai",
+                "snake_color": "amber",
+                "oidc_provider": "codecompass-ai",
+            },
+        }
+
+    def _access_for(sid: str, snap: dict[str, object]) -> str:
+        if sid == local_id:
+            return "full"
+        level = str(remote_access.get(sid) or snap.get("access_level") or ("view" if sid == "s-ai" else "cancel")).lower()
+        if level not in {"cancel", "view", "full"}:
+            return "cancel"
+        return level
+
+    ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == local_id else (1 if str(kv[0]) == "s-ai" else 2), str(kv[0])))
+    lines = [_pane_title("SNAKE", state.focus == FocusPane.HEADER)]
+    if active:
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} mode=active score={score} status={status}", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} remote: :snake-access <id> cancel|view|full", width))
+    else:
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ctrl+S startet Snake-Modus (lokal/KI/remote).", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Freigaben: :snake-access <id> cancel|view|full", width))
+
+    for sid, snap in ordered:
+        pseudo = str(snap.get("pseudonym") or sid)
+        color_name = str(snap.get("snake_color") or "mint")
+        access = _access_for(str(sid), snap)
+        provider = str(snap.get("oidc_provider") or "")
+        ident = f"{str(sid).upper()} {pseudo} [{color_name}] access={access}"
+        if provider:
+            ident += f" @{provider}"
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} {ident}", width))
+        if len(lines) >= 8:
+            break
+    return lines
 
 
 def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:

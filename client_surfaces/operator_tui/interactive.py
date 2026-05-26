@@ -1060,6 +1060,7 @@ class InteractiveOperatorTui:
             "active": True,
             "updated_at": now,
             "local": True,
+            "access_level": "full",
         }
         snakes[local_id] = local_snapshot
         self._update_demo_remote_snakes(snakes, now=now, board_w=board_w, board_h=board_h)
@@ -1168,6 +1169,7 @@ class InteractiveOperatorTui:
             target=target_label,
             text=tip,
         )
+        existing_access = str(existing.get("access_level") or "view") if isinstance(existing, dict) else "view"
         snakes[sid] = {
             "id": sid,
             "pseudonym": "tutor-ai",
@@ -1186,6 +1188,7 @@ class InteractiveOperatorTui:
             "knowledge_scope": ("tui", "architecture", "workflow"),
             "target_cell": target,
             "mode": game.get("tutorial_ai_target_mode") or "follow_user",
+            "access_level": existing_access,
         }
 
     def _tutorial_target_label(
@@ -2069,6 +2072,8 @@ class InteractiveOperatorTui:
         center_y = board_h // 2
         for i in range(demo_peers):
             sid = f"s{i + 2}"
+            existing = snakes.get(sid, {})
+            access_level = str(existing.get("access_level") or "cancel")
             phase = now * (0.9 + i * 0.3)
             hx = int(center_x + radius_x * math.sin(phase + i * 1.7)) % max(1, board_w)
             hy = int(center_y + radius_y * math.cos(phase + i * 1.3)) % max(1, board_h)
@@ -2099,6 +2104,7 @@ class InteractiveOperatorTui:
                 "active": True,
                 "updated_at": now,
                 "local": False,
+                "access_level": access_level,
             }
 
     def _apply_snake_hover_selection_delay(
