@@ -150,7 +150,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T01.01", "T01.03", "T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Jedes gespeicherte Objekt enthält schema_version.",
             "Migration-Registry kann v1 -> aktuelle Version registrieren.",
@@ -202,7 +202,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai data show` zeigt Profilname, Anzahl Patterns, Events, letzte Aktualisierung und Speicherpfad.",
             "`:ai patterns` listet gelernte Patterns mit human_explanation, confidence und status.",
@@ -224,7 +224,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai data export --stdout --format json` gibt valides TrainingBundle-v1 JSON aus.",
             "Ausgabe enthält keine ANSI-Farbcodes.",
@@ -245,7 +245,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Beim ersten Anlegen des Datenordners wird `README.md` erzeugt.",
             "README erklärt profile, events, learned_patterns und exports.",
@@ -273,7 +273,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.02", "T02.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Recorder ist per Config/Command aktivierbar und deaktivierbar.",
             "Default zeichnet nur normalisierte, kurze Events auf, keine vollständigen privaten Texte.",

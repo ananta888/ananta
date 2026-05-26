@@ -44,6 +44,8 @@ from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
 from client_surfaces.operator_tui.ai_snake_lm_budget import AiSnakeLmBudget
 from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, build_prediction_trace, quick_predict
 from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
+from client_surfaces.operator_tui.ai_snake_training_recorder import AiSnakeTrainingRecorder
+from client_surfaces.operator_tui.ai_snake_training_store import read_active_profile
 from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
@@ -123,6 +125,11 @@ class InteractiveOperatorTui:
         self._ai_prediction_cache = PredictionCache(ttl_seconds=30)
         self._ai_lm_budget = AiSnakeLmBudget()
         self._ai_worker_client = AiSnakeWorkerClient()
+        learning_cfg = dict(read_active_profile().get("learning_settings") or {})
+        self._ai_learning_settings = learning_cfg
+        self._ai_learning_settings_loaded_at = 0.0
+        self._ai_training_recorder = AiSnakeTrainingRecorder(enabled=bool(learning_cfg.get("enabled", True)))
+        self._ai_training_recorder.set_paused(bool(learning_cfg.get("paused", False)))
         self._ai_worker_task: WorkerTask | None = None
         self._ai_last_signature = ""
         # E01/E02: new runtime state
@@ -1027,7 +1034,7 @@ class InteractiveOperatorTui:
 
     def _run_command(self, command: str) -> None:
         result = execute_command(command, self.state)
-        state = result.state.with_updates(status_message=result.message)
+        state = result.state.with_updates(status_message=str(result.state.status_message or result.message))
         if state.section_id != self.state.section_id or command.strip().lower() in {":refresh", "refresh", "r", ":next", ":prev"}:
             state = load_active_section(state, self._registry)
         self._command_buffer = ""
@@ -1386,15 +1393,38 @@ class InteractiveOperatorTui:
 
     def _tick_ai_snake_prediction(self, game: dict[str, object], *, now: float) -> None:
         section = str(self.state.section_id or "dashboard")
+        if (now - float(self._ai_learning_settings_loaded_at or 0.0)) >= 1.0:
+            profile_payload = read_active_profile()
+            self._ai_learning_settings = (
+                dict(profile_payload.get("learning_settings") or {}) if isinstance(profile_payload, dict) else {}
+            )
+            self._ai_learning_settings_loaded_at = now
+        profile_learning = self._ai_learning_settings
+        self._ai_training_recorder.set_enabled(bool(profile_learning.get("enabled", True)))
+        self._ai_training_recorder.set_paused(bool(profile_learning.get("paused", False)))
+        self._ai_training_recorder.record_event(
+            event_type="section_visit",
+            value_norm=section,
+            refs=[f"section:{section}"],
+            privacy_class="public_ui",
+        )
         self._ai_observation.add_event(kind="section", value=section, timestamp=now)
         if bool(game.get("tutorial_mode")):
             self._ai_observation.add_event(kind="chat_channel", value="ai:tutor", timestamp=now)
         artifact_ref = artifact_ref_from_game(game)
         if isinstance(artifact_ref, dict):
+            ref_value = str(artifact_ref.get("path") or artifact_ref.get("label") or "artifact")
+            ref_id = str(artifact_ref.get("path") or "")
+            self._ai_training_recorder.record_event(
+                event_type="artifact_focus",
+                value_norm=ref_value,
+                refs=[ref_id] if ref_id else [],
+                privacy_class="workspace",
+            )
             self._ai_observation.add_event(
                 kind="artifact",
-                value=str(artifact_ref.get("path") or artifact_ref.get("label") or "artifact"),
-                ref_id=str(artifact_ref.get("path") or ""),
+                value=ref_value,
+                ref_id=ref_id,
                 timestamp=now,
             )
         vx = float(game.get("vel_x") or 0.0)
@@ -1404,6 +1434,12 @@ class InteractiveOperatorTui:
         else:
             movement = "down" if vy > 0.25 else ("up" if vy < -0.25 else "idle")
         self._ai_observation.add_event(kind="movement", value=movement, timestamp=now)
+        self._ai_training_recorder.record_event(
+            event_type="movement_vector",
+            value_norm=movement,
+            refs=[f"section:{section}"],
+            privacy_class="public_ui",
+        )
         self._ai_observation.add_event(
             kind="notes_active",
             value=bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False,

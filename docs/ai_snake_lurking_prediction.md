@@ -55,3 +55,10 @@ Mit `:ai data path` zeigt die TUI den lokalen Pfadbaum:
 - `~/.config/ananta/ai_snake/prediction_events.jsonl`
 - `~/.config/ananta/ai_snake/learned_patterns.json`
 - `~/.config/ananta/ai_snake/exports/`
+
+Weitere Trainings-Kommandos:
+
+- `:ai data show` (human-readable Überblick)
+- `:ai patterns` und `:ai pattern <id>` (Pattern-Inspektion)
+- `:ai data export --stdout --format json [--include-events]` (machine-readable Bundle)
+- `:ai learning on|off|pause|status` (Recorder/Profil-Steuerung)
