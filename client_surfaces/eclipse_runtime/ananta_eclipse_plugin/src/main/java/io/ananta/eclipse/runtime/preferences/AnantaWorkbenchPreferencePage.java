@@ -27,6 +27,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
     private Text environmentText;
     private Text tokenText;
     private Spinner timeoutSpinner;
+    private Button snakeHubEnabledCheckbox;
     private Label connectionStatusLabel;
 
     @Override
@@ -58,6 +59,10 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         timeoutSpinner.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
         new Label(root, SWT.NONE);
 
+        snakeHubEnabledCheckbox = new Button(root, SWT.CHECK);
+        snakeHubEnabledCheckbox.setText("Enable Snake Hub Integration");
+        snakeHubEnabledCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
+
         Button testConnection = new Button(root, SWT.PUSH);
         testConnection.setText("Test Connection");
         testConnection.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
@@ -79,6 +84,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         environmentText.setText("local");
         tokenText.setText("");
         timeoutSpinner.setSelection(15);
+        snakeHubEnabledCheckbox.setSelection(false);
         connectionStatusLabel.setText("");
         super.performDefaults();
     }
@@ -94,6 +100,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         setErrorMessage(null);
         ClientProfile profile = draft.toProfile();
         AnantaPreferenceRuntimeStore.saveProfile(profile);
+        AnantaPreferenceRuntimeStore.saveSnakeHubEnabled(snakeHubEnabledCheckbox.getSelection());
         AnantaRuntimeBootstrap.reloadFromPreferences();
         setMessage("Ananta profile saved.");
         return true;
@@ -107,6 +114,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         environmentText.setText(profile.getEnvironment());
         tokenText.setText(profile.getAuthToken());
         timeoutSpinner.setSelection(profile.getTimeoutSeconds());
+        snakeHubEnabledCheckbox.setSelection(AnantaPreferenceRuntimeStore.loadSnakeHubEnabled());
     }
 
     private AnantaPreferencePage.ProfilePreferenceDraft buildDraft() {

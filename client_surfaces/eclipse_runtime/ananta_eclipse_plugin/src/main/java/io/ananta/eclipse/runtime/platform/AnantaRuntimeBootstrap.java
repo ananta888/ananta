@@ -72,6 +72,7 @@ public final class AnantaRuntimeBootstrap {
 
     private static void rebuild() {
         ClientProfile profile = AnantaPreferenceRuntimeStore.loadProfile();
+        boolean snakeHubEnabled = AnantaPreferenceRuntimeStore.loadSnakeHubEnabled();
         AnantaApiClient apiClient = new AnantaApiClient(profile);
         CapabilityGate capabilityGate = new CapabilityGate(
                 Set.of("goals", "review", "patch", "projects", "approvals", "audit", "repair_step_approval"),
@@ -84,6 +85,7 @@ public final class AnantaRuntimeBootstrap {
         if (snakeService == null) {
             snakeService = new AnantaSnakePluginService();
         }
+        snakeService.applyHubProfile(profile, snakeHubEnabled);
     }
 
     private static Map<String, Boolean> actionPermissions() {
@@ -94,6 +96,7 @@ public final class AnantaRuntimeBootstrap {
         permissions.put("io.ananta.eclipse.command.new_project", true);
         permissions.put("io.ananta.eclipse.command.evolve_project", true);
         permissions.put("io.ananta.eclipse.command.snake_toggle", true);
+        permissions.put("io.ananta.eclipse.command.snake_ask", true);
         permissions.put("approval:approve", true);
         permissions.put("approval:reject", true);
         permissions.put("repair:approve_step", true);

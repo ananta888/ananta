@@ -61,6 +61,11 @@
             description="Toggle Ananta Snake overlay and open Snake view"
             id="io.ananta.eclipse.command.snake_toggle"
             name="Ananta Snake Toggle"/>
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Ask Ananta Snake with current Eclipse context metadata"
+            id="io.ananta.eclipse.command.snake_ask"
+            name="Ask Ananta Snake"/>
    </extension>
 
    <extension
@@ -86,6 +91,9 @@
       <handler
             class="io.ananta.eclipse.runtime.commands.handlers.SnakeToggleCommandHandler"
             commandId="io.ananta.eclipse.command.snake_toggle"/>
+      <handler
+            class="io.ananta.eclipse.runtime.commands.handlers.SnakeAskCommandHandler"
+            commandId="io.ananta.eclipse.command.snake_ask"/>
    </extension>
 
    <extension
@@ -169,6 +177,11 @@
                   id="io.ananta.eclipse.menu.snake.toggle"
                   label="Toggle Snake Overlay"
                   style="push"/>
+            <command
+                  commandId="io.ananta.eclipse.command.snake_ask"
+                  id="io.ananta.eclipse.menu.snake.ask"
+                  label="Ask Ananta Snake"
+                  style="push"/>
          </menu>
       </menuContribution>
       <menuContribution
@@ -179,6 +192,11 @@
                   commandId="io.ananta.eclipse.command.snake_toggle"
                   id="io.ananta.eclipse.toolbar.snake.toggle"
                   label="Ananta Snake"
+                  style="push"/>
+            <command
+                  commandId="io.ananta.eclipse.command.snake_ask"
+                  id="io.ananta.eclipse.toolbar.snake.ask"
+                  label="Ask Snake"
                   style="push"/>
          </toolbar>
       </menuContribution>
