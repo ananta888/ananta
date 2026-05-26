@@ -217,7 +217,7 @@
     {
       "id": "T02.03",
       "title": "Planner Input ContextEnvelope definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "worker",
@@ -236,7 +236,7 @@
     {
       "id": "T02.04",
       "title": "Planner Output als GoalOutputArtifact speichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "artifact",
@@ -256,7 +256,7 @@
     {
       "id": "T03.01",
       "title": "JSON-Schema Validation Service für Planning",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "validation",
@@ -275,7 +275,7 @@
     {
       "id": "T03.02",
       "title": "Deterministische Summary-Konsistenzprüfung",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "validation",
@@ -294,7 +294,7 @@
     {
       "id": "T03.03",
       "title": "Planning JSON Repair Pipeline",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "validation",

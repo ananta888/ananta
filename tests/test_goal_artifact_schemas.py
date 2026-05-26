@@ -190,3 +190,9 @@ def test_goal_output_worker_execution_accepts_provenance_id() -> None:
     payload["provenance_kind"] = "worker_execution"
     payload["provenance_id"] = "prov-123"
     assert validate_goal_output_artifact_payload(payload) == []
+
+
+def test_goal_output_accepts_planning_track_artifact_type() -> None:
+    payload = _output()
+    payload["artifact_type"] = "planning_track"
+    assert validate_goal_output_artifact_payload(payload) == []
