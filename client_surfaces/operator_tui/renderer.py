@@ -712,12 +712,18 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         parts.append(f"mouse={int(mouse_state.get('x', 0))},{int(mouse_state.get('y', 0))}")
     ai_mode = str(game.get("ai_snake_mode") or "").strip()
     if ai_mode:
-        parts.append(f"ai={ai_mode}")
+        runtime = str(game.get("ai_snake_runtime_status") or "idle")
+        parts.append(f"ai={ai_mode}/{runtime}")
         prediction = game.get("ai_snake_prediction")
         if isinstance(prediction, dict):
             pred_intent = str(prediction.get("predicted_intent") or "unknown")
             pred_conf = float(prediction.get("confidence") or 0.0)
             parts.append(f"pred={pred_intent}:{pred_conf:.2f}")
+        debug = game.get("ai_snake_debug")
+        if isinstance(debug, dict):
+            reason = str(debug.get("gate_reason") or "")
+            if reason:
+                parts.append(f"gate={reason}")
         envelope = game.get("ai_snake_context_envelope")
         if isinstance(envelope, dict):
             parts.append(f"ctx={str(envelope.get('context_hash') or 'missing')}")

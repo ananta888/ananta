@@ -85,10 +85,12 @@ def test_operator_tui_ai_command_controls_mode_and_status() -> None:
 
     follow = execute_command(":ai follow", state)
     status = execute_command(":ai status", follow.state)
+    explain = execute_command(":ai explain", status.state)
 
     assert follow.handled is True
     assert (follow.state.header_logo_game or {}).get("ai_snake_mode") == "follow"
     assert "ai:follow" in status.state.status_message
+    assert (explain.state.header_logo_game or {}).get("ai_force_question") is True
 
 
 def test_operator_tui_section_aliases_and_navigation() -> None:

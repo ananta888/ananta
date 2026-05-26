@@ -33,6 +33,12 @@ from client_surfaces.operator_tui.ai_snake_context import (
     relevance_refs_for_intent,
     set_ai_context,
 )
+from client_surfaces.operator_tui.ai_snake_follow import (
+    apply_worker_follow_update,
+    make_follow_state,
+    step_follow_state,
+)
+from client_surfaces.operator_tui.ai_snake_policy import apply_policy_to_payload
 from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
 from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, quick_predict
 from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
@@ -1093,6 +1099,8 @@ class InteractiveOperatorTui:
             "ai_snake_mode": "lurking_follow",
             "ai_snake_prediction": {},
             "ai_snake_debug": {},
+            "ai_snake_runtime_status": "idle",
+            "ai_snake_follow_state": make_follow_state(ai_position=(3, 3), mode="lurking_follow"),
             "artifact_target_cell": None,
             "tutorial_ai_target_mode": "follow_user",
             "tutorial_ai_target_hint": "follow",
@@ -1391,7 +1399,8 @@ class InteractiveOperatorTui:
             timestamp=now,
         )
         summary = self._ai_observation.compact_summary(max_facts=20)
-        prediction = quick_predict(self._ai_observation.events(), now=now).as_dict()
+        quick = quick_predict(self._ai_observation.events(), now=now)
+        prediction = quick.as_dict()
         codecompass = load_codecompass_artifact()
         ai_ctx = default_ai_context()
         set_ai_context(game, ai_ctx)
@@ -1413,19 +1422,109 @@ class InteractiveOperatorTui:
         if not cache_hit:
             self._ai_prediction_cache.set(cache_key, prediction, now=now)
         gate_decision = self._ai_prediction_gate.evaluate(
-            prediction=quick_predict(self._ai_observation.events(), now=now),
+            prediction=quick,
             signature=signature,
             now=now,
             selected_artifact=isinstance(artifact_ref, dict),
         )
+        selected_allowed = isinstance(artifact_ref, dict) or str(prediction.get("target_ref") or "").startswith("section:")
+        notes_released = bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False
+        worker_payload, worker_policy = apply_policy_to_payload(
+            {
+                "mode": str(game.get("ai_snake_mode") or "lurking_follow"),
+                "quick_prediction": prediction,
+                "context_envelope_ref": envelope,
+                "observation_summary": summary,
+                "notes_context": (game.get("chat_state") or {}).get("notes_context"),
+            },
+            boundary="worker_request",
+            notes_released=notes_released,
+            selected_artifact_allowed=selected_allowed,
+            external_provider=False,
+        )
+        prompt_payload, prompt_policy = apply_policy_to_payload(
+            {
+                "quick_prediction": prediction,
+                "observation_summary": summary,
+                "notes_context": (game.get("chat_state") or {}).get("notes_context"),
+            },
+            boundary="lmstudio_prompt",
+            notes_released=notes_released,
+            selected_artifact_allowed=selected_allowed,
+            external_provider=False,
+        )
+        ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
+        follow_state_raw = game.get("ai_snake_follow_state")
+        follow_state = dict(follow_state_raw) if isinstance(follow_state_raw, dict) else make_follow_state(mode=ai_mode)
+        local_snake = game.get("snake")
+        if isinstance(local_snake, list) and local_snake:
+            head = local_snake[0]
+            if isinstance(head, (list, tuple)) and len(head) == 2:
+                follow_state["mode"] = ai_mode
+                follow_state = step_follow_state(
+                    follow_state,
+                    user_position=(int(head[0]), int(head[1])),
+                    board_w=max(1, int(game.get("board_w") or 18)),
+                    board_h=max(1, int(game.get("board_h") or 6)),
+                )
+        response = game.get("ai_snake_worker_response")
+        if isinstance(response, dict):
+            follow_state = apply_worker_follow_update(
+                follow_state,
+                follow_mode_update=str(response.get("follow_mode_update") or ""),
+                prediction_target=str(response.get("target_ref") or ""),
+                confidence=float(response.get("confidence") or 0.0),
+            )
+
+        runtime_status = "idle"
+        if ai_mode == "off":
+            runtime_status = "off"
+        elif ai_mode == "quiet":
+            runtime_status = "quiet"
+        elif ai_mode == "point_to_target":
+            runtime_status = "pointing"
+        elif str(follow_state.get("mode") or "") == "follow":
+            runtime_status = "following"
+        elif str(follow_state.get("mode") or "") == "lurking":
+            runtime_status = "lurking"
+        allow_proactive_comment = (
+            gate_decision.allow_worker_request
+            and float(prediction.get("confidence") or 0.0) >= 0.65
+            and ai_mode != "off"
+            and prompt_policy.allowed
+        )
+        if isinstance(game.get("chat_state"), dict):
+            from client_surfaces.operator_tui.chat_state import maybe_add_prediction_comment
+
+            forced = bool(game.pop("ai_force_question", False))
+            maybe_add_prediction_comment(
+                cast(dict[str, Any], game["chat_state"]),
+                prediction=prediction,
+                now=now,
+                quiet=(ai_mode == "quiet"),
+                forced=forced,
+                cooldown_seconds=20,
+            ) if (allow_proactive_comment or forced) else None
+
         game["ai_snake_prediction"] = prediction
         game["ai_snake_context_envelope"] = envelope
+        game["ai_snake_follow_state"] = follow_state
+        game["ai_snake_runtime_status"] = runtime_status
         game["ai_snake_debug"] = {
             "observation_summary": summary,
             "cache_hit": cache_hit,
             "gate_reason": gate_decision.reason,
             "skipped_worker_requests": gate_decision.skipped_worker_requests,
             "allow_worker_request": gate_decision.allow_worker_request,
+            "policy": {
+                "worker_request": worker_policy.as_dict(),
+                "lmstudio_prompt": prompt_policy.as_dict(),
+            },
+            "policy_payload_preview": {
+                "worker_request": worker_payload,
+                "lmstudio_prompt": prompt_payload,
+            },
+            "allow_proactive_comment": allow_proactive_comment,
         }
 
     def _update_multi_snake_state(
