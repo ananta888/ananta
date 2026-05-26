@@ -46,7 +46,9 @@ Optional extensions (allowed by design) include:
 Track-planning profile (`track_planner`) requirements:
 - minimum task quality fields: `title`, `risk`, `acceptance_criteria`
 - optional task fields: `depends_on`, `type`, `milestone_id`
-- summary policy validates `tasks_status_summary` against `tasks`
+- summary policy: `tasks[]` is single source of truth; all summary blocks are derived caches
+- summary engine recomputes `tasks_status_summary`, `tasks_type_summary`, `progress_summary`, `weighted_progress_summary`, milestone progress and `derived_summary_metadata`
+- task `progress_percent` semantics are normalized by status (`todo=0`, `done=100`, `in_progress|partial=1..99`, `blocked=0..100`)
 - prompt template: `prompts/planning/track_planning.j2`
 
 Planning track persistence/validation:

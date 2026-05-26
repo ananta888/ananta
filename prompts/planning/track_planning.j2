@@ -19,6 +19,16 @@ SCHEMA_REQUIREMENTS:
 - tasks must be a flat list (no nested epic.tasks structure)
 - tasks_status_summary must be consistent with tasks
 
+SUMMARY_POLICY:
+- tasks[] is the single source of truth.
+- Any summary blocks are derived caches and will be deterministically recomputed by the validator/hub.
+- Optional task progress_percent semantics:
+  - status=todo -> progress_percent must be 0
+  - status=done -> progress_percent must be 100
+  - status=in_progress|partial -> progress_percent must be 1..99
+  - status=blocked -> progress_percent may be 0..100
+- Prefer including task.type and milestone_id for strong derived summaries.
+
 OUTPUT:
 - Return JSON only, no markdown fences.
 - Allowed output forms:
