@@ -56,6 +56,8 @@ Planning track persistence/validation:
 - planning track output is persisted as `artifact_type=planning_track` with execution provenance
 - schema validation returns structured issues (`path`, `reason_code`, `human_message`)
 - summary consistency is deterministically recomputed; repair mode can auto-fix summary mismatch
+- summary recalculation state is persisted as `summary_recalculation_status` (`not_needed`, `recalculated`, `repaired`, `failed`) with `old_summary_hash` and `new_summary_hash`
+- persistence overwrites derived summary blocks with the recomputed canonical values before write
 - JSON repair pipeline is capped to one repair attempt; failed repair remains degraded/failed, never active plan
 - quality gates validate large-goal minimum task count, critical path references, and milestone task references; warnings are surfaced in TUI
 - operator TUI commands: `:plan track`, `:plan track --from-goal <goal-id>`, `:plan track adopt <output-id>`, `:plan track reject <output-id>`, `:plan track execute-next`, `:plan track sync-status <plan-task-id> <status>`, `:plan track diff <left> <right>`

@@ -62,9 +62,13 @@ def test_summary_consistency_detects_and_repairs_mismatch() -> None:
     payload["tasks_status_summary"]["by_priority"] = {"P1": 1}
     failed = validate_summary_consistency(payload, repair_mode=False)
     assert failed["valid"] is False
+    assert failed["summary_recalculation_status"] in {"recalculated", "repaired"}
+    assert failed["old_summary_hash"] != failed["new_summary_hash"]
     repaired = validate_summary_consistency(payload, repair_mode=True)
     assert repaired["valid"] is True
     assert repaired["repaired"] is True
+    assert repaired["summary_recalculation_status"] == "repaired"
+    assert "tasks_status_summary" in list(repaired["repaired_fields"] or [])
     assert repaired["repaired_payload"]["tasks_status_summary"] == compute_tasks_status_summary(payload)
 
 
@@ -116,6 +120,9 @@ def test_persist_planning_track_result_saves_valid_artifact_and_provenance(tmp_p
     assert result["output_artifact"]["extensions"]["quality_gate_warnings"] == []
     assert result["output_artifact"]["extensions"]["source_references"]
     assert "artifact:allowed" in list(result["output_artifact"]["extensions"]["context_references"] or [])
+    assert result["output_artifact"]["extensions"]["summary_recalculation_status"] in {"not_needed", "recalculated", "repaired"}
+    assert "old_summary_hash" in result["output_artifact"]["extensions"]
+    assert "new_summary_hash" in result["output_artifact"]["extensions"]
 
 
 def test_validation_rejects_epics_based_shape_without_track_fields() -> None:
@@ -138,7 +145,7 @@ def test_validation_rejects_task_without_acceptance_criteria() -> None:
     assert any(item["reason_code"] == "missing_required_field" and item["path"].startswith("tasks/0") for item in issues)
 
 
-def test_persist_planning_track_result_repair_pipeline_runs_once_and_degrades(tmp_path: Path) -> None:
+def test_persist_planning_track_result_repair_pipeline_runs_once_and_recovers(tmp_path: Path) -> None:
     goal_id = "goal-planning-repair"
     service = _artifact_service(tmp_path)
 
@@ -166,6 +173,41 @@ def test_persist_planning_track_result_repair_pipeline_runs_once_and_degrades(tm
         goal_artifact_service=service,
     )
     assert result["repair_attempt_count"] == 1
-    assert result["status"] == "degraded"
-    assert result["output_artifact"]["status"] == "failed"
-    assert result["output_artifact"]["extensions"]["active_plan_candidate"] is False
+    assert result["status"] == "valid"
+    assert result["output_artifact"]["status"] == "created"
+    assert result["output_artifact"]["extensions"]["active_plan_candidate"] is True
+
+
+def test_persist_planning_track_result_recomputes_missing_summaries(tmp_path: Path) -> None:
+    goal_id = "goal-planning-summary-recompute"
+    service = _artifact_service(tmp_path)
+    payload = _fixture_payload()
+    payload.pop("tasks_status_summary", None)
+    payload.pop("tasks_type_summary", None)
+    payload.pop("progress_summary", None)
+    payload.pop("weighted_progress_summary", None)
+    payload.pop("milestone_progress_summary", None)
+    payload.pop("derived_summary_metadata", None)
+
+    result = persist_planning_track_result(
+        goal_id=goal_id,
+        task_id="task-plan",
+        worker_id="worker-planner",
+        raw_output=json.dumps(payload),
+        prompt_template_ref="prompt:planning/track_planning",
+        final_prompt="rendered planning prompt",
+        model_ref={"provider_id": "local", "model_id": "planner-test"},
+        config_refs={
+            "worker_config_ref": "cfg:worker",
+            "runtime_config_ref": "cfg:runtime",
+            "model_config_ref": "cfg:model",
+            "policy_config_ref": "cfg:policy",
+        },
+        goal_artifact_service=service,
+    )
+    assert result["status"] == "valid"
+    payload_saved = dict(result["output_artifact"]["extensions"]["payload"] or {})
+    assert dict(payload_saved.get("tasks_status_summary") or {})
+    assert dict(payload_saved.get("weighted_progress_summary") or {})
+    assert dict(payload_saved.get("derived_summary_metadata") or {})
+    assert result["output_artifact"]["extensions"]["summary_recalculation_status"] == "recalculated"
