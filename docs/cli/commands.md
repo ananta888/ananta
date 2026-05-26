@@ -165,6 +165,7 @@ ananta tui --open app.py --workspace /path/to/project
 Beim Start zeigt die Operator TUI standardmaessig das Ananta-Logo fullscreen an.
 Nach 2 Sekunden geht es fließend in einen kompakten 8-zeiligen Header ueber
 (Snake/Status-Header mit optionalem Pixel-Rendering).
+Das Header-Logo links oben wird nur im normalen Modus gezeigt; im aktiven Snake-Modus bleibt der linke Headerbereich logo-frei und zeigt Snake-Informationen.
 
 | CLI Flag | Default | Beschreibung |
 |----------|---------|-------------|
