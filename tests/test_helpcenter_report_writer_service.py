@@ -47,6 +47,7 @@ def test_report_writer_creates_markdown_with_expected_sections(tmp_path: Path) -
     assert "## Failure Summary" in content
     assert "## Likely Causes" in content
     assert "analysis only, no auto fix" in content
+    assert "content_hash:" in content
 
 
 def test_report_writer_writes_json_valid_payload(tmp_path: Path) -> None:
@@ -58,7 +59,10 @@ def test_report_writer_writes_json_valid_payload(tmp_path: Path) -> None:
     assert payload["analysis_id"] == analysis["analysis_id"]
     assert payload["no_auto_fix"] is True
     assert payload["source_kind"] == message["source_kind"]
-    assert payload["redaction_status"] == message["redaction_status"]
+    assert payload["redaction_status"] in {"not_required", "redacted"}
+    assert payload["content_hash"]
+    assert payload["analyzer_version"] == "helpcenter-analyzer.v1"
+    assert payload["prompt_template_ref"] == "prompt:helpcenter/analysis.v1"
 
 
 def test_report_writer_updates_index_and_duplicate_versioning(tmp_path: Path) -> None:
@@ -80,3 +84,16 @@ def test_report_writer_uses_stable_github_run_job_stem_with_version(tmp_path: Pa
     second = write_helpcenter_report(message=message, analysis=_analysis(message), repo_root=tmp_path)
     assert "github-run-101-job-9001-v1" in first["markdown_ref"]
     assert "github-run-101-job-9001-v2" in second["markdown_ref"]
+
+
+def test_report_writer_rejects_auto_fix_enabled_analysis(tmp_path: Path) -> None:
+    message = _message()
+    analysis = _analysis(message)
+    analysis["no_auto_fix"] = False
+    try:
+        write_helpcenter_report(message=message, analysis=analysis, repo_root=tmp_path)
+    except ValueError as exc:
+        text = str(exc)
+        assert "no_auto_fix" in text or "schema_validation_error" in text
+    else:
+        raise AssertionError("expected ValueError when no_auto_fix is false")

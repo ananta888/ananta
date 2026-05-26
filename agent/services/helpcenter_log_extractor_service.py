@@ -7,6 +7,8 @@ _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key)\s*[:=]\s*[^\s]+"),
     re.compile(r"ghp_[A-Za-z0-9]{20,}"),
     re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}"),
+    re.compile(r"(?i)\bhttps?://[^/\s:@]+:[^@\s]+@"),
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
 )
 
 _FAILURE_PATTERNS: dict[str, re.Pattern[str]] = {
@@ -21,14 +23,19 @@ _FAILURE_PATTERNS: dict[str, re.Pattern[str]] = {
 
 def _redact_line(line: str) -> str:
     masked = str(line)
+    replaced = False
     for pattern in _SECRET_PATTERNS:
-        masked = pattern.sub("[REDACTED_SECRET]", masked)
-    return masked
+        next_masked = pattern.sub("[REDACTED_SECRET]", masked)
+        if next_masked != masked:
+            replaced = True
+        masked = next_masked
+    return masked if replaced else str(line)
 
 
 def extract_failure_log_insights(log_text: str, *, max_lines: int = 200) -> dict[str, Any]:
     lines = [str(item) for item in str(log_text or "").splitlines()]
     redacted = [_redact_line(line) for line in lines]
+    redaction_hits = sum(1 for original, masked in zip(lines, redacted, strict=False) if original != masked)
     truncated = len(redacted) > int(max_lines)
     excerpt = redacted[: int(max_lines)]
     matches: list[str] = []
@@ -44,4 +51,6 @@ def extract_failure_log_insights(log_text: str, *, max_lines: int = 200) -> dict
         "truncated": truncated,
         "truncation_notice": "excerpt_truncated" if truncated else "",
         "detected_patterns": findings,
+        "redaction_hits": redaction_hits,
+        "redaction_status": "redacted" if redaction_hits > 0 else "not_required",
     }

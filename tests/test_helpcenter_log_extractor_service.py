@@ -29,3 +29,14 @@ def test_log_extractor_redacts_secret_patterns() -> None:
     assert "supersecretvalue" not in rendered
     assert "ghp_" not in rendered
     assert "[REDACTED_SECRET]" in rendered
+    assert result["redaction_hits"] >= 1
+    assert result["redaction_status"] == "redacted"
+
+
+def test_log_extractor_redacts_credential_urls_and_private_keys() -> None:
+    text = "https://alice:secret@example.com/repo\n-----BEGIN PRIVATE KEY-----"
+    result = extract_failure_log_insights(text, max_lines=10)
+    rendered = "\n".join(result["excerpt_lines"])
+    assert "alice:secret@" not in rendered
+    assert "BEGIN PRIVATE KEY" not in rendered
+    assert result["redaction_status"] == "redacted"

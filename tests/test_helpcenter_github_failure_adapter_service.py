@@ -56,3 +56,9 @@ def test_github_failure_adapter_normalized_payload_omits_credentials() -> None:
     blob = str(payload)
     assert "token" not in blob.lower()
     assert "password" not in blob.lower()
+
+
+def test_github_failure_adapter_respects_limit() -> None:
+    adapter = GithubWorkflowFailureAdapter(owner="acme", repo="rocket", api_client=_FakeGithubApi())
+    rows = adapter.list_messages(limit=1)
+    assert len(rows) == 1
