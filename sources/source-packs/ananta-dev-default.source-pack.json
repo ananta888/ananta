@@ -10,6 +10,9 @@
       "descriptor_path": "sources/eclipse/eclipse-platform.source_descriptor.json",
       "source_type": "web_doc",
       "trust_level": "official_project_repository",
+      "source_priority": 300,
+      "knowledge_domain": "source_code",
+      "bootstrap_mode": "auto",
       "fetch_source": {
         "url": "https://github.com/eclipse-platform/eclipse.platform",
         "method": "GET"
@@ -25,6 +28,9 @@
       "descriptor_path": "sources/eclipse/eclipse-jdt-core.source_descriptor.json",
       "source_type": "web_doc",
       "trust_level": "official_project_repository",
+      "source_priority": 310,
+      "knowledge_domain": "source_code",
+      "bootstrap_mode": "auto",
       "fetch_source": {
         "url": "https://github.com/eclipse-jdt/eclipse.jdt.core",
         "method": "GET"
@@ -40,6 +46,9 @@
       "descriptor_path": "sources/eclipse/eclipse-pde.source_descriptor.json",
       "source_type": "web_doc",
       "trust_level": "official_project_repository",
+      "source_priority": 320,
+      "knowledge_domain": "plugin_development_knowledge",
+      "bootstrap_mode": "auto",
       "fetch_source": {
         "url": "https://github.com/eclipse-pde/eclipse.pde",
         "method": "GET"
@@ -55,8 +64,11 @@
       "descriptor_path": "sources/keycloak/source_descriptor.json",
       "source_type": "keycloak_docs",
       "trust_level": "official_vendor_project",
+      "source_priority": 220,
+      "knowledge_domain": "technical_docs",
+      "bootstrap_mode": "auto",
       "fetch_source": {
-        "url": "https://www.keycloak.org/documentation",
+        "url": "https://www.keycloak.org/guides",
         "method": "GET"
       },
       "citation_source": {
@@ -70,6 +82,9 @@
       "descriptor_path": "sources/wikipedia/source_descriptor.json",
       "source_type": "wikimedia_dump",
       "trust_level": "official_foundation_dump",
+      "source_priority": 80,
+      "knowledge_domain": "general_knowledge",
+      "bootstrap_mode": "subset",
       "fetch_source": {
         "url": "https://dumps.wikimedia.org/",
         "method": "GET"
@@ -79,6 +94,44 @@
         "license_ref": "CC BY-SA 4.0"
       },
       "enabled": true
+    },
+    {
+      "source_id": "eclipse-swt-official-source",
+      "descriptor_path": "sources/eclipse/eclipse-swt.source_descriptor.json",
+      "source_type": "web_doc",
+      "trust_level": "official_project_repository",
+      "source_priority": 205,
+      "knowledge_domain": "plugin_development_knowledge",
+      "bootstrap_mode": "manual",
+      "fetch_source": {
+        "url": "https://github.com/eclipse-platform/eclipse.platform.swt",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://github.com/eclipse-platform/eclipse.platform.swt",
+        "license_ref": "EPL-2.0"
+      },
+      "enabled": false,
+      "optional": true
+    },
+    {
+      "source_id": "eclipse-equinox-official-source",
+      "descriptor_path": "sources/eclipse/eclipse-equinox.source_descriptor.json",
+      "source_type": "web_doc",
+      "trust_level": "official_project_repository",
+      "source_priority": 200,
+      "knowledge_domain": "plugin_development_knowledge",
+      "bootstrap_mode": "manual",
+      "fetch_source": {
+        "url": "https://github.com/eclipse-equinox/equinox",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://github.com/eclipse-equinox/equinox",
+        "license_ref": "EPL-2.0"
+      },
+      "enabled": false,
+      "optional": true
     }
   ],
   "codecompass_profiles": [
@@ -91,7 +144,31 @@
         "keycloak-official-docs",
         "wikimedia-wikipedia-initial-dump"
       ],
-      "priority": 10
+      "priority": 10,
+      "query_terms": [
+        "eclipse",
+        "plugin",
+        "pde",
+        "jdt",
+        "oidc",
+        "realm"
+      ]
+    },
+    {
+      "profile_id": "keycloak-identity-security",
+      "source_ids": [
+        "keycloak-official-docs"
+      ],
+      "priority": 25,
+      "query_terms": [
+        "oidc",
+        "realm",
+        "client",
+        "role",
+        "token",
+        "admin api",
+        "authorization"
+      ]
     }
   ],
   "bootstrap_steps": [
@@ -103,6 +180,14 @@
         "eclipse-jdt-core-official-source",
         "eclipse-pde-official-source",
         "keycloak-official-docs",
+        "wikimedia-wikipedia-initial-dump"
+      ],
+      "required": true
+    },
+    {
+      "step_id": "warn-large-wikipedia-dump",
+      "action": "validate",
+      "source_ids": [
         "wikimedia-wikipedia-initial-dump"
       ],
       "required": true
@@ -134,6 +219,29 @@
   },
   "extensions": {
     "activation_mode": "bootstrap_or_manual",
-    "notes": "Default dev source pack for Eclipse + Keycloak + Wikipedia."
+    "notes": "Default dev source pack for Eclipse + Keycloak + Wikipedia.",
+    "optional_candidates": [
+      "eclipse-swt-official-source",
+      "eclipse-equinox-official-source",
+      "eclipse-jdt-ui-official-source",
+      "eclipse-platform-ui-official-source",
+      "eclipse-e4-official-source"
+    ],
+    "retrieval_priority_policy": {
+      "priority_order": [
+        "local_project",
+        "technical_official",
+        "general_knowledge"
+      ],
+      "technical_primary_sources": [
+        "eclipse-platform-official-source",
+        "eclipse-jdt-core-official-source",
+        "eclipse-pde-official-source",
+        "keycloak-official-docs"
+      ],
+      "general_secondary_sources": [
+        "wikimedia-wikipedia-initial-dump"
+      ]
+    }
   }
 }

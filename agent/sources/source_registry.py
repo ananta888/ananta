@@ -207,6 +207,19 @@ class SourceRegistry:
         return [indexed[key] for key in sorted(indexed.keys())]
 
     def register_source_pack(self, *, source_pack_id: str, overwrite_existing: bool = False) -> dict[str, Any]:
+        return self.register_source_pack_with_options(
+            source_pack_id=source_pack_id,
+            overwrite_existing=overwrite_existing,
+            include_optional=False,
+        )
+
+    def register_source_pack_with_options(
+        self,
+        *,
+        source_pack_id: str,
+        overwrite_existing: bool = False,
+        include_optional: bool = False,
+    ) -> dict[str, Any]:
         pack = self.get_source_pack(source_pack_id)
         if pack is None:
             raise ValueError("source_pack_not_found")
@@ -219,6 +232,9 @@ class SourceRegistry:
             row = dict(item) if isinstance(item, dict) else {}
             source_id = str(row.get("source_id") or "").strip()
             if not source_id:
+                continue
+            is_optional = bool(row.get("optional", False))
+            if is_optional and not include_optional:
                 continue
             if source_id in seen_source_ids:
                 raise ValueError(f"duplicate_source_id_in_pack:{source_id}")
@@ -243,3 +259,32 @@ class SourceRegistry:
             "registered_source_ids": registered_source_ids,
             "count": len(registered_source_ids),
         }
+
+    def rank_sources_for_query(self, *, source_pack_id: str, source_ids: list[str], query: str) -> list[str]:
+        pack = self.get_source_pack(source_pack_id)
+        if pack is None:
+            raise ValueError("source_pack_not_found")
+        rows = [dict(item) for item in list(pack.get("sources") or []) if isinstance(item, dict)]
+        index = {str(item.get("source_id") or ""): item for item in rows}
+        query_text = str(query or "").strip().lower()
+        is_keycloak_question = any(token in query_text for token in ("oidc", "keycloak", "realm", "token", "client", "authorization"))
+        is_eclipse_question = any(token in query_text for token in ("eclipse", "swt", "jdt", "pde", "plugin", "osgi", "equinox"))
+
+        def _score(sid: str) -> int:
+            row = index.get(str(sid) or "")
+            if not isinstance(row, dict):
+                return 0
+            base = int(row.get("source_priority") or 0)
+            trust = str(row.get("trust_level") or "").lower()
+            if "official" in trust:
+                base += 20
+            if is_keycloak_question and str(row.get("source_id") or "") == "keycloak-official-docs":
+                base += 200
+            if is_eclipse_question and str(row.get("source_id") or "").startswith("eclipse-"):
+                base += 120
+            if str(row.get("source_id") or "") == "wikimedia-wikipedia-initial-dump" and (is_keycloak_question or is_eclipse_question):
+                base -= 120
+            return base
+
+        ranked = sorted({str(item).strip() for item in list(source_ids or []) if str(item).strip()}, key=lambda sid: (-_score(sid), sid))
+        return ranked

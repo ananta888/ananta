@@ -38,6 +38,19 @@
     "max_age_days": 365
   },
   "extensions": {
-    "version_policy": "extract version from documentation page if available"
+    "version_policy": "extract version from documentation page if available",
+    "source_roles": [
+      "technical_reference",
+      "security_identity_source"
+    ],
+    "codecompass_focus_terms": [
+      "oidc",
+      "realm",
+      "client",
+      "role",
+      "token",
+      "admin api",
+      "authorization"
+    ]
   }
 }

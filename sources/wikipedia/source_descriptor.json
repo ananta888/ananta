@@ -42,6 +42,8 @@
       "en"
     ],
     "dump_type_default": "pages-articles-multistream",
+    "default_download_mode": "subset",
+    "manual_download_required_for_full_dump": true,
     "large_source": true,
     "streaming_required": true,
     "attribution_required": true
