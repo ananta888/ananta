@@ -13,6 +13,7 @@ from agent.sources.citation_formatter import format_citation
 from agent.sources.builtin_sources import load_builtin_source_descriptors
 from agent.sources.source_refresh_service import SourceRefreshService
 from agent.sources.source_registry import SourceRegistry
+from agent.sources.source_pack_service import SourcePackService
 from agent.sources.source_snapshot_store import SourceSnapshotStore
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, event_for_prediction_feedback
@@ -540,6 +541,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         action = str(args[0]).lower() if args else "list"
         registry = SourceRegistry()
         snapshots = SourceSnapshotStore()
+        pack_service = SourcePackService(registry=registry, snapshots=snapshots)
         cache = refresh_service = None
         for descriptor in load_builtin_source_descriptors():
             source_id = str(descriptor.get("source_id") or "").strip()
@@ -547,6 +549,58 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 registry.create_source(descriptor)
         refresh_service = SourceRefreshService(registry=registry, snapshots=snapshots)
         cache = refresh_service.cache
+        if action == "packs":
+            packs = pack_service.list_packs()
+            if not packs:
+                return CommandResult(state.with_updates(status_message="sources packs: none"), "[]")
+            preview = " | ".join(
+                f"{str(item.get('source_pack_id') or '')}:{str(item.get('display_name') or '')}"
+                for item in packs[:10]
+            )
+            return CommandResult(
+                state.with_updates(status_message=f"sources packs {len(packs)}"),
+                json.dumps({"count": len(packs), "packs": packs, "preview": preview}, ensure_ascii=False),
+            )
+        if action == "pack":
+            if len(args) < 2:
+                return CommandResult(state, "sources pack show|bootstrap <source-pack-id> [--dry-run]", handled=False)
+            sub = str(args[1]).lower()
+            if sub == "show":
+                if len(args) < 3:
+                    return CommandResult(state, "sources pack show <source-pack-id>", handled=False)
+                source_pack_id = str(args[2]).strip()
+                try:
+                    pack = pack_service.get_pack(source_pack_id)
+                except ValueError:
+                    return CommandResult(state, f"sources: unknown source-pack {source_pack_id}", handled=False)
+                selected = [
+                    dict(item) for item in list(pack.get("sources") or [])
+                    if isinstance(item, dict) and str(item.get("source_id") or "").strip()
+                ]
+                preview = " | ".join(
+                    f"{str(item.get('source_id') or '')}:{str(item.get('source_priority') or '-')}"
+                    for item in selected[:10]
+                )
+                payload = {
+                    "source_pack_id": source_pack_id,
+                    "display_name": str(pack.get("display_name") or ""),
+                    "source_count": len(selected),
+                    "sources": selected,
+                    "preview": preview,
+                }
+                return CommandResult(
+                    state.with_updates(status_message=f"sources pack show {source_pack_id}"),
+                    json.dumps(payload, ensure_ascii=False),
+                )
+            if sub == "bootstrap":
+                if len(args) < 3:
+                    return CommandResult(state, "sources pack bootstrap <source-pack-id> [--dry-run]", handled=False)
+                source_pack_id = str(args[2]).strip()
+                dry_run = any(str(x).lower() == "--dry-run" for x in args[3:])
+                result = pack_service.bootstrap(source_pack_id=source_pack_id, dry_run=dry_run)
+                msg = f"sources pack bootstrap {source_pack_id}: {str(result.get('status') or 'unknown')}"
+                return CommandResult(state.with_updates(status_message=msg[:240]), json.dumps(result, ensure_ascii=False))
+            return CommandResult(state, "sources pack show|bootstrap <source-pack-id> [--dry-run]", handled=False)
         if action == "list":
             items = registry.list_sources(include_disabled=True)
             parts: list[str] = []
@@ -621,7 +675,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 f"bytes={stats['total_bytes']}"
             )
             return CommandResult(state.with_updates(status_message=msg[:240]), msg)
-        return CommandResult(state, "sources: list | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
+        return CommandResult(state, "sources: list | packs | pack show <id> | pack bootstrap <id> [--dry-run] | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
     if command == "diff3":
         game = dict(state.header_logo_game or {})
         diff3_state = _get_diff3_state(state)

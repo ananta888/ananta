@@ -28,7 +28,8 @@ class SourcePackService:
     ) -> None:
         self.registry = registry or SourceRegistry()
         self.snapshots = snapshots or SourceSnapshotStore()
-        self._bundle_root = Path(settings.data_dir).expanduser().resolve() / "sources" / "codecompass-bundles"
+        base_dir = Path(getattr(self.registry, "_base", settings.data_dir)).expanduser().resolve()
+        self._bundle_root = base_dir / "sources" / "codecompass-bundles"
         self._bundle_root.mkdir(parents=True, exist_ok=True)
 
     def list_packs(self) -> list[dict[str, Any]]:
@@ -103,6 +104,63 @@ class SourcePackService:
             "bootstrap_steps": list(pack.get("bootstrap_steps") or []),
         }
 
+    def _license_policy_report(self, *, pack: dict[str, Any], selected_sources: list[dict[str, Any]]) -> dict[str, Any]:
+        policy = dict(pack.get("license_policy") or {})
+        allowed = {str(item).strip() for item in list(policy.get("allowed_licenses") or []) if str(item).strip()}
+        require_license_ref = bool(policy.get("require_license_ref", True))
+        block_on_missing_license = bool(policy.get("block_on_missing_license", False))
+        warnings: list[str] = []
+        blocking_errors: list[str] = []
+        rows: list[dict[str, str]] = []
+        for row in selected_sources:
+            source_id = str(dict(row).get("source_id") or "").strip()
+            descriptor = self.registry.get_source(source_id) or {}
+            citation = dict(descriptor.get("citation_source") or {})
+            row_citation = dict(dict(row).get("citation_source") or {})
+            license_ref = str(citation.get("license_ref") or row_citation.get("license_ref") or "").strip()
+            rows.append({"source_id": source_id, "license_ref": license_ref or "missing"})
+            if not license_ref and require_license_ref:
+                msg = f"missing_license_ref:{source_id}"
+                if block_on_missing_license:
+                    blocking_errors.append(msg)
+                else:
+                    warnings.append(msg)
+                continue
+            if license_ref and allowed and license_ref not in allowed:
+                msg = f"license_not_allowed:{source_id}:{license_ref}"
+                if block_on_missing_license:
+                    blocking_errors.append(msg)
+                else:
+                    warnings.append(msg)
+        return {
+            "require_license_ref": require_license_ref,
+            "block_on_missing_license": block_on_missing_license,
+            "allowed_licenses": sorted(allowed),
+            "rows": rows,
+            "warnings": warnings,
+            "blocking_errors": blocking_errors,
+        }
+
+    def _build_citation_bundle(self, *, source_ids: list[str]) -> dict[str, Any]:
+        rows: list[dict[str, str]] = []
+        for source_id in source_ids:
+            descriptor = self.registry.get_source(source_id) or {}
+            citation = dict(descriptor.get("citation_source") or {})
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "canonical_url": str(citation.get("canonical_url") or ""),
+                    "title": str(citation.get("title") or ""),
+                    "publisher": str(citation.get("publisher") or ""),
+                    "license_ref": str(citation.get("license_ref") or ""),
+                }
+            )
+        return {
+            "schema": "source_pack_citation_bundle.v1",
+            "created_at": _now_iso(),
+            "items": rows,
+        }
+
     def _create_fixture_snapshot(self, *, source_id: str, descriptor_hash: str) -> dict[str, Any]:
         snapshot = self.snapshots.build_snapshot(
             source_id=source_id,
@@ -134,6 +192,12 @@ class SourcePackService:
             "index_hash": _stable_hash({"source_pack_id": source_pack_id, "source_snapshot_ids": snapshot_ids, "profile_refs": profile_refs}),
             "metadata_only": True,
             "index_profile": self._build_index_profile(),
+            "cloud_context_policy": {
+                "raw_content_included": False,
+                "default_provider_access": "deny_raw_source_content",
+                "allow_summary_context": True,
+                "allowed_context_shapes": ["source_reference_summary", "citation_bundle"],
+            },
         }
         bundle_id = f"ccb-{hashlib.sha1(payload['index_hash'].encode('utf-8')).hexdigest()[:14]}"
         payload["bundle_id"] = bundle_id
@@ -155,8 +219,17 @@ class SourcePackService:
             skip_source_ids=skip_source_ids,
             include_optional=include_optional,
         )
+        license_report = self._license_policy_report(pack=self.get_pack(source_pack_id), selected_sources=list(plan.get("selected_sources") or []))
         if dry_run:
-            return {"status": "planned", **plan}
+            return {"status": "planned", **plan, "license_policy_report": license_report}
+        if list(license_report.get("blocking_errors") or []):
+            return {
+                "status": "failed",
+                "reason_code": "license_policy_blocked",
+                "human_message": "License policy blocked bootstrap",
+                **plan,
+                "license_policy_report": license_report,
+            }
 
         self.registry.register_source_pack_with_options(
             source_pack_id=source_pack_id,
@@ -180,9 +253,67 @@ class SourcePackService:
             if isinstance(item, dict) and str(item.get("profile_id") or "").strip()
         ]
         bundle = self._write_bundle(source_pack_id=source_pack_id, snapshot_ids=snapshot_ids, profile_refs=profile_refs)
+        citation_bundle = self._build_citation_bundle(source_ids=[str(item.get("source_id") or "") for item in list(plan.get("selected_sources") or []) if str(item.get("source_id") or "").strip()])
         return {
             "status": "ok",
             **plan,
             "snapshot_ids": snapshot_ids,
             "codecompass_bundle": bundle,
+            "citation_bundle": citation_bundle,
+            "license_policy_report": license_report,
+        }
+
+    def doctor(self, *, source_pack_id: str = "ananta-dev-default") -> dict[str, Any]:
+        pack = self.get_pack(source_pack_id)
+        selected = self._selected_sources(pack=pack, skip_source_ids=set(), include_optional=False)
+        required_ids = [str(item.get("source_id") or "") for item in selected if str(item.get("source_id") or "").strip()]
+        by_source: dict[str, dict[str, Any]] = {}
+        ready = True
+        missing_steps: list[str] = []
+        for source_id in required_ids:
+            source = self.registry.get_source(source_id)
+            latest_rows = self.snapshots.list_snapshots(source_id=source_id)
+            latest = latest_rows[0] if latest_rows else None
+            if source is None:
+                ready = False
+                missing_steps.append(f"register_source:{source_id}")
+                by_source[source_id] = {"registered": False, "snapshot_status": "missing"}
+                continue
+            status = str(dict(latest or {}).get("status") or "missing")
+            by_source[source_id] = {
+                "registered": True,
+                "snapshot_status": status,
+                "trust_level": str(dict(source).get("trust_level") or ""),
+                "license_ref": str(dict(dict(source).get("citation_source") or {}).get("license_ref") or ""),
+            }
+            if status != "indexed":
+                ready = False
+                missing_steps.append(f"refresh_or_bootstrap:{source_id}")
+            if status in {"failed", "invalid", "blocked"}:
+                ready = False
+                missing_steps.append(f"repair_index:{source_id}")
+        bundle_dir = self._bundle_root
+        bundles = sorted(bundle_dir.glob("ccb-*.json"))
+        bundle_ready = False
+        for bundle_path in bundles:
+            try:
+                payload = json.loads(bundle_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if str(dict(payload).get("source_pack_id") or "") == source_pack_id:
+                bundle_ready = True
+                break
+        if not bundle_ready:
+            ready = False
+            missing_steps.append(f"bootstrap_pack:{source_pack_id}")
+        return {
+            "schema": "source_pack_doctor.v1",
+            "source_pack_id": source_pack_id,
+            "ready": ready,
+            "status": "ready" if ready else "not_ready",
+            "required_sources": required_ids,
+            "sources": by_source,
+            "bundle_ready": bundle_ready,
+            "bundle_count": len(bundles),
+            "next_steps": sorted({step for step in missing_steps}),
         }

@@ -414,7 +414,7 @@
     {
       "id": "T05.02",
       "title": "TUI SourcePack Verwaltung",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -434,7 +434,7 @@
     {
       "id": "T05.03",
       "title": "Angular SourcePack View",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "angular",
@@ -454,7 +454,7 @@
     {
       "id": "T05.04",
       "title": "Developer Ready Check",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "developer-experience",
@@ -474,7 +474,7 @@
     {
       "id": "T06.01",
       "title": "Lizenz- und Attribution-Policy für SourcePack",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security-license",
@@ -497,7 +497,7 @@
     {
       "id": "T06.02",
       "title": "Keine automatische Cloud-Weitergabe von SourcePack-Rohcode",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",

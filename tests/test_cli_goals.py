@@ -330,3 +330,16 @@ def test_sources_bootstrap_command_writes_bundle(monkeypatch, capsys, tmp_path):
     assert "status: ok" in out
     assert "bundle_id:" in out
     assert "bundle_path:" in out
+
+
+def test_sources_doctor_command_json(monkeypatch, capsys, tmp_path):
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    try:
+        cli_goals.main(["sources", "doctor", "ananta-dev-default", "--json"])
+    except SystemExit as exc:
+        assert int(exc.code) in {0, 1}
+    out = capsys.readouterr().out
+    assert "\"schema\": \"source_pack_doctor.v1\"" in out
+    assert "\"source_pack_id\": \"ananta-dev-default\"" in out
