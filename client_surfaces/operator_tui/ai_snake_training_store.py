@@ -117,10 +117,12 @@ def read_patterns() -> list[dict[str, Any]]:
 
 def save_patterns(patterns: list[dict[str, Any]], *, backup: bool = False) -> None:
     paths = ensure_training_layout()
-    payload = {"schema_version": "ai_snake_learned_pattern.v1-list", "updated_at": _now_iso(), "patterns": list(patterns)}
+    normalized = [_normalize_pattern(item) for item in patterns if isinstance(item, dict)]
+    payload = {"schema_version": "ai_snake_learned_pattern.v1-list", "updated_at": _now_iso(), "patterns": normalized}
     if backup and paths["learned_patterns"].exists():
         shutil.copy2(paths["learned_patterns"], paths["learned_patterns"].with_suffix(".json.bak"))
     paths["learned_patterns"].write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    _sync_profile_summaries(patterns=normalized)
 
 
 def read_events(*, max_items: int = 2000) -> list[dict[str, Any]]:
@@ -360,3 +362,50 @@ def _now_iso() -> str:
 def _sha256_json(payload: Any) -> str:
     encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _sync_profile_summaries(*, patterns: list[dict[str, Any]]) -> None:
+    profile = read_active_profile()
+    learning = dict(profile.get("learning_settings") or {})
+    enabled = bool(learning.get("enabled", True))
+    paused = bool(learning.get("paused", False))
+    active = [item for item in patterns if str(item.get("status") or "") == "active"]
+    intent_counts: dict[str, int] = {}
+    for item in patterns:
+        intent = str(item.get("predicted_intent") or "unknown")
+        intent_counts[intent] = intent_counts.get(intent, 0) + 1
+    top_intent = "none"
+    if intent_counts:
+        top_intent = sorted(intent_counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+    mode = "paused" if paused else ("on" if enabled else "off")
+    profile["pattern_refs"] = [str(item.get("pattern_id") or "") for item in patterns if str(item.get("pattern_id") or "")]
+    profile["human_summary"] = (
+        f"{len(patterns)} Pattern(s), {len(active)} aktiv, Top-Intent: {top_intent}."
+    )
+    profile["ai_summary"] = (
+        f"learning={mode}; patterns={len(patterns)}; active={len(active)}; top={top_intent}"
+    )
+    save_active_profile(profile, backup=False)
+
+
+def _normalize_pattern(item: dict[str, Any]) -> dict[str, Any]:
+    out = dict(item)
+    intent = str(out.get("predicted_intent") or "unknown")
+    if not str(out.get("ai_hint") or "").strip():
+        out["ai_hint"] = _standard_ai_hint(predicted_intent=intent, target_ref=str(out.get("target_ref") or ""))
+    return out
+
+
+def _standard_ai_hint(*, predicted_intent: str, target_ref: str) -> str:
+    key = str(predicted_intent or "unknown")
+    if key == "artifact_explain":
+        return f"Explain selected artifact context first (target={target_ref or 'artifact'})."
+    if key == "chat_help":
+        return "Provide concise help in chat before broad navigation."
+    if key == "notes_resume":
+        return "Resume notes workflow without exposing private note contents."
+    if key == "config_edit":
+        return "Suggest the safest configuration edit path first."
+    if key == "navigate":
+        return "Prefer clear navigation hints to the likely next section."
+    return "Use deterministic local guidance and ask for confirmation when unclear."

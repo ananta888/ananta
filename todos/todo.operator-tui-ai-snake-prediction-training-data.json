@@ -412,7 +412,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai data export-md <path>` schreibt Markdown.",
             "Report enthält Profilzusammenfassung, aktive Patterns, deaktivierte Patterns und Datenschutz-Hinweis.",
@@ -434,7 +434,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai data import <path> --preview` zeigt Anzahl Patterns, Profilname, Schema-Version und privacy_manifest ohne Änderung am aktiven Profil.",
             "Import ohne Preview validiert Schema und erzeugt Backup des aktuellen Profils.",
@@ -455,7 +455,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Konflikt wird erkannt über pattern_id oder semantischen fingerprint der conditions + predicted_intent.",
             "Default-Strategie ist `keep_existing_and_import_as_disabled_copy`.",
@@ -476,7 +476,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.01", "T04.03", "T04.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test exportiert Profil + Patterns und importiert in leeren Store.",
             "Pattern-Anzahl, IDs, human_explanation, ai_hint und confidence bleiben erhalten.",
@@ -505,7 +505,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Jedes aktive Pattern hat `ai_hint` mit maximal konfigurierbarer Länge, Default 300 Zeichen.",
             "Profil hat `ai_summary` mit Top-Patterns und Learning-Status.",
