@@ -137,6 +137,21 @@ def test_source_usage_rejects_short_context_hash() -> None:
     assert any("context_hash" in err for err in errors)
 
 
+def test_source_usage_requires_preview_when_task_id_missing() -> None:
+    payload = _usage()
+    payload.pop("task_id", None)
+    payload["usage_kind"] = "embedded"
+    errors = validate_source_artifact_usage_payload(payload)
+    assert any("preview" in err for err in errors)
+
+
+def test_source_usage_allows_preview_without_task_id() -> None:
+    payload = _usage()
+    payload.pop("task_id", None)
+    payload["usage_kind"] = "preview"
+    assert validate_source_artifact_usage_payload(payload) == []
+
+
 def test_goal_output_accepts_valid_payload() -> None:
     assert validate_goal_output_artifact_payload(_output()) == []
 
@@ -160,3 +175,18 @@ def test_goal_output_rejects_duplicate_input_refs() -> None:
     payload["input_usage_refs"] = ["usage-1", "usage-1"]
     errors = validate_goal_output_artifact_payload(payload)
     assert any("non-unique elements" in err for err in errors)
+
+
+def test_goal_output_worker_execution_requires_provenance_id() -> None:
+    payload = _output()
+    payload["provenance_kind"] = "worker_execution"
+    payload.pop("provenance_id", None)
+    errors = validate_goal_output_artifact_payload(payload)
+    assert any("provenance_id" in err for err in errors)
+
+
+def test_goal_output_worker_execution_accepts_provenance_id() -> None:
+    payload = _output()
+    payload["provenance_kind"] = "worker_execution"
+    payload["provenance_id"] = "prov-123"
+    assert validate_goal_output_artifact_payload(payload) == []

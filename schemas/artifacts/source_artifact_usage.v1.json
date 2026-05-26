@@ -42,6 +42,14 @@
       "type": "string",
       "maxLength": 120
     },
+    "execution_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "provenance_id": {
+      "type": "string",
+      "maxLength": 128
+    },
     "artifact_ref": {
       "type": "string",
       "minLength": 1,
@@ -72,6 +80,32 @@
       "type": "string",
       "maxLength": 200
     },
+    "prompt_template_ref": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "config_snapshot_refs": {
+      "type": "object",
+      "properties": {
+        "worker_config_ref": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "runtime_config_ref": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "model_config_ref": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "policy_config_ref": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "additionalProperties": false
+    },
     "policy_decision_ref": {
       "type": "string",
       "minLength": 1,
@@ -84,5 +118,23 @@
       "type": "object"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "required": [
+            "task_id"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "usage_kind": {
+            "const": "preview"
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }

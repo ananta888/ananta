@@ -62,6 +62,18 @@ class GoalArtifactService:
         payload = dict(usage)
         payload.setdefault("schema", "source_artifact_usage.v1")
         payload["goal_id"] = goal_id
+        usage_kind = str(payload.get("usage_kind") or "").strip().lower()
+        if usage_kind != "preview":
+            payload.setdefault("execution_id", self._build_execution_id(goal_id=goal_id, task_id=str(payload.get("task_id") or "")))
+            payload.setdefault(
+                "provenance_id",
+                self._build_provenance_id(
+                    goal_id=goal_id,
+                    task_id=str(payload.get("task_id") or ""),
+                    worker_id=str(payload.get("worker_id") or ""),
+                    execution_id=str(payload.get("execution_id") or ""),
+                ),
+            )
         errors = validate_source_artifact_usage_payload(payload)
         if errors:
             raise GoalArtifactServiceError("invalid_source_usage", "; ".join(errors))
@@ -89,6 +101,22 @@ class GoalArtifactService:
         payload.setdefault("schema", "goal_output_artifact.v1")
         payload["goal_id"] = goal_id
         payload.setdefault("input_usage_refs", [])
+        task_id = str(payload.get("task_id") or "").strip()
+        worker_id = str(payload.get("worker_id") or "").strip()
+        if task_id and worker_id:
+            payload.setdefault("provenance_kind", "worker_execution")
+            payload.setdefault("execution_id", self._build_execution_id(goal_id=goal_id, task_id=task_id))
+            payload.setdefault(
+                "provenance_id",
+                self._build_provenance_id(
+                    goal_id=goal_id,
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    execution_id=str(payload.get("execution_id") or ""),
+                ),
+            )
+        else:
+            payload.setdefault("provenance_kind", "manual")
         errors = validate_goal_output_artifact_payload(payload)
         if errors:
             raise GoalArtifactServiceError("invalid_output_artifact", "; ".join(errors))
@@ -242,6 +270,16 @@ class GoalArtifactService:
     def _build_output_id(*, task_id: str, artifact_ref: str, index: int) -> str:
         digest = hashlib.sha1(f"{task_id}:{artifact_ref}:{index}".encode("utf-8")).hexdigest()[:14]
         return f"out-{digest}"
+
+    @staticmethod
+    def _build_execution_id(*, goal_id: str, task_id: str) -> str:
+        digest = hashlib.sha1(f"{goal_id}:{task_id}:execution".encode("utf-8")).hexdigest()[:14]
+        return f"exec-{digest}"
+
+    @staticmethod
+    def _build_provenance_id(*, goal_id: str, task_id: str, worker_id: str, execution_id: str) -> str:
+        digest = hashlib.sha1(f"{goal_id}:{task_id}:{worker_id}:{execution_id}:provenance".encode("utf-8")).hexdigest()[:16]
+        return f"prov-{digest}"
 
     @staticmethod
     def _build_content_hash(ref: dict[str, Any]) -> str:

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/prompts/prompt_template_snapshot.v1.json",
+  "title": "Prompt Template Snapshot v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "prompt_template_ref",
+    "template_path",
+    "template_version",
+    "template_hash",
+    "renderer",
+    "created_at",
+    "expected_output_schema_ref"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "prompt_template_snapshot.v1"
+    },
+    "prompt_template_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "template_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "template_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "template_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "renderer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expected_output_schema_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "human_description": {
+      "type": "string",
+      "maxLength": 400
+    },
+    "intended_modes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 80
+      },
+      "uniqueItems": true
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
