@@ -11,6 +11,7 @@ AI-Kontext-Modell:
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -141,6 +142,9 @@ def build_context_envelope_ref(
     *,
     codecompass_artifact: dict[str, Any] | None,
     selected_artifact_ref: dict[str, Any] | None = None,
+    artifact_grant_refs: list[str] | None = None,
+    source_usage_refs: list[str] | None = None,
+    denied_context_refs: list[str] | None = None,
 ) -> dict[str, Any]:
     degraded = codecompass_artifact is None
     refs = []
@@ -165,12 +169,23 @@ def build_context_envelope_ref(
                     "score": float(item.get("score") or 0.5),
                 }
             )
+    grant_refs = [str(item) for item in list(artifact_grant_refs or []) if str(item).strip()]
+    usage_refs = [str(item) for item in list(source_usage_refs or []) if str(item).strip()]
+    denied_refs = [str(item) for item in list(denied_context_refs or []) if str(item).strip()]
+    context_hash = str((codecompass_artifact or {}).get("context_hash") or "missing")
+    if grant_refs or usage_refs:
+        seed = "|".join([context_hash, ",".join(sorted(grant_refs)), ",".join(sorted(usage_refs))])
+        context_hash = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+
     return {
         "context_bundle_id": "operator_tui_snake_context",
-        "context_hash": str((codecompass_artifact or {}).get("context_hash") or "missing"),
+        "context_hash": context_hash,
         "retrieval_refs": refs[:12],
         "sensitivity": str(ctx.get("sensitivity") or "none"),
         "degraded_state": "missing_artifact" if degraded else "",
+        "artifact_grant_refs": grant_refs,
+        "source_usage_refs": usage_refs,
+        "denied_context_refs": denied_refs,
     }
 
 

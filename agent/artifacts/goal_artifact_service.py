@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from typing import Any
 
@@ -107,6 +108,103 @@ class GoalArtifactService:
         self._repository.save_graph(graph)
         return payload
 
+    def validate_and_record_context_usages(
+        self,
+        *,
+        goal_id: str,
+        artifact_refs: list[str],
+        task_id: str | None,
+        worker_id: str | None,
+        context_hash: str | None,
+    ) -> dict[str, list[str]]:
+        graph = self.get_goal_graph(goal_id)
+        source_usage_refs: list[str] = []
+        artifact_grant_refs: list[str] = []
+        denied_context_refs: list[str] = []
+        hash_seed = str(context_hash or "")
+
+        for artifact_ref in [str(item).strip() for item in list(artifact_refs or []) if str(item).strip()]:
+            grant = self._find_active_grant_for_artifact(graph, artifact_ref)
+            if grant is None:
+                denied_context_refs.append(artifact_ref)
+                continue
+            usage_id = self._build_usage_id(
+                goal_id=goal_id,
+                grant_id=str(grant.get("grant_id") or ""),
+                artifact_ref=artifact_ref,
+                context_hash=hash_seed,
+            )
+            usage_payload = {
+                "schema": "source_artifact_usage.v1",
+                "usage_id": usage_id,
+                "grant_id": str(grant.get("grant_id") or ""),
+                "goal_id": goal_id,
+                "task_id": str(task_id or "") or None,
+                "worker_id": str(worker_id or "") or None,
+                "artifact_ref": artifact_ref,
+                "usage_kind": "embedded",
+                "used_at": _now_iso(),
+                "context_hash": hash_seed or "context-hash-missing",
+                "policy_decision_ref": str(grant.get("policy_decision_ref") or ""),
+            }
+            existing = self._find_usage(graph, usage_id)
+            if existing is None:
+                self.record_usage(goal_id=goal_id, usage=usage_payload)
+            source_usage_refs.append(usage_id)
+            artifact_grant_refs.append(str(grant.get("grant_id") or ""))
+        return {
+            "artifact_grant_refs": sorted(set(artifact_grant_refs)),
+            "source_usage_refs": sorted(set(source_usage_refs)),
+            "denied_context_refs": sorted(set(denied_context_refs)),
+        }
+
+    def register_output_artifacts_from_refs(
+        self,
+        *,
+        goal_id: str,
+        task_id: str,
+        worker_id: str | None,
+        artifact_refs: list[dict[str, Any]],
+        input_usage_refs: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        from worker.core.artifact_types import map_reference_kind_to_output_artifact_type
+
+        created: list[dict[str, Any]] = []
+        for index, ref in enumerate(list(artifact_refs or []), start=1):
+            if not isinstance(ref, dict):
+                continue
+            artifact_type = map_reference_kind_to_output_artifact_type(str(ref.get("kind") or ""))
+            if artifact_type is None:
+                continue
+            artifact_ref = str(
+                ref.get("artifact_id")
+                or ref.get("trace_bundle_ref")
+                or ref.get("workspace_relative_path")
+                or f"{task_id}:{index}"
+            ).strip()
+            output_id = self._build_output_id(task_id=task_id, artifact_ref=artifact_ref, index=index)
+            content_hash = self._build_content_hash(ref)
+            output_payload = {
+                "schema": "goal_output_artifact.v1",
+                "output_artifact_id": output_id,
+                "goal_id": goal_id,
+                "task_id": task_id,
+                "worker_id": str(worker_id or "") or None,
+                "artifact_type": artifact_type,
+                "created_at": _now_iso(),
+                "input_usage_refs": list(input_usage_refs or []),
+                "artifact_ref": artifact_ref,
+                "content_hash": content_hash,
+                "status": "created",
+                "provenance_summary": self._build_provenance_summary(
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    input_usage_refs=list(input_usage_refs or []),
+                ),
+            }
+            created.append(self.record_output_artifact(goal_id=goal_id, output_artifact=output_payload))
+        return created
+
     @staticmethod
     def _find_grant(graph: dict[str, Any], grant_id: str) -> dict[str, Any] | None:
         for item in graph.get("source_grants", []):
@@ -115,8 +213,56 @@ class GoalArtifactService:
         return None
 
     @staticmethod
+    def _find_usage(graph: dict[str, Any], usage_id: str) -> dict[str, Any] | None:
+        for item in graph.get("source_usages", []):
+            if str(item.get("usage_id") or "") == str(usage_id):
+                return item
+        return None
+
+    @staticmethod
     def _has_usage(graph: dict[str, Any], usage_id: str) -> bool:
         return any(str(item.get("usage_id") or "") == str(usage_id) for item in graph.get("source_usages", []))
+
+    @staticmethod
+    def _find_active_grant_for_artifact(graph: dict[str, Any], artifact_ref: str) -> dict[str, Any] | None:
+        for item in graph.get("source_grants", []):
+            if str(item.get("artifact_ref") or "") != artifact_ref:
+                continue
+            active, _reason = is_grant_active(item)
+            if active:
+                return item
+        return None
+
+    @staticmethod
+    def _build_usage_id(*, goal_id: str, grant_id: str, artifact_ref: str, context_hash: str) -> str:
+        digest = hashlib.sha1(f"{goal_id}:{grant_id}:{artifact_ref}:{context_hash}".encode("utf-8")).hexdigest()[:16]
+        return f"usage-{digest}"
+
+    @staticmethod
+    def _build_output_id(*, task_id: str, artifact_ref: str, index: int) -> str:
+        digest = hashlib.sha1(f"{task_id}:{artifact_ref}:{index}".encode("utf-8")).hexdigest()[:14]
+        return f"out-{digest}"
+
+    @staticmethod
+    def _build_content_hash(ref: dict[str, Any]) -> str:
+        payload = "|".join(
+            [
+                str(ref.get("artifact_id") or ""),
+                str(ref.get("trace_bundle_ref") or ""),
+                str(ref.get("workspace_relative_path") or ""),
+                str(ref.get("kind") or ""),
+            ]
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _build_provenance_summary(*, task_id: str, worker_id: str | None, input_usage_refs: list[str]) -> str:
+        if input_usage_refs:
+            return (
+                f"task={task_id}; worker={str(worker_id or 'unknown')}; "
+                f"input_usage_refs={len(input_usage_refs)}"
+            )
+        return f"task={task_id}; worker={str(worker_id or 'unknown')}; input_usage_refs=none"
 
     @staticmethod
     def _upsert_edge(graph: dict[str, Any], *, edge_id: str, from_ref: str, to_ref: str, edge_kind: str) -> None:

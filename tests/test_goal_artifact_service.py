@@ -138,3 +138,54 @@ def test_service_requires_policy_decision_ref_on_grant(tmp_path: Path) -> None:
     with pytest.raises(GoalArtifactServiceError) as exc:
         service.create_grant(goal_id=goal_id, grant=grant)
     assert exc.value.reason_code == "invalid_source_grant"
+
+
+def test_context_usage_tracks_allowed_and_denied_refs(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    goal_id = "goal-context"
+    service.create_grant(goal_id=goal_id, grant=_grant(goal_id, grant_id="g10"))
+    tracking = service.validate_and_record_context_usages(
+        goal_id=goal_id,
+        artifact_refs=["sources:keycloak:snap_1", "sources:wiki:snap_2"],
+        task_id="task-1",
+        worker_id="worker-1",
+        context_hash="ctx-hash-1",
+    )
+    assert tracking["artifact_grant_refs"] == ["g10"]
+    assert len(tracking["source_usage_refs"]) == 1
+    assert tracking["denied_context_refs"] == ["sources:wiki:snap_2"]
+
+
+def test_context_usage_rejects_revoked_grant(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    goal_id = "goal-context-revoked"
+    revoked = (datetime.now(UTC) - timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
+    service.create_grant(goal_id=goal_id, grant=_grant(goal_id, grant_id="g11", revoked_at=revoked))
+    tracking = service.validate_and_record_context_usages(
+        goal_id=goal_id,
+        artifact_refs=["sources:keycloak:snap_1"],
+        task_id="task-1",
+        worker_id="worker-1",
+        context_hash="ctx-hash-2",
+    )
+    assert tracking["source_usage_refs"] == []
+    assert tracking["denied_context_refs"] == ["sources:keycloak:snap_1"]
+
+
+def test_register_output_artifacts_maps_plan_patch_test_and_without_inputs(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    goal_id = "goal-outputs"
+    created = service.register_output_artifacts_from_refs(
+        goal_id=goal_id,
+        task_id="task-22",
+        worker_id="worker-2",
+        artifact_refs=[
+            {"kind": "native_worker_command_plan", "trace_bundle_ref": "trace:plan"},
+            {"kind": "patch_artifact", "artifact_id": "patch-1"},
+            {"kind": "native_worker_test_result", "trace_bundle_ref": "trace:test"},
+            {"kind": "workspace_file", "workspace_relative_path": "reports/out.txt"},
+        ],
+        input_usage_refs=[],
+    )
+    assert {item["artifact_type"] for item in created} == {"plan", "patch", "test_result", "file"}
+    assert all("input_usage_refs=none" in item["provenance_summary"] for item in created)
