@@ -12,9 +12,13 @@ from client_surfaces.operator_tui.logo_renderer.detect import (
     resolve_renderer,
 )
 from client_surfaces.operator_tui.logo_renderer.ascii import AsciiRenderer
+from client_surfaces.operator_tui.logo_renderer.compositor import compose_text_overlay
 from client_surfaces.operator_tui.logo_renderer.frame_cache import LogoFrameCache
 from client_surfaces.operator_tui.logo_renderer.halfblock import HalfblockRenderer
 from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
+from client_surfaces.operator_tui.logo_renderer.moderngl_renderer import ModernGLOffscreenRenderer
+from client_surfaces.operator_tui.logo_renderer.raylib_renderer import RaylibPrototypeRenderer
+from client_surfaces.operator_tui.logo_renderer.renderer_3d import SceneConfig
 from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 
 _DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
@@ -112,6 +116,30 @@ def render_header_logo(
     if decision.selected == "none":
         return None
 
+    use_3d = env.get("ANANTA_TUI_ENABLE_3D", "").strip().lower() in {"1", "true", "yes", "on"}
+    if use_3d:
+        scene_name = env.get("ANANTA_TUI_3D_SCENE", "demo-cube").strip().lower() or "demo-cube"
+        renderer_pref = env.get("ANANTA_TUI_3D_RENDERER", "auto").strip().lower()
+        renderer3d = _pick_3d_renderer(renderer_pref)
+        cfg = SceneConfig(scene=scene_name, width_px=max(2, cols * 8), height_px=max(2, rows * 16), t=t_now or 0.0)
+        frame3d = renderer3d.render_scene(config=cfg)
+        frame3d = compose_text_overlay(
+            frame3d,
+            lines=[f"scene={scene_name}", f"renderer={renderer3d.name}"],
+            x=6,
+            y=6,
+        )
+        if not frame3d.is_empty and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+            if decision.selected == "kitty":
+                seq = kitty_renderer.render_pixel_sequence(frame=frame3d, height_cells=rows)
+                if seq:
+                    return stream_frame_sequence(frame_sequence=seq, rows=rows, hide_cursor=True)
+            if decision.selected == "sixel":
+                payload = sixel_renderer.render_pixel_frame(frame3d)
+                if payload:
+                    seq = f"\x1b7\x1b[1;1H{payload}\x1b[{rows + 1};1H\x1b8"
+                    return stream_frame_sequence(frame_sequence=seq, rows=rows, hide_cursor=True)
+
     if decision.selected == "kitty":
         # Stream protocol output is implemented and testable in KittyRenderer, but
         # the current header composer is line-based; keep deterministic ANSI layout here.
@@ -152,3 +180,19 @@ def _build_probe(*, cols: int, rows: int, color: bool, env: dict[str, str]):
         height=max(1, int(rows)),
         env=env,
     )
+
+
+def _pick_3d_renderer(renderer_pref: str):
+    pref = (renderer_pref or "auto").strip().lower()
+    if pref == "raylib":
+        return RaylibPrototypeRenderer()
+    if pref == "moderngl":
+        return ModernGLOffscreenRenderer()
+    # auto: prefer modern path, keep raylib as optional prototype fallback.
+    mod = ModernGLOffscreenRenderer()
+    if mod.is_available():
+        return mod
+    ray = RaylibPrototypeRenderer()
+    if ray.is_available():
+        return ray
+    return mod

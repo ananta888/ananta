@@ -46,7 +46,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--3d-fps", type=int, default=24, help="3D animation frame rate")
     parser.add_argument("--3d-duration-ms", type=int, default=2000, help="3D animation duration in ms")
     parser.add_argument("--splash-frame", default="",
-                        help="Render a specific splash frame: 3d:0, 3d:mid, 3d:last, compact")
+                        help="Render a specific splash frame: 3d:0, 3d:mid, 3d:last, compact, pixel:intro")
     parser.add_argument(
         "--logo-renderer",
         choices=["auto", "ansi", "sixel", "kitty", "none"],
@@ -61,6 +61,14 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--logo-fps", type=int, default=None, help="Set persistent header logo animation FPS.")
     parser.add_argument("--no-logo", action="store_true", help="Disable persistent header logo.")
+    parser.add_argument("--enable-3d", action="store_true", help="Enable pixel-offscreen 3D header scene when possible.")
+    parser.add_argument("--scene", default=None, help="3D scene id (e.g. demo-cube).")
+    parser.add_argument(
+        "--3d-renderer",
+        choices=["auto", "moderngl", "raylib"],
+        default=None,
+        help="Preferred offscreen 3D renderer for header pixel path.",
+    )
     return parser.parse_args(argv)
 
 
@@ -237,6 +245,21 @@ def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) 
         print("\n".join(header[:COMPACT_HEADER_LINES]))
         return
 
+    if frame == "pixel:intro":
+        from client_surfaces.operator_tui.logo_renderer.animated_header import render_header_logo
+
+        lines = render_header_logo(cols=max(20, width // 2), rows=8, color=not bool(os.environ.get("NO_COLOR")), t_now=0.0) or []
+        _maybe_write_splash_debug(
+            {
+                "width": width,
+                "height": height,
+                "frame": frame,
+                "mode": "render_once",
+            }
+        )
+        print("\n".join(lines))
+        return
+
     if frame.startswith("3d:"):
         if args.no_3d or os.environ.get("ANANTA_TUI_3D") == "0" or os.environ.get("ANANTA_TUI_SPLASH") == "0":
             print("")
@@ -294,6 +317,12 @@ def _apply_logo_runtime_overrides(args: argparse.Namespace) -> None:
         os.environ["ANANTA_TUI_LOGO_ANIMATION"] = str(args.logo_animation)
     if getattr(args, "logo_fps", None) is not None:
         os.environ["ANANTA_TUI_LOGO_FPS"] = str(max(1, min(16, int(args.logo_fps))))
+    if bool(getattr(args, "enable_3d", False)):
+        os.environ["ANANTA_TUI_ENABLE_3D"] = "1"
+    if getattr(args, "scene", None):
+        os.environ["ANANTA_TUI_3D_SCENE"] = str(args.scene)
+    if getattr(args, "3d_renderer", None):
+        os.environ["ANANTA_TUI_3D_RENDERER"] = str(getattr(args, "3d_renderer"))
 
     # Render-once snapshots should be deterministic unless user explicitly opts in.
     if bool(getattr(args, "render_once", False)):
