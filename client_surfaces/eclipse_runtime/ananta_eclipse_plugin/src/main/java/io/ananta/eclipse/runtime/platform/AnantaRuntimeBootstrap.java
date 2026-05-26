@@ -7,6 +7,7 @@ import io.ananta.eclipse.runtime.core.CapabilityGate;
 import io.ananta.eclipse.runtime.core.ClientProfile;
 import io.ananta.eclipse.runtime.preferences.AnantaPreferenceRuntimeStore;
 import io.ananta.eclipse.runtime.snake.AnantaSnakePluginService;
+import io.ananta.eclipse.runtime.snake.AnantaSnakeUiPreferences;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -72,7 +73,8 @@ public final class AnantaRuntimeBootstrap {
 
     private static void rebuild() {
         ClientProfile profile = AnantaPreferenceRuntimeStore.loadProfile();
-        boolean snakeHubEnabled = AnantaPreferenceRuntimeStore.loadSnakeHubEnabled();
+        AnantaSnakeUiPreferences snakePreferences = AnantaPreferenceRuntimeStore.loadSnakeUiPreferences();
+        boolean snakeHubEnabled = AnantaPreferenceRuntimeStore.loadSnakeHubEnabled() && !snakePreferences.localOnlyMode();
         AnantaApiClient apiClient = new AnantaApiClient(profile);
         CapabilityGate capabilityGate = new CapabilityGate(
                 Set.of("goals", "review", "patch", "projects", "approvals", "audit", "repair_step_approval"),
@@ -85,6 +87,7 @@ public final class AnantaRuntimeBootstrap {
         if (snakeService == null) {
             snakeService = new AnantaSnakePluginService();
         }
+        snakeService.configureUiPreferences(snakePreferences);
         snakeService.applyHubProfile(profile, snakeHubEnabled);
     }
 

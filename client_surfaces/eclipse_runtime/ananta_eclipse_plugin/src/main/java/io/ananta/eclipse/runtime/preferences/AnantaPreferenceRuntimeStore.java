@@ -1,6 +1,8 @@
 package io.ananta.eclipse.runtime.preferences;
 
 import io.ananta.eclipse.runtime.core.ClientProfile;
+import io.ananta.eclipse.runtime.snake.AnantaSnakePrivacySettings;
+import io.ananta.eclipse.runtime.snake.AnantaSnakeUiPreferences;
 
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
@@ -22,6 +24,14 @@ public final class AnantaPreferenceRuntimeStore {
     private static final String KEY_TIMEOUT_SECONDS = "timeout_seconds";
     private static final String KEY_AUTH_TOKEN = "auth_token";
     private static final String KEY_SNAKE_HUB_ENABLED = "snake_hub_enabled";
+    private static final String KEY_SNAKE_ENABLED = "snake_enabled";
+    private static final String KEY_SNAKE_ANIMATION_FPS = "snake_animation_fps";
+    private static final String KEY_SNAKE_FOLLOW_DISTANCE_PX = "snake_follow_distance_px";
+    private static final String KEY_SNAKE_OVERLAY_OPACITY_PERCENT = "snake_overlay_opacity_percent";
+    private static final String KEY_SNAKE_LOCAL_ONLY_MODE = "snake_local_only_mode";
+    private static final String KEY_SNAKE_ALLOW_SELECTION_CONTENT = "snake_allow_selection_content";
+    private static final String KEY_SNAKE_ALLOW_FILE_CONTENT = "snake_allow_file_content";
+    private static final String KEY_SNAKE_ALLOW_EXTERNAL_PROVIDERS = "snake_allow_external_providers";
 
     private AnantaPreferenceRuntimeStore() {
     }
@@ -65,6 +75,49 @@ public final class AnantaPreferenceRuntimeStore {
             node.flush();
         } catch (BackingStoreException exc) {
             throw new IllegalStateException("failed_to_store_snake_hub_enabled", exc);
+        }
+    }
+
+    public static AnantaSnakeUiPreferences loadSnakeUiPreferences() {
+        IEclipsePreferences node = InstanceScope.INSTANCE.getNode(PREF_NODE);
+        return new AnantaSnakeUiPreferences(
+                node.getBoolean(KEY_SNAKE_ENABLED, AnantaSnakeUiPreferences.defaults().snakeEnabledByDefault()),
+                node.getInt(KEY_SNAKE_ANIMATION_FPS, AnantaSnakeUiPreferences.defaults().animationFps()),
+                node.getInt(KEY_SNAKE_FOLLOW_DISTANCE_PX, AnantaSnakeUiPreferences.defaults().followDistancePx()),
+                node.getInt(KEY_SNAKE_OVERLAY_OPACITY_PERCENT, AnantaSnakeUiPreferences.defaults().overlayOpacityPercent()),
+                node.getBoolean(KEY_SNAKE_LOCAL_ONLY_MODE, AnantaSnakeUiPreferences.defaults().localOnlyMode()),
+                new AnantaSnakePrivacySettings(
+                        node.getBoolean(
+                                KEY_SNAKE_ALLOW_SELECTION_CONTENT,
+                                AnantaSnakeUiPreferences.defaults().privacySettings().allowSelectionContent()
+                        ),
+                        node.getBoolean(
+                                KEY_SNAKE_ALLOW_FILE_CONTENT,
+                                AnantaSnakeUiPreferences.defaults().privacySettings().allowFileContent()
+                        ),
+                        node.getBoolean(
+                                KEY_SNAKE_ALLOW_EXTERNAL_PROVIDERS,
+                                AnantaSnakeUiPreferences.defaults().privacySettings().allowExternalProviders()
+                        )
+                )
+        );
+    }
+
+    public static void saveSnakeUiPreferences(AnantaSnakeUiPreferences preferences) {
+        AnantaSnakeUiPreferences input = preferences == null ? AnantaSnakeUiPreferences.defaults() : preferences;
+        IEclipsePreferences node = InstanceScope.INSTANCE.getNode(PREF_NODE);
+        node.putBoolean(KEY_SNAKE_ENABLED, input.snakeEnabledByDefault());
+        node.putInt(KEY_SNAKE_ANIMATION_FPS, input.animationFps());
+        node.putInt(KEY_SNAKE_FOLLOW_DISTANCE_PX, input.followDistancePx());
+        node.putInt(KEY_SNAKE_OVERLAY_OPACITY_PERCENT, input.overlayOpacityPercent());
+        node.putBoolean(KEY_SNAKE_LOCAL_ONLY_MODE, input.localOnlyMode());
+        node.putBoolean(KEY_SNAKE_ALLOW_SELECTION_CONTENT, input.privacySettings().allowSelectionContent());
+        node.putBoolean(KEY_SNAKE_ALLOW_FILE_CONTENT, input.privacySettings().allowFileContent());
+        node.putBoolean(KEY_SNAKE_ALLOW_EXTERNAL_PROVIDERS, input.privacySettings().allowExternalProviders());
+        try {
+            node.flush();
+        } catch (BackingStoreException exc) {
+            throw new IllegalStateException("failed_to_store_snake_ui_preferences", exc);
         }
     }
 

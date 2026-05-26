@@ -14,6 +14,7 @@ public final class AnantaSnakeOverlayCanvas {
     private Canvas canvas;
     private PaintListener paintListener;
     private AnantaSnakeOverlayModel model = AnantaSnakeOverlayModel.fromState(AnantaSnakeState.initial());
+    private int opacityPercent = 60;
 
     public void create(Composite parent) {
         if (canvas != null && !canvas.isDisposed()) {
@@ -43,12 +44,20 @@ public final class AnantaSnakeOverlayCanvas {
         paintListener = null;
     }
 
+    public void setOpacityPercent(int nextOpacityPercent) {
+        opacityPercent = Math.max(10, Math.min(100, nextOpacityPercent));
+        if (canvas != null && !canvas.isDisposed()) {
+            canvas.redraw();
+        }
+    }
+
     private void render(PaintEvent event) {
         if (model == null || model.segments().isEmpty()) {
             return;
         }
         GC gc = event.gc;
         gc.setAntialias(SWT.ON);
+        gc.setAlpha((int) Math.round(255.0 * (opacityPercent / 100.0)));
         Display display = event.display;
         Color snakeColor = display.getSystemColor(SWT.COLOR_DARK_GREEN);
         gc.setForeground(snakeColor);

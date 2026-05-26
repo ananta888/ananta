@@ -4,8 +4,12 @@ import io.ananta.eclipse.runtime.core.AnantaApiClient;
 import io.ananta.eclipse.runtime.core.ClientProfile;
 import io.ananta.eclipse.runtime.core.ClientResponse;
 import io.ananta.eclipse.runtime.core.DegradedState;
+import io.ananta.eclipse.runtime.security.TokenRedaction;
 
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -29,7 +33,7 @@ public final class AnantaSnakePluginService {
             "console_focus",
             "diff_focus"
     );
-    private static final Set<String> HUB_STATES = Set.of("offline", "local_only", "hub_connected");
+    private static final Set<String> HUB_STATES = Set.of("offline", "local_only", "hub_connected", "ai_active");
 
     private final Object lock = new Object();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -60,13 +64,16 @@ public final class AnantaSnakePluginService {
             new AnantaEditorContextSnapshotRuntime.SelectionRange(0, 0)
     );
     private AnantaSnakeHubConnectionConfig hubConnectionConfig = AnantaSnakeHubConnectionConfig.disabled();
+    private AnantaSnakeUiPreferences uiPreferences = AnantaSnakeUiPreferences.defaults();
     private AnantaApiClient hubApiClient;
     private String registeredClientId = "";
     private String workspaceId = "default-workspace";
     private String displayName = "ananta-eclipse-snake";
     private String pendingContextEnvelopeJson = "";
     private String lastContextEnvelopeJson = "";
+    private String lastContextSummary = "none";
     private String lastAskResult = "not_requested";
+    private String lastPolicyReasonCode = "none";
 
     public AnantaSnakeState snapshot() {
         synchronized (lock) {
@@ -77,6 +84,12 @@ public final class AnantaSnakePluginService {
     public AnantaSnakeHubConnectionConfig hubConnectionConfig() {
         synchronized (lock) {
             return hubConnectionConfig;
+        }
+    }
+
+    public AnantaSnakeUiPreferences uiPreferences() {
+        synchronized (lock) {
+            return uiPreferences;
         }
     }
 
@@ -92,9 +105,73 @@ public final class AnantaSnakePluginService {
         }
     }
 
+    public String lastContextSummary() {
+        synchronized (lock) {
+            return lastContextSummary;
+        }
+    }
+
+    public String contextReleaseMode() {
+        synchronized (lock) {
+            if (uiPreferences.privacySettings().allowFileContent()) {
+                return "file_content";
+            }
+            if (uiPreferences.privacySettings().allowSelectionContent()) {
+                return "selection_content";
+            }
+            return "metadata_only";
+        }
+    }
+
+    public int overlayOpacityPercent() {
+        synchronized (lock) {
+            return uiPreferences.overlayOpacityPercent();
+        }
+    }
+
     public String lastAskResult() {
         synchronized (lock) {
             return lastAskResult;
+        }
+    }
+
+    public String lastPolicyReasonCode() {
+        synchronized (lock) {
+            return lastPolicyReasonCode;
+        }
+    }
+
+    public void resetContextAuthorization() {
+        synchronized (lock) {
+            AnantaSnakePrivacySettings reset = AnantaSnakePrivacySettings.safeDefaults();
+            uiPreferences = new AnantaSnakeUiPreferences(
+                    uiPreferences.snakeEnabledByDefault(),
+                    uiPreferences.animationFps(),
+                    uiPreferences.followDistancePx(),
+                    uiPreferences.overlayOpacityPercent(),
+                    uiPreferences.localOnlyMode(),
+                    reset
+            );
+            lastPolicyReasonCode = "context_grants_reset";
+        }
+    }
+
+    public AnantaSnakeState configureUiPreferences(AnantaSnakeUiPreferences preferences) {
+        AnantaSnakeUiPreferences input = preferences == null ? AnantaSnakeUiPreferences.defaults() : preferences;
+        synchronized (lock) {
+            uiPreferences = input;
+            configuredActiveTickRateFps = input.animationFps();
+            state = state.withFollowDistance(input.followDistancePx());
+            int effective = state.isWorkbenchActive() ? configuredActiveTickRateFps : INACTIVE_TICK_RATE_FPS;
+            state = state.withTickRate(effective);
+            if (state.isRunning()) {
+                scheduleTicksLocked();
+            }
+            if (!input.snakeEnabledByDefault()) {
+                stop();
+                state = state.withEnabled(false);
+            }
+            return state;
         }
     }
 
@@ -106,7 +183,7 @@ public final class AnantaSnakePluginService {
             state = state
                     .withEnabled(true)
                     .withRunning(true)
-                    .withFollowDistance(DEFAULT_FOLLOW_DISTANCE_PX)
+                    .withFollowDistance(Math.max(DEFAULT_FOLLOW_DISTANCE_PX, uiPreferences.followDistancePx()))
                     .withModes("follow_mouse", "observing")
                     .withWorkbenchActive(true)
                     .withTickRate(configuredActiveTickRateFps);
@@ -278,7 +355,7 @@ public final class AnantaSnakePluginService {
                 state = state.withModes("follow_mouse", "observing");
             }
             refreshPredictionLocked();
-            queueContextEnvelopeDispatchLocked("policy_default_deny", List.of("file_content"), List.of());
+            queueContextEnvelopeDispatchLocked("policy_default_deny", List.of(), List.of());
             return state;
         }
     }
@@ -340,7 +417,7 @@ public final class AnantaSnakePluginService {
                 state = state.withHubConnectionState("hub_connected");
                 scheduleHeartbeatLocked();
             } else {
-                state = state.withHubConnectionState("local_only");
+                state = state.withHubConnectionState(resolveHubFallbackState(response));
             }
             return response;
         }
@@ -379,24 +456,38 @@ public final class AnantaSnakePluginService {
         AnantaApiClient apiClient;
         String normalizedGoal = sanitizeFallback(goalText, "Ask Ananta Snake");
         synchronized (lock) {
-            envelopeJson = buildContextEnvelopeLocked("policy_default_deny", List.of("file_content"), List.of());
+            envelopeJson = buildContextEnvelopeLocked("policy_default_deny", List.of(), List.of());
             if (!hubConnectionConfig.enabled() || hubApiClient == null) {
                 state = state.withHubConnectionState("local_only");
                 lastAskResult = "local_only: ask action skipped";
                 return localOnlyResponse("snake_ask_skipped");
             }
+            if (!canUseCloudProvider()) {
+                state = state.withHubConnectionState("local_only");
+                lastPolicyReasonCode = "external_provider_denied";
+                lastAskResult = "policy_denied: external_provider_denied";
+                return policyDeniedResponse("external_provider_denied");
+            }
             apiClient = hubApiClient;
         }
 
+        SanitizedEnvelope sanitized = sanitizeEnvelope(envelopeJson);
         ClientResponse response = apiClient.submitGoal(
                 normalizedGoal,
-                envelopeJson,
+                sanitized.envelopeJson(),
                 "repository_understanding",
                 "io.ananta.eclipse.command.snake_ask",
                 null
         );
         synchronized (lock) {
-            state = response.isOk() ? state.withHubConnectionState("hub_connected") : state.withHubConnectionState("local_only");
+            if (response.isOk()) {
+                state = state.withHubConnectionState("ai_active");
+            } else {
+                state = state.withHubConnectionState(resolveHubFallbackState(response));
+            }
+            if (!sanitized.reasonCodes().isEmpty()) {
+                lastPolicyReasonCode = String.join(",", sanitized.reasonCodes());
+            }
             lastAskResult = "ask_state=" + response.getState().name().toLowerCase()
                     + ", status=" + response.getStatusCode();
             return response;
@@ -440,15 +531,31 @@ public final class AnantaSnakePluginService {
             List<String> deniedContextRefs,
             List<String> artifactRefs
     ) {
+        List<String> deniedRefs = new ArrayList<>(deniedContextRefs == null ? List.of() : deniedContextRefs);
+        String resolvedPolicyDecisionRef = sanitizeFallback(policyDecisionRef, "policy_default_deny");
+        if (!uiPreferences.privacySettings().allowSelectionContent()) {
+            deniedRefs.add("selection_content");
+        }
+        if (!uiPreferences.privacySettings().allowFileContent()) {
+            deniedRefs.add("file_content");
+        }
+        if (!canUseCloudProvider()) {
+            deniedRefs.add("external_provider");
+            resolvedPolicyDecisionRef = "policy_external_provider_blocked";
+        }
         AnantaSnakeContextEnvelopeRuntime.SnakeContextEnvelope envelope = contextEnvelopeRuntime.build(
                 state.getIdeZone(),
                 latestEditorSnapshot,
                 latestPredictionEvent,
-                sanitizeFallback(policyDecisionRef, "policy_default_deny"),
-                deniedContextRefs,
+                resolvedPolicyDecisionRef,
+                deniedRefs,
                 artifactRefs
         );
         lastContextEnvelopeJson = envelope.toJson();
+        lastContextSummary = "zone=" + state.getIdeZone()
+                + ", intent=" + latestPredictionEvent.intentKind()
+                + ", release_mode=" + contextReleaseMode()
+                + ", denied=" + String.join("|", deniedRefs);
         return lastContextEnvelopeJson;
     }
 
@@ -459,18 +566,29 @@ public final class AnantaSnakePluginService {
                 state = state.withHubConnectionState("local_only");
                 return localOnlyResponse("context_dispatch_skipped");
             }
+            if (!canUseCloudProvider()) {
+                state = state.withHubConnectionState("local_only");
+                lastPolicyReasonCode = "external_provider_denied";
+                return policyDeniedResponse("external_provider_denied");
+            }
             apiClient = hubApiClient;
         }
 
+        SanitizedEnvelope sanitized = sanitizeEnvelope(envelopeJson);
         ClientResponse response = apiClient.submitGoal(
                 "Process Eclipse Snake context envelope",
-                envelopeJson,
+                sanitized.envelopeJson(),
                 "repository_understanding",
                 "io.ananta.eclipse.command.snake_context",
                 null
         );
         synchronized (lock) {
-            state = response.isOk() ? state.withHubConnectionState("hub_connected") : state.withHubConnectionState("local_only");
+            if (!sanitized.reasonCodes().isEmpty()) {
+                lastPolicyReasonCode = String.join(",", sanitized.reasonCodes());
+            } else {
+                lastPolicyReasonCode = "none";
+            }
+            state = response.isOk() ? state.withHubConnectionState("hub_connected") : state.withHubConnectionState(resolveHubFallbackState(response));
             return response;
         }
     }
@@ -481,7 +599,7 @@ public final class AnantaSnakePluginService {
             return localOnlyResponse("snake_heartbeat_skipped");
         }
         ClientResponse response = hubApiClient.snakeHeartbeat(registeredClientId, workspaceId);
-        state = response.isOk() ? state.withHubConnectionState("hub_connected") : state.withHubConnectionState("local_only");
+        state = response.isOk() ? state.withHubConnectionState("hub_connected") : state.withHubConnectionState(resolveHubFallbackState(response));
         return response;
     }
 
@@ -566,6 +684,38 @@ public final class AnantaSnakePluginService {
         );
     }
 
+    private boolean canUseCloudProvider() {
+        if (uiPreferences.privacySettings().allowExternalProviders()) {
+            return true;
+        }
+        if (hubConnectionConfig.baseUrl().isBlank()) {
+            return true;
+        }
+        URI parsed = URI.create(hubConnectionConfig.baseUrl());
+        String host = parsed.getHost();
+        if (host == null) {
+            return true;
+        }
+        String normalizedHost = host.toLowerCase(Locale.ROOT);
+        return normalizedHost.equals("localhost") || normalizedHost.equals("127.0.0.1");
+    }
+
+    private static String resolveHubFallbackState(ClientResponse response) {
+        if (response != null && response.getState() == DegradedState.BACKEND_UNREACHABLE) {
+            return "offline";
+        }
+        return "local_only";
+    }
+
+    private SanitizedEnvelope sanitizeEnvelope(String envelopeJson) {
+        String redacted = TokenRedaction.redactSensitiveText(envelopeJson);
+        List<String> reasonCodes = new ArrayList<>();
+        if (!redacted.equals(envelopeJson)) {
+            reasonCodes.add("sensitive_values_redacted");
+        }
+        return new SanitizedEnvelope(redacted, reasonCodes);
+    }
+
     private static ClientResponse localOnlyResponse(String reason) {
         return new ClientResponse(
                 true,
@@ -573,6 +723,17 @@ public final class AnantaSnakePluginService {
                 DegradedState.HEALTHY,
                 "{\"mode\":\"local_only\"}",
                 reason,
+                false
+        );
+    }
+
+    private static ClientResponse policyDeniedResponse(String reasonCode) {
+        return new ClientResponse(
+                false,
+                403,
+                DegradedState.POLICY_DENIED,
+                "{\"reason_code\":\"" + sanitizeFallback(reasonCode, "policy_denied") + "\"}",
+                sanitizeFallback(reasonCode, "policy_denied"),
                 false
         );
     }
@@ -602,5 +763,11 @@ public final class AnantaSnakePluginService {
 
     private static String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase();
+    }
+
+    private record SanitizedEnvelope(
+            String envelopeJson,
+            List<String> reasonCodes
+    ) {
     }
 }

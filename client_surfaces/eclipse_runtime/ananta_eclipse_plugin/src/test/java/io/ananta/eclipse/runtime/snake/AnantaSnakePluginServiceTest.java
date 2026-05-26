@@ -154,4 +154,31 @@ class AnantaSnakePluginServiceTest {
             service.shutdown();
         }
     }
+
+    @Test
+    void uiPreferencesApplyDefaultsAndContextReset() {
+        AnantaSnakePluginService service = new AnantaSnakePluginService();
+        try {
+            service.configureUiPreferences(
+                    new AnantaSnakeUiPreferences(
+                            true,
+                            25,
+                            40,
+                            80,
+                            true,
+                            new AnantaSnakePrivacySettings(true, false, false)
+                    )
+            );
+            assertEquals(25, service.snapshot().getTickRateFps());
+            assertEquals(40, service.snapshot().getFollowDistancePx());
+            assertEquals(80, service.overlayOpacityPercent());
+            assertEquals("selection_content", service.contextReleaseMode());
+
+            service.resetContextAuthorization();
+            assertEquals("metadata_only", service.contextReleaseMode());
+            assertEquals("context_grants_reset", service.lastPolicyReasonCode());
+        } finally {
+            service.shutdown();
+        }
+    }
 }

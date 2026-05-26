@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AnantaSnakeHubIntegrationRuntimeTest {
@@ -50,9 +51,9 @@ class AnantaSnakeHubIntegrationRuntimeTest {
                 service.recordActiveWorkbenchPart("org.eclipse.ui.editors", "Main.java");
                 service.captureEditorContextSnapshot("demo", "/workspace/Main.java", "java_editor", 5, 11);
 
-                service.queueContextEnvelopeDispatch("policy-1", List.of("file_content"), List.of("artifact://a"));
-                service.queueContextEnvelopeDispatch("policy-1", List.of("file_content"), List.of("artifact://a"));
-                service.queueContextEnvelopeDispatch("policy-1", List.of("file_content"), List.of("artifact://a"));
+                service.queueContextEnvelopeDispatch("policy-1", List.of(), List.of("artifact://a?token=secret-123"));
+                service.queueContextEnvelopeDispatch("policy-1", List.of(), List.of("artifact://a?token=secret-123"));
+                service.queueContextEnvelopeDispatch("policy-1", List.of(), List.of("artifact://a?token=secret-123"));
                 Thread.sleep(700L);
 
                 var requests = backend.findRequests("POST", "/goals");
@@ -61,6 +62,9 @@ class AnantaSnakeHubIntegrationRuntimeTest {
                 assertTrue(body.contains("\"schema\":\"eclipse_snake_context_envelope_v1\""));
                 assertTrue(body.contains("\"policy_decision_ref\":\"policy-1\""));
                 assertTrue(body.contains("\"includes_file_content\":false"));
+                assertTrue(body.contains("token=***"));
+                assertFalse(body.contains("secret-123"));
+                assertTrue(service.lastPolicyReasonCode().contains("sensitive_values_redacted"));
             } finally {
                 service.shutdown();
             }
@@ -81,9 +85,27 @@ class AnantaSnakeHubIntegrationRuntimeTest {
 
                 ClientResponse ask = service.askAnantaSnakeNow("Ask Snake");
                 assertTrue(ask.isOk());
-                assertEquals("hub_connected", service.snapshot().getHubConnectionState());
+                assertEquals("ai_active", service.snapshot().getHubConnectionState());
                 assertTrue(service.lastAskResult().contains("ask_state=healthy"));
                 assertEquals(1, backend.findRequests("POST", "/goals").size());
+            } finally {
+                service.shutdown();
+            }
+        }
+    }
+
+    @Test
+    void externalProviderRemainsDeniedByDefault() throws IOException {
+        try (StubBackendServer backend = StubBackendServer.start()) {
+            backend.stub("POST", "/goals", 200, "{\"goal_id\":\"snake-ask-1\",\"status\":\"queued\"}");
+            AnantaSnakePluginService service = new AnantaSnakePluginService();
+            try {
+                ClientProfile profile = new ClientProfile("snake", "https://example.com", "session_token", "local", "token", 10);
+                service.applyHubProfile(profile, true);
+                ClientResponse ask = service.askAnantaSnakeNow("Ask Snake");
+                assertFalse(ask.isOk());
+                assertEquals("local_only", service.snapshot().getHubConnectionState());
+                assertEquals("external_provider_denied", service.lastPolicyReasonCode());
             } finally {
                 service.shutdown();
             }
