@@ -73,6 +73,10 @@ from agent.services.imap_account_service import (
     list_imap_accounts,
 )
 from agent.services.imap_feature_flag_service import resolve_imap_runtime_state
+from agent.services.imap_metadata_store_service import ImapMetadataStore
+from agent.services.imap_redaction_pipeline_service import redact_mail_for_worker_context
+from agent.services.imap_search_service import search_mail_metadata
+from agent.services.imap_threading_service import annotate_messages_with_thread_counts
 
 
 def _now_iso() -> str:
@@ -486,6 +490,153 @@ def _recompute_planning_track_output(*, goal_id: str, output_artifact_id: str) -
 
 def _helpcenter_repo_root() -> Path:
     return Path.cwd()
+
+
+def _mail_repo_root() -> Path:
+    return Path.cwd()
+
+
+def _mail_store(repo_root: Path) -> ImapMetadataStore:
+    return ImapMetadataStore(store_path=repo_root / "data" / "imap" / "mail-metadata.json")
+
+
+def _mail_message_key(row: dict[str, object]) -> str:
+    ref = dict(row.get("message_ref") or {})
+    message_id = str(ref.get("message_id") or "").strip()
+    if message_id:
+        return message_id
+    return f"{ref.get('account_id')}::{ref.get('mailbox')}::{ref.get('uid')}"
+
+
+def _build_mail_payload(*, game: dict[str, object], repo_root: Path) -> dict[str, object]:
+    accounts = list_imap_accounts(repo_root=repo_root)
+    selected_account_id = str(game.get("mail_selected_account_id") or "").strip()
+    if not selected_account_id and accounts:
+        selected_account_id = str(accounts[0].get("account_id") or "")
+        game["mail_selected_account_id"] = selected_account_id
+    selected_account = next(
+        (item for item in accounts if str(item.get("account_id") or "") == selected_account_id),
+        dict(accounts[0]) if accounts else {},
+    )
+    cfg = dict(game.get("imap_config") or {"imap": {"enabled": True}})
+    connected = {str(item) for item in list(game.get("imap_connected_account_ids") or []) if str(item).strip()}
+    syncing = {str(item) for item in list(game.get("imap_syncing_account_ids") or []) if str(item).strip()}
+    account_status_rows: list[dict[str, object]] = []
+    for account in accounts:
+        account_id = str(account.get("account_id") or "")
+        if not bool(account.get("enabled", True)):
+            state_row = {"state": "disabled", "reason_code": "account_disabled"}
+        else:
+            state_row = resolve_imap_runtime_state(
+                cfg,
+                has_account=True,
+                connected=account_id in connected,
+                syncing=account_id in syncing,
+            )
+        account_status_rows.append(
+            {
+                "account_id": account_id,
+                "display_name": str(account.get("display_name") or ""),
+                "enabled": bool(account.get("enabled", True)),
+                **state_row,
+            }
+        )
+
+    store = _mail_store(repo_root)
+    rows = store.list_messages()
+    mock_rows = [dict(item) for item in list(game.get("mail_mock_messages") or []) if isinstance(item, dict)]
+    if mock_rows:
+        rows.extend(mock_rows)
+    if selected_account_id:
+        rows = [item for item in rows if str(dict(item.get("message_ref") or {}).get("account_id") or "") == selected_account_id]
+    mailbox_set = sorted(
+        {
+            str(dict(item.get("message_ref") or {}).get("mailbox") or "").strip()
+            for item in rows
+            if str(dict(item.get("message_ref") or {}).get("mailbox") or "").strip()
+        }
+    )
+    if not mailbox_set:
+        mock_mailboxes = dict(game.get("mail_mock_mailboxes_by_account") or {})
+        mailbox_set = [
+            str(item).strip()
+            for item in list(mock_mailboxes.get(selected_account_id) or ["INBOX"])
+            if str(item).strip()
+        ]
+    selected_mailbox = str(game.get("mail_selected_mailbox") or "").strip()
+    if not selected_mailbox and mailbox_set:
+        selected_mailbox = mailbox_set[0]
+        game["mail_selected_mailbox"] = selected_mailbox
+
+    filters = dict(game.get("mail_filters") or {})
+    query_filters = dict(filters)
+    if selected_mailbox:
+        query_filters.setdefault("mailbox", selected_mailbox)
+    search_rows = rows
+    if not mock_rows:
+        search = search_mail_metadata(
+            store=store,
+            filters=query_filters,
+            include_body_search=False,
+        )
+        search_rows = [
+            {
+                "message_ref": dict(item.get("message_ref") or {}),
+                "header_meta": dict(item.get("header_meta") or {}),
+                "stale": bool(item.get("stale", False)),
+                "body_scope": str(item.get("policy_state") or "metadata_only"),
+                "source_ref": str(item.get("source_ref") or ""),
+                "body": "",
+            }
+            for item in list(search.get("results") or [])
+            if isinstance(item, dict)
+        ]
+    else:
+        def _match_row(row: dict[str, object]) -> bool:
+            ref = dict(row.get("message_ref") or {})
+            header = dict(row.get("header_meta") or {})
+            mailbox = str(ref.get("mailbox") or "")
+            if query_filters.get("mailbox") and mailbox != str(query_filters.get("mailbox")):
+                return False
+            if query_filters.get("from") and str(query_filters.get("from")).lower() not in str(ref.get("from") or "").lower():
+                return False
+            if query_filters.get("subject") and str(query_filters.get("subject")).lower() not in str(header.get("subject") or "").lower():
+                return False
+            unread = query_filters.get("unread")
+            if unread is not None and bool(header.get("unread")) is not bool(unread):
+                return False
+            return True
+
+        search_rows = [row for row in rows if _match_row(row)]
+
+    threaded_rows = annotate_messages_with_thread_counts(search_rows)
+    offset = max(0, int(game.get("mail_list_offset") or 0))
+    page_size = 20
+    page_rows = threaded_rows[offset : offset + page_size]
+    selected_message_key = str(game.get("mail_selected_message_key") or "").strip()
+    selected_row = next((row for row in threaded_rows if _mail_message_key(row) == selected_message_key), dict(page_rows[0]) if page_rows else {})
+    selected_detail = {
+        "message_ref": dict(selected_row.get("message_ref") or {}),
+        "header_meta": dict(selected_row.get("header_meta") or {}),
+        "body_scope": str(selected_row.get("body_scope") or "metadata_only"),
+        "redaction_status": str(game.get("mail_detail_redaction_status") or selected_row.get("redaction_status") or "not_required"),
+        "body_loaded": bool(game.get("mail_detail_body_loaded", False)),
+        "body_text": str(game.get("mail_detail_body") or "") if bool(game.get("mail_detail_body_loaded", False)) else "",
+    }
+    return {
+        "mail_mode": True,
+        "accounts": account_status_rows,
+        "selected_account_id": selected_account_id,
+        "selected_account": selected_account,
+        "mailboxes": mailbox_set,
+        "selected_mailbox": selected_mailbox,
+        "filters": filters,
+        "list_offset": offset,
+        "total_messages": len(threaded_rows),
+        "messages": page_rows,
+        "selected_message_key": _mail_message_key(selected_row) if selected_row else "",
+        "selected_detail": selected_detail,
+    }
 
 
 def _build_helpcenter_payload(*, game: dict[str, object], repo_root: Path) -> dict[str, object]:
@@ -907,19 +1058,26 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             handled=False,
         )
     if command == "mail":
+        repo_root = _mail_repo_root()
+        game = dict(state.header_logo_game or {})
         if not args:
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
             return CommandResult(
-                state,
-                "mail account list|status|create --display-name <name> --host <host> --port <port> --username <username_ref> --credential-ref <ref> [--sync-policy manual|headers_only|limited_recent] | disable <account-id> | delete <account-id>",
-                handled=False,
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message="mail view opened",
+                ),
+                json.dumps(payload, ensure_ascii=False),
             )
         sub = str(args[0]).lower()
-        if sub != "account":
-            return CommandResult(state, "mail supports only `mail account ...` currently", handled=False)
-        if len(args) < 2:
-            return CommandResult(state, "mail account list|status|create|disable|delete", handled=False)
-        action = str(args[1]).lower()
-        repo_root = Path.cwd()
 
         def _option(tokens: list[str], name: str) -> str:
             key = f"--{name}"
@@ -928,98 +1086,301 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     return str(tokens[idx + 1]).strip()
             return ""
 
-        if action == "list":
-            accounts = list_imap_accounts(repo_root=repo_root)
-            return CommandResult(state.with_updates(status_message=f"mail accounts={len(accounts)}"), json.dumps({"accounts": accounts}, ensure_ascii=False))
-        if action == "status":
-            game = dict(state.header_logo_game or {})
-            cfg = dict(game.get("imap_config") or {"imap": {"enabled": True}})
-            connected = {str(item) for item in list(game.get("imap_connected_account_ids") or []) if str(item).strip()}
-            syncing = {str(item) for item in list(game.get("imap_syncing_account_ids") or []) if str(item).strip()}
-            accounts = list_imap_accounts(repo_root=repo_root)
-            status_rows: list[dict[str, object]] = []
-            for account in accounts:
-                account_id = str(account.get("account_id") or "")
-                if not bool(account.get("enabled", True)):
-                    state_row = {"state": "disabled", "reason_code": "account_disabled"}
-                else:
-                    state_row = resolve_imap_runtime_state(
-                        cfg,
-                        has_account=True,
-                        connected=account_id in connected,
-                        syncing=account_id in syncing,
-                    )
-                status_rows.append(
-                    {
-                        "account_id": account_id,
-                        "display_name": str(account.get("display_name") or ""),
-                        "enabled": bool(account.get("enabled", True)),
-                        **state_row,
-                    }
-                )
-            return CommandResult(
-                state.with_updates(status_message=f"mail account status rows={len(status_rows)}"),
-                json.dumps({"accounts": status_rows}, ensure_ascii=False),
-            )
-        if action == "create":
-            tokens = list(args[2:])
-            if any(str(token).strip().lower() in {"--password", "--token"} for token in tokens):
-                return CommandResult(state, "mail account create requires credential_ref, not password/token", handled=False)
-            display_name = _option(tokens, "display-name")
-            host = _option(tokens, "host")
-            port_text = _option(tokens, "port")
-            username = _option(tokens, "username")
-            credential_ref = _option(tokens, "credential-ref")
-            sync_policy = _option(tokens, "sync-policy") or "headers_only"
-            if not (display_name and host and port_text and username and credential_ref):
+        if sub == "account":
+            if len(args) < 2:
+                return CommandResult(state, "mail account list|status|create|disable|delete|use", handled=False)
+            action = str(args[1]).lower()
+            if action == "list":
+                accounts = list_imap_accounts(repo_root=repo_root)
                 return CommandResult(
-                    state,
-                    "mail account create --display-name <name> --host <host> --port <port> --username <username_ref> --credential-ref <ref>",
-                    handled=False,
+                    state.with_updates(status_message=f"mail accounts={len(accounts)}"),
+                    json.dumps({"accounts": accounts}, ensure_ascii=False),
                 )
-            try:
-                port = int(port_text)
-            except ValueError:
-                return CommandResult(state, "mail account create --port must be integer", handled=False)
-            try:
-                account = create_imap_account(
-                    repo_root=repo_root,
-                    display_name=display_name,
-                    host=host,
-                    port=port,
-                    username_ref=username,
-                    credential_ref=credential_ref,
-                    sync_policy=sync_policy,
+            if action == "status":
+                payload = _build_mail_payload(game=game, repo_root=repo_root)
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message=f"mail account status rows={len(payload.get('accounts') or [])}"),
+                    json.dumps({"accounts": payload.get("accounts") or []}, ensure_ascii=False),
                 )
-            except ValueError as exc:
-                return CommandResult(state, f"mail account create failed: {exc}", handled=False)
+            if action == "create":
+                tokens = list(args[2:])
+                if any(str(token).strip().lower() in {"--password", "--token"} for token in tokens):
+                    return CommandResult(state, "mail account create requires credential_ref, not password/token", handled=False)
+                display_name = _option(tokens, "display-name")
+                host = _option(tokens, "host")
+                port_text = _option(tokens, "port")
+                username = _option(tokens, "username")
+                credential_ref = _option(tokens, "credential-ref")
+                sync_policy = _option(tokens, "sync-policy") or "headers_only"
+                if not (display_name and host and port_text and username and credential_ref):
+                    return CommandResult(
+                        state,
+                        "mail account create --display-name <name> --host <host> --port <port> --username <username_ref> --credential-ref <ref>",
+                        handled=False,
+                    )
+                try:
+                    port = int(port_text)
+                except ValueError:
+                    return CommandResult(state, "mail account create --port must be integer", handled=False)
+                try:
+                    account = create_imap_account(
+                        repo_root=repo_root,
+                        display_name=display_name,
+                        host=host,
+                        port=port,
+                        username_ref=username,
+                        credential_ref=credential_ref,
+                        sync_policy=sync_policy,
+                    )
+                except ValueError as exc:
+                    return CommandResult(state, f"mail account create failed: {exc}", handled=False)
+                payload = _build_mail_payload(game=game, repo_root=repo_root)
+                section_payloads = dict(state.section_payloads or {})
+                section_payloads["artifacts"] = payload
+                panel_states = dict(state.panel_states or {})
+                panel_states["artifacts"] = PanelState.HEALTHY
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        section_id="artifacts",
+                        selected_index=0,
+                        section_payloads=section_payloads,
+                        panel_states=panel_states,
+                        status_message=f"mail account created {account.get('account_id')}",
+                    ),
+                    json.dumps({"account": account, "payload": payload}, ensure_ascii=False),
+                )
+            if action == "use":
+                if len(args) < 3:
+                    return CommandResult(state, "mail account use <account-id>", handled=False)
+                game["mail_selected_account_id"] = str(args[2]).strip()
+                game.pop("mail_selected_mailbox", None)
+                game["mail_list_offset"] = 0
+                payload = _build_mail_payload(game=game, repo_root=repo_root)
+                section_payloads = dict(state.section_payloads or {})
+                section_payloads["artifacts"] = payload
+                panel_states = dict(state.panel_states or {})
+                panel_states["artifacts"] = PanelState.HEALTHY
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        section_id="artifacts",
+                        selected_index=0,
+                        section_payloads=section_payloads,
+                        panel_states=panel_states,
+                        status_message=f"mail account {args[2]} selected",
+                    ),
+                    json.dumps(payload, ensure_ascii=False),
+                )
+            if action == "disable":
+                if len(args) < 3:
+                    return CommandResult(state, "mail account disable <account-id>", handled=False)
+                try:
+                    account = disable_imap_account(account_id=str(args[2]).strip(), repo_root=repo_root)
+                except ValueError:
+                    return CommandResult(state, "mail account disable failed: imap_account_not_found", handled=False)
+                payload = _build_mail_payload(game=game, repo_root=repo_root)
+                section_payloads = dict(state.section_payloads or {})
+                section_payloads["artifacts"] = payload
+                panel_states = dict(state.panel_states or {})
+                panel_states["artifacts"] = PanelState.HEALTHY
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        section_id="artifacts",
+                        selected_index=0,
+                        section_payloads=section_payloads,
+                        panel_states=panel_states,
+                        status_message=f"mail account disabled {account.get('account_id')}",
+                    ),
+                    json.dumps({"account": account, "payload": payload}, ensure_ascii=False),
+                )
+            if action == "delete":
+                if len(args) < 3:
+                    return CommandResult(state, "mail account delete <account-id>", handled=False)
+                try:
+                    account = delete_imap_account(account_id=str(args[2]).strip(), repo_root=repo_root)
+                except ValueError:
+                    return CommandResult(state, "mail account delete failed: imap_account_not_found", handled=False)
+                if str(game.get("mail_selected_account_id") or "") == str(account.get("account_id") or ""):
+                    game.pop("mail_selected_account_id", None)
+                    game.pop("mail_selected_mailbox", None)
+                payload = _build_mail_payload(game=game, repo_root=repo_root)
+                section_payloads = dict(state.section_payloads or {})
+                section_payloads["artifacts"] = payload
+                panel_states = dict(state.panel_states or {})
+                panel_states["artifacts"] = PanelState.HEALTHY
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        section_id="artifacts",
+                        selected_index=0,
+                        section_payloads=section_payloads,
+                        panel_states=panel_states,
+                        status_message=f"mail account deleted {account.get('account_id')}",
+                    ),
+                    json.dumps({"deleted_account_id": account.get("account_id"), "payload": payload}, ensure_ascii=False),
+                )
+            return CommandResult(state, "mail account list|status|create|use|disable|delete", handled=False)
+
+        if sub == "mailbox":
+            if len(args) < 2:
+                return CommandResult(state, "mail mailbox <name>", handled=False)
+            game["mail_selected_mailbox"] = str(args[1]).strip()
+            game["mail_list_offset"] = 0
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
             return CommandResult(
-                state.with_updates(status_message=f"mail account created {account.get('account_id')}"),
-                json.dumps({"account": account}, ensure_ascii=False),
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail mailbox {args[1]} selected",
+                ),
+                json.dumps(payload, ensure_ascii=False),
             )
-        if action == "disable":
-            if len(args) < 3:
-                return CommandResult(state, "mail account disable <account-id>", handled=False)
+        if sub == "scroll":
+            if len(args) < 2:
+                return CommandResult(state, "mail scroll <delta>", handled=False)
             try:
-                account = disable_imap_account(account_id=str(args[2]).strip(), repo_root=repo_root)
+                delta = int(str(args[1]).strip())
             except ValueError:
-                return CommandResult(state, "mail account disable failed: imap_account_not_found", handled=False)
+                return CommandResult(state, "mail scroll <delta>", handled=False)
+            game["mail_list_offset"] = max(0, int(game.get("mail_list_offset") or 0) + delta)
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
             return CommandResult(
-                state.with_updates(status_message=f"mail account disabled {account.get('account_id')}"),
-                json.dumps({"account": account}, ensure_ascii=False),
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail scroll offset={payload.get('list_offset')}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
             )
-        if action == "delete":
-            if len(args) < 3:
-                return CommandResult(state, "mail account delete <account-id>", handled=False)
-            try:
-                account = delete_imap_account(account_id=str(args[2]).strip(), repo_root=repo_root)
-            except ValueError:
-                return CommandResult(state, "mail account delete failed: imap_account_not_found", handled=False)
+        if sub == "filter":
+            filters = dict(game.get("mail_filters") or {})
+            for token in args[1:]:
+                if "=" not in token:
+                    continue
+                key, value = str(token).split("=", 1)
+                normalized_key = key.strip().lower()
+                normalized_value = value.strip()
+                if normalized_key == "unread":
+                    filters["unread"] = normalized_value.lower() in {"1", "true", "yes", "on"}
+                elif normalized_key in {"from", "subject", "mailbox", "to", "date_from", "date_to"}:
+                    filters[normalized_key] = normalized_value
+            game["mail_filters"] = filters
+            game["mail_list_offset"] = 0
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
             return CommandResult(
-                state.with_updates(status_message=f"mail account deleted {account.get('account_id')}"),
-                json.dumps({"deleted_account_id": account.get("account_id")}, ensure_ascii=False),
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message="mail filters updated",
+                ),
+                json.dumps(payload, ensure_ascii=False),
             )
-        return CommandResult(state, "mail account list|status|create|disable|delete", handled=False)
+        if sub == "open":
+            if len(args) < 2:
+                return CommandResult(state, "mail open <message-id|uid>", handled=False)
+            target = str(args[1]).strip()
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            rows = [dict(item) for item in list(payload.get("messages") or []) if isinstance(item, dict)]
+            selected_row = next(
+                (
+                    row
+                    for row in rows
+                    if _mail_message_key(row) == target or str(dict(row.get("message_ref") or {}).get("uid") or "") == target
+                ),
+                {},
+            )
+            if not selected_row:
+                return CommandResult(state, "mail open failed: message not found", handled=False)
+            game["mail_selected_message_key"] = _mail_message_key(selected_row)
+            game["mail_detail_body_loaded"] = False
+            game["mail_detail_body"] = ""
+            game["mail_detail_redaction_status"] = "not_required"
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail open {target}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "load-body":
+            target = str(args[1]).strip() if len(args) > 1 else str(game.get("mail_selected_message_key") or "").strip()
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            rows = [dict(item) for item in list(payload.get("messages") or []) if isinstance(item, dict)]
+            selected_row = next(
+                (
+                    row
+                    for row in rows
+                    if _mail_message_key(row) == target or str(dict(row.get("message_ref") or {}).get("uid") or "") == target
+                ),
+                {},
+            )
+            if not selected_row:
+                return CommandResult(state, "mail load-body failed: message not found", handled=False)
+            ref = dict(selected_row.get("message_ref") or {})
+            store_row = _mail_store(repo_root).get_by_uid(
+                account_id=str(ref.get("account_id") or ""),
+                mailbox=str(ref.get("mailbox") or ""),
+                uid=int(ref.get("uid") or 0),
+            )
+            body_text = str(dict(store_row or {}).get("body") or selected_row.get("body") or "")
+            redacted = redact_mail_for_worker_context(body_text=body_text, attachments=list(selected_row.get("attachments") or []))
+            game["mail_selected_message_key"] = _mail_message_key(selected_row)
+            game["mail_detail_body_loaded"] = True
+            game["mail_detail_body"] = str(redacted.get("redacted_body") or "")
+            game["mail_detail_redaction_status"] = str(redacted.get("redaction_status") or "not_required")
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail body loaded for {target}",
+                ),
+                json.dumps({"payload": payload, "redaction": redacted}, ensure_ascii=False),
+            )
+        return CommandResult(
+            state,
+            "mail | mail account list|status|create|use|disable|delete | mail mailbox <name> | mail open <message-id|uid> | mail load-body [message-id|uid] | mail scroll <delta> | mail filter key=value ...",
+            handled=False,
+        )
     if command == "diff3":
         game = dict(state.header_logo_game or {})
         diff3_state = _get_diff3_state(state)

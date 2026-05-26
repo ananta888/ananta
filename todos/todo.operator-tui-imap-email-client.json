@@ -53,7 +53,7 @@
         "T03.03",
         "T03.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M04",
@@ -65,7 +65,7 @@
         "T04.04",
         "T04.05"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M05",
@@ -310,7 +310,7 @@
     {
       "id": "T03.03",
       "title": "Mail Redaction Pipeline vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -325,12 +325,12 @@
         "Original-Mail bleibt unverändert.",
         "Tests prüfen Secret im Body und Attachment-Metadaten."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.04",
       "title": "Thread-/Conversation Gruppierung vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "backend",
@@ -344,12 +344,12 @@
         "Thread-Gruppierung funktioniert auch unvollständig/degraded.",
         "Tests prüfen einfachen Reply-Thread."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.01",
       "title": "TUI Mail Hauptansicht einbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "tui",
@@ -365,12 +365,12 @@
         "TUI bleibt nutzbar, wenn IMAP offline ist.",
         "Renderer-Test prüft leere und gefüllte Mailbox."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.02",
       "title": "TUI Mailbox und Mail-Liste Navigation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -385,12 +385,12 @@
         "Filter nach unread/from/date/subject möglich oder vorbereitet.",
         "Tests prüfen Navigation und Scrolling."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.03",
       "title": "TUI Mail Detailansicht mit explizitem Body Load",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "tui",
@@ -406,7 +406,7 @@
         "Remote Content wird nicht automatisch geladen.",
         "TUI zeigt Redaction/Policy-Hinweise."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.04",
@@ -752,13 +752,13 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 21,
+      "todo": 16,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 10
+      "done": 15
     },
-    "progress_percent_done": 32.26,
+    "progress_percent_done": 48.4,
     "by_priority": {
       "P1": 24,
       "P2": 6,
@@ -771,15 +771,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 7,
-      "remaining": 8
+      "done": 11,
+      "remaining": 4
     },
     "milestones": {
       "total": 8,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 1,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -802,16 +802,16 @@
       "security": {
         "total": 3,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 2
+          "done": 3
         },
-        "done": 2,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 66.7
+        "progress_percent": 100.0
       },
       "config": {
         "total": 2,
@@ -830,30 +830,30 @@
       "backend": {
         "total": 5,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 4
+          "done": 5
         },
-        "done": 4,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 80.0
+        "progress_percent": 100.0
       },
       "tui": {
         "total": 5,
         "by_status": {
-          "todo": 5,
+          "todo": 2,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 60.0
       },
       "artifact": {
         "total": 2,
@@ -971,13 +971,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 21,
+    "todo_remaining": 16,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 10,
-    "count_based_percent": 32.3,
-    "weighted_percent": 33.8
+    "done": 15,
+    "count_based_percent": 48.4,
+    "weighted_percent": 51.5
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1021,10 +1021,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 59.25,
-    "done_weight": 20.0,
-    "remaining_weight": 39.25,
+    "done_weight": 30.5,
+    "remaining_weight": 28.75,
     "blocked_weight": 0.0,
-    "weighted_percent": 33.8
+    "weighted_percent": 51.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1046,19 +1046,19 @@
       },
       "M03": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 50.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M04": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 60.0,
+        "weighted_percent": 73.7,
+        "status": "in_progress"
       },
       "M05": {
         "total_tasks": 4,
@@ -1097,10 +1097,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:32:53.077127Z",
+    "generated_at": "2026-05-26T22:38:38.207839Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "592b5b6853cc87534a736627d81cc03524f1aed3cfe95499eb414b48f1b41e12",
+    "source_hash": "181ebdd29dabcc729a76afda927e230f3dadff6582ac1696fd9f77e0d4dfb628",
     "is_stale": false
   }
 }
