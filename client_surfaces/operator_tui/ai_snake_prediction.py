@@ -32,6 +32,38 @@ class GateDecision:
     skipped_worker_requests: int
 
 
+def build_prediction_trace(
+    *,
+    mode: str,
+    prediction: QuickPrediction,
+    context_hash: str,
+    used_refs: list[dict[str, Any]] | list[str],
+    provider_ref: str,
+    cache_hit: bool,
+    skipped_reason: str,
+) -> dict[str, Any]:
+    """Create a compact trace record without raw chat/notes content."""
+    refs: list[str] = []
+    for item in list(used_refs or [])[:12]:
+        if isinstance(item, dict):
+            ref = str(item.get("ref") or "").strip()
+        else:
+            ref = str(item).strip()
+        if ref:
+            refs.append(ref)
+    trace_id = f"pred-{int(time.time() * 1000)}-{abs(hash((mode, prediction.predicted_intent, context_hash))) % 10000:04d}"
+    return {
+        "prediction_id": trace_id,
+        "mode": str(mode or "predict_intent"),
+        "confidence": float(prediction.confidence),
+        "context_hash": str(context_hash or "missing"),
+        "used_refs": refs,
+        "provider_ref": str(provider_ref or "local_quick"),
+        "cache_state": "hit" if cache_hit else "miss",
+        "skipped_reason": str(skipped_reason or ""),
+    }
+
+
 class PredictionGate:
     def __init__(self, *, min_interval_seconds: float = 3.0, min_confidence: float = 0.35, stable_ms: int = 500) -> None:
         self.min_interval_seconds = max(0.5, float(min_interval_seconds))

@@ -34,6 +34,18 @@ class MemoryWriteRecord:
 
 
 @dataclass
+class PredictionTraceRecord:
+    prediction_id: str
+    mode: str
+    confidence: float
+    context_hash: str
+    used_refs: list[str] = field(default_factory=list)
+    provider_ref: str = "local_quick"
+    cache_state: str = "miss"
+    skipped_reason: str = ""
+
+
+@dataclass
 class TraceBundleV2:
     """Secret-free structured execution trace. AWF-T037.
 
@@ -51,6 +63,7 @@ class TraceBundleV2:
     provider_calls: list[ProviderCallRecord] = field(default_factory=list)
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
     memory_writes: list[MemoryWriteRecord] = field(default_factory=list)
+    prediction_traces: list[PredictionTraceRecord] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)   # artifact_refs, not content
     warnings: list[str] = field(default_factory=list)
     degraded_states: list[dict[str, Any]] = field(default_factory=list)
@@ -118,6 +131,19 @@ class TraceBundleV2:
                     "sensitivity": m.sensitivity,
                 }
                 for m in self.memory_writes
+            ],
+            "prediction_traces": [
+                {
+                    "prediction_id": p.prediction_id,
+                    "mode": p.mode,
+                    "confidence": p.confidence,
+                    "context_hash": p.context_hash,
+                    "used_refs": list(p.used_refs),
+                    "provider_ref": p.provider_ref,
+                    "cache_state": p.cache_state,
+                    "skipped_reason": p.skipped_reason,
+                }
+                for p in self.prediction_traces
             ],
             "artifact_refs": list(self.artifacts),
             "warnings": list(self.warnings),

@@ -204,3 +204,21 @@ def relevance_refs_for_intent(
         ranked.append({"ref": ref, "reason": reason, "score": round(score, 3)})
     ranked.sort(key=lambda row: row["score"], reverse=True)
     return ranked[: max(1, min(20, int(max_refs)))]
+
+
+def compact_observation_summary(summary: dict[str, Any], *, max_facts: int = 20) -> dict[str, Any]:
+    """Stable prompt-safe summary with prioritized fields and no raw notes."""
+    facts = [str(item).strip() for item in list(summary.get("facts") or []) if str(item).strip()]
+    sections = [item for item in facts if item.startswith("section=")]
+    channels = [item for item in facts if item.startswith("channel=")]
+    refs = [item for item in facts if item.startswith("selected_ref=")]
+    commands = [item for item in facts if item.startswith("last_command=")]
+    movement = [item for item in facts if item.startswith("movement_trend=")]
+    other = [item for item in facts if item not in sections + channels + refs + commands + movement]
+    ordered = sections[:1] + channels[:1] + refs[:1] + commands[:1] + movement[:1] + other
+    clipped = ordered[: max(4, int(max_facts))]
+    return {
+        "facts": clipped,
+        "notes_active": bool(summary.get("notes_active")),
+        "event_count": int(summary.get("event_count") or 0),
+    }

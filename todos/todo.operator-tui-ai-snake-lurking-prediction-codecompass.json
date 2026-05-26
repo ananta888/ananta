@@ -433,7 +433,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.01", "T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Jedes Template nennt explizit das erwartete JSON-Schema.",
             "Prompts trennen CONTROL, TASK, OBSERVATION, CONTEXT und OUTPUT.",
@@ -455,7 +455,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.03", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Default maximal 1 predict_intent LLM-Request pro 3 Sekunden.",
             "Default maximal 1 explain/chat Request gleichzeitig.",
@@ -477,7 +477,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "ObservationSummary enthält maximal 20 normalisierte Fakten im Default.",
             "Wiederholte Bewegungsereignisse werden zu Vektor/Trend zusammengefasst.",
@@ -499,7 +499,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.03", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Ungültige Antwort triggert höchstens einen Repair-Versuch.",
             "Repair-Prompt enthält ursprüngliche Antwort und Ziel-Schema, aber keinen zusätzlichen sensiblen Kontext.",
@@ -666,7 +666,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.04", "T07.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Trace enthält prediction_id, mode, confidence, context_hash, used_refs und provider_ref.",
             "Trace enthält keine vollständigen privaten Chat-/Notes-Texte.",

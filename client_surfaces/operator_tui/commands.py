@@ -161,11 +161,19 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             )
         if sub == "status":
             prediction = game.get("ai_snake_prediction") if isinstance(game.get("ai_snake_prediction"), dict) else {}
+            debug = game.get("ai_snake_debug") if isinstance(game.get("ai_snake_debug"), dict) else {}
+            trace = debug.get("last_prediction_trace") if isinstance(debug.get("last_prediction_trace"), dict) else {}
             pred_intent = str(prediction.get("predicted_intent") or "unknown")
             pred_conf = float(prediction.get("confidence") or 0.0)
             runtime = str(game.get("ai_snake_runtime_status") or "idle")
+            trace_id = str(trace.get("prediction_id") or "none")
+            cache_state = str(trace.get("cache_state") or "-")
+            provider_ref = str(trace.get("provider_ref") or "-")
             return CommandResult(
-                state.with_updates(header_logo_game=game, status_message=f"ai:{ai_mode}/{runtime} pred={pred_intent} conf={pred_conf:.2f}"),
+                state.with_updates(
+                    header_logo_game=game,
+                    status_message=f"ai:{ai_mode}/{runtime} pred={pred_intent} conf={pred_conf:.2f} trace={trace_id} cache={cache_state} provider={provider_ref}",
+                ),
                 "ai status",
             )
         return CommandResult(

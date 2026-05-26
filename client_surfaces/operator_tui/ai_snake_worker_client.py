@@ -7,11 +7,19 @@ import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 DispatchFn = Callable[[dict[str, Any]], dict[str, Any]]
 
 _FENCE_RX = re.compile(r"```(?:json)?\s*([\s\S]+?)\s*```", re.IGNORECASE)
+_TEMPLATE_DIR = Path("prompts/ai_snake")
+_MODE_TO_TEMPLATE = {
+    "predict_intent": "predict_intent.j2",
+    "explain_artifact": "explain_artifact.j2",
+    "answer_chat": "answer_chat.j2",
+    "suggest_next_action": "suggest_next_action.j2",
+}
 
 
 @dataclass
@@ -39,6 +47,28 @@ class AiSnakeWorkerClient:
         self._lock = threading.Lock()
         self._active_predict: WorkerTask | None = None
         self._active_explain_chat: WorkerTask | None = None
+
+    def render_prompt(
+        self,
+        *,
+        mode: str,
+        observation_summary: dict[str, Any],
+        context_envelope_ref: dict[str, Any],
+        max_chars: int = 4000,
+    ) -> str:
+        template_name = _MODE_TO_TEMPLATE.get(str(mode).strip().lower())
+        if not template_name:
+            return ""
+        template_path = _TEMPLATE_DIR / template_name
+        if not template_path.exists():
+            return ""
+        raw = template_path.read_text(encoding="utf-8")
+        rendered = raw.replace("{{ observation_summary }}", json.dumps(observation_summary, ensure_ascii=False))
+        rendered = rendered.replace("{{ context_envelope_ref }}", json.dumps(context_envelope_ref, ensure_ascii=False))
+        if len(rendered) <= max_chars:
+            return rendered
+        keep = max(64, int(max_chars) - 16)
+        return rendered[:keep] + "\n[truncated]"
 
     def build_request(
         self,
