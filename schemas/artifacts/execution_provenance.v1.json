@@ -172,9 +172,20 @@
           "type": "string",
           "maxLength": 128
         },
+        "raw_prompt_stored": {
+          "type": "boolean"
+        },
         "redacted_prompt_ref": {
           "type": "string",
           "maxLength": 240
+        },
+        "reason_code": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "no_prompt_reason": {
+          "type": "string",
+          "maxLength": 120
         }
       },
       "additionalProperties": false

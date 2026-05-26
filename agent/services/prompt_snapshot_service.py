@@ -11,6 +11,7 @@ from jsonschema import Draft202012Validator
 from agent.services.prompt_redaction_service import get_redaction_service
 
 SCHEMA_FILE = Path(__file__).resolve().parents[2] / "schemas" / "prompts" / "prompt_template_snapshot.v1.json"
+FINAL_PROMPT_SCHEMA_FILE = Path(__file__).resolve().parents[2] / "schemas" / "prompts" / "final_prompt_record.v1.json"
 
 
 def _now_iso() -> str:
@@ -23,6 +24,13 @@ def _sha(value: str) -> str:
 
 def _validate(payload: dict[str, Any]) -> list[str]:
     schema = json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(payload), key=lambda err: list(err.path))
+    return [f"{'/'.join(map(str, e.path)) or '$'}: {e.message}" for e in errors]
+
+
+def _validate_final_prompt(payload: dict[str, Any]) -> list[str]:
+    schema = json.loads(FINAL_PROMPT_SCHEMA_FILE.read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)
     errors = sorted(validator.iter_errors(payload), key=lambda err: list(err.path))
     return [f"{'/'.join(map(str, e.path)) or '$'}: {e.message}" for e in errors]
@@ -89,4 +97,7 @@ class PromptSnapshotService:
             "input_usage_refs": list(input_usage_refs or []),
             "output_schema_ref": str(output_schema_ref),
         }
+        errors = _validate_final_prompt(record)
+        if errors:
+            raise ValueError(f"invalid_final_prompt_record:{'; '.join(errors)}")
         return record

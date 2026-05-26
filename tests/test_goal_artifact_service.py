@@ -193,3 +193,39 @@ def test_register_output_artifacts_maps_plan_patch_test_and_without_inputs(tmp_p
     )
     assert {item["artifact_type"] for item in created} == {"plan", "patch", "test_result", "file"}
     assert all("input_usage_refs=none" in item["provenance_summary"] for item in created)
+
+
+def test_register_output_artifacts_with_execution_provenance_links_outputs(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    created = service.register_output_artifacts_from_refs(
+        goal_id="goal-prov",
+        task_id="task-prov",
+        worker_id="worker-prov",
+        artifact_refs=[{"kind": "workspace_file", "workspace_relative_path": "reports/prov.txt"}],
+        input_usage_refs=[],
+        execution_provenance={
+            "schema": "execution_provenance.v1",
+            "provenance_id": "prov-static",
+            "goal_id": "goal-prov",
+            "task_id": "task-prov",
+            "execution_id": "exec-prov",
+            "worker_id": "worker-prov",
+            "worker_kind": "native",
+            "runtime_target_ref": {"runtime_type": "ananta-worker", "location": "local"},
+            "model_ref": {"provider_id": "local", "model_id": "none"},
+            "config_refs": {
+                "worker_config_ref": "cfg-worker",
+                "runtime_config_ref": "cfg-runtime",
+                "model_config_ref": "cfg-model",
+                "policy_config_ref": "cfg-policy",
+            },
+            "prompt_refs": {"no_prompt_reason": "no_prompt_used"},
+            "input_usage_refs": [],
+            "output_artifact_refs": ["reports/prov.txt"],
+            "created_at": _now_iso(),
+        },
+    )
+    assert created and created[0]["provenance_id"] == "prov-static"
+    stored = service.get_execution_provenance(goal_id="goal-prov", provenance_id="prov-static")
+    assert stored is not None
+    assert stored["task_id"] == "task-prov"

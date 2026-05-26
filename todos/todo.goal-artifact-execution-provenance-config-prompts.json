@@ -160,7 +160,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält final_prompt_ref, prompt_template_ref, variables_hash, final_prompt_hash, redaction_applied, raw_prompt_stored und storage_ref optional.",
             "Rohprompt wird default nicht gespeichert oder nur redacted, je nach Policy.",
@@ -183,7 +183,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T02.01", "T02.02", "T02.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Jede Worker-Ausführung erzeugt oder referenziert ConfigSnapshots.",
             "Jede promptbasierte Worker-Ausführung erzeugt PromptTemplateSnapshot und FinalPromptRecord.",
@@ -212,7 +212,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.01", "T02.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Provenance-Detail zeigt task_id, task_title/kind falls verfügbar, worker_id und worker_kind.",
             "Anzeige zeigt runtime_target_ref und model_ref.",
@@ -235,7 +235,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:artifact prompt <output-artifact-id>` zeigt prompt_template_ref, template_path, template_hash, variables_hash und final_prompt_hash.",
             "`:artifact config <output-artifact-id>` zeigt worker/runtime/model/policy config refs.",
@@ -255,7 +255,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Output-Liste zeigt Task kurz, Worker kurz, Modell/Runtime kurz und Prompt-Template kurz.",
             "Bei kleinem Terminal wird Execution-Zusammenfassung auf eine Zeile komprimiert.",

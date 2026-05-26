@@ -98,6 +98,39 @@ def test_goal_artifacts_command_filters_and_provenance(monkeypatch, tmp_path: Pa
             "content_hash": "c" * 64,
             "status": "created",
             "provenance_summary": "summary",
+            "provenance_id": "prov-2",
+            "provenance_kind": "worker_execution",
+        },
+    )
+    service.upsert_execution_provenance(
+        goal_id="goal-2",
+        provenance={
+            "schema": "execution_provenance.v1",
+            "provenance_id": "prov-2",
+            "goal_id": "goal-2",
+            "task_id": "task-2",
+            "execution_id": "exec-2",
+            "worker_id": "worker-2",
+            "worker_kind": "native",
+            "runtime_target_ref": {"runtime_type": "ananta-worker", "location": "local"},
+            "model_ref": {"provider_id": "local", "model_id": "none"},
+            "config_refs": {
+                "worker_config_ref": "cfg-worker-2",
+                "runtime_config_ref": "cfg-runtime-2",
+                "model_config_ref": "cfg-model-2",
+                "policy_config_ref": "cfg-policy-2",
+            },
+            "prompt_refs": {
+                "prompt_template_ref": "prompt:goal-2",
+                "prompt_template_version": "v1",
+                "prompt_template_hash": "a" * 64,
+                "prompt_variables_hash": "b" * 64,
+                "final_prompt_hash": "c" * 64,
+                "raw_prompt_stored": False,
+            },
+            "input_usage_refs": ["usage-2"],
+            "output_artifact_refs": ["out-2"],
+            "created_at": "2026-05-26T00:00:00Z",
         },
     )
     state = execute_command(":goal use goal-2", _state()).state
@@ -111,6 +144,17 @@ def test_goal_artifacts_command_filters_and_provenance(monkeypatch, tmp_path: Pa
     provenance_payload = json.loads(provenance.message)
     assert provenance_payload["output_artifact_id"] == "out-2"
     assert provenance_payload["sources"][0]["artifact_ref"] == "sources:keycloak:snap_2"
+    assert provenance_payload["runtime_target_ref"]["runtime_type"] == "ananta-worker"
+    assert provenance_payload["prompt_refs"]["prompt_template_ref"] == "prompt:goal-2"
+    prompt_detail = execute_command(":artifact prompt out-2", cleared.state)
+    prompt_payload = json.loads(prompt_detail.message)
+    assert prompt_payload["prompt_template_ref"] == "prompt:goal-2"
+    assert prompt_payload["raw_prompt_status"] == "raw prompt not stored"
+    config_detail = execute_command(":artifact config out-2", cleared.state)
+    config_payload = json.loads(config_detail.message)
+    assert config_payload["worker_config_ref"] == "cfg-worker-2"
+    payload = json.loads(cleared.message)
+    assert payload["output_artifacts"][0]["execution_summary"]
 
     output = render_operator_shell(cleared.state, width=120, height=34)
     assert "Goal Artifacts:" in output

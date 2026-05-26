@@ -1531,14 +1531,15 @@ class TaskScopedExecutionService:
             bridge_adapter_registry=bridge_adapter_registry,
         )
 
-    @staticmethod
-    def _register_goal_artifact_outputs(*, task: dict, tid: str, artifact_refs: list[dict]) -> list[dict]:
+    def _register_goal_artifact_outputs(self, *, task: dict, tid: str, artifact_refs: list[dict]) -> list[dict]:
         goal_id = str((task or {}).get("goal_id") or "").strip()
         if not goal_id:
             return []
         if not list(artifact_refs or []):
             return []
         from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
+        from agent.services.config_snapshot_service import ConfigSnapshotService
+        from agent.services.prompt_snapshot_service import PromptSnapshotService
 
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         context_envelope = execution_context.get("context_envelope_ref")
@@ -1550,6 +1551,8 @@ class TaskScopedExecutionService:
             if isinstance(item, dict)
         ]
         service = GoalArtifactService()
+        config_snapshot_service = ConfigSnapshotService()
+        prompt_snapshot_service = PromptSnapshotService()
         if context_artifact_refs and not source_usage_refs:
             context_tracking = service.validate_and_record_context_usages(
                 goal_id=goal_id,
@@ -1559,13 +1562,99 @@ class TaskScopedExecutionService:
                 context_hash=str(context_envelope.get("context_hash") or "").strip() or None,
             )
             source_usage_refs = list(context_tracking.get("source_usage_refs") or [])
+        worker_id = str((task or {}).get("assigned_worker_id") or "").strip() or None
+        worker_profile = str(execution_context.get("worker_profile") or "default")
+        runtime_path = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("runtime_path") or "unknown")
+        backend = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("backend") or "unknown")
+        model_name = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("inference_model") or "unknown")
+        execution_seed = f"{goal_id}:{tid}:{worker_id or 'worker'}"
+        execution_id = f"exec-{hashlib.sha1(execution_seed.encode('utf-8')).hexdigest()[:14]}"
+        worker_config = config_snapshot_service.build_snapshot(
+            config_kind="worker_config",
+            source_path_or_ref=f"task:{tid}:worker",
+            scope=f"goal:{goal_id}",
+            config_payload={"worker_profile": worker_profile, "worker_id": worker_id or "unknown"},
+        )
+        runtime_config = config_snapshot_service.build_snapshot(
+            config_kind="runtime_config",
+            source_path_or_ref=f"task:{tid}:runtime",
+            scope=f"goal:{goal_id}",
+            config_payload={"runtime_path": runtime_path, "backend": backend},
+        )
+        model_config = config_snapshot_service.build_snapshot(
+            config_kind="model_config",
+            source_path_or_ref=f"task:{tid}:model",
+            scope=f"goal:{goal_id}",
+            config_payload={"model": model_name},
+        )
+        policy_config = config_snapshot_service.build_snapshot(
+            config_kind="policy_config",
+            source_path_or_ref=f"task:{tid}:policy",
+            scope=f"goal:{goal_id}",
+            config_payload={"data_boundary": "project_private", "sensitivity": "internal"},
+        )
+        system_prompt = self._get_system_prompt_for_task(str(tid)) or ""
+        prompt_refs: dict[str, Any] = {"no_prompt_reason": "no_prompt_used"} if not system_prompt else {}
+        if system_prompt:
+            template = prompt_snapshot_service.build_template_snapshot(
+                prompt_template_ref=f"prompt-template:{tid}",
+                template_path=f"task:{tid}:resolved-template",
+                template_version="v1",
+                template_text=system_prompt,
+                renderer="replace",
+                expected_output_schema_ref="worker_response.v1",
+            )
+            final_prompt = prompt_snapshot_service.build_final_prompt_record(
+                prompt_template_ref=template["prompt_template_ref"],
+                variables_payload={"task_id": tid, "goal_id": goal_id},
+                final_prompt_text=system_prompt,
+                context_hash=str(context_envelope.get("context_hash") or "context-hash-missing"),
+                input_usage_refs=list(source_usage_refs or []),
+                output_schema_ref="worker_response.v1",
+                store_raw_prompt=False,
+            )
+            prompt_refs = {
+                "prompt_template_ref": template.get("prompt_template_ref"),
+                "prompt_template_version": template.get("template_version"),
+                "prompt_template_hash": template.get("template_hash"),
+                "prompt_variables_hash": final_prompt.get("variables_hash"),
+                "final_prompt_hash": final_prompt.get("final_prompt_hash"),
+                "redacted_prompt_ref": final_prompt.get("storage_ref"),
+                "raw_prompt_stored": final_prompt.get("raw_prompt_stored"),
+            }
+        provenance = {
+            "schema": "execution_provenance.v1",
+            "provenance_id": f"prov-{hashlib.sha1(f'{goal_id}:{tid}:{execution_id}'.encode('utf-8')).hexdigest()[:16]}",
+            "goal_id": goal_id,
+            "task_id": str(tid),
+            "execution_id": execution_id,
+            "worker_id": str(worker_id or "worker-unknown"),
+            "worker_kind": "native",
+            "runtime_target_ref": {"runtime_type": backend, "location": "local", "snapshot_id": runtime_config.get("config_snapshot_id")},
+            "model_ref": {"provider_id": backend, "model_id": model_name},
+            "config_refs": {
+                "worker_config_ref": worker_config.get("config_snapshot_id"),
+                "runtime_config_ref": runtime_config.get("config_snapshot_id"),
+                "model_config_ref": model_config.get("config_snapshot_id"),
+                "policy_config_ref": policy_config.get("config_snapshot_id"),
+            },
+            "prompt_refs": prompt_refs,
+            "input_usage_refs": list(source_usage_refs or []),
+            "output_artifact_refs": [
+                str(item.get("artifact_id") or item.get("trace_bundle_ref") or item.get("workspace_relative_path") or "")
+                for item in list(artifact_refs or [])
+                if isinstance(item, dict)
+            ],
+            "created_at": _now_iso(),
+        }
         try:
             return service.register_output_artifacts_from_refs(
                 goal_id=goal_id,
                 task_id=str(tid),
-                worker_id=str((task or {}).get("assigned_worker_id") or "").strip() or None,
+                worker_id=worker_id,
                 artifact_refs=list(artifact_refs or []),
                 input_usage_refs=source_usage_refs,
+                execution_provenance=provenance,
             )
         except GoalArtifactServiceError as exc:
             return [

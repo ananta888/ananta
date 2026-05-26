@@ -66,11 +66,33 @@ def _require_active_goal(state: OperatorState) -> tuple[str | None, CommandResul
 def _load_goal_artifact_payload(*, state: OperatorState, goal_id: str) -> dict:
     service = GoalArtifactService()
     graph = service.get_goal_graph(goal_id)
+    provenance_items = list(dict(graph.get("extensions") or {}).get("execution_provenance") or [])
+    provenance_by_id = {
+        str(item.get("provenance_id") or ""): item
+        for item in provenance_items
+        if isinstance(item, dict) and str(item.get("provenance_id") or "").strip()
+    }
+    outputs = []
+    for row in list(graph.get("output_artifacts") or []):
+        item = dict(row) if isinstance(row, dict) else {}
+        provenance = provenance_by_id.get(str(item.get("provenance_id") or ""), {})
+        prompt_refs = dict(provenance.get("prompt_refs") or {})
+        runtime_ref = dict(provenance.get("runtime_target_ref") or {})
+        model_ref = dict(provenance.get("model_ref") or {})
+        item["prompt_template_ref"] = str(prompt_refs.get("prompt_template_ref") or "")
+        item["model_ref"] = str(model_ref.get("model_id") or "")
+        item["runtime_ref"] = str(runtime_ref.get("runtime_type") or "")
+        item["execution_summary"] = (
+            f"task={item.get('task_id') or '-'} worker={item.get('worker_id') or '-'} "
+            f"runtime={item.get('runtime_ref') or '-'} model={item.get('model_ref') or '-'} "
+            f"prompt={item.get('prompt_template_ref') or '-'}"
+        )
+        outputs.append(item)
     filters = normalize_goal_artifact_filters(dict((state.header_logo_game or {}).get("goal_artifact_filters") or {}))
     filtered = filter_goal_artifact_view(
         source_grants=list(graph.get("source_grants") or []),
         source_usages=list(graph.get("source_usages") or []),
-        output_artifacts=list(graph.get("output_artifacts") or []),
+        output_artifacts=outputs,
         filters=filters,
     )
     return {
@@ -326,7 +348,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     if "=" not in text:
                         continue
                     key, value = text.split("=", 1)
-                    if key.strip() in {"source_id", "artifact_type", "sensitivity", "status", "worker_id"}:
+                    if key.strip() in {"source_id", "artifact_type", "sensitivity", "status", "worker_id", "task_id", "prompt_template_ref", "model_ref"}:
                         if value.strip():
                             filters[key.strip()] = value.strip()
                 game["goal_artifact_filters"] = normalize_goal_artifact_filters(filters)
@@ -438,19 +460,55 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         return CommandResult(state, "goal: use <goal-id> | artifacts [filter ...|clear-filter] | sources candidates", handled=False)
     if command == "artifact":
         if len(args) < 2:
-            return CommandResult(state, "artifact provenance <output-artifact-id>", handled=False)
+            return CommandResult(state, "artifact provenance|prompt|config <output-artifact-id>", handled=False)
         action = str(args[0]).lower()
-        if action != "provenance":
-            return CommandResult(state, "artifact provenance <output-artifact-id>", handled=False)
+        if action not in {"provenance", "prompt", "config"}:
+            return CommandResult(state, "artifact provenance|prompt|config <output-artifact-id>", handled=False)
         goal_id, error = _require_active_goal(state)
         if error is not None or goal_id is None:
             return error or CommandResult(state, "active goal required", handled=False)
         output_id = str(args[1]).strip()
-        graph = GoalArtifactService().get_goal_graph(goal_id)
+        service = GoalArtifactService()
+        graph = service.get_goal_graph(goal_id)
         outputs = list(graph.get("output_artifacts") or [])
         output = next((row for row in outputs if str(row.get("output_artifact_id") or "") == output_id), None)
         if output is None:
             return CommandResult(state, f"output artifact not found: {output_id}", handled=False)
+        provenance_id = str(output.get("provenance_id") or "")
+        provenance = service.get_execution_provenance(goal_id=goal_id, provenance_id=provenance_id) if provenance_id else None
+        if action == "prompt":
+            prompt_refs = dict((provenance or {}).get("prompt_refs") or {})
+            detail = {
+                "output_artifact_id": output_id,
+                "provenance_id": provenance_id or None,
+                "prompt_template_ref": prompt_refs.get("prompt_template_ref"),
+                "prompt_template_version": prompt_refs.get("prompt_template_version"),
+                "prompt_template_hash": prompt_refs.get("prompt_template_hash"),
+                "variables_hash": prompt_refs.get("prompt_variables_hash"),
+                "final_prompt_hash": prompt_refs.get("final_prompt_hash"),
+                "raw_prompt_status": "raw prompt not stored"
+                if not bool(prompt_refs.get("raw_prompt_stored"))
+                else "raw prompt stored",
+                "reason_code": prompt_refs.get("reason_code") if str(prompt_refs.get("reason_code") or "").strip() else "",
+            }
+            return CommandResult(
+                state.with_updates(status_message=f"artifact prompt {output_id}"),
+                json.dumps(detail, ensure_ascii=False),
+            )
+        if action == "config":
+            config_refs = dict((provenance or {}).get("config_refs") or {})
+            detail = {
+                "output_artifact_id": output_id,
+                "provenance_id": provenance_id or None,
+                "worker_config_ref": config_refs.get("worker_config_ref"),
+                "runtime_config_ref": config_refs.get("runtime_config_ref"),
+                "model_config_ref": config_refs.get("model_config_ref"),
+                "policy_config_ref": config_refs.get("policy_config_ref"),
+            }
+            return CommandResult(
+                state.with_updates(status_message=f"artifact config {output_id}"),
+                json.dumps(detail, ensure_ascii=False),
+            )
         usages = list(graph.get("source_usages") or [])
         grants_by_id = {str(row.get("grant_id") or ""): row for row in list(graph.get("source_grants") or [])}
         usage_rows = [row for row in usages if str(row.get("usage_id") or "") in set(list(output.get("input_usage_refs") or []))]
@@ -472,8 +530,16 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             "goal_id": output.get("goal_id"),
             "task_id": output.get("task_id"),
             "worker_id": output.get("worker_id"),
+            "worker_kind": (provenance or {}).get("worker_kind"),
+            "runtime_target_ref": (provenance or {}).get("runtime_target_ref"),
+            "model_ref": (provenance or {}).get("model_ref"),
+            "config_refs": (provenance or {}).get("config_refs"),
+            "prompt_refs": (provenance or {}).get("prompt_refs"),
+            "provenance_id": provenance_id or None,
+            "execution_id": output.get("execution_id"),
             "content_hash": output.get("content_hash"),
             "input_usage_refs": output.get("input_usage_refs") or [],
+            "output_artifact_refs": list((provenance or {}).get("output_artifact_refs") or []),
             "sources": sources,
             "note": "no input artifacts recorded" if not usage_rows else "",
         }
