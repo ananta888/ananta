@@ -206,7 +206,7 @@
     {
       "id": "T03.01",
       "title": "Drei-Spalten-Layout Renderer",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "tui",
@@ -225,7 +225,7 @@
     {
       "id": "T03.02",
       "title": "Panel-Auswahl und Kommandos",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "tui",
@@ -245,7 +245,7 @@
     {
       "id": "T03.03",
       "title": "Navigation, Sync-Scroll und Fokus",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -263,7 +263,7 @@
     {
       "id": "T03.04",
       "title": "Filter und Ansichtsmodi pro Panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "tui",
@@ -281,7 +281,7 @@
     {
       "id": "T04.01",
       "title": "AI Diff Panel State und Modi",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ai",
