@@ -794,6 +794,11 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     if not isinstance(local_snake, list) or not local_snake:
         return lines
 
+    # Split-view: if wide enough, reserve right portion for AI panel (T01.01)
+    ai_panel_width = 40
+    split_col = width - ai_panel_width - 2  # 2 for divider
+    split_view = width >= 100
+
     out = list(lines)
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
@@ -880,6 +885,227 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
                 trail_speed=trail_speed,
             )
 
+    # Pause overlay (T01.02)
+    if bool(game.get("paused")):
+        out = _overlay_snake_paused(out, width=width, height=len(out))
+
+    # Split-view AI panel (T01.01)
+    if split_view:
+        out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=len(out))
+
+    # Score / highscore header (T01.05)
+    out = _overlay_snake_score_header(out, game, width=width)
+
+    # Min-size warning (T01.03)
+    if width < 40 or len(out) < 18:
+        warn = "Terminal zu klein für Snake"
+        out[0] = _overlay_text(out[:1], x=2, y=0, text=warn, color=(255, 80, 80))[0] if out else out[0]
+
+    return out
+
+
+def _overlay_snake_paused(lines: list[str], *, width: int, height: int) -> list[str]:
+    """Render PAUSED overlay centered on the game area (T01.02)."""
+    out = list(lines)
+    label = " [ PAUSED ] "
+    cy = max(0, height // 2 - 1)
+    cx = max(0, (width // 2) - len(label) // 2)
+    # PAUSED label in amber
+    _overlay_text(out, x=cx, y=cy, text=label, color=(255, 200, 80))
+    # hint line below
+    hint = "Space zum Fortsetzen"
+    hx = max(0, (width // 2) - len(hint) // 2)
+    _overlay_text(out, x=hx, y=min(cy + 1, height - 1), text=hint, color=(160, 160, 160))
+    return out
+
+
+def _overlay_snake_ai_panel(
+    lines: list[str],
+    game: dict[str, object],
+    *,
+    split_col: int,
+    panel_width: int,
+    height: int,
+) -> list[str]:
+    """Render the AI explanation panel on the right side (T01.01)."""
+    out = list(lines)
+    if not out:
+        return out
+
+    # Build panel content lines
+    panel_lines: list[str] = []
+
+    # Header
+    snakes_raw = game.get("snakes")
+    ai_snap: dict[str, object] = {}
+    if isinstance(snakes_raw, dict):
+        ai_snap = dict(snakes_raw.get("s-ai") or {})
+    depth = str(game.get("tutor_depth_mode") or "overview")
+    tutorial_mode = bool(game.get("tutorial_mode"))
+    paused = bool(game.get("paused"))
+    ai_color = "amber"
+    pal = _snake_palette(ai_color)
+    hcol = pal["head"]
+
+    status_parts = [f"tutor-ai [{ai_color}]", depth]
+    if paused:
+        status_parts.append("⏸ paused")
+    if tutorial_mode:
+        queue_raw = game.get("tutor_event_queue") or []
+        q_depth = len(queue_raw) if isinstance(queue_raw, list) else 0
+        if q_depth > 0:
+            status_parts.append(f"queue:{q_depth}")
+    header_text = " · ".join(status_parts)
+    panel_lines.append(f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m{header_text[:panel_width]}\x1b[0m")
+    panel_lines.append("─" * panel_width)
+
+    # Tutorial step header (T04.01)
+    ts_raw = game.get("tutorial_state")
+    if isinstance(ts_raw, dict) and ts_raw.get("active"):
+        try:
+            from client_surfaces.operator_tui.snake_tutorial import format_step_header, get_current_step
+            step_header = format_step_header(ts_raw)
+            step = get_current_step(ts_raw)
+            if step_header:
+                panel_lines.append(step_header[:panel_width])
+            if step:
+                panel_lines.append(f"▶ {step['title'][:panel_width - 2]}")
+                task_text = step.get("task") or ""
+                # wrap task text
+                words = task_text.split()
+                row = ""
+                for word in words:
+                    if len(row) + len(word) + 1 > panel_width - 2:
+                        panel_lines.append(f"  {row}")
+                        row = word
+                    else:
+                        row = (row + " " + word).strip()
+                if row:
+                    panel_lines.append(f"  {row}")
+                hint = step.get("hint") or ""
+                if hint:
+                    panel_lines.append(f"\x1b[38;2;120;120;120m  ↳ {hint[:panel_width - 5]}\x1b[0m")
+            panel_lines.append("─" * panel_width)
+        except Exception:
+            pass
+
+    # Current AI tip
+    tip = str(ai_snap.get("message") or "")
+    if not tip:
+        history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
+        if history:
+            last = history[-1]
+            tip = str(last.get("text") or "") if isinstance(last, dict) else ""
+    if tip:
+        panel_lines.append("\x1b[38;2;255;205;130mAktuell:\x1b[0m")
+        # word-wrap
+        words = tip.split()
+        row = ""
+        for word in words:
+            if len(row) + len(word) + 1 > panel_width - 1:
+                panel_lines.append(f" {row}")
+                row = word
+            else:
+                row = (row + " " + word).strip()
+        if row:
+            panel_lines.append(f" {row}")
+
+    # Ask Q&A state
+    question = str(game.get("tutor_ask_question") or "")
+    if question and not bool(game.get("tutor_ask_answered")):
+        panel_lines.append("─" * panel_width)
+        panel_lines.append(f"\x1b[38;2;180;220;255m? {question[:panel_width - 2]}\x1b[0m")
+        panel_lines.append("\x1b[38;2;120;120;120m  (lädt...)\x1b[0m")
+    elif question and bool(game.get("tutor_ask_answered")):
+        answer = str(game.get("tutor_ask_answer") or "")
+        if answer:
+            panel_lines.append("─" * panel_width)
+            panel_lines.append(f"\x1b[38;2;180;220;255m? {question[:panel_width - 2]}\x1b[0m")
+            words = answer.split()
+            row = ""
+            for word in words:
+                if len(row) + len(word) + 1 > panel_width - 1:
+                    panel_lines.append(f" {row}")
+                    row = word
+                else:
+                    row = (row + " " + word).strip()
+            if row:
+                panel_lines.append(f" {row}")
+
+    # Recent history (last 2 proposals)
+    history_raw = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
+    if len(history_raw) > 1:
+        panel_lines.append("─" * panel_width)
+        panel_lines.append("\x1b[38;2;120;120;120mVerlauf:\x1b[0m")
+        for entry in history_raw[-2:]:
+            if not isinstance(entry, dict):
+                continue
+            txt = str(entry.get("text") or "").strip()
+            src = str(entry.get("source") or "?")
+            if txt:
+                panel_lines.append(f"\x1b[38;2;100;100;100m[{src}] {txt[:panel_width - len(src) - 4]}\x1b[0m")
+
+    # Snakes peer list (T03.05)
+    snakes_dict = dict(snakes_raw) if isinstance(snakes_raw, dict) else {}
+    online = [sid for sid, s in snakes_dict.items() if isinstance(s, dict) and s.get("active")]
+    if len(online) > 1:
+        panel_lines.append("─" * panel_width)
+        panel_lines.append(f"\x1b[38;2;120;120;120mSnakes online: {len(online)}\x1b[0m")
+        local_id = str(game.get("local_snake_id") or "s1")
+        for sid in sorted(online)[:4]:
+            snap = snakes_dict.get(sid) or {}
+            if not isinstance(snap, dict):
+                continue
+            pseudo = str(snap.get("pseudonym") or sid)
+            color_name = str(snap.get("snake_color") or "mint")
+            role = str(snap.get("role") or ("player" if snap.get("local") else "tutor"))
+            col = _snake_palette(color_name)["head"]
+            marker = "●" if sid == local_id else "·"
+            panel_lines.append(
+                f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{marker} {pseudo[:12]} [{color_name}/{role}]\x1b[0m"
+            )
+
+    # Speed indicator
+    speed_level = int(game.get("speed_level") or 3)
+    panel_lines.append("─" * panel_width)
+    tps = game.get("tps_override") or 18
+    panel_lines.append(f"\x1b[38;2;120;120;120mSpeed: {speed_level}/5 · {tps}tps\x1b[0m")
+
+    # Render panel lines into the right side of each output row
+    divider_col = split_col
+    for row_idx in range(min(height, len(out))):
+        # vertical divider
+        if row_idx < len(out):
+            out[row_idx] = _overlay_at_visible_col(out[row_idx], divider_col, "\x1b[38;2;60;60;80m│\x1b[0m")
+        # panel content
+        if row_idx < len(panel_lines):
+            pcol = divider_col + 2
+            raw = _ANSI_STRIP.sub("", panel_lines[row_idx])
+            visible = panel_lines[row_idx]
+            if pcol < width and raw:
+                # pad to panel width
+                pad = max(0, panel_width - len(raw))
+                padded = visible + (" " * pad)
+                out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, padded)
+
+    return out
+
+
+def _overlay_snake_score_header(lines: list[str], game: dict[str, object], *, width: int) -> list[str]:
+    """Overlay score and highscore in the top-right area (T01.05)."""
+    out = list(lines)
+    if not out:
+        return out
+    score = int(game.get("score") or 0)
+    scores_raw = game.get("_scores_cache")
+    high = int(scores_raw.get("high") or 0) if isinstance(scores_raw, dict) else 0
+    speed_level = int(game.get("speed_level") or 3)
+    new_high = score > 0 and score >= high
+    col = (255, 200, 80) if new_high else (120, 150, 120)
+    label = f"score: {score}  best: {max(score, high)}  speed: {speed_level}/5"
+    x = max(0, width - len(label) - 2)
+    if len(out) > 0:
+        out = _overlay_text(out, x=x, y=0, text=label, color=col)
     return out
 
 
@@ -912,11 +1138,16 @@ def _collect_snakes(game: dict[str, object], *, local_snake_id: str) -> dict[str
 
 def _snake_palette(name: str) -> dict[str, tuple[int, int, int]]:
     palettes = {
-        "mint": {"head": (170, 255, 210), "body": (96, 215, 165), "label": (236, 255, 244)},
-        "cyan": {"head": (120, 235, 255), "body": (75, 188, 224), "label": (220, 248, 255)},
+        "mint":   {"head": (170, 255, 210), "body": (96, 215, 165),  "label": (236, 255, 244)},
+        "cyan":   {"head": (120, 235, 255), "body": (75, 188, 224),  "label": (220, 248, 255)},
         "violet": {"head": (212, 176, 255), "body": (163, 120, 228), "label": (242, 230, 255)},
-        "amber": {"head": (255, 205, 130), "body": (224, 155, 84), "label": (255, 238, 202)},
-        "rose": {"head": (255, 170, 200), "body": (222, 110, 156), "label": (255, 230, 240)},
+        "amber":  {"head": (255, 205, 130), "body": (224, 155, 84),  "label": (255, 238, 202)},
+        "rose":   {"head": (255, 170, 200), "body": (222, 110, 156), "label": (255, 230, 240)},
+        # extended palette (T03.03)
+        "lime":   {"head": (200, 255, 100), "body": (155, 220, 60),  "label": (230, 255, 180)},
+        "sky":    {"head": (100, 210, 255), "body": (60, 170, 230),  "label": (200, 240, 255)},
+        "coral":  {"head": (255, 160, 120), "body": (230, 110, 80),  "label": (255, 220, 200)},
+        "ice":    {"head": (200, 240, 255), "body": (160, 210, 240), "label": (230, 248, 255)},
     }
     return palettes.get(name, palettes["mint"])
 

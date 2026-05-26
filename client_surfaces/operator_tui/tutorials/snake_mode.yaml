@@ -1,0 +1,44 @@
+title: "Snake-Modus"
+description: "Lerne alle Funktionen des Snake-Modus: Steuerung, Auswahl, Farben und KI-Integration."
+steps:
+  - id: "activate"
+    title: "Snake aktivieren"
+    task: "Drücke Ctrl+S um den Snake-Modus zu öffnen."
+    hint: "Du erkennst den Snake-Modus an der Schlange auf dem Bildschirm."
+    completion_event: "snake_activated"
+    section: null
+
+  - id: "steer"
+    title: "Schlange steuern"
+    task: "Steuere die Schlange mit den Pfeiltasten oder hjkl."
+    hint: "Die Schlange beschleunigt in Pfeilrichtung. Space stoppt sie sofort."
+    completion_event: "snake_moved"
+    section: null
+
+  - id: "pause"
+    title: "Pause"
+    task: "Pausiere die Schlange mit Space und setze sie mit Space fort."
+    hint: "Im Pause-Modus erscheint [ PAUSED ] auf dem Spielfeld."
+    completion_event: "snake_paused"
+    section: null
+
+  - id: "color"
+    title: "Farbe ändern"
+    task: "Wechsle die Schlangenfarbe mit Y (mehrmals drücken)."
+    hint: "Verfügbare Farben: mint, cyan, violet, amber, rose, lime, sky, coral, ice."
+    completion_event: "snake_color_changed"
+    section: null
+
+  - id: "tutor"
+    title: "Tutorial-KI aktivieren"
+    task: "Aktiviere die KI-Schlange mit U."
+    hint: "Die KI-Schlange (amber) erklärt Konzepte während sie sich bewegt."
+    completion_event: "tutorial_toggled"
+    section: null
+
+  - id: "ask"
+    title: "KI fragen"
+    task: "Stelle der KI-Schlange eine Frage: :ask Was ist ein Context Bundle?"
+    hint: "Das Spiel pausiert während die KI antwortet."
+    completion_event: "ask_command_used"
+    section: null

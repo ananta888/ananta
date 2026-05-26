@@ -1,0 +1,51 @@
+title: "CodeCompass Workflow"
+description: "Verstehe wie CodeCompass Projektwissen aufbereitet und an Worker liefert."
+steps:
+  - id: "intro"
+    title: "Was ist CodeCompass?"
+    task: "Wechsle zum Knowledge-Abschnitt und lies die Erklärung."
+    hint: ":section knowledge oder n/p für Navigation."
+    completion_event: "section_changed"
+    section: "knowledge"
+
+  - id: "index"
+    title: "Knowledge-Index"
+    task: "Betrachte die indizierten Knowledge-Einträge im Knowledge-Panel."
+    hint: "Jeder Eintrag hat Typ, Quelle und Relevanz-Score."
+    completion_event: "section_visited"
+    section: "knowledge"
+
+  - id: "artifacts_link"
+    title: "Artefakte und Kontext"
+    task: "Wechsle zu Artifacts und schau welche Artefakte CodeCompass indexiert hat."
+    hint: "Artefakte vom Typ code_change und report werden für RAG genutzt."
+    completion_event: "section_changed"
+    section: "artifacts"
+
+  - id: "policy_gate"
+    title: "Policy Gate"
+    task: "Aktiviere den Snake-Modus (Ctrl+S) und frage: :ask Was ist der Policy Gate?"
+    hint: "Die KI-Schlange erklärt Policies und Zugriffskontrollen."
+    completion_event: "ask_command_used"
+    section: null
+
+  - id: "context_bundle"
+    title: "Context Bundle"
+    task: "Frage die KI-Schlange: :ask Wie entsteht ein Context Bundle?"
+    hint: "Ein Context Bundle ist der minimale Kontext für eine Task."
+    completion_event: "ask_command_used"
+    section: null
+
+  - id: "worker_routing"
+    title: "Worker-Routing"
+    task: "Frage die KI: :ask Wie entscheidet Ananta welchen Worker es wählt?"
+    hint: "Worker-Routing basiert auf Rolle, Kapazität und Policy."
+    completion_event: "ask_command_used"
+    section: null
+
+  - id: "finish"
+    title: "CodeCompass verstanden"
+    task: "Sehr gut! Verlasse den Snake-Modus mit Ctrl+S."
+    hint: "Mit :tutorial start intro kannst du die Grundlagen wiederholen."
+    completion_event: "snake_deactivated"
+    section: null
