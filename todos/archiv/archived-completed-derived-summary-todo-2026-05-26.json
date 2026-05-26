@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "archive_date": "2026-05-26",
+  "reason": "Archive completed root TODO track discovered after initial archive pass.",
+  "archive_mode": "manifest_with_original_blob_sha",
+  "archived_items": [
+    {
+      "source_path": "todos/todo.planning-worker-derived-summary-single-source-of-truth.json",
+      "original_blob_sha": "d0de5467aa8655c20d507b5a41bb479cd0935485",
+      "track": "planning-worker-derived-summary-single-source-of-truth",
+      "status": "done",
+      "summary": "28/28 tasks done, 8/8 milestones done"
+    }
+  ],
+  "note": "Original file is recoverable from Git history via source path and blob SHA."
+}
