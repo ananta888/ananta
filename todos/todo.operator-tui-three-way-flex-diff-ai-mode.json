@@ -101,7 +101,7 @@
     {
       "id": "T01.01",
       "title": "ThreeWayDiffSession-v1 Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",

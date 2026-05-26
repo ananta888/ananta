@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/tui/three_way_diff_session.v1.json",
+  "title": "ThreeWayDiffSession v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "session_id",
+    "panels",
+    "active_panel",
+    "layout_mode",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "three_way_diff_session.v1"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "panels": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "panel_id",
+          "panel_type",
+          "source_left",
+          "source_right",
+          "render_mode",
+          "filters",
+          "scroll_state",
+          "selection_state"
+        ],
+        "properties": {
+          "panel_id": {
+            "type": "string",
+            "enum": ["A", "B", "C"]
+          },
+          "panel_type": {
+            "type": "string",
+            "enum": ["diff", "file", "artifact", "ai_review", "ai_explain", "ai_patch", "empty"]
+          },
+          "source_left": {
+            "type": ["object", "null"]
+          },
+          "source_right": {
+            "type": ["object", "null"]
+          },
+          "render_mode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "filters": {
+            "type": "object"
+          },
+          "scroll_state": {
+            "type": "object"
+          },
+          "selection_state": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "active_panel": {
+      "type": "string",
+      "enum": ["A", "B", "C"]
+    },
+    "layout_mode": {
+      "type": "string",
+      "enum": ["equal", "focus", "compact"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "extensions": {
+      "type": "object"
+    }
+  }
+}
