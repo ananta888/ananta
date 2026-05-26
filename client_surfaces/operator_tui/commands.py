@@ -6,7 +6,11 @@ from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, event_for_prediction_feedback
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
-from client_surfaces.operator_tui.ai_snake_training_import_export import export_training_bundle_to_path
+from client_surfaces.operator_tui.ai_snake_training_import_export import (
+    export_training_bundle_to_path,
+    export_training_markdown,
+    import_training_bundle,
+)
 from client_surfaces.operator_tui.ai_snake_training_store import (
     append_behavior_event,
     build_training_bundle,
@@ -249,6 +253,73 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     state.with_updates(header_logo_game=game, status_message=f"ai data export file={target}"),
                     f"ai data export {target}",
                 )
+            if action == "export-md":
+                if len(args) < 3:
+                    return CommandResult(state, "ai data export-md requires <path>", handled=False)
+                md_path = str(args[2]).strip()
+                json_ref = ""
+                if "--json-ref" in [str(x).lower() for x in args[3:]]:
+                    tail = [str(x) for x in args[3:]]
+                    idx = [str(x).lower() for x in tail].index("--json-ref")
+                    json_ref = tail[idx + 1] if idx + 1 < len(tail) else ""
+                target = export_training_markdown(output_path=md_path, json_ref=json_ref)
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message=f"ai data export-md file={target}"),
+                    f"ai data export-md {target}",
+                )
+            if action == "import":
+                if len(args) < 3:
+                    return CommandResult(
+                        state,
+                        "ai data import <path> [--preview] [--disabled] [--conflict keep_higher_confidence|overwrite|keep_local|merge_counters]",
+                        handled=False,
+                    )
+                source = str(args[2]).strip()
+                flags = [str(x).strip() for x in args[3:]]
+                lowered = [x.lower() for x in flags]
+                preview = "--preview" in lowered
+                disabled = "--disabled" in lowered
+                strategy = "keep_higher_confidence"
+                if "--conflict" in lowered:
+                    idx = lowered.index("--conflict")
+                    strategy = str(flags[idx + 1]).strip() if idx + 1 < len(flags) else strategy
+                try:
+                    result = import_training_bundle(
+                        input_path=source,
+                        preview=preview,
+                        disabled=disabled,
+                        conflict_strategy=strategy,
+                    )
+                except ValueError as exc:
+                    return CommandResult(
+                        state.with_updates(header_logo_game=game, status_message=f"ai data import failed: {exc}"),
+                        "ai data import failed",
+                        handled=False,
+                    )
+                if str(result.get("status") or "") == "degraded":
+                    return CommandResult(
+                        state.with_updates(
+                            header_logo_game=game,
+                            status_message=(
+                                f"ai data import degraded readonly reason={result.get('reason')} "
+                                f"schema={result.get('schema_version')}"
+                            ),
+                        ),
+                        "ai data import degraded",
+                        handled=False,
+                    )
+                mode = "preview" if preview else "applied"
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        status_message=(
+                            f"ai data import {mode} profile={result.get('profile_name')} "
+                            f"patterns={result.get('patterns_result')} conflicts={result.get('conflicts')} "
+                            f"strategy={result.get('conflict_resolution')}"
+                        ),
+                    ),
+                    json.dumps(result, ensure_ascii=False),
+                )
             if action == "compact":
                 result = compact_training_data()
                 return CommandResult(
@@ -287,7 +358,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 )
             return CommandResult(
                 state,
-                "ai data: path | show | export [--stdout|<path>] --format json [--include-events] | compact | delete ... | reset",
+                "ai data: path | show | export ... | export-md <path> | import <path> ... | compact | delete ... | reset",
                 handled=False,
             )
         if sub == "prediction":

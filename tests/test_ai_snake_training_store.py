@@ -198,3 +198,19 @@ def test_ai_prediction_feedback_command_records_event(monkeypatch, tmp_path) -> 
     assert bad.handled is True
     events_content = ensure_training_layout()["events_log"].read_text(encoding="utf-8")
     assert "prediction_feedback" in events_content
+
+
+def test_ai_data_export_md_and_import_preview_commands(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+    md = tmp_path / "report.md"
+    export_md = execute_command(f":ai data export-md {md}", state)
+    assert export_md.handled is True
+    assert md.exists()
+    bundle = tmp_path / "bundle.json"
+    export_json = execute_command(f":ai data export {bundle} --format json", export_md.state)
+    assert export_json.handled is True
+    preview = execute_command(f":ai data import {bundle} --preview", export_json.state)
+    assert preview.handled is True
+    payload = json.loads(preview.message)
+    assert payload["status"] == "preview"
