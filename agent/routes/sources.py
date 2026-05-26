@@ -8,6 +8,7 @@ from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.sources.builtin_sources import load_builtin_source_descriptors
 from agent.sources.citation_formatter import format_citation
+from agent.sources.source_cache import SourceCache
 from agent.sources.source_refresh_service import SourceRefreshService
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
@@ -25,6 +26,10 @@ def _snapshots() -> SourceSnapshotStore:
 
 def _refresh_service() -> SourceRefreshService:
     return SourceRefreshService(registry=_registry(), snapshots=_snapshots())
+
+
+def _cache() -> SourceCache:
+    return SourceCache()
 
 
 def _sync_builtin_descriptors() -> None:
@@ -121,3 +126,26 @@ def refresh_source(source_id: str):
         destination_name=str(payload.get("destination_name") or "").strip() or None,
     )
     return api_response(data=report)
+
+
+@sources_bp.route("/sources/<source_id>/cache", methods=["GET"])
+@check_auth
+def source_cache_status(source_id: str):
+    _sync_builtin_descriptors()
+    source = _registry().get_source(source_id)
+    if source is None:
+        raise NotFoundError("source_not_found")
+    stats = _cache().stats_for_source(source_id=source_id)
+    return api_response(data={"source_id": source_id, **stats})
+
+
+@sources_bp.route("/sources/<source_id>/cache/clear", methods=["POST"])
+@check_auth
+def source_cache_clear(source_id: str):
+    _sync_builtin_descriptors()
+    source = _registry().get_source(source_id)
+    if source is None:
+        raise NotFoundError("source_not_found")
+    removed = _cache().clear_source(source_id=source_id)
+    stats = _cache().stats_for_source(source_id=source_id)
+    return api_response(data={"source_id": source_id, "removed_files": removed, **stats})
