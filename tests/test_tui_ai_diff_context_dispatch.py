@@ -135,6 +135,21 @@ def test_dispatch_registers_patch_output_and_provenance(tmp_path: Path, monkeypa
     assert prov["prompt_refs"]["final_prompt_hash"]
 
 
+def test_dispatch_invalid_ai_response_becomes_degraded(tmp_path: Path, monkeypatch) -> None:
+    from agent.config import settings
+    from client_surfaces.operator_tui.diff import ai_diff_dispatch as dispatch_module
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path / "data-invalid"))
+    service = _seed_goal_with_grant_and_output(tmp_path)
+    monkeypatch.setattr(dispatch_module, "GoalArtifactService", lambda: service)
+    monkeypatch.setattr(dispatch_module, "_AI_RESPONSE_GENERATOR", lambda *, mode, envelope: {"invalid": True})
+    session = build_current_diff_three_panel_session(session_id="s-invalid", goal_id="goal-ctx")
+    session["extensions"]["ai_panel_state"] = build_ai_diff_panel_state(mode="review", selected_panels=["A"])
+    result = dispatch_ai_diff_request(goal_id="goal-ctx", diff3_state=session, mode="review")
+    assert result["status"] == "degraded"
+    assert result["reason_code"] == "invalid_ai_diff_response"
+
+
 def test_diff3_ai_run_command_handles_degraded_response(tmp_path: Path, monkeypatch) -> None:
     from client_surfaces.operator_tui.commands import execute_command
     from client_surfaces.operator_tui.models import OperatorState
@@ -150,3 +165,52 @@ def test_diff3_ai_run_command_handles_degraded_response(tmp_path: Path, monkeypa
     assert "degraded" in ran.state.status_message
     payload = json.loads(ran.message)
     assert payload["status"] == "degraded"
+
+
+def test_diff3_ai_run_timeout_sets_degraded_state(monkeypatch) -> None:
+    from client_surfaces.operator_tui.commands import execute_command
+    from client_surfaces.operator_tui.models import OperatorState
+
+    monkeypatch.setattr("client_surfaces.operator_tui.commands.dispatch_ai_diff_request", lambda **kwargs: (_ for _ in ()).throw(TimeoutError()))
+    state = OperatorState(endpoint="http://localhost:5000", section_id="artifacts", header_logo_game={})
+    opened = execute_command(":diff3", state)
+    ran = execute_command(":diff3 ai run review", opened.state)
+    assert ran.handled is True
+    assert "degraded" in ran.state.status_message
+    ai_state = ran.state.header_logo_game["diff3_state"]["extensions"]["ai_panel_state"]
+    assert ai_state["status"] == "degraded"
+
+
+def test_diff3_ai_run_success_stores_structured_findings(monkeypatch) -> None:
+    from client_surfaces.operator_tui.commands import execute_command
+    from client_surfaces.operator_tui.models import OperatorState
+
+    def _ok(*, goal_id: str | None, diff3_state: dict, mode: str) -> dict:
+        return {
+            "status": "success",
+            "reason_code": "",
+            "response": {
+                "schema": "ai_diff_response.v1",
+                "status": "success",
+                "artifact_type": mode,
+                "summary": "ok",
+                "findings": ["f1", "f2"],
+                "risks": [],
+                "suggested_tests": [],
+                "patch_suggestions": [],
+                "source_refs": [],
+            },
+            "context_envelope": {},
+            "provenance_id": "prov-1",
+            "output_artifact_id": "out-1",
+        }
+
+    monkeypatch.setattr("client_surfaces.operator_tui.commands.dispatch_ai_diff_request", _ok)
+    state = OperatorState(endpoint="http://localhost:5000", section_id="artifacts", header_logo_game={})
+    opened = execute_command(":diff3", state)
+    ran = execute_command(":diff3 ai run review", opened.state)
+    assert ran.handled is True
+    payload = json.loads(ran.message)
+    assert payload["response"]["findings"] == ["f1", "f2"]
+    extensions = ran.state.header_logo_game["diff3_state"]["extensions"]
+    assert extensions["ai_last_findings"] == ["f1", "f2"]

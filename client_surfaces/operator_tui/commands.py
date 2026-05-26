@@ -548,11 +548,52 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 )
                 extensions["ai_panel_state"] = running
                 diff3_state["extensions"] = extensions
-                result = dispatch_ai_diff_request(
-                    goal_id=str(game.get("active_goal_id") or "").strip() or None,
-                    diff3_state=diff3_state,
-                    mode=run_mode,
-                )
+                try:
+                    result = dispatch_ai_diff_request(
+                        goal_id=str(game.get("active_goal_id") or "").strip() or None,
+                        diff3_state=diff3_state,
+                        mode=run_mode,
+                    )
+                except TimeoutError:
+                    result = {
+                        "status": "degraded",
+                        "reason_code": "ai_diff_timeout",
+                        "response": {
+                            "schema": "ai_diff_response.v1",
+                            "status": "degraded",
+                            "artifact_type": run_mode,
+                            "summary": "AI diff request timed out",
+                            "findings": [],
+                            "risks": [],
+                            "suggested_tests": [],
+                            "patch_suggestions": [],
+                            "source_refs": [],
+                            "reason_code": "ai_diff_timeout",
+                        },
+                        "context_envelope": {},
+                        "provenance_id": "",
+                        "output_artifact_id": "",
+                    }
+                except Exception:
+                    result = {
+                        "status": "degraded",
+                        "reason_code": "ai_diff_dispatch_failed",
+                        "response": {
+                            "schema": "ai_diff_response.v1",
+                            "status": "degraded",
+                            "artifact_type": run_mode,
+                            "summary": "AI diff dispatch failed",
+                            "findings": [],
+                            "risks": [],
+                            "suggested_tests": [],
+                            "patch_suggestions": [],
+                            "source_refs": [],
+                            "reason_code": "ai_diff_dispatch_failed",
+                        },
+                        "context_envelope": {},
+                        "provenance_id": "",
+                        "output_artifact_id": "",
+                    }
                 completed = set_ai_diff_mode(
                     running,
                     mode=run_mode,
@@ -564,6 +605,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 extensions["ai_panel_state"] = completed
                 extensions["ai_last_response"] = dict(result.get("response") or {})
                 extensions["ai_last_context"] = dict(result.get("context_envelope") or {})
+                extensions["ai_last_findings"] = list(dict(result.get("response") or {}).get("findings") or [])
                 diff3_state["extensions"] = extensions
                 next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
                 status_label = "degraded" if str(result.get("status") or "") != "success" else "completed"

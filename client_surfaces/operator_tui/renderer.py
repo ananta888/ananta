@@ -807,6 +807,9 @@ def _diff3_content_lines(payload: dict, *, width: int) -> list[str]:
                 width,
             )
         )
+        findings = list(payload.get("raw_state", {}).get("extensions", {}).get("ai_last_findings") or [])
+        if findings:
+            lines.append(_clip(f"  AI findings: {findings[0]}", width))
     if not rows:
         lines.append("  (empty diff3 session)")
         return lines

@@ -392,7 +392,7 @@
     {
       "id": "T05.02",
       "title": "Diff-Kontext als SourceArtifactUsage erfassen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "artifact",
@@ -411,7 +411,7 @@
     {
       "id": "T05.03",
       "title": "ExecutionProvenance für AI-Diff Antworten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "provenance",
@@ -429,7 +429,7 @@
     {
       "id": "T06.01",
       "title": "Unit Tests für State, Sources und Engine",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -449,7 +449,7 @@
     {
       "id": "T06.02",
       "title": "TUI Command und Renderer Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -469,7 +469,7 @@
     {
       "id": "T06.03",
       "title": "AI-Diff Mock Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",

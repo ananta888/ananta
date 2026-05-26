@@ -71,3 +71,16 @@ def test_diff_engine_parses_patch_input() -> None:
     assert doc["files"][0]["hunks"][0]["old_lines"] == ["before"]
     assert doc["files"][0]["hunks"][0]["new_lines"] == ["after"]
 
+
+def test_diff_engine_returns_reason_for_unsupported_input() -> None:
+    engine = DiffEngine()
+    doc = engine.build_document(left={"content_type": "unknown"})
+    assert doc["reason_code"] == "unsupported_inputs"
+
+
+def test_diff_engine_patch_truncation_flag() -> None:
+    engine = DiffEngine()
+    patch_lines = ["diff --git a/demo.txt b/demo.txt"] + [f"+line-{i}" for i in range(200)]
+    patch = "\n".join(patch_lines)
+    doc = engine.build_document(left={"content_type": "patch", "patch": patch}, max_lines=20)
+    assert doc["stats"]["truncated"] is True

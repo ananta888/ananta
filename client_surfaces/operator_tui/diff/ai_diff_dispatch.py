@@ -7,7 +7,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
+from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.services.config_snapshot_service import ConfigSnapshotService
 from agent.services.prompt_snapshot_service import PromptSnapshotService
 from client_surfaces.operator_tui.diff.ai_diff_context import build_ai_diff_context_envelope
@@ -54,6 +54,17 @@ def _mock_ai_response(*, mode: str, envelope: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_AI_RESPONSE_GENERATOR = _mock_ai_response
+
+
+def _artifact_type_for_mode(mode: str) -> str:
+    if mode == "patch":
+        return "patch_suggestion"
+    if mode == "chat":
+        return "chat_answer"
+    return "report"
+
+
 def dispatch_ai_diff_request(
     *,
     goal_id: str | None,
@@ -88,16 +99,30 @@ def dispatch_ai_diff_request(
         expected_output_schema_ref="schemas/tui/ai_diff_response.v1.json",
     )
     rendered_prompt = render_ai_diff_prompt(mode=mode, context_envelope=context_envelope)
+    context_hash = hashlib.sha256(json.dumps(context_envelope, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+    usage_refs: list[str] = []
+    denied_refs: list[str] = list(context_envelope.get("denied_context_refs") or [])
+    if goal_id:
+        tracking = service.validate_and_record_context_usages(
+            goal_id=goal_id,
+            artifact_refs=list(context_envelope.get("artifact_refs") or []),
+            task_id=f"diff3-{mode}",
+            worker_id="operator-tui-ai-diff",
+            context_hash=context_hash,
+        )
+        usage_refs = list(tracking.get("source_usage_refs") or [])
+        denied_refs = sorted(set(denied_refs + list(tracking.get("denied_context_refs") or [])))
+
     final_prompt = prompt_service.build_final_prompt_record(
         prompt_template_ref=template_ref,
         variables_payload={"goal_id": goal_id, "mode": mode},
         final_prompt_text=rendered_prompt,
-        context_hash=hashlib.sha256(json.dumps(context_envelope, sort_keys=True).encode("utf-8")).hexdigest()[:16],
-        input_usage_refs=[],
+        context_hash=context_hash,
+        input_usage_refs=usage_refs,
         output_schema_ref="schemas/tui/ai_diff_response.v1.json",
         store_raw_prompt=False,
     )
-    response = _mock_ai_response(mode=mode, envelope=context_envelope)
+    response = _AI_RESPONSE_GENERATOR(mode=mode, envelope=context_envelope)
     errors = _validate_ai_diff_response(response)
     if errors:
         return {
@@ -117,6 +142,8 @@ def dispatch_ai_diff_request(
                 "reason_code": "invalid_ai_diff_response",
             },
             "context_envelope": context_envelope,
+            "provenance_id": "",
+            "output_artifact_id": "",
         }
 
     worker_cfg = config_service.build_snapshot(
@@ -148,6 +175,8 @@ def dispatch_ai_diff_request(
     output_artifact_id = f"out-diff3-{response_hash[:12]}"
     provenance_id = f"prov-diff3-{response_hash[:12]}"
     execution_id = f"exec-diff3-{response_hash[:12]}"
+    artifact_type = _artifact_type_for_mode(mode)
+    output_refs = [output_artifact_id]
 
     if goal_id:
         provenance_payload = {
@@ -175,40 +204,38 @@ def dispatch_ai_diff_request(
                 "raw_prompt_stored": final_prompt["raw_prompt_stored"],
                 "reason_code": "raw_prompt_policy_default",
             },
-            "input_usage_refs": [],
-            "output_artifact_refs": [output_artifact_id] if mode == "patch" and response.get("patch_suggestions") else [],
+            "input_usage_refs": usage_refs,
+            "output_artifact_refs": output_refs,
             "created_at": _now_iso(),
             "extensions": {
                 "diff_source_refs": context_envelope.get("diff_source_refs") or [],
                 "selected_hunk_refs": context_envelope.get("selected_hunk_refs") or [],
+                "denied_context_refs": denied_refs,
             },
         }
         service.upsert_execution_provenance(goal_id=goal_id, provenance=provenance_payload)
-        if mode == "patch" and response.get("patch_suggestions"):
-            artifact_ref = f"ai-diff:patch:{response_hash[:16]}"
-            try:
-                service.record_output_artifact(
-                    goal_id=goal_id,
-                    output_artifact={
-                        "schema": "goal_output_artifact.v1",
-                        "output_artifact_id": output_artifact_id,
-                        "goal_id": goal_id,
-                        "task_id": f"diff3-{mode}",
-                        "worker_id": "operator-tui-ai-diff",
-                        "artifact_type": "patch_suggestion",
-                        "created_at": _now_iso(),
-                        "input_usage_refs": [],
-                        "artifact_ref": artifact_ref,
-                        "content_hash": response_hash,
-                        "status": "created",
-                        "provenance_summary": "AI diff patch suggestion (not applied)",
-                        "provenance_id": provenance_id,
-                        "execution_id": execution_id,
-                        "provenance_kind": "worker_execution",
-                    },
-                )
-            except GoalArtifactServiceError:
-                pass
+        artifact_ref = f"ai-diff:{mode}:{response_hash[:16]}"
+        summary = "AI diff patch suggestion (not applied)" if mode == "patch" else f"AI diff {mode} response"
+        service.record_output_artifact(
+            goal_id=goal_id,
+            output_artifact={
+                "schema": "goal_output_artifact.v1",
+                "output_artifact_id": output_artifact_id,
+                "goal_id": goal_id,
+                "task_id": f"diff3-{mode}",
+                "worker_id": "operator-tui-ai-diff",
+                "artifact_type": artifact_type,
+                "created_at": _now_iso(),
+                "input_usage_refs": usage_refs,
+                "artifact_ref": artifact_ref,
+                "content_hash": response_hash,
+                "status": "created",
+                "provenance_summary": summary,
+                "provenance_id": provenance_id,
+                "execution_id": execution_id,
+                "provenance_kind": "worker_execution",
+            },
+        )
 
     return {
         "status": "success",
@@ -217,7 +244,7 @@ def dispatch_ai_diff_request(
         "context_envelope": context_envelope,
         "prompt_template_ref": template_ref,
         "final_prompt_hash": final_prompt["final_prompt_hash"],
-        "provenance_id": provenance_id if goal_id else "",
-        "output_artifact_id": output_artifact_id if goal_id and mode == "patch" and response.get("patch_suggestions") else "",
+        "provenance_id": provenance_id if goal_id else provenance_id,
+        "output_artifact_id": output_artifact_id if goal_id else "",
+        "source_usage_refs": usage_refs,
     }
-
