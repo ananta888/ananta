@@ -489,7 +489,7 @@
     {
       "id": "T06.04",
       "title": "E2E: Zwei aktuelle Diffs plus KI-Panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -513,7 +513,7 @@
     {
       "id": "T06.05",
       "title": "E2E: Flexible Quellen auswählen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "e2e",
@@ -533,7 +533,7 @@
     {
       "id": "T07.01",
       "title": "User-Doku für Drei-Wege-Diff",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -552,7 +552,7 @@
     {
       "id": "T07.02",
       "title": "Architekturdoku mit Mermaid",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
