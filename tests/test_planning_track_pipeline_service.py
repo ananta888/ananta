@@ -114,6 +114,28 @@ def test_persist_planning_track_result_saves_valid_artifact_and_provenance(tmp_p
     assert provenance["prompt_refs"]["prompt_template_ref"] == "prompt:planning/track_planning"
     assert provenance["extensions"]["schema_ref"] == "todos/todo.track.schema.json"
     assert result["output_artifact"]["extensions"]["quality_gate_warnings"] == []
+    assert result["output_artifact"]["extensions"]["source_references"]
+    assert "artifact:allowed" in list(result["output_artifact"]["extensions"]["context_references"] or [])
+
+
+def test_validation_rejects_epics_based_shape_without_track_fields() -> None:
+    issues = validate_planning_track_with_details({"epics": [{"id": "E1", "tasks": []}]})
+    reason_codes = {item["reason_code"] for item in issues}
+    assert "missing_required_field" in reason_codes
+
+
+def test_validation_rejects_missing_tasks_status_summary_field() -> None:
+    payload = _fixture_payload()
+    payload.pop("tasks_status_summary", None)
+    issues = validate_planning_track_with_details(payload)
+    assert any(item["reason_code"] == "missing_required_field" and item["path"] == "$" for item in issues)
+
+
+def test_validation_rejects_task_without_acceptance_criteria() -> None:
+    payload = _fixture_payload()
+    payload["tasks"][0].pop("acceptance_criteria", None)
+    issues = validate_planning_track_with_details(payload)
+    assert any(item["reason_code"] == "missing_required_field" and item["path"].startswith("tasks/0") for item in issues)
 
 
 def test_persist_planning_track_result_repair_pipeline_runs_once_and_degrades(tmp_path: Path) -> None:

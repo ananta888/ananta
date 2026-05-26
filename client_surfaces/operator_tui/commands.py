@@ -8,6 +8,7 @@ from pathlib import Path
 from agent.artifacts.artifact_access_policy import ArtifactAccessPolicy
 from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
 from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
+from agent.repository import goal_repo, task_repo
 from agent.sources.citation_formatter import format_citation
 from agent.sources.builtin_sources import load_builtin_source_descriptors
 from agent.sources.source_refresh_service import SourceRefreshService
@@ -58,6 +59,7 @@ from client_surfaces.operator_tui.diff.three_way_diff_state import (
 )
 from agent.services.planning_track_pipeline_service import compute_tasks_status_summary, persist_planning_track_result
 from agent.services.planning_track_planner_service import build_planner_context_envelope, render_track_planning_prompt
+from agent.services.planning_track_task_integration_service import PlanningTrackTaskIntegrationService
 
 
 def _now_iso() -> str:
@@ -327,9 +329,17 @@ def _build_plan_task_diff(left_payload: dict[str, object], right_payload: dict[s
 def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> dict[str, object]:
     service = GoalArtifactService()
     graph = service.get_goal_graph(goal_id)
+    provenance_items = [dict(item) for item in list(dict(graph.get("extensions") or {}).get("execution_provenance") or []) if isinstance(item, dict)]
+    provenance_by_id = {
+        str(item.get("provenance_id") or ""): item
+        for item in provenance_items
+        if str(item.get("provenance_id") or "").strip()
+    }
     outputs = [dict(item) for item in list(graph.get("output_artifacts") or []) if isinstance(item, dict)]
     planning_outputs = [item for item in outputs if str(item.get("artifact_type") or "") == "planning_track"]
     planning_outputs.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+    goal = goal_repo.get_by_id(goal_id)
+    prefs = dict(goal.execution_preferences or {}) if goal is not None else {}
 
     rows: list[dict[str, object]] = []
     for output in planning_outputs:
@@ -346,6 +356,11 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
                 "quality_gate_warnings": list(ext.get("quality_gate_warnings") or []),
                 "validation_issues": list(ext.get("validation_issues") or []),
                 "repair_attempt_count": int(ext.get("repair_attempt_count") or 0),
+                "source_references": list(ext.get("source_references") or []),
+                "context_references": list(ext.get("context_references") or []),
+                "context_hash": str(ext.get("context_hash") or ""),
+                "task_mapping": dict(ext.get("task_mapping") or {}),
+                "provenance": dict(provenance_by_id.get(str(output.get("provenance_id") or ""), {})),
                 "payload": payload,
             }
         )
@@ -364,10 +379,26 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
     ]
     selected_payload_with_filters = dict(selected_payload)
     selected_payload_with_filters["tasks_filtered"] = filtered_tasks
+    selected_task_mapping = {}
     if isinstance(selected_row, dict):
         selected_payload_with_filters["quality_gate_warnings"] = list(selected_row.get("quality_gate_warnings") or [])
         selected_payload_with_filters["validation_issues"] = list(selected_row.get("validation_issues") or [])
         selected_payload_with_filters["verification_status"] = str(selected_row.get("verification_status") or "")
+        selected_payload_with_filters["source_references"] = list(selected_row.get("source_references") or [])
+        selected_payload_with_filters["context_references"] = list(selected_row.get("context_references") or [])
+        selected_payload_with_filters["provenance"] = dict(selected_row.get("provenance") or {})
+        selected_task_mapping = dict(selected_row.get("task_mapping") or {})
+        selected_payload_with_filters["task_mapping"] = selected_task_mapping
+    selected_output_task_states: dict[str, str] = {}
+    selected_output_id = str(selected_output_id or "")
+    if selected_output_id:
+        for task in task_repo.get_by_goal_id(goal_id):
+            if str(task.plan_id or "") != selected_output_id:
+                continue
+            if str(task.plan_node_id or "").strip():
+                selected_output_task_states[str(task.plan_node_id)] = str(task.status or "")
+    if selected_output_task_states:
+        selected_payload_with_filters["internal_task_status"] = selected_output_task_states
 
     diff_state = dict(game.get("planning_track_diff") or {}) if isinstance(game.get("planning_track_diff"), dict) else {}
     return {
@@ -381,8 +412,10 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
         "selected_output_id": selected_output_id,
         "selected_track": selected_payload_with_filters,
         "task_filters": task_filters,
-        "active_output_id": str(game.get("active_planning_track_output_id") or ""),
-        "rejected_output_ids": list(game.get("rejected_planning_track_output_ids") or []),
+        "active_output_id": str(prefs.get("active_planning_track_output_id") or game.get("active_planning_track_output_id") or ""),
+        "rejected_output_ids": list(prefs.get("rejected_planning_track_output_ids") or game.get("rejected_planning_track_output_ids") or []),
+        "task_mapping": selected_task_mapping,
+        "internal_task_status": selected_output_task_states,
         "plan_diff": diff_state,
     }
 
@@ -838,6 +871,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
 
         sub = str(tail[0]).lower() if tail and not str(tail[0]).startswith("--") else ""
         service = GoalArtifactService()
+        integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
 
         if sub == "filter":
             filters = dict(game.get("planning_track_filters") or {})
@@ -888,25 +922,10 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             if len(tail) < 2:
                 return CommandResult(state, "plan track adopt <output-artifact-id>", handled=False)
             output_id = str(tail[1]).strip()
-            graph = service.get_goal_graph(goal_id)
-            row = next(
-                (
-                    dict(item)
-                    for item in list(graph.get("output_artifacts") or [])
-                    if isinstance(item, dict) and str(item.get("output_artifact_id") or "") == output_id
-                ),
-                None,
-            )
-            if row is None:
-                return CommandResult(state, f"plan track adopt failed output-not-found={output_id}", handled=False)
-            ext = dict(row.get("extensions") or {})
-            is_valid_candidate = (
-                bool(ext.get("active_plan_candidate"))
-                and str(row.get("status") or "") == "created"
-                and str(row.get("verification_status") or "") == "valid"
-            )
-            if not is_valid_candidate:
-                return CommandResult(state, f"plan track adopt blocked output={output_id} status=invalid_or_failed", handled=False)
+            try:
+                materialized = integration.adopt_track(goal_id=goal_id, output_artifact_id=output_id)
+            except ValueError as exc:
+                return CommandResult(state, f"plan track adopt blocked output={output_id} reason={str(exc)}", handled=False)
             game["active_planning_track_output_id"] = output_id
             game["planning_track_selected_output_id"] = output_id
             service.upsert_execution_provenance(
@@ -931,6 +950,10 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     "input_usage_refs": [],
                     "output_artifact_refs": [output_id],
                     "created_at": _now_iso(),
+                    "extensions": {
+                        "materialized_task_count": len(list(materialized.get("materialized_task_ids") or [])),
+                        "plan_task_to_internal_task": dict(materialized.get("plan_task_to_internal_task") or {}),
+                    },
                 },
             )
             payload = _build_planning_track_payload(goal_id=goal_id, game=game)
@@ -953,10 +976,8 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             if len(tail) < 2:
                 return CommandResult(state, "plan track reject <output-artifact-id>", handled=False)
             output_id = str(tail[1]).strip()
-            rejected = [str(item) for item in list(game.get("rejected_planning_track_output_ids") or []) if str(item).strip()]
-            if output_id not in rejected:
-                rejected.append(output_id)
-            game["rejected_planning_track_output_ids"] = rejected
+            rejected_result = integration.reject_track(goal_id=goal_id, output_artifact_id=output_id)
+            game["rejected_planning_track_output_ids"] = list(rejected_result.get("rejected_output_ids") or [])
             if str(game.get("active_planning_track_output_id") or "") == output_id:
                 game["active_planning_track_output_id"] = ""
             payload = _build_planning_track_payload(goal_id=goal_id, game=game)
@@ -1003,6 +1024,68 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     section_payloads=section_payloads,
                     panel_states=panel_states,
                     status_message=f"plan track diff {left_id}->{right_id}",
+                ),
+                json.dumps(refreshed, ensure_ascii=False),
+            )
+        if sub == "execute-next":
+            output_id = str(game.get("active_planning_track_output_id") or "").strip()
+            if not output_id:
+                return CommandResult(state, "plan track execute-next requires an adopted output", handled=False)
+            try:
+                execution = integration.execute_next_plan_task(
+                    goal_id=goal_id,
+                    output_artifact_id=output_id,
+                    worker_id="operator_tui",
+                )
+            except ValueError as exc:
+                return CommandResult(state, f"plan track execute-next blocked reason={str(exc)}", handled=False)
+            game["planning_track_last_execution"] = execution
+            refreshed = _build_planning_track_payload(goal_id=goal_id, game=game)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = refreshed
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"plan track execute-next {execution.get('plan_task_id')}->{execution.get('internal_task_id')}",
+                ),
+                json.dumps(refreshed, ensure_ascii=False),
+            )
+        if sub == "sync-status":
+            if len(tail) < 3:
+                return CommandResult(state, "plan track sync-status <plan-task-id> <todo|in_progress|blocked|completed|failed>", handled=False)
+            output_id = str(game.get("active_planning_track_output_id") or "").strip()
+            if not output_id:
+                return CommandResult(state, "plan track sync-status requires an adopted output", handled=False)
+            plan_task_id = str(tail[1]).strip()
+            internal_status = str(tail[2]).strip().lower()
+            try:
+                integration.sync_plan_status_from_internal_task(
+                    goal_id=goal_id,
+                    output_artifact_id=output_id,
+                    plan_task_id=plan_task_id,
+                    internal_status=internal_status,
+                )
+            except ValueError as exc:
+                return CommandResult(state, f"plan track sync-status blocked reason={str(exc)}", handled=False)
+            refreshed = _build_planning_track_payload(goal_id=goal_id, game=game)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = refreshed
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"plan track sync-status {plan_task_id}={internal_status}",
                 ),
                 json.dumps(refreshed, ensure_ascii=False),
             )

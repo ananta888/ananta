@@ -411,7 +411,7 @@
     {
       "id": "T05.01",
       "title": "Planning Track in Goal/Task Modell integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -431,7 +431,7 @@
     {
       "id": "T05.02",
       "title": "Planning Track mit GoalArtifactGraph verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "artifact",
@@ -450,7 +450,7 @@
     {
       "id": "T05.03",
       "title": "ExecutionProvenance für Planning Track speichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "provenance",
@@ -470,7 +470,7 @@
     {
       "id": "T05.04",
       "title": "Planning Track als Input für spätere Worker-Ausführung nutzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -489,7 +489,7 @@
     {
       "id": "T06.01",
       "title": "Schema Validation Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
