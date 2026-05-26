@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/artifacts/goal_artifact_graph.v1.json",
+  "title": "Goal Artifact Graph v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "graph_id",
+    "goal_id",
+    "created_at",
+    "updated_at",
+    "source_grants",
+    "source_usages",
+    "output_artifacts",
+    "edges"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "goal_artifact_graph.v1"
+    },
+    "graph_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_grants": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "source_usages": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "output_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "edge_id",
+          "from_ref",
+          "to_ref",
+          "edge_kind"
+        ],
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "from_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "to_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "edge_kind": {
+            "type": "string",
+            "enum": [
+              "grant_to_usage",
+              "usage_to_output",
+              "output_from_task"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

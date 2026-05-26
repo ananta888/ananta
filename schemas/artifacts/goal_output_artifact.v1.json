@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/artifacts/goal_output_artifact.v1.json",
+  "title": "Goal Output Artifact v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "output_artifact_id",
+    "goal_id",
+    "artifact_type",
+    "created_at",
+    "artifact_ref",
+    "content_hash",
+    "status",
+    "provenance_summary"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "goal_output_artifact.v1"
+    },
+    "output_artifact_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "task_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "worker_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "artifact_type": {
+      "type": "string",
+      "enum": [
+        "plan",
+        "patch",
+        "file",
+        "report",
+        "test_result",
+        "citation_bundle",
+        "chat_answer",
+        "codecompass_context"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input_usage_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "uniqueItems": true
+    },
+    "artifact_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "created",
+        "verified",
+        "failed",
+        "rejected"
+      ]
+    },
+    "provenance_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "verification_status": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

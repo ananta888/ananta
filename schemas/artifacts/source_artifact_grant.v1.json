@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/artifacts/source_artifact_grant.v1.json",
+  "title": "Source Artifact Grant v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "grant_id",
+    "goal_id",
+    "artifact_ref",
+    "granted_by",
+    "granted_at",
+    "allowed_usages",
+    "data_boundary",
+    "sensitivity",
+    "policy_decision_ref"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "source_artifact_grant.v1"
+    },
+    "grant_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "artifact_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "granted_by": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "granted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "allowed_usages": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "read",
+          "summarize",
+          "quote",
+          "transform",
+          "use_as_context"
+        ]
+      }
+    },
+    "data_boundary": {
+      "type": "string",
+      "enum": [
+        "local_only",
+        "project_private",
+        "approved_cloud",
+        "public"
+      ]
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "internal",
+        "internal_high",
+        "secret",
+        "credential",
+        "security_sensitive"
+      ]
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revoked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revoke_reason": {
+      "type": "string",
+      "maxLength": 400
+    },
+    "policy_decision_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
