@@ -264,6 +264,7 @@
     },
     {
       "id": "TUI-GFX-006",
+      "status": "done",
       "title": "Unicode Halfblock Renderer als guter Fallback",
       "type": "implementation",
       "priority": "medium",
@@ -283,6 +284,7 @@
     },
     {
       "id": "TUI-GFX-007",
+      "status": "done",
       "title": "ASCII Renderer als reiner Notfallmodus markieren",
       "type": "implementation",
       "priority": "medium",
@@ -302,6 +304,7 @@
     },
     {
       "id": "TUI-GFX-008",
+      "status": "done",
       "title": "Frame-Objekt einführen",
       "type": "implementation",
       "priority": "high",
@@ -323,6 +326,7 @@
     },
     {
       "id": "TUI-GFX-009",
+      "status": "done",
       "title": "Terminal-Pixelgröße und Zellgröße sauber abbilden",
       "type": "implementation",
       "priority": "high",
@@ -342,6 +346,7 @@
     },
     {
       "id": "TUI-GFX-010",
+      "status": "done",
       "title": "AnimationLoop für Pixelgrafik implementieren",
       "type": "implementation",
       "priority": "high",

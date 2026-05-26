@@ -5,7 +5,7 @@ import os
 
 from client_surfaces.operator_tui.logo_renderer.base import LogoFrame, LogoRendererProbe
 from client_surfaces.operator_tui.logo_renderer.detect import detect_kitty_support
-from client_surfaces.operator_tui.logo_renderer.frame_cache import encode_png_bytes, rasterize_svg_rgba
+from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame, frame_from_svg
 
 _DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
 
@@ -50,15 +50,16 @@ class KittyRenderer:
         t: float = 0.0,
         writer=None,
     ) -> LogoFrame:
-        image = rasterize_svg_rgba(
+        frame = frame_from_svg(
             svg_path=_DEFAULT_SVG,
             width_px=max(2, int(width_cells)),
             height_px=max(2, int(height_cells * 2)),
+            metadata={"renderer": self.name},
         )
-        if image is None:
+        if frame.is_empty:
             return LogoFrame(kind="stream_sequences", sequence="", metadata={"renderer": self.name, "ok": False})
 
-        payload = encode_png_bytes(image)
+        payload = self.render_pixel_frame(frame)
         if not payload:
             return LogoFrame(kind="stream_sequences", sequence="", metadata={"renderer": self.name, "ok": False})
 
@@ -90,6 +91,9 @@ class KittyRenderer:
     ) -> list[LogoFrame]:
         count = max(1, min(24, int(frame_count)))
         return [self.render_frame(width_cells=width_cells, height_cells=height_cells, t=i / max(1, fps), writer=writer) for i in range(count)]
+
+    def render_pixel_frame(self, frame: PixelFrame) -> bytes:
+        return frame.to_png_bytes()
 
     def _build_transmit_sequence(self, payload: bytes) -> str:
         encoded = base64.b64encode(payload).decode("ascii")

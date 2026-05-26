@@ -6,10 +6,14 @@ import time
 from dataclasses import dataclass
 
 from client_surfaces.operator_tui.logo_renderer.detect import (
+    detect_terminal_graphics_capabilities,
     is_debug_enabled,
+    select_graphics_backend,
     resolve_renderer,
 )
+from client_surfaces.operator_tui.logo_renderer.ascii import AsciiRenderer
 from client_surfaces.operator_tui.logo_renderer.frame_cache import LogoFrameCache
+from client_surfaces.operator_tui.logo_renderer.halfblock import HalfblockRenderer
 from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
 from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 
@@ -121,6 +125,16 @@ def render_header_logo(
         if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
             return stream_frame_sequence(frame_sequence=frame.sequence, rows=rows, hide_cursor=True)
         return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
+
+    if decision.selected == "ansi":
+        # Split text fallback between halfblock and ASCII.
+        backend_name = select_graphics_backend(env=env, capabilities=detect_terminal_graphics_capabilities(env))
+        if backend_name == "ascii":
+            frame = AsciiRenderer().render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
+            return list(frame.text_lines) if frame.text_lines else None
+        frame = HalfblockRenderer().render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
+        if frame.text_lines:
+            return list(frame.text_lines)
 
     return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
 

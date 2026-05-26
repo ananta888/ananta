@@ -28,8 +28,12 @@ def test_render_header_logo_forced_unavailable_renderer_falls_back_to_ansi(monke
 
 
 def test_kitty_sequence_reuses_same_placement_zone(monkeypatch):
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.rasterize_svg_rgba", lambda **kwargs: object())
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.encode_png_bytes", lambda _img: b"abc")
+    from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.kitty.frame_from_svg",
+        lambda **kwargs: PixelFrame(width_px=10, height_px=10, rgba=b"\x00" * 400),
+    )
     renderer = KittyRenderer(image_id=42, placement_id=7)
     one = renderer.render_frame(width_cells=50, height_cells=8, t=0.0)
     two = renderer.render_frame(width_cells=50, height_cells=8, t=0.1)
@@ -38,8 +42,12 @@ def test_kitty_sequence_reuses_same_placement_zone(monkeypatch):
 
 
 def test_kitty_sequence_deletes_previous_image(monkeypatch):
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.rasterize_svg_rgba", lambda **kwargs: object())
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.encode_png_bytes", lambda _img: b"abc")
+    from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.kitty.frame_from_svg",
+        lambda **kwargs: PixelFrame(width_px=10, height_px=10, rgba=b"\x00" * 400),
+    )
     renderer = KittyRenderer(image_id=101, placement_id=202)
     frame = renderer.render_frame(width_cells=50, height_cells=8, t=0.0)
     assert "a=d" in frame.sequence
@@ -56,10 +64,15 @@ def test_shell_layout_keeps_header_and_status_separated(monkeypatch):
 
 
 def test_sixel_frame_sequence_contains_position_and_restore(monkeypatch):
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.sixel.rasterize_svg_rgba", lambda **kwargs: object())
+    from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.sixel.frame_from_svg",
+        lambda **kwargs: PixelFrame(width_px=10, height_px=10, rgba=b"\x00" * 400),
+    )
     renderer = SixelRenderer()
     renderer._tool = "/usr/bin/img2sixel"
-    monkeypatch.setattr(renderer, "_encode_sixel_from_image", lambda _image: "\x1bPqFAKE\x1b\\")
+    monkeypatch.setattr(renderer, "_encode_sixel_from_frame", lambda _image: "\x1bPqFAKE\x1b\\")
     frame = renderer.render_frame(width_cells=50, height_cells=8, t=0.0)
     assert frame.sequence.startswith("\x1b7\x1b[1;1H")
     assert "\x1b[9;1H" in frame.sequence
@@ -67,14 +80,21 @@ def test_sixel_frame_sequence_contains_position_and_restore(monkeypatch):
 
 
 def test_graphics_backends_expose_common_control_methods(monkeypatch):
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.rasterize_svg_rgba", lambda **kwargs: object())
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.encode_png_bytes", lambda _img: b"abc")
-    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.sixel.rasterize_svg_rgba", lambda **kwargs: object())
+    from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.kitty.frame_from_svg",
+        lambda **kwargs: PixelFrame(width_px=10, height_px=10, rgba=b"\x00" * 400),
+    )
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.sixel.frame_from_svg",
+        lambda **kwargs: PixelFrame(width_px=10, height_px=10, rgba=b"\x00" * 400),
+    )
 
     kitty = KittyRenderer(image_id=5, placement_id=7)
     sixel = SixelRenderer()
     sixel._tool = "/usr/bin/img2sixel"
-    monkeypatch.setattr(sixel, "_encode_sixel_from_image", lambda _image: "\x1bPqFAKE\x1b\\")
+    monkeypatch.setattr(sixel, "_encode_sixel_from_frame", lambda _image: "\x1bPqFAKE\x1b\\")
 
     assert kitty.supports_animation() is True
     assert kitty.supports_truecolor() is True
