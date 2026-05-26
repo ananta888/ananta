@@ -104,6 +104,25 @@ def bootstrap_source_pack(source_pack_id: str):
     return api_response(data=result)
 
 
+@sources_bp.route("/sources/packs/<source_pack_id>/query-preview", methods=["POST"])
+@check_auth
+def source_pack_query_preview(source_pack_id: str):
+    _sync_builtin_descriptors()
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    query = str(payload.get("query") or "").strip()
+    if not query:
+        raise BadRequestError("query_required")
+    result = _packs().answer_preview(
+        source_pack_id=source_pack_id,
+        query=query,
+        include_wikipedia=bool(payload.get("include_wikipedia", True)),
+        include_local_project=bool(payload.get("include_local_project", True)),
+    )
+    return api_response(data=result)
+
+
 @sources_bp.route("/sources/doctor", methods=["GET"])
 @check_auth
 def source_pack_doctor():

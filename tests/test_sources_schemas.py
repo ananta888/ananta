@@ -85,3 +85,19 @@ def test_source_reference_requires_source_and_snapshot_ids() -> None:
         "retrieved_at": "2026-05-26T00:00:00Z"
     }
     assert list(reference_validator.iter_errors(payload))
+
+
+def test_default_source_pack_descriptor_references_are_local_and_unique() -> None:
+    source_pack = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
+    rows = [dict(item) for item in list(source_pack.get("sources") or []) if isinstance(item, dict)]
+    source_ids = [str(item.get("source_id") or "") for item in rows if str(item.get("source_id") or "").strip()]
+    assert len(source_ids) == len(set(source_ids))
+    assert "eclipse-platform-official-source" in source_ids
+    assert "eclipse-jdt-core-official-source" in source_ids
+    assert "eclipse-pde-official-source" in source_ids
+    assert "keycloak-official-docs" in source_ids
+    assert "wikimedia-wikipedia-initial-dump" in source_ids
+    for row in rows:
+        descriptor_path = str(row.get("descriptor_path") or "").strip()
+        assert descriptor_path
+        assert Path(descriptor_path).exists()

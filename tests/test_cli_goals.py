@@ -343,3 +343,21 @@ def test_sources_doctor_command_json(monkeypatch, capsys, tmp_path):
     out = capsys.readouterr().out
     assert "\"schema\": \"source_pack_doctor.v1\"" in out
     assert "\"source_pack_id\": \"ananta-dev-default\"" in out
+
+
+def test_sources_query_command_prints_source_refs(monkeypatch, capsys, tmp_path):
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    try:
+        cli_goals.main(["sources", "bootstrap", "ananta-dev-default", "--skip-source", "wikimedia-wikipedia-initial-dump"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    capsys.readouterr()
+    try:
+        cli_goals.main(["sources", "query", "ananta-dev-default", "how", "to", "write", "eclipse", "plugin", "?"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    out = capsys.readouterr().out
+    assert "source_pack_id: ananta-dev-default" in out
+    assert "source_ref:" in out

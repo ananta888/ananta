@@ -96,3 +96,7 @@ def test_sources_pack_commands_list_show_bootstrap(monkeypatch, tmp_path) -> Non
     bootstrap = execute_command(":sources pack bootstrap ananta-dev-default --dry-run", show.state)
     assert bootstrap.handled is True
     assert "\"status\": \"planned\"" in bootstrap.message
+
+    query = execute_command(":sources pack query ananta-dev-default how to build eclipse plugin?", bootstrap.state)
+    assert query.handled is True
+    assert "\"source_references\"" in query.message

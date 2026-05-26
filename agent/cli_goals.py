@@ -1191,6 +1191,31 @@ def _handle_sources_command(subcommand: str, extra: list[str], args) -> int:
         for step in list(report.get("next_steps") or []):
             _print_terminal("next-step: {}", step)
         return 0
+    if subcommand == "query":
+        source_pack_id = str(extra[0]).strip() if extra else ""
+        query = " ".join(extra[1:]).strip() if len(extra) > 1 else ""
+        if not source_pack_id or not query:
+            print("Error: 'sources query' requires <source_pack_id> <query text>", file=sys.stderr)
+            return 2
+        result = service.answer_preview(source_pack_id=source_pack_id, query=query)
+        if bool(getattr(args, "json_output", False)):
+            print(json.dumps(result, ensure_ascii=False))
+            return 0
+        _print_terminal("status: {}", result.get("status", "unknown"))
+        _print_terminal("source_pack_id: {}", result.get("source_pack_id", "-"))
+        _print_terminal("origins: {}", ", ".join(list(result.get("origins") or [])) or "-")
+        _print_terminal("codecompass_bundle_id: {}", result.get("codecompass_bundle_id", "-"))
+        _print_terminal("context_hash: {}", result.get("context_hash", "-"))
+        for ref in list(result.get("source_references") or []):
+            _print_terminal(
+                "source_ref: pack={} source_id={} snapshot_id={} trust_level={} bundle={}",
+                ref.get("source_pack_id", "-"),
+                ref.get("source_id", "-"),
+                ref.get("snapshot_id", "-"),
+                ref.get("trust_level", "-"),
+                ref.get("codecompass_bundle_id", "-"),
+            )
+        return 0
     print(f"Error: unknown sources subcommand '{subcommand}'", file=sys.stderr)
     return 2
 
@@ -1438,7 +1463,7 @@ Examples:
     elif args.goal == "sources":
         subcommand = str(args.extra[0]).strip() if args.extra else ""
         if not subcommand:
-            print("Error: 'sources' requires a subcommand (list-packs|bootstrap|doctor)", file=sys.stderr)
+            print("Error: 'sources' requires a subcommand (list-packs|bootstrap|doctor|query)", file=sys.stderr)
             sys.exit(2)
         sys.exit(_handle_sources_command(subcommand, args.extra[1:], args))
     elif args.goal == "repair-script":
