@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, request
 
 from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
+from agent.artifacts.citation_bundle_service import GoalCitationBundleService
 from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, ConflictError, NotFoundError, api_response
@@ -17,6 +18,10 @@ def _service() -> GoalArtifactService:
 
 def _candidate_service() -> ArtifactCandidateService:
     return ArtifactCandidateService(goal_artifact_service=_service())
+
+
+def _citation_bundle_service() -> GoalCitationBundleService:
+    return GoalCitationBundleService(goal_artifact_service=_service())
 
 
 def _goal_exists(goal_id: str) -> bool:
@@ -109,3 +114,11 @@ def list_goal_source_candidates(goal_id: str):
         source_id=request.args.get("source_id", type=str),
     )
     return api_response(data={"goal_id": goal_id, "candidates": data})
+
+
+@goal_artifacts_bp.route("/goals/<goal_id>/artifacts/citations", methods=["GET"])
+@check_auth
+def get_goal_citation_bundle(goal_id: str):
+    _require_goal(goal_id)
+    bundle = _citation_bundle_service().build_bundle(goal_id=goal_id)
+    return api_response(data=bundle)
