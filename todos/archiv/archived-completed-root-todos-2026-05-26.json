@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "archive_date": "2026-05-26",
+  "reason": "Move completed root TODO tracks out of active todos/ view.",
+  "archive_mode": "manifest_with_original_blob_sha",
+  "note": "The GitHub connector available here cannot perform a real git mv and large file contents are truncated when fetched. The original files remain exactly recoverable from Git history via the listed blob SHAs and source paths.",
+  "archived_items": [
+    {
+      "source_path": "todos/todo.source-pack-eclipse-keycloak-wikipedia-codecompass-preconfig.json",
+      "original_blob_sha": "bec4a5475f096a048176e86f26356972690fc290",
+      "track": "source-pack-eclipse-keycloak-wikipedia-codecompass-preconfig",
+      "status": "done",
+      "summary": "27/27 tasks done, 8/8 milestones done"
+    },
+    {
+      "source_path": "todos/todo.ananta-worker-planning-track-schema-contract.json",
+      "original_blob_sha": "50e7ffbfc301c625a400338ac1e935b21f7dd491",
+      "track": "ananta-worker-planning-track-schema-contract",
+      "status": "done",
+      "summary": "26/26 tasks done, 7/7 milestones done"
+    },
+    {
+      "source_path": "todos/todo.operator-tui-three-way-flex-diff-ai-mode.json",
+      "original_blob_sha": "c325500086886253e8b121b12b7b991075b934d7",
+      "track": "operator-tui-three-way-flex-diff-ai-mode",
+      "status": "done",
+      "summary": "25/25 tasks done, 7/7 milestones done"
+    }
+  ],
+  "remaining_active_root_todos_expected": [
+    "todos/todo.eclipse-plugin-visible-ananta-snake-mouse-follow.json",
+    "todos/todo.operator-tui-imap-email-client.json",
+    "todos/todo.helpcenter-ingest-failures-analysis-reports.json",
+    "todos/todo.planning-worker-derived-summary-single-source-of-truth.json"
+  ]
+}
