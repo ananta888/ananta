@@ -4,24 +4,115 @@
   "track": "helpcenter-ingest-failures-analysis-reports",
   "purpose": "Ananta soll Fehlermeldungen und Support-/Failure-Nachrichten aus verschiedenen Quellen aufnehmen, im ersten Schritt analysieren und als Helpcenter-Artefakte im Repo ablegen.",
   "goal": "Ein Helpcenter-Modul sammelt Meldungen aus Quellen wie GitHub Workflow Failures, failed Checks, Issues, Logs oder später IMAP/Chat. Im ersten Schritt wird keine automatische Reparatur ausgeführt. Stattdessen erzeugt Ananta pro Eingang eine strukturierte Analyse als Markdown und JSON unter helpcenter/, inklusive Quelle, Fehlerzusammenfassung, betroffene Artefakte, vermutete Ursache, nächste Schritte und Provenance.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "milestones": [
-    {"id": "M01", "title": "Helpcenter Modell und Ordnerstruktur", "task_ids": ["T01.01", "T01.02", "T01.03", "T01.04"], "status": "todo"},
-    {"id": "M02", "title": "Quellenadapter und GitHub Failures", "task_ids": ["T02.01", "T02.02", "T02.03", "T02.04"], "status": "todo"},
-    {"id": "M03", "title": "Analyse Pipeline", "task_ids": ["T03.01", "T03.02", "T03.03", "T03.04"], "status": "todo"},
-    {"id": "M04", "title": "Report-Erzeugung im helpcenter Ordner", "task_ids": ["T04.01", "T04.02", "T04.03", "T04.04"], "status": "todo"},
-    {"id": "M05", "title": "TUI Bedienung", "task_ids": ["T05.01", "T05.02", "T05.03", "T05.04"], "status": "todo"},
-    {"id": "M06", "title": "Security, Privacy und Provenance", "task_ids": ["T06.01", "T06.02", "T06.03"], "status": "todo"},
-    {"id": "M07", "title": "Tests und E2E", "task_ids": ["T07.01", "T07.02", "T07.03", "T07.04"], "status": "todo"},
-    {"id": "M08", "title": "Dokumentation", "task_ids": ["T08.01", "T08.02"], "status": "todo"}
+    {
+      "id": "M01",
+      "title": "Helpcenter Modell und Ordnerstruktur",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03",
+        "T01.04"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M02",
+      "title": "Quellenadapter und GitHub Failures",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M03",
+      "title": "Analyse Pipeline",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M04",
+      "title": "Report-Erzeugung im helpcenter Ordner",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M05",
+      "title": "TUI Bedienung",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03",
+        "T05.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M06",
+      "title": "Security, Privacy und Provenance",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M07",
+      "title": "Tests und E2E",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M08",
+      "title": "Dokumentation",
+      "task_ids": [
+        "T08.01",
+        "T08.02"
+      ],
+      "status": "todo"
+    }
   ],
   "tasks": [
     {
       "id": "T01.01",
       "title": "Helpcenter Ordnerstruktur definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "structure",
@@ -33,12 +124,13 @@
         "README.md im helpcenter Ordner erklärt Zweck und Sicherheitsgrenzen.",
         "Generated Reports sind klar von Roh-Inputs getrennt.",
         "Tests prüfen, dass Pfade deterministisch und repo-relativ erzeugt werden."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.02",
       "title": "HelpcenterMessage-v1 Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -50,58 +142,68 @@
         "Rohdaten werden optional referenziert, aber nicht zwingend vollständig gespeichert.",
         "Schema enthält privacy_class und redaction_status.",
         "Tests validieren GitHub Failure Message und manuelle Message."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.03",
       "title": "HelpcenterAnalysis-v1 Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
       "milestone_id": "M01",
-      "depends_on": ["T01.02"],
+      "depends_on": [
+        "T01.02"
+      ],
       "acceptance_criteria": [
         "Schema enthält analysis_id, message_id, generated_at, status, failure_summary, likely_causes, affected_files, affected_tasks, next_steps und confidence.",
         "Analyse enthält explizit no_auto_fix=true im ersten Schritt.",
         "Analyse enthält source_refs und provenance_refs.",
         "Analyse kann machine_readable_findings und human_summary getrennt speichern.",
         "Tests prüfen minimale und vollständige Analyse."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.04",
       "title": "HelpcenterIndex-v1 definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "schema",
       "milestone_id": "M01",
-      "depends_on": ["T01.03"],
+      "depends_on": [
+        "T01.03"
+      ],
       "acceptance_criteria": [
         "Index kann alle Helpcenter-Reports mit status, severity, source_kind und created_at listen.",
         "Index enthält latest_report_ref pro message_id.",
         "Index kann für TUI schnell geladen werden.",
         "Index wird beim Schreiben neuer Reports aktualisiert.",
         "Tests prüfen Index update und duplicate message handling."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.01",
       "title": "Helpcenter Source Adapter Interface definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "adapter",
       "milestone_id": "M02",
-      "depends_on": ["T01.02"],
+      "depends_on": [
+        "T01.02"
+      ],
       "acceptance_criteria": [
         "Interface kann list_messages, fetch_message_detail und normalize_message.",
         "Adapter liefern HelpcenterMessage-konforme Daten.",
         "Adapter laufen ohne automatische Reparatur oder Schreibzugriff auf Zielsysteme.",
         "Adapterfehler liefern reason_code.",
         "Tests nutzen FakeAdapter."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.02",
@@ -111,14 +213,17 @@
       "risk": "high",
       "type": "github",
       "milestone_id": "M02",
-      "depends_on": ["T02.01"],
+      "depends_on": [
+        "T02.01"
+      ],
       "acceptance_criteria": [
         "Adapter kann failed workflow runs und failed jobs/checks für konfiguriertes Repo lesen.",
         "Adapter erfasst workflow name, run id, job name, branch, commit sha, conclusion, URL und Zeit.",
         "Adapter speichert keine GitHub Tokens in Reports.",
         "Adapter kann auf letzten N Runs begrenzt werden.",
         "Tests mocken GitHub API und prüfen Normalisierung."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T02.03",
@@ -128,14 +233,17 @@
       "risk": "high",
       "type": "github",
       "milestone_id": "M02",
-      "depends_on": ["T02.02"],
+      "depends_on": [
+        "T02.02"
+      ],
       "acceptance_criteria": [
         "Extractor kann relevante Log-Zeilen aus failed job logs extrahieren.",
         "Extractor begrenzt Loggröße und speichert truncation Hinweis.",
         "Extractor filtert Secrets/Tokens vor Speicherung.",
         "Extractor erkennt typische Muster: pytest failure, npm failure, type error, import error, lint error, timeout.",
         "Tests prüfen Log-Begrenzung, Redaction und Fehlermuster."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T02.04",
@@ -145,13 +253,16 @@
       "risk": "low",
       "type": "adapter",
       "milestone_id": "M02",
-      "depends_on": ["T02.01"],
+      "depends_on": [
+        "T02.01"
+      ],
       "acceptance_criteria": [
         "User kann eine Fehlermeldung manuell als HelpcenterMessage speichern.",
         "CLI/TUI kann Titel, Text, Quelle und Severity entgegennehmen.",
         "Manueller Input wird ebenfalls analysiert und reportet.",
         "Tests prüfen manuelle Message ohne externe Quelle."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.01",
@@ -161,14 +272,18 @@
       "risk": "high",
       "type": "analysis",
       "milestone_id": "M03",
-      "depends_on": ["T01.03", "T02.03"],
+      "depends_on": [
+        "T01.03",
+        "T02.03"
+      ],
       "acceptance_criteria": [
         "Analyzer erzeugt nur Analyse, keine Codeänderung und keinen Patch.",
         "Analyzer erstellt failure_summary, likely_causes, affected_files, affected_commands und next_steps.",
         "Analyzer markiert confidence und uncertainty.",
         "Analyzer kann rein deterministische Musteranalyse ohne LLM ausführen.",
         "Tests prüfen pytest/npm/import/lint Beispielmeldungen."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.02",
@@ -178,14 +293,17 @@
       "risk": "high",
       "type": "ai",
       "milestone_id": "M03",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "LLM-Modus ist optional und default lokal oder disabled.",
         "Prompt verlangt strukturierte HelpcenterAnalysis JSON-Antwort.",
         "Prompt enthält explizit: keine Reparatur, nur Analyse.",
         "Antwort wird gegen HelpcenterAnalysis-v1 validiert.",
         "Ungültige LLM-Antwort führt zu degraded report statt Crash."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.03",
@@ -195,14 +313,17 @@
       "risk": "medium",
       "type": "codecompass",
       "milestone_id": "M03",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Analyzer kann betroffene Dateien/Symbole gegen CodeCompass auflösen, wenn verfügbar.",
         "CodeCompass-Kontext wird nur als Referenz/Metadaten genutzt, nicht automatisch vollständig an LLM gesendet.",
         "Analyse enthält codecompass_refs für betroffene Dateien/Symbole.",
         "Fehlender CodeCompass-Kontext erzeugt degraded Hinweis.",
         "Tests nutzen Fixture-CodeCompass-Refs."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.04",
@@ -212,13 +333,16 @@
       "risk": "medium",
       "type": "planning",
       "milestone_id": "M03",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Analyzer kann betroffene TODO/Task IDs erkennen, wenn Log oder Dateien darauf verweisen.",
         "Analyse kann suggested_followup_task enthalten, aber legt nicht automatisch Task an.",
         "Analyse kann related_goal_id oder related_track angeben.",
         "Tests prüfen Mapping von Testdatei zu Track/TODO optional."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.01",
@@ -228,14 +352,17 @@
       "risk": "medium",
       "type": "report",
       "milestone_id": "M04",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Report wird als Markdown unter helpcenter/reports/YYYY-MM-DD/<analysis_id>.md gespeichert.",
         "Report enthält Quelle, Fehlerzusammenfassung, betroffene Dateien, vermutete Ursachen, nächste Schritte und Provenance.",
         "Report enthält Warnung: analysis only, no auto fix.",
         "Report verlinkt optional JSON-Analyse.",
         "Tests prüfen Markdown-Struktur."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.02",
@@ -245,14 +372,17 @@
       "risk": "medium",
       "type": "report",
       "milestone_id": "M04",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Analyse wird als JSON neben Markdown gespeichert.",
         "JSON validiert gegen HelpcenterAnalysis-v1.",
         "JSON enthält source_refs, redaction_status und provenance_refs.",
         "JSON enthält no_auto_fix=true.",
         "Tests prüfen Schema-Validität."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.03",
@@ -262,13 +392,18 @@
       "risk": "low",
       "type": "report",
       "milestone_id": "M04",
-      "depends_on": ["T01.04", "T04.01", "T04.02"],
+      "depends_on": [
+        "T01.04",
+        "T04.01",
+        "T04.02"
+      ],
       "acceptance_criteria": [
         "helpcenter/index/index.json wird nach neuem Report aktualisiert.",
         "Index enthält source_kind, severity, status, report_ref, json_ref und created_at.",
         "Duplicate message_id wird erkannt und als neue Analyseversion oder duplicate markiert.",
         "Tests prüfen Index-Update."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.04",
@@ -278,13 +413,16 @@
       "risk": "low",
       "type": "report",
       "milestone_id": "M04",
-      "depends_on": ["T04.01"],
+      "depends_on": [
+        "T04.01"
+      ],
       "acceptance_criteria": [
         "Dateinamen sind stabil, lesbar und kollisionsarm.",
         "GitHub run id/job id werden im Namen oder Metadata gespeichert.",
         "Repeated failures können als neue Version oder duplicate gruppiert werden.",
         "Tests prüfen gleiche GitHub Failure zweimal."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.01",
@@ -294,13 +432,16 @@
       "risk": "medium",
       "type": "tui",
       "milestone_id": "M05",
-      "depends_on": ["T04.03"],
+      "depends_on": [
+        "T04.03"
+      ],
       "acceptance_criteria": [
         "TUI-Kommando :helpcenter öffnet Helpcenter-Ansicht.",
         "Ansicht zeigt Reports nach Datum, Severity, Quelle und Status.",
         "Ansicht funktioniert auch ohne vorhandene Reports.",
         "Renderer-Test prüft leeren und gefüllten Index."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.02",
@@ -310,14 +451,19 @@
       "risk": "medium",
       "type": "tui",
       "milestone_id": "M05",
-      "depends_on": ["T02.02", "T03.01", "T04.01"],
+      "depends_on": [
+        "T02.02",
+        "T03.01",
+        "T04.01"
+      ],
       "acceptance_criteria": [
         "Kommando :helpcenter ingest github-failures existiert.",
         "Command unterstützt --repo, --limit und --dry-run.",
         "Dry-run zeigt gefundene Failures ohne Report zu schreiben.",
         "Write-Modus erzeugt Markdown/JSON Reports.",
         "Tests prüfen Command mit Mock-GitHub."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.03",
@@ -327,13 +473,16 @@
       "risk": "low",
       "type": "tui",
       "milestone_id": "M05",
-      "depends_on": ["T05.01"],
+      "depends_on": [
+        "T05.01"
+      ],
       "acceptance_criteria": [
         "User kann Report öffnen und Summary, Ursachen, Dateien und nächste Schritte sehen.",
         "TUI zeigt source URL/ref und no_auto_fix Hinweis.",
         "TUI kann JSON-Ref und Markdown-Ref anzeigen.",
         "Tests prüfen Detailrenderer."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.04",
@@ -343,13 +492,17 @@
       "risk": "medium",
       "type": "tui",
       "milestone_id": "M05",
-      "depends_on": ["T03.04", "T05.03"],
+      "depends_on": [
+        "T03.04",
+        "T05.03"
+      ],
       "acceptance_criteria": [
         "TUI kann aus Analyse einen Follow-up Task Vorschlag anzeigen.",
         "Task wird nicht automatisch erstellt.",
         "User muss explizit bestätigen, wenn später Task-Erzeugung implementiert wird.",
         "Tests prüfen Vorschlagsanzeige ohne Auto-Create."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.01",
@@ -359,13 +512,16 @@
       "risk": "high",
       "type": "security",
       "milestone_id": "M06",
-      "depends_on": ["T02.03"],
+      "depends_on": [
+        "T02.03"
+      ],
       "acceptance_criteria": [
         "GitHub Logs werden vor Speicherung redaction-geprüft.",
         "Tokens, Secrets, URLs mit Credentials und private Keys werden blockiert/redacted.",
         "Report enthält redaction_status.",
         "Tests prüfen typische Secret-Muster."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.02",
@@ -375,13 +531,17 @@
       "risk": "medium",
       "type": "provenance",
       "milestone_id": "M06",
-      "depends_on": ["T04.01", "T04.02"],
+      "depends_on": [
+        "T04.01",
+        "T04.02"
+      ],
       "acceptance_criteria": [
         "Report enthält source_kind, source_url/ref, fetched_at, commit_sha, workflow_run_id und job_id soweit verfügbar.",
         "Report enthält analyzer_version und prompt_template_ref, falls LLM genutzt wurde.",
         "Report enthält content_hash für normalisierte Message.",
         "Tests prüfen Provenance-Felder."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.03",
@@ -391,13 +551,16 @@
       "risk": "high",
       "type": "security",
       "milestone_id": "M06",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Helpcenter Analyse-Modus darf keine Codeänderungen schreiben.",
         "Analyse erzeugt keine Patches und startet keine Worker-Repair-Ausführung.",
         "Report enthält no_auto_fix=true.",
         "Tests prüfen, dass keine Dateien außerhalb helpcenter/ geschrieben werden."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.01",
@@ -407,13 +570,19 @@
       "risk": "medium",
       "type": "test",
       "milestone_id": "M07",
-      "depends_on": ["T01.02", "T01.03", "T04.01", "T04.02"],
+      "depends_on": [
+        "T01.02",
+        "T01.03",
+        "T04.01",
+        "T04.02"
+      ],
       "acceptance_criteria": [
         "Tests validieren HelpcenterMessage und HelpcenterAnalysis.",
         "Tests prüfen Markdown und JSON Writer.",
         "Tests prüfen Index Update.",
         "Tests laufen ohne Netzwerk."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.02",
@@ -423,14 +592,18 @@
       "risk": "high",
       "type": "test",
       "milestone_id": "M07",
-      "depends_on": ["T02.02", "T02.03"],
+      "depends_on": [
+        "T02.02",
+        "T02.03"
+      ],
       "acceptance_criteria": [
         "Mock-GitHub liefert failed workflow run und job log.",
         "Adapter normalisiert Message korrekt.",
         "Extractor erkennt Fehlerzeilen.",
         "Secrets werden redacted.",
         "Tests prüfen Limit und dry-run."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.03",
@@ -440,14 +613,17 @@
       "risk": "medium",
       "type": "test",
       "milestone_id": "M07",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Tests prüfen pytest failure Analyse.",
         "Tests prüfen npm/test failure Analyse.",
         "Tests prüfen import error Analyse.",
         "Tests prüfen timeout Analyse.",
         "Analyse schreibt keine Reparaturdateien."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.04",
@@ -457,7 +633,11 @@
       "risk": "high",
       "type": "e2e",
       "milestone_id": "M07",
-      "depends_on": ["T05.02", "T06.01", "T06.03"],
+      "depends_on": [
+        "T05.02",
+        "T06.01",
+        "T06.03"
+      ],
       "acceptance_criteria": [
         "E2E nutzt Mock-GitHub oder Fixture-Failure.",
         "Command ingestiert Failure.",
@@ -465,7 +645,8 @@
         "Index wird aktualisiert.",
         "Keine Datei außerhalb helpcenter/ wird verändert.",
         "TUI zeigt Report in Helpcenter-Ansicht."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T08.01",
@@ -475,13 +656,17 @@
       "risk": "low",
       "type": "docs",
       "milestone_id": "M08",
-      "depends_on": ["T05.01", "T05.02"],
+      "depends_on": [
+        "T05.01",
+        "T05.02"
+      ],
       "acceptance_criteria": [
         "Doku erklärt helpcenter/ Ordnerstruktur.",
         "Doku erklärt GitHub Failure Ingestion.",
         "Doku erklärt no-auto-fix ersten Schritt.",
         "Doku erklärt Reports und Index."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T08.02",
@@ -491,31 +676,301 @@
       "risk": "low",
       "type": "docs",
       "milestone_id": "M08",
-      "depends_on": ["T02.01", "T03.01", "T04.01"],
+      "depends_on": [
+        "T02.01",
+        "T03.01",
+        "T04.01"
+      ],
       "acceptance_criteria": [
         "Doku enthält Mermaid-Flow SourceAdapter -> Message -> Analyzer -> ReportWriter -> Helpcenter Index.",
         "Doku enthält GitHub Failure Flow.",
         "Doku enthält Security-Invarianten für Redaction und no-auto-fix.",
         "Doku enthält Testmatrix."
-      ]
+      ],
+      "progress_percent": 0.0
     }
   ],
-  "critical_path_tasks": ["T01.01", "T01.02", "T01.03", "T02.01", "T02.02", "T02.03", "T03.01", "T04.01", "T04.02", "T04.03", "T05.01", "T05.02", "T06.01", "T06.03", "T07.04"],
+  "critical_path_tasks": [
+    "T01.01",
+    "T01.02",
+    "T01.03",
+    "T02.01",
+    "T02.02",
+    "T02.03",
+    "T03.01",
+    "T04.01",
+    "T04.02",
+    "T04.03",
+    "T05.01",
+    "T05.02",
+    "T06.01",
+    "T06.03",
+    "T07.04"
+  ],
   "tasks_status_summary": {
-    "total": 30,
-    "by_status": {"todo": 30, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"P1": 23, "P2": 7, "P3": 0},
-    "by_risk": {"low": 8, "medium": 15, "high": 7},
-    "critical_path": {"total": 15, "done": 0, "remaining": 15},
-    "milestones": {"total": 8, "todo": 8, "in_progress": 0, "blocked": 0, "done": 0}
+    "total": 29,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 5
+    },
+    "progress_percent_done": 17.24,
+    "by_priority": {
+      "P1": 22,
+      "P2": 7,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 8,
+      "medium": 13,
+      "high": 8
+    },
+    "critical_path": {
+      "total": 15,
+      "done": 4,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 6,
+      "in_progress": 1,
+      "blocked": 0,
+      "done": 1
+    }
   },
   "tasks_type_summary": {
-    "total": 30,
-    "by_type": {"structure": 1, "schema": 3, "adapter": 2, "github": 2, "analysis": 1, "ai": 1, "codecompass": 1, "planning": 1, "report": 4, "tui": 4, "security": 3, "provenance": 1, "test": 3, "e2e": 1, "docs": 2}
+    "total": 29,
+    "by_type": {
+      "structure": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "schema": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "adapter": {
+        "total": 2,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 50.0
+      },
+      "github": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "ai": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "codecompass": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "planning": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "report": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "tui": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "provenance": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "test": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "e2e": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "docs": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
+    }
   },
-  "progress_summary": {"state": "todo", "todo_remaining": 30, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-  "execution_stage_summary": {"current_stage": "planning", "target_schema": "todos/todo.track.schema.json", "default_mode": "analysis_only_no_auto_fix", "output_root": "helpcenter/"},
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 24,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 5,
+    "count_based_percent": 17.2,
+    "weighted_percent": 17.1
+  },
+  "execution_stage_summary": {
+    "current_stage": "planning",
+    "target_schema": "todos/todo.track.schema.json",
+    "default_mode": "analysis_only_no_auto_fix",
+    "output_root": "helpcenter/"
+  },
   "summary_notes": [
     "Erster Schritt ist nur Ingestion und Analyse, keine automatische Reparatur.",
     "GitHub failed workflow/check messages sind die erste konkrete Quelle.",
@@ -524,7 +979,115 @@
     "Helpcenter soll später um IMAP, manuelle Notes und weitere Quellen erweitert werden."
   ],
   "end_summaries": [
-    {"summary_id": "target_flow", "title": "Zielablauf", "items": ["GitHub Failure wird gefunden.", "Message wird normalisiert.", "Logs werden begrenzt und redacted.", "Analyzer erzeugt HelpcenterAnalysis.", "Markdown/JSON Report wird unter helpcenter/reports/ geschrieben.", "Index wird aktualisiert.", "TUI zeigt Report im Helpcenter."]},
-    {"summary_id": "definition_of_done", "title": "Definition of Done", "items": ["Mock-GitHub Ingestion funktioniert.", "Analyse schreibt keine Patches.", "Reports entstehen nur unter helpcenter/.", "Index wird aktualisiert.", "TUI zeigt Reports.", "E2E beweist GitHub Failure -> Helpcenter Report."]}
-  ]
+    {
+      "summary_id": "target_flow",
+      "title": "Zielablauf",
+      "items": [
+        "GitHub Failure wird gefunden.",
+        "Message wird normalisiert.",
+        "Logs werden begrenzt und redacted.",
+        "Analyzer erzeugt HelpcenterAnalysis.",
+        "Markdown/JSON Report wird unter helpcenter/reports/ geschrieben.",
+        "Index wird aktualisiert.",
+        "TUI zeigt Report im Helpcenter."
+      ]
+    },
+    {
+      "summary_id": "definition_of_done",
+      "title": "Definition of Done",
+      "items": [
+        "Mock-GitHub Ingestion funktioniert.",
+        "Analyse schreibt keine Patches.",
+        "Reports entstehen nur unter helpcenter/.",
+        "Index wird aktualisiert.",
+        "TUI zeigt Reports.",
+        "E2E beweist GitHub Failure -> Helpcenter Report."
+      ]
+    }
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 52.5,
+    "done_weight": 9.0,
+    "remaining_weight": 43.5,
+    "blocked_weight": 0.0,
+    "weighted_percent": 17.1
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M01": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M02": {
+        "total_tasks": 4,
+        "done": 1,
+        "blocked": 0,
+        "count_based_percent": 25.0,
+        "weighted_percent": 25.0,
+        "status": "in_progress"
+      },
+      "M03": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M04": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M05": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M06": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M07": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M08": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-05-26T21:47:08.682357Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "ef1e1914fd05d0b3f36b87bf12acd8838f2dad5f43907eafcd1d31612bc7b28f",
+    "is_stale": false
+  }
 }
