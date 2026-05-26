@@ -92,3 +92,14 @@ def build_current_diff_source_ref(*, source_ref_id: str = "current-diff", path_f
         locator=locator,
     )
 
+
+def build_output_artifact_source_ref(*, output_artifact_id: str, goal_id: str | None = None) -> dict[str, Any]:
+    locator: dict[str, Any] = {"output_artifact_id": str(output_artifact_id)}
+    if str(goal_id or "").strip():
+        locator["goal_id"] = str(goal_id).strip()
+    return build_diff_source_ref(
+        source_ref_id=f"output-{output_artifact_id}",
+        source_kind="goal_output_artifact",
+        display_name=f"Output {output_artifact_id}",
+        locator=locator,
+    )

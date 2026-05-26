@@ -300,7 +300,7 @@
     {
       "id": "T04.02",
       "title": "ContextEnvelope für KI-Diff-Modus",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ai",
@@ -319,7 +319,7 @@
     {
       "id": "T04.03",
       "title": "Prompt Templates für AI Diff Panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "ai",
@@ -337,7 +337,7 @@
     {
       "id": "T04.04",
       "title": "AI Diff Worker Dispatch",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ai",
@@ -356,7 +356,7 @@
     {
       "id": "T04.05",
       "title": "KI-Patch-Vorschläge als Output-Artefakt registrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ai",
@@ -374,7 +374,7 @@
     {
       "id": "T05.01",
       "title": "DiffSourceRef aus GoalOutputArtifact erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "artifact",

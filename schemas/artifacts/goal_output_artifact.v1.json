@@ -62,7 +62,8 @@
         "test_result",
         "citation_bundle",
         "chat_answer",
-        "codecompass_context"
+        "codecompass_context",
+        "patch_suggestion"
       ]
     },
     "created_at": {
