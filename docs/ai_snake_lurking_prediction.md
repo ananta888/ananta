@@ -61,4 +61,8 @@ Weitere Trainings-Kommandos:
 - `:ai data show` (human-readable Überblick)
 - `:ai patterns` und `:ai pattern <id>` (Pattern-Inspektion)
 - `:ai data export --stdout --format json [--include-events]` (machine-readable Bundle)
+- `:ai data export <path> --format json [--include-events]` (Bundle-Datei)
+- `:ai data compact` (Retention/Compaction mit Backup)
+- `:ai data delete events|patterns` und `:ai data reset`
 - `:ai learning on|off|pause|status` (Recorder/Profil-Steuerung)
+- `:ai prediction good|bad [reason]` (Feedback für letztes Target)
