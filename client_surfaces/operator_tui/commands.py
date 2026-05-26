@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 from datetime import UTC, datetime
+from pathlib import Path
 
 from agent.artifacts.artifact_access_policy import ArtifactAccessPolicy
 from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
@@ -45,6 +46,15 @@ from client_surfaces.operator_tui.ai_snake_training_store import (
 )
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState, PanelState
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id, section_ids
+from client_surfaces.operator_tui.diff.ai_diff_panel_state import build_ai_diff_panel_state, set_ai_diff_mode
+from client_surfaces.operator_tui.diff.diff_engine import DiffEngine
+from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
+from client_surfaces.operator_tui.diff.diff_sources import build_current_diff_source_ref
+from client_surfaces.operator_tui.diff.three_way_diff_state import (
+    build_current_diff_three_panel_session,
+    set_panel_state,
+    validate_three_way_diff_session,
+)
 
 
 def _now_iso() -> str:
@@ -101,6 +111,77 @@ def _load_goal_artifact_payload(*, state: OperatorState, goal_id: str) -> dict:
         "filters": filters,
         **filtered,
     }
+
+
+def _get_diff3_state(state: OperatorState) -> dict:
+    game = dict(state.header_logo_game or {})
+    current = game.get("diff3_state")
+    if isinstance(current, dict) and not validate_three_way_diff_session(current):
+        return dict(current)
+    return build_current_diff_three_panel_session(
+        session_id="diff3-default",
+        goal_id=str(game.get("active_goal_id") or "") or None,
+    )
+
+
+def _build_diff3_payload(*, state: dict, goal_id: str | None) -> dict:
+    resolver = DiffSourceResolver(repo_root=Path.cwd(), goal_artifact_service=GoalArtifactService())
+    engine = DiffEngine()
+    summaries: list[dict[str, object]] = []
+    for panel in list(state.get("panels") or []):
+        panel_id = str(panel.get("panel_id") or "?")
+        panel_type = str(panel.get("panel_type") or "empty")
+        render_mode = str(panel.get("render_mode") or "")
+        source = panel.get("source_left") if isinstance(panel.get("source_left"), dict) else None
+        source_label = str((source or {}).get("display_name") or panel_type)
+        status = "empty"
+        stats: dict[str, object] = {}
+        if source and panel_type == "diff":
+            resolved = resolver.resolve(source, goal_id=goal_id)
+            if bool(resolved.get("ok")):
+                status = "ready"
+                doc = engine.build_document(left=resolved, render_mode=render_mode)
+                stats = dict(doc.get("stats") or {})
+            else:
+                status = str(resolved.get("reason_code") or "degraded")
+        elif panel_type.startswith("ai_"):
+            status = "ready"
+        summaries.append(
+            {
+                "panel_id": panel_id,
+                "panel_type": panel_type,
+                "source_label": source_label,
+                "render_mode": render_mode,
+                "status": status,
+                "stats": stats,
+                "filters": dict(panel.get("filters") or {}),
+            }
+        )
+    return {
+        "diff3_mode": True,
+        "goal_id": goal_id,
+        "active_panel": str(state.get("active_panel") or "A"),
+        "sync_scroll": bool(dict(state.get("extensions") or {}).get("sync_scroll", False)),
+        "panel_summaries": summaries,
+        "raw_state": state,
+    }
+
+
+def _state_with_diff3_payload(state: OperatorState, *, game: dict, diff3_state: dict) -> OperatorState:
+    goal_id = str(game.get("active_goal_id") or "").strip() or None
+    game["diff3_state"] = diff3_state
+    payload = _build_diff3_payload(state=diff3_state, goal_id=goal_id)
+    section_payloads = dict(state.section_payloads or {})
+    section_payloads["artifacts"] = payload
+    panel_states = dict(state.panel_states or {})
+    panel_states["artifacts"] = PanelState.HEALTHY
+    return state.with_updates(
+        header_logo_game=game,
+        section_id="artifacts",
+        selected_index=0,
+        section_payloads=section_payloads,
+        panel_states=panel_states,
+    )
 
 
 def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
@@ -305,6 +386,142 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             )
             return CommandResult(state.with_updates(status_message=msg[:240]), msg)
         return CommandResult(state, "sources: list | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
+    if command == "diff3":
+        game = dict(state.header_logo_game or {})
+        diff3_state = _get_diff3_state(state)
+        if not args:
+            next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
+            return CommandResult(next_state.with_updates(status_message="diff3 opened"), json.dumps(next_state.section_payloads["artifacts"], ensure_ascii=False))
+        action = str(args[0]).lower()
+        if action == "panel":
+            if len(args) < 3:
+                return CommandResult(state, "diff3 panel <A|B|C> current|ai|mode|filter ...", handled=False)
+            panel_id = str(args[1]).upper()
+            if panel_id not in {"A", "B", "C"}:
+                return CommandResult(state, f"invalid panel id: {panel_id}", handled=False)
+            sub = str(args[2]).lower()
+            if sub == "current":
+                mode = "unified"
+                for idx, token in enumerate(args):
+                    if str(token).lower() == "--mode" and idx + 1 < len(args):
+                        mode = str(args[idx + 1]).strip().lower()
+                diff3_state = set_panel_state(
+                    diff3_state,
+                    panel_id=panel_id,
+                    panel_type="diff",
+                    source_left=build_current_diff_source_ref(),
+                    source_right=None,
+                    render_mode=mode,
+                )
+            elif sub == "ai":
+                mode = str(args[3]).lower() if len(args) > 3 else "review"
+                panel_type_map = {
+                    "review": "ai_review",
+                    "chat": "ai_review",
+                    "explain": "ai_explain",
+                    "risk": "ai_review",
+                    "tests": "ai_review",
+                    "patch": "ai_patch",
+                }
+                panel_type = panel_type_map.get(mode)
+                if panel_type is None:
+                    return CommandResult(state, f"invalid ai mode: {mode}", handled=False)
+                render_mode = "ai_chat" if mode == "chat" else "ai_review"
+                diff3_state = set_panel_state(
+                    diff3_state,
+                    panel_id=panel_id,
+                    panel_type=panel_type,
+                    source_left=None,
+                    source_right=None,
+                    render_mode=render_mode,
+                )
+                ai_state = build_ai_diff_panel_state(mode=mode, selected_panels=["A", "B"], status="idle")
+                extensions = dict(diff3_state.get("extensions") or {})
+                extensions["ai_panel_state"] = ai_state
+                diff3_state["extensions"] = extensions
+            elif sub == "mode":
+                if len(args) < 4:
+                    return CommandResult(state, "diff3 panel <A|B|C> mode <render-mode>", handled=False)
+                mode = str(args[3]).lower()
+                panel = next((item for item in list(diff3_state.get("panels") or []) if str(item.get("panel_id") or "") == panel_id), None)
+                if panel is None:
+                    return CommandResult(state, f"panel not found: {panel_id}", handled=False)
+                diff3_state = set_panel_state(
+                    diff3_state,
+                    panel_id=panel_id,
+                    panel_type=str(panel.get("panel_type") or "diff"),
+                    source_left=panel.get("source_left"),
+                    source_right=panel.get("source_right"),
+                    render_mode=mode,
+                )
+            elif sub == "filter":
+                panel = next((item for item in list(diff3_state.get("panels") or []) if str(item.get("panel_id") or "") == panel_id), None)
+                if panel is None:
+                    return CommandResult(state, f"panel not found: {panel_id}", handled=False)
+                filters = dict(panel.get("filters") or {})
+                for token in args[3:]:
+                    value = str(token).strip()
+                    if "=" not in value:
+                        continue
+                    key, val = value.split("=", 1)
+                    if key.strip() in {"path_filter", "status_filter", "hunk_filter", "search_text"}:
+                        filters[key.strip()] = val.strip()
+                panel["filters"] = filters
+                diff3_state["updated_at"] = _now_iso()
+            else:
+                return CommandResult(state, "diff3 panel <A|B|C> current|ai|mode|filter ...", handled=False)
+            next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
+            return CommandResult(next_state.with_updates(status_message=f"diff3 panel {panel_id} updated"), json.dumps(next_state.section_payloads["artifacts"], ensure_ascii=False))
+        if action == "focus":
+            panel_id = str(args[1]).upper() if len(args) > 1 else ""
+            if panel_id not in {"A", "B", "C"}:
+                return CommandResult(state, "diff3 focus <A|B|C>", handled=False)
+            diff3_state["active_panel"] = panel_id
+            next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
+            return CommandResult(next_state.with_updates(status_message=f"diff3 focus {panel_id}"), f"diff3 focus {panel_id}")
+        if action == "sync":
+            flag = str(args[1]).lower() if len(args) > 1 else ""
+            if flag not in {"on", "off"}:
+                return CommandResult(state, "diff3 sync on|off", handled=False)
+            extensions = dict(diff3_state.get("extensions") or {})
+            extensions["sync_scroll"] = flag == "on"
+            diff3_state["extensions"] = extensions
+            next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
+            return CommandResult(next_state.with_updates(status_message=f"diff3 sync {flag}"), f"diff3 sync {flag}")
+        if action == "scroll":
+            direction = str(args[1]).lower() if len(args) > 1 else ""
+            if direction not in {"up", "down", "pageup", "pagedown"}:
+                return CommandResult(state, "diff3 scroll up|down|pageup|pagedown", handled=False)
+            active = str(diff3_state.get("active_panel") or "A")
+            panel = next((item for item in list(diff3_state.get("panels") or []) if str(item.get("panel_id") or "") == active), None)
+            if panel is None:
+                return CommandResult(state, f"panel not found: {active}", handled=False)
+            step = -1 if direction == "up" else 1
+            if direction == "pageup":
+                step = -20
+            if direction == "pagedown":
+                step = 20
+            scroll = dict(panel.get("scroll_state") or {})
+            line = max(0, int(scroll.get("line") or 0) + step)
+            scroll["line"] = line
+            panel["scroll_state"] = scroll
+            diff3_state["updated_at"] = _now_iso()
+            next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
+            return CommandResult(next_state.with_updates(status_message=f"diff3 scroll {direction}"), f"diff3 scroll {direction}")
+        if action == "ai":
+            mode = str(args[1]).lower() if len(args) > 1 else ""
+            if mode not in {"review", "explain", "risk", "tests", "patch", "chat"}:
+                return CommandResult(state, "diff3 ai review|explain|risk|tests|patch|chat", handled=False)
+            extensions = dict(diff3_state.get("extensions") or {})
+            current_ai = extensions.get("ai_panel_state")
+            if isinstance(current_ai, dict):
+                extensions["ai_panel_state"] = set_ai_diff_mode(current_ai, mode=mode, status="idle")
+            else:
+                extensions["ai_panel_state"] = build_ai_diff_panel_state(mode=mode, selected_panels=["A", "B"], status="idle")
+            diff3_state["extensions"] = extensions
+            next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
+            return CommandResult(next_state.with_updates(status_message=f"diff3 ai {mode}"), f"diff3 ai {mode}")
+        return CommandResult(state, "diff3: panel ... | focus <A|B|C> | scroll ... | sync on|off | ai ...", handled=False)
     if command == "goal":
         if not args:
             return CommandResult(state, "goal: use <goal-id> | artifacts [filter ...|clear-filter] | sources candidates", handled=False)

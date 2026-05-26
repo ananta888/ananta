@@ -497,6 +497,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     elif section.id == "help":
         lines.append("")
         lines.extend(_binding_lines(state, width))
+    elif section.id == "artifacts" and bool(payload.get("diff3_mode")):
+        lines.extend(_diff3_content_lines(payload, width=width))
     elif section.id == "artifacts" and bool(payload.get("goal_artifacts_mode")):
         lines.extend(_goal_artifacts_content_lines(payload, width=width, compact=width < 74))
     else:
@@ -671,6 +673,14 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
         lines.append("    :action <n> <r> dispatch action")
     if section.id == "artifacts":
         payload = (state.section_payloads or {}).get(section.id, {})
+        if bool(payload.get("diff3_mode")):
+            lines.append("    :diff3")
+            lines.append("    :diff3 panel <A|B|C> current [--mode <mode>]")
+            lines.append("    :diff3 panel <A|B|C> ai <review|explain|risk|tests|patch|chat>")
+            lines.append("    :diff3 panel <A|B|C> mode <render-mode>")
+            lines.append("    :diff3 panel <A|B|C> filter key=value ...")
+            lines.append("    :diff3 focus <A|B|C> | :diff3 scroll ...")
+            lines.append("    :diff3 sync on|off | :diff3 ai <mode>")
         if bool(payload.get("goal_artifacts_mode")):
             lines.append("    :goal artifacts [filter ...|clear-filter]")
             lines.append("    :goal sources candidates")
@@ -732,6 +742,7 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
             lines.append("  (empty goal artifact graph)")
         return lines
 
+
     lines.append("  [Freigegeben]")
     if not grants:
         lines.append("    - none")
@@ -776,6 +787,76 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
         summary = _safe(output.get("execution_summary"))
         if summary:
             lines.append(_clip(f"      exec: {summary}", width))
+    return lines
+
+
+def _diff3_content_lines(payload: dict, *, width: int) -> list[str]:
+    rows = list(payload.get("panel_summaries") or [])
+    active_panel = str(payload.get("active_panel") or "A")
+    sync = bool(payload.get("sync_scroll"))
+    lines = [
+        f"  DIFF3: active panel={active_panel} sync={'on' if sync else 'off'}",
+    ]
+    if not rows:
+        lines.append("  (empty diff3 session)")
+        return lines
+
+    if width < 58:
+        lines.append("  --- tabbed mode (<120 terminal width) ---")
+        active = next((row for row in rows if str(row.get("panel_id") or "") == active_panel), rows[0])
+        filters = dict(active.get("filters") or {})
+        lines.append(
+            _clip(
+                f"  [{active.get('panel_id')}] {active.get('source_label')} "
+                f"mode={active.get('render_mode')} status={active.get('status')}",
+                width,
+            )
+        )
+        if filters:
+            lines.append(_clip(f"  filters: {', '.join(f'{k}={v}' for k, v in filters.items())}", width))
+        stats = dict(active.get("stats") or {})
+        if stats:
+            lines.append(
+                _clip(
+                    f"  stats: files={stats.get('files',0)} hunks={stats.get('hunks',0)} truncated={stats.get('truncated',False)}",
+                    width,
+                )
+            )
+        return lines
+
+    if width >= 84:
+        cols = max(18, (width - 4) // 3)
+
+        def _cell(text: str) -> str:
+            return _clip(text, cols).ljust(cols)
+
+        headers: list[str] = []
+        details: list[str] = []
+        filters_line: list[str] = []
+        for row in rows[:3]:
+            headers.append(_cell(f"[{row.get('panel_id')}] {row.get('source_label')}"))
+            details.append(_cell(f"{row.get('render_mode')} | {row.get('status')}"))
+            filters = dict(row.get("filters") or {})
+            if filters:
+                filters_line.append(_cell(",".join(f"{k}={v}" for k, v in filters.items())))
+            else:
+                filters_line.append(_cell("filters:none"))
+        lines.append("  " + " | ".join(headers))
+        lines.append("  " + " | ".join(details))
+        lines.append("  " + " | ".join(filters_line))
+        return lines
+
+    lines.append("  --- compact diff3 view ---")
+    for row in rows:
+        filters = dict(row.get("filters") or {})
+        filter_label = ",".join(f"{k}={v}" for k, v in filters.items()) if filters else "none"
+        lines.append(
+            _clip(
+                f"  [{row.get('panel_id')}] {row.get('source_label')} "
+                f"mode={row.get('render_mode')} status={row.get('status')} filters={filter_label}",
+                width,
+            )
+        )
     return lines
 
 
