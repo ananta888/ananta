@@ -509,7 +509,7 @@
     {
       "id": "T06.02",
       "title": "Planner Worker Mock Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -529,7 +529,7 @@
     {
       "id": "T06.03",
       "title": "TUI Planning Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -550,7 +550,7 @@
     {
       "id": "T06.04",
       "title": "E2E: Goal planen mit Ananta-Worker Track-Schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -574,7 +574,7 @@
     {
       "id": "T07.01",
       "title": "Architekturdoku Planning Track Contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -595,7 +595,7 @@
     {
       "id": "T07.02",
       "title": "Prompt- und Worker-Doku für Planner Role",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
