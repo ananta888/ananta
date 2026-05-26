@@ -72,12 +72,15 @@ from agent.services.imap_account_service import (
     disable_imap_account,
     list_imap_accounts,
 )
+from agent.services.imap_attachment_service import attachment_metadata, download_attachment_securely
+from agent.services.imap_export_service import export_mail_payload
 from agent.services.imap_feature_flag_service import resolve_imap_runtime_state
 from agent.services.imap_mail_artifact_service import get_mail_artifact, list_mail_artifacts, register_mail_artifact
 from agent.services.imap_mail_context_envelope_service import build_mail_context_envelope
 from agent.services.imap_metadata_store_service import ImapMetadataStore
 from agent.services.imap_redaction_pipeline_service import redact_mail_for_worker_context
 from agent.services.imap_search_service import search_mail_metadata
+from agent.services.imap_snake_assist_service import explain_mail_for_snake_assist
 from agent.services.imap_threading_service import annotate_messages_with_thread_counts
 
 
@@ -576,6 +579,13 @@ def _build_mail_payload(*, game: dict[str, object], repo_root: Path) -> dict[str
         query_filters.setdefault("mailbox", selected_mailbox)
     search_rows = rows
     if not mock_rows:
+        by_key: dict[str, dict[str, object]] = {}
+        for raw in rows:
+            if not isinstance(raw, dict):
+                continue
+            ref = dict(raw.get("message_ref") or {})
+            key = f"{ref.get('account_id')}::{ref.get('mailbox')}::{ref.get('uid')}"
+            by_key[key] = dict(raw)
         search = search_mail_metadata(
             store=store,
             filters=query_filters,
@@ -583,12 +593,45 @@ def _build_mail_payload(*, game: dict[str, object], repo_root: Path) -> dict[str
         )
         search_rows = [
             {
+                **dict(
+                    by_key.get(
+                        f"{dict(item.get('message_ref') or {}).get('account_id')}::"
+                        f"{dict(item.get('message_ref') or {}).get('mailbox')}::"
+                        f"{dict(item.get('message_ref') or {}).get('uid')}",
+                        {},
+                    )
+                ),
                 "message_ref": dict(item.get("message_ref") or {}),
                 "header_meta": dict(item.get("header_meta") or {}),
                 "stale": bool(item.get("stale", False)),
                 "body_scope": str(item.get("policy_state") or "metadata_only"),
                 "source_ref": str(item.get("source_ref") or ""),
-                "body": "",
+                "body": str(
+                    dict(
+                        by_key.get(
+                            f"{dict(item.get('message_ref') or {}).get('account_id')}::"
+                            f"{dict(item.get('message_ref') or {}).get('mailbox')}::"
+                            f"{dict(item.get('message_ref') or {}).get('uid')}",
+                            {},
+                        )
+                    ).get("body")
+                    or ""
+                ),
+                "attachments": [
+                    dict(att)
+                    for att in list(
+                        dict(
+                            by_key.get(
+                                f"{dict(item.get('message_ref') or {}).get('account_id')}::"
+                                f"{dict(item.get('message_ref') or {}).get('mailbox')}::"
+                                f"{dict(item.get('message_ref') or {}).get('uid')}",
+                                {},
+                            )
+                        ).get("attachments")
+                        or []
+                    )
+                    if isinstance(att, dict)
+                ],
             }
             for item in list(search.get("results") or [])
             if isinstance(item, dict)
@@ -624,6 +667,8 @@ def _build_mail_payload(*, game: dict[str, object], repo_root: Path) -> dict[str
         "redaction_status": str(game.get("mail_detail_redaction_status") or selected_row.get("redaction_status") or "not_required"),
         "body_loaded": bool(game.get("mail_detail_body_loaded", False)),
         "body_text": str(game.get("mail_detail_body") or "") if bool(game.get("mail_detail_body_loaded", False)) else "",
+        "attachments": attachment_metadata([dict(item) for item in list(selected_row.get("attachments") or []) if isinstance(item, dict)]),
+        "attachment_downloaded": dict(game.get("mail_attachment_last_download") or {}),
     }
     current_artifact = get_mail_artifact(
         artifact_ref=str(game.get("mail_current_artifact_ref") or ""),
@@ -1389,6 +1434,166 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 ),
                 json.dumps({"payload": payload, "redaction": redacted}, ensure_ascii=False),
             )
+        if sub == "attachment":
+            if len(args) < 2:
+                return CommandResult(state, "mail attachment list|download|register ...", handled=False)
+            action = str(args[1]).lower()
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            detail = dict(payload.get("selected_detail") or {})
+            message_ref = dict(detail.get("message_ref") or {})
+            attachments = [dict(item) for item in list(detail.get("attachments") or []) if isinstance(item, dict)]
+            if action == "list":
+                return CommandResult(
+                    state.with_updates(status_message=f"mail attachments={len(attachments)}"),
+                    json.dumps({"attachments": attachments, "message_ref": message_ref}, ensure_ascii=False),
+                )
+            if action == "download":
+                if len(args) < 3:
+                    return CommandResult(state, "mail attachment download <filename>", handled=False)
+                filename = str(args[2]).strip()
+                if not message_ref:
+                    return CommandResult(state, "mail attachment download failed: no selected message", handled=False)
+                target = next((row for row in attachments if str(row.get("filename") or "") == filename), {})
+                if not target:
+                    return CommandResult(state, "mail attachment download failed: attachment not found", handled=False)
+                store_row = _mail_store(repo_root).get_by_uid(
+                    account_id=str(message_ref.get("account_id") or ""),
+                    mailbox=str(message_ref.get("mailbox") or ""),
+                    uid=int(message_ref.get("uid") or 0),
+                )
+                raw_attachments = [dict(item) for item in list(dict(store_row or {}).get("attachments") or []) if isinstance(item, dict)]
+                raw_target: dict[str, object] = {}
+                indexed_meta = attachment_metadata(raw_attachments)
+                for idx, meta in enumerate(indexed_meta):
+                    if str(meta.get("filename") or "") == filename and idx < len(raw_attachments):
+                        raw_target = dict(raw_attachments[idx])
+                        break
+                if not raw_target:
+                    return CommandResult(state, "mail attachment download failed: content missing", handled=False)
+                downloaded = download_attachment_securely(
+                    attachment=raw_target,
+                    target_dir=repo_root / "data" / "imap" / "downloads",
+                )
+                game["mail_attachment_last_download"] = downloaded
+                payload = _build_mail_payload(game=game, repo_root=repo_root)
+                section_payloads = dict(state.section_payloads or {})
+                section_payloads["artifacts"] = payload
+                panel_states = dict(state.panel_states or {})
+                panel_states["artifacts"] = PanelState.HEALTHY
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        section_id="artifacts",
+                        selected_index=0,
+                        section_payloads=section_payloads,
+                        panel_states=panel_states,
+                        status_message=f"mail attachment downloaded {filename}",
+                    ),
+                    json.dumps({"download": downloaded, "payload": payload}, ensure_ascii=False),
+                )
+            if action == "register":
+                if len(args) < 3:
+                    return CommandResult(state, "mail attachment register <filename>", handled=False)
+                filename = str(args[2]).strip()
+                if not message_ref:
+                    return CommandResult(state, "mail attachment register failed: no selected message", handled=False)
+                target = next((row for row in attachments if str(row.get("filename") or "") == filename), {})
+                if not target:
+                    return CommandResult(state, "mail attachment register failed: attachment not found", handled=False)
+                artifact = register_mail_artifact(
+                    message_ref=message_ref,
+                    scope="attachment_ref",
+                    redaction_status="not_required",
+                    policy_decision_ref="policy:mail:attachment_ref",
+                    excerpt=str(target.get("filename") or ""),
+                    repo_root=repo_root,
+                )
+                game["mail_current_artifact_ref"] = str(artifact.get("artifact_ref") or "")
+                payload = _build_mail_payload(game=game, repo_root=repo_root)
+                section_payloads = dict(state.section_payloads or {})
+                section_payloads["artifacts"] = payload
+                panel_states = dict(state.panel_states or {})
+                panel_states["artifacts"] = PanelState.HEALTHY
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        section_id="artifacts",
+                        selected_index=0,
+                        section_payloads=section_payloads,
+                        panel_states=panel_states,
+                        status_message=f"mail attachment artifact registered {filename}",
+                    ),
+                    json.dumps({"artifact": artifact, "payload": payload}, ensure_ascii=False),
+                )
+            return CommandResult(state, "mail attachment list|download <filename>|register <filename>", handled=False)
+        if sub == "export":
+            if len(args) < 2 or str(args[1]).lower() != "current":
+                return CommandResult(state, "mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]", handled=False)
+            format_name = "json"
+            include_body = False
+            goal_id = ""
+            for idx, token in enumerate(args[2:], start=2):
+                lowered = str(token).lower()
+                if lowered == "--format" and idx + 1 < len(args):
+                    format_name = str(args[idx + 1]).strip()
+                if lowered == "--include-body":
+                    include_body = True
+                if lowered == "--goal" and idx + 1 < len(args):
+                    goal_id = str(args[idx + 1]).strip()
+            if include_body and "--confirm-body" not in [str(item).lower() for item in args[2:]]:
+                return CommandResult(state, "mail export with body requires --confirm-body", handled=False)
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            detail = dict(payload.get("selected_detail") or {})
+            message_ref = dict(detail.get("message_ref") or {})
+            if not message_ref:
+                return CommandResult(state, "mail export failed: no selected message", handled=False)
+            exported = export_mail_payload(
+                message_ref=message_ref,
+                header_meta=dict(detail.get("header_meta") or {}),
+                body_text=str(detail.get("body_text") or ""),
+                format_name=format_name,
+                include_body=include_body,
+                export_dir=repo_root / "data" / "imap" / "exports",
+            )
+            output_artifact = {}
+            if goal_id:
+                try:
+                    output_artifact = GoalArtifactService().record_output_artifact(
+                        goal_id=goal_id,
+                        output_artifact={
+                            "schema": "goal_output_artifact.v1",
+                            "output_artifact_id": f"mail-export-{hashlib.sha1(str(exported.get('export_ref')).encode('utf-8')).hexdigest()[:12]}",
+                            "goal_id": goal_id,
+                            "artifact_type": "file",
+                            "created_at": _now_iso(),
+                            "artifact_ref": str(exported.get("export_ref") or ""),
+                            "content_hash": str(exported.get("sha256") or ""),
+                            "status": "created",
+                            "provenance_summary": "mail export from operator_tui",
+                            "provenance_kind": "manual",
+                        },
+                    )
+                except GoalArtifactServiceError as exc:
+                    return CommandResult(state, f"mail export goal artifact failed: {exc.reason_code}", handled=False)
+            return CommandResult(
+                state.with_updates(status_message=f"mail export {format_name}"),
+                json.dumps({"export": exported, "goal_output_artifact": output_artifact}, ensure_ascii=False),
+            )
+        if sub == "snake-explain":
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            detail = dict(payload.get("selected_detail") or {})
+            explain = explain_mail_for_snake_assist(
+                opened=bool(detail.get("message_ref")),
+                artifact_ref=str(payload.get("current_artifact_ref") or ""),
+                message_ref=dict(detail.get("message_ref") or {}),
+                body_text=str(detail.get("body_text") or ""),
+            )
+            if not bool(explain.get("ok")):
+                return CommandResult(state, f"mail snake explain failed: {explain.get('reason_code')}", handled=False)
+            return CommandResult(
+                state.with_updates(status_message="mail snake explain ready"),
+                json.dumps(explain, ensure_ascii=False),
+            )
         if sub == "search":
             query = " ".join(args[1:]).strip()
             if not query:
@@ -1643,7 +1848,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(state.with_updates(status_message=f"mail context-envelope {goal_id} target={target}"), json.dumps(envelope, ensure_ascii=False))
         return CommandResult(
             state,
-            "mail | mail account list|status|create|use|disable|delete | mail mailbox <name> | mail open <message-id|uid> | mail load-body [message-id|uid] | mail search <query> | mail filter key=value ... | mail note add <text> | mail link-current-to-goal <goal-id> | mail artifact register-current [--scope ...] | mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body] | mail revoke-grant <goal-id> <grant-id> | mail context-envelope <goal-id> [--target ...] | mail scroll <delta>",
+            "mail | mail account list|status|create|use|disable|delete | mail mailbox <name> | mail open <message-id|uid> | mail load-body [message-id|uid] | mail search <query> | mail filter key=value ... | mail note add <text> | mail link-current-to-goal <goal-id> | mail artifact register-current [--scope ...] | mail attachment list|download <filename>|register <filename> | mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>] | mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body] | mail revoke-grant <goal-id> <grant-id> | mail context-envelope <goal-id> [--target ...] | mail snake-explain | mail scroll <delta>",
             handled=False,
         )
     if command == "diff3":

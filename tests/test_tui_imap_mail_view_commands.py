@@ -37,6 +37,19 @@ def _insert_messages(tmp_path: Path, *, count: int = 1) -> None:
             body=f"Body {uid} token=secret-{uid}",
             release_scope="body_excerpt",
         )
+        store.store_attachments(
+            account_id="imap-a",
+            mailbox="INBOX",
+            uid=uid,
+            attachments=[
+                {
+                    "filename": f"report-{uid}.txt",
+                    "content_type": "text/plain",
+                    "size": 12,
+                    "content": f"attachment-{uid}",
+                }
+            ],
+        )
 
 
 def test_mail_view_renders_empty_and_filled_mailbox(monkeypatch, tmp_path: Path) -> None:
@@ -61,6 +74,7 @@ def test_mail_view_renders_empty_and_filled_mailbox(monkeypatch, tmp_path: Path)
     rendered_filled = render_operator_shell(opened_filled.state.with_updates(section_id="artifacts"), width=180, height=44)
     assert "Mailbox list" in rendered_filled
     assert "Subject 1" in rendered_filled
+    assert "Attachments:" in rendered_filled
 
 
 def test_mail_navigation_scrolling_and_detail_load_are_explicit(monkeypatch, tmp_path: Path) -> None:

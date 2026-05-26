@@ -48,7 +48,7 @@ def register_mail_artifact(
     repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
     scope_value = str(scope or "metadata_only").strip()
-    if scope_value not in {"metadata_only", "excerpt", "full_body"}:
+    if scope_value not in {"metadata_only", "excerpt", "full_body", "attachment_ref"}:
         raise ValueError("mail_artifact_scope_invalid")
     ref = dict(message_ref or {})
     account_id = str(ref.get("account_id") or "").strip()
@@ -71,7 +71,7 @@ def register_mail_artifact(
         },
         "policy_decision_ref": str(policy_decision_ref or ""),
         "redaction_status": str(redaction_status or "not_required"),
-        "excerpt": str(excerpt or "") if scope_value in {"excerpt", "full_body"} else "",
+        "excerpt": str(excerpt or "") if scope_value in {"excerpt", "full_body", "attachment_ref"} else "",
         "created_at": _now_iso(),
     }
     rows = [row for row in rows if str(row.get("artifact_ref") or "") != artifact_ref]

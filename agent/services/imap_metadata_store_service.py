@@ -47,6 +47,7 @@ class ImapMetadataStore:
             "stale": False,
             "body": "",
             "body_scope": "metadata_only",
+            "attachments": [],
             "updated_at": _now_iso(),
         }
         replaced = False
@@ -56,6 +57,7 @@ class ImapMetadataStore:
                 # Preserve existing explicit body unless overwritten later.
                 row["body"] = str(existing.get("body") or "")
                 row["body_scope"] = str(existing.get("body_scope") or "metadata_only")
+                row["attachments"] = [dict(item) for item in list(existing.get("attachments") or []) if isinstance(item, dict)]
                 rows[idx] = row
                 replaced = True
                 break
@@ -108,6 +110,30 @@ class ImapMetadataStore:
                 self._save(payload)
                 return next_row
         raise ValueError("imap_message_not_found")
+
+    def store_attachments(
+        self,
+        *,
+        account_id: str,
+        mailbox: str,
+        uid: int,
+        attachments: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        payload = self._load()
+        rows = [dict(item) for item in list(payload.get("messages") or []) if isinstance(item, dict)]
+        key = f"{account_id}::{mailbox}::{int(uid)}"
+        normalized = [dict(item) for item in list(attachments or []) if isinstance(item, dict)]
+        for idx, row in enumerate(rows):
+            ref = dict(row.get("message_ref") or {})
+            if self._key(ref) == key:
+                next_row = dict(row)
+                next_row["attachments"] = normalized
+                next_row["updated_at"] = _now_iso()
+                rows[idx] = next_row
+                payload["messages"] = rows
+                self._save(payload)
+                return {"ok": True, "reason_code": "stored", "row": next_row}
+        return {"ok": False, "reason_code": "message_not_found"}
 
     def get_by_uid(self, *, account_id: str, mailbox: str, uid: int) -> dict[str, Any] | None:
         key = f"{account_id}::{mailbox}::{int(uid)}"
