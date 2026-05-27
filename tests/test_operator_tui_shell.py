@@ -420,9 +420,10 @@ def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
 
     tui._toggle_snake_mode()
     off_game = tui.state.header_logo_game or {}
-    assert off_game.get("active") is False
+    # Exiting snake mode restores the ambient AI snake (active=tutorial_default env)
     assert off_game.get("ui_steering") is False
     assert off_game.get("free_mode") is False
+    assert off_game.get("tutorial_mode") is not None  # restored to env default
 
 
 def test_tutorial_ai_toggle_changes_mode_flag() -> None:

@@ -311,8 +311,9 @@ class MouseArtifactMixin:
         # 3. Open AI chat panel with "Kontext aktiv" message
         self._activate_artifact_chat(game, target=target, now=now)
 
-        # Only trigger AI explanation when the tutorial AI snake is active
-        if not bool(game.get("active")) or not bool(game.get("tutorial_mode")):
+        # Trigger AI explanation when the game is active (tutorial_mode controls the amber snake,
+        # but explanations should fire regardless — the tick runs whenever active=True)
+        if not bool(game.get("active")):
             return
 
         # 4. Set context for the AI explanation: what was clicked

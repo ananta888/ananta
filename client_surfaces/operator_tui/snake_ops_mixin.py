@@ -169,7 +169,9 @@ class SnakeOpsMixin:
     def _toggle_snake_mode(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
         if self._snake_mode_active(game):
-            game["active"] = False
+            _tutorial_default = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {"0", "false", "no", "off"}
+            game["active"] = _tutorial_default  # restore ambient AI snake if env enabled
+            game["tutorial_mode"] = _tutorial_default
             game["ui_steering"] = False
             game["free_mode"] = False
             game["message_mode"] = False
@@ -184,6 +186,7 @@ class SnakeOpsMixin:
         game["active"] = True
         game["ui_steering"] = True
         game["free_mode"] = True
+        game["tutorial_mode"] = False  # AI snake off by default in manual snake mode; enable with U
         game["mouse_follow_enabled"] = bool(game.get("mouse_follow_enabled", self._mouse_capabilities.get("enabled")))
         game["movement_mode"] = "mouse_follow" if bool(game.get("mouse_follow_enabled")) else "keyboard"
         game["message_mode"] = False
@@ -196,10 +199,7 @@ class SnakeOpsMixin:
         game["selection_frame_mode"] = False
         game["selection_frame_anchor"] = None
         game["last_move"] = time.monotonic()
-        # Enable tutorial AI snake by default when entering snake mode
-        if not game.get("tutorial_mode"):
-            game["tutorial_mode"] = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {"0", "false", "no", "off"}
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an | U=tutorial-AI an/aus"))
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an | U=AI-Tutorial an/aus"))
 
     def _toggle_tutorial_ai_mode(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
