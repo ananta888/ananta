@@ -4,6 +4,7 @@ import pytest
 from sqlmodel import Session
 
 from agent.ai_agent import create_app
+from agent.common.audit import log_audit
 from agent.database import engine
 from agent.repository import audit_repo, login_attempt_repo
 
@@ -148,3 +149,66 @@ def test_admin_routes_create_audit_entries(client):
     recent_actions = [log.action for log in after_logs[:10]]
     assert "admin_route_accessed" in recent_actions
     assert "audit_logs_viewed" in recent_actions
+
+
+def test_audit_logs_query_filters_and_summary(client):
+    response = client.post("/login", json={"username": "admin", "password": "admin"})
+    assert response.status_code == 200
+    token = response.json["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    log_audit(
+        "kritis_high_risk_flow",
+        {
+            "trace_id": "trace-kritis-1",
+            "task_id": "task-kritis-1",
+            "operation_type": "workflow_transition",
+            "outcome": "blocked",
+        },
+    )
+    log_audit(
+        "kritis_low_risk_flow",
+        {
+            "trace_id": "trace-kritis-2",
+            "task_id": "task-kritis-2",
+            "operation_type": "tool_call",
+            "outcome": "success",
+        },
+    )
+
+    filtered = client.get("/audit-logs?trace_id=trace-kritis-1", headers=headers)
+    assert filtered.status_code == 200
+    filtered_items = filtered.json["data"]
+    assert len(filtered_items) >= 1
+    assert all(item.get("trace_id") == "trace-kritis-1" for item in filtered_items)
+
+    event_class_filtered = client.get("/audit-logs?event_class=workflow_transition", headers=headers)
+    assert event_class_filtered.status_code == 200
+    class_items = event_class_filtered.json["data"]
+    assert len(class_items) >= 1
+    assert all((item.get("details") or {}).get("operation_type") == "workflow_transition" for item in class_items)
+
+    summary = client.get("/audit-logs/summary", headers=headers)
+    assert summary.status_code == 200
+    summary_data = summary.json["data"]
+    assert summary_data["total_events"] >= 2
+    assert summary_data["critical_events"] >= 1
+    assert "top_actions" in summary_data
+
+
+def test_audit_logs_integrity_report(client):
+    response = client.post("/login", json={"username": "admin", "password": "admin"})
+    assert response.status_code == 200
+    token = response.json["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    log_audit("kritis_integrity_probe_a", {"trace_id": "integrity-trace-a"})
+    log_audit("kritis_integrity_probe_b", {"trace_id": "integrity-trace-b"})
+
+    response = client.get("/audit-logs/integrity", headers=headers)
+    assert response.status_code == 200
+    payload = response.json["data"]
+    assert payload["checked_records"] >= 2
+    assert payload["tamper_evident_ok"] is True
+    assert payload["mismatched_prev_hash_ids"] == []
+    assert payload["invalid_record_hash_ids"] == []

@@ -25,6 +25,8 @@ SYSTEM_ROUTE_ALIASES: tuple[RouteAlias, ...] = (
     RouteAlias("/events", "/api/system/events", "agent.routes.system.stream_system_events"),
     RouteAlias("/agents", "/api/system/agents", "agent.routes.system.list_agents"),
     RouteAlias("/audit-logs", "/api/system/audit-logs", "agent.routes.system.get_audit_logs"),
+    RouteAlias("/audit-logs/summary", "/api/system/audit-logs/summary", "agent.routes.system.get_audit_logs_summary"),
+    RouteAlias("/audit-logs/integrity", "/api/system/audit-logs/integrity", "agent.routes.system.get_audit_logs_integrity"),
     RouteAlias(
         "/audit/analyze",
         "/api/system/audit/analyze",
@@ -60,4 +62,3 @@ def _import_view(import_path: str) -> Callable:
     module_name, attr = import_path.rsplit(".", 1)
     module = __import__(module_name, fromlist=[attr])
     return getattr(module, attr)
-

@@ -157,7 +157,7 @@
         {
           "id": "K1-AUD-T12",
           "title": "Audit integrity and tamper evidence evaluate",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "A strategy exists for tamper-evident audit storage or export.",
@@ -168,7 +168,7 @@
         {
           "id": "K1-AUD-T13",
           "title": "Audit query surface improve",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Operators can query audit records by task, trace, actor, date and event class.",
@@ -179,7 +179,7 @@
         {
           "id": "K1-AUD-T14",
           "title": "Audit read-model summary add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "Dashboard or assistant summaries can indicate high-level audit health and recent critical events.",
@@ -190,7 +190,7 @@
         {
           "id": "K1-AUD-T15",
           "title": "Audit contract tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Core audit schemas and event emissions are protected by tests.",
@@ -201,7 +201,7 @@
         {
           "id": "K1-AUD-T16",
           "title": "Audit smoke checklist for KRITIS evidence add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "A manual checklist verifies audit completeness for representative critical flows.",
