@@ -18,6 +18,7 @@ from agent.services.llm_interceptor.response_validator import ResponseValidator
 from agent.services.llm_interceptor.provider_router import ProviderRouter
 from agent.services.llm_interceptor.request_envelope import build_request_envelope
 from agent.services.llm_interceptor.secret_redactor import SecretRedactor
+from agent.services.execution_audit_service import get_execution_audit_service
 
 logger = logging.getLogger(__name__)
 
@@ -175,15 +176,36 @@ class OpenAICompatInterceptorServer:
                     logger.info("llm_interceptor_repair request_id=%s reason=%s", envelope.request_id, repair_reason)
                 event = self._audit.build_event(
                     request_id=envelope.request_id,
+                    correlation_id=envelope.correlation_id,
                     caller_type=envelope.caller_type,
                     upstream_id=upstream.id,
                     model=routed_model,
                     policy_decision=decision.as_dict(),
                     redaction_meta=_meta,
                     duration_ms=int((time.time() - started) * 1000),
+                    task_metadata=envelope.task_metadata,
                     messages=None,
                 )
                 logger.info("llm_interceptor_audit %s", event)
+                get_execution_audit_service().emit(
+                    operation_type="llm_interaction",
+                    outcome="success",
+                    trace_id=event.get("trace_id"),
+                    goal_id=str((envelope.task_metadata or {}).get("goal_id") or "").strip() or None,
+                    task_id=event.get("task_id"),
+                    actor="llm_interceptor",
+                    actor_role="middleware",
+                    policy_version=str(event.get("policy_version") or "unknown"),
+                    target=event.get("target") or {"provider_backend": upstream.id, "model": routed_model},
+                    parent_trace_id=(event.get("chain") or {}).get("parent_trace_id"),
+                    prompt_bundle_class=event.get("prompt_bundle_class"),
+                    task_metadata=envelope.task_metadata,
+                    details={
+                        "caller_type": envelope.caller_type,
+                        "context_classes": event.get("context_classes") or [],
+                        "duration_ms": event.get("duration_ms"),
+                    },
+                )
                 return result
             except ValueError as exc:
                 return _error_response(str(exc), code="upstream_error", status=502)

@@ -9,6 +9,7 @@ from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.system_health_service import build_system_health_payload
+from agent.services.execution_audit_service import get_execution_audit_service
 
 mcp_bp = Blueprint("mcp", __name__)
 
@@ -128,6 +129,18 @@ def mcp_jsonrpc():
             arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
             result = registry.call_tool(name=tool_name, arguments=arguments, context=_mcp_context())
             log_audit("mcp_tool_called", {"tool": tool_name, "trace_id": trace_id})
+            get_execution_audit_service().emit_tool_call(
+                trace_id=trace_id,
+                parent_trace_id=str(params.get("trace_id") or request.headers.get("X-Parent-Trace-ID") or "").strip()
+                or None,
+                tool_name=tool_name,
+                target_scope={"arguments_keys": sorted(arguments.keys())},
+                outcome="success",
+                task_id=str(params.get("task_id") or "").strip() or None,
+                goal_id=str(params.get("goal_id") or "").strip() or None,
+                actor_role="mcp",
+                details={"method": method},
+            )
         elif method == "resources/read":
             resource_uri = str(params.get("uri") or "").strip()
             if not resource_uri:
@@ -136,6 +149,18 @@ def mcp_jsonrpc():
                 )
             result = registry.read_resource(uri=resource_uri, context=_mcp_context())
             log_audit("mcp_resource_read", {"uri": resource_uri, "trace_id": trace_id})
+            get_execution_audit_service().emit_tool_call(
+                trace_id=trace_id,
+                parent_trace_id=str(params.get("trace_id") or request.headers.get("X-Parent-Trace-ID") or "").strip()
+                or None,
+                tool_name="resources/read",
+                target_scope={"uri": resource_uri},
+                outcome="success",
+                task_id=str(params.get("task_id") or "").strip() or None,
+                goal_id=str(params.get("goal_id") or "").strip() or None,
+                actor_role="mcp",
+                details={"method": method},
+            )
         else:
             return _jsonrpc_error(req_id=req_id, code=-32601, message="method_not_found")
     except KeyError as exc:
