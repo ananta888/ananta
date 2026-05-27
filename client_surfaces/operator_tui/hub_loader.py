@@ -1,16 +1,79 @@
 """Loads TUI section payloads from the live Ananta hub API.
 
 Uses stdlib urllib only — no extra deps.  Synchronous with per-call timeout.
-Returns None for sections that have no hub backend (caller uses fixture).
+Returns None for sections that have no hub backend (caller uses empty state).
+
+Auth: if the caller passes a plain password (ANANTA_PASSWORD) rather than a JWT
+(ANANTA_AUTH_TOKEN), login() is called automatically and the resulting JWT is
+cached per (base, username) for its full TTL.
 """
 from __future__ import annotations
 
 import json
+import os
+import threading
+import time
 import urllib.error
 import urllib.request
 from typing import Any
 
 from client_surfaces.operator_tui.models import PanelState, SectionLoadResult
+
+# ── JWT cache: (base_url, username) → (jwt_str, expires_at) ──────────────────
+_jwt_cache: dict[tuple[str, str], tuple[str, float]] = {}
+_jwt_lock = threading.Lock()
+
+
+def _login(base: str, username: str, password: str, timeout: float = 3.0) -> str:
+    """POST /login, return the JWT access token.  Raises on failure."""
+    url = f"{base}/login"
+    body = json.dumps({"username": username, "password": password}).encode()
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = json.loads(resp.read())
+    data = raw.get("data") or {}
+    token = str(data.get("access_token") or "").strip()
+    if not token:
+        raise ValueError(f"login response missing access_token: {raw}")
+    # Decode exp from JWT payload (base64 middle segment) without a crypto dep
+    try:
+        import base64
+        parts = token.split(".")
+        padded = parts[1] + "=" * (-len(parts[1]) % 4)
+        exp = json.loads(base64.urlsafe_b64decode(padded)).get("exp", 0)
+        expires_at = float(exp) - 30  # 30s safety margin
+    except Exception:
+        expires_at = time.time() + 3600 - 30
+    return token, expires_at
+
+
+def resolve_token(base: str, raw_token: str) -> str:
+    """Return a valid JWT.
+
+    If raw_token looks like a JWT (contains dots), use it directly.
+    Otherwise treat it as a password and login to get a JWT.
+    Username comes from ANANTA_USER env var, defaulting to 'admin'.
+    """
+    if not raw_token:
+        return ""
+    # JWTs have exactly 2 dots (header.payload.sig)
+    if raw_token.count(".") >= 2:
+        return raw_token
+    username = str(os.environ.get("ANANTA_USER") or "admin").strip()
+    cache_key = (base, username)
+    with _jwt_lock:
+        cached = _jwt_cache.get(cache_key)
+        if cached and time.time() < cached[1]:
+            return cached[0]
+    jwt_str, exp = _login(base, username, raw_token, timeout=3.0)
+    with _jwt_lock:
+        _jwt_cache[cache_key] = (jwt_str, exp)
+    return jwt_str
 
 
 def _hub_get(base: str, path: str, token: str, timeout: float) -> Any:
@@ -67,23 +130,24 @@ def fetch_hub_section(
 ) -> SectionLoadResult | None:
     """Fetch live data for one TUI section.
 
-    Returns None when the section has no hub backend (caller falls back to fixture).
+    Returns None when the section has no hub backend (caller returns EMPTY state).
     Raises PermissionError on HTTP 401/403.
     Raises TimeoutError / OSError on network failures.
     """
     base = endpoint.rstrip("/")
     t = min(max(0.5, float(timeout)), 5.0)
+    jwt = resolve_token(base, token)
 
     if section_id == "goals":
-        return _fetch_goals(base, token, t)
+        return _fetch_goals(base, jwt, t)
     if section_id == "tasks":
-        return _fetch_tasks(base, token, t)
+        return _fetch_tasks(base, jwt, t)
     if section_id == "artifacts":
-        return _fetch_artifacts(base, token, t)
+        return _fetch_artifacts(base, jwt, t)
     if section_id == "dashboard":
-        return _fetch_dashboard(base, token, t)
+        return _fetch_dashboard(base, jwt, t)
     if section_id == "system":
-        return _fetch_system(base, token, t)
+        return _fetch_system(base, jwt, t)
     return None
 
 
