@@ -9,11 +9,35 @@ SectionLoader = Callable[[str], SectionLoadResult]
 
 
 class SectionAdapterRegistry:
-    def __init__(self, loader: SectionLoader | None = None) -> None:
+    def __init__(
+        self,
+        loader: SectionLoader | None = None,
+        *,
+        endpoint: str = "",
+        token: str = "",
+    ) -> None:
         self._loader = loader or self._fixture_loader
+        self._endpoint = str(endpoint or "").strip().rstrip("/")
+        self._token = str(token or "").strip()
+        # Use hub when endpoint is provided and no custom loader overrides it
+        self._use_hub = bool(self._endpoint) and loader is None
 
     def load(self, section_id: str) -> SectionLoadResult:
         section = get_section(section_id)
+        if self._use_hub:
+            try:
+                from client_surfaces.operator_tui.hub_loader import fetch_hub_section
+                result = fetch_hub_section(
+                    section_id, self._endpoint, self._token, timeout=section.timeout_seconds
+                )
+                if result is not None:
+                    return result
+            except PermissionError as exc:
+                return SectionLoadResult(section.id, PanelState.UNAUTHORIZED, {}, str(exc))
+            except (TimeoutError, OSError):
+                pass  # hub unreachable → fixture fallback
+            except Exception:
+                pass  # any other hub error → fixture fallback
         try:
             return self._loader(section.id)
         except PermissionError as exc:
