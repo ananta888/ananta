@@ -1,0 +1,47 @@
+{
+  "heuristic_id": "snake_tui_artifact_intent_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "tui_snake",
+  "description": "Follow selected or highlighted artifact with intent-aware motion. Prefers horizontal follow when artifact is selected or focused.",
+  "deterministic": true,
+  "safety_class": "ui_motion_only",
+  "capabilities": ["read_local_context", "read_artifact_refs"],
+  "ttl_policy": {
+    "default_seconds": 7.0,
+    "min_seconds": 5.0,
+    "max_seconds": 10.0
+  },
+  "runtime": {
+    "mode": "python_strategy",
+    "python_strategy": {
+      "module": "agent.heuristics.strategies.snake_tui.artifact_intent",
+      "class": "TuiArtifactIntentStrategy",
+      "expected_inputs": ["selected_artifacts", "recent_events", "active_panel"],
+      "expected_outputs": ["follow", "lurk"]
+    },
+    "triggers": [
+      {"selected_artifact_present": true},
+      {"event_type_is": "artifact_selected"},
+      {"event_type_is": "artifact_highlighted"}
+    ],
+    "action": {
+      "kind": "follow_with_distance",
+      "distance": 3,
+      "fallback": "lurk_near"
+    }
+  },
+  "inputs": ["selected_artifacts", "recent_events", "active_panel"],
+  "outputs": ["motion_vector"],
+  "parameters": {
+    "prefer_horizontal": true
+  },
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic"}
+  ]
+}

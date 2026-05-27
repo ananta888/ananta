@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "description": "Heuristic Registry Index — Quelle für HeuristicRegistryService",
   "heuristics": [
     {
@@ -33,6 +33,108 @@
       "status": "active",
       "file": "active/chat-codecompass-select-default-v1.json",
       "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_tui_follow_distance_default",
+      "version": "1.0.0",
+      "domain": "tui_snake",
+      "status": "active",
+      "file": "active/snake_tui_follow_distance_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "declarative_rules",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_tui_lurk_focus_default",
+      "version": "1.0.0",
+      "domain": "tui_snake",
+      "status": "active",
+      "file": "active/snake_tui_lurk_focus_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "declarative_rules",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "chat_codecompass_selected_artifact_first",
+      "version": "1.0.0",
+      "domain": "chat_codecompass",
+      "status": "active",
+      "file": "active/chat_codecompass_selected_artifact_first.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "declarative_rules",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "chat_codecompass_no_good_match_default",
+      "version": "1.0.0",
+      "domain": "chat_codecompass",
+      "status": "active",
+      "file": "active/chat_codecompass_no_good_match_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "declarative_rules",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_tui_artifact_intent_default",
+      "version": "1.0.0",
+      "domain": "tui_snake",
+      "status": "active",
+      "file": "active/snake_tui_artifact_intent_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_tui_diff_focus_default",
+      "version": "1.0.0",
+      "domain": "tui_snake",
+      "status": "active",
+      "file": "active/snake_tui_diff_focus_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_eclipse_editor_lurk_default",
+      "version": "1.0.0",
+      "domain": "snake_eclipse",
+      "status": "active",
+      "file": "active/snake_eclipse_editor_lurk_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_eclipse_problem_view_default",
+      "version": "1.0.0",
+      "domain": "snake_eclipse",
+      "status": "active",
+      "file": "active/snake_eclipse_problem_view_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_eclipse_compare_default",
+      "version": "1.0.0",
+      "domain": "snake_eclipse",
+      "status": "active",
+      "file": "active/snake_eclipse_compare_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake_eclipse_package_explorer_default",
+      "version": "1.0.0",
+      "domain": "snake_eclipse",
+      "status": "active",
+      "file": "active/snake_eclipse_package_explorer_default.heuristic.json",
+      "safety_class": "ui_motion_only",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
     }
-  ]
+  ],
+  "version": "1.2",
+  "updated_at": "2026-05-27"
 }

@@ -1,0 +1,41 @@
+{
+  "heuristic_id": "chat_codecompass_selected_artifact_first",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "chat_codecompass",
+  "description": "Prioritizes selected artifacts over active_goal and local project files for context selection.",
+  "deterministic": true,
+  "safety_class": "readonly",
+  "capabilities": ["read_local_context", "read_artifact_refs", "read_source_refs"],
+  "ttl_policy": {
+    "default_seconds": 15.0,
+    "min_seconds": 10.0,
+    "max_seconds": 20.0
+  },
+  "runtime": {
+    "mode": "declarative_rules",
+    "triggers": [
+      {"selected_artifact_present": true}
+    ],
+    "selection": {
+      "strategy": "selected_artifacts_first",
+      "max_refs": 5,
+      "score_threshold": 0.0
+    },
+    "action": {
+      "kind": "show_context_summary",
+      "fallback": "no_good_match"
+    }
+  },
+  "inputs": ["query", "selected_artifacts", "active_goal_id"],
+  "outputs": ["selected_context_refs", "answer_block"],
+  "parameters": {},
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic"}
+  ]
+}
