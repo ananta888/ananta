@@ -1014,3 +1014,21 @@ class RepairExecutionRecordDB(SQLModel, table=True):
     actual_runtime_kind: Optional[str] = Field(default=None, index=True)
     selection_reason: Optional[str] = Field(default=None)
     selection_decision_ref: Optional[str] = Field(default=None, index=True)
+
+
+class DecisionTraceDB(SQLModel, table=True):
+    __tablename__ = "decision_traces"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    surface: str = Field(index=True)
+    context_hash: str = Field(default="", index=True)
+    lease_id: Optional[str] = Field(default=None, index=True)
+    heuristic_id: Optional[str] = Field(default=None, index=True)
+    strategy_id: Optional[str] = Field(default=None, index=True)
+    rule_id: Optional[str] = Field(default=None, index=True)
+    confidence: float = Field(default=0.0)
+    fallback_reason: Optional[str] = Field(default=None, index=True)
+    source: str = Field(default="heuristic", index=True)  # ai | heuristic | hybrid
+    action_kind: str = Field(default="no_action", index=True)
+    started_at: float = Field(default_factory=time.time, index=True)
+    resolved_at: Optional[float] = Field(default=None, index=True)
+    reason_codes: List[str] = Field(default=[], sa_column=Column(JSON))
