@@ -32,6 +32,22 @@ def _public_evolution_config() -> dict:
     return _sanitize_evolution_config(_evolution_config())
 
 
+def _public_mutation_gate_config() -> dict:
+    raw = dict((current_app.config.get("AGENT_CONFIG", {}) or {}).get("mutation_gate") or {})
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "global_deny_mutations": bool(raw.get("global_deny_mutations", False)),
+    }
+
+
+def _evolution_runtime_config(*, evolution_cfg: dict, provider_name: str | None) -> dict:
+    return {
+        "default_provider": evolution_cfg.get("default_provider") or provider_name,
+        "evolution": dict(evolution_cfg or {}),
+        "mutation_gate": _public_mutation_gate_config(),
+    }
+
+
 def _sanitize_evolution_config(value):
     if isinstance(value, dict):
         sanitized = {}
@@ -101,6 +117,7 @@ def list_evolution_providers():
             "providers": _services().evolution_service.list_providers_with_config({"evolution": cfg}),
             "health": _services().evolution_service.provider_health_with_config(config={"evolution": cfg}),
             "config": _public_evolution_config(),
+            "mutation_gate": _public_mutation_gate_config(),
         }
     )
 
@@ -110,7 +127,12 @@ def list_evolution_providers():
 def get_evolution_provider(provider_name: str):
     try:
         cfg = _evolution_config()
-        return api_response(data=_services().evolution_service.provider_health_with_config(provider_name, config={"evolution": cfg}))
+        return api_response(
+            data={
+                **_services().evolution_service.provider_health_with_config(provider_name, config={"evolution": cfg}),
+                "mutation_gate": _public_mutation_gate_config(),
+            }
+        )
     except Exception as exc:
         return api_response(status="error", message=str(exc), code=404)
 
@@ -160,7 +182,7 @@ def analyze_task_evolution(task_id: str):
         reason=str(payload.get("reason") or "").strip() or None,
         trigger_metadata=payload.get("trigger_metadata") if isinstance(payload.get("trigger_metadata"), dict) else {},
     )
-    provider_config = {"default_provider": cfg.get("default_provider") or provider_name, "evolution": cfg}
+    provider_config = _evolution_runtime_config(evolution_cfg=cfg, provider_name=provider_name)
     try:
         result = _services().evolution_service.analyze_task(
             task_id,
@@ -273,7 +295,7 @@ def validate_task_evolution_proposal(task_id: str, proposal_id: str):
             task_id,
             proposal_id,
             provider_name=provider_name,
-            config={"default_provider": cfg.get("default_provider") or provider_name, "evolution": cfg},
+            config=_evolution_runtime_config(evolution_cfg=cfg, provider_name=provider_name),
             trigger=trigger,
         )
     except KeyError as exc:
@@ -341,7 +363,7 @@ def apply_task_evolution_proposal(task_id: str, proposal_id: str):
             task_id,
             proposal_id,
             provider_name=provider_name,
-            config={"default_provider": cfg.get("default_provider") or provider_name, "evolution": cfg},
+            config=_evolution_runtime_config(evolution_cfg=cfg, provider_name=provider_name),
             trigger=trigger,
         )
     except KeyError as exc:

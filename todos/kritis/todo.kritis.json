@@ -460,7 +460,7 @@
         {
           "id": "K1-EVO-T08",
           "title": "Evolver mutation deny switch integration add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Operators can globally disable mutation-capable Evolver paths quickly through the central mutation deny switch.",
@@ -471,7 +471,7 @@
         {
           "id": "K1-EVO-T09",
           "title": "Evolver MutationGate contract tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Tests prove that write-capable Evolver paths cannot bypass MutationGate.",
@@ -482,7 +482,7 @@
         {
           "id": "K1-EVO-T10",
           "title": "Evolver mutation evidence checklist add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "A checklist exists for validating Evolver mutation gating in release or audit reviews.",
@@ -506,7 +506,7 @@
         {
           "id": "K2-RAG-T01",
           "title": "Security metadata model for retrieval define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A metadata model exists for documents, chunks and retrieval documents.",
@@ -517,7 +517,7 @@
         {
           "id": "K2-RAG-T02",
           "title": "Chunk-level security tagging add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The indexing pipeline can attach security tags at chunk level where needed.",
