@@ -528,7 +528,7 @@
         {
           "id": "K2-RAG-T03",
           "title": "Retrieval policy filter service implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Retrieval passes through a policy filter before results reach prompt bundles.",
@@ -539,7 +539,7 @@
         {
           "id": "K2-RAG-T04",
           "title": "Context source segregation rules define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The system defines when source classes may be mixed and when they must be isolated.",
@@ -550,7 +550,7 @@
         {
           "id": "K2-RAG-T05",
           "title": "Default deny behavior for unknown sensitivity add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Unknown or missing security metadata does not default to broad inclusion in high-trust modes.",
@@ -561,7 +561,7 @@
         {
           "id": "K2-RAG-T06",
           "title": "Metadata propagation through compaction and memory add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Compacted summaries and retrieval documents retain or derive safe security metadata.",
@@ -572,7 +572,7 @@
         {
           "id": "K2-RAG-T07",
           "title": "RAG diagnostics for filtered context add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Operators can inspect why retrieval results were filtered or downgraded.",

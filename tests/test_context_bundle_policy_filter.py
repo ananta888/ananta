@@ -39,5 +39,7 @@ def test_context_bundle_filters_sensitive_chunks_for_external_scope() -> None:
     assert bundle["chunk_count"] == 1
     assert len(bundle["chunks"]) == 1
     assert (bundle["policy_filter"] or {}).get("denied_count") == 1
+    assert (bundle["policy_filter"] or {}).get("denied_by_reason", {}).get("sensitivity_blocked:internal_high") == 1
+    assert (bundle["policy_filter"] or {}).get("segregation", {}).get("applied") is True
     assert (bundle["context_policy"] or {}).get("default_deny") is True
     assert (bundle["context_policy"] or {}).get("llm_scope") == "external_cloud_allowed"

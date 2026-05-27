@@ -462,6 +462,7 @@ class RetrievalService:
             memory_metadata = dict(getattr(entry, "memory_metadata", None) or {})
             retrieval_document = str(memory_metadata.get("retrieval_document") or "").strip()
             structured_summary = dict(memory_metadata.get("structured_summary") or {})
+            security_metadata = dict(memory_metadata.get("security_metadata") or {})
             score = self._score_memory_entry(query_tokens, title, summary, content, tags)
             if score <= 0:
                 continue
@@ -492,6 +493,44 @@ class RetrievalService:
                         "retrieval_tags": tags,
                         "memory_format": str(memory_metadata.get("memory_format") or ""),
                         "focus_terms": list(structured_summary.get("focus_terms") or []),
+                        "compacted_summary": compact or None,
+                        "retrieval_document_present": bool(retrieval_document),
+                        "security_metadata": security_metadata,
+                        "classification": str(
+                            security_metadata.get("classification")
+                            or memory_metadata.get("classification")
+                            or ""
+                        ).strip()
+                        or None,
+                        "source_origin": str(
+                            security_metadata.get("source_origin")
+                            or memory_metadata.get("source_origin")
+                            or "task_memory"
+                        ).strip()
+                        or "task_memory",
+                        "sensitivity": str(
+                            security_metadata.get("sensitivity")
+                            or memory_metadata.get("sensitivity")
+                            or ""
+                        ).strip()
+                        or None,
+                        "tenancy": str(
+                            security_metadata.get("tenancy")
+                            or memory_metadata.get("tenancy")
+                            or ""
+                        ).strip()
+                        or None,
+                        "approval_class": str(
+                            security_metadata.get("approval_class")
+                            or memory_metadata.get("approval_class")
+                            or ""
+                        ).strip()
+                        or None,
+                        "chunk_security_tags": list(
+                            security_metadata.get("chunk_security_tags")
+                            or memory_metadata.get("chunk_security_tags")
+                            or []
+                        ),
                     },
                 )
             )

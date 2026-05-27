@@ -223,6 +223,53 @@ def test_retrieval_service_prefers_structured_result_memory_document():
     assert (memory_chunk.get("metadata") or {}).get("memory_format") == "worker_result_compact_v2"
 
 
+def test_retrieval_service_propagates_security_metadata_from_memory_entries():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    memory_repo = _FakeMemoryEntryRepo()
+    memory_repo._by_task["task-sec-1"] = [
+        type(
+            "Entry",
+            (),
+            {
+                "id": "mem-sec-1",
+                "task_id": "task-sec-1",
+                "title": "Security-sensitive memory",
+                "summary": "Contains operations context",
+                "content": "sensitive execution trace",
+                "retrieval_tags": ["security"],
+                "entry_type": "worker_result",
+                "memory_metadata": {
+                    "retrieval_document": "security summary",
+                    "compacted_summary": "security compact",
+                    "security_metadata": {
+                        "classification": "restricted",
+                        "source_origin": "task_memory",
+                        "sensitivity": "internal_high",
+                        "tenancy": "tenant_alpha",
+                        "approval_class": "operator_review",
+                        "chunk_security_tags": ["tenant:alpha", "security"],
+                    },
+                },
+            },
+        )()
+    ]
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=memory_repo)
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("security summary", task_id="task-sec-1")
+
+    memory_chunk = next(chunk for chunk in payload["chunks"] if chunk["engine"] == "result_memory")
+    metadata = dict(memory_chunk.get("metadata") or {})
+    security = dict(metadata.get("security_metadata") or {})
+    assert security.get("classification") == "restricted"
+    assert security.get("sensitivity") == "internal_high"
+    assert security.get("tenancy") == "tenant_alpha"
+    assert metadata.get("classification") == "restricted"
+    assert metadata.get("sensitivity") == "internal_high"
+    assert metadata.get("chunk_security_tags") == ["tenant:alpha", "security"]
+
+
 def test_retrieval_service_redacts_sensitive_debug_fields_in_strategy_and_sources():
     knowledge = _FakeKnowledgeIndexRetrievalService()
     service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
