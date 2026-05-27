@@ -1,0 +1,565 @@
+{
+  "id": "todo-tui-chat-rag-llm",
+  "title": "TUI Chat, RAG-Kontext und LLM-Integration — vollständige Verbesserungsliste",
+  "created": "2026-05-27",
+  "description": "Feingranulare Aufgaben für alle bekannten Lücken im TUI-Chat-System (snake-mode Chat-Panel + Compact Overlay), RAG/CodeCompass-Kontextqualität, LMStudio-Integration und KI-Antwortqualität. Basis: Code-Analyse vom 2026-05-27.",
+  "tasks": [
+
+    {
+      "id": "R01",
+      "area": "rag",
+      "title": "Chat-Fragen verwenden Frage-Tokens statt TUI-Zustands-Tokens für RAG-Retrieval",
+      "priority": "high",
+      "status": "todo",
+      "problem": "_resolve_ask_question() ruft _load_rag_helper_context() mit query_tokens aus _tutorial_relevance_tokens() auf — diese Tokens stammen aus section_id, focus, mode des TUI, nicht aus der gestellten Frage. Eine Frage 'wie funktioniert die Autopilot-Engine?' wird mit Tokens wie ['dashboard', 'navigation', 'normal'] gematcht statt mit ['autopilot', 'engine'].",
+      "solution": "_resolve_ask_question() muss die Frage selbst tokenisieren und als query_tokens an einen dedizierten RAG-Lookup übergeben. Implementierung einer Funktion _rag_context_for_question(question, top_k) die im Hintergrundthread läuft und question.lower().split() + Stoppwort-Filterung als Tokens verwendet. Zusätzlich: TUI-Zustands-Tokens als sekundäre Boost-Tokens behalten (geringeres Gewicht).",
+      "acceptance_criteria": [
+        "Bei Frage 'wie funktioniert die Autopilot-Engine?' enthält rag_context mindestens einen Eintrag mit 'autopilot' im Text",
+        "Bei Frage 'zeige mir _toggle_snake_mode' enthält rag_context einen Eintrag aus snake_ops_mixin.py",
+        "TUI-Zustands-Tokens gehen NICHT verloren — sie erhöhen weiter den Score bestehender Treffer",
+        "Kein Blocking auf dem Main-Thread: _rag_context_for_question läuft im Hintergrundthread (_tutor_ask_executor oder _snake_bg_executor)",
+        "Leere Frage fällt auf _tutorial_relevance_tokens() zurück (kein Fehler)",
+        "Test: _load_rag_context_from_dir mit question_tokens=['toggle','snake','mode'] liefert Einträge aus snake_ops_mixin.py vor Einträgen aus unrelated files"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:320-340",
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:75-174",
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:939-972"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "R02",
+      "area": "rag",
+      "title": "Context-Window-Cap von 800 Zeichen auf dynamisch berechneten Wert erhöhen",
+      "priority": "high",
+      "status": "todo",
+      "problem": "_tutorial_ai_llm_ask() packt context_text[:800] in den System-Prompt. Bei einem Projekt mit 9130 Python-Funktionen und 36400 details.jsonl-Einträgen sind 800 Zeichen (ca. 3-5 Einträge) völlig unzureichend. Mit max_tokens=160 für die Antwort ist das Verhältnis Kontext:Antwort 5:1 was für Codebase-Fragen zu wenig ist.",
+      "solution": "Context-Window dynamisch berechnen: ANANTA_TUI_CHAT_CONTEXT_CHARS (default 3000) steuert den Context-Anteil. max_tokens auf ANANTA_TUI_CHAT_MAX_TOKENS (default 400) erhöhen für Chat-Antworten (ambient snake tip bleibt bei 160). Top-K für Chat-RAG von 6 auf ANANTA_TUI_CHAT_RAG_TOP_K (default 24) erhöhen.",
+      "acceptance_criteria": [
+        "System-Prompt für Chat enthält mindestens 2000 Zeichen Kontext wenn rag_context nicht leer",
+        "max_tokens für Chat-Antworten ist >= 400 (konfigurierbar via Env-Var)",
+        "Ambient snake tip behält max_tokens=160 (kurze Hinweise, keine langen Antworten)",
+        "ANANTA_TUI_CHAT_CONTEXT_CHARS=500 reduziert Context auf 500 Zeichen (Opt-out für schwache Hardware)",
+        "ANANTA_TUI_CHAT_RAG_TOP_K=24 liefert 24 RAG-Einträge für Chat statt 6",
+        "LMStudio-Request enthält messbar mehr Kontext: context_text len > 800 in normalem Betrieb"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:342-377"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "R03",
+      "area": "rag",
+      "title": "details.jsonl (36400 Einträge mit Funktions-Level-Detail) für Chat-RAG nutzen",
+      "priority": "high",
+      "status": "todo",
+      "problem": "_load_rag_context_from_dir() iteriert über max. 24 Dateien. details.jsonl hat 36400 Einträge (Funktionen, Klassen, Sektionen), context.jsonl ebenfalls 36400. Diese Dateien werden zwar gelesen, aber mit max_records_per_file=800 und allgemeinem Scoring — kein gezieltes Funktions-Lookup. Für die Frage 'was macht _toggle_snake_mode?' gibt es definitiv einen detail-Eintrag mit name='_toggle_snake_mode', dieser wird aber möglicherweise nicht gefunden weil 800 Records pro Datei bei 36400 Einträgen bedeutet dass Einträge ab Position 800 nie gesehen werden.",
+      "solution": "Für Chat-Fragen: zusätzlich gezieltes Namens-Lookup in details.jsonl implementieren. Wenn question_tokens einen Token enthalten der wie ein Funktions-/Klassenname aussieht (beginnt mit '_' oder 'CamelCase'), direkt per Namens-Match suchen ohne Positions-Limit. Index-Datei (index_by_kind/) für O(1)-Lookup nutzen falls vorhanden.",
+      "acceptance_criteria": [
+        "Frage '_toggle_snake_mode erkläre' findet den details.jsonl-Eintrag mit name='_toggle_snake_mode' unabhängig von seiner Zeilennummer",
+        "Frage 'was ist SnakeOpsMixin' findet den class-Eintrag aus details.jsonl",
+        "index_by_kind/ Verzeichnis wird bevorzugt über direkte Datei-Iteration wenn vorhanden",
+        "Max-Records-Limit gilt weiter für generisches Scoring, nicht für gezieltes Namens-Lookup",
+        "Performance: Namens-Lookup unter 200ms auch bei 36400 Einträgen (Binary-Search oder Set-Lookup)",
+        "Fallback auf altes Verhalten wenn details.jsonl nicht vorhanden"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:75-174"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "R04",
+      "area": "rag",
+      "title": "Embedding-basiertes Scoring als Ergänzung zu Keyword-Matching",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "_score_rag_record() macht reines Keyword-Counting: haystack.count(token). Das findet 'toggle_snake' wenn 'toggle' und 'snake' im Text sind, aber nicht semantisch ähnliche Inhalte. embedding.jsonl hat 3128 Einträge mit embedding_text-Feldern — diese beschreiben den Inhalt natürlichsprachlich aber die Embeddings selbst (Vektoren) sind nicht enthalten, nur der Text.",
+      "solution": "Kurzfristig: embedding_text-Felder aus embedding.jsonl als zusätzliche Scoring-Quelle nutzen — mehr Gewicht geben als rohen Dateinamen. embedding_text enthält natürlichsprachliche Beschreibungen die besser mit Frage-Tokens matchen. Mittelfristig: Wenn lokales Embedding-Modell vorhanden (via LMStudio /embeddings endpoint), Vektor-Cosinus-Ähnlichkeit für Top-K berechnen.",
+      "acceptance_criteria": [
+        "Einträge mit relevanter embedding_text (enthält Frage-Tokens) werden höher gerankt als Einträge die nur im Dateinamen matchen",
+        "embedding_text aus embedding.jsonl wird als primäres Scoring-Feld behandelt (Gewicht >= 2.0 vs 1.0 für anderen Text)",
+        "Optional: ANANTA_TUI_CHAT_USE_EMBEDDING_API=1 aktiviert Vektor-Lookup via LMStudio /v1/embeddings wenn API_BASE_URL gesetzt",
+        "Embedding-Lookup ist optional und graceful degraded (kein Fehler wenn nicht verfügbar)",
+        "Keyword-Fallback bleibt immer aktiv"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:28-44",
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:47-72"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "R05",
+      "area": "rag",
+      "title": "CodeCompass-Index automatisch neu bauen wenn sich Python-Dateien ändern",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "_build_codecompass_outputs_sync() wird beim TUI-Start einmalig getriggert wenn kein Output-Dir existiert. Danach: kein Rebuild. Wenn Dateien geändert werden (z.B. diese Session: snake_ops_mixin.py, interactive.py etc.) bleibt der Index veraltet. _resolve_codecompass_output_dir() prüft nur ob index.jsonl existiert, nicht ob er aktuell ist.",
+      "solution": "Rebuild-Check: manifest.json enthält build_time. Wenn max(mtime) der Python-Dateien in client_surfaces/operator_tui/ und worker/ neuer ist als build_time, rebuild im Hintergrund triggern. ANANTA_TUI_AUTO_REBUILD_MAX_AGE_SECONDS (default 3600) steuert Mindest-Rebuild-Intervall. Rebuild läuft im _codecompass_build_executor ohne Main-Thread zu blockieren.",
+      "acceptance_criteria": [
+        "Nach Änderung einer .py-Datei: TUI triggert Rebuild spätestens beim nächsten Start (oder nach ANANTA_TUI_AUTO_REBUILD_MAX_AGE_SECONDS)",
+        "Rebuild läuft non-blocking — TUI bleibt während Rebuild nutzbar",
+        "Während Rebuild: alter Index wird weiter genutzt (kein leerer Context)",
+        "Nach Rebuild: neuer Index wird in laufender Session geladen (Cache-Invalidierung: _tutorial_codecompass_cache zurücksetzen)",
+        "ANANTA_TUI_AUTO_BUILD_CODECOMPASS=0 deaktiviert auto-rebuild vollständig (inkl. Freshness-Check)",
+        "Status-Anzeige: game['codecompass_build_status'] ist 'building'/'ready'/'stale' — im AI-Panel sichtbar"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:1022-1070"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "R06",
+      "area": "rag",
+      "title": "Graph-Edges-Filter auf operator_tui entfernen / konfigurierbar machen",
+      "priority": "low",
+      "status": "todo",
+      "problem": "_load_rag_context_from_dir() filtert graph_edges und graph_nodes hartcodiert auf 'client_surfaces/operator_tui' (Zeilen 140-145). Das blockiert Architektur-Fragen über worker/, agent/, hub/ aus dem Chat.",
+      "solution": "Filter nur für den ambient snake tip beibehalten (der soll operator_tui-fokussiert bleiben). Für Chat-RAG (_rag_context_for_question): Filter deaktivieren oder auf question-relevante Dateipfade erweitern. ANANTA_TUI_RAG_SCOPE_FILTER (default 'tui_only' für ambient, 'full' für chat) steuert das Verhalten.",
+      "acceptance_criteria": [
+        "Chat-Frage 'wie ist die Hub-Worker-Architektur?' findet graph_edges aus hub/ und worker/",
+        "Ambient snake tip bleibt auf operator_tui-Kontext fokussiert",
+        "ANANTA_TUI_RAG_SCOPE_FILTER=full schaltet auf volle Codebase für beide Modi"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:140-145"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "A01",
+      "area": "ai_quality",
+      "title": "Konversations-History in LLM-Calls für Multi-Turn-Chat",
+      "priority": "high",
+      "status": "todo",
+      "problem": "_tutorial_ai_llm_ask() baut jeden LLM-Call mit nur einer user-message auf — kein Gesprächsverlauf. Wenn der User fragt 'erkläre es genauer' nach einer Antwort, weiß das LLM nicht worüber gesprochen wurde. ai:tutor-Kanal hat messages[] in der Chat-State, aber diese werden nicht als prior messages in den LLM-Call eingebaut.",
+      "solution": "_tutorial_ai_llm_ask() erhält optional prior_messages: list[dict]. Vor der user-message werden die letzten N (default 6) Nachrichten aus dem ai:tutor-Kanal als alternating user/assistant messages eingefügt. Nur source='user' und source='ai' Nachrichten, nicht 'system'. Gesamt-Token-Budget: prior_messages bekommen maximal 50% des Context-Windows.",
+      "acceptance_criteria": [
+        "Nach Frage + Antwort: Folgefrage 'und was bedeutet das für den Worker?' erhält den Kontext der vorherigen Antwort",
+        "prior_messages wird auf max 6 Einträge beschränkt (älteste werden weggelassen)",
+        "System-message (RAG-Kontext) bleibt immer vorhanden und wird nicht durch prior_messages verdrängt",
+        "Wenn prior_messages leer: Verhalten identisch zu heute (kein Regression)",
+        "Token-Schätzung: prior_messages wird auf max context_chars//2 Zeichen getrimmt bevor sie eingesetzt werden",
+        "Test: 2-turns Konversation mit Mock-LLM zeigt dass zweiter Call die erste Antwort als assistant-message enthält"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:342-377",
+        "client_surfaces/operator_tui/chat_mixin.py:291-318"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "A02",
+      "area": "ai_quality",
+      "title": "Aktuell geöffnete Datei / selektiertes Item als primären Kontext in Chat einbauen",
+      "priority": "high",
+      "status": "todo",
+      "problem": "Wenn der User ein Item in der Navigation selektiert (z.B. einen Goal, eine Datei, einen Worker) und dann eine Frage stellt, enthält der LLM-Call keinen direkten Kontext des selektierten Objekts. artifact_intent_target und artifact_chat_state.active_target sind im game-Dict vorhanden aber werden in _resolve_ask_question nicht genutzt.",
+      "solution": "In _resolve_ask_question: active_target aus artifact_chat_state als primären Kontext vor RAG-Einträgen einsetzen. Wenn active_target.path vorhanden: Datei-Excerpt (erste 40 Zeilen) in context_text einbauen. Wenn active_target.kind='goal': Goal-Details aus section_payloads ziehen. context_priority-Abschnitt: [active_target_excerpt, rag_context[:20], hints[:10]].",
+      "acceptance_criteria": [
+        "Klick auf ein Python-File im Artifacts-Panel → Chat-Frage enthält die ersten 40 Zeilen der Datei im Kontext",
+        "Klick auf einen Goal → Chat-Frage erhält Goal-Title, Status, Description als primären Kontext",
+        "active_target-Kontext erscheint vor RAG-Einträgen im System-Prompt",
+        "Wenn keine active_target: kein Fehler, normaler RAG-Kontext",
+        "Datei-Excerpt wird auf max 1500 Zeichen begrenzt (kein Overflow bei langen Dateien)",
+        "Sicherheitscheck: Dateipfad muss innerhalb des Projekt-Verzeichnisses liegen (no path traversal)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:320-340",
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:554-578"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "A03",
+      "area": "ai_quality",
+      "title": "Prompt-Template für Chat separat von ambient snake tip konfigurierbar machen",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "_tutorial_ai_llm_ask() und _tutorial_ai_tip_sync() verwenden beide denselben Prompt-Template-Mechanismus (_resolve_tutorial_prompt_template). Der Chat-Prompt sollte konversationeller sein ('Du bist ein Assistent...') während der snake tip-Prompt direktiver ist ('Respond with one immediate actionable hint...'). Aktuell ist chat_mixin.py:358 ein hartcodierter String.",
+      "solution": "ANANTA_TUI_CHAT_SYSTEM_PROMPT Env-Var (oder game['chat_system_prompt']) für den Chat-System-Prompt. Default-Wert ist konversationeller und explizit auf Multi-Turn ausgelegt. Enthält Platzhalter: {context}, {depth_instruction}, {project_name}.",
+      "acceptance_criteria": [
+        "ANANTA_TUI_CHAT_SYSTEM_PROMPT überschreibt den System-Prompt für alle ai:tutor-Anfragen",
+        "Default-Prompt enthält 'Du bist ein hilfreicher Assistent für das Projekt {project_name}' mit Projektname aus git remote oder Verzeichnisname",
+        "Platzhalter {context} wird mit RAG-Kontext befüllt, {depth_instruction} mit depth-spezifischer Anweisung",
+        "Ambient snake tip bleibt bei seinem eigenen Template (_TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT)",
+        "Bei ungültigem Template (fehlender {context}-Platzhalter): Warnung in status_message, Fallback auf Default"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:355-363"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "A04",
+      "area": "ai_quality",
+      "title": "_local_knowledge_answer verbessern: alle passenden Facts statt nur ersten",
+      "priority": "low",
+      "status": "todo",
+      "problem": "_local_knowledge_answer() iteriert _TUTORIAL_AI_KNOWLEDGE und gibt das erste Ergebnis zurück wo ein Wort der Frage matcht. Zwei Probleme: (1) Reihenfolge bestimmt Ergebnis, (2) Nur ein Fact wird zurückgegeben, (3) Fragen die keinen Wortmatch haben bekommen 'Ich bin offline...' statt dem nächstbesten Treffer.",
+      "solution": "Alle _TUTORIAL_AI_KNOWLEDGE-Einträge mit _score_rag_record() scoren, Top-2 concatenieren (durch Leerzeichen getrennt), auf 300 Zeichen kürzen. Bei 0 Matches: besten TUI-Overview-Fact liefern statt 'offline' Meldung.",
+      "acceptance_criteria": [
+        "Frage 'wie starte ich einen Worker?' liefert einen Eintrag der 'Worker' oder 'ananta worker' enthält",
+        "Frage ohne jeden Match liefert einen generischen TUI-Überblick statt 'offline'-Meldung",
+        "Mehrere passende Facts werden kombiniert (max 300 Zeichen gesamt)",
+        "Keine Reihenfolge-Abhängigkeit: Test mit permutierter _TUTORIAL_AI_KNOWLEDGE liefert ähnliches Ergebnis"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:379-385"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "L01",
+      "area": "llm_integration",
+      "title": "LMStudio-Verbindungsstatus sichtbar machen (verbunden / nicht erreichbar / welches Modell)",
+      "priority": "high",
+      "status": "todo",
+      "problem": "Es gibt keinen sichtbaren Indikator ob LMStudio erreichbar ist und welches Modell geladen ist. Wenn ANANTA_TUI_SNAKE_AI_API_BASE_URL nicht gesetzt ist, fällt der Chat still auf local_knowledge zurück — der User weiß nicht warum er keine echten Antworten bekommt. Wenn LMStudio läuft aber das Modell nicht geladen ist, gibt es auch keinen Hinweis.",
+      "solution": "Background-Health-Check: alle 30s (konfigurierbar via ANANTA_TUI_LLM_HEALTH_INTERVAL_SECS) POST an api_base/models abfragen. Ergebnis in game['llm_status'] speichern: {'reachable': bool, 'model': str, 'last_check_at': float, 'error': str}. Im AI-Panel (und compact overlay header) kleiner Statusindikator: '● LM ananta-smoke' (grün) oder '○ offline' (rot/grau).",
+      "acceptance_criteria": [
+        "Wenn ANANTA_TUI_SNAKE_AI_API_BASE_URL nicht gesetzt: game['llm_status']['reachable'] = False, Anzeige '○ kein LLM'",
+        "Wenn LMStudio läuft: game['llm_status']['reachable'] = True, game['llm_status']['model'] = Modellname",
+        "Status wird im Snake AI-Panel oben angezeigt (eine Zeile): '● {model}' oder '○ lokal'",
+        "Status wird im Compact Overlay (non-snake) ebenfalls in der Header-Zeile angezeigt",
+        "Health-Check läuft non-blocking im Background-Thread, max alle 30s",
+        "Bei Timeout (>2s): reachable=False, error='timeout'",
+        "ANANTA_TUI_LLM_HEALTH_INTERVAL_SECS=0 deaktiviert Health-Check"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py",
+        "client_surfaces/operator_tui/renderer.py:1640-1757"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "L02",
+      "area": "llm_integration",
+      "title": "LMStudio-Fehler (Timeout, Modell nicht geladen, 4xx/5xx) dem User anzeigen",
+      "priority": "high",
+      "status": "todo",
+      "problem": "_tutorial_ai_llm_ask() hat try/except Exception: pass — alle Fehler werden stumm geschluckt und es wird auf local_knowledge zurückgefallen ohne dem User zu sagen was schiefging. Timeout von 3s ist zu kurz für große Modelle (Llama 70B braucht 10-30s für erste Token).",
+      "solution": "Exception abfangen und in game['llm_last_error'] und game['llm_last_error_at'] schreiben. Status-Nachricht in der chat-Antwort: '⚠ LLM timeout (3s) — nutze lokales Wissen' oder '⚠ LLM Fehler: connection refused'. Timeout via ANANTA_TUI_SNAKE_AI_TIMEOUT (default 3.0, max 60.0 für große Modelle). Fehler als system-message im ai:tutor-Kanal posten.",
+      "acceptance_criteria": [
+        "Connection refused → chat zeigt system-message '⚠ LMStudio nicht erreichbar. Setze ANANTA_TUI_SNAKE_AI_API_BASE_URL.'",
+        "HTTP 400/404/500 → chat zeigt system-message mit Status-Code und kurzem Hinweis",
+        "Timeout → chat zeigt '⚠ Timeout ({timeout}s). Erhöhe ANANTA_TUI_SNAKE_AI_TIMEOUT für große Modelle.'",
+        "Fehlermeldung erscheint im ai:tutor-Kanal als system-Nachricht (grau, kursiv)",
+        "game['llm_last_error'] wird nach nächster erfolgreicher Anfrage gecleart",
+        "ANANTA_TUI_SNAKE_AI_TIMEOUT=15 erlaubt 15s Timeout ohne Änderung am Code"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:342-377"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "L03",
+      "area": "llm_integration",
+      "title": "Streaming-Antworten von LMStudio für schrittweise Chat-Darstellung",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "_tutorial_ai_llm_ask() wartet auf die vollständige Antwort (urlopen blockiert bis Response fertig). Bei längeren Antworten (max_tokens=400) erscheint nichts für 2-5s, dann alles auf einmal. chat['ai_typing'] = True zeigt nur 'AI schreibt...' ohne Fortschritt.",
+      "solution": "Streaming via text/event-stream: stream=True in Request, Response-Body zeilenweise lesen, data: {json}-Chunks parsen, Partial-Text schrittweise an chat-Kanal appenden (als editierbare letzte Nachricht). Im Background-Thread implementieren, da urlopen + stream blocking ist. game['llm_streaming_partial'] = str für aktuelle Partial-Antwort.",
+      "acceptance_criteria": [
+        "Chat-Panel zeigt Antwort Wort-für-Wort / Chunk-für-Chunk während LMStudio noch generiert",
+        "game['llm_streaming_partial'] wird während Streaming gesetzt und nach Abschluss gecleart",
+        "Partial-Antwort erscheint als separate 'streaming'-Nachricht im ai:tutor-Kanal, wird nach Abschluss durch finale Nachricht ersetzt",
+        "Bei Streaming-Fehler mid-stream: bisheriger Text bleibt sichtbar, Fehlermeldung wird angehängt",
+        "ANANTA_TUI_CHAT_STREAMING=0 deaktiviert Streaming (Fallback auf altes Verhalten)",
+        "Streaming funktioniert auch wenn LMStudio model nicht streaming-fähig ist (graceful fallback)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/chat_mixin.py:342-377",
+        "client_surfaces/operator_tui/renderer.py:1839-1970"
+      ],
+      "complexity": "large"
+    },
+
+    {
+      "id": "L04",
+      "area": "llm_integration",
+      "title": "Ambient Snake Tip ebenfalls über ANANTA_TUI_SNAKE_AI_API_BASE_URL steuern (Konsistenz)",
+      "priority": "low",
+      "status": "todo",
+      "problem": "Der ambient snake tip (_tutorial_ai_llm_message in tutorial_ai_mixin.py:696) liest api_base aus einer anderen Env-Var als der Chat (_tutorial_ai_llm_ask in chat_mixin.py:344 nutzt ANANTA_TUI_SNAKE_AI_API_BASE_URL). Beide sollten dieselbe Variable nutzen. Außerdem: snake-tip nutzt ai_snake_provider_model aus dem game-Dict, chat nutzt ANANTA_TUI_SNAKE_AI_MODEL — inkonsistent.",
+      "solution": "Beide Pfade auf ANANTA_TUI_SNAKE_AI_API_BASE_URL und ANANTA_TUI_SNAKE_AI_MODEL vereinheitlichen. Gemeinsame Hilfsfunktion _build_llm_request(prompt, max_tokens, temperature) die API-Base und Model aus Env-Vars liest.",
+      "acceptance_criteria": [
+        "ANANTA_TUI_SNAKE_AI_API_BASE_URL steuert sowohl ambient tip als auch chat",
+        "ANANTA_TUI_SNAKE_AI_MODEL steuert das Modell für beide",
+        "Kein doppelter Env-Var-Lookup im Code (DRY)",
+        "Bestehende Tests für ambient tip und chat bestehen weiterhin"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/tutorial_ai_mixin.py:696",
+        "client_surfaces/operator_tui/chat_mixin.py:344"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "C01",
+      "area": "chat_ux",
+      "title": "Kanal-Wechsel per Tastenkürzel im Chat-Fokus-Modus",
+      "priority": "high",
+      "status": "todo",
+      "problem": "switch_channel() in chat_state.py existiert, aber kein Tastenkürzel ruft sie auf. Im snake Chat-Panel gibt es 3 Kanäle (room:main, ai:tutor, notes:self) aber der User kann nicht zwischen ihnen wechseln — er ist immer auf dem default-Kanal (room:main).",
+      "solution": "Im snake-Modus (ohne chat_focus): Tab-Taste cyclet durch Kanäle. Alt+1, Alt+2, Alt+3 (als escape-Sequenzen) wechseln direkt zu room:main, ai:tutor, notes:self. Im chat_focus: Ctrl+Tab cyclet Kanäle ohne chat_focus zu verlassen (Eingabe bleibt erhalten).",
+      "acceptance_criteria": [
+        "Tab im snake-Modus (kein chat_focus) wechselt active_channel: room:main → ai:tutor → notes:self → room:main",
+        "Status-Meldung nach Kanal-Wechsel: 'kanal: ai:tutor' (1s sichtbar)",
+        "Chat-Panel-Header zeigt den aktuellen Kanal highlighted nach Wechsel",
+        "Wenn in chat_focus: Tab wechselt Kanal, input_buffer bleibt erhalten",
+        "Kanal-Wechsel funktioniert auch wenn der Kanal 0 ungelesene Nachrichten hat",
+        "switch_channel() aus chat_state.py wird genutzt (kein doppelter Code)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/interactive.py:340-365",
+        "client_surfaces/operator_tui/chat_state.py:279-285"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "C02",
+      "area": "chat_ux",
+      "title": "Compact Artifact Chat Overlay interaktiv machen (Eingabe ohne snake-Modus)",
+      "priority": "high",
+      "status": "todo",
+      "problem": "Das Compact Overlay (_overlay_artifact_chat_compact) ist rein read-only. Um auf eine AI-Erklärung antworten zu können, muss der User Ctrl+S (snake-Modus) drücken und dann 'c'. Es gibt keine Möglichkeit direkt im normalen TUI-Modus auf das Overlay zu antworten. _chat_focus_active() setzt voraus dass _snake_mode_active() True ist.",
+      "solution": "Neuer Fokus-Modus: 'artifact_chat_focus' unabhängig von snake-Modus. Tastenkürzel: Ctrl+E (oder konfigurierbarer Key) öffnet Eingabezeile im Compact Overlay. Eingabe-Puffer: game['artifact_chat_input'] (separater Buffer von chat_input_buffer). Enter schickt Nachricht an ai:tutor-Kanal und triggert LLM-Anfrage. Escape verlässt artifact_chat_focus.",
+      "acceptance_criteria": [
+        "Ctrl+E öffnet Eingabe im Compact Overlay wenn active_target gesetzt ist",
+        "Sichtbare Cursor-Zeile im Compact Overlay: '> _' wenn artifact_chat_focus aktiv",
+        "Tippen von Buchstaben/Leerzeichen/: erscheint in der Eingabezeile",
+        "Enter sendet an ai:tutor-Kanal und triggert LLM-Antwort genau wie im snake Chat",
+        "Escape verlässt artifact_chat_focus ohne Nachricht zu senden",
+        "_chat_focus_active() wird erweitert oder neue _artifact_chat_focus_active() Methode",
+        "Ctrl+S ist weiterhin für snake-Modus reserviert — kein Konflikt"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/interactive.py:609-628",
+        "client_surfaces/operator_tui/renderer.py:1541-1622"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "C03",
+      "area": "chat_ux",
+      "title": "Compact Overlay zeigt Eingabezeile und Cursor wenn artifact_chat_input aktiv",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "Das Compact Overlay rendert keine Eingabezeile — nur historische Nachrichten. Der Chat-Input-Buffer des snake-Chat-Panels (chat_input_buffer) ist im Compact Overlay nicht sichtbar. Nach Implementierung von C02 braucht das Overlay eine sichtbare Eingabezeile.",
+      "solution": "In _overlay_artifact_chat_compact(): wenn artifact_chat_focus aktiv oder game['artifact_chat_input'] nicht leer: unterste Zeile des Panels als Eingabezeile rendern: '▶ {input}_' in gelber Farbe. Cursor blinkt via render-tick (alterniert _ und ' ' alle 500ms via now % 1.0 > 0.5).",
+      "acceptance_criteria": [
+        "Wenn artifact_chat_focus aktiv: Eingabezeile '▶ _' erscheint im unteren Teil des Compact Overlay",
+        "Getippter Text erscheint in der Eingabezeile in Echtzeit",
+        "Cursor blinkt (Unterstrich ↔ Leerzeichen) im ~500ms-Takt",
+        "Wenn kein artifact_chat_focus: keine Eingabezeile sichtbar",
+        "Eingabezeile ist von historischen Nachrichten durch eine horizontale Trennlinie getrennt",
+        "Zeile wird auf panel_width geclippt (kein Overflow)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/renderer.py:1541-1622"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "C04",
+      "area": "chat_ux",
+      "title": "Ungelesene Nachrichten-Badge im Status-Bar anzeigen wenn Chat-Panel nicht sichtbar",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "Wenn das snake Chat-Panel nicht sichtbar ist (kein snake-Modus) und eine AI-Antwort eingeht, bekommt der User es nicht mit. unread_total in _overlay_snake_chat_panel berechnet bereits die Summe, aber außerhalb des snake-Modus gibt es keinen Indikator.",
+      "solution": "In _status_line() (renderer.py): wenn unread_total > 0, kleines Badge am rechten Rand: '💬 {n}' oder '[chat +{n}]'. Im Compact Overlay Header: unread-Count neben dem Kanalnamen. Nachrichten in ai:tutor-Kanal als 'unread' markieren wenn Chat-Panel nicht sichtbar (chat_state.py unread-Mechanismus).",
+      "acceptance_criteria": [
+        "Wenn AI-Antwort im ai:tutor-Kanal eingeht während snake-Modus deaktiviert: Status-Bar zeigt '[chat +1]'",
+        "Badge verschwindet wenn User snake-Modus öffnet und das Panel sieht (unread → 0)",
+        "Badge erscheint nicht wenn snake-Modus aktiv (Panel bereits sichtbar)",
+        "unread-Count wird korrekt auf 0 gesetzt wenn Kanal sichtbar war (bestehender Mechanismus in chat_state.py)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/renderer.py:1312-1360"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "C05",
+      "area": "chat_ux",
+      "title": "Chat-Panel im normalen TUI-Modus per Tastendruck öffnen (ohne snake-Modus)",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "Um den Chat zu öffnen muss der User Ctrl+S drücken (snake-Modus), was das TUI-Layout komplett übernimmt (free_mode=True, Fullscreen-Overlay). Für reine Chat-Nutzung ist das zu invasiv — das ganze TUI wird vom snake verdeckt.",
+      "solution": "Ctrl+G (oder Ctrl+F, konfigurierbar via ANANTA_TUI_CHAT_TOGGLE_KEY) togglet ein dediziertes Chat-Seitenpanel ohne snake-Modus. game['chat_panel_open'] = bool. Der Renderer verwendet _overlay_artifact_chat_compact wenn chat_panel_open=True auch ohne active_target. Tab in diesem Modus = Kanal-Wechsel.",
+      "acceptance_criteria": [
+        "Ctrl+G öffnet/schließt Chat-Panel ohne snake-Modus zu aktivieren",
+        "Chat-Panel-Open zeigt alle 3 Kanäle (room:main, ai:tutor, notes:self) im Compact Overlay",
+        "Ctrl+E oder 'c' öffnet Eingabe im Chat-Panel auch im normalen TUI-Modus wenn chat_panel_open",
+        "Ctrl+S öffnet weiterhin vollen snake-Modus (kein Konflikt)",
+        "Status-Bar zeigt '[C]' wenn chat_panel_open=True"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/renderer.py:1541-1622"
+      ],
+      "complexity": "medium"
+    },
+
+    {
+      "id": "D01",
+      "area": "rendering",
+      "title": "Snake Chat Panel: aktiver Kanal in Header markieren und Tab-Shortcut einblenden",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "_overlay_snake_chat_panel() zeigt im Header nur den aktuell aktiven Kanal (active_ch_id). Es ist nicht klar welche anderen Kanäle es gibt und wie man wechselt. Ungelesene Nachrichten in anderen Kanälen sind nicht erkennbar.",
+      "solution": "Header zeigt alle 3 Kanäle nebeneinander: '[#room +0] [AI +1] [notes]' wobei aktiver Kanal invertiert/bold und unread-Count als '+n' angezeigt wird. Darunter: kleine Hint-Zeile 'Tab=Kanal c=Eingabe PgUp/Dn=Scrollen Esc=verlassen'.",
+      "acceptance_criteria": [
+        "Alle 3 Kanäle mit Namen und unread-Count im Header sichtbar",
+        "Aktiver Kanal ist visuell hervorgehoben (bold oder andere Farbe)",
+        "Kanal mit unread > 0 hat Badge '+n' in oranger Farbe",
+        "Hint-Zeile zeigt wichtigste Shortcuts",
+        "Bei Terminal-Breite < 120: Kanäle werden verkürzt dargestellt (Abkürzungen)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/renderer.py:1839-1960"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "D02",
+      "area": "rendering",
+      "title": "Compact Overlay: mehrere Nachrichten-Typen visuell unterscheiden (ai / user / system)",
+      "priority": "low",
+      "status": "todo",
+      "problem": "_overlay_artifact_chat_compact() unterscheidet ai/system/other per Farbe, aber 'other' (user-Nachrichten) werden wie generische Nachrichten mit Quelle-Prefix dargestellt. User-Eingaben sehen aus wie AI-Antworten wenn source-Präfix fehlt.",
+      "solution": "User-Nachrichten: rechts-ausgerichtet oder mit '>' Prefix in blau/cyan. AI-Nachrichten: links-ausgerichtet in amber. System-Nachrichten: zentriert in grau kursiv. Klare visuelle Trennung ohne Farbkonfusion.",
+      "acceptance_criteria": [
+        "User-Nachrichten (source='user') haben '▶ ' Prefix in blau",
+        "AI-Nachrichten (source='ai') haben keine Prefix, in amber",
+        "System-Nachrichten (source='system') sind in dunkelgrau mit '* ' prefix",
+        "Konsistenz mit snake Chat-Panel Darstellung (gleiche Farb-Konventionen)",
+        "Keine visuellen Regressions bei existierenden Nachrichten-Typen"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/renderer.py:1574-1622"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "D03",
+      "area": "rendering",
+      "title": "Compact Overlay auch bei terminal-Breite < 80 anzeigen (kompaktere Variante)",
+      "priority": "low",
+      "status": "todo",
+      "problem": "_overlay_artifact_chat_compact() gibt bei width < 80 sofort leer zurück. Bei 80-Spalten-Terminals (häufig in WSL/tmux-Splits) ist das Chat-Panel komplett unsichtbar.",
+      "solution": "Bei width 60-79: Ultra-Compact-Modus — nur letzte AI-Nachricht, maximal 3 Zeilen, Breite=20-30 Zeichen. Unterster rechter Bereich des Terminals. Bei width < 60: Kein Overlay (bleibt wie heute).",
+      "acceptance_criteria": [
+        "Bei width=72: Compact Overlay zeigt letzte AI-Nachricht in 3 Zeilen rechts unten",
+        "Kein Layout-Bruch bei width=72 (Overlay überschreibt keine wichtigen UI-Elemente)",
+        "Bei width=60: kein Overlay (unverändert)",
+        "Bei width=120: normales Compact Overlay (unverändert)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/renderer.py:1563"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "KB01",
+      "area": "keybindings",
+      "title": "Alle verbleibenden Sonderzeichen im chat_focus vollständig unterstützen",
+      "priority": "medium",
+      "status": "todo",
+      "problem": "Aktuell gefixte Keys: Buchstaben (via _normal_or_text + Chat-checks), Space, :, q, Backspace, Enter, Escape. Noch nicht explizit getestet/gefixt: !, @, #, $, %, ^, &, *, (, ), -, =, +, [, ], {, }, ;, ', \", ,, ., /, <, >, ?, ~, `, |, \\. Diese gehen größtenteils durch <any>-Handler — aber nur wenn prompt_toolkit sie nicht zuerst anders routet.",
+      "solution": "Systematischer Test aller printable ASCII-Zeichen im chat_focus-Modus. Alle die durch <any> korrekt gefangen werden: dokumentieren. Die die eigene Bindings haben und kein Chat-Check haben: explizit hinzufügen. Ziel: jedes printable Zeichen landet bei _chat_append() wenn chat_focus aktiv.",
+      "acceptance_criteria": [
+        "Alle 95 printbaren ASCII-Zeichen (0x20-0x7E) funktionieren in chat_focus",
+        "Testskript: for each printable char → _chat_focus_enter() → fire key → assert buffer contains char",
+        "? triggert nicht :help wenn chat_focus aktiv",
+        "/ triggert nicht search wenn chat_focus aktiv",
+        "! löst keinen Befehl aus wenn chat_focus aktiv",
+        "Keine App-seitige Aktion (snake-steuern, Pause etc.) wenn chat_focus aktiv und nicht-special-key gedrückt"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/interactive.py:554-600"
+      ],
+      "complexity": "small"
+    },
+
+    {
+      "id": "KB02",
+      "area": "keybindings",
+      "title": "Ctrl+L zum Leeren des Chat-Inputs (wie in Bash-readline)",
+      "priority": "low",
+      "status": "todo",
+      "problem": "Wenn der User einen langen Text in chat_input_buffer tippte und abbrechen möchte, muss er Backspace viele Male drücken oder Escape drücken (verlässt aber chat_focus komplett). Kein Clear-Input-Shortcut.",
+      "solution": "Ctrl+L in chat_focus: chat_input_buffer = '' ohne chat_focus zu verlassen. Analog zu readline Ctrl+U (kill line).",
+      "acceptance_criteria": [
+        "Ctrl+L cleart chat_input_buffer wenn chat_focus aktiv",
+        "chat_focus bleibt aktiv nach Ctrl+L",
+        "Cursor bleibt in der Eingabezeile",
+        "Ctrl+L außerhalb chat_focus: kein Effekt (oder TUI refresh — bestehende Semantik)"
+      ],
+      "files": [
+        "client_surfaces/operator_tui/interactive.py"
+      ],
+      "complexity": "small"
+    }
+
+  ],
+  "summary": {
+    "total": 18,
+    "by_area": {
+      "rag": 6,
+      "ai_quality": 4,
+      "llm_integration": 4,
+      "chat_ux": 5,
+      "rendering": 3,
+      "keybindings": 2
+    },
+    "by_priority": {
+      "high": 8,
+      "medium": 7,
+      "low": 3
+    },
+    "by_complexity": {
+      "small": 10,
+      "medium": 6,
+      "large": 1
+    },
+    "recommended_order": [
+      "R01 (Frage-Token-RAG) — sofortiger Qualitätsgewinn",
+      "R02 (Context-Window) — sofortiger Qualitätsgewinn, 5 Zeilen",
+      "L01 (LMStudio-Status) — UX-Grundlage",
+      "L02 (Fehler anzeigen) — Debugging ermöglichen",
+      "A01 (Multi-Turn) — Chat wird erst wirklich nützlich",
+      "A02 (Selektierter Context) — direkter Projektbezug",
+      "C01 (Kanal-Wechsel) — grundlegende Chat-Navigation",
+      "R03 (Details.jsonl) — Funktions-Level-Lookup",
+      "C02 (Compact Overlay interaktiv) — Chat ohne snake-Modus",
+      "KB01 (Alle Sonderzeichen)"
+    ]
+  }
+}
