@@ -1,0 +1,1238 @@
+{
+  "version": "1.7",
+  "owner": "Peter Stuiber",
+  "track": "heuristic-runtime-registry-snake-chat-ai-evolution-master",
+  "purpose": "Konsolidierte Master-TODO für alle Heuristik-Themen: AI-Snake-Fallback, Chat-CodeCompass-Fallback, AI-assisted Heuristik-Evolution und Worker-Routing.",
+  "goal": "Ananta erhält eine gemeinsame Heuristic Runtime mit Registry, lokalen deterministischen Fallbacks, TTL-basierten HeuristicDecisionLeases, AI-gestützter Auswahl und sicherer Evolution. Snake und Chat nutzen dieselbe HeuristicRegistry. Aktive Heuristiken laufen lokal deterministisch. Der ananta-worker ist Standard für Auswahl, TTL-Reevaluation, Trace-Auswertung und Candidate-Proposals. OpenCode wird nur für genehmigte Codeänderungen, Refactoring, Tests und Implementierung eingesetzt. Neue Heuristiken werden nie automatisch aktiv, sondern validiert, simuliert, reviewed und freigegeben.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "replaces": [
+    "todos/todo.ai-snake-heuristic-fallback-behavioral-patterns.json",
+    "todos/todo.chat-heuristic-fallback-codecompass-selection.json",
+    "todos/todo.ai-assisted-heuristic-evolution-and-selection.json",
+    "todos/todo.heuristic-worker-routing-runtime-policy-corrections.json"
+  ],
+  "code_analysis_notes": {
+    "analysed_at": "2026-05-27",
+    "key_existing_files": {
+      "tui_snake": [
+        "client_surfaces/operator_tui/ai_snake_follow.py (~100 Zeilen, Follow/Lurk-State)",
+        "client_surfaces/operator_tui/ai_snake_observation.py (140 Zeilen, ObservationEvent Ringbuffer)",
+        "client_surfaces/operator_tui/ai_snake_prediction.py (172 Zeilen, QuickPrediction + PredictionGate)",
+        "client_surfaces/operator_tui/ai_snake_prediction_cache.py (~54 Zeilen, TTL-Cache)",
+        "client_surfaces/operator_tui/ai_snake_policy.py (~150 Zeilen, PolicyDecision)",
+        "client_surfaces/operator_tui/ai_snake_context.py (389 Zeilen, Kontext-Modell)",
+        "client_surfaces/operator_tui/ai_snake_worker_client.py (250 Zeilen, Worker-Dispatch)",
+        "client_surfaces/operator_tui/interactive.py (4045 Zeilen, MONOLITH Tick-Loop)"
+      ],
+      "tui_chat": [
+        "client_surfaces/operator_tui/chat_state.py (288 Zeilen, ChatMessage-v1, Channels)",
+        "client_surfaces/operator_tui/chat_policy.py (187 Zeilen, Sicherheitsgrenzen, _redact())",
+        "client_surfaces/operator_tui/chat_transport.py (163 Zeilen, Hub-Polling, Outbox)"
+      ],
+      "eclipse_snake": [
+        "client_surfaces/eclipse_runtime/.../snake/AnantaSnakeState.java (immutable State)",
+        "client_surfaces/eclipse_runtime/.../snake/AnantaSnakePredictionRuntime.java (Zone-based Prediction)",
+        "client_surfaces/eclipse_runtime/.../snake/AnantaSnakePluginService.java"
+      ],
+      "backend_services": [
+        "agent/services/worker_selection_policy_service.py (Worker-Auswahl, EXTERNAL_WORKER_KINDS)",
+        "agent/services/worker_routing_policy_utils.py (Capabilities, Blueprint-Defaults)",
+        "agent/services/routing_decision_service.py (216 Zeilen, fallback_order Logic)",
+        "agent/services/evolution/registry.py (174 Zeilen, EvolutionProviderRegistry)",
+        "agent/repositories/worker_slot_lease.py (71 Zeilen, list_expired())",
+        "agent/db_models.py (WorkerSlotLeaseDB: deadline_at, acquired_at, status)"
+      ],
+      "schemas": [
+        "schemas/tui/ai_snake_response.v1.json",
+        "schemas/tui/ai_snake_prediction_profile.v1.json"
+      ],
+      "tests": [
+        "tests/test_tui_snake_chat_state.py (32 Tests)",
+        "tests/test_tui_snake_chat_policy.py (20 Tests)",
+        "tests/test_snakes_chat_api.py (14 Tests)",
+        "tests/test_ai_snake_prediction.py",
+        "tests/test_ai_snake_policy.py",
+        "tests/test_ai_snake_follow.py",
+        "tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py (100+ Tests)"
+      ]
+    },
+    "critical_gaps": [
+      "HeuristicRegistry und HeuristicDefinition fehlen komplett",
+      "HeuristicDecisionLease fehlt (WorkerSlotLeaseDB existiert als Vorlage)",
+      "DecisionContext/DecisionResult sind nicht als gemeinsames Schema definiert",
+      "WorkerRoleConfig-v1 fehlt (worker_selection_policy_service.py ist Vorlage)",
+      "SnakeDecisionManager ist nicht explizit (interactive.py 4045 Zeilen Monolith)",
+      "ChatDecisionManager fehlt komplett",
+      "CodeCompass Query Classifier ohne AI fehlt",
+      "Heuristic Proposal Validator, Simulation Harness und Activation Gate fehlen",
+      "No-auto-activation ist noch kein technisch erzwungenes Constraint"
+    ],
+    "improvement_suggestions": [
+      "interactive.py (4045 Zeilen) muss in SnakeDecisionManager + ChatDecisionManager aufgeteilt werden",
+      "PolicyDecision existiert in 3 verschiedenen Varianten (ai_snake_policy.py, chat_policy.py, Services) -> unify",
+      "build_prediction_trace() in ai_snake_prediction.py ist Vorlage fuer unified DecisionTrace",
+      "EvolutionProviderRegistry in evolution/registry.py ist anpassbar fuer HeuristicRegistry",
+      "WorkerSlotLeaseDB in db_models.py ist direkte Vorlage fuer HeuristicDecisionLeaseDB",
+      "ai_snake_worker_client.py ThreadPoolExecutor Timeout-Handling ist solide Basis fuer Fallback-Integration"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Core Policy, Registry und Routing",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03",
+        "T01.04",
+        "T01.05"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M02",
+      "title": "Decision Context, Result und TTL Lease",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M03",
+      "title": "Behavioral Pattern Runtime",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04",
+        "T03.05"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M04",
+      "title": "Snake Runtime Fallback",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M05",
+      "title": "Chat CodeCompass Fallback",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03",
+        "T05.04",
+        "T05.05"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M06",
+      "title": "AI Selection und Heuristik Evolution",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03",
+        "T06.04",
+        "T06.05"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M07",
+      "title": "Validation, Simulation, Approval und Rollback",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M08",
+      "title": "Observability, TUI, Tests und Doku",
+      "task_ids": [
+        "T08.01",
+        "T08.02",
+        "T08.03",
+        "T08.04",
+        "T08.05",
+        "T08.06"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M09",
+      "title": "Refactoring und Technical Debt",
+      "task_ids": [
+        "T09.01",
+        "T09.02",
+        "T09.03"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Heuristic Runtime Policy definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "policy",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Policy-Dokument docs/security/heuristic-runtime-policy.md erstellt.",
+        "Policy legt fest: Aktive Heuristiken laufen ausschliesslich lokal deterministisch ohne LLM-Aufruf pro Tick.",
+        "Policy trennt Rollen klar: ananta-worker = Control (Auswahl, Reevaluation, Proposals); OpenCode = Code-Implementierung (kein Runtime-Entscheider).",
+        "Policy definiert Fallback-Trigger: ai_timeout (default 2.5s wie in ai_snake_worker_client.py Zeile 36), ai_offline, invalid_response, low_quality, policy_denied.",
+        "Policy verbietet Auto-Activation explizit: Neue Heuristiken werden nie automatisch aktiv ohne Validation + Simulation + Approval.",
+        "Policy gilt gleichermassen fuer TUI Snake (interactive.py), Eclipse Snake (AnantaSnakePluginService.java) und Chat (chat_state.py).",
+        "Policy referenziert WorkerRoleConfig-v1 (T01.02) als verbindliche Konfigurationsgrundlage.",
+        "Policy wird in mindestens einem Test gegen WorkerRoleConfig-Validator geprueft."
+      ]
+    },
+    {
+      "id": "T01.02",
+      "title": "WorkerRoleConfig-v1 definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "schema",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "code_notes": "agent/services/worker_selection_policy_service.py hat EXTERNAL_WORKER_KINDS und DETERMINISTIC_REPAIR_CAPABLE_KINDS als Vorlage. Kein Heuristic-spezifisches Config-Konzept vorhanden.",
+      "acceptance_criteria": [
+        "Schema schemas/worker/worker_role_config.v1.json erstellt mit Feldern: runtime_mode (local|hybrid), control_worker (default: ananta-worker), evolution_worker (default: ananta-worker), code_implementation_worker (default: opencode), auto_activation (default: false), domain_overrides fuer snake und chat.",
+        "WorkerRoleConfigService in agent/services/worker_role_config_service.py implementiert: normalize(), validate(), load_from_settings().",
+        "Validator blockiert explizit: runtime_mode=ai_only, OpenCode als control_worker oder evolution_worker.",
+        "Validator nutzt bestehende EXTERNAL_WORKER_KINDS aus worker_selection_policy_service.py fuer Kompatibilitaetspruefung.",
+        "Domain-Overrides erlauben separate TTL-Defaults fuer snake (5-10s) und chat (10-20s).",
+        "Tests in tests/test_worker_role_config_service.py pruefen: Default-Werte korrekt, OpenCode-als-Control-Validator blockiert, Domain-Overrides werden korrekt aufgeloest.",
+        "WorkerRoleConfig wird in agent/config.py oder settings eingebunden und beim Hub-Start validiert."
+      ]
+    },
+    {
+      "id": "T01.03",
+      "title": "HeuristicDefinition-v1 und HeuristicRegistry implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "code_notes": "agent/services/evolution/registry.py hat EvolutionProviderRegistry (register, unregister, resolve) als Vorlage. Kein Heuristic-spezifisches Schema. ai_snake_prediction_profile.v1.json in schemas/tui/ ist partielle Vorlage fuer HeuristicDefinition.",
+      "acceptance_criteria": [
+        "Schema schemas/heuristic/heuristic_definition.v1.json erstellt mit: heuristic_id (string, kebab-case), version (semver), domain (snake_tui|snake_eclipse|chat_codecompass|universal), strategy_kind, inputs (liste erlaubter Input-Typen), outputs (liste erlaubter Output-Typen), safety_class (readonly|bounded|elevated), deterministic (bool), capabilities (liste aus T01.05), description, changelog.",
+        "HeuristicRegistry in agent/services/heuristic_registry_service.py implementiert: load_all(), get_active(domain), get_by_id(heuristic_id, version), register_candidate(), promote_to_active(), quarantine(), rollback(), list_by_status().",
+        "Registry unterscheidet Status: active, candidate, rejected, quarantined, deprecated, archived. Nur active darf zur Runtime genutzt werden.",
+        "Registry basiert auf Ordnerstruktur aus T01.04 und nutzt index.json als Quelle.",
+        "Versionierung: Jede neue Version einer Heuristik erhaelt eigene Datei; alte Versionen bleiben rollbackfaehig.",
+        "Registry-Pattern orientiert sich an EvolutionProviderRegistry (agent/services/evolution/registry.py), ersetzt jedoch die generische Provider-Logik durch typisierte HeuristicDefinition.",
+        "Tests in tests/test_heuristic_registry.py pruefen: load/list/filter nach domain und status/version/rollback/quarantine; ungueltige Heuristiken werden abgelehnt."
+      ]
+    },
+    {
+      "id": "T01.04",
+      "title": "Heuristic Storage Layout anlegen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "structure",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Ordnerstruktur erstellt: heuristics/active/, heuristics/candidates/, heuristics/rejected/, heuristics/quarantine/, heuristics/archive/.",
+        "Jede Heuristik besteht aus: <heuristic_id>-v<major>.json (HeuristicDefinition) und optional <heuristic_id>-v<major>.md (Erklaerung fuer Operator).",
+        "Indexdatei heuristics/index.json listet alle Heuristiken mit status, version, domain, last_modified.",
+        "Starter-Heuristiken aus bestehenden Implementierungen ableiten: snake_follow_default aus ai_snake_follow.py, snake_lurk_default aus ai_snake_follow.py, chat_codecompass_select_default aus ai_snake_context.py build_context_payload().",
+        "HeuristicRegistry (T01.03) laedt ausschliesslich aus diesem Layout.",
+        ".gitignore oder README in heuristics/quarantine/ warnt vor manuellem Eingriff.",
+        "Test prueft dass Registry keine Heuristiken aus candidates/ oder rejected/ als active zurueckgibt."
+      ]
+    },
+    {
+      "id": "T01.05",
+      "title": "Heuristic Capability Boundaries definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.03"
+      ],
+      "code_notes": "agent/services/worker_routing_policy_utils.py hat extract_blueprint_role_defaults() und Capability-Extraktionslogik als Vorlage. chat_policy.py hat write_local, send_hub, send_ai, share_context, export als bestehende Capability-Grenzen.",
+      "acceptance_criteria": [
+        "HeuristicCapability Enum definiert in schemas/heuristic/heuristic_definition.v1.json: read_local_context, read_artifact_refs, read_active_task, write_local_notes, send_to_chat, send_to_worker, request_context_extension, file_write (elevated), network_access (elevated), secret_access (verboten).",
+        "Snake-Bewegungsheuristik (domain: snake_tui, snake_eclipse) darf maximal: read_local_context, read_artifact_refs, read_active_task.",
+        "Chat-Kontextheuristik (domain: chat_codecompass) darf maximal: read_local_context, read_artifact_refs, read_active_task, send_to_chat.",
+        "Runtime-Layer prueft Capability-Verletzungen vor Ausfuehrung und gibt HeuristicCapabilityViolation zurueck.",
+        "HeuristicValidator (T07.01) nutzt diese Capability-Grenzen fuer Proposal-Validierung.",
+        "Capability-Check nutzt bestehende Policy-Logik aus chat_policy.py als Vorlage.",
+        "Tests in tests/test_heuristic_capability_boundaries.py pruefen: Snake-Heuristik kann nicht file_write, Chat-Heuristik kann nicht network_access, Verletzungen werden korrekt geblockt."
+      ]
+    },
+    {
+      "id": "T02.01",
+      "title": "Gemeinsamen DecisionContext definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T01.01"
+      ],
+      "code_notes": "ai_snake_context.py (389 Zeilen) hat default_ai_context() mit allowed_refs, denied_refs, sensitivity, policy_decision_ref. ObservationEvent in ai_snake_observation.py ist partieller Kontext. Kein gemeinsames Schema fuer Snake und Chat.",
+      "acceptance_criteria": [
+        "Schema schemas/heuristic/decision_context.v1.json erstellt mit: source_surface (tui_snake|eclipse_snake|chat_codecompass), active_goal_id, active_task_id, selected_artifacts (max. 5 Refs), active_panel, recent_events (ringbuffer, max. 20, aus ai_snake_observation.py ObservationEvent), allowed_source_scopes, ai_status (available|timeout|offline|invalid), policy_state, context_hash (sha256 ueber relevante Felder).",
+        "DecisionContext Dataclass in agent/services/heuristic_runtime/decision_context.py implementiert build_from_tui_state() und build_from_chat_state() Factories.",
+        "build_from_tui_state() nutzt bestehende ai_snake_context.py default_ai_context() als Basis und erweitert diese.",
+        "Kein sensitiver Rohinhalt im DecisionContext: Texte werden auf max. 200 Zeichen gestutzt oder als Ref referenziert.",
+        "context_hash wird deterministisch berechnet und fuer TTL-Reevaluation (T02.04) genutzt.",
+        "Tests pruefen minimalen Kontext (nur source_surface), vollstaendigen Kontext und Hash-Stabilitaet bei gleichen Eingaben."
+      ]
+    },
+    {
+      "id": "T02.02",
+      "title": "Gemeinsames DecisionResult definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "code_notes": "PolicyDecision in ai_snake_policy.py (Zeilen 10-23) hat allowed, boundary, reason_code, decision_ref. Existiert in 3 Varianten (ai_snake_policy.py, chat_policy.py, Services) - muss vereinheitlicht werden.",
+      "acceptance_criteria": [
+        "Schema schemas/heuristic/decision_result.v1.json erstellt mit: action_kind (follow|lurk|explain|chat|no_action|policy_denied), answer_kind (optional: source_ref|context_summary|no_good_match|heuristic_answer|ai_answer), confidence (0.0-1.0), selected_context_refs (liste), suggested_motion (fuer Snake: x/y delta), answer_blocks (fuer Chat), reason_codes (liste), provenance (source: ai|heuristic|hybrid), strategy_id, rule_id, fallback_reason.",
+        "DecisionResult Dataclass in agent/services/heuristic_runtime/decision_result.py implementiert.",
+        "Bestehende PolicyDecision aus ai_snake_policy.py wird NICHT ersetzt sondern zu DecisionResult konvertiert via to_decision_result() Adapter - kein Breaking Change.",
+        "DecisionResult unterscheidet source=heuristic klar von source=ai: Heuristische Ergebnisse duerfen keine erfundenen Dateinamen oder Symbole enthalten (Guardrail T05.05).",
+        "Tests pruefen Snake-Result (action_kind=follow, suggested_motion vorhanden) und Chat-Result (answer_blocks vorhanden, no_good_match korrekt gesetzt)."
+      ]
+    },
+    {
+      "id": "T02.03",
+      "title": "HeuristicDecisionLease-v1 mit TTL definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "schema",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.02"
+      ],
+      "code_notes": "WorkerSlotLeaseDB in agent/db_models.py hat lease_type, status (active|queued|released|rejected|stale_released), deadline_at, acquired_at, released_at - direkte Vorlage. QuickPrediction.expires_at in ai_snake_prediction.py Zeile 16 ist weiteres TTL-Konzept. agent/repositories/worker_slot_lease.py hat list_expired().",
+      "acceptance_criteria": [
+        "Schema schemas/heuristic/heuristic_decision_lease.v1.json erstellt mit: lease_id (uuid4), heuristic_id, version, domain, started_at, expires_at, ttl_seconds, selected_by (ai|heuristic_self|operator), reason_codes, context_hash.",
+        "HeuristicDecisionLeaseDB in agent/db_models.py analog zu WorkerSlotLeaseDB: lease_type='heuristic', status (active|expired|superseded|released), deadline_at, context_hash.",
+        "Repository agent/repositories/heuristic_lease_repo.py implementiert: acquire(heuristic_id, ttl_seconds, context_hash), release(lease_id), list_expired(), get_active(domain).",
+        "TTL-Defaults konfigurierbar per WorkerRoleConfig domain_overrides: snake default 5-10s, chat default 10-20s.",
+        "Abgelaufene Lease (expires_at < now) darf nicht mehr als aktuelle Entscheidungsgrundlage verwendet werden - Runtime prueft dies vor jeder Ausfuehrung.",
+        "Tests in tests/test_heuristic_decision_lease.py pruefen: gueltige Lease, abgelaufene Lease (rejected), zu kurze TTL (<1s blocked), zu lange TTL (>60s capped), Lease-Release.",
+        "Lease-Erwerb und Ablauf werden in DecisionTrace (T08.01) auditierbar protokolliert."
+      ]
+    },
+    {
+      "id": "T02.04",
+      "title": "TTL Reevaluation implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "runtime",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.03"
+      ],
+      "code_notes": "agent/repositories/worker_slot_lease.py list_expired() ist direkte Vorlage. ai_snake_prediction_cache.py hat TTL-Cache als Referenz fuer Rate-Limiting-Logik. ai_snake_worker_client.py hat Timeout-Handling (2.5s) als Vorlage.",
+      "acceptance_criteria": [
+        "LeaseReevaluationService in agent/services/heuristic_runtime/lease_reevaluation_service.py implementiert: check_and_reevaluate(domain, context), extend_lease(lease_id, additional_ttl_seconds), switch_heuristic(domain, new_heuristic_id), trigger_candidate_proposal().",
+        "Nach Lease-Ablauf wird heuristic_lease_repo.list_expired() geprueft und Reevaluation automatisch angestossen.",
+        "Reevaluation nutzt context_hash-Vergleich: Gleicher Hash -> Lease verlaengern; geaenderter Hash -> neu auswerten oder Candidate Proposal (T06.03) anstossen.",
+        "Kein AI-Aufruf pro Snake-Tick: Rate-Limiting max. 1 Reevaluation-AI-Request alle 10s pro Domain, analog zu ai_snake_prediction_cache.py TTL-Logik.",
+        "SnakeDecisionManager (T04.01) und ChatDecisionManager (T05.01) nutzen LeaseReevaluationService als zentralen Entry-Point.",
+        "Tests pruefen: Lease-Ablauf loest Reevaluation aus, Rate-Limit blockiert zu fruehe Reevaluation, Kontext-Aenderung loest Heuristik-Wechsel aus, Candidate-Proposal entsteht bei no_good_match."
+      ]
+    },
+    {
+      "id": "T03.01",
+      "title": "Strategy Pattern fuer Heuristik-Profile",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "behavioral-pattern",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T01.03"
+      ],
+      "code_notes": "ai_snake_follow.py hat impliziten Strategy-Switch zwischen Follow und Lurk (kein formales Interface). AnantaSnakePredictionRuntime.java hat Zone-basiertes Strategy-Lookup als Referenz.",
+      "acceptance_criteria": [
+        "HeuristicStrategy ABC in agent/services/heuristic_runtime/strategy.py definiert: evaluate(context: DecisionContext) -> DecisionResult, get_heuristic_id() -> str, get_domain() -> str.",
+        "DefaultTuiSnakeStrategy implementiert: nutzt ai_snake_follow.py Logik als Basis, gibt action_kind=follow|lurk|waiting_ai|fallback_active zurueck.",
+        "DefaultEclipseSnakeStrategy implementiert: portiert AnantaSnakePredictionRuntime.java Zone-Logik (problems, git_compare, editor, console) nach Python oder nutzt Java-seitig Strategy-Interface.",
+        "DefaultChatCodeCompassStrategy implementiert: nutzt ai_snake_context.py build_context_payload() als Basis.",
+        "Strategie ist per WorkerRoleConfig domain_overrides austauschbar ohne Code-Aenderung.",
+        "HeuristicRegistry (T01.03) liefert aktive Strategy-Instanz via get_active_strategy(domain).",
+        "Tests pruefen Strategieauswahl nach Domain, Austauschbarkeit via Config, Fallback auf DefaultStrategy wenn keine spezifische gefunden."
+      ]
+    },
+    {
+      "id": "T03.02",
+      "title": "Chain of Responsibility fuer Regeln und Selektoren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "behavioral-pattern",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "HeuristicRuleChainElement ABC in agent/services/heuristic_runtime/chain.py definiert: handle(context: DecisionContext, result: DecisionResult | None) -> ChainResult mit status=handled|continue|abstain.",
+        "Snake-Regelkette implementiert (agent/services/heuristic_runtime/snake_rules.py): artifact_hover_rule (Prio 1), diff_focus_rule (Prio 2), chat_focus_rule (Prio 3), error_focus_rule (Prio 4), idle_lurk_rule (Prio 5), default_follow_rule (Prio 99, immer handled).",
+        "Chat-Selektorkette implementiert (agent/services/heuristic_runtime/chat_selectors.py): selected_artifact_selector, active_goal_selector, error_helpcenter_selector, symbol_selector, file_selector, todo_selector, sourcepack_selector, no_match_selector.",
+        "Reihenfolge der Chain-Elemente ist via HeuristicDefinition.strategy_kind konfigurierbar.",
+        "Jedes Chain-Element liest aus DecisionContext und gibt ChainResult zurueck - keine Side-Effects.",
+        "Tests pruefen: Chain-Reihenfolge, abstain-Weiterleitung, handled-Abbruch, konfigurierbare Reihenfolge."
+      ]
+    },
+    {
+      "id": "T03.03",
+      "title": "State Pattern fuer Snake und Chat",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "behavioral-pattern",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T02.03"
+      ],
+      "code_notes": "AnantaSnakeState.java hat followMode und contextMode (implizite States). interactive.py hat State-Uebergaenge implizit in 4045-Zeilen Tick-Loop. Kein formales State-Machine-Interface.",
+      "acceptance_criteria": [
+        "HeuristicState ABC in agent/services/heuristic_runtime/state_machine.py mit: on_enter(), on_exit(), on_event(event) -> HeuristicState | None.",
+        "SnakeStateMachine implementiert States: following (ai_snake_follow.py Follow-Logik), lurking (ai_snake_follow.py Lurk-Logik), waiting_ai (Worker-Request pending), fallback_active (TTL-Lease, kein Worker), explaining, chatting, disabled.",
+        "ChatStateMachine implementiert States: waiting_ai, heuristic_context_selection, heuristic_answer_ready, ai_answer_ready, stale_ai_answer (spaete AI-Antwort darf aktuelle nicht blind ueberschreiben), no_match, policy_denied.",
+        "State-Transitions sind explizit definiert: Timeout nach konfigurierter Dauer (aus ai_snake_worker_client.py 2.5s-Default) fuehrt deterministisch zu fallback_active.",
+        "AnantaSnakeState.java followMode-Werte werden auf SnakeStateMachine-States gemappt.",
+        "Tests pruefen gueltige Transitions (waiting_ai -> fallback_active nach Timeout), ungueltige Transitions (disabled -> following direkt geblockt), Timeout-Handling."
+      ]
+    },
+    {
+      "id": "T03.04",
+      "title": "Observer Pattern fuer UI- und Chat-Events",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "behavioral-pattern",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T02.01"
+      ],
+      "code_notes": "ai_snake_observation.py ObservationEvent (Ringbuffer, 140 Zeilen) ist partielle Observer-Implementierung. interactive.py ist de-facto Event-Consumer. Kein formales Observer-Interface, keine EventSource-Abstraktion.",
+      "acceptance_criteria": [
+        "HeuristicEventBus in agent/services/heuristic_runtime/event_bus.py implementiert: subscribe(handler), publish(event), get_recent(n) - Ringbuffer aus ai_snake_observation.py als Vorlage.",
+        "Normalisiertes Event-Schema: HeuristicEvent mit event_type (pointer_move|focus_change|panel_switch|artifact_select|chat_message|error_detected), surface, timestamp, metadata (kein Rohinhalt).",
+        "TuiEventSourceAdapter adaptiert TUI-Events aus interactive.py auf HeuristicEvent.",
+        "EclipseEventSourceAdapter adaptiert Java-seitige AnantaSnakeState-Aenderungen auf HeuristicEvent (via Hub-API oder direkte Integration).",
+        "DecisionManager konsumiert normalisierte Events via EventBus - nicht mehr direkt aus internem TUI-State.",
+        "Bestehender ObservationEvent-Ringbuffer in ai_snake_observation.py wird migriert oder als EventBus-Consumer angebunden.",
+        "Tests pruefen: Event-Normalisierung fuer TUI und Eclipse, Ringbuffer-Overflow (aelteste verworfen), Subscribe/Unsubscribe."
+      ]
+    },
+    {
+      "id": "T03.05",
+      "title": "Command Pattern fuer UI-Aktionen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "behavioral-pattern",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T02.02"
+      ],
+      "code_notes": "interactive.py hat Command-Ausfuehrung implizit in Tick-Loop (3507-Zeilen commands.py referenziert). Kein Command-Pattern-Interface.",
+      "acceptance_criteria": [
+        "HeuristicCommand ABC in agent/services/heuristic_runtime/commands.py: execute(adapter) -> CommandResult, undo() -> bool (optional), to_dict() -> dict.",
+        "Commands implementiert: FollowWithDistanceCommand(target_x, target_y, distance), LurkNearCommand(zone), ShowHintCommand(hint_text, duration_ms), OpenChatCommand, ShowContextSummaryCommand(refs), OpenSourceRefCommand(ref), AskScopeCommand, NoActionCommand.",
+        "TuiCommandAdapter fuehrt Commands in interactive.py aus ohne direkten Command-Code.",
+        "EclipseCommandAdapter fuehrt Commands via AnantaSnakeOverlayCanvas.java aus.",
+        "Commands sind ohne UI-Instanz unit-testbar: execute() auf MockAdapter.",
+        "DecisionResult.action_kind mappt deterministisch auf Command-Instanz."
+      ]
+    },
+    {
+      "id": "T04.01",
+      "title": "SnakeDecisionManager an gemeinsame Runtime anbinden",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "snake",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T02.03",
+        "T03.01"
+      ],
+      "code_notes": "De-facto SnakeDecisionManager ist interactive.py (4045 Zeilen Monolith) kombiniert mit ai_snake_worker_client.py (250 Zeilen). Refactoring ist Pflicht. ai_snake_follow.py, ai_snake_prediction.py, ai_snake_policy.py sind saubere Teilmodule.",
+      "acceptance_criteria": [
+        "SnakeDecisionManager als explizite Klasse in agent/services/heuristic_runtime/snake_decision_manager.py oder client_surfaces/operator_tui/snake_decision_manager.py: decide(context: DecisionContext) -> DecisionResult, tick(), get_current_lease() -> HeuristicDecisionLease | None.",
+        "SnakeDecisionManager nutzt HeuristicRegistry (T01.03) fuer aktive Strategie, HeuristicDecisionLease (T02.03) fuer TTL und LeaseReevaluationService (T02.04) fuer Ablauf-Handling.",
+        "AI/ananta-worker kann Heuristik-Lease setzen; bei Timeout (2.5s, aus ai_snake_worker_client.py) laeuft lokale Fallback-Strategie weiter.",
+        "interactive.py wird refactored: SnakeDecisionManager wird ausgelagert (Task T09.01), interactive.py delegiert an Manager.",
+        "DecisionTrace (T08.01) wird pro Entscheidung befuellt: lease_id, heuristic_id, fallback_reason (ai_timeout|ai_offline|policy_denied|lease_expired).",
+        "Tests in tests/test_snake_decision_manager.py pruefen: AI-Timeout -> Fallback, Lease-Erwerb, Lease-Ablauf, State-Transition via StateMachine (T03.03)."
+      ]
+    },
+    {
+      "id": "T04.02",
+      "title": "TUI Snake Fallback implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "tui",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "code_notes": "ai_snake_follow.py hat Follow/Lurk-Logik. ai_snake_prediction.py hat QuickPrediction mit expires_at und PredictionGate (min_interval_seconds, min_confidence). ai_snake_worker_client.py hat ThreadPoolExecutor Timeout-Handling.",
+      "acceptance_criteria": [
+        "TUI-Snake folgt mit Abstand deterministisch auch ohne Worker: FollowWithDistanceCommand aus ai_snake_follow.py Logik, kein LLM-Aufruf.",
+        "Lauer-Modus funktioniert lokal: LurkNearCommand basierend auf ai_snake_follow.py Lurk-Logik, konfigurierbar per lurk_zone_radius.",
+        "Fallback-State fallback_active in SnakeStateMachine ist sichtbar: TUI zeigt Status-Indikator (z.B. '[F]' im Status-Bereich von interactive.py).",
+        "E2E-Test (T08.04) beweist: AI-Worker kuenstlich verzoeget (>2.5s Mock) -> fallback_active aktiv, Snake weiter reaktionsfaehig.",
+        "DecisionTrace zeigt fallback_reason=ai_timeout wenn Fallback aktiv.",
+        "Keine unerlaubte Kontextweitergabe im Fallback: ai_snake_context.py build_context_payload() prueft allowed_source_scopes auch im Fallback-Pfad."
+      ]
+    },
+    {
+      "id": "T04.03",
+      "title": "Eclipse Snake Fallback anschliessen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "eclipse",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "code_notes": "AnantaSnakePredictionRuntime.java hat Zone-basierte deterministische Prediction (problems, git_compare, editor, console -> IntentKind). AnantaSnakeState.java hat ttlMillis. AnantaSnakePluginService.java ist Einstiegspunkt.",
+      "acceptance_criteria": [
+        "Eclipse-Snake nutzt dieselbe DecisionRuntime via Eclipse-Strategie (DefaultEclipseSnakeStrategy aus T03.01): AnantaSnakePredictionRuntime.java liefert Intent, DecisionManager wendet Strategy an.",
+        "Offline/langsamer Hub blockiert Follow-Modus und Lauer-Modus nicht: AnantaSnakePredictionRuntime.java laeuft lokal deterministisch auch ohne Hub-Verbindung.",
+        "Keine Dateiinhalte werden durch Eclipse-Heuristik uebertragen: AnantaEditorContextSnapshotRuntime.java liefert nur Zone-Klassifikation, keine Dateiinhalte.",
+        "AnantaSnakeState.java ttlMillis wird als Lease-TTL interpretiert und mit HeuristicDecisionLease (T02.03) synchronisiert wenn Hub verfuegbar.",
+        "Bestehende Java-Tests (9 Test-Dateien) werden um Offline-Fallback-Szenarien erweitert.",
+        "Tests pruefen: AnantaSnakePredictionRuntime.java liefert korrekten Intent fuer alle 4 Zonen ohne Hub-Verbindung."
+      ]
+    },
+    {
+      "id": "T04.04",
+      "title": "Snake Lauer-Modus verbessern",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "behavior",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.02",
+        "T04.03"
+      ],
+      "code_notes": "ai_snake_follow.py hat implizite Lurk-Logik. ObservationEvent-Ringbuffer in ai_snake_observation.py liefert Event-Historie. Kein idle_since-Tracking.",
+      "acceptance_criteria": [
+        "Lauer-Modus-Entscheidung in ai_snake_follow.py basiert auf: stabile Cursor-Position (Delta < lurk_threshold_px fuer lurk_idle_seconds), aktiver Fokusbereich (Zone aus ObservationEvent), Event-Historie aus ai_snake_observation.py Ringbuffer.",
+        "Snake bewegt sich im Lauer-Modus nicht hektisch: max. 1 Positions-Update pro lurk_update_interval_ms (konfigurierbar, default 500ms).",
+        "Lauer-Modus erzeugt keine Worker-Requests pro Tick: LurkNearCommand nutzt ausschliesslich lokale Heuristik ohne AI.",
+        "idle_since Zeitstempel wird in SnakeDecisionManager verwaltet und fuer Lurk-Trigger genutzt.",
+        "State-Transition Follow -> Lurk -> Explain/Chat ist in SnakeStateMachine (T03.03) definiert und wird von Tests (tests/test_ai_snake_follow.py erweitert) verifiziert.",
+        "TUI-Status zeigt Lauer-Modus sichtbar an (z.B. '[L]' im Status-Bereich)."
+      ]
+    },
+    {
+      "id": "T05.01",
+      "title": "ChatDecisionManager an gemeinsame Runtime anbinden",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "chat",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T02.03",
+        "T03.01"
+      ],
+      "code_notes": "chat_state.py (288 Zeilen, ChatMessage-v1, Channels), chat_policy.py (187 Zeilen, write_local/send_hub/send_ai/share_context), chat_transport.py (163 Zeilen, Hub-Polling, Outbox) sind bestehende Bausteine. Kein expliziter ChatDecisionManager.",
+      "acceptance_criteria": [
+        "ChatDecisionManager in agent/services/heuristic_runtime/chat_decision_manager.py: decide(query: str, context: DecisionContext) -> DecisionResult, handle_late_ai_response(result: DecisionResult) -> None.",
+        "Chat nutzt lokale deterministische CodeCompass-Selektion (T05.02, T05.03) als Fallback wenn AI nicht verfuegbar.",
+        "AI/ananta-worker kann Heuristik-Lease fuer Chat-Kontext-Selektion setzen.",
+        "Spaete AI-Antwort (nach Lease-Ablauf) darf aktuelle Antwort nicht blind ueberschreiben: handle_late_ai_response() vergleicht context_hash und verwirft bei Abweichung.",
+        "chat_policy.py wird NICHT ersetzt sondern integriert: ChatDecisionManager delegiert an ChatAccessPolicy fuer Sicherheitsgrenzen.",
+        "Tests pruefen: AI-Timeout -> heuristische Antwort, spaete AI-Antwort verworfen, ChatAccessPolicy-Grenzen bleiben aktiv."
+      ]
+    },
+    {
+      "id": "T05.02",
+      "title": "CodeCompass Query Classifier ohne AI",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "codecompass",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.01"
+      ],
+      "code_notes": "Nichts vorhanden. worker/retrieval/codecompass_query_parser.py existiert fuer Retrieval aber nicht fuer heuristische Intent-Klassifikation.",
+      "acceptance_criteria": [
+        "ChatQueryClassifier in agent/services/heuristic_runtime/chat_query_classifier.py: classify(query: str, context: DecisionContext) -> ClassificationResult mit intent_kind, confidence, reason_codes.",
+        "IntentKind Enum: explain_file, find_symbol, explain_error, todo_status, artifact_lookup, helpcenter_lookup, general_project_question, unknown.",
+        "Classifier nutzt Keyword-Matching (keine LLM-Aufrufe), UI-Auswahl (selected_artifacts aus DecisionContext), SourceScope (allowed_source_scopes).",
+        "Keyword-Listen je Intent: explain_file -> ['erklaer', 'was macht', 'was ist', 'explain', 'describe']; find_symbol -> ['wo ist', 'find', 'where is', 'symbol', 'function', 'class']; explain_error -> ['fehler', 'error', 'exception', 'traceback'].",
+        "Classifier liefert confidence: 1.0 fuer selected_artifact + passender Intent; 0.7 fuer Keyword-Match; 0.3 fuer general_project_question; 0.0 fuer unknown.",
+        "Tests pruefen mindestens 10 typische Deutsch/Englisch-Queries pro IntentKind: korrekte Klassifikation, confidence-Schwellen."
+      ]
+    },
+    {
+      "id": "T05.03",
+      "title": "CodeCompass Context Selector",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "codecompass",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.02"
+      ],
+      "code_notes": "ai_snake_context.py build_context_payload() (Zeilen 69-93) selektiert artifact/notes/local_knowledge nach allowed_context_refs - partielle Implementierung. worker/retrieval/codecompass_budgeting.py hat Budget-Limiting-Logik.",
+      "acceptance_criteria": [
+        "ChatContextSelector in agent/services/heuristic_runtime/chat_context_selector.py: select(intent: IntentKind, context: DecisionContext) -> SelectedContextResult mit selected_refs, budget_used, ranking_explanation.",
+        "Prioritaets-Ranking deterministisch: (1) selected_artifacts aus DecisionContext, (2) active_goal/task Refs, (3) local project sourcepack, (4) helpcenter refs, (5) technical sourcepack, (6) wikipedia. Security-Deny ueberstimmt Ranking.",
+        "Budget-Limiting nutzt codecompass_budgeting.py als Vorlage: max. 5 Refs, max. 10.000 Token-Aequivalent.",
+        "build_context_payload() aus ai_snake_context.py wird intern genutzt und erweitert.",
+        "no_good_match wird geliefert wenn kein Ref mit confidence > 0.3 gefunden: SecurityDeny, leerer Kontext oder unbekannter Intent.",
+        "Tests pruefen: Ranking-Reihenfolge, Budget-Begrenzung, Security-Deny-Override, no_good_match bei leerem Kontext."
+      ]
+    },
+    {
+      "id": "T05.04",
+      "title": "Heuristische Chat-Antwortbloecke",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "ux",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.03"
+      ],
+      "code_notes": "chat_state.py hat ChatMessage-v1 mit Channel-System (room, direct, ai, notes, system). Kein strukturiertes Antwortblock-Schema.",
+      "acceptance_criteria": [
+        "ChatAnswerBlock Dataclass in client_surfaces/operator_tui/chat_state.py: result_text, source_refs (liste OffenbareRefs), why_these_sources (kurz, max. 200 Zeichen), next_steps (liste, max. 3), uncertainty_note (wenn Confidence < 0.7), is_heuristic (bool, immer True fuer heuristische Antworten).",
+        "Antwort ist klar als heuristisch markiert: TUI zeigt '[Heuristik]' oder '~' Prefix vor heuristischen Antworten.",
+        "OffenbareRefs sind oeffnungsfähig in TUI: Enter/Click oeffnet Datei oder Artefakt.",
+        "no_good_match-Response wird als strukturierter Block geliefert: result_text='Kein passender Kontext gefunden.', source_refs=[], next_steps=['Frag den AI-Assistenten', 'Lade passendes Artefakt'].",
+        "ChatAnswerBlock wird als channel='ai' (heuristisch) via chat_state.py ChatMessage transportiert.",
+        "Tests pruefen: heuristic-Markierung vorhanden, no_good_match-Block korrekt strukturiert, source_refs oeffnungsfaehig."
+      ]
+    },
+    {
+      "id": "T05.05",
+      "title": "No Hallucination Guardrail fuer Chat-Heuristik",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.04"
+      ],
+      "code_notes": "chat_policy.py hat _is_sensitive() (erkennt Token, Passwort, API Key, GitHub PAT) und _redact() als partielle Guardrail-Basis. Kein no_good_match-Guard vorhanden.",
+      "acceptance_criteria": [
+        "HallucinationGuardrail in client_surfaces/operator_tui/chat_policy.py erweitert: validate_heuristic_answer(answer_block: ChatAnswerBlock) -> GuardrailResult.",
+        "Guardrail prueft: Alle source_refs in answer_block sind aus selected_context_refs (T05.03) - keine erfundenen Dateinamen oder Symbole.",
+        "Guardrail prueft: Ohne Treffer (no_good_match) wird kein result_text mit konkreten Datei/Symbol-Referenzen geliefert.",
+        "Antwort unterscheidet klar: belegte Aussagen (mit Ref) und Vermutungen (uncertainty_note gesetzt).",
+        "Bestehende _is_sensitive()/_redact() Logik aus chat_policy.py bleibt erhalten und wird zusaetzlich auf ChatAnswerBlock angewendet.",
+        "Tests in tests/test_tui_snake_chat_policy.py erweitert um: Guardrail-Check mit validen Refs, Guardrail-Check mit erfundenen Refs (blocked), no_good_match ohne Refs (allowed)."
+      ]
+    },
+    {
+      "id": "T06.01",
+      "title": "AI Heuristic Selection als ananta-worker Control-Pfad",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "worker",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T01.02",
+        "T02.03"
+      ],
+      "code_notes": "agent/services/routing_decision_service.py und worker_selection_policy_service.py sind Vorlage. ai_snake_worker_client.py zeigt bestehenden Worker-Dispatch-Pattern.",
+      "acceptance_criteria": [
+        "Neuer Worker-API-Endpunkt POST /heuristic/select oder Erweiterung bestehender Worker-Task-Contracts: HeuristicSelectionRequest (domain, context_hash, available_heuristic_ids, current_lease_id) -> HeuristicSelectionResponse (heuristic_id, version, confidence, reason, requested_ttl_seconds).",
+        "ananta-worker kann aktive Heuristik aus Registry (T01.03) auswaehlen: Auswahl validiert gegen Registry-Status (nur active erlaubt).",
+        "AI-Auswahl wird gegen TTL Policy aus WorkerRoleConfig (T01.02) validiert: requested_ttl_seconds nicht kleiner als domain minimum.",
+        "OpenCode wird nicht als Control-Worker verwendet: WorkerRoleConfigValidator blockiert dies explizit.",
+        "HeuristicSelectionResponse wird in HeuristicDecisionLease (T02.03) konvertiert und in Lease-Repo gespeichert.",
+        "Tests pruefen: Valide Auswahl erzeugt Lease, ungueltige heuristic_id abgelehnt, OpenCode-als-Control-Worker abgelehnt."
+      ]
+    },
+    {
+      "id": "T06.02",
+      "title": "Heuristic-as-Tool fuer Worker",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "worker",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.01"
+      ],
+      "acceptance_criteria": [
+        "HeuristicTool als Tool-Definition registriert: Tool-Name 'select_heuristic', Parameter: domain, context_hash, preferred_heuristic_id (optional).",
+        "Tool-Ausfuehrung laeuft deterministisch ueber HeuristicRegistry: keine LLM-Freitext-Ausfuehrung.",
+        "Tool-Result enthaelt: heuristic_id, version, result (DecisionResult), confidence, ttl_seconds, reason_codes.",
+        "Worker sieht verfuegbare Heuristiken als Tool-Optionen mit klaren Beschreibungen aus HeuristicDefinition.description.",
+        "Tool-Call wird in DecisionTrace (T08.01) protokolliert.",
+        "Tests pruefen: Worker ruft Heuristik via Tool-Call auf (kein Freiform-LLM), Tool-Result korrekt strukturiert, DecisionTrace enthaelt Tool-Call."
+      ]
+    },
+    {
+      "id": "T06.03",
+      "title": "AI Heuristic Proposal aus Trace-/TTL-Daten",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ai",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T02.04",
+        "T08.01"
+      ],
+      "code_notes": "agent/services/evolution_service.py hat generische Evolution-Logik. agent/services/evolution/registry.py hat Registry-Pattern. Kein HeuristicProposal-Schema.",
+      "acceptance_criteria": [
+        "HeuristicProposal Schema schemas/heuristic/heuristic_proposal.v1.json: proposal_id (uuid4), base_heuristic_ref (heuristic_id + version), rationale (max. 500 Zeichen), expected_improvement (messbare Metrik), risks (liste), required_tests (liste), proposed_changes (diff oder neue Definition), trace_evidence (anonymisierte Trace-IDs ohne Rohinhalt).",
+        "ProposalService in agent/services/heuristic_runtime/proposal_service.py: generate_from_traces(traces: list[DecisionTrace]) -> HeuristicProposal, save_candidate(proposal).",
+        "AI/ananta-worker kann aus anonymisierten DecisionTraces und abgelaufenen Leases Verbesserungsvorschlaege erzeugen.",
+        "Proposals landen ausschliesslich in heuristics/candidates/ - keine direkte Aenderung von active/.",
+        "Auto-Activation ist technisch blockiert: ProposalService hat kein promote_to_active() - nur HeuristicRegistry nach Approval-Flow (T07.03) kann aktivieren.",
+        "Tests pruefen: Proposal landet in candidates/, kein direkter Weg zu active/, proposal_id eindeutig, trace_evidence enthaelt keine sensitiven Daten."
+      ]
+    },
+    {
+      "id": "T06.04",
+      "title": "Heuristic Improvement Prompt Contract",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "prompt",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.03"
+      ],
+      "acceptance_criteria": [
+        "Prompt-Template prompts/heuristic_evolution/improvement_prompt.j2 erstellt.",
+        "Prompt erzeugt ausschliesslich HeuristicProposal JSON gemaess schemas/heuristic/heuristic_proposal.v1.json - kein Freitext.",
+        "Prompt verlangt explizit: rationale, risks (mindestens 1), required_tests (mindestens 2).",
+        "Prompt enthaelt TTL-Kontext: Warum lief die Lease ab? Welche reason_codes wurden geloggt?",
+        "Prompt enthaelt no-auto-activate-Regel als System-Instruktion: 'Du darfst keine Heuristik direkt aktivieren. Dein Output ist immer ein Vorschlag (candidate).'",
+        "Schema-Validator-Test prueft: Generierter Output des Prompts ist valides HeuristicProposal JSON."
+      ]
+    },
+    {
+      "id": "T06.05",
+      "title": "Human Review Workflow fuer Proposals",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "review",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.03"
+      ],
+      "acceptance_criteria": [
+        "TUI-Ansicht fuer HeuristicProposal-Review in client_surfaces/operator_tui/proposal_review.py: Liste offener Candidates, Detail-Ansicht mit rationale/risks/required_tests/proposed_changes.",
+        "User-Aktionen: approve (startet T07.01 Validation), reject (verschiebt in rejected/), request_changes (setzt Review-Notiz).",
+        "Approve loest Validation/Simulation an (T07.01, T07.02) aber aktiviert Heuristik NICHT blind.",
+        "Review-Entscheidung wird auditierbar in Audit-Log gespeichert (nutzt bestehende log_audit()-Funktion aus agent/common/audit.py).",
+        "Jede Review-Aktion erzeugt Audit-Event: heuristic_proposal_approved, heuristic_proposal_rejected, heuristic_proposal_review_requested.",
+        "Tests pruefen: Approve loest Validation aus (nicht Activation), Reject verschiebt Datei korrekt, Audit-Event wird geschrieben."
+      ]
+    },
+    {
+      "id": "T07.01",
+      "title": "Heuristic Proposal Validator",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "validation",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T06.03"
+      ],
+      "code_notes": "agent/services/worker_routing_policy_utils.py hat Capability-Extraktionslogik als Referenz.",
+      "acceptance_criteria": [
+        "HeuristicProposalValidator in agent/services/heuristic_runtime/proposal_validator.py: validate(proposal: HeuristicProposal) -> ValidationResult mit passed (bool), reason_codes, blocked_capabilities.",
+        "Validator prueft: HeuristicProposal JSON gueltig gemaess schemas/heuristic/heuristic_proposal.v1.json.",
+        "Validator prueft Capability-Grenzen (T01.05): Blockiert Netzwerkzugriff, Dateischreibzugriff oder Secret-Zugriff ohne explizite elevated-Capability-Freigabe.",
+        "Validator prueft TTL-Policy: requested_ttl_seconds innerhalb WorkerRoleConfig-Grenzen.",
+        "Validator prueft base_heuristic_ref: Referenzierte Basis-Heuristik muss in Registry als active oder deprecated existieren.",
+        "Validator erzeugt reason_codes: schema_invalid, capability_violation:network_access, ttl_out_of_range, base_heuristic_not_found.",
+        "Tests pruefen: Valides Proposal besteht, Proposal mit network_access geblockt, Proposal mit ungueltigem base_heuristic_ref abgelehnt."
+      ]
+    },
+    {
+      "id": "T07.02",
+      "title": "Heuristic Simulation Harness",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.01"
+      ],
+      "acceptance_criteria": [
+        "HeuristicSimulationHarness in agent/services/heuristic_runtime/simulation_harness.py: simulate(candidate: HeuristicDefinition, fixtures: list[SimulationFixture]) -> SimulationReport.",
+        "Fixture-Typen: snake_event_sequence (aus ObservationEvent-Daten), chat_query_sequence, context_snapshot.",
+        "Simulation fuehrt Candidate-Heuristik gegen Fixture-Events aus: kein echter Worker, nur lokale Ausfuehrung.",
+        "SimulationReport enthaelt Metriken: success_rate, no_match_rate, wrong_context_rate, avg_latency_ms, expired_usage_count, policy_violations.",
+        "TTL-Verhalten geprueft: Lease-Ablauf und Reevaluation korrekt, keine abgelaufene Lease weiter genutzt.",
+        "Candidate mit policy_violations > 0 kann nicht aktiviert werden: SimulationReport.can_activate=False.",
+        "Tests pruefen: Fixture-basierte Simulation laeuft, policy_violations blockieren Activation, Metriken korrekt berechnet."
+      ]
+    },
+    {
+      "id": "T07.03",
+      "title": "Activation Gate, Rollback und Quarantaene",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.02",
+        "T06.05"
+      ],
+      "acceptance_criteria": [
+        "HeuristicActivationGate in agent/services/heuristic_runtime/activation_gate.py: activate(proposal_id) -> ActivationResult, rollback(heuristic_id, version), quarantine(heuristic_id, reason).",
+        "Aktivierung erfordert alle drei Bedingungen: (1) schema-valid (T07.01 passed), (2) simulation-pass (T07.02 can_activate=True), (3) human_approved (T06.05 Audit-Event vorhanden).",
+        "Aktivierung erzeugt neue Version in heuristics/active/ und verschiebt vorherige in heuristics/archive/.",
+        "Rollback (rollback()) stellt eine archivierte Version in active/ wieder her und verschiebt aktuelle in archive/.",
+        "Quarantaene (quarantine()) verschiebt sofort in heuristics/quarantine/ und erstellt Audit-Event heuristic_quarantined.",
+        "Technische Sperre gegen Auto-Activation: activation_gate.py prueft Audit-Log auf heuristic_proposal_approved-Event - ohne dieses Event ist Aktivierung unmoeglich.",
+        "Tests pruefen: Aktivierung ohne Approval schlaegt fehl (kritisch), Rollback stellt korrekte Version wieder her, Quarantaene sofort wirksam."
+      ]
+    },
+    {
+      "id": "T07.04",
+      "title": "OpenCode nur fuer genehmigte Codeaenderungen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T01.02",
+        "T07.03"
+      ],
+      "code_notes": "agent/services/worker_selection_policy_service.py hat EXTERNAL_WORKER_KINDS. WorkerRoleConfig (T01.02) muss code_implementation_worker-Feld durchsetzen.",
+      "acceptance_criteria": [
+        "WorkerRoleConfigValidator (T01.02) prueft: code_implementation_worker darf fuer Heuristik-Laufzeit-Entscheidungen (runtime_mode, Lease-Auswahl) nicht genutzt werden.",
+        "Routing-Validator in agent/services/worker_routing_policy_utils.py wird um Heuristik-Routing-Check erweitert: OpenCode-als-control_worker wird abgelehnt mit reason_code=opencode_not_allowed_as_heuristic_controller.",
+        "Codeaenderungsauftrag (neue Heuristik implementieren) benoetigt genehmigtes HeuristicProposal (T06.05) ODER expliziten User-Auftrag (operator_override=true in WorkerTask).",
+        "EXTERNAL_WORKER_KINDS aus worker_selection_policy_service.py wird erweitert oder genutzt um OpenCode korrekt zu klassifizieren.",
+        "Tests pruefen: OpenCode-Routing-Verletzung erzeugt reason_code, legitime Codeimplementierung mit Proposal-Approval erlaubt, operator_override funktioniert."
+      ]
+    },
+    {
+      "id": "T08.01",
+      "title": "DecisionTrace, Lease und Outcome Metrics",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T02.03",
+        "T04.01",
+        "T05.01"
+      ],
+      "code_notes": "build_prediction_trace() in ai_snake_prediction.py (Zeilen 35-64) liefert prediction_id, mode, confidence, context_hash, used_refs, provider_ref, cache_state, skipped_reason - direkte Vorlage. chat_policy.py audit() protokolliert policy_decision + message_hash.",
+      "acceptance_criteria": [
+        "DecisionTrace Dataclass in agent/services/heuristic_runtime/decision_trace.py: event_id (uuid4), surface, context_hash, lease_id, heuristic_id, strategy_id, rule_id, confidence, fallback_reason, source (ai|heuristic|hybrid), started_at, resolved_at.",
+        "DecisionTrace basiert direkt auf build_prediction_trace() aus ai_snake_prediction.py - bestehende Felder werden uebernommen und erweitert.",
+        "Metriken werden pro Domain akkumuliert: ai_success, ai_timeout, invalid_ai, heuristic_fallback, ttl_expired, reevaluation_count, no_match, user_override.",
+        "Keine sensitiven Rohdaten im Trace: Texte nur als Hash (context_hash), keine Dateiinhalte, keine Passwort-Pattern (chat_policy.py _is_sensitive() pruefen).",
+        "DecisionTrace wird persistent gespeichert (nicht nur Ringbuffer): neues Repository agent/repositories/decision_trace_repo.py oder Nutzung von AuditEventDB.",
+        "Tests pruefen: Trace ohne sensitive Daten, Metriken korrekt akkumuliert, fallback_reason korrekt gesetzt."
+      ]
+    },
+    {
+      "id": "T08.02",
+      "title": "TUI Debug- und Operator-Ansichten",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "tui",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T08.01"
+      ],
+      "acceptance_criteria": [
+        "TUI Status-Bar in interactive.py wird erweitert: zeigt AI vs heuristic vs hybrid als Indicator ('[AI]', '[H]', '[~]').",
+        "Debug-Ansicht client_surfaces/operator_tui/heuristic_debug_view.py: heuristic_id, TTL-Restzeit (seconds remaining), fallback_reason, letzte 5 SourceRefs.",
+        "TUI kann HeuristicProposal-Liste aus proposal_review.py (T06.05) anzeigen: Anzahl offener Proposals im Header.",
+        "TUI kann Heuristik-Details oeffnen: kurze Beschreibung, capabilities, version, letzter Activation-Zeitstempel.",
+        "Debug-Ansicht ist togglebar (z.B. per Tastenkuerzel) und beeintraechtigt normale Snake-Funktion nicht.",
+        "Tests pruefen: Korrekte Anzeige von AI/heuristic/hybrid, TTL-Countdown sichtbar."
+      ]
+    },
+    {
+      "id": "T08.03",
+      "title": "Unit und Integration Tests",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T03.01",
+        "T05.03",
+        "T06.01",
+        "T07.01"
+      ],
+      "code_notes": "Bestehend: tests/test_tui_snake_chat_state.py (32 Tests), tests/test_tui_snake_chat_policy.py (20 Tests), tests/test_snakes_chat_api.py (14 Tests), tests/test_ai_snake_prediction.py, tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py (100+ Tests).",
+      "acceptance_criteria": [
+        "Neue Testdateien erstellt (alle laufen ohne echtes LLM): tests/test_heuristic_registry.py, tests/test_heuristic_decision_lease.py, tests/test_snake_decision_manager.py, tests/test_chat_decision_manager.py, tests/test_chat_query_classifier.py, tests/test_heuristic_proposal_validator.py, tests/test_activation_gate.py, tests/test_ttl_reevaluation.py.",
+        "Bestehende Tests werden erweitert: tests/test_ai_snake_follow.py um Lurk-State und TTL-Fallback, tests/test_tui_snake_chat_policy.py um HallucinationGuardrail.",
+        "Test-Coverage-Bereiche: Registry (load/filter/version/rollback), Strategy (Strategieauswahl), Chain (Reihenfolge/abstain), State (Transitions), Observer (Event-Normalisierung), Command (MockAdapter), TTL (Ablauf/Reevaluation), Selector (Ranking/Budget), Activation-Gate (ohne Approval gesperrt), Routing (OpenCode-Sperre).",
+        "Alle Tests laufen in < 30 Sekunden ohne echten Worker oder LLM.",
+        "pytest tests/test_heuristic_*.py -v muss 100% green sein."
+      ]
+    },
+    {
+      "id": "T08.04",
+      "title": "E2E: AI langsam, Heuristik uebernimmt",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T04.02",
+        "T05.01",
+        "T08.01"
+      ],
+      "code_notes": "tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py (100+ Tests) als E2E-Vorlage. ai_snake_worker_client.py ThreadPoolExecutor Timeout-Handling als Mock-Punkt.",
+      "acceptance_criteria": [
+        "E2E-Test tests/e2e/test_ai_timeout_fallback.py erstellt: Startet Snake oder Chat mit Mock-Worker der kuenstlich > 2.5s benoetigt (sleep(3) in Mock).",
+        "Test beweist: Heuristik bleibt reaktionsfaehig waehrend Mock-Worker haengt (Tick-Zeit < 100ms).",
+        "DecisionTrace zeigt fallback_reason=ai_timeout fuer alle Entscheidungen waehrend Worker-Timeout.",
+        "Keine unerlaubte Kontextweitergabe im Fallback: capability_violations=0 im gesamten E2E-Lauf.",
+        "State-Uebergang following -> fallback_active -> following nach Worker-Recovery wird im Trace sichtbar.",
+        "Test laueft deterministisch (kein Timing-Flake): Mock-Worker-Delay ist fest, nicht zufaellig."
+      ]
+    },
+    {
+      "id": "T08.05",
+      "title": "E2E: TTL laeuft ab, Reevaluation oder Candidate",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T02.04",
+        "T06.03"
+      ],
+      "acceptance_criteria": [
+        "E2E-Test tests/e2e/test_ttl_reevaluation.py erstellt: Lease mit test-TTL von 1 Sekunde erzeugt.",
+        "Test beweist: Nach Lease-Ablauf wird LeaseReevaluationService.check_and_reevaluate() automatisch aufgerufen.",
+        "Bei gleichen context_hash: Lease wird verlaengert (kein Wechsel).",
+        "Bei geaendertem context_hash: System reevaluiert und waehlt neue aktive Heuristik oder erzeugt Candidate Proposal.",
+        "Candidate aus TTL-Ablauf wird nicht automatisch active: heuristics/active/ unveraendert nach Test.",
+        "TUI zeigt TTL-Ablauf und Reevaluation (Debug-Ansicht T08.02 zeigt 'Reevaluation' Status).",
+        "Test laueft ohne echten AI-Worker: Reevaluation-Service nutzt Mock-Selector."
+      ]
+    },
+    {
+      "id": "T08.06",
+      "title": "Architektur- und Operator-Doku",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T01.01",
+        "T02.03",
+        "T06.03",
+        "T07.03"
+      ],
+      "acceptance_criteria": [
+        "docs/architecture/heuristic-runtime.md erstellt.",
+        "Doku erklaert Architektur: lokale HeuristicRegistry, ananta-worker Control-Pfad, OpenCode Implementierungs-Worker.",
+        "Doku enthaelt Mermaid-Diagramm: AI Gate -> Heuristic Lease (TTL) -> Local Runtime -> Reevaluation -> Candidate Proposal.",
+        "Doku erklaert alle 5 Behavioral Patterns mit Code-Referenzen: Strategy (strategy.py), Chain (chain.py), State (state_machine.py), Observer (event_bus.py), Command (commands.py).",
+        "Doku erklaert Proposal-Lifecycle: Proposal -> Validation (T07.01) -> Simulation (T07.02) -> Approval (T06.05) -> Activation Gate (T07.03) -> Rollback.",
+        "Doku erklaert TTL-Konzept: 5-20s domain-spezifisch, Reevaluation, no-auto-activation Regel.",
+        "Doku erklaert bestehende Code-Basis: interactive.py Refactoring (T09.01), ai_snake_prediction.py als Vorlage, WorkerSlotLeaseDB als Vorlage."
+      ]
+    },
+    {
+      "id": "T09.01",
+      "title": "interactive.py Refactoring: SnakeDecisionManager und ChatDecisionManager extrahieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "refactoring",
+      "milestone_id": "M09",
+      "depends_on": [
+        "T04.01",
+        "T05.01"
+      ],
+      "code_notes": "Refactoring abgeschlossen. interactive.py auf 665 Zeilen reduziert (von 4045). Methoden in 6 Mixin-Klassen extrahiert: ChatMixin, SnakeTickMixin, TutorialAiMixin, HeaderSnakeMixin, MouseArtifactMixin, SnakeOpsMixin. Alle TUI-Tests bestehen. class InteractiveOperatorTui(SnakeTickMixin, SnakeOpsMixin, TutorialAiMixin, HeaderSnakeMixin, MouseArtifactMixin, ChatMixin)",
+      "acceptance_criteria": [
+        "interactive.py wird auf < 800 Zeilen reduziert: verbleibende Logik ist UI-Rendering, Event-Loop und Delegation.",
+        "SnakeDecisionManager (T04.01) wird vollstaendig aus interactive.py extrahiert: _snake_tick(), _update_snake_with_observation(), AI-Worker-Dispatch.",
+        "ChatDecisionManager (T05.01) wird vollstaendig aus interactive.py extrahiert: _chat_send_message(), Policy-Gating, Transport-Handling.",
+        "Alle bestehenden Tests (test_ai_snake_*.py, test_tui_snake_*.py) muessen nach Refactoring 100% grueen bleiben.",
+        "Keine Verhaltensaenderung: Refactoring ist rein strukturell.",
+        "Refactoring erfolgt in kleinen Schritten mit Zwischen-Commits, jeder Schritt muss Tests bestehen."
+      ]
+    },
+    {
+      "id": "T09.02",
+      "title": "PolicyDecision vereinheitlichen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "refactoring",
+      "milestone_id": "M09",
+      "depends_on": [
+        "T02.02"
+      ],
+      "code_notes": "PolicyDecision existiert in 3 Varianten: ai_snake_policy.py PolicyDecision (allowed, boundary, reason_code, decision_ref), chat_policy.py PolicyDecision, verschiedene agent/services. DecisionResult (T02.02) loest dies.",
+      "acceptance_criteria": [
+        "Alle 3 PolicyDecision-Varianten werden auf DecisionResult (T02.02) migriert oder per Adapter konvertiert.",
+        "ai_snake_policy.py PolicyDecision erhaelt to_decision_result() Adapter-Methode (kein Breaking Change).",
+        "chat_policy.py PolicyDecision erhaelt to_decision_result() Adapter-Methode.",
+        "Bestehende Tests fuer PolicyDecision bleiben unveraendert grueen.",
+        "Neuer Code nutzt ausschliesslich DecisionResult - keine neuen PolicyDecision-Implementierungen.",
+        "Linting-Regel oder Kommentar verhindert neue PolicyDecision-Subklassen ohne Adapter."
+      ]
+    },
+    {
+      "id": "T09.03",
+      "title": "DecisionTrace Persistierung (Ringbuffer -> Repository)",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "refactoring",
+      "milestone_id": "M09",
+      "depends_on": [
+        "T08.01"
+      ],
+      "code_notes": "build_prediction_trace() in ai_snake_prediction.py speichert Traces nur im Ringbuffer (fluechtiger Speicher). Fuer AI-Heuristik-Evolution (T06.03) werden persistente Traces benoetigt.",
+      "acceptance_criteria": [
+        "DecisionTrace-Persistenz via agent/repositories/decision_trace_repo.py: save(trace), get_recent(domain, n), get_expired_lease_traces(domain, hours_back).",
+        "Persistenz nutzt bestehende SQLModel/SQLite-Infrastruktur aus db_models.py.",
+        "Ringbuffer in ai_snake_prediction.py bleibt fuer In-Memory-Zugriff erhalten; Repository ist zusaetzlich.",
+        "Traces werden nach konfigurierbarer Retention (default 7 Tage) automatisch bereinigt.",
+        "ProposalService (T06.03) nutzt decision_trace_repo.get_expired_lease_traces() als Datenquelle fuer Proposals.",
+        "Tests pruefen: Trace persistiert, Retention-Bereinigung entfernt alte Traces, Ringbuffer weiterhin funktionsfaehig."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "T01.01",
+    "T01.02",
+    "T01.03",
+    "T01.05",
+    "T02.01",
+    "T02.02",
+    "T02.03",
+    "T02.04",
+    "T03.01",
+    "T03.02",
+    "T03.03",
+    "T04.01",
+    "T05.01",
+    "T05.02",
+    "T05.03",
+    "T06.01",
+    "T06.03",
+    "T07.01",
+    "T07.02",
+    "T07.03",
+    "T07.04",
+    "T08.04",
+    "T08.05",
+    "T09.01"
+  ],
+  "summary_notes": [
+    "Diese Datei ersetzt vier bisher getrennte Heuristik-TODOs.",
+    "Code-Analyse vom 2026-05-27: 0% done, ~55% partial (Vorarbeiten), ~45% todo (neu zu erstellen).",
+    "interactive.py (4045 Zeilen) ist kritischer Refactoring-Kandidat (T09.01) - Voraussetzung fuer saubere Integration.",
+    "WorkerSlotLeaseDB in db_models.py ist direkte Vorlage fuer HeuristicDecisionLeaseDB.",
+    "build_prediction_trace() in ai_snake_prediction.py ist Vorlage fuer unified DecisionTrace.",
+    "EvolutionProviderRegistry in evolution/registry.py ist anpassbar fuer HeuristicRegistry.",
+    "Aktive Heuristiken laufen lokal deterministisch.",
+    "ananta-worker ist Default fuer Auswahl, TTL, Reevaluation und Evolution.",
+    "OpenCode ist nur Code-Implementierungsworker, nicht Runtime-Entscheider.",
+    "Heuristik-Leases gelten typischerweise 5 bis 20 Sekunden.",
+    "Nach TTL-Ablauf wird neu bewertet oder ein Candidate erzeugt.",
+    "Neue Heuristiken werden nie automatisch aktiv."
+  ],
+  "tasks_status_summary": {
+    "total": 41,
+    "by_status": {
+      "todo": 21,
+      "partial": 20
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P1": 36,
+      "P2": 5,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 12,
+      "high": 27
+    },
+    "critical_path": {
+      "total": 24,
+      "done": 0,
+      "remaining": 24
+    },
+    "milestones": {
+      "total": 9,
+      "todo": 3,
+      "partial": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 41,
+    "by_type": {
+      "policy": 1,
+      "schema": 4,
+      "backend": 1,
+      "structure": 1,
+      "security": 4,
+      "runtime": 1,
+      "behavioral-pattern": 5,
+      "snake": 1,
+      "tui": 2,
+      "eclipse": 1,
+      "behavior": 1,
+      "chat": 1,
+      "codecompass": 2,
+      "ux": 1,
+      "worker": 2,
+      "ai": 1,
+      "prompt": 1,
+      "review": 1,
+      "validation": 1,
+      "test": 2,
+      "observability": 1,
+      "e2e": 2,
+      "docs": 1,
+      "refactoring": 3
+    }
+  },
+  "progress_summary": {
+    "state": "partial",
+    "todo_remaining": 21,
+    "in_progress": 0,
+    "partial": 20,
+    "blocked": 0,
+    "done": 0
+  },
+  "end_summaries": [
+    {
+      "summary_id": "target_flow",
+      "title": "Zielablauf",
+      "items": [
+        "UI-/Chat-Event erzeugt DecisionContext (build_from_tui_state / build_from_chat_state).",
+        "HeuristicRegistry liefert aktive Strategy fuer Domain.",
+        "AI/ananta-worker kann aktive Heuristik via HeuristicSelectionRequest waehlen.",
+        "Auswahl erzeugt HeuristicDecisionLease mit TTL (snake: 5-10s, chat: 10-20s).",
+        "Lokale Runtime fuehrt aktive Heuristik deterministisch aus (Chain of Responsibility).",
+        "Bei AI timeout/offline (> 2.5s) greift lokaler Fallback via SnakeStateMachine/ChatStateMachine.",
+        "Nach TTL-Ablauf wird LeaseReevaluationService aufgerufen.",
+        "Bei no_match oder geaendertem context_hash: Candidate Proposal wird erzeugt.",
+        "Proposal landet in heuristics/candidates/ - keine Auto-Activation.",
+        "Proposal durchlaeuft: Human Review (T06.05) -> Validator (T07.01) -> Simulation (T07.02) -> ActivationGate (T07.03)."
+      ]
+    },
+    {
+      "summary_id": "definition_of_done",
+      "title": "Definition of Done",
+      "items": [
+        "Gemeinsame HeuristicRegistry (heuristics/active/, candidates/ etc.) existiert mit Starter-Heuristiken.",
+        "Snake und Chat nutzen dieselbe HeuristicDecisionLease-Logik.",
+        "CodeCompass-Chat-Fallback liefert SourceRefs und no_good_match statt Halluzination.",
+        "AI kann aktive Heuristiken waehlen, aber keine neuen direkt aktivieren.",
+        "OpenCode wird nur fuer genehmigte Codeaenderungen genutzt.",
+        "interactive.py wurde auf < 800 Zeilen refactored (T09.01).",
+        "Alle neuen Tests laufen ohne LLM in < 30 Sekunden.",
+        "E2E beweist AI timeout -> Heuristik und TTL-Ablauf -> Reevaluation/Candidate."
+      ]
+    },
+    {
+      "summary_id": "code_reuse",
+      "title": "Bestehender Code der direkt genutzt wird",
+      "items": [
+        "WorkerSlotLeaseDB (db_models.py) als Vorlage fuer HeuristicDecisionLeaseDB.",
+        "build_prediction_trace() (ai_snake_prediction.py) als Basis fuer DecisionTrace.",
+        "EvolutionProviderRegistry (evolution/registry.py) als Muster fuer HeuristicRegistry.",
+        "list_expired() (repositories/worker_slot_lease.py) fuer TTL-Reevaluation.",
+        "ai_snake_follow.py Logik fuer DefaultTuiSnakeStrategy.",
+        "AnantaSnakePredictionRuntime.java fuer DefaultEclipseSnakeStrategy.",
+        "ai_snake_context.py build_context_payload() fuer ChatContextSelector.",
+        "chat_policy.py _is_sensitive()/_redact() fuer HallucinationGuardrail.",
+        "worker_routing_policy_utils.py fuer Capability-Boundary-Validierung.",
+        "log_audit() (agent/common/audit.py) fuer Review-Workflow Audit-Events."
+      ]
+    }
+  ],
+  "last_updated": "2026-05-27"
+}

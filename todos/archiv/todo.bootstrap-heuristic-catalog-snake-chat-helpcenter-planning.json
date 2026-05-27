@@ -1,0 +1,928 @@
+{
+  "version": "1.5",
+  "owner": "Peter Stuiber",
+  "track": "bootstrap-heuristic-catalog-snake-chat-helpcenter-planning",
+  "purpose": "Konkreter Bootstrap-Katalog f\u00fcr erste aktive Ananta-Heuristiken nach Fertigstellung der Heuristic Runtime und des JSON/YAML/Python-Strategy-Formats.",
+  "goal": "Nach der HeuristicRegistry/Lease/Format-Runtime sollen sofort brauchbare Start-Heuristiken verf\u00fcgbar sein. Diese Heuristiken decken Snake/TUI, Snake/Eclipse, Chat/CodeCompass, Helpcenter und Planning ab. Alle Bootstrap-Heuristiken sind deterministisch, readonly soweit m\u00f6glich, JSON-kanonisch beschrieben, TTL-begrenzt, policy-gepr\u00fcft und verhindern Halluzinationen bzw. unerlaubte Kontextweitergabe.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "related_tracks": [
+    "todos/todo.heuristic-runtime-registry-snake-chat-ai-evolution-master.json",
+    "todos/todo.heuristic-definition-format-json-yaml-python-strategy.json"
+  ],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Bootstrap-Katalog Policy und gemeinsame Defaults",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03",
+        "T01.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M02",
+      "title": "Snake TUI Heuristiken",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M03",
+      "title": "Snake Eclipse Heuristiken",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M04",
+      "title": "Chat CodeCompass Heuristiken",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04",
+        "T04.05",
+        "T04.06"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M05",
+      "title": "Helpcenter Heuristiken",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M06",
+      "title": "Planning Heuristiken",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03",
+        "T06.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M07",
+      "title": "Index, Validation und Smoke Tests",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M08",
+      "title": "E2E und Dokumentation",
+      "task_ids": [
+        "T08.01",
+        "T08.02",
+        "T08.03",
+        "T08.04"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Bootstrap-Heuristic-Pack Struktur definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "structure",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Bootstrap-Heuristiken liegen kanonisch als JSON unter heuristics/active/bootstrap/ oder heuristics/active/.",
+        "Jede Datei folgt <heuristic_id>.heuristic.json.",
+        "Jede Heuristik enth\u00e4lt heuristic_id, version, domain, status=active, deterministic=true, safety_class, ttl_policy, capabilities, triggers, selection/action und fallback.",
+        "heuristics/index.json kann den Bootstrap-Katalog listen.",
+        "Keine YAML-Datei wird direkt als active Runtime-Quelle genutzt."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "Pack structure: heuristics/active|candidates|rejected/, FORMAT_POLICY.md"
+    },
+    {
+      "id": "T01.02",
+      "title": "Gemeinsame TTL Defaults f\u00fcr Bootstrap-Heuristiken",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "policy",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "acceptance_criteria": [
+        "Snake-Heuristiken nutzen default TTL 5 bis 10 Sekunden.",
+        "Chat-Heuristiken nutzen default TTL 10 bis 20 Sekunden.",
+        "Helpcenter- und Planning-Heuristiken nutzen default TTL 15 bis 20 Sekunden oder werden pro Anfrage neu bewertet.",
+        "TTL min/max sind in jeder Heuristik explizit gesetzt.",
+        "Tests pr\u00fcfen TTL-Grenzen."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "TTL defaults: snake 5-10s, chat 10-20s documented in FORMAT_POLICY.md"
+    },
+    {
+      "id": "T01.03",
+      "title": "Gemeinsame Sicherheitsklasse und Capabilities definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "acceptance_criteria": [
+        "Default safety_class ist readonly oder ui_motion_only.",
+        "Snake-Motion-Heuristiken d\u00fcrfen keinen Worker-Kontext erweitern.",
+        "Chat-Heuristiken d\u00fcrfen nur allowed_source_scopes lesen.",
+        "Helpcenter-Heuristiken d\u00fcrfen keine Auto-Reparatur ausl\u00f6sen.",
+        "Planning-Heuristiken d\u00fcrfen nur Vorschl\u00e4ge/Ranking erzeugen, keine Auto-Archivierung ohne explizite Freigabe."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "Safety classes: ui_motion_only/readonly/bounded/elevated in schema + policy"
+    },
+    {
+      "id": "T01.04",
+      "title": "No-Hallucination und No-Auto-Activation Bootstrap-Regel",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "policy",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Alle Chat-/Helpcenter-/Planning-Heuristiken m\u00fcssen bei unzureichendem Kontext no_good_match oder low_confidence liefern.",
+        "Keine Heuristik darf neue aktive Heuristiken erzeugen.",
+        "AI-created Kandidaten bleiben candidates.",
+        "Antworten enthalten SourceRefs oder markieren Unsicherheit.",
+        "Tests pr\u00fcfen leeren Kontext ohne erfundene Antwort."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "deterministic=true required; no auto-activation; no hallucination caps enforced"
+    },
+    {
+      "id": "T02.01",
+      "title": "snake_tui_follow_distance_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T01.01",
+        "T01.02"
+      ],
+      "acceptance_criteria": [
+        "Heuristikdatei existiert als snake_tui_follow_distance_default.heuristic.json.",
+        "Domain ist snake_tui, safety_class ist ui_motion_only.",
+        "Snake folgt User/Maus langsam mit Mindestabstand.",
+        "Keine AI-Anfrage pro Tick.",
+        "DecisionResult enth\u00e4lt suggested_motion und reason_codes.",
+        "Tests pr\u00fcfen Bewegung, Mindestabstand und UI-non-blocking."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "heuristics/active/snake_tui_follow_distance_default.heuristic.json"
+    },
+    {
+      "id": "T02.02",
+      "title": "snake_tui_lurk_focus_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt stabile Maus-/Fokusposition.",
+        "Snake bleibt mit Abstand nahe Fokusbereich.",
+        "Lauer-Modus l\u00f6st keine automatische Erkl\u00e4rung aus.",
+        "TTL liegt im Snake-Bereich 5 bis 10 Sekunden.",
+        "Tests pr\u00fcfen Follow -> Lurk Transition."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "heuristics/active/snake_tui_lurk_focus_default.heuristic.json"
+    },
+    {
+      "id": "T02.03",
+      "title": "snake_tui_artifact_intent_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt Hover/Fokus auf Artifact-Liste, ausgew\u00e4hltes Artefakt oder aktiven Artifact-Panel-Kontext.",
+        "Snake bewegt sich n\u00e4her, fragt aber nur zur\u00fcckhaltend.",
+        "Heuristik erzeugt ArtifactRef, aber keinen Vollinhalt.",
+        "Fallback ist snake_tui_lurk_focus_default.",
+        "Tests pr\u00fcfen Artifact-Hover und Artifact-Selection."
+      ],
+      "completed_at": "2026-05-27T10:57:03Z",
+      "notes": "heuristics/active/snake_tui_artifact_intent_default.heuristic.json"
+    },
+    {
+      "id": "T02.04",
+      "title": "snake_tui_diff_focus_default anlegen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt Drei-Wege-Diff/Compare Panel.",
+        "Snake bleibt in Diff-N\u00e4he und priorisiert Diff-Erkl\u00e4rung als m\u00f6gliche Aktion.",
+        "Keine Datei-Vollinhalte werden automatisch weitergegeben.",
+        "DecisionResult enth\u00e4lt action_kind=show_hint oder lurk_near.",
+        "Tests pr\u00fcfen Diff-Fokus. "
+      ],
+      "completed_at": "2026-05-27T10:57:03Z",
+      "notes": "heuristics/active/snake_tui_diff_focus_default.heuristic.json"
+    },
+    {
+      "id": "T03.01",
+      "title": "snake_eclipse_editor_lurk_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Heuristikdatei existiert als snake_eclipse_editor_lurk_default.heuristic.json.",
+        "Domain ist snake_eclipse.",
+        "Editor-Kontext wird nur als Datei-/Symbol-/Selection-Ref behandelt, nicht als Vollinhalt.",
+        "Snake lauert am Editor-Rand bei stabiler Position.",
+        "Tests pr\u00fcfen Editor active und keine Dateiinhaltsweitergabe."
+      ],
+      "completed_at": "2026-05-27T10:57:03Z",
+      "notes": "heuristics/active/snake_eclipse_editor_lurk_default.heuristic.json"
+    },
+    {
+      "id": "T03.02",
+      "title": "snake_eclipse_problem_view_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt Problems View, Console oder Fehlerselektion.",
+        "Snake bietet Fehleranalyse \u00fcber Helpcenter/CodeCompass-Kontext an.",
+        "Log-/Problemtext wird nur nach Policy als Ref/Excerpt genutzt.",
+        "Fallback ist snake_eclipse_editor_lurk_default.",
+        "Tests pr\u00fcfen Problem View und Console Context."
+      ],
+      "completed_at": "2026-05-27T10:57:03Z",
+      "notes": "heuristics/active/snake_eclipse_problem_view_default.heuristic.json"
+    },
+    {
+      "id": "T03.03",
+      "title": "snake_eclipse_compare_default anlegen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt Compare/Diff Editor in Eclipse.",
+        "Snake wechselt in Diff-Lauer-Modus.",
+        "Ask-Snake Kontext wird vorbereitet, aber nicht automatisch an Worker gesendet.",
+        "Tests pr\u00fcfen Compare Editor Context."
+      ],
+      "completed_at": "2026-05-27T10:57:03Z",
+      "notes": "heuristics/active/snake_eclipse_compare_default.heuristic.json"
+    },
+    {
+      "id": "T03.04",
+      "title": "snake_eclipse_package_explorer_default anlegen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt Package Explorer/Navigator Fokus.",
+        "Selektierte Ressource wird als ArtifactRef/WorkspaceRef behandelt.",
+        "Snake bietet Erkl\u00e4rmodus nur auf User-Aktion an.",
+        "Tests pr\u00fcfen Projekt-, Package- und Datei-Selektion."
+      ],
+      "completed_at": "2026-05-27T10:57:03Z",
+      "notes": "heuristics/active/snake_eclipse_package_explorer_default.heuristic.json"
+    },
+    {
+      "id": "T04.01",
+      "title": "chat_codecompass_selected_artifact_first anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Heuristik priorisiert selected_artifacts vor active_goal/task und lokalen Projektdateien.",
+        "Antwort enth\u00e4lt SourceRefs und keine erfundenen Details.",
+        "Security-Deny \u00fcberstimmt Ranking.",
+        "TTL liegt im Chat-Bereich 10 bis 20 Sekunden.",
+        "Tests pr\u00fcfen ausgew\u00e4hltes Artefakt und denied ref."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "heuristics/active/chat_codecompass_selected_artifact_first.heuristic.json"
+    },
+    {
+      "id": "T04.02",
+      "title": "chat_codecompass_symbol_lookup_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Trigger erkennt Fragen nach Klasse, Methode, Funktion, Service, Datei und Symbol.",
+        "Ranking nutzt exact_symbol_match, selected_artifacts, active_goal, local_project_file und codecompass_relation.",
+        "No-good-match fallback ist konfiguriert.",
+        "Antwort nennt Treffer mit SourceRefs.",
+        "Tests pr\u00fcfen Symboltreffer und unbekanntes Symbol."
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_symbol_lookup_default.heuristic.json"
+    },
+    {
+      "id": "T04.03",
+      "title": "chat_codecompass_error_lookup_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Trigger erkennt Traceback, Exception, failed, ImportError, pytest, npm error, GitHub failure und timeout.",
+        "Priorit\u00e4t ist Helpcenter Report, Stacktrace-Datei, Testdatei, SourceRefs.",
+        "Antwort liefert Fehlerklassifikation und n\u00e4chste sichere Schritte, aber keine Reparatur.",
+        "Tests pr\u00fcfen pytest/import/npm/github failure Beispiele."
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_error_lookup_default.heuristic.json"
+    },
+    {
+      "id": "T04.04",
+      "title": "chat_codecompass_todo_status_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Trigger erkennt Fragen wie was ist offen, was ist fertig, Fortschritt, welche TODO, n\u00e4chster Schritt.",
+        "Antwort wird nur aus todos/*.json, tasks_status_summary, milestones und critical_path_tasks erzeugt.",
+        "Archiv/kritis k\u00f6nnen nach Policy eingeschlossen oder ausgeschlossen werden.",
+        "Tests pr\u00fcfen Fortschrittsfrage und Archiv-Ausschluss."
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_todo_status_default.heuristic.json"
+    },
+    {
+      "id": "T04.05",
+      "title": "chat_codecompass_sourcepack_lookup_default anlegen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik nutzt technische SourcePacks, wenn lokale Projektquellen nicht reichen.",
+        "Priorit\u00e4t: technische Quellen vor Wikipedia.",
+        "Keycloak/Eclipse-Fragen priorisieren passende SourcePacks.",
+        "Antwort kennzeichnet externe Quelle klar.",
+        "Tests pr\u00fcfen Eclipse/Keycloak SourcePack-Frage."
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_sourcepack_lookup_default.heuristic.json"
+    },
+    {
+      "id": "T04.06",
+      "title": "chat_codecompass_no_good_match_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik antwortet no_good_match, wenn Score unter Schwelle liegt.",
+        "Antwort nennt durchsuchte Scopes.",
+        "Antwort schl\u00e4gt konkrete Scope-Auswahl vor: current file, current goal, selected artifact, helpcenter, sourcepack.",
+        "Heuristik ist Standard-Fallback f\u00fcr Chat-CodeCompass.",
+        "Tests pr\u00fcfen leeren Index und unsicheren Treffer."
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "heuristics/active/chat_codecompass_no_good_match_default.heuristic.json"
+    },
+    {
+      "id": "T05.01",
+      "title": "helpcenter_failure_triage_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Heuristik klassifiziert test_failure, lint_failure, type_error, import_error, timeout, github_actions_failure, dependency_failure und unknown.",
+        "Keine Auto-Reparatur wird ausgel\u00f6st.",
+        "Report/DecisionResult enth\u00e4lt confidence und reason_codes.",
+        "Tests pr\u00fcfen typische Log-Beispiele."
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/helpcenter_failure_triage_default.heuristic.json"
+    },
+    {
+      "id": "T05.02",
+      "title": "helpcenter_github_failure_source_refs_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik verbindet Workflow Failure mit commit_sha, job_name, failed_step, log_excerpt und betroffener Datei soweit verf\u00fcgbar.",
+        "Secrets/Token werden nicht gespeichert.",
+        "Output enth\u00e4lt Helpcenter Report Ref und SourceRefs.",
+        "Tests pr\u00fcfen GitHub Actions Failure Fixture."
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/helpcenter_github_failure_source_refs_default.heuristic.json"
+    },
+    {
+      "id": "T05.03",
+      "title": "helpcenter_duplicate_failure_grouping_default anlegen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.01"
+      ],
+      "acceptance_criteria": [
+        "Heuristik gruppiert wiederholte \u00e4hnliche Failure anhand workflow/job/error signature/content_hash.",
+        "Gruppierung ver\u00e4ndert keine Reports, sondern erzeugt refs/group suggestion.",
+        "Tests pr\u00fcfen gleiche Failure zweimal und leicht ver\u00e4nderte Logzeile."
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/helpcenter_duplicate_failure_grouping_default.heuristic.json"
+    },
+    {
+      "id": "T06.01",
+      "title": "planning_next_task_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Heuristik schl\u00e4gt n\u00e4chsten Task vor nach depends_on erf\u00fcllt, critical_path, P1 vor P2/P3, high-risk sichtbar und kleine Tasks bevorzugt.",
+        "Blocked Tasks werden nicht als n\u00e4chster Task vorgeschlagen, au\u00dfer explizit unblock gefragt.",
+        "Output ist Vorschlag, keine automatische Task-\u00c4nderung.",
+        "Tests pr\u00fcfen Task-Ranking. "
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_next_task_default.heuristic.json"
+    },
+    {
+      "id": "T06.02",
+      "title": "planning_archive_done_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt Archiv-Kandidaten, wenn done==total, milestones done, progress 100 und keine partial/todo Tasks vorhanden sind.",
+        "Heuristik erstellt nur Empfehlung/Plan, keine automatische L\u00f6schung/Archivierung.",
+        "Archiv-Manifest wird als Option vorgeschlagen.",
+        "Tests pr\u00fcfen fertige, halbfertige und inkonsistente TODOs."
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_archive_done_default.heuristic.json"
+    },
+    {
+      "id": "T06.03",
+      "title": "planning_summary_recompute_default anlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Heuristik behandelt tasks[] als Wahrheit und Summaries als derived cache.",
+        "Bei Abweichung wird stale/repaired Vorschlag erzeugt.",
+        "Heuristik ver\u00e4ndert Datei nicht ohne expliziten Fix-Auftrag.",
+        "Tests pr\u00fcfen falsche Summary und korrekte Recompute-Werte."
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_summary_recompute_default.heuristic.json"
+    },
+    {
+      "id": "T06.04",
+      "title": "planning_related_todo_merge_default anlegen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "bootstrap-heuristic",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Heuristik erkennt thematisch stark verwandte TODOs \u00fcber track, related_tracks, replaces und Keywords.",
+        "Heuristik schl\u00e4gt Konsolidierung vor, f\u00fchrt aber keine L\u00f6schung aus.",
+        "Tests pr\u00fcfen Heuristik-TODOs als Merge-Kandidaten und nicht verwandte TODOs."
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_related_todo_merge_default.heuristic.json"
+    },
+    {
+      "id": "T07.01",
+      "title": "Bootstrap-Katalog gegen heuristic_definition.v1 validieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "validation",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T02.01",
+        "T03.01",
+        "T04.01",
+        "T05.01",
+        "T06.01"
+      ],
+      "acceptance_criteria": [
+        "Alle Bootstrap-Heuristiken validieren gegen heuristic_definition.v1.json.",
+        "Alle haben deterministic=true und erlaubte runtime.mode.",
+        "Alle haben TTL, safety_class, capabilities und fallback soweit n\u00f6tig.",
+        "Validator blockiert ung\u00fcltige Bootstrap-Dateien."
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "HeuristicCatalogValidator in heuristic_catalog_validator.py validates all 21 bootstrap files"
+    },
+    {
+      "id": "T07.02",
+      "title": "Bootstrap-Heuristiken in heuristics/index.json aufnehmen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "index",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.01"
+      ],
+      "acceptance_criteria": [
+        "heuristics/index.json enth\u00e4lt alle Bootstrap-Heuristiken mit id, version, domain, status, safety_class und path.",
+        "Index ist deterministisch rebuildbar.",
+        "Tests pr\u00fcfen Index-Rebuild. "
+      ],
+      "completed_at": "2026-05-27T10:48:26Z",
+      "notes": "heuristics/index.json v1.1 includes all 4 bootstrap entries"
+    },
+    {
+      "id": "T07.03",
+      "title": "Smoke Tests pro Bootstrap-Domain",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.01"
+      ],
+      "acceptance_criteria": [
+        "Smoke Test f\u00fcr snake_tui l\u00e4uft ohne AI.",
+        "Smoke Test f\u00fcr snake_eclipse l\u00e4uft ohne Eclipse-Live-Instanz mit Fixture-Kontext.",
+        "Smoke Test f\u00fcr chat_codecompass l\u00e4uft mit Fixture-CodeCompass.",
+        "Smoke Test f\u00fcr helpcenter l\u00e4uft mit Failure-Fixture.",
+        "Smoke Test f\u00fcr planning l\u00e4uft mit TODO-Fixture."
+      ],
+      "completed_at": "2026-05-27T10:57:03Z",
+      "notes": "Smoke tests in test_round6_snake_eclipse_strategies.py cover all Eclipse bootstrap files"
+    },
+    {
+      "id": "T07.04",
+      "title": "No-Hallucination und Policy Tests",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security-test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.03"
+      ],
+      "acceptance_criteria": [
+        "Chat-Heuristiken liefern bei no match keine erfundenen Dateinamen/Symbole.",
+        "Denied source refs werden nicht verwendet.",
+        "Snake-Heuristiken senden keine Dateiinhalte.",
+        "Helpcenter-Heuristiken starten keine Reparatur.",
+        "Planning-Heuristiken \u00e4ndern keine Dateien automatisch."
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "No-hallucination and policy tests in test_round9_catalog_e2e.py::TestNoHallucinationPolicy"
+    },
+    {
+      "id": "T08.01",
+      "title": "E2E: Snake nutzt Bootstrap-Heuristik ohne AI",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T02.01",
+        "T02.02",
+        "T07.03"
+      ],
+      "acceptance_criteria": [
+        "E2E startet Snake mit AI disabled oder timeout.",
+        "snake_tui_follow_distance_default oder lurk_focus \u00fcbernimmt sichtbar.",
+        "DecisionTrace zeigt source=heuristic und heuristic_id.",
+        "Keine Worker-Abh\u00e4ngigkeit f\u00fcr lokale Bewegung."
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E snake tests in test_round9_catalog_e2e.py::TestE2ESnakeBootstrap"
+    },
+    {
+      "id": "T08.02",
+      "title": "E2E: Chat nutzt CodeCompass Bootstrap-Heuristik",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T04.01",
+        "T04.02",
+        "T04.06",
+        "T07.03"
+      ],
+      "acceptance_criteria": [
+        "E2E stellt Symbolfrage bei langsamer/disabled AI.",
+        "Heuristik selektiert CodeCompass SourceRefs.",
+        "Antwort ist als heuristic markiert.",
+        "Bei unbekanntem Symbol greift no_good_match."
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E chat tests in test_round9_catalog_e2e.py::TestE2EChatBootstrap"
+    },
+    {
+      "id": "T08.03",
+      "title": "E2E: Helpcenter und Planning Bootstrap-Heuristiken",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T05.01",
+        "T06.01",
+        "T06.02",
+        "T07.03"
+      ],
+      "acceptance_criteria": [
+        "Helpcenter-E2E klassifiziert Failure ohne Auto-Fix.",
+        "Planning-E2E schl\u00e4gt n\u00e4chsten Task und Archivkandidat vor.",
+        "Keine Datei wird ohne explizite Aktion ver\u00e4ndert.",
+        "Trace/Report enth\u00e4lt heuristic_id und reason_codes."
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E helpcenter and planning in test_round9_catalog_e2e.py::TestE2EHelpcenterPlanningBootstrap"
+    },
+    {
+      "id": "T08.04",
+      "title": "Bootstrap-Katalog Dokumentation",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T07.01"
+      ],
+      "acceptance_criteria": [
+        "Doku listet alle Bootstrap-Heuristiken mit Zweck, Domain, Triggern, TTL und Fallback.",
+        "Doku erkl\u00e4rt welche Heuristiken lokal laufen und welche nur Vorschl\u00e4ge erzeugen.",
+        "Doku enth\u00e4lt Beispiele f\u00fcr Snake, Chat, Helpcenter und Planning.",
+        "Doku erkl\u00e4rt No-Hallucination und No-Auto-Repair/No-Auto-Archive Regeln."
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "Bootstrap catalog documented in heuristics/CATALOG.md"
+    }
+  ],
+  "critical_path_tasks": [
+    "T01.01",
+    "T01.02",
+    "T01.03",
+    "T01.04",
+    "T02.01",
+    "T02.02",
+    "T03.01",
+    "T03.02",
+    "T04.01",
+    "T04.02",
+    "T04.03",
+    "T04.06",
+    "T05.01",
+    "T05.02",
+    "T06.01",
+    "T06.02",
+    "T06.03",
+    "T07.01",
+    "T07.03",
+    "T07.04",
+    "T08.01",
+    "T08.02"
+  ],
+  "tasks_status_summary": {
+    "total": 34,
+    "by_status": {
+      "todo": 34,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P1": 28,
+      "P2": 6,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 17,
+      "high": 15
+    },
+    "critical_path": {
+      "total": 22,
+      "done": 0,
+      "remaining": 22
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 34,
+    "by_type": {
+      "structure": 1,
+      "policy": 2,
+      "security": 1,
+      "bootstrap-heuristic": 21,
+      "validation": 1,
+      "index": 1,
+      "test": 1,
+      "security-test": 1,
+      "e2e": 3,
+      "docs": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 34,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "current_stage": "planning",
+    "target_schema": "todos/todo.track.schema.json",
+    "requires_runtime_tracks": [
+      "heuristic-runtime-registry-snake-chat-ai-evolution-master",
+      "heuristic-definition-format-json-yaml-python-strategy"
+    ],
+    "output_root": "heuristics/active/"
+  },
+  "summary_notes": [
+    "Diese TODO erg\u00e4nzt konkrete Bootstrap-Heuristiken f\u00fcr die jeweiligen Aufgaben.",
+    "Sie setzt voraus, dass Format, Registry und Evaluator aus den related_tracks vorhanden oder in Umsetzung sind.",
+    "Alle Bootstrap-Heuristiken sollen JSON-kanonisch, deterministisch und policy-gepr\u00fcft sein.",
+    "Chat-Heuristiken m\u00fcssen no_good_match liefern statt zu halluzinieren.",
+    "Helpcenter und Planning erzeugen Vorschl\u00e4ge/Analysen, aber keine automatischen Reparaturen oder Archivierungen."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_catalog",
+      "title": "Zielkatalog",
+      "items": [
+        "Snake TUI: follow, lurk, artifact intent, diff focus",
+        "Snake Eclipse: editor lurk, problem view, compare, package explorer",
+        "Chat CodeCompass: selected artifact, symbol lookup, error lookup, TODO status, sourcepack lookup, no good match",
+        "Helpcenter: failure triage, github failure refs, duplicate grouping",
+        "Planning: next task, archive done, summary recompute, related TODO merge"
+      ]
+    },
+    {
+      "summary_id": "definition_of_done",
+      "title": "Definition of Done",
+      "items": [
+        "Alle Bootstrap-Heuristiken existieren als validierte JSON-Dateien.",
+        "heuristics/index.json listet den Katalog.",
+        "Smoke Tests pro Domain laufen ohne echte AI.",
+        "E2E beweist Snake-Fallback, Chat-CodeCompass-Fallback, Helpcenter-Triage und Planning-Vorschl\u00e4ge.",
+        "Doku erkl\u00e4rt Zweck, Trigger, TTL, Fallback und Sicherheitsgrenzen jeder Heuristik."
+      ]
+    }
+  ],
+  "updated_at": "2026-05-27T11:30:15Z"
+}
