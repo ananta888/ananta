@@ -1,0 +1,43 @@
+{
+  "heuristic_id": "planning_next_task_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "planning",
+  "description": "Suggest the next unblocked task from planning todo scopes. Never invents tasks.",
+  "deterministic": true,
+  "safety_class": "readonly",
+  "capabilities": ["read_local_context", "read_source_refs", "read_active_task"],
+  "ttl_policy": {
+    "default_seconds": 15.0,
+    "min_seconds": 10.0,
+    "max_seconds": 20.0
+  },
+  "runtime": {
+    "mode": "python_strategy",
+    "python_strategy": {
+      "module": "agent.heuristics.strategies.planning.next_task",
+      "class": "NextTaskStrategy",
+      "expected_inputs": ["query", "allowed_source_scopes", "active_task_id"],
+      "expected_outputs": ["show_context_summary", "ask_scope", "no_action"]
+    },
+    "triggers": [
+      {"query_contains_any": ["next", "what should", "what to do", "start", "pick"]},
+      {"query_contains_any": ["unblocked", "ready", "priorit", "work on"]}
+    ],
+    "action": {
+      "kind": "show_context_summary",
+      "fallback": "ask_scope"
+    }
+  },
+  "inputs": ["query", "allowed_source_scopes", "active_task_id"],
+  "outputs": ["context_summary"],
+  "parameters": {"min_score": 0.1},
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic"}
+  ]
+}

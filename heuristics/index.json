@@ -173,8 +173,78 @@
       "safety_class": "readonly",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "helpcenter_failure_triage_default",
+      "version": "1.0.0",
+      "domain": "helpcenter",
+      "status": "active",
+      "file": "active/helpcenter_failure_triage_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "helpcenter_github_failure_source_refs_default",
+      "version": "1.0.0",
+      "domain": "helpcenter",
+      "status": "active",
+      "file": "active/helpcenter_github_failure_source_refs_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "helpcenter_duplicate_failure_grouping_default",
+      "version": "1.0.0",
+      "domain": "helpcenter",
+      "status": "active",
+      "file": "active/helpcenter_duplicate_failure_grouping_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "planning_next_task_default",
+      "version": "1.0.0",
+      "domain": "planning",
+      "status": "active",
+      "file": "active/planning_next_task_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "planning_archive_done_default",
+      "version": "1.0.0",
+      "domain": "planning",
+      "status": "active",
+      "file": "active/planning_archive_done_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "planning_summary_recompute_default",
+      "version": "1.0.0",
+      "domain": "planning",
+      "status": "active",
+      "file": "active/planning_summary_recompute_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "planning_related_todo_merge_default",
+      "version": "1.0.0",
+      "domain": "planning",
+      "status": "active",
+      "file": "active/planning_related_todo_merge_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
     }
   ],
-  "version": "1.3",
+  "version": "1.4",
   "updated_at": "2026-05-27"
 }
