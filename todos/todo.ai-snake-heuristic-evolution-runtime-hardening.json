@@ -1,0 +1,773 @@
+{
+  "version": "1.1.0",
+  "owner": "Peter Stuiber",
+  "track": "ai-snake-heuristic-evolution-runtime-hardening",
+  "purpose": "AI-Snake-Heuristiksystem sauber trennen, stabilisieren und so erweitern, dass automatisch erzeugte Kandidaten im Default ohne menschliche Freigabe aktiv werden können, aber mit technischer Absicherung.",
+  "goal": "Die AI-Snake lernt aus TUI-Nutzung, erzeugt Candidate-Heuristiken, testet diese im Shadow-/Simulationsmodus und aktiviert sie automatisch, sofern der Governance-Modus dies erlaubt.",
+  "default_policy": {
+    "candidate_activation_mode": "auto_without_human_approval",
+    "human_approval_required": false,
+    "activation_strategy": "promote_to_active",
+    "progressive_rollout": true,
+    "rollout_quota_stages": [0.1, 0.5, 1.0],
+    "direct_candidate_runtime_allowed": false,
+    "requires_validation": true,
+    "requires_simulation": true,
+    "requires_shadow_run": true,
+    "requires_rollback_plan": true,
+    "candidate_ttl_days": 14,
+    "max_candidates_per_hour": 3
+  },
+  "governance_modes": [
+    "auto_without_human_approval",
+    "human_approval_required",
+    "observe_only",
+    "frozen"
+  ],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0-critical", "P1-high", "P2-medium", "P3-low"],
+  "risk_scale": ["R0-low", "R1-medium", "R2-high", "R3-critical"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Architektur sauber trennen",
+      "task_ids": ["ASH-001", "ASH-002", "ASH-003", "ASH-004"],
+      "status": "todo",
+      "note": "ASH-001 zuerst nur Interfaces/Datenmodelle. Vollständige Zerlegung (ASH-001b) nach M02."
+    },
+    {
+      "id": "M02",
+      "title": "Candidate Lifecycle härten",
+      "task_ids": ["ASH-010", "ASH-011", "ASH-012", "ASH-013", "ASH-014", "ASH-015", "ASH-016"],
+      "status": "todo"
+    },
+    {
+      "id": "M03",
+      "title": "Shadow-Test und Scoring einbauen",
+      "task_ids": ["ASH-020", "ASH-021", "ASH-022", "ASH-023", "ASH-033"],
+      "status": "todo",
+      "note": "ASH-033 (Audit-Events) hier eingebaut, nicht in M04 — unverzichtbar für Shadow-Debugging."
+    },
+    {
+      "id": "M04",
+      "title": "Auto-Aktivierung und Rollback",
+      "task_ids": ["ASH-030", "ASH-031", "ASH-032", "ASH-034"],
+      "status": "todo"
+    },
+    {
+      "id": "M05",
+      "title": "TUI-Debug und User-Feedback",
+      "task_ids": ["ASH-040", "ASH-041", "ASH-042"],
+      "status": "todo"
+    },
+    {
+      "id": "M06",
+      "title": "Tests und Dokumentation",
+      "task_ids": ["ASH-050", "ASH-051", "ASH-052"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ASH-001",
+      "title": "AI-Snake-Komponenten logisch trennen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R1-medium",
+      "target_files": [
+        "client_surfaces/operator_tui/snake_heuristic_mixin.py",
+        "agent/services/heuristic_runtime/"
+      ],
+      "description": "Die aktuelle Snake-Logik soll in klare Verantwortlichkeiten zerlegt werden. WICHTIG: In zwei Phasen aufteilen — Phase A (Interfaces + Datenmodelle, vor M02) und Phase B (vollständige Zerlegung, nach M02 wenn Candidate-Lifecycle klar ist). Phase A nicht überspringen, Phase B nicht überstürzen.",
+      "proposed_components": [
+        "SnakeRuntimeController",
+        "SnakeObservationService",
+        "SnakeHeuristicSelector",
+        "SnakeCandidateService",
+        "SnakeActivationService",
+        "SnakeDebugView"
+      ],
+      "phases": {
+        "phase_a": "Interfaces, Datenmodelle und Typen definieren. Keine Umstrukturierung.",
+        "phase_b": "Tatsächliche Zerlegung in Klassen. Nach M02 durchführen."
+      },
+      "acceptance_criteria": [
+        "Phase A: Alle Komponenten-Interfaces sind als Python-Protokolle oder dataclasses definiert.",
+        "Phase A: Datenmodelle für SnakeState, CandidateRecord, ActivationPolicy sind schemavalidiert.",
+        "Phase B: Snake-Bewegung, Candidate-Erzeugung und Aktivierung sind nicht mehr in einer großen Mischlogik versteckt.",
+        "Phase B: Runtime-Entscheidungen blockieren den TUI-Tick nicht.",
+        "Phase B: Candidate-Erzeugung läuft asynchron.",
+        "Jede Komponente ist separat unit-testbar."
+      ]
+    },
+    {
+      "id": "ASH-002",
+      "title": "Movement Mode und Governance Mode trennen",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R1-medium",
+      "description": "follow_user, lurk, fast_target usw. sind Bewegungsmodi. auto_without_human_approval, human_approval_required, observe_only, frozen sind Governance-Modi. Governance-Modi sind in ASH-004 formal definiert.",
+      "movement_modes": [
+        "follow_user",
+        "lurk",
+        "fast_target",
+        "keyboard",
+        "mouse_follow",
+        "idle"
+      ],
+      "acceptance_criteria": [
+        "movement_mode und governance_mode sind getrennte Felder im Snake-State.",
+        "governance_mode ist einer der formal definierten Modi aus ASH-004.",
+        "Ein Bewegungsmodus kann wechseln, ohne den Governance-Modus zu verändern.",
+        "Governance beeinflusst nur Lernen, Candidate-Erzeugung und Aktivierung.",
+        "Tests prüfen mehrere Kombinationen aus movement_mode und governance_mode."
+      ]
+    },
+    {
+      "id": "ASH-003",
+      "title": "Minimalen AI-Snake-State-Katalog definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R1-medium",
+      "states": [
+        "disabled",
+        "paused",
+        "observe_only",
+        "follow_user",
+        "inspect_artifact",
+        "move_to_artifact",
+        "explain_artifact",
+        "chat_with_user",
+        "waiting_for_ai",
+        "heuristic_fallback",
+        "candidate_shadow_test",
+        "candidate_rollout",
+        "candidate_auto_active",
+        "quarantined",
+        "error"
+      ],
+      "acceptance_criteria": [
+        "Alle Zustände sind dokumentiert.",
+        "Ungültige Übergänge werden verhindert.",
+        "paused: Snake hält an, kein State-Wechsel — wird durch Space-Taste ausgelöst.",
+        "error: Snake wechselt in error wenn eine Future Exception unbehandelt bleibt, Recovery via Neustart.",
+        "candidate_rollout: Intermediate-State während Progressive Rollout (Quote < 100%).",
+        "waiting_for_ai fällt bei Timeout sauber auf heuristic_fallback zurück.",
+        "move_to_artifact kann nach Zielerreichung nach explain_artifact wechseln."
+      ]
+    },
+    {
+      "id": "ASH-004",
+      "title": "Governance-Mode-Enum formal definieren und validieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R0-low",
+      "description": "Die möglichen Governance-Modi werden als enum/Konstanten definiert und validiert. Verhindert Tippfehler und macht erlaubte Transitionen explizit.",
+      "governance_modes": {
+        "auto_without_human_approval": "Volle Auto-Aktivierung nach Validation+Simulation+Shadow. Default.",
+        "human_approval_required": "Candidate wartet auf explizite Freigabe, kein Auto-Promote.",
+        "observe_only": "Snake beobachtet, erzeugt keine Candidates, kein Lernen.",
+        "frozen": "Keine Änderung an aktiver Heuristik erlaubt. Candidates werden gesammelt aber nicht aktiviert."
+      },
+      "acceptance_criteria": [
+        "GovernanceMode ist als Python-Enum oder Literal-Type definiert.",
+        "Ungültige Governance-Modi werden beim Laden aus Config/State mit ValueError abgelehnt.",
+        "Transitionen zwischen Governance-Modi sind dokumentiert (z.B. frozen → auto erlaubt, auto → frozen erlaubt).",
+        "Tests prüfen alle vier Modi und ungültige Eingaben."
+      ]
+    },
+    {
+      "id": "ASH-010",
+      "title": "Candidate-Verzeichnisse nach Domain strukturieren",
+      "type": "filesystem",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R0-low",
+      "proposed_layout": {
+        "heuristics/candidates/tui_snake/": "Neue AI-Snake-Kandidaten",
+        "heuristics/active/tui_snake/": "Aktive AI-Snake-Heuristiken",
+        "heuristics/runtime/tui_snake/": "Temporäre Shadow-/Live-Test-Heuristiken",
+        "heuristics/quarantine/tui_snake/": "Fehlgeschlagene oder riskante Kandidaten",
+        "heuristics/archive/tui_snake/": "Alte aktive Versionen"
+      },
+      "acceptance_criteria": [
+        "Candidates sind nach Domain getrennt.",
+        "Active-Heuristiken sind nach Domain getrennt.",
+        "Migration/Loader unterstützt alte und neue Pfade oder dokumentiert den Bruch klar.",
+        "Keine Domain lädt versehentlich Heuristiken einer anderen Domain."
+      ]
+    },
+    {
+      "id": "ASH-011",
+      "title": "Candidate-Fingerprint und Duplikat-Zusammenführung einbauen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R1-medium",
+      "description": "Wiederholte ähnliche Candidate-Vorschläge sollen nicht endlos neue Dateien erzeugen. Fingerprint basiert auf einem stabilen Content-Hash — NICHT auf context_hash_pattern (zu variabel) oder fallback_reason (zu generisch).",
+      "fingerprint_schema": {
+        "fields": ["domain", "base_heuristic_ref", "action_kind", "parameters_canonical_json"],
+        "algorithm": "SHA-256 über JSON-normalisierte Konkatenation der Felder",
+        "note": "fallback_reason und context_hash_pattern gehören ins metrics-Feld, nicht in den Fingerprint"
+      },
+      "acceptance_criteria": [
+        "Jeder Candidate erhält einen stabilen fingerprint (SHA-256).",
+        "Fingerprint basiert ausschließlich auf domain, base_heuristic_ref, action_kind und parameters_canonical_json.",
+        "Existiert ein gleicher Fingerprint, wird evidence_count erhöht statt eine neue Datei zu schreiben.",
+        "Candidate-Dateien bleiben klein und übersichtlich.",
+        "Tests prüfen Fingerprint-Stabilität bei gleichen Inputs und Distinktheit bei verschiedenen Inputs."
+      ]
+    },
+    {
+      "id": "ASH-012",
+      "title": "Candidate-Metriken erweitern",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R1-medium",
+      "metrics": [
+        "trace_count",
+        "evidence_count",
+        "dominant_fallback_reason",
+        "ai_timeout_count",
+        "ttl_expired_count",
+        "no_trigger_match_count",
+        "context_hash_distribution",
+        "movement_mode_distribution",
+        "average_decision_duration_ms",
+        "user_positive_feedback_count",
+        "user_negative_feedback_count",
+        "provenance_trace_ids"
+      ],
+      "acceptance_criteria": [
+        "Candidate enthält metrics-Block.",
+        "Metriken enthalten keine Rohdaten.",
+        "Metriken sind aus DecisionTraces reproduzierbar.",
+        "provenance_trace_ids: Liste der konkreten DecisionTrace-IDs aus denen der Candidate abgeleitet wurde (max. 20, älteste werden verdrängt).",
+        "Aktivierung kann anhand der Metriken entscheiden."
+      ]
+    },
+    {
+      "id": "ASH-013",
+      "title": "Candidate-Rohdaten-Schutz erzwingen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "acceptance_criteria": [
+        "Candidate darf keine raw_screen, raw_prompt, raw_content, source_code oder secret-Felder enthalten.",
+        "Validator blockiert Kandidaten mit verdächtigen Rohdatenfeldern.",
+        "Tests prüfen absichtlich bösartige Candidate-Dateien.",
+        "Ablehnung erzeugt reason_code raw_content_forbidden."
+      ]
+    },
+    {
+      "id": "ASH-014",
+      "title": "Candidate TTL und Auto-Expiry einbauen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R0-low",
+      "description": "Kandidaten, die nach Ablauf ihrer TTL noch nicht Simulation oder Shadow bestanden haben, werden automatisch nach quarantine/ verschoben. Verhindert unkontrollierbares Wachstum von candidates/.",
+      "ttl_policy": {
+        "default_ttl_days": 14,
+        "check_interval": "beim Start und täglich",
+        "on_expiry": "quarantine",
+        "reason_code": "ttl_expired"
+      },
+      "acceptance_criteria": [
+        "Jeder Candidate erhält ein expires_at-Feld (created_at + TTL).",
+        "Beim Laden werden abgelaufene Candidates nicht mehr in die aktive Auswahl einbezogen.",
+        "Ein Hintergrundprozess (oder Startup-Check) verschiebt abgelaufene Candidates nach quarantine/.",
+        "Quarantinierte Candidates erhalten reason_code ttl_expired.",
+        "Tests prüfen Ablauf und Nicht-Ablauf von Candidates."
+      ]
+    },
+    {
+      "id": "ASH-015",
+      "title": "Rate-Limit für Candidate-Erzeugung einbauen",
+      "type": "safety",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R1-medium",
+      "description": "Die Proposal-Logik darf bei aktivem TUI maximal N Kandidaten pro Zeitfenster erzeugen. Verhindert Flood bei intensiver Nutzung.",
+      "rate_limit_policy": {
+        "max_candidates_per_hour": 3,
+        "cooldown_after_proposal_seconds": 300,
+        "skip_reason_code": "rate_limit_active"
+      },
+      "acceptance_criteria": [
+        "Nach erfolgreicher Candidate-Erzeugung gilt ein Cooldown von mindestens 300 Sekunden.",
+        "Innerhalb einer Stunde werden maximal 3 Candidates erzeugt.",
+        "Überschreitung wird geloggt mit reason_code rate_limit_active.",
+        "Rate-Limit-Zustand überlebt keinen Neustart (kein persistenter Zustand nötig).",
+        "Tests simulieren schnelle Proposal-Aufrufe und prüfen Unterdrückung."
+      ]
+    },
+    {
+      "id": "ASH-016",
+      "title": "Migrations-Gate für bestehende Kandidaten ohne simulation_result",
+      "type": "migration",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R1-medium",
+      "description": "Alle 10 bestehenden Kandidaten in heuristics/candidates/ haben simulation_result: null. Laut default_policy.requires_simulation: true dürfen sie nicht direkt geladen werden. Beim nächsten Start müssen sie in einen pending_simulation-Status versetzt und aus dem aktiven Load-Pfad entfernt werden.",
+      "current_state": "10 Kandidaten mit simulation_result: null werden direkt geladen — verletzt requires_simulation: true",
+      "acceptance_criteria": [
+        "Beim Laden werden Candidates mit simulation_result: null in status: pending_simulation gesetzt.",
+        "Candidates mit status: pending_simulation werden nicht für den aktiven Snake-Betrieb genutzt.",
+        "Migration ist idempotent (mehrfaches Ausführen ändert nichts).",
+        "Anzahl migrierter Candidates wird beim Start geloggt.",
+        "Tests prüfen Migration von Candidates ohne und mit simulation_result."
+      ]
+    },
+    {
+      "id": "ASH-020",
+      "title": "Shadow-Run für neue Candidates implementieren",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "description": "Neue Candidate-Heuristiken entscheiden zunächst im Schatten mit, ohne die echte Snake-Bewegung zu steuern. Mindestlaufzeit: 50 Entscheidungen UND mindestens 30 Sekunden — damit verschiedene Nutzungsmuster (langsame Maus, schnelle Navigation) abgedeckt werden.",
+      "shadow_thresholds": {
+        "min_decisions": 50,
+        "min_duration_seconds": 30,
+        "note": "BEIDE Bedingungen müssen erfüllt sein, nicht nur eine"
+      },
+      "acceptance_criteria": [
+        "Aktive Heuristik steuert weiter real.",
+        "Candidate-Heuristik berechnet parallel eine hypothetische Entscheidung.",
+        "Shadow-Entscheidung wird mit aktiver Entscheidung verglichen.",
+        "Shadow-Run erfordert mindestens 50 Entscheidungen UND mindestens 30 Sekunden Laufzeit.",
+        "Shadow-Run blockiert den TUI-Tick nicht.",
+        "Shadow-Run wird durch ASH-023 (Live-Watchdog) überwacht."
+      ]
+    },
+    {
+      "id": "ASH-021",
+      "title": "Candidate-Scoring einführen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "score_fields": [
+        "simulation_passed",
+        "shadow_decision_count",
+        "shadow_duration_seconds",
+        "shadow_match_rate",
+        "fallback_reduction_estimate",
+        "risk_score",
+        "activation_score"
+      ],
+      "activation_thresholds": {
+        "simulation_passed": true,
+        "min_shadow_decision_count": 50,
+        "min_shadow_duration_seconds": 30,
+        "min_activation_score": 0.7,
+        "max_risk_score": 0.3
+      },
+      "acceptance_criteria": [
+        "Candidate erhält reproduzierbaren score-Block.",
+        "score enthält shadow_duration_seconds zusätzlich zu shadow_decision_count.",
+        "Auto-Aktivierung ist unterhalb der Schwellwerte verboten.",
+        "Scores sind im TUI-Debug sichtbar.",
+        "Tests prüfen gute, schlechte und grenzwertige Kandidaten."
+      ]
+    },
+    {
+      "id": "ASH-022",
+      "title": "Simulation Harness für AI-Snake-Szenarien erweitern",
+      "type": "testability",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "simulation_cases": [
+        "normal_follow_user",
+        "artifact_detected_fast_target",
+        "artifact_explain_after_arrival",
+        "ai_timeout_fallback",
+        "no_trigger_match",
+        "invalid_candidate_action",
+        "candidate_causes_loop",
+        "candidate_causes_no_movement"
+      ],
+      "acceptance_criteria": [
+        "Simulation muss vor Auto-Aktivierung bestanden sein.",
+        "Simulation erkennt Endlosschleifen und No-Op-Verhalten.",
+        "Simulation prüft Artefakt-Erkennung und Erklärungspfad.",
+        "Fehlgeschlagene Simulation verschiebt Candidate nach quarantine oder markiert ihn als simulation_failed."
+      ]
+    },
+    {
+      "id": "ASH-023",
+      "title": "Shadow-Run Live-Watchdog implementieren",
+      "type": "safety",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "description": "Simulation (ASH-022) erkennt Probleme vor der Aktivierung. Aber was wenn ein Kandidat im Shadow-Run selbst unerwartet schlechte Entscheidungen produziert? Ein Live-Watchdog überwacht den Shadow-Betrieb und bricht ab, bevor die Aktivierung überhaupt beginnt.",
+      "watchdog_triggers": [
+        "shadow_no_movement_frames > 10 aufeinanderfolgend",
+        "shadow_decision_loop_detected (gleiche Position 5x in Folge)",
+        "shadow_exception_rate > 0.1 (mehr als 10% der Entscheidungen werfen Exception)",
+        "shadow_invalid_action_rate > 0.2"
+      ],
+      "on_watchdog_trigger": "Shadow abbrechen, Candidate → quarantine, reason_code: shadow_watchdog_triggered",
+      "acceptance_criteria": [
+        "Watchdog läuft parallel zum Shadow-Run, nicht im Tick-Hotpath.",
+        "Bei Auslösung wird Shadow sofort abgebrochen.",
+        "Candidate wird nach quarantine/ verschoben mit shadow_watchdog_triggered als reason_code.",
+        "Watchdog-Event wird als strukturiertes Audit-Event gespeichert (ASH-033).",
+        "Tests simulieren alle vier Watchdog-Trigger."
+      ]
+    },
+    {
+      "id": "ASH-030",
+      "title": "Auto-Aktivierung per promote_to_active implementieren",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "description": "Im Default werden gültige Candidates automatisch nach heuristics/active/ übernommen, statt dauerhaft direkt aus candidates/ geladen zu werden. Aktivierung erfolgt über Progressive Rollout (ASH-034).",
+      "acceptance_criteria": [
+        "Default activation_strategy ist promote_to_active.",
+        "Candidate wird nach validation, simulation und shadow_run automatisch nach active/ promotet.",
+        "Candidate-Status wird auf auto_promoted gesetzt.",
+        "Audit-Eintrag enthält reason_code auto_without_human_approval.",
+        "Direktes Laden aus candidates/ ist standardmäßig deaktiviert.",
+        "Promotion startet Progressive Rollout (ASH-034), nicht sofortige 100%-Aktivierung."
+      ]
+    },
+    {
+      "id": "ASH-031",
+      "title": "Direct Candidate Runtime nur als Debug-Modus erlauben",
+      "type": "safety",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R2-high",
+      "description": "Direktes Verwenden von candidates/ als Runtime-Quelle ist nur für explizite Debug-/Experiment-Konfiguration erlaubt.",
+      "acceptance_criteria": [
+        "direct_candidate_runtime_allowed ist default false.",
+        "Wenn true, wird es im TUI deutlich als riskanter Debug-Modus angezeigt.",
+        "Debug-Modus ist nicht persistent aktivierbar ohne explizite Config.",
+        "Tests prüfen, dass candidates/ im Normalmodus nicht direkt geladen wird."
+      ]
+    },
+    {
+      "id": "ASH-032",
+      "title": "Auto-Rollback nach schlechter Performance einbauen",
+      "type": "safety",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "rollback_triggers": [
+        "fallback_rate_increased",
+        "ai_timeout_rate_increased",
+        "snake_stuck_detected",
+        "user_negative_feedback_threshold_reached",
+        "decision_duration_threshold_exceeded",
+        "invalid_transition_detected"
+      ],
+      "acceptance_criteria": [
+        "Vor Aktivierung wird vorherige aktive Heuristik archiviert.",
+        "Runtime überwacht neue Heuristik nach Auto-Aktivierung.",
+        "Bei schlechter Performance wird automatisch rollback ausgeführt.",
+        "Fehlerhafte Heuristik landet in quarantine.",
+        "Rollback erzeugt Audit-Event mit reason_code.",
+        "Rollback funktioniert auch während Progressive Rollout — Quote wird auf 0 gesetzt."
+      ]
+    },
+    {
+      "id": "ASH-033",
+      "title": "Aktivierungs-Audit und Event-Sourcing light ergänzen",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R1-medium",
+      "note": "In M03 eingebaut (nicht M04) — Audit-Events sind für Shadow-Debugging und Scoring-Nachvollziehbarkeit notwendig.",
+      "event_types": [
+        "snake_decision",
+        "candidate_created",
+        "candidate_duplicate_merged",
+        "candidate_validated",
+        "candidate_simulated",
+        "candidate_shadow_started",
+        "candidate_shadow_completed",
+        "candidate_shadow_watchdog_triggered",
+        "candidate_auto_promoted",
+        "candidate_rollout_stage_advanced",
+        "candidate_quarantined",
+        "heuristic_rollback"
+      ],
+      "acceptance_criteria": [
+        "Wichtige Aktionen erzeugen kleine strukturierte Events.",
+        "Events enthalten keine Rohdaten.",
+        "Events sind zeitlich sortierbar.",
+        "TUI-Debug kann letzte Events anzeigen.",
+        "candidate_shadow_watchdog_triggered ist als Event-Typ enthalten (ASH-023)."
+      ]
+    },
+    {
+      "id": "ASH-034",
+      "title": "Progressive Rollout für Auto-Promotion implementieren",
+      "type": "safety",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R1-medium",
+      "description": "Statt sofortiger 100%-Aktivierung wird ein neuer Candidate schrittweise eingeführt. Jede Quote-Stufe wird überwacht. Bei schlechten Metriken Rollback, bevor alle Ticks betroffen sind.",
+      "rollout_stages": [
+        {"quota": 0.1, "min_decisions": 20, "label": "canary"},
+        {"quota": 0.5, "min_decisions": 50, "label": "partial"},
+        {"quota": 1.0, "min_decisions": null, "label": "full"}
+      ],
+      "stage_advance_conditions": {
+        "no_rollback_trigger_fired": true,
+        "min_decisions_at_current_stage": "see rollout_stages",
+        "activation_score_still_above_threshold": true
+      },
+      "acceptance_criteria": [
+        "Promotion startet auf Quote 0.1 (10% der Ticks nutzen neue Heuristik).",
+        "Nach Mindest-Entscheidungen ohne Rollback-Trigger: Advance auf nächste Stufe.",
+        "Jeder Stage-Wechsel erzeugt ein candidate_rollout_stage_advanced Audit-Event.",
+        "Bei Rollback-Trigger auf jeder Stufe: sofort auf 0%, Candidate → quarantine.",
+        "State candidate_rollout ist im State-Katalog (ASH-003) definiert.",
+        "Tests prüfen alle drei Stufen und Rollback auf jeder Stufe."
+      ]
+    },
+    {
+      "id": "ASH-040",
+      "title": "TUI-Debugansicht für Snake-Entscheidungen erweitern",
+      "type": "ui",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R0-low",
+      "acceptance_criteria": [
+        "TUI zeigt active_heuristic_id.",
+        "TUI zeigt current_candidate_id, falls Shadow-Test läuft.",
+        "TUI zeigt movement_mode und governance_mode.",
+        "TUI zeigt activation_strategy.",
+        "TUI zeigt letzte reason_codes.",
+        "TUI zeigt Progressive-Rollout-Stage falls aktiv (z.B. 'rollout: canary 10%').",
+        "TUI zeigt activation_score und risk_score des laufenden Candidates."
+      ]
+    },
+    {
+      "id": "ASH-041",
+      "title": "User-Feedback-Tasten für Snake-Verhalten einbauen",
+      "type": "ui",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R1-medium",
+      "feedback_keys": {
+        "+": "positive_feedback_for_current_behavior",
+        "-": "negative_feedback_for_current_behavior",
+        "r": "rollback_current_auto_heuristic",
+        "p": "pin_current_heuristic"
+      },
+      "note": "ACHTUNG: Tasten-Konflikte mit bestehenden TUI-Bindings prüfen bevor Implementierung. 'r' ist bereits :refresh. Vor Implementierung keymap.py und bestehende Bindings analysieren und ggf. Modifier-Tasten (z.B. Shift+R, Ctrl+P) verwenden.",
+      "acceptance_criteria": [
+        "Tasten-Konflikte mit bestehendem Keymap sind vor Implementierung geprüft und dokumentiert.",
+        "Positives Feedback erhöht Candidate-/Heuristik-Score.",
+        "Negatives Feedback senkt Score oder triggert Rollback-Schwelle.",
+        "Rollback-Key funktioniert nur bei auto-promoted Heuristik.",
+        "Pin-Key verhindert automatisches Überschreiben der aktuellen Heuristik.",
+        "Feedback erzeugt strukturiertes Audit-Event (ASH-033)."
+      ]
+    },
+    {
+      "id": "ASH-042",
+      "title": "Artefakt-Intent und Bewegung getrennt modellieren",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R1-medium",
+      "description": "Die Snake soll erkennen, welches Artefakt gemeint ist, schnell dorthin gehen, erklären und Chat anbieten.",
+      "decision_model": {
+        "intent": "explain_artifact",
+        "movement": "fast_target",
+        "target": "selected_artifact",
+        "interaction": "open_chat_when_arrived"
+      },
+      "acceptance_criteria": [
+        "Intent, movement, target und interaction sind getrennte Felder.",
+        "fast_target wird nur gesetzt, wenn ein valides target existiert.",
+        "Nach Zielerreichung wechselt State zu explain_artifact.",
+        "Danach kann State zu chat_with_user wechseln.",
+        "Tests decken den kompletten Artefakt-Erklärungspfad ab."
+      ]
+    },
+    {
+      "id": "ASH-050",
+      "title": "Regressionstests für TUI-Flüssigkeit",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R1-medium",
+      "acceptance_criteria": [
+        "Tests simulieren viele TUI-Ticks mit Candidate-Erzeugung.",
+        "Background-I/O blockiert den Tick nicht.",
+        "Shadow-Run blockiert den Tick nicht.",
+        "Rollback blockiert den Tick nicht.",
+        "Fehlerhafte Futures hängen die TUI nicht auf.",
+        "Rate-Limit verhindert Candidate-Flood bei schnellen Ticks.",
+        "Kandidaten-Verzeichnis wächst nicht unbegrenzt (TTL-Mechanismus greift)."
+      ]
+    },
+    {
+      "id": "ASH-051",
+      "title": "Tests für Auto-Aktivierung ohne Human Approval",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "R2-high",
+      "acceptance_criteria": [
+        "Default ist auto_without_human_approval.",
+        "Guter Candidate wird automatisch promotet.",
+        "Candidate ohne Simulation wird nicht promotet.",
+        "Candidate mit schlechtem Score wird nicht promotet.",
+        "Human approval ist im Default nicht nötig.",
+        "Progressive Rollout durchläuft alle drei Stufen korrekt.",
+        "Rollback auf jeder Rollout-Stufe funktioniert.",
+        "Migration von Candidates mit simulation_result: null funktioniert (ASH-016)."
+      ]
+    },
+    {
+      "id": "ASH-052",
+      "title": "Doku und Mermaid-Diagramme ergänzen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "R0-low",
+      "target_files": [
+        "docs/operator-tui/ai-snake-heuristic-evolution.md",
+        "docs/architecture/heuristic-runtime.md"
+      ],
+      "acceptance_criteria": [
+        "Doku erklärt die drei Ebenen Runtime, Lernen und Governance.",
+        "Doku erklärt promote_to_active als Default.",
+        "Doku erklärt direct_candidate_runtime als Debug-Ausnahme.",
+        "Mermaid-Diagramm zeigt Candidate -> Validation -> Simulation -> Shadow+Watchdog -> Rollout(10%→50%→100%) -> Active -> Monitor -> Rollback.",
+        "Doku erklärt User-Feedback und Score-Auswirkung.",
+        "Doku erklärt Candidate TTL und Rate-Limit.",
+        "Doku erklärt alle vier Governance-Modi."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "ASH-001",
+    "ASH-002",
+    "ASH-003",
+    "ASH-013",
+    "ASH-016",
+    "ASH-020",
+    "ASH-021",
+    "ASH-022",
+    "ASH-023",
+    "ASH-030",
+    "ASH-032",
+    "ASH-034",
+    "ASH-042",
+    "ASH-050",
+    "ASH-051"
+  ],
+  "tasks_status_summary": {
+    "total": 28,
+    "by_status": {
+      "todo": 28,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0-critical": 13,
+      "P1-high": 14,
+      "P2-medium": 0,
+      "P3-low": 0
+    },
+    "by_risk": {
+      "R0-low": 6,
+      "R1-medium": 12,
+      "R2-high": 10,
+      "R3-critical": 0
+    },
+    "critical_path": {
+      "total": 15,
+      "done": 0,
+      "remaining": 15
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "changes": [
+        "ASH-004 neu: Governance-Mode-Enum formal definieren (M01)",
+        "ASH-014 neu: Candidate TTL und Auto-Expiry (M02)",
+        "ASH-015 neu: Rate-Limit für Candidate-Erzeugung, max 3/h, 300s Cooldown (M02)",
+        "ASH-016 neu: Migrations-Gate für bestehende Kandidaten mit simulation_result: null (M02, P0-critical)",
+        "ASH-023 neu: Shadow-Run Live-Watchdog mit 4 Auslöse-Bedingungen (M03, P0-critical)",
+        "ASH-034 neu: Progressive Rollout 10%→50%→100% mit Stage-Monitoring (M04)",
+        "ASH-001 geändert: Zwei-Phasen-Strategie — Interfaces zuerst, Zerlegung nach M02",
+        "ASH-002 geändert: Governance-Mode-Enum referenziert ASH-004",
+        "ASH-003 geändert: States paused, error und candidate_rollout ergänzt",
+        "ASH-011 geändert: Fingerprint vereinfacht auf SHA-256 über 4 stabile Felder, context_hash_pattern raus",
+        "ASH-012 geändert: provenance_trace_ids zu Metriken hinzugefügt",
+        "ASH-020 geändert: Shadow-Schwelle auf min 50 Entscheidungen UND min 30 Sekunden verschärft",
+        "ASH-021 geändert: shadow_duration_seconds zu score_fields und activation_thresholds ergänzt",
+        "ASH-030 geändert: Promotion startet Progressive Rollout statt 100%-Sofortaktivierung",
+        "ASH-032 geändert: Rollback funktioniert auch während Progressive Rollout",
+        "ASH-033 verschoben: Von M04 nach M03 — für Shadow-Debugging notwendig",
+        "ASH-033 geändert: candidate_shadow_watchdog_triggered und candidate_rollout_stage_advanced als Event-Typen ergänzt",
+        "ASH-040 geändert: Rollout-Stage und Scores in Debug-Ansicht ergänzt",
+        "ASH-041 geändert: Tasten-Konflikt-Prüfung als explizite Bedingung vor Implementierung",
+        "ASH-050 geändert: Rate-Limit und TTL in Regressionstests ergänzt",
+        "ASH-051 geändert: Progressive Rollout und ASH-016-Migration in Tests ergänzt",
+        "ASH-052 geändert: TTL, Rate-Limit, Governance-Modi und erweitertes Rollout-Diagramm in Doku",
+        "default_policy erweitert: progressive_rollout, rollout_quota_stages, candidate_ttl_days, max_candidates_per_hour",
+        "governance_modes als Top-Level-Liste formal definiert",
+        "Kritischer Pfad: 12 → 15 Tasks (ASH-016, ASH-023, ASH-034 ergänzt)"
+      ]
+    }
+  ],
+  "summary_notes": [
+    "Default ist automatische Aktivierung ohne menschliche Freigabe.",
+    "Automatisch bedeutet nicht blind: Validation, Simulation, Shadow-Run+Watchdog, Score, Progressive Rollout und Rollback bleiben Pflicht.",
+    "Candidates werden nicht dauerhaft als Runtime-Chaosquelle verwendet, sondern nach bestandener Prüfung nach active/ promotet.",
+    "Progressive Rollout (10%→50%→100%) verhindert, dass eine neue Heuristik sofort alle Ticks übernimmt.",
+    "Candidate TTL und Rate-Limit verhindern unkontrollierbares Wachstum von candidates/.",
+    "Bestehende Kandidaten mit simulation_result: null müssen migriert werden (ASH-016) bevor das neue System aktiv wird.",
+    "Direct Candidate Runtime ist nur Debug-Modus.",
+    "User-Feedback wird als starkes Signal für Score und Rollback genutzt.",
+    "Die Snake soll Artefakt-Intent, Bewegung und Interaktion getrennt modellieren.",
+    "ASH-001 wird in zwei Phasen umgesetzt — Interfaces zuerst, Zerlegung nach M02."
+  ],
+  "definition_of_done": [
+    "AI-Snake-Runtime, Lernen und Governance sind sauber getrennt.",
+    "Governance-Modi sind formal als Enum definiert und validiert.",
+    "Neue Candidates werden aus TUI-Nutzung erzeugt, dedupliziert (Fingerprint) und rate-limitiert.",
+    "Candidates erhalten TTL und werden nach Ablauf automatisch quarantiniert.",
+    "Candidates enthalten keine Rohdaten.",
+    "Candidates laufen vor Aktivierung durch Validation, Simulation und Shadow-Run mit Live-Watchdog.",
+    "Gute Candidates werden im Default ohne menschliche Freigabe nach active/ promotet.",
+    "Promotion erfolgt über Progressive Rollout (10%→50%→100%), nicht sofort.",
+    "Schlechte Candidates werden quarantined oder rejected.",
+    "Auto-Rollback funktioniert bei schlechter Performance — auch auf jeder Rollout-Stufe.",
+    "TUI zeigt Zustand, aktive Heuristik, Candidate, Score, Rollout-Stage und Reason-Codes.",
+    "User kann Verhalten mit Feedback-Tasten (ohne Keymap-Konflikt) beeinflussen.",
+    "Artefakt-Erkennung führt zu fast_target, Erklärung und optionalem Chat.",
+    "Bestehende Kandidaten mit simulation_result: null sind migriert.",
+    "Alle kritischen Pfade sind getestet."
+  ]
+}
