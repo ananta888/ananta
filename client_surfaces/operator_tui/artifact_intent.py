@@ -1,7 +1,16 @@
+"""Artifact intent detection and decision modeling for TUI snake.
+
+ASH-042: intent, movement, target, and interaction are modeled as
+separate, independent fields in SnakeArtifactDecision.
+
+State transitions (from snake_state_catalog):
+  MOVE_TO_ARTIFACT → EXPLAIN_ARTIFACT → CHAT_WITH_USER
+"""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from client_surfaces.operator_tui.mouse import MouseState
 from client_surfaces.operator_tui.region_index import RegionTarget
@@ -20,6 +29,110 @@ class ArtifactIntent:
     target: RegionTarget | None
     score: float
     reason: str
+
+
+# ── ASH-042: Separated decision model ────────────────────────────────────────
+
+class SnakeArtifactIntentKind(str, Enum):
+    NONE            = "none"
+    EXPLAIN         = "explain_artifact"
+    INSPECT         = "inspect_artifact"
+    MOVE_TO         = "move_to_artifact"
+    CHAT            = "chat_with_user"
+
+
+class SnakeArtifactMovement(str, Enum):
+    NONE         = "none"
+    FAST_TARGET  = "fast_target"
+    FOLLOW_USER  = "follow_user"
+    LURK         = "lurk"
+
+
+class SnakeArtifactInteraction(str, Enum):
+    NONE               = "none"
+    OPEN_CHAT          = "open_chat_when_arrived"
+    EXPLAIN_INLINE     = "explain_inline"
+    SHOW_DETAIL        = "show_detail"
+
+
+@dataclass
+class SnakeArtifactDecision:
+    """Fully separated intent/movement/target/interaction model (ASH-042).
+
+    fast_target is only valid when target is not None.
+    After arrival, intent transitions: MOVE_TO → EXPLAIN → CHAT.
+    """
+    intent: SnakeArtifactIntentKind = SnakeArtifactIntentKind.NONE
+    movement: SnakeArtifactMovement = SnakeArtifactMovement.NONE
+    target: RegionTarget | None = None
+    interaction: SnakeArtifactInteraction = SnakeArtifactInteraction.NONE
+    at_target: bool = False             # True once snake has reached target position
+
+    def is_valid(self) -> bool:
+        # fast_target requires a target
+        if self.movement == SnakeArtifactMovement.FAST_TARGET and self.target is None:
+            return False
+        return True
+
+    def next_intent_on_arrival(self) -> "SnakeArtifactDecision":
+        """Advance intent after reaching target: MOVE_TO → EXPLAIN → CHAT."""
+        import dataclasses
+        if self.intent == SnakeArtifactIntentKind.MOVE_TO:
+            return dataclasses.replace(
+                self,
+                intent=SnakeArtifactIntentKind.EXPLAIN,
+                movement=SnakeArtifactMovement.NONE,
+                at_target=True,
+                interaction=self.interaction or SnakeArtifactInteraction.EXPLAIN_INLINE,
+            )
+        if self.intent == SnakeArtifactIntentKind.EXPLAIN:
+            return dataclasses.replace(
+                self,
+                intent=SnakeArtifactIntentKind.CHAT,
+                interaction=SnakeArtifactInteraction.OPEN_CHAT,
+                at_target=True,
+            )
+        return self
+
+    def to_game_dict(self) -> dict[str, Any]:
+        return {
+            "artifact_intent_kind": self.intent.value,
+            "artifact_movement": self.movement.value,
+            "artifact_intent_target": {
+                "id": self.target.payload.get("id") or self.target.label,
+                "section_id": self.target.section_id,
+                "label": self.target.label,
+            } if self.target else None,
+            "artifact_interaction": self.interaction.value,
+            "artifact_at_target": self.at_target,
+        }
+
+
+def build_snake_artifact_decision(
+    intent: ArtifactIntent,
+    *,
+    at_target: bool = False,
+) -> SnakeArtifactDecision:
+    """Convert an ArtifactIntent (confidence-based) to a SnakeArtifactDecision."""
+    if intent.confidence in (IntentConfidence.NONE, IntentConfidence.WEAK):
+        return SnakeArtifactDecision()
+
+    if at_target:
+        return SnakeArtifactDecision(
+            intent=SnakeArtifactIntentKind.EXPLAIN,
+            movement=SnakeArtifactMovement.NONE,
+            target=intent.target,
+            interaction=SnakeArtifactInteraction.EXPLAIN_INLINE,
+            at_target=True,
+        )
+
+    return SnakeArtifactDecision(
+        intent=SnakeArtifactIntentKind.MOVE_TO,
+        movement=SnakeArtifactMovement.FAST_TARGET,
+        target=intent.target,
+        interaction=SnakeArtifactInteraction.OPEN_CHAT,
+        at_target=False,
+    )
 
 
 class ArtifactIntentDetector:
