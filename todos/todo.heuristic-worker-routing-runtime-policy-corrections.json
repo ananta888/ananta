@@ -1,0 +1,199 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "heuristic-worker-routing-runtime-policy-corrections",
+  "purpose": "Korrektur/Ergänzung für offene Heuristik-TODOs: klare Trennung zwischen lokaler deterministischer Runtime, ananta-worker als Control-/Selection-/Evolution-Worker und OpenCode nur für Codeänderungen.",
+  "goal": "Alle offenen Heuristik-bezogenen Tracks sollen dieselbe Routing-Regel verwenden: aktive Heuristiken laufen lokal deterministisch; Heuristik-Auswahl, TTL-Leases, Reevaluation und Candidate-Erzeugung laufen standardmäßig über ananta-worker; OpenCode wird nur verwendet, wenn genehmigte Heuristik- oder Runtime-Änderungen konkret im Code umgesetzt werden sollen.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {"id": "M01", "title": "Routing Policy definieren", "task_ids": ["T01.01", "T01.02", "T01.03"], "status": "todo"},
+    {"id": "M02", "title": "Offene TODOs anpassen", "task_ids": ["T02.01", "T02.02", "T02.03", "T02.04"], "status": "todo"},
+    {"id": "M03", "title": "Tests und Dokumentation", "task_ids": ["T03.01", "T03.02", "T03.03"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Heuristic Runtime Routing Policy festlegen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "policy",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Policy legt fest: aktive Heuristiken laufen lokal deterministisch ohne Worker-Abhängigkeit.",
+        "Policy legt fest: ananta-worker ist Default für Heuristik-Auswahl, TTL-Leases, Reevaluation, Trace-Auswertung und Candidate-Proposals.",
+        "Policy legt fest: OpenCode darf nur für genehmigte Codeänderungen, Refactoring, Tests und Implementierung verwendet werden.",
+        "Policy verbietet OpenCode als Runtime-Entscheider für aktuelle Snake-/Chat-Heuristik.",
+        "Policy enthält Default-Konfiguration heuristic_runtime=local, heuristic_control_worker=ananta-worker, heuristic_code_worker=opencode."
+      ]
+    },
+    {
+      "id": "T01.02",
+      "title": "WorkerRoleConfig-v1 für Heuristiken definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M01",
+      "depends_on": ["T01.01"],
+      "acceptance_criteria": [
+        "Schema enthält runtime_mode, control_worker, evolution_worker, code_implementation_worker und auto_activation.",
+        "Default ist runtime_mode=local, control_worker=ananta-worker, evolution_worker=ananta-worker, code_implementation_worker=opencode, auto_activation=false.",
+        "Schema kann pro domain snake/chat/helpcenter/planning überschrieben werden.",
+        "Validator blockiert opencode als runtime_mode oder control_worker für Heuristik-Leases, außer expliziter Experimental-Flag gesetzt ist.",
+        "Tests prüfen Default und ungültige OpenCode-Runtime-Konfiguration."
+      ]
+    },
+    {
+      "id": "T01.03",
+      "title": "Routing in ExecutionProvenance sichtbar machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "provenance",
+      "milestone_id": "M01",
+      "depends_on": ["T01.02"],
+      "acceptance_criteria": [
+        "Heuristik-Entscheidungen enthalten runtime_source=local.",
+        "AI-/Control-Entscheidungen enthalten worker_ref=ananta-worker.",
+        "Code-Implementierungsaufträge enthalten worker_ref=opencode.",
+        "TUI kann anzeigen, ob etwas lokal, durch ananta-worker oder durch OpenCode entstanden ist.",
+        "Tests prüfen Provenance-Felder."
+      ]
+    },
+    {
+      "id": "T02.01",
+      "title": "todo.ai-snake-heuristic-fallback-behavioral-patterns.json korrigieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "todo-update",
+      "milestone_id": "M02",
+      "depends_on": ["T01.01"],
+      "acceptance_criteria": [
+        "Snake-Heuristik-TODO sagt explizit: Follow/Lurk/Fallback läuft lokal deterministisch.",
+        "Snake-Heuristik-TODO sagt explizit: ananta-worker darf Heuristik auswählen oder Reevaluation steuern.",
+        "Snake-Heuristik-TODO sagt explizit: OpenCode wird nur für Implementierung genehmigter Codeänderungen verwendet.",
+        "Timeout-/Quality-Gate-Tasks referenzieren ananta-worker als Control-Pfad, nicht OpenCode.",
+        "E2E prüft, dass Snake auch ohne Worker lokal weiterläuft."
+      ]
+    },
+    {
+      "id": "T02.02",
+      "title": "todo.chat-heuristic-fallback-codecompass-selection.json korrigieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "todo-update",
+      "milestone_id": "M02",
+      "depends_on": ["T01.01"],
+      "acceptance_criteria": [
+        "Chat-Heuristik-TODO sagt explizit: CodeCompass-Selektion im Fallback läuft lokal deterministisch.",
+        "Chat-Heuristik-TODO sagt explizit: ananta-worker ist Default für AI-Auswahl, Reevaluation und Candidate-Proposals.",
+        "Chat-Heuristik-TODO sagt explizit: OpenCode wird nur für Implementierung genehmigter Selector-/Runtime-Änderungen genutzt.",
+        "Policy-Gate blockiert OpenCode als Runtime-Chat-Entscheider.",
+        "E2E prüft Chat-Fallback ohne OpenCode-Abhängigkeit."
+      ]
+    },
+    {
+      "id": "T02.03",
+      "title": "todo.ai-assisted-heuristic-evolution-and-selection.json korrigieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "todo-update",
+      "milestone_id": "M02",
+      "depends_on": ["T01.02"],
+      "acceptance_criteria": [
+        "Heuristik-Evolution-TODO enthält WorkerRoleConfig-v1 oder verweist darauf.",
+        "Heuristik-Evolution-TODO sagt: ananta-worker ist Default für Selection/Evolution.",
+        "Heuristik-Evolution-TODO sagt: OpenCode ist nur code_implementation_worker.",
+        "TTL-Leases werden lokal enforced, auch wenn Auswahl vom ananta-worker kam.",
+        "Candidate-Proposals können durch AI/ananta-worker erzeugt werden, bleiben aber inactive bis Validation/Simulation/Approval."
+      ]
+    },
+    {
+      "id": "T02.04",
+      "title": "todo.eclipse-plugin-visible-ananta-snake-mouse-follow.json querprüfen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "todo-update",
+      "milestone_id": "M02",
+      "depends_on": ["T01.01"],
+      "acceptance_criteria": [
+        "Eclipse-Snake-TODO bleibt kompatibel mit lokaler Follow/Lurk-Heuristik.",
+        "Eclipse-Snake-TODO beschreibt Hub/ananta-worker als optionalen Control-/AI-Pfad.",
+        "OpenCode wird nicht als Runtime-Entscheider erwähnt.",
+        "Tests prüfen offline/local-only Eclipse-Snake-Verhalten."
+      ]
+    },
+    {
+      "id": "T03.01",
+      "title": "Routing-Konfiguration testen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M03",
+      "depends_on": ["T01.02"],
+      "acceptance_criteria": [
+        "Tests prüfen Default-Routing local/ananta-worker/opencode.",
+        "Tests prüfen ungültige OpenCode-Runtime wird blockiert.",
+        "Tests prüfen domain override für snake und chat.",
+        "Tests prüfen auto_activation=false als Default."
+      ]
+    },
+    {
+      "id": "T03.02",
+      "title": "E2E Routing nachweisen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M03",
+      "depends_on": ["T02.01", "T02.02", "T02.03"],
+      "acceptance_criteria": [
+        "E2E zeigt lokale Heuristik-Runtime ohne Worker.",
+        "E2E zeigt ananta-worker wählt Heuristik/TTL-Lease.",
+        "E2E zeigt OpenCode wird nur bei genehmigtem Codeänderungsauftrag verwendet.",
+        "E2E zeigt keine automatische Aktivierung neuer Heuristik."
+      ]
+    },
+    {
+      "id": "T03.03",
+      "title": "Architekturdoku Routing ergänzen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M03",
+      "depends_on": ["T01.01"],
+      "acceptance_criteria": [
+        "Doku enthält Mermaid-Flow: local heuristic runtime -> ananta-worker control -> OpenCode implementation.",
+        "Doku erklärt warum OpenCode nicht Runtime-Entscheider ist.",
+        "Doku erklärt ananta-worker als Selection/Evolution Worker.",
+        "Doku enthält Default-JSON-Konfigurationsbeispiel."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["T01.01", "T01.02", "T02.01", "T02.02", "T02.03", "T03.01", "T03.02"],
+  "tasks_status_summary": {"total": 10, "by_status": {"todo": 10, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}, "progress_percent_done": 0, "by_priority": {"P1": 8, "P2": 2, "P3": 0}, "by_risk": {"low": 2, "medium": 7, "high": 1}, "critical_path": {"total": 7, "done": 0, "remaining": 7}, "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}},
+  "tasks_type_summary": {"total": 10, "by_type": {"policy": 1, "schema": 1, "provenance": 1, "todo-update": 4, "test": 1, "e2e": 1, "docs": 1}},
+  "progress_summary": {"state": "todo", "todo_remaining": 10, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "execution_stage_summary": {"current_stage": "planning", "target_schema": "todos/todo.track.schema.json", "default_runtime": "local", "default_control_worker": "ananta-worker", "default_code_worker": "opencode"},
+  "summary_notes": [
+    "Ja, Korrekturen sind nötig: die offenen Heuristik-TODOs müssen die Worker-Rollen klarer trennen.",
+    "Aktive Heuristik läuft lokal deterministisch.",
+    "ananta-worker verwaltet Auswahl, TTL, Reevaluation und Candidate-Proposals.",
+    "OpenCode ist nur für genehmigte Codeänderungen zuständig.",
+    "Diese Datei ist eine gezielte Korrektur-/Ergänzungs-TODO für die offenen Heuristik-Tracks."
+  ],
+  "end_summaries": [
+    {"summary_id": "target_policy", "title": "Zielregel", "items": ["Runtime lokal", "Control/Evolution ananta-worker", "Code-Implementierung OpenCode", "keine Auto-Aktivierung", "keine OpenCode-Runtime-Entscheidung"]},
+    {"summary_id": "definition_of_done", "title": "Definition of Done", "items": ["Alle offenen Heuristik-TODOs referenzieren dieselbe Routing-Policy.", "WorkerRoleConfig-v1 existiert oder ist eingeplant.", "TUI/E2E zeigen Routing klar an.", "OpenCode wird nicht als Runtime-Entscheider verwendet."]}
+  ]
+}
