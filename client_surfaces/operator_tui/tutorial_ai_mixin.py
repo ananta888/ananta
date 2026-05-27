@@ -20,9 +20,159 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any
+
+def _score_rag_record(text: str, query_tokens: list[str]) -> float:
+    haystack = str(text or "").lower()
+    if not haystack:
+        return 0.0
+    if not query_tokens:
+        return 0.5
+    score = 0.0
+    for token in query_tokens:
+        count = haystack.count(token)
+        if count <= 0:
+            continue
+        score += 1.0 + min(0.6, (count - 1) * 0.15)
+    if "embedding_text" in haystack or "embedding" in haystack:
+        score += 0.3
+    if "graph_edges" in haystack or "graph_nodes" in haystack:
+        score += 0.3
+    return score
+
+
+def _load_codecompass_hints_from_dir(out_dir: Path) -> list[str]:
+    """Blocking load — always called from background thread."""
+    try:
+        from worker.retrieval.codecompass_output_reader import CodeCompassOutputReader
+        payload = CodeCompassOutputReader().load_from_output_dir(output_dir=out_dir)
+    except Exception:
+        return []
+    records = payload.get("records") if isinstance(payload, dict) else []
+    if not isinstance(records, list):
+        return []
+    hints: list[str] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        kind = str(record.get("kind") or record.get("type") or "").strip()
+        file_path = str(record.get("file") or record.get("path") or "").strip()
+        name = str(record.get("name") or record.get("id") or "").strip()
+        if not (kind or file_path or name):
+            continue
+        parts = [p for p in [kind, name, file_path] if p]
+        hint = " · ".join(parts)
+        if hint:
+            hints.append(hint)
+        if len(hints) >= 64:
+            break
+    return hints
+
+
+def _load_rag_context_from_dir(
+    out_dir: Path,
+    query_tokens: list[str],
+    top_k: int,
+    max_records_per_file: int,
+) -> list[str]:
+    """Blocking RAG context build — always called from background thread.
+
+    query_tokens are captured on the main thread before this is submitted
+    to avoid accessing self.state from a background thread.
+    """
+    manifest_path = out_dir / "manifest.json"
+    files: list[str] = []
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            manifest = {}
+        partitioned = manifest.get("partitioned_outputs") if isinstance(manifest, dict) else None
+        if isinstance(partitioned, dict):
+            for values in partitioned.values():
+                if isinstance(values, list):
+                    for item in values:
+                        rel = str(item or "").strip()
+                        if rel:
+                            files.append(rel)
+    files.extend([
+        "context.jsonl", "details.jsonl", "index.jsonl", "xml_overview.jsonl",
+        "embedding.jsonl", "graph_nodes.jsonl", "graph_edges.jsonl", "relations.jsonl",
+    ])
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for rel in files:
+        norm = rel.strip().lstrip("/")
+        if norm and norm not in seen:
+            seen.add(norm)
+            deduped.append(norm)
+
+    candidates: list[tuple[float, str]] = []
+    for rel in deduped[:24]:
+        path = out_dir / rel
+        if not path.exists() or not path.is_file() or path.suffix.lower() != ".jsonl":
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            continue
+        source_kind = path.name.lower().replace(".jsonl", "")
+        for idx, line in enumerate(lines):
+            if idx >= max_records_per_file:
+                break
+            payload = line.strip()
+            if not payload:
+                continue
+            try:
+                parsed = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(parsed, dict):
+                continue
+            source_file = str(
+                parsed.get("file") or parsed.get("path") or parsed.get("source_file")
+                or parsed.get("source_path") or parsed.get("target_file")
+                or parsed.get("target_path") or ""
+            ).strip()
+            if source_kind in {"graph_nodes", "graph_edges"} and source_file:
+                sl = source_file.lower()
+                if "client_surfaces/operator_tui" not in sl and "/operator_tui/" not in sl:
+                    tgt = str(parsed.get("target_file") or parsed.get("target_path") or "").lower()
+                    if "client_surfaces/operator_tui" not in tgt and "/operator_tui/" not in tgt:
+                        continue
+            tokens = [
+                str(parsed.get("domain") or "").strip(),
+                str(parsed.get("kind") or "").strip(),
+                str(parsed.get("title") or "").strip(),
+                str(parsed.get("section_title") or "").strip(),
+                str(parsed.get("name") or "").strip(),
+                source_file,
+                str(parsed.get("source_id") or parsed.get("from") or "").strip(),
+                str(parsed.get("target_id") or parsed.get("to") or "").strip(),
+                str(parsed.get("relation") or parsed.get("type") or "").strip(),
+                str(parsed.get("embedding_text") or "").strip(),
+                str(parsed.get("summary") or "").strip(),
+                str(parsed.get("content") or parsed.get("text") or "").strip(),
+            ]
+            text = " · ".join(part for part in tokens if part)
+            compact = " ".join(text.split())
+            if not compact:
+                continue
+            compact = f"{source_kind} · {compact}"
+            score = _score_rag_record(compact, query_tokens)
+            if source_kind in {"embedding", "graph_nodes", "graph_edges"}:
+                score += 0.8
+            if "client_surfaces/operator_tui" in compact.lower():
+                score += 1.2
+            if score <= 0:
+                continue
+            candidates.append((score, compact[:240]))
+    ranked = sorted(candidates, key=lambda item: item[0], reverse=True)
+    return [item[1] for item in ranked[:top_k]]
+
 
 _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
     "TUI: Focus [Tab], Command [:], Snake [Ctrl+S], Hilfe [?].",
@@ -755,172 +905,78 @@ class TutorialAiMixin:
         return clipped, target_hint
 
     def _load_codecompass_hints(self, *, now: float) -> list[str]:
+        """Return codecompass hints without blocking the main loop.
+
+        Disk I/O (CodeCompassOutputReader) runs in a background thread.
+        Returns stale cache while loading; updates cache when future completes.
+        """
         cached_at, cached = self._tutorial_codecompass_cache
+
+        pending = getattr(self, "_codecompass_hints_future", None)
+        if pending is not None and pending.done():
+            try:
+                cached = pending.result()
+                self._tutorial_codecompass_cache = (now, cached)
+            except Exception:
+                pass
+            self._codecompass_hints_future = None
+            pending = None
+
         if cached and (now - cached_at) < 6.0:
             return cached
 
-        out_dir = self._resolve_codecompass_output_dir()
-        if out_dir is None:
-            self._tutorial_codecompass_cache = (now, [])
-            return []
+        if pending is None:
+            out_dir = self._resolve_codecompass_output_dir()
+            if out_dir is None:
+                self._tutorial_codecompass_cache = (now, [])
+                return []
+            self._codecompass_hints_future = self._get_snake_bg_executor().submit(
+                _load_codecompass_hints_from_dir, out_dir
+            )
 
-        try:
-            from worker.retrieval.codecompass_output_reader import CodeCompassOutputReader
-        except Exception:
-            self._tutorial_codecompass_cache = (now, [])
-            return []
-
-        try:
-            payload = CodeCompassOutputReader().load_from_output_dir(output_dir=out_dir)
-            records = payload.get("records") if isinstance(payload, dict) else []
-            if not isinstance(records, list):
-                records = []
-            hints: list[str] = []
-            for record in records:
-                if not isinstance(record, dict):
-                    continue
-                kind = str(record.get("kind") or record.get("type") or "").strip()
-                file_path = str(record.get("file") or record.get("path") or "").strip()
-                name = str(record.get("name") or record.get("id") or "").strip()
-                if not (kind or file_path or name):
-                    continue
-                parts = []
-                if kind:
-                    parts.append(kind)
-                if name:
-                    parts.append(name)
-                if file_path:
-                    parts.append(file_path)
-                hint = " · ".join(parts)
-                if hint:
-                    hints.append(hint)
-                if len(hints) >= 64:
-                    break
-            self._tutorial_codecompass_cache = (now, hints)
-            return hints
-        except Exception:
-            self._tutorial_codecompass_cache = (now, [])
-            return []
+        return cached
 
     def _load_rag_helper_context(self, *, now: float) -> list[str]:
+        """Return RAG context without blocking the main loop.
+
+        File reads and scoring run in a background thread.
+        query_tokens are captured on the main thread before submitting.
+        """
         cached_at, cached = self._tutorial_rag_cache
+
+        pending = getattr(self, "_rag_context_future", None)
+        if pending is not None and pending.done():
+            try:
+                cached = pending.result()
+                self._tutorial_rag_cache = (now, cached)
+            except Exception:
+                pass
+            self._rag_context_future = None
+            pending = None
+
         if cached and (now - cached_at) < 6.0:
             return cached
 
-        out_dir = self._resolve_codecompass_output_dir()
-        if out_dir is None:
-            self._tutorial_rag_cache = (now, [])
-            return []
+        if pending is None:
+            out_dir = self._resolve_codecompass_output_dir()
+            if out_dir is None:
+                self._tutorial_rag_cache = (now, [])
+                return []
+            query_tokens = self._tutorial_relevance_tokens()   # main thread, uses self.state
+            top_k = max(12, min(96, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_TOP_K", "48"))))
+            max_recs = max(80, min(3000, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_MAX_RECORDS_PER_FILE", "800"))))
+            self._rag_context_future = self._get_snake_bg_executor().submit(
+                _load_rag_context_from_dir, out_dir, query_tokens, top_k, max_recs
+            )
 
-        manifest_path = out_dir / "manifest.json"
-        files: list[str] = []
-        if manifest_path.exists():
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except Exception:
-                manifest = {}
-            partitioned = manifest.get("partitioned_outputs") if isinstance(manifest, dict) else None
-            if isinstance(partitioned, dict):
-                for values in partitioned.values():
-                    if not isinstance(values, list):
-                        continue
-                    for item in values:
-                        rel = str(item or "").strip()
-                        if rel:
-                            files.append(rel)
-        files.extend(
-            [
-                "context.jsonl",
-                "details.jsonl",
-                "index.jsonl",
-                "xml_overview.jsonl",
-                "embedding.jsonl",
-                "graph_nodes.jsonl",
-                "graph_edges.jsonl",
-                "relations.jsonl",
-            ]
-        )
-        deduped_files: list[str] = []
-        seen_files: set[str] = set()
-        for rel in files:
-            normalized = rel.strip().lstrip("/")
-            if not normalized or normalized in seen_files:
-                continue
-            seen_files.add(normalized)
-            deduped_files.append(normalized)
+        return cached
 
-        query_tokens = self._tutorial_relevance_tokens()
-        top_k = max(12, min(96, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_TOP_K", "48"))))
-        candidates: list[tuple[float, str]] = []
-        max_records_per_file = max(80, min(3000, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_MAX_RECORDS_PER_FILE", "800"))))
-        for rel in deduped_files[:24]:
-            path = out_dir / rel
-            if not path.exists() or not path.is_file() or path.suffix.lower() != ".jsonl":
-                continue
-            try:
-                lines = path.read_text(encoding="utf-8").splitlines()
-            except Exception:
-                continue
-            source_kind = path.name.lower().replace(".jsonl", "")
-            for idx, line in enumerate(lines):
-                if idx >= max_records_per_file:
-                    break
-                payload = line.strip()
-                if not payload:
-                    continue
-                try:
-                    parsed = json.loads(payload)
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(parsed, dict):
-                    continue
-                source_file = str(
-                    parsed.get("file")
-                    or parsed.get("path")
-                    or parsed.get("source_file")
-                    or parsed.get("source_path")
-                    or parsed.get("target_file")
-                    or parsed.get("target_path")
-                    or ""
-                ).strip()
-                if source_kind in {"graph_nodes", "graph_edges"} and source_file:
-                    source_lower = source_file.lower()
-                    if "client_surfaces/operator_tui" not in source_lower and "/operator_tui/" not in source_lower:
-                        target_file = str(parsed.get("target_file") or parsed.get("target_path") or "").lower()
-                        if "client_surfaces/operator_tui" not in target_file and "/operator_tui/" not in target_file:
-                            continue
-
-                tokens = [
-                    str(parsed.get("domain") or "").strip(),
-                    str(parsed.get("kind") or "").strip(),
-                    str(parsed.get("title") or "").strip(),
-                    str(parsed.get("section_title") or "").strip(),
-                    str(parsed.get("name") or "").strip(),
-                    source_file,
-                    str(parsed.get("source_id") or parsed.get("from") or "").strip(),
-                    str(parsed.get("target_id") or parsed.get("to") or "").strip(),
-                    str(parsed.get("relation") or parsed.get("type") or "").strip(),
-                    str(parsed.get("embedding_text") or "").strip(),
-                    str(parsed.get("summary") or "").strip(),
-                    str(parsed.get("content") or parsed.get("text") or "").strip(),
-                ]
-                text = " · ".join(part for part in tokens if part)
-                compact = " ".join(text.split())
-                if not compact:
-                    continue
-                compact = f"{source_kind} · {compact}"
-                score = self._tutorial_context_relevance_score(compact, query_tokens=query_tokens)
-                if source_kind in {"embedding", "graph_nodes", "graph_edges"}:
-                    score += 0.8
-                if "client_surfaces/operator_tui" in compact.lower():
-                    score += 1.2
-                if score <= 0:
-                    continue
-                candidates.append((score, compact[:240]))
-        ranked = sorted(candidates, key=lambda item: item[0], reverse=True)
-        context = [item[1] for item in ranked[:top_k]]
-        self._tutorial_rag_cache = (now, context)
-        return context
+    def _get_snake_bg_executor(self) -> ThreadPoolExecutor:
+        executor: ThreadPoolExecutor | None = getattr(self, "_snake_bg_executor", None)
+        if executor is None:
+            executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tui-snake-io")
+            self._snake_bg_executor = executor
+        return executor
 
     def _tutorial_relevance_tokens(self) -> list[str]:
         game = dict(self.state.header_logo_game or {})
@@ -936,22 +992,7 @@ class TutorialAiMixin:
         return [token for token in re.findall(r"[a-z0-9_./-]+", text) if len(token) >= 2][:64]
 
     def _tutorial_context_relevance_score(self, text: str, *, query_tokens: list[str]) -> float:
-        haystack = str(text or "").lower()
-        if not haystack:
-            return 0.0
-        if not query_tokens:
-            return 0.5
-        score = 0.0
-        for token in query_tokens:
-            count = haystack.count(token)
-            if count <= 0:
-                continue
-            score += 1.0 + min(0.6, (count - 1) * 0.15)
-        if "embedding_text" in haystack or "embedding" in haystack:
-            score += 0.3
-        if "graph_edges" in haystack or "graph_nodes" in haystack:
-            score += 0.3
-        return score
+        return _score_rag_record(text, query_tokens)
 
     def _resolve_codecompass_output_dir(self) -> Path | None:
         candidates = [

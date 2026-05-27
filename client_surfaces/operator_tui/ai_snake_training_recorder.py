@@ -19,6 +19,7 @@ class AiSnakeTrainingRecorder:
         self.max_bytes = max(64_000, int(max_bytes))
         self.paused = False
         self._paths = ensure_training_layout()
+        self._event_queue: list[str] = []   # buffered JSON lines, flushed by background thread
 
     @property
     def events_path(self) -> Path:
@@ -39,12 +40,12 @@ class AiSnakeTrainingRecorder:
         privacy_class: str = "workspace",
         retention_hint: str = "rolling_7d",
     ) -> bool:
+        """Queue an event in memory — NO disk I/O. Call flush_queued() from a background thread."""
         if not self.enabled or self.paused:
             return False
         event_name = str(event_type).strip()
         if not event_name:
             return False
-        self._rotate_if_needed()
         payload: dict[str, Any] = {
             "schema_version": "ai_snake_behavior_event.v1",
             "event_id": f"evt_{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}",
@@ -59,9 +60,26 @@ class AiSnakeTrainingRecorder:
             "source": {"component": "operator_tui", "mode": "training"},
             "extensions": {},
         }
-        with self.events_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        self._event_queue.append(json.dumps(payload, ensure_ascii=False))
         return True
+
+    def flush_queued(self) -> int:
+        """Write buffered events to disk. Safe to call from a background thread.
+
+        Returns the number of events flushed. The queue is drained atomically
+        so concurrent calls are safe (GIL protects the list swap).
+        """
+        if not self._event_queue:
+            return 0
+        pending, self._event_queue = self._event_queue, []
+        self._rotate_if_needed()
+        try:
+            with self.events_path.open("a", encoding="utf-8") as fh:
+                for line in pending:
+                    fh.write(line + "\n")
+        except OSError:
+            pass
+        return len(pending)
 
     def _rotate_if_needed(self) -> None:
         path = self.events_path
