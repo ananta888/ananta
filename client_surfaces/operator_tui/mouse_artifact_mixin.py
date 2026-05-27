@@ -89,6 +89,11 @@ class MouseArtifactMixin:
             user_feed=str(game.get("tutorial_user_feed") or ""),
         )
         self._apply_artifact_intent(game, intent=intent, now=ts, width=width, height=height)
+
+        # Left-click: select item + AI snake jumps there + open chat + trigger explanation
+        if event_type == "down" and buttons == 1 and target is not None:
+            self._handle_left_click(game, target=target, now=ts, width=width, height=height)
+
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"mouse {self._mouse_state.x},{self._mouse_state.y}"))
 
     def _parse_sgr_mouse_event(self, raw: str) -> tuple[int, int, str, int, int] | None:
@@ -274,6 +279,90 @@ class MouseArtifactMixin:
             )
         )
         return True
+
+    # ── Left-click: select + AI snake + chat + explanation ───────────────────
+
+    def _handle_left_click(
+        self,
+        game: dict[str, object],
+        *,
+        target: RegionTarget,
+        now: float,
+        width: int,
+        height: int,
+    ) -> None:
+        """On left click: select the item, direct AI snake there, open chat, trigger explanation."""
+        # 1. Select the clicked item in the UI (section switch, item index, focus)
+        self._select_region_target(target)
+
+        # 2. Direct AI snake to the exact click position
+        game["artifact_target_cell"] = (self._mouse_state.x, self._mouse_state.y)
+        game["tutorial_ai_target_mode"] = "fast_target"
+        game["tutorial_ai_target_hint"] = target.pane or "content"
+        game["artifact_intent_confidence"] = "confirmed"
+        game["artifact_intent_target"] = {
+            "kind": target.kind,
+            "section_id": target.section_id,
+            "pane": target.pane,
+            "label": target.label,
+            "payload": dict(target.payload),
+        }
+
+        # 3. Open AI chat panel with "Kontext aktiv" message
+        self._activate_artifact_chat(game, target=target, now=now)
+
+        # Only trigger AI explanation when the tutorial AI snake is active
+        if not bool(game.get("active")) or not bool(game.get("tutorial_mode")):
+            return
+
+        # 4. Set context for the AI explanation: what was clicked
+        label = str(target.label or target.section_id or "diesen Bereich")
+        section = str(target.section_id or self.state.section_id or "")
+        game["tutorial_user_feed"] = f"Erkläre {label} im Abschnitt {section}."
+        game["tutorial_ai_local_contact"] = True
+        game["tutorial_ai_contact_zone"] = target.pane or "content"
+
+        # 5. Reset the async tip timer so a new explanation fires immediately on the next tick.
+        #    _tutorial_ai_tip() checks _tutorial_async_next_refresh_at — setting it to 0 forces
+        #    it to submit a new future on the very next tick, bypassing the normal refresh interval.
+        self._tutorial_async_next_refresh_at = 0.0
+        self._tutorial_async_tip_future = None   # cancel any pending tip for the old context
+
+    def _select_region_target(self, target: RegionTarget) -> None:
+        """Switch the TUI to the section/item the user clicked."""
+        from client_surfaces.operator_tui.sections import SECTIONS
+
+        new_section = str(target.section_id or self.state.section_id or "dashboard")
+        new_focus = FocusPane.NAVIGATION if target.pane == "nav" else (
+            FocusPane.DETAIL if target.pane == "detail" else FocusPane.CONTENT
+        )
+        new_selected = self.state.selected_index
+
+        if target.pane == "nav":
+            section_ids = [s.id for s in SECTIONS]
+            try:
+                new_selected = section_ids.index(new_section)
+            except ValueError:
+                new_selected = 0
+        elif isinstance(target.payload.get("index"), int):
+            new_selected = max(0, int(target.payload["index"]))
+
+        changed = (
+            new_section != self.state.section_id
+            or new_focus != self.state.focus
+            or new_selected != self.state.selected_index
+        )
+        if not changed:
+            return
+
+        next_state = self.state.with_updates(
+            focus=new_focus,
+            section_id=new_section,
+            selected_index=new_selected,
+        )
+        if new_section != self.state.section_id:
+            next_state = load_active_section(next_state, self._registry)
+        self._set_state(next_state)
 
     def _run_command(self, command: str) -> None:
         result = execute_command(command, self.state)
