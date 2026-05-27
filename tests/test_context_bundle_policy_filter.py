@@ -43,3 +43,34 @@ def test_context_bundle_filters_sensitive_chunks_for_external_scope() -> None:
     assert (bundle["policy_filter"] or {}).get("segregation", {}).get("applied") is True
     assert (bundle["context_policy"] or {}).get("default_deny") is True
     assert (bundle["context_policy"] or {}).get("llm_scope") == "external_cloud_allowed"
+
+
+def test_context_bundle_denies_unknown_sensitivity_in_cloud_scope() -> None:
+    service = get_context_bundle_service()
+    payload = {
+        "query": "inspect code",
+        "strategy": {},
+        "policy_version": "v1",
+        "chunks": [
+            {
+                "engine": "knowledge_index",
+                "source": "unknown.md",
+                "content": "unknown metadata content",
+                "score": 1.0,
+                "metadata": {"source_type": "artifact", "sensitivity": ""},
+            }
+        ],
+        "context_text": "unknown context",
+        "token_estimate": 8,
+    }
+
+    bundle = service.build_bundle(
+        query="inspect code",
+        context_payload=payload,
+        policy_mode="standard",
+        llm_scope="external_cloud_allowed",
+    )
+
+    assert bundle["chunk_count"] == 0
+    assert (bundle["policy_filter"] or {}).get("denied_count") == 1
+    assert (bundle["policy_filter"] or {}).get("denied_by_reason", {}).get("unknown_sensitivity_default_deny") == 1
