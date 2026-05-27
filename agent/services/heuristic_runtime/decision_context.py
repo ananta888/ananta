@@ -23,6 +23,7 @@ class DecisionContext:
     recent_events: list[dict[str, Any]] = field(default_factory=list)
     allowed_source_scopes: list[str] = field(default_factory=list)
     policy_state: str | None = None
+    query: str | None = None
 
     @property
     def context_hash(self) -> str:
@@ -34,6 +35,7 @@ class DecisionContext:
             "panel": self.active_panel,
             "scopes": sorted(self.allowed_source_scopes),
             "ai_status": self.ai_status,
+            "query": self.query,
         }
         payload = json.dumps(relevant, sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
@@ -49,6 +51,7 @@ class DecisionContext:
             "recent_events": list(self.recent_events),
             "allowed_source_scopes": list(self.allowed_source_scopes),
             "policy_state": self.policy_state,
+            "query": self.query,
             "context_hash": self.context_hash,
         }
 
@@ -130,4 +133,5 @@ def build_from_chat_state(
             if str(s).strip()
         ],
         policy_state=str(state.get("policy_state") or "").strip() or None,
+        query=str(state.get("query") or "").strip() or None,
     )

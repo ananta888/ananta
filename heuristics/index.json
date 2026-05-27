@@ -133,8 +133,48 @@
       "safety_class": "ui_motion_only",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "chat_codecompass_symbol_lookup_default",
+      "version": "1.0.0",
+      "domain": "chat_codecompass",
+      "status": "active",
+      "file": "active/chat_codecompass_symbol_lookup_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "chat_codecompass_error_lookup_default",
+      "version": "1.0.0",
+      "domain": "chat_codecompass",
+      "status": "active",
+      "file": "active/chat_codecompass_error_lookup_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "chat_codecompass_todo_status_default",
+      "version": "1.0.0",
+      "domain": "chat_codecompass",
+      "status": "active",
+      "file": "active/chat_codecompass_todo_status_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "chat_codecompass_sourcepack_lookup_default",
+      "version": "1.0.0",
+      "domain": "chat_codecompass",
+      "status": "active",
+      "file": "active/chat_codecompass_sourcepack_lookup_default.heuristic.json",
+      "safety_class": "readonly",
+      "runtime_mode": "python_strategy",
+      "last_modified": "2026-05-27"
     }
   ],
-  "version": "1.2",
+  "version": "1.3",
   "updated_at": "2026-05-27"
 }

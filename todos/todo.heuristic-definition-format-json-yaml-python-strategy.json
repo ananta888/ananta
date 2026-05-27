@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "owner": "Peter Stuiber",
   "track": "heuristic-definition-format-json-yaml-python-strategy",
   "purpose": "Festlegen, in welcher Sprache bzw. welchem Format Ananta-Heuristiken beschrieben, versioniert, gepr\u00fcft, importiert, exportiert und optional mit Python-Strategien ausgef\u00fchrt werden.",
@@ -576,7 +576,7 @@
     {
       "id": "T06.04",
       "title": "Bootstrap-Heuristik chat_codecompass_symbol_lookup_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "bootstrap-heuristic",
@@ -590,7 +590,9 @@
         "Ranking nutzt exact_symbol_match, selected_artifacts, local_project_file und codecompass_relation.",
         "No-good-match fallback ist konfiguriert.",
         "Tests pr\u00fcfen Symbolfrage mit Treffer und ohne Treffer."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_symbol_lookup_default.heuristic.json created"
     },
     {
       "id": "T06.05",
@@ -935,5 +937,5 @@
       ]
     }
   ],
-  "updated_at": "2026-05-27T10:48:26Z"
+  "updated_at": "2026-05-27T11:11:06Z"
 }

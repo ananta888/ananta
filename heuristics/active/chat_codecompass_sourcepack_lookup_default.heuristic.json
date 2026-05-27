@@ -1,0 +1,47 @@
+{
+  "heuristic_id": "chat_codecompass_sourcepack_lookup_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "chat_codecompass",
+  "description": "Rank and open the most query-relevant sourcepack from allowed source scopes using technical keyword matching.",
+  "deterministic": true,
+  "safety_class": "readonly",
+  "capabilities": ["read_local_context", "read_source_refs"],
+  "ttl_policy": {
+    "default_seconds": 15.0,
+    "min_seconds": 10.0,
+    "max_seconds": 20.0
+  },
+  "runtime": {
+    "mode": "python_strategy",
+    "python_strategy": {
+      "module": "agent.heuristics.strategies.chat_codecompass.sourcepack_lookup",
+      "class": "SourcePackLookupStrategy",
+      "expected_inputs": ["query", "allowed_source_scopes"],
+      "expected_outputs": ["open_source_ref", "no_action"]
+    },
+    "triggers": [
+      {"selected_artifact_present": false},
+      {"query_contains_any": ["api", "service", "repository", "schema", "model"]}
+    ],
+    "selection": {
+      "strategy": "ranked_codecompass_refs",
+      "max_refs": 3
+    },
+    "action": {
+      "kind": "open_source_ref",
+      "fallback": "no_action"
+    }
+  },
+  "inputs": ["query", "allowed_source_scopes"],
+  "outputs": ["source_ref"],
+  "parameters": {},
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic"}
+  ]
+}
