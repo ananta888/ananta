@@ -1,3 +1,4 @@
 agent
 client_surfaces
 hub
+worker

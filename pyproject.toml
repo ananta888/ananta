@@ -85,6 +85,19 @@ packages = [
     "client_surfaces.tui_runtime",
     "client_surfaces.tui_runtime.ananta_tui",
     "hub",
+    "worker",
+    "worker.adapters",
+    "worker.cli",
+    "worker.coding",
+    "worker.core",
+    "worker.loop",
+    "worker.planning",
+    "worker.repair",
+    "worker.retrieval",
+    "worker.runtime",
+    "worker.shell",
+    "worker.skills",
+    "worker.skills.builtin",
 ]
 
 [tool.setuptools.package-dir]
