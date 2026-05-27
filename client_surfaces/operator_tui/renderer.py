@@ -96,6 +96,7 @@ def render_operator_shell(
     if state.show_help or section.id == "help":
         lines.extend(_help_overlay(state, width))
     lines = _overlay_fullscreen_snake(lines, state, width=width)
+    lines = _overlay_artifact_chat_compact(lines, state, width=width)
     return "\n".join(_clip(line, width) for line in lines)
 
 
@@ -1533,6 +1534,90 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     if width < 40 or len(out) < 18:
         warn = "Terminal zu klein für Snake"
         out[0] = _overlay_text(out[:1], x=2, y=0, text=warn, color=(255, 80, 80))[0] if out else out[0]
+
+    return out
+
+
+def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, width: int) -> list[str]:
+    """Compact bottom-right artifact-chat overlay.
+
+    Shown when the tutorial AI has an active artifact context (set by a left-click
+    or confirmed hover) but the fullscreen snake overlay is NOT active (free_mode=False).
+    This lets the user see AI explanations without having to enter snake mode.
+    """
+    game = state.header_logo_game or {}
+    if bool(game.get("free_mode")):
+        return lines  # already rendered by _overlay_fullscreen_snake
+
+    chat_raw = game.get("artifact_chat_state")
+    if not isinstance(chat_raw, dict):
+        return lines
+    active_target = chat_raw.get("active_target")
+    if not isinstance(active_target, dict):
+        return lines
+
+    messages = [m for m in (chat_raw.get("messages") or []) if isinstance(m, dict)]
+    if not messages:
+        return lines
+
+    if width < 80 or len(lines) < 12:
+        return lines
+
+    panel_width = min(46, width // 3)
+    split_col = width - panel_width - 1
+    label = str(active_target.get("label") or active_target.get("path") or "Artefakt")[:panel_width - 8]
+
+    # How many rows can we show? reserve last 2 rows for status/command
+    max_rows = min(10, len(lines) - 3)
+    start_row = len(lines) - 2 - max_rows
+
+    out = list(lines)
+
+    # Build panel lines: header + messages (word-wrapped)
+    panel: list[str] = []
+    # header row
+    hcol = (255, 205, 130)
+    panel.append(
+        f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m AI · {label}\x1b[0m"
+    )
+    panel.append("\x1b[38;2;60;60;80m" + "─" * panel_width + "\x1b[0m")
+
+    for msg in messages[-(max_rows):]:
+        source = str(msg.get("source") or "?")
+        text = str(msg.get("text") or "").strip()
+        if not text:
+            continue
+        if source == "ai":
+            col = "\x1b[38;2;255;205;130m"
+            pref = ""
+        elif source == "system":
+            col = "\x1b[38;2;100;100;100m"
+            pref = "* "
+        else:
+            col = "\x1b[38;2;160;200;255m"
+            pref = f"{source[:6]}: "
+        # word-wrap
+        words = (pref + text).split()
+        row_buf = ""
+        for word in words:
+            if len(row_buf) + len(word) + 1 > panel_width - 1:
+                panel.append(f"{col}{row_buf}\x1b[0m")
+                row_buf = word
+            else:
+                row_buf = (row_buf + " " + word).strip() if row_buf else word
+        if row_buf:
+            panel.append(f"{col}{row_buf}\x1b[0m")
+
+    # Overlay panel lines into output rows
+    for i, pline in enumerate(panel[:max_rows]):
+        row_idx = start_row + i
+        if row_idx < 0 or row_idx >= len(out):
+            continue
+        raw_len = len(_ANSI_STRIP.sub("", pline))
+        pad = max(0, panel_width - raw_len)
+        padded = pline + (" " * pad)
+        out[row_idx] = _overlay_at_visible_col(out[row_idx], split_col, "\x1b[38;2;60;60;80m│\x1b[0m")
+        out[row_idx] = _overlay_at_visible_col(out[row_idx], split_col + 2, padded)
 
     return out
 
