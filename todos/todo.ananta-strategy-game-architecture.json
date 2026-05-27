@@ -1,7 +1,7 @@
 {
   "id": "todo.ananta-strategy-game-architecture",
   "title": "Ananta Strategy Game als spielbare Architektur- und Code-Verbindung integrieren",
-  "status": "open",
+  "status": "done",
   "priority": "high",
   "type": "architecture-plan",
   "summary": "Das Ananta Strategy Game soll reale Ananta-Konzepte spielbar machen: Hub/Worker-Orchestrierung, CodeCompass, ContextAegis, ArtifactGuard, TrustWeave, CodeAegis und NagaCore werden als konkrete Game-Mechaniken mit direkter Verbindung zur Code- und Agentenarchitektur modelliert.",
@@ -305,7 +305,7 @@
     {
       "id": "ASG-009",
       "title": "Angular/Web-Visualisierung fuer GameMap vorbereiten",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/web-ui.md",
         "frontend-angular/src/app/",
@@ -327,7 +327,7 @@
     {
       "id": "ASG-010",
       "title": "TUI-Visualisierung fuer Strategy Game planen",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/tui.md",
         "docs/tui/README.md",
@@ -349,7 +349,7 @@
     {
       "id": "ASG-011",
       "title": "Integrations- und Golden-Tests definieren",
-      "status": "open",
+      "status": "done",
       "files": [
         "tests/test_ananta_game_*.py",
         "tests/golden/ananta-game/",
@@ -371,7 +371,7 @@
     {
       "id": "ASG-012",
       "title": "README und Einstiegspunkte konsistent verlinken",
-      "status": "open",
+      "status": "done",
       "files": [
         "README.md",
         "docs/ananta-game/README.md",

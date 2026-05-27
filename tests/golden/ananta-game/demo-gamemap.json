@@ -1,0 +1,102 @@
+{
+  "agents": [
+    {
+      "allowed_context": [
+        "repo:index"
+      ],
+      "capabilities": [
+        "plan",
+        "delegate"
+      ],
+      "id": "agent:hub",
+      "metadata": {},
+      "risk_level": "medium",
+      "role": "hub"
+    }
+  ],
+  "artifact_objectives": [
+    {
+      "artifact_kind": "report",
+      "evidence_refs": [
+        "artifact:1"
+      ],
+      "id": "objective:1",
+      "metadata": {},
+      "status": "open",
+      "task_id": "ASG-011",
+      "verification_required": true
+    }
+  ],
+  "context_gates": [
+    {
+      "allowed_roles": [
+        "local_worker"
+      ],
+      "id": "context:territory:agent/services",
+      "local_only": true,
+      "metadata": {},
+      "secret": false,
+      "territory_id": "territory:agent/services",
+      "visibility": "allow"
+    },
+    {
+      "allowed_roles": [],
+      "id": "context:territory:data/secrets",
+      "local_only": true,
+      "metadata": {},
+      "secret": true,
+      "territory_id": "territory:data/secrets",
+      "visibility": "redacted"
+    }
+  ],
+  "degraded": false,
+  "id": "map:golden-demo",
+  "metadata": {
+    "source": "golden_fixture"
+  },
+  "policy_nodes": [
+    {
+      "effect": "deny",
+      "id": "policy:secret-cloud",
+      "metadata": {},
+      "policy_type": "context_access",
+      "reason": "secret_or_local_only",
+      "scope": [
+        "cloud_worker",
+        "secret_paths"
+      ]
+    }
+  ],
+  "territories": [
+    {
+      "id": "territory:agent/services",
+      "metadata": {},
+      "module": "agent",
+      "name": "agent/services",
+      "path": "agent/services",
+      "risk_level": "high",
+      "tags": []
+    },
+    {
+      "id": "territory:data/secrets",
+      "metadata": {},
+      "module": "data",
+      "name": "data/secrets",
+      "path": "data/secrets",
+      "risk_level": "critical",
+      "tags": []
+    }
+  ],
+  "title": "Ananta Strategy Golden Map",
+  "trust_edges": [
+    {
+      "direction": "directed",
+      "id": "dep:agent/services->data/secrets",
+      "metadata": {},
+      "relationship": "dependency",
+      "source_id": "territory:agent/services",
+      "target_id": "territory:data/secrets",
+      "trust_value": 0.2
+    }
+  ]
+}
