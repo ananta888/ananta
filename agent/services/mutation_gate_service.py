@@ -238,6 +238,7 @@ class MutationGateService:
             "service_name": None,
             "system_resource": None,
             "project_scope": str(task_payload.get("goal_id") or "").strip() or None,
+            "target_refs_digest": None,
         }
         candidate_path = self._extract_command_path(command, base_dir=base_dir)
         if candidate_path:
@@ -265,6 +266,23 @@ class MutationGateService:
             system_resource = str(args.get("resource") or args.get("system_resource") or "").strip()
             if system_resource:
                 target["system_resource"] = system_resource
+            target_refs = args.get("target_refs")
+            if isinstance(target_refs, list):
+                normalized_refs = self._normalize_target_refs(target_refs, base_dir=base_dir)
+                if normalized_refs:
+                    refs_digest = hashlib.sha256(
+                        json.dumps(normalized_refs, sort_keys=True, ensure_ascii=True).encode("utf-8")
+                    ).hexdigest()
+                    target["target_refs_digest"] = refs_digest
+                    first = normalized_refs[0]
+                    first_path = str(first.get("path") or "").strip()
+                    first_artifact = str(first.get("artifact_id") or "").strip()
+                    if first_path:
+                        target["target_type"] = "path"
+                        target["path"] = first_path
+                    elif first_artifact:
+                        target["target_type"] = "artifact"
+                        target["artifact_id"] = first_artifact
 
         fingerprint_payload = {
             "target_type": target["target_type"],
@@ -274,11 +292,33 @@ class MutationGateService:
             "service_name": target["service_name"],
             "system_resource": target["system_resource"],
             "project_scope": target["project_scope"],
+            "target_refs_digest": target["target_refs_digest"],
         }
         target["target_fingerprint"] = hashlib.sha256(
             json.dumps(fingerprint_payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
         ).hexdigest()
         return target
+
+    def _normalize_target_refs(self, refs: list[Any], *, base_dir: str) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for item in refs:
+            if not isinstance(item, dict):
+                continue
+            path_value = ""
+            for key in ("path", "file", "file_path", "target", "target_path"):
+                candidate = str(item.get(key) or "").strip()
+                if candidate:
+                    path_value = self._normalize_path(candidate, base_dir=base_dir)
+                    break
+            artifact_id = str(item.get("artifact_id") or "").strip()
+            normalized.append(
+                {
+                    "path": path_value or None,
+                    "artifact_id": artifact_id or None,
+                    "type": str(item.get("type") or "").strip() or None,
+                }
+            )
+        return normalized
 
     @staticmethod
     def _approval_payload(approval_decision: ApprovalDecision | dict | None) -> dict[str, Any]:

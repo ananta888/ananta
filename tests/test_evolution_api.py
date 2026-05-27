@@ -10,6 +10,7 @@ from agent.services.evolution import (
     ValidationResult,
 )
 from agent.services.evolution.registry import get_evolution_provider_registry
+from agent.services.repository_registry import get_repository_registry
 from plugins.evolver_adapter.adapter import EvolverAdapter, EvolverTimeoutError
 
 
@@ -33,6 +34,7 @@ class ApiEvolutionEngine(EvolutionEngine):
                     description="Create a reviewable proposal from the API trigger.",
                     risk_level="low",
                     confidence=0.7,
+                    target_refs=[{"path": "agent/routes/evolution.py", "type": "file"}],
                     provider_metadata={"source": "api-test", "evolver_kind": "gene"},
                 )
             ],
@@ -147,6 +149,8 @@ def test_task_evolution_analyze_and_read_model_endpoints(client, app, admin_auth
     assert analyze_payload["proposals"][0]["proposal_id"] == analyze_payload["proposal_ids"][0]
     assert analyze_payload["proposals"][0]["links"]["read_model"] == "/tasks/T-EVO-API/evolution"
     assert analyze_payload["proposals"][0]["links"]["validate"].endswith("/validate")
+    assert analyze_payload["proposals"][0]["review_context"]["operation_class"] == "patch_apply"
+    assert analyze_payload["proposals"][0]["review_context"]["affected_targets"][0]["path"] == "agent/routes/evolution.py"
 
     assert read_response.status_code == 200
     read_payload = read_response.json["data"]
@@ -157,6 +161,8 @@ def test_task_evolution_analyze_and_read_model_endpoints(client, app, admin_auth
     assert read_payload["runs"][0]["provider_metadata"]["source"] == "api-test"
     assert read_payload["proposals"][0]["title"] == "Review failed task"
     assert read_payload["proposals"][0]["provider_metadata"]["evolver_kind"] == "gene"
+    assert read_payload["proposals"][0]["review_context"]["operation_class"] == "patch_apply"
+    assert read_payload["proposals"][0]["review_context"]["target_count"] == 1
 
 
 def test_task_evolution_validate_endpoint(client, app, admin_auth_header):
@@ -298,6 +304,9 @@ def test_task_evolution_apply_is_blocked_when_mutation_gate_denies(client, app, 
             }
 
     class _BlockedGate:
+        def normalize_target(self, **kwargs):
+            return {"target_type": "none", "target_fingerprint": "stub"}
+
         def evaluate(self, **kwargs):
             return _BlockedDecision()
 
@@ -334,6 +343,48 @@ def test_task_evolution_apply_is_blocked_when_mutation_gate_denies(client, app, 
     assert "mutation_gate_blocked" in str(response.json["message"])
 
 
+def test_task_evolution_apply_rejects_mismatched_scoped_approval_target(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-SCOPE-MISMATCH", title="Scoped approval mismatch", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-SCOPE-MISMATCH/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-SCOPE-MISMATCH/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "approve and then mutate target"},
+        )
+        repos = get_repository_registry()
+        persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
+        assert persisted is not None
+        persisted.target_refs = [{"path": "agent/services/evolution_service.py", "type": "file"}]
+        repos.evolution_proposal_repo.save(persisted)
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": False,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-SCOPE-MISMATCH/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert response.status_code == 403
+    assert response.json["message"] == "evolution_apply_invalid_mutation_approval:target"
+
+
 def test_task_evolution_review_endpoint_persists_read_model_status(client, app, admin_auth_header):
     task_repo.save(TaskDB(id="T-EVO-REVIEW", title="Review proposal", status="failed"))
     registry = get_evolution_provider_registry()
@@ -358,8 +409,12 @@ def test_task_evolution_review_endpoint_persists_read_model_status(client, app, 
     assert review_response.status_code == 200
     assert review_response.json["data"]["status"] == "approved"
     assert review_response.json["data"]["review"]["status"] == "approved"
+    assert review_response.json["data"]["review"]["review_context"]["operation_class"] == "patch_apply"
+    assert review_response.json["data"]["mutation_approval"]["approval_id"]
     proposal = read_response.json["data"]["proposals"][0]
     assert proposal["review"]["status"] == "approved"
+    assert proposal["review"]["review_context"]["target_count"] == 1
+    assert proposal["mutation_approval"]["status"] == "approved"
     assert proposal["history"][0]["event_type"] == "proposal_review"
 
 

@@ -405,7 +405,7 @@
         {
           "id": "K1-EVO-T03",
           "title": "Evolver scoped approval binding add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Evolver approvals can be bound to target files, operation class, time window and trace.",
@@ -416,7 +416,7 @@
         {
           "id": "K1-EVO-T04",
           "title": "Evolver pre-write MutationGate verification add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Before an Evolver write is executed, the system verifies MutationGate decision, approval, policy class and target scope.",
@@ -427,7 +427,7 @@
         {
           "id": "K1-EVO-T05",
           "title": "Evolver approval artifact integration add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Evolver write approval uses an explicit approval artifact or token model.",
@@ -438,7 +438,7 @@
         {
           "id": "K1-EVO-T06",
           "title": "Evolver write target normalization use",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Evolver write targets are normalized before MutationGate checking.",
@@ -449,7 +449,7 @@
         {
           "id": "K1-EVO-T07",
           "title": "Review-first Evolver approval UX/API path add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Evolver approvals can be issued only after reviewing structured proposal details.",

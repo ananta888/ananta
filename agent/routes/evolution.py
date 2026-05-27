@@ -213,6 +213,10 @@ def _analysis_proposal_links(task_id: str, result) -> list[dict]:
                 "title": proposal.title if proposal is not None else "",
                 "risk_level": proposal.risk_level if proposal is not None else "unknown",
                 "requires_review": bool(proposal.requires_review) if proposal is not None else True,
+                "review_context": {
+                    "operation_class": "patch_apply",
+                    "affected_targets": _proposal_affected_targets(proposal.target_refs if proposal is not None else []),
+                },
                 "links": {
                     "read_model": f"/tasks/{task_id}/evolution",
                     "validate": f"/tasks/{task_id}/evolution/proposals/{proposal_id}/validate",
@@ -221,6 +225,25 @@ def _analysis_proposal_links(task_id: str, result) -> list[dict]:
             }
         )
     return linked
+
+
+def _proposal_affected_targets(target_refs) -> list[dict]:
+    if not isinstance(target_refs, list):
+        return []
+    targets: list[dict] = []
+    for item in target_refs:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or item.get("file") or item.get("file_path") or item.get("target_path") or "").strip()
+        artifact_id = str(item.get("artifact_id") or "").strip()
+        entry = {
+            "path": path or None,
+            "artifact_id": artifact_id or None,
+            "type": str(item.get("type") or "").strip() or None,
+        }
+        if entry["path"] or entry["artifact_id"]:
+            targets.append(entry)
+    return targets
 
 
 @evolution_bp.route("/tasks/<task_id>/evolution/proposals/<proposal_id>/validate", methods=["POST"])

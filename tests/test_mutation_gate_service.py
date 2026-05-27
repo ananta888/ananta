@@ -222,3 +222,26 @@ def test_mutation_gate_global_deny_switch_blocks_mutation() -> None:
     payload = decision.as_dict()
     assert payload["classification"] == "blocked"
     assert payload["reason_code"] == "mutation_gate_global_deny"
+
+
+def test_mutation_target_normalization_handles_evolver_target_refs() -> None:
+    svc = get_mutation_gate_service()
+    task = {"id": "task-11", "goal_id": "goal-11", "working_directory": "/home/krusty/ananta"}
+    call_a = [
+        {
+            "name": "evolution_apply",
+            "args": {"target_refs": [{"path": "./agent/routes/evolution.py", "type": "file"}]},
+        }
+    ]
+    call_b = [
+        {
+            "name": "evolution_apply",
+            "args": {"target_refs": [{"path": "agent/routes/evolution.py", "type": "file"}]},
+        }
+    ]
+    normalized_a = svc.normalize_target(command=None, tool_calls=call_a, task=task)
+    normalized_b = svc.normalize_target(command=None, tool_calls=call_b, task=task)
+    assert normalized_a["target_type"] == "path"
+    assert normalized_a["path"].endswith("/agent/routes/evolution.py")
+    assert normalized_a["target_refs_digest"]
+    assert normalized_a["target_fingerprint"] == normalized_b["target_fingerprint"]
