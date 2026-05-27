@@ -434,6 +434,21 @@ class TaskExecutionService:
             actor="system",
         )
         mutation_payload = mutation_decision.as_dict()
+        get_execution_audit_service().emit(
+            operation_type="mutation_gate_decision",
+            outcome=str(mutation_payload.get("classification") or "unknown"),
+            trace_id=loop_trace_id,
+            goal_id=effective_task.get("goal_id"),
+            task_id=tid,
+            actor_role="hub",
+            details={
+                "reason_code": mutation_payload.get("reason_code"),
+                "mutation_class": mutation_payload.get("mutation_class"),
+                "normalized_target": mutation_payload.get("normalized_target"),
+                "approval_scope": mutation_payload.get("approval_scope"),
+                "source": "task_execution_service.preflight",
+            },
+        )
         if pipeline is not None:
             append_stage(
                 pipeline,
@@ -563,6 +578,39 @@ class TaskExecutionService:
                         "blocked_reasons": normalized_risk.reasons,
                         "guardrails": normalized_risk.details,
                         "risk_level": normalized_risk.risk_level,
+                    }
+                )
+            normalized_mutation = get_mutation_gate_service().evaluate(
+                command=command,
+                tool_calls=normalized_tool_calls,
+                task=effective_task,
+                agent_cfg=guard_cfg,
+                approval_decision=normalized_approval_payload,
+                risk_decision=normalized_risk,
+                trace_id=loop_trace_id,
+                actor="system",
+            ).as_dict()
+            get_execution_audit_service().emit(
+                operation_type="mutation_gate_decision",
+                outcome=str(normalized_mutation.get("classification") or "unknown"),
+                trace_id=loop_trace_id,
+                goal_id=effective_task.get("goal_id"),
+                task_id=tid,
+                actor_role="hub",
+                details={
+                    "reason_code": normalized_mutation.get("reason_code"),
+                    "mutation_class": normalized_mutation.get("mutation_class"),
+                    "normalized_target": normalized_mutation.get("normalized_target"),
+                    "approval_scope": normalized_mutation.get("approval_scope"),
+                    "source": "task_execution_service.normalized_tool_calls",
+                },
+            )
+            if normalized_mutation.get("classification") in {"blocked", "confirm_required"}:
+                raise ToolGuardrailError(
+                    details={
+                        "blocked_tools": [str((item or {}).get("name") or "").strip() for item in normalized_tool_calls],
+                        "blocked_reasons": [normalized_mutation.get("reason_code")],
+                        "mutation_gate": normalized_mutation,
                     }
                 )
 
@@ -1368,6 +1416,22 @@ class TaskExecutionService:
             known_tools=known_tools,
         )
         validation_meta = preflight.as_validation_meta()
+        get_execution_audit_service().emit(
+            operation_type="mutation_gate_decision",
+            outcome="allow" if preflight.allowed else "blocked",
+            trace_id=self._resolve_loop_trace_id(effective_task),
+            goal_id=effective_task.get("goal_id"),
+            task_id=tid,
+            actor_role="hub",
+            details={
+                "reason_code": "mutation_gate_segment_preflight_ok" if preflight.allowed else "mutation_gate_segment_preflight_blocked",
+                "source": "task_execution_service.segment_preflight",
+                "segment_count": len(chain_segments),
+                "denied_segment_index": preflight.denied_segment_index,
+                "reason_codes": list(preflight.reason_codes or []),
+                "validations": validation_meta,
+            },
+        )
         if not preflight.allowed:
             denied_idx = preflight.denied_segment_index or 0
             return (

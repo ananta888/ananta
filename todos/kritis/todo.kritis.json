@@ -282,7 +282,7 @@
         {
           "id": "K1-MUT-T06",
           "title": "MutationGate audit integration add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Every MutationGate decision emits or links to a structured audit event.",
@@ -293,7 +293,7 @@
         {
           "id": "K1-MUT-T07",
           "title": "MutationGate pipeline stage add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Critical execution pipelines expose a mutation_gate stage before write-like execution.",
@@ -304,7 +304,7 @@
         {
           "id": "K1-MUT-T08",
           "title": "Integrate MutationGate into Evolver write paths",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Evolver write and apply paths call MutationGate before any mutation.",
@@ -315,7 +315,7 @@
         {
           "id": "K1-MUT-T09",
           "title": "Integrate MutationGate into shell and tool write paths",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Shell commands and tool calls classified as mutation-capable are checked by MutationGate before execution.",
@@ -326,7 +326,7 @@
         {
           "id": "K1-MUT-T10",
           "title": "Integrate MutationGate into artifact and task state mutations",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Artifact mutations and critical task state changes are reviewed against MutationGate rules where security-relevant.",

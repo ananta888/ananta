@@ -18,6 +18,10 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.services.commit_followup_service import maybe_create_git_commit_followup
+from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.execution_audit_service import get_execution_audit_service
+from agent.services.execution_risk_policy_service import evaluate_execution_risk
+from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.instruction_layer_service import get_instruction_layer_service
@@ -31,6 +35,68 @@ class TaskManagementService:
     def actor_username(self) -> str:
         user = getattr(g, "user", {}) or {}
         return str(user.get("sub") or user.get("username") or "system")
+
+    @staticmethod
+    def _critical_state_mutation(status: str | None) -> bool:
+        return str(status or "").strip().lower() in {"completed", "failed", "blocked", "cancelled"}
+
+    def _enforce_task_state_mutation_gate(
+        self,
+        *,
+        task_id: str,
+        requested_status: str | None,
+        task: dict | None,
+    ) -> tuple[bool, str | None]:
+        if not self._critical_state_mutation(requested_status):
+            return True, None
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        tool_calls = [
+            {
+                "name": "task_state_update",
+                "args": {"task_id": task_id, "to_status": str(requested_status or "").strip().lower()},
+            }
+        ]
+        approval = get_approval_policy_service().evaluate(
+            command=None,
+            tool_calls=tool_calls,
+            task=dict(task or {}),
+            agent_cfg=cfg,
+        )
+        risk = evaluate_execution_risk(
+            command=None,
+            tool_calls=tool_calls,
+            task=dict(task or {}),
+            agent_cfg=cfg,
+        )
+        decision = get_mutation_gate_service().evaluate(
+            command=None,
+            tool_calls=tool_calls,
+            task=dict(task or {}),
+            agent_cfg=cfg,
+            approval_decision=approval,
+            risk_decision=risk,
+            trace_id=str((task or {}).get("goal_trace_id") or "").strip() or None,
+            actor=self.actor_username(),
+        ).as_dict()
+        get_execution_audit_service().emit(
+            operation_type="mutation_gate_decision",
+            outcome=str(decision.get("classification") or "unknown"),
+            trace_id=str((task or {}).get("goal_trace_id") or "").strip() or None,
+            goal_id=(task or {}).get("goal_id"),
+            task_id=task_id,
+            actor_role="hub",
+            details={
+                "reason_code": decision.get("reason_code"),
+                "mutation_class": decision.get("mutation_class"),
+                "normalized_target": decision.get("normalized_target"),
+                "approval_scope": decision.get("approval_scope"),
+                "source": "task_management_service",
+                "requested_status": str(requested_status or "").strip().lower(),
+            },
+        )
+        if decision.get("classification") in {"blocked", "confirm_required"}:
+            return False, str(decision.get("reason_code") or "mutation_gate_blocked")
+        return True, None
 
     def _apply_instruction_selection_to_payload(self, payload: dict[str, Any], *, default_owner: str | None = None) -> None:
         owner_username = str(payload.pop("instruction_owner_username", "") or "").strip() or default_owner
@@ -169,6 +235,9 @@ class TaskManagementService:
         return {"data": {"id": task_id, "status": "created"}, "code": 201}
 
     def patch_task(self, *, task_id: str, data: Any) -> dict[str, Any]:
+        existing = get_local_task_status(task_id)
+        if not existing:
+            return {"error": "not_found", "code": 404}
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         self._apply_instruction_selection_to_payload(
             update_data,
@@ -178,6 +247,13 @@ class TaskManagementService:
         if selection_error:
             return {"error": selection_error, "code": selection_code}
         status = normalize_task_status(update_data.pop("status", None), default="updated")
+        gate_ok, gate_reason = self._enforce_task_state_mutation_gate(
+            task_id=task_id,
+            requested_status=status,
+            task=existing,
+        )
+        if not gate_ok:
+            return {"error": "mutation_gate_blocked", "code": 409, "data": {"reason_code": gate_reason}}
         if "depends_on" in update_data:
             update_data["depends_on"] = normalize_depends_on(update_data.get("depends_on"), tid=task_id)
             ok, reason = validate_dependencies_and_cycles(task_id, update_data.get("depends_on") or [])
@@ -227,6 +303,13 @@ class TaskManagementService:
         )
 
         new_status = "blocked" if action == "reject" else normalize_task_status(task.get("status"), default="proposing")
+        gate_ok, gate_reason = self._enforce_task_state_mutation_gate(
+            task_id=task_id,
+            requested_status=new_status,
+            task=task,
+        )
+        if not gate_ok:
+            return {"error": "mutation_gate_blocked", "code": 409, "data": {"reason_code": gate_reason}}
         update_local_task_status(
             task_id,
             new_status,

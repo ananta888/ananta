@@ -167,6 +167,33 @@ def test_artifact_upload_requires_file(client, admin_auth_header):
     assert response.get_json()["message"] == "file_required"
 
 
+def test_artifact_upload_is_blocked_when_mutation_gate_denies(client, admin_auth_header, monkeypatch):
+    class _BlockedDecision:
+        def as_dict(self):
+            return {
+                "classification": "blocked",
+                "reason_code": "mutation_gate_unknown_high_risk_classification",
+                "mutation_class": "artifact_mutation",
+                "normalized_target": {"target_type": "artifact"},
+                "approval_scope": {},
+            }
+
+    class _BlockedGate:
+        def evaluate(self, **kwargs):
+            return _BlockedDecision()
+
+    monkeypatch.setattr("agent.routes.artifacts.get_mutation_gate_service", lambda: _BlockedGate())
+
+    response = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"file": (BytesIO(b"demo"), "demo.txt")},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 403
+    assert response.get_json()["message"] == "mutation_gate_blocked"
+
+
 def test_artifact_rag_index_route_returns_index_and_run(client, admin_auth_header, monkeypatch):
     upload_res = client.post(
         "/artifacts/upload",
