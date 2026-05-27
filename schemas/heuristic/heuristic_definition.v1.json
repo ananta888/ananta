@@ -2,33 +2,37 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "heuristic_definition.v1",
   "title": "HeuristicDefinition",
+  "description": "Canonical definition for an Ananta heuristic. JSON is the only runtime format. YAML is for authoring only and must be normalized before activation.",
   "type": "object",
-  "required": ["heuristic_id", "version", "domain", "strategy_kind", "deterministic", "safety_class", "capabilities", "inputs", "outputs"],
+  "required": ["heuristic_id", "version", "domain", "deterministic", "safety_class", "capabilities", "runtime"],
   "properties": {
     "heuristic_id": {
       "type": "string",
-      "pattern": "^[a-z0-9-]+$",
-      "description": "Eindeutige ID, kebab-case"
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Unique ID, snake_case matching filename stem"
     },
     "version": {
       "type": "string",
-      "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "description": "Semantische Version"
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "candidate", "rejected", "quarantined", "deprecated", "archived"],
+      "default": "candidate"
     },
     "domain": {
       "type": "string",
-      "enum": ["snake_tui", "snake_eclipse", "chat_codecompass", "universal"]
+      "enum": ["tui_snake", "eclipse_snake", "chat_codecompass", "helpcenter", "planning", "universal"]
     },
-    "strategy_kind": {"type": "string"},
     "description": {"type": "string"},
     "deterministic": {
       "type": "boolean",
-      "description": "true = kein LLM-Aufruf zur Laufzeit"
+      "description": "true = no LLM call at runtime; required for snake domains"
     },
     "safety_class": {
       "type": "string",
-      "enum": ["readonly", "bounded", "elevated"],
-      "description": "readonly < bounded < elevated"
+      "enum": ["ui_motion_only", "readonly", "bounded", "elevated"],
+      "description": "ui_motion_only < readonly < bounded < elevated"
     },
     "capabilities": {
       "type": "array",
@@ -37,6 +41,7 @@
         "enum": [
           "read_local_context",
           "read_artifact_refs",
+          "read_source_refs",
           "read_active_task",
           "write_local_notes",
           "send_to_chat",
@@ -46,11 +51,133 @@
           "network_access",
           "secret_access"
         ]
+      },
+      "uniqueItems": true
+    },
+    "ttl_policy": {
+      "type": "object",
+      "properties": {
+        "default_seconds": {"type": "number", "minimum": 1.0},
+        "min_seconds": {"type": "number", "minimum": 1.0},
+        "max_seconds": {"type": "number", "maximum": 120.0}
       }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["declarative_rules", "python_strategy", "composite_chain"],
+          "description": "declarative_rules: pure JSON DSL; python_strategy: allowed Python class; composite_chain: ordered list of sub-heuristics"
+        },
+        "python_strategy": {
+          "type": "object",
+          "description": "Only present when mode=python_strategy",
+          "required": ["module", "class"],
+          "properties": {
+            "module": {"type": "string", "description": "Fully qualified module path"},
+            "class": {"type": "string"},
+            "expected_inputs": {"type": "array", "items": {"type": "string"}},
+            "expected_outputs": {"type": "array", "items": {"type": "string"}},
+            "required_capabilities": {"type": "array", "items": {"type": "string"}}
+          },
+          "additionalProperties": false
+        },
+        "composite_chain": {
+          "type": "object",
+          "description": "Only present when mode=composite_chain",
+          "properties": {
+            "heuristic_refs": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Ordered list of heuristic_ids in the chain"
+            }
+          }
+        },
+        "triggers": {
+          "type": "array",
+          "description": "Declarative trigger conditions (mode=declarative_rules)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "query_contains_any": {"type": "array", "items": {"type": "string"}},
+              "query_matches_regex_safe": {"type": "string"},
+              "active_panel_is": {"type": "string"},
+              "selected_artifact_present": {"type": "boolean"},
+              "ai_status_is": {"type": "string", "enum": ["available", "offline", "timeout"]},
+              "event_type_is": {"type": "string"}
+            }
+          }
+        },
+        "selection": {
+          "type": "object",
+          "description": "Declarative context selection (mode=declarative_rules)",
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "enum": [
+                "ranked_codecompass_refs",
+                "selected_artifacts_first",
+                "active_goal_first",
+                "helpcenter_refs",
+                "todo_status_refs",
+                "sourcepack_technical",
+                "no_good_match"
+              ]
+            },
+            "max_refs": {"type": "integer", "minimum": 1, "maximum": 20},
+            "score_threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0}
+          }
+        },
+        "action": {
+          "type": "object",
+          "description": "Declarative action (mode=declarative_rules)",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "follow_with_distance",
+                "lurk_near",
+                "show_hint",
+                "show_context_summary",
+                "open_source_ref",
+                "ask_scope",
+                "no_action"
+              ]
+            },
+            "hint_text": {"type": "string"},
+            "distance": {"type": "integer"},
+            "fallback": {
+              "type": "string",
+              "enum": [
+                "follow_with_distance",
+                "lurk_near",
+                "no_good_match",
+                "no_action"
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "inputs": {"type": "array", "items": {"type": "string"}},
     "outputs": {"type": "array", "items": {"type": "string"}},
     "parameters": {"type": "object"},
+    "content_hash": {
+      "type": "string",
+      "description": "SHA-256 of canonical JSON (set by normalizer)"
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "created_by": {"type": "string"},
+        "normalized_from": {"type": "string", "enum": ["json", "yaml"]},
+        "schema_version": {"type": "string"},
+        "validation_result_ref": {"type": "string"}
+      }
+    },
     "changelog": {
       "type": "array",
       "items": {

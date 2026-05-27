@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "heuristic_index.v1",
+  "title": "HeuristicIndex",
+  "description": "Registry index for all known heuristics. Runtime loads only status=active entries.",
+  "type": "object",
+  "required": ["version", "heuristics"],
+  "properties": {
+    "version": {"type": "string"},
+    "description": {"type": "string"},
+    "heuristics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["heuristic_id", "version", "domain", "status", "file"],
+        "properties": {
+          "heuristic_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+          "domain": {
+            "type": "string",
+            "enum": ["tui_snake", "eclipse_snake", "chat_codecompass", "helpcenter", "planning", "universal"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "candidate", "rejected", "quarantined", "deprecated", "archived"]
+          },
+          "file": {"type": "string", "description": "Relative path from heuristics/ root"},
+          "safety_class": {
+            "type": "string",
+            "enum": ["ui_motion_only", "readonly", "bounded", "elevated"]
+          },
+          "runtime_mode": {
+            "type": "string",
+            "enum": ["declarative_rules", "python_strategy", "composite_chain"]
+          },
+          "updated_at": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

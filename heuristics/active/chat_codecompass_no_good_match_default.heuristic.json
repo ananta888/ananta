@@ -1,0 +1,41 @@
+{
+  "heuristic_id": "chat_codecompass_no_good_match_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "chat_codecompass",
+  "description": "Returns no_good_match when no context scores above threshold. No invented filenames or symbols.",
+  "deterministic": true,
+  "safety_class": "readonly",
+  "capabilities": ["read_local_context"],
+  "ttl_policy": {
+    "default_seconds": 15.0,
+    "min_seconds": 10.0,
+    "max_seconds": 20.0
+  },
+  "runtime": {
+    "mode": "declarative_rules",
+    "triggers": [],
+    "selection": {
+      "strategy": "no_good_match",
+      "max_refs": 0,
+      "score_threshold": 0.5
+    },
+    "action": {
+      "kind": "no_action",
+      "fallback": "no_good_match"
+    }
+  },
+  "inputs": ["query", "context_score"],
+  "outputs": ["no_good_match_signal"],
+  "parameters": {
+    "score_threshold": 0.5
+  },
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic. Anti-hallucination: never invents file/symbol refs."}
+  ]
+}
