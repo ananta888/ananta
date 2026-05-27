@@ -194,7 +194,7 @@
     {
       "id": "ASG-004",
       "title": "ContextAegis als Fog-of-War und Zugriffsschicht modellieren",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/context-aegis.md",
         "agent/game/context_aegis.py",
@@ -216,7 +216,7 @@
     {
       "id": "ASG-005",
       "title": "ArtifactGuard als Completion- und Siegbedingung modellieren",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/artifact-guard.md",
         "agent/game/artifact_guard.py",
@@ -238,7 +238,7 @@
     {
       "id": "ASG-006",
       "title": "AegisHub und AegisFlow als Spielzug-Orchestrierung planen",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/aegis-hub-flow.md",
         "agent/game/aegis_hub.py",
@@ -261,7 +261,7 @@
     {
       "id": "ASG-007",
       "title": "TrustWeave Graph-Regeln definieren",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/trustweave.md",
         "agent/game/trustweave.py",
@@ -283,7 +283,7 @@
     {
       "id": "ASG-008",
       "title": "NagaCore als Tutorial-/Snake-Guide definieren",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/naga-core.md",
         "docs/tui/terminal-rendering.md",
