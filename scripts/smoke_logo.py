@@ -402,71 +402,26 @@ def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
     return frames
 
 
-_MOCK_PANEL_STATES = None   # populated lazily inside _render_tui_snapshot
-_MOCK_PAYLOADS: dict = {
-    "dashboard": {
-        "agents": {"online": 7, "total": 8},
-        "llm_providers": {"claude-sonnet-4-6": "ok", "codex-2": "ok", "whisper-v3": "ok"},
-        "queue": {"depth": 3},
-        "goal_summary": "2 running · 5 done · 0 failed",
-        "task_summary": "3 active · 12 completed",
-    },
-    "goals": {
-        "items": [
-            {"id": "g-001", "status": "running", "title": "WebSocket live updates"},
-            {"id": "g-002", "status": "running", "title": "Voice command recognition"},
-            {"id": "g-003", "status": "done",    "title": "Refactor auth middleware"},
-            {"id": "g-004", "status": "done",    "title": "Multi-agent orchestrator"},
-            {"id": "g-005", "status": "done",    "title": "SVG logo 3D renderer"},
-            {"id": "g-006", "status": "blocked", "title": "External API rate limit fix"},
-        ],
-    },
-    "tasks": {
-        "items": [
-            {"id": "t-0a1", "status": "running", "agent": "claude", "title": "Auth flow unit tests"},
-            {"id": "t-0a2", "status": "running", "agent": "claude", "title": "Generate OpenAPI spec"},
-            {"id": "t-0a3", "status": "running", "agent": "codex",  "title": "Refactor connection pool"},
-            {"id": "t-0a4", "status": "done",    "agent": "claude", "title": "Fix ANSI rendering bug"},
-            {"id": "t-0a5", "status": "done",    "agent": "claude", "title": "Add 3D SVG logo animation"},
-            {"id": "t-0a6", "status": "done",    "agent": "codex",  "title": "Deploy landing page"},
-        ],
-        "timeline": [
-            {"id": "t-0a4", "summary": "ANSI strip fix committed"},
-            {"id": "t-0a5", "summary": "SVG logo animates in 3D"},
-            {"id": "t-0a6", "summary": "www.ananta.de is live"},
-        ],
-    },
-    "system": {
-        "agents": {"online": 7, "total": 8},
-        "llm_providers": {
-            "claude-sonnet-4-6": "ok  284ms",
-            "codex-2":           "ok  110ms",
-            "whisper-v3":        "ok  450ms",
-        },
-        "queue": {"depth": 3, "counts": {"pending": 3, "retry": 0}},
-        "contracts": ["hub v2.1.4", "codex v1.0.3", "voice v0.4.1", "web v3.2.0"],
-    },
-}
-
-
 def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
-    """Render a single TUI frame with rich mock data."""
-    from client_surfaces.operator_tui.models import (
-        FocusPane, OperatorMode, OperatorState, PanelState,
-    )
+    """Render a single TUI frame with live hub data (or empty state when hub is offline)."""
+    import os
+    from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
+    from client_surfaces.operator_tui.app import load_active_section
+    from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
     from client_surfaces.operator_tui.renderer import render_operator_shell
 
-    panel_states = {k: PanelState.HEALTHY for k in _MOCK_PAYLOADS}
-    state = OperatorState(
-        endpoint="http://localhost:5000",
-        auth_state="token",
+    endpoint = os.environ.get("ANANTA_BASE_URL", "http://localhost:5000").rstrip("/")
+    token = os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or ""
+    registry = SectionAdapterRegistry(endpoint=endpoint, token=token)
+    base_state = OperatorState(
+        endpoint=endpoint,
+        auth_state="token" if token else "unset",
         mode=OperatorMode.NORMAL,
         focus=FocusPane.CONTENT,
         section_id=section_id,
         status_message="ready",
-        panel_states=panel_states,
-        section_payloads=_MOCK_PAYLOADS,
     )
+    state = load_active_section(base_state, registry)
     return render_operator_shell(state, width=width, height=height)
 
 
