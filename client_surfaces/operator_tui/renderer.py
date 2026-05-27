@@ -1728,6 +1728,32 @@ def _overlay_snake_ai_panel(
         if row:
             panel_lines.append(f" {row}")
 
+    # Artifact chat: show when something was clicked/marked and AI is explaining it
+    artifact_chat = game.get("artifact_chat_state")
+    if isinstance(artifact_chat, dict) and isinstance(artifact_chat.get("active_target"), dict):
+        a_target = artifact_chat["active_target"]
+        a_label = str(a_target.get("label") or a_target.get("path") or "Artefakt")[:panel_width - 8]
+        a_msgs = [m for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
+        if a_msgs:
+            panel_lines.append("─" * panel_width)
+            panel_lines.append(f"\x1b[38;2;255;180;80m◎ {a_label}\x1b[0m")
+            for amsg in a_msgs[-3:]:
+                src = str(amsg.get("source") or "?")
+                txt = str(amsg.get("text") or "").strip()
+                if not txt:
+                    continue
+                acol = "\x1b[38;2;255;220;140m" if src == "ai" else "\x1b[38;2;100;100;100m"
+                words = txt.split()
+                row = ""
+                for word in words:
+                    if len(row) + len(word) + 1 > panel_width - 1:
+                        panel_lines.append(f"{acol} {row}\x1b[0m")
+                        row = word
+                    else:
+                        row = (row + " " + word).strip()
+                if row:
+                    panel_lines.append(f"{acol} {row}\x1b[0m")
+
     # Ask Q&A state
     question = str(game.get("tutor_ask_question") or "")
     if question and not bool(game.get("tutor_ask_answered")):
