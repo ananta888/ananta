@@ -86,4 +86,80 @@ All bootstrap heuristics enforce:
 | `heuristics/index.json` | Registry index (v1.4, 26 entries) |
 | `heuristics/python_strategy_bindings.json` | Maps heuristic IDs to Python class/module |
 | `heuristics/fallback_chains.json` | Per-domain fallback sequence configuration |
-| `heuristics/FORMAT_POLICY.md` | Authoring rules, naming conventions, safety classes |
+| `heuristics/FORMAT_POLICY.md` | Authoring rules, naming conventions, safety classes, OpenCode flow |
+
+## Format System Architecture
+
+### Components
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  AUTHORING                                                                   │
+│   heuristics/authoring/*.heuristic.yaml  ─→  HeuristicYamlImporter         │
+│   (operator or AI draft)                      (normalizes to candidate JSON) │
+└──────────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  VALIDATION PIPELINE                                                         │
+│   HeuristicFormatValidator   — semantic consistency (version, ttl, mode)    │
+│   AiProposalGuardrails       — anti-hallucination (no inline code, snake_  │
+│                                 case IDs, no invented caps, no active claim) │
+│   HeuristicCatalogValidator  — JSON schema + bootstrap safety rules         │
+│   HeuristicProvenanceTracker — content_hash enrichment + verification       │
+└──────────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼  (human approval required — no auto-activation)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ACTIVATION GATE                                                             │
+│   HeuristicActivationGate.activate()                                        │
+│     Gate 1: schema-valid (ProposalValidator.passed=True)                    │
+│     Gate 2: simulation passed (SimulationReport.can_activate=True)          │
+│     Gate 3: human_approval_ref in audit log                                 │
+│   → writes to heuristics/active/  + emits heuristic_activated audit event  │
+│   Rollback: restore archived version                                        │
+│   Quarantine: immediately suspend + move to heuristics/quarantine/          │
+└──────────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  RUNTIME                                                                     │
+│   HeuristicRegistry loads heuristics/active/*.heuristic.json               │
+│   PythonStrategyLoader loads allowlisted Python strategy classes            │
+│   HeuristicSelectionService runs fallback chains per domain                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key runtime files
+
+| Module | Role |
+|---|---|
+| `heuristic_normalizer.py` | Canonical JSON normalization + content_hash |
+| `yaml_importer.py` | YAML→candidate JSON import |
+| `format_validator.py` | Semantic consistency checks |
+| `ai_proposal_guardrails.py` | Anti-hallucination guardrails for AI proposals |
+| `provenance_tracker.py` | Provenance enrichment and hash verification |
+| `heuristic_catalog_validator.py` | Schema + bootstrap safety validation |
+| `activation_gate.py` | Activation/rollback/quarantine with audit trail |
+| `python_strategy_loader.py` | Allowlisted Python strategy class loader |
+| `heuristic_format_tui_view.py` | TUI status view for format system |
+| `agent/cli/commands/heuristic.py` | CLI: list, show, validate, normalize, catalog |
+
+### Operator CLI quick-reference
+
+```bash
+# List all active heuristics
+ananta heuristic list
+
+# Inspect one heuristic
+ananta heuristic show chat_codecompass_symbol_lookup_default
+
+# Validate a file
+ananta heuristic validate heuristics/active/my.heuristic.json
+
+# Normalize a YAML draft (dry-run)
+ananta heuristic normalize heuristics/authoring/draft.heuristic.yaml --dry-run
+
+# Validate the whole catalog
+ananta heuristic catalog
+```
