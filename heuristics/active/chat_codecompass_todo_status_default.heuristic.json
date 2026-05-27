@@ -1,0 +1,45 @@
+{
+  "heuristic_id": "chat_codecompass_todo_status_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "chat_codecompass",
+  "description": "Surface task/todo status from todo source scopes when query contains task-related keywords. Never fabricates task state.",
+  "deterministic": true,
+  "safety_class": "readonly",
+  "capabilities": ["read_local_context", "read_source_refs", "read_active_task"],
+  "ttl_policy": {
+    "default_seconds": 15.0,
+    "min_seconds": 10.0,
+    "max_seconds": 20.0
+  },
+  "runtime": {
+    "mode": "python_strategy",
+    "python_strategy": {
+      "module": "agent.heuristics.strategies.chat_codecompass.todo_status",
+      "class": "TodoStatusStrategy",
+      "expected_inputs": ["query", "allowed_source_scopes"],
+      "expected_outputs": ["show_context_summary", "ask_scope", "no_action"]
+    },
+    "triggers": [
+      {"query_contains_any": ["todo", "task", "ticket", "status", "next"]},
+      {"query_contains_any": ["done", "in progress", "blocked", "backlog", "sprint"]}
+    ],
+    "action": {
+      "kind": "show_context_summary",
+      "fallback": "ask_scope"
+    }
+  },
+  "inputs": ["query", "allowed_source_scopes"],
+  "outputs": ["context_summary"],
+  "parameters": {
+    "min_score": 0.15
+  },
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic"}
+  ]
+}

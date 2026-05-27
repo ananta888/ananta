@@ -1,5 +1,5 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "owner": "Peter Stuiber",
   "track": "python-bootstrap-heuristic-strategies-all-domains",
   "purpose": "Gute sinnvolle initiale Python-Heuristik-Strategien f\u00fcr alle relevanten Ananta-Domains bereitstellen: Snake TUI, Snake Eclipse, Chat CodeCompass, Helpcenter und Planning.",
@@ -372,7 +372,7 @@
     {
       "id": "T04.01",
       "title": "SelectedArtifactFirstStrategy implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "chat-codecompass",
@@ -388,12 +388,14 @@
         "Denied refs werden ausgeschlossen und protokolliert.",
         "Output enth\u00e4lt selected_context_refs mit Scores und reason_codes.",
         "Tests pr\u00fcfen Ranking und Security-Deny."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "SelectedArtifactFirstStrategy in chat_codecompass/selected_artifact_first.py"
     },
     {
       "id": "T04.02",
       "title": "SymbolLookupStrategy implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "chat-codecompass",
@@ -407,12 +409,14 @@
         "Nutzt exact match, fuzzy-safe match, selected artifact boost und CodeCompass relations.",
         "Bei fehlendem Treffer f\u00e4llt sie auf no_good_match.",
         "Tests pr\u00fcfen Treffer, Mehrdeutigkeit und unbekanntes Symbol."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "SymbolLookupStrategy in chat_codecompass/symbol_lookup.py"
     },
     {
       "id": "T04.03",
       "title": "ErrorLookupStrategy implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "chat-codecompass",
@@ -426,12 +430,14 @@
         "Priorisiert Helpcenter Report, Stacktrace-Datei, Testdatei und betroffene SourceRefs.",
         "Output enth\u00e4lt Fehlerklassifikation und n\u00e4chste sichere Schritte, keine Reparatur.",
         "Tests pr\u00fcfen pytest/import/npm/github fixtures."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "ErrorLookupStrategy in chat_codecompass/error_lookup.py"
     },
     {
       "id": "T04.04",
       "title": "TodoStatusStrategy implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "chat-codecompass",
@@ -445,12 +451,14 @@
         "Antwort basiert nur auf todos/*.json, tasks_status_summary, milestones und critical_path_tasks.",
         "Archiv/kritis werden per Policy eingeschlossen oder ausgeschlossen.",
         "Tests pr\u00fcfen Fortschrittsfrage und Archiv-Ausschluss."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "TodoStatusStrategy in chat_codecompass/todo_status.py"
     },
     {
       "id": "T04.05",
       "title": "SourcePackLookupStrategy implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "chat-codecompass",
@@ -464,12 +472,14 @@
         "Eclipse- und Keycloak-Fragen priorisieren passende technische Quellen.",
         "Wikipedia wird bei technischen Fragen nur erg\u00e4nzend genutzt.",
         "Tests pr\u00fcfen Eclipse/Keycloak-Fragen."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "SourcePackLookupStrategy in chat_codecompass/sourcepack_lookup.py"
     },
     {
       "id": "T04.06",
       "title": "NoGoodMatchStrategy implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "chat-codecompass",
@@ -483,7 +493,9 @@
         "Output nennt durchsuchte Scopes und schl\u00e4gt konkrete Scope-Auswahl vor.",
         "Strategy ist Standard-Fallback f\u00fcr Chat-CodeCompass.",
         "Tests pr\u00fcfen leeren Index, schwachen Treffer und denied-only Treffer."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "NoGoodMatchStrategy in chat_codecompass/no_good_match.py"
     },
     {
       "id": "T05.01",
@@ -665,7 +677,7 @@
     {
       "id": "T07.03",
       "title": "Heuristic Index mit Python Strategies aktualisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "index",
@@ -678,7 +690,9 @@
         "Index enth\u00e4lt runtime.mode=python_strategy und safety_class.",
         "Index ist deterministisch rebuildbar.",
         "Tests pr\u00fcfen Index-Rebuild."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/index.json v1.3 includes all chat_codecompass python_strategy entries"
     },
     {
       "id": "T07.04",
@@ -930,5 +944,5 @@
       ]
     }
   ],
-  "updated_at": "2026-05-27T10:57:03Z"
+  "updated_at": "2026-05-27T11:11:06Z"
 }

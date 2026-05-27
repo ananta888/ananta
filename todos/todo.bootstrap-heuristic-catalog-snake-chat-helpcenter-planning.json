@@ -1,5 +1,5 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "owner": "Peter Stuiber",
   "track": "bootstrap-heuristic-catalog-snake-chat-helpcenter-planning",
   "purpose": "Konkreter Bootstrap-Katalog f\u00fcr erste aktive Ananta-Heuristiken nach Fertigstellung der Heuristic Runtime und des JSON/YAML/Python-Strategy-Formats.",
@@ -391,7 +391,7 @@
     {
       "id": "T04.02",
       "title": "chat_codecompass_symbol_lookup_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "bootstrap-heuristic",
@@ -405,12 +405,14 @@
         "No-good-match fallback ist konfiguriert.",
         "Antwort nennt Treffer mit SourceRefs.",
         "Tests pr\u00fcfen Symboltreffer und unbekanntes Symbol."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_symbol_lookup_default.heuristic.json"
     },
     {
       "id": "T04.03",
       "title": "chat_codecompass_error_lookup_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "bootstrap-heuristic",
@@ -423,12 +425,14 @@
         "Priorit\u00e4t ist Helpcenter Report, Stacktrace-Datei, Testdatei, SourceRefs.",
         "Antwort liefert Fehlerklassifikation und n\u00e4chste sichere Schritte, aber keine Reparatur.",
         "Tests pr\u00fcfen pytest/import/npm/github failure Beispiele."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_error_lookup_default.heuristic.json"
     },
     {
       "id": "T04.04",
       "title": "chat_codecompass_todo_status_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "bootstrap-heuristic",
@@ -441,12 +445,14 @@
         "Antwort wird nur aus todos/*.json, tasks_status_summary, milestones und critical_path_tasks erzeugt.",
         "Archiv/kritis k\u00f6nnen nach Policy eingeschlossen oder ausgeschlossen werden.",
         "Tests pr\u00fcfen Fortschrittsfrage und Archiv-Ausschluss."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_todo_status_default.heuristic.json"
     },
     {
       "id": "T04.05",
       "title": "chat_codecompass_sourcepack_lookup_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "bootstrap-heuristic",
@@ -460,7 +466,9 @@
         "Keycloak/Eclipse-Fragen priorisieren passende SourcePacks.",
         "Antwort kennzeichnet externe Quelle klar.",
         "Tests pr\u00fcfen Eclipse/Keycloak SourcePack-Frage."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:11:06Z",
+      "notes": "heuristics/active/chat_codecompass_sourcepack_lookup_default.heuristic.json"
     },
     {
       "id": "T04.06",
@@ -890,5 +898,5 @@
       ]
     }
   ],
-  "updated_at": "2026-05-27T10:57:03Z"
+  "updated_at": "2026-05-27T11:11:06Z"
 }
