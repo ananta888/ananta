@@ -1,5 +1,5 @@
 {
-  "version": "1.3",
+  "version": "1.4",
   "owner": "Peter Stuiber",
   "track": "bootstrap-heuristic-catalog-snake-chat-helpcenter-planning",
   "purpose": "Konkreter Bootstrap-Katalog f\u00fcr erste aktive Ananta-Heuristiken nach Fertigstellung der Heuristic Runtime und des JSON/YAML/Python-Strategy-Formats.",
@@ -494,7 +494,7 @@
     {
       "id": "T05.01",
       "title": "helpcenter_failure_triage_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "bootstrap-heuristic",
@@ -507,12 +507,14 @@
         "Keine Auto-Reparatur wird ausgel\u00f6st.",
         "Report/DecisionResult enth\u00e4lt confidence und reason_codes.",
         "Tests pr\u00fcfen typische Log-Beispiele."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/helpcenter_failure_triage_default.heuristic.json"
     },
     {
       "id": "T05.02",
       "title": "helpcenter_github_failure_source_refs_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "bootstrap-heuristic",
@@ -525,12 +527,14 @@
         "Secrets/Token werden nicht gespeichert.",
         "Output enth\u00e4lt Helpcenter Report Ref und SourceRefs.",
         "Tests pr\u00fcfen GitHub Actions Failure Fixture."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/helpcenter_github_failure_source_refs_default.heuristic.json"
     },
     {
       "id": "T05.03",
       "title": "helpcenter_duplicate_failure_grouping_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "bootstrap-heuristic",
@@ -542,12 +546,14 @@
         "Heuristik gruppiert wiederholte \u00e4hnliche Failure anhand workflow/job/error signature/content_hash.",
         "Gruppierung ver\u00e4ndert keine Reports, sondern erzeugt refs/group suggestion.",
         "Tests pr\u00fcfen gleiche Failure zweimal und leicht ver\u00e4nderte Logzeile."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/helpcenter_duplicate_failure_grouping_default.heuristic.json"
     },
     {
       "id": "T06.01",
       "title": "planning_next_task_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "bootstrap-heuristic",
@@ -560,12 +566,14 @@
         "Blocked Tasks werden nicht als n\u00e4chster Task vorgeschlagen, au\u00dfer explizit unblock gefragt.",
         "Output ist Vorschlag, keine automatische Task-\u00c4nderung.",
         "Tests pr\u00fcfen Task-Ranking. "
-      ]
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_next_task_default.heuristic.json"
     },
     {
       "id": "T06.02",
       "title": "planning_archive_done_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "bootstrap-heuristic",
@@ -578,12 +586,14 @@
         "Heuristik erstellt nur Empfehlung/Plan, keine automatische L\u00f6schung/Archivierung.",
         "Archiv-Manifest wird als Option vorgeschlagen.",
         "Tests pr\u00fcfen fertige, halbfertige und inkonsistente TODOs."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_archive_done_default.heuristic.json"
     },
     {
       "id": "T06.03",
       "title": "planning_summary_recompute_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "bootstrap-heuristic",
@@ -596,12 +606,14 @@
         "Bei Abweichung wird stale/repaired Vorschlag erzeugt.",
         "Heuristik ver\u00e4ndert Datei nicht ohne expliziten Fix-Auftrag.",
         "Tests pr\u00fcfen falsche Summary und korrekte Recompute-Werte."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_summary_recompute_default.heuristic.json"
     },
     {
       "id": "T06.04",
       "title": "planning_related_todo_merge_default anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "bootstrap-heuristic",
@@ -613,7 +625,9 @@
         "Heuristik erkennt thematisch stark verwandte TODOs \u00fcber track, related_tracks, replaces und Keywords.",
         "Heuristik schl\u00e4gt Konsolidierung vor, f\u00fchrt aber keine L\u00f6schung aus.",
         "Tests pr\u00fcfen Heuristik-TODOs als Merge-Kandidaten und nicht verwandte TODOs."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:21:00Z",
+      "notes": "heuristics/active/planning_related_todo_merge_default.heuristic.json"
     },
     {
       "id": "T07.01",
@@ -898,5 +912,5 @@
       ]
     }
   ],
-  "updated_at": "2026-05-27T11:11:06Z"
+  "updated_at": "2026-05-27T11:21:00Z"
 }
