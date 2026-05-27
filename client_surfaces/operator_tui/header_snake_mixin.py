@@ -33,8 +33,9 @@ class HeaderSnakeMixin:
         board_w, board_h = 18, 6
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
+        _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {"0", "false", "no", "off"}
         return {
-            "active": False,
+            "active": _tutorial_on,  # auto-start when tutorial AI is enabled
             "alive": True,
             "ui_steering": False,
             "free_mode": False,
@@ -91,7 +92,7 @@ class HeaderSnakeMixin:
             },
             "trail_window": max(1, min(120, int(os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10")))),
             "trail_speed": max(0.2, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_TRAIL_SPEED", "8.0")))),
-            "tutorial_mode": os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() in {"1", "true", "yes", "on"},
+            "tutorial_mode": _tutorial_on,
             "snakes": {},
             "direction": (1, 0),
             "next_direction": (1, 0),

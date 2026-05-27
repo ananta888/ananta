@@ -172,6 +172,7 @@ class SnakeOpsMixin:
             game["active"] = False
             game["ui_steering"] = False
             game["free_mode"] = False
+            game["tutorial_mode"] = False  # stop AI companion when fully deactivating
             game["message_mode"] = False
             game["message_draft"] = ""
             game["selection_anchor"] = None
@@ -179,7 +180,7 @@ class SnakeOpsMixin:
             game["selection_regions"] = []
             game["selection_frame_mode"] = False
             game["selection_frame_anchor"] = None
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: aus"))
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: aus | Ctrl+S=an, U=AI-Tutorial an"))
             return
         game["active"] = True
         game["ui_steering"] = True
@@ -205,6 +206,10 @@ class SnakeOpsMixin:
         game = dict(self.state.header_logo_game or self._default_header_snake())
         enabled = bool(game.get("tutorial_mode"))
         game["tutorial_mode"] = not enabled
+        if not enabled:
+            # Re-enabling tutorial AI: also ensure the game is active
+            game["active"] = True
+            game["alive"] = True
         label = "an" if not enabled else "aus"
         self._fire_tutorial_event(game, "tutorial_toggled")
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake tutorial-ai: {label}"))

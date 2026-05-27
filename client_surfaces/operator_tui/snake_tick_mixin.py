@@ -67,12 +67,16 @@ class SnakeTickMixin:
     # ── T01: Header snake tick ────────────────────────────────────────────────
 
     def _tick_header_snake(self) -> None:
-        game = dict(self.state.header_logo_game or {})
         if not self._header_snake_enabled():
             return
-        if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering"):
+        # Auto-initialize game state on first tick when it hasn't been set yet
+        if not self.state.header_logo_game:
+            self.state = self.state.with_updates(header_logo_game=self._default_header_snake())
+        game = dict(self.state.header_logo_game)  # type: ignore[arg-type]
+        # Allow tick when: in HEADER focus, OR ui_steering on, OR tutorial AI is running
+        if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering") and not game.get("tutorial_mode"):
             return
-        if not game or not game.get("active", False) or not game.get("alive", True):
+        if not game.get("active", False) or not game.get("alive", True):
             return
         # T01.02: skip tick when paused
         if bool(game.get("paused")):
