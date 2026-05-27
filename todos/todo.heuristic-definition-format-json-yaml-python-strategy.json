@@ -225,7 +225,7 @@
     {
       "id": "T02.02",
       "title": "heuristic_proposal.v1.json Schema erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
@@ -239,12 +239,14 @@
         "Proposal enth\u00e4lt no_auto_activation=true als Pflichtfeld.",
         "proposed_definition validiert gegen heuristic_definition.v1.json mit status=candidate.",
         "Tests pr\u00fcfen AI Proposal, User Proposal und ung\u00fcltige Auto-Activation."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "schemas/heuristic/heuristic_proposal.v1.json already existed (confirmed)"
     },
     {
       "id": "T02.03",
       "title": "heuristic_decision_lease.v1.json Schema erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
@@ -258,7 +260,9 @@
         "selected_by unterscheidet system, ananta-worker, user und imported.",
         "OpenCode ist nicht als selected_by f\u00fcr Runtime-Leases erlaubt.",
         "Tests pr\u00fcfen g\u00fcltige Lease, abgelaufene Lease und ung\u00fcltigen selected_by."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "schemas/heuristic/heuristic_decision_lease.v1.json already existed (confirmed)"
     },
     {
       "id": "T02.04",
@@ -937,5 +941,5 @@
       ]
     }
   ],
-  "updated_at": "2026-05-27T11:11:06Z"
+  "updated_at": "2026-05-27T11:30:15Z"
 }

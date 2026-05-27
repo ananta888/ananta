@@ -100,6 +100,30 @@ class PythonStrategyLoader:
         except Exception as exc:
             return LoadResult(success=False, reason_code=f"instantiation_error:{exc}")
 
+    def load_module_class(self, module_path: str, class_name: str) -> LoadResult:
+        """Load by explicit module path and class name (bypasses HeuristicDefinition)."""
+        if not module_path or not class_name:
+            return LoadResult(success=False, reason_code="missing_module_or_class")
+
+        allowed_classes = self._allowlist.get(module_path)
+        if allowed_classes is None:
+            return LoadResult(success=False, reason_code=f"module_not_allowlisted:{module_path}")
+        if class_name not in allowed_classes:
+            return LoadResult(success=False, reason_code=f"class_not_allowlisted:{class_name}")
+
+        if not any(module_path.startswith(p) for p in _ALLOWED_MODULE_PREFIXES):
+            return LoadResult(success=False, reason_code=f"module_prefix_blocked:{module_path}")
+
+        try:
+            mod = importlib.import_module(module_path)
+            cls = getattr(mod, class_name)
+            instance = cls()
+            return LoadResult(success=True, strategy=instance)
+        except (ImportError, AttributeError) as exc:
+            return LoadResult(success=False, reason_code=f"import_error:{exc}")
+        except Exception as exc:
+            return LoadResult(success=False, reason_code=f"instantiation_error:{exc}")
+
     def is_allowlisted(self, module_path: str, class_name: str) -> bool:
         classes = self._allowlist.get(module_path)
         return classes is not None and class_name in classes

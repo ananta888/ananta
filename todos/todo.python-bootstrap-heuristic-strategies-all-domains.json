@@ -1,5 +1,5 @@
 {
-  "version": "1.4",
+  "version": "1.5",
   "owner": "Peter Stuiber",
   "track": "python-bootstrap-heuristic-strategies-all-domains",
   "purpose": "Gute sinnvolle initiale Python-Heuristik-Strategien f\u00fcr alle relevanten Ananta-Domains bereitstellen: Snake TUI, Snake Eclipse, Chat CodeCompass, Helpcenter und Planning.",
@@ -649,7 +649,7 @@
     {
       "id": "T07.01",
       "title": "JSON Bindings f\u00fcr Python Strategies erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "binding",
@@ -666,7 +666,9 @@
         "module/class sind korrekt referenziert.",
         "Capabilities, TTL, safety_class und fallback sind gesetzt.",
         "Definitionen validieren gegen heuristic_definition.v1.json."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "heuristics/python_strategy_bindings.json maps all 21 heuristic IDs to Python class/module"
     },
     {
       "id": "T07.02",
@@ -711,7 +713,7 @@
     {
       "id": "T07.04",
       "title": "Fallback-Ketten zwischen Python Strategies konfigurieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "binding",
@@ -725,7 +727,9 @@
         "Helpcenter unknown f\u00e4llt auf safe unknown triage.",
         "Planning no candidate liefert no_action/scope request.",
         "Tests pr\u00fcfen Fallback-Ketten ohne Rekursion/Loop."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "heuristics/fallback_chains.json defines fallback sequences for all 5 domains"
     },
     {
       "id": "T08.01",
@@ -754,7 +758,7 @@
     {
       "id": "T08.02",
       "title": "Integration Tests mit Registry/Loader",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -769,12 +773,14 @@
         "Loader importiert nur allowlistete Strategy-Klassen.",
         "Evaluator f\u00fchrt Strategy aus und erzeugt DecisionResult.",
         "Ung\u00fcltige Bindings werden blockiert."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "Integration tests with PythonStrategyLoader in test_round9_catalog_e2e.py::TestPythonStrategyLoaderIntegration"
     },
     {
       "id": "T08.03",
       "title": "E2E Snake und Chat Python Heuristiken",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -790,12 +796,14 @@
         "E2E stellt Chat-Symbolfrage und Python CodeCompass Strategy selektiert SourceRefs.",
         "Bei unbekanntem Symbol greift Python NoGoodMatchStrategy.",
         "Trace zeigt runtime.mode=python_strategy und heuristic_id."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E Snake and Chat in test_round9_catalog_e2e.py::TestE2ESnakeBootstrap + TestE2EChatBootstrap"
     },
     {
       "id": "T08.04",
       "title": "E2E Helpcenter und Planning Python Heuristiken",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -810,12 +818,14 @@
         "Planning-E2E schl\u00e4gt n\u00e4chsten Task und Archivkandidat vor.",
         "Keine Datei wird ohne explizite Aktion ver\u00e4ndert.",
         "Trace/Report enth\u00e4lt heuristic_id, strategy_class und reason_codes."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E Helpcenter and Planning in test_round9_catalog_e2e.py::TestE2EHelpcenterPlanningBootstrap"
     },
     {
       "id": "T08.05",
       "title": "Python Strategy Doku erg\u00e4nzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -829,7 +839,9 @@
         "Doku erkl\u00e4rt JSON-Binding zu Python-Strategy.",
         "Doku erkl\u00e4rt Allowlist und warum kein Inline-Code erlaubt ist.",
         "Doku enth\u00e4lt Beispiele f\u00fcr Snake, Chat, Helpcenter und Planning."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "heuristics/CATALOG.md documents all strategies, domains, fallback chains, and bootstrap rules"
     }
   ],
   "critical_path_tasks": [
@@ -958,5 +970,5 @@
       ]
     }
   ],
-  "updated_at": "2026-05-27T11:21:00Z"
+  "updated_at": "2026-05-27T11:30:15Z"
 }
