@@ -172,7 +172,6 @@ class SnakeOpsMixin:
             game["active"] = False
             game["ui_steering"] = False
             game["free_mode"] = False
-            game["tutorial_mode"] = False  # stop AI companion when fully deactivating
             game["message_mode"] = False
             game["message_draft"] = ""
             game["selection_anchor"] = None
@@ -180,7 +179,7 @@ class SnakeOpsMixin:
             game["selection_regions"] = []
             game["selection_frame_mode"] = False
             game["selection_frame_anchor"] = None
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: aus | Ctrl+S=an, U=AI-Tutorial an"))
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: aus"))
             return
         game["active"] = True
         game["ui_steering"] = True
@@ -527,6 +526,42 @@ class SnakeOpsMixin:
         cells = [(x, y) for y in range(min_y, max_y + 1) for x in range(min_x, max_x + 1)]
         game["selection_anchor"] = None
         game["selection_cells"] = cells
+
+        # Trigger AI explanation for the marked region when tutorial AI is active
+        if bool(game.get("active")) and bool(game.get("tutorial_mode")) and cells:
+            import time as _time
+            now = _time.monotonic()
+            # Extract readable text from the selected region
+            lines = self._snake_render_plain_lines()
+            rows: dict[int, list[int]] = {}
+            for cx, cy in cells:
+                rows.setdefault(cy, []).append(cx)
+            excerpts: list[str] = []
+            for row_y in sorted(rows)[:4]:
+                if row_y < len(lines):
+                    row_text = lines[row_y]
+                    xs = sorted(set(rows[row_y]))
+                    if xs:
+                        chunk = row_text[xs[0]: min(len(row_text), xs[-1] + 1)].strip()
+                        if chunk:
+                            excerpts.append(chunk)
+            excerpt = " | ".join(excerpts)[:200]
+            feed = f"Erkläre die Markierung: {excerpt}" if excerpt else "Erkläre den markierten Bereich."
+            game["tutorial_user_feed"] = feed
+            game["tutorial_ai_local_contact"] = True
+            game["tutorial_ai_contact_zone"] = "content"
+            # Activate the artifact chat with a synthetic target
+            chat_raw = game.get("artifact_chat_state")
+            chat = dict(chat_raw) if isinstance(chat_raw, dict) else {}
+            messages = [dict(m) for m in (chat.get("messages") or []) if isinstance(m, dict)]
+            messages.append({"at": float(now), "source": "system", "text": f"Markierung: {excerpt[:80] or '(Bereich)'}"})
+            chat["active_target"] = {"label": excerpt[:40] or "Markierung", "section_id": str(self.state.section_id or ""), "kind": "selection", "path": "", "id": "selection"}
+            chat["messages"] = messages[-8:]
+            game["artifact_chat_state"] = chat
+            # Force immediate AI tip on next tick
+            self._tutorial_async_next_refresh_at = 0.0
+            self._tutorial_async_tip_future = None
+
         self._set_state(
             self.state.with_updates(
                 header_logo_game=game,
