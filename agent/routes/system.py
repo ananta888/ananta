@@ -647,6 +647,27 @@ def get_audit_logs():
         in: query
         type: integer
         default: 0
+      - name: trace_id
+        in: query
+        type: string
+      - name: task_id
+        in: query
+        type: string
+      - name: actor
+        in: query
+        type: string
+      - name: action
+        in: query
+        type: string
+      - name: event_class
+        in: query
+        type: string
+      - name: since
+        in: query
+        type: number
+      - name: until
+        in: query
+        type: number
     responses:
       200:
         description: Liste der Audit-Logs
@@ -655,6 +676,59 @@ def get_audit_logs():
     """
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
-    log_audit("audit_logs_viewed", {"limit": limit, "offset": offset})
-    logs = _repos().audit_repo.get_all(limit=limit, offset=offset)
+    trace_id = request.args.get("trace_id", default=None, type=str)
+    task_id = request.args.get("task_id", default=None, type=str)
+    actor = request.args.get("actor", default=None, type=str)
+    action = request.args.get("action", default=None, type=str)
+    event_class = request.args.get("event_class", default=None, type=str)
+    since = request.args.get("since", default=None, type=float)
+    until = request.args.get("until", default=None, type=float)
+    filters_used = any([trace_id, task_id, actor, action, event_class, since is not None, until is not None])
+    log_audit(
+        "audit_logs_viewed",
+        {
+            "limit": limit,
+            "offset": offset,
+            "trace_id": trace_id,
+            "task_id": task_id,
+            "actor": actor,
+            "action": action,
+            "event_class": event_class,
+            "since": since,
+            "until": until,
+        },
+    )
+    if filters_used:
+        logs = _repos().audit_repo.query(
+            limit=limit,
+            offset=offset,
+            trace_id=trace_id,
+            task_id=task_id,
+            actor=actor,
+            action=action,
+            event_class=event_class,
+            since=since,
+            until=until,
+        )
+    else:
+        logs = _repos().audit_repo.get_all(limit=limit, offset=offset)
     return api_response(data=[log_entry.model_dump() for log_entry in logs])
+
+
+@system_bp.route("/audit-logs/summary", methods=["GET"])
+@admin_required
+def get_audit_logs_summary():
+    limit = request.args.get("limit", 1000, type=int)
+    since = request.args.get("since", default=None, type=float)
+    summary = _repos().audit_repo.summarize(limit=limit, since=since)
+    log_audit("audit_logs_summary_viewed", {"limit": limit, "since": since})
+    return api_response(data=summary)
+
+
+@system_bp.route("/audit-logs/integrity", methods=["GET"])
+@admin_required
+def get_audit_logs_integrity():
+    limit = request.args.get("limit", 5000, type=int)
+    report = _repos().audit_repo.integrity_report(limit=limit)
+    log_audit("audit_logs_integrity_checked", {"limit": limit, "checked_records": report.get("checked_records", 0)})
+    return api_response(data=report)
