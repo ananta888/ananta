@@ -12,6 +12,7 @@ def build_effective_policy_profile(config: dict[str, Any] | None = None) -> dict
     runtime = resolve_runtime_profile(cfg)
     review_policy = dict(cfg.get("review_policy") or {})
     execution_risk_policy = dict(cfg.get("execution_risk_policy") or {})
+    mutation_gate_policy = dict(cfg.get("mutation_gate") or {})
     exposure_policy = dict(cfg.get("exposure_policy") or {})
     terminal_policy = dict(cfg.get("terminal_policy") or {})
     action_packs = dict(cfg.get("action_packs") or {})
@@ -46,6 +47,10 @@ def build_effective_policy_profile(config: dict[str, Any] | None = None) -> dict
                 "enabled": bool(execution_risk_policy.get("enabled", True)),
                 "default_action": str(execution_risk_policy.get("default_action") or "deny"),
                 "review_required_for": list(execution_risk_policy.get("review_required_for") or []),
+            },
+            "mutation_gate": {
+                "enabled": bool(mutation_gate_policy.get("enabled", True)),
+                "global_deny_mutations": bool(mutation_gate_policy.get("global_deny_mutations", False)),
             },
             "terminal": {
                 "enabled": bool(terminal_policy.get("enabled", True)),

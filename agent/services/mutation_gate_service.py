@@ -49,6 +49,7 @@ class MutationGateService:
         actor: str | None = None,
     ) -> MutationGateDecision:
         cfg = dict((agent_cfg or {}).get("mutation_gate") or {})
+        normalized_policy = self.normalize_policy(cfg)
         if not bool(cfg.get("enabled", True)):
             return MutationGateDecision(
                 classification="allow",
@@ -79,7 +80,16 @@ class MutationGateService:
                 mutation_class=mutation_class,
                 normalized_target=normalized_target,
                 approval_scope=scope,
-                details={"enabled": True},
+                details={"enabled": True, "policy": normalized_policy},
+            )
+        if bool(normalized_policy.get("global_deny_mutations", False)):
+            return MutationGateDecision(
+                classification="blocked",
+                reason_code="mutation_gate_global_deny",
+                mutation_class=mutation_class,
+                normalized_target=normalized_target,
+                approval_scope=scope,
+                details={"blocked_by": "global_deny_switch", "policy": normalized_policy},
             )
         if governance_mode in {"safe", "strict"} and operation_class == "read_only":
             return MutationGateDecision(
@@ -158,6 +168,14 @@ class MutationGateService:
             approval_scope=scope,
             details={},
         )
+
+    @staticmethod
+    def normalize_policy(value: dict | None) -> dict[str, Any]:
+        payload = dict(value or {})
+        return {
+            "enabled": bool(payload.get("enabled", True)),
+            "global_deny_mutations": bool(payload.get("global_deny_mutations", False)),
+        }
 
     def classify_mutation_class(
         self,

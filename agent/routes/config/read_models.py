@@ -56,6 +56,7 @@ def assistant_editable_settings_inventory() -> list[dict]:
             "endpoint": "POST /config",
         },
         {"key": "terminal_policy", "path": "config.terminal_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "mutation_gate", "path": "config.mutation_gate", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "benchmark_retention", "path": "config.benchmark_retention", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "benchmark_identity_precedence", "path": "config.benchmark_identity_precedence", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "routing_fallback_policy", "path": "config.routing_fallback_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
@@ -97,6 +98,7 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
     codex_cli = cfg.get("codex_cli") if isinstance(cfg.get("codex_cli"), dict) else {}
     review_cfg = cfg.get("review_policy") if isinstance(cfg.get("review_policy"), dict) else {}
     risk_cfg = cfg.get("execution_risk_policy") if isinstance(cfg.get("execution_risk_policy"), dict) else {}
+    mutation_gate_cfg = cfg.get("mutation_gate") if isinstance(cfg.get("mutation_gate"), dict) else {}
     platform_governance = get_platform_governance_service().build_policy_read_model(cfg)
     exposure_policy = get_exposure_policy_service().normalize_exposure_policy(platform_governance.get("exposure_policy"))
     cli_session_mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
@@ -194,6 +196,10 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
                 "deny_risk_levels": list(risk_cfg.get("deny_risk_levels") or ["high", "critical"]),
                 "review_risk_levels": list(risk_cfg.get("review_risk_levels") or ["medium", "high", "critical"]),
                 "task_scoped_only": bool(risk_cfg.get("task_scoped_only", True)),
+            },
+            "mutation_gate": {
+                "enabled": bool(mutation_gate_cfg.get("enabled", True)),
+                "global_deny_mutations": bool(mutation_gate_cfg.get("global_deny_mutations", False)),
             },
             "exposure_policy": exposure_policy,
             "platform_governance": platform_governance,

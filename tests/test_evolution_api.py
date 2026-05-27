@@ -318,7 +318,7 @@ def test_task_evolution_apply_is_blocked_when_mutation_gate_denies(client, app, 
         cfg["evolution"] = {
             **dict(cfg.get("evolution") or {}),
             "apply_allowed": True,
-            "require_review_before_apply": True,
+            "require_review_before_apply": False,
         }
         app.config["AGENT_CONFIG"] = cfg
         response = client.post(
