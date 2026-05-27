@@ -33,6 +33,7 @@ from agent.services.evolution.registry import EvolutionProviderRegistry, get_evo
 from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
+from agent.services.critical_workflow_state_service import WorkflowTransitionError, get_critical_workflow_state_service
 from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.repository_registry import get_repository_registry
 
@@ -148,6 +149,8 @@ class EvolutionService:
         review_status = "approved" if normalized_action == "approve" else "rejected"
         proposal_metadata = dict(persisted.proposal_metadata or {})
         history = list(proposal_metadata.get("history") or [])
+        workflow_service = get_critical_workflow_state_service()
+        workflow_state = proposal_metadata.get("workflow_state")
         task_row = repos.task_repo.get_by_id(task_id)
         task_payload = task_row.model_dump() if task_row is not None else {"id": task_id, "goal_id": persisted.goal_id}
         review_context = self._build_review_context(
@@ -195,6 +198,21 @@ class EvolutionService:
                 "approval_artifact_id": (approval_artifact or {}).get("approval_id"),
             }
         )
+        try:
+            workflow_state = workflow_service.transition(
+                workflow_state,
+                workflow_type="evolution_proposal",
+                to_state=review_status,
+                reason=f"review_{normalized_action}",
+                actor=review["reviewed_by"],
+                task_id=task_id,
+                goal_id=persisted.goal_id,
+                trace_id=str(persisted.trace_id or "").strip() or None,
+                details={"proposal_id": proposal_id},
+            )
+        except WorkflowTransitionError as exc:
+            raise ValueError(exc.code) from None
+        proposal_metadata["workflow_state"] = workflow_state
         proposal_metadata["review"] = review
         proposal_metadata["review_context"] = review_context
         proposal_metadata["history"] = history[-20:]
@@ -894,6 +912,10 @@ class EvolutionService:
             goal_id=context.goal_id,
             target_refs=list(proposal.target_refs or []),
         )
+        workflow_state = get_critical_workflow_state_service().initialize(
+            "evolution_proposal",
+            state="review_required" if bool(proposal.requires_review) else "approved",
+        )
         return EvolutionProposalDB(
             id=proposal.proposal_id,
             run_id=run.id,
@@ -909,7 +931,11 @@ class EvolutionService:
             confidence=proposal.confidence,
             requires_review=proposal.requires_review,
             target_refs=list(proposal.target_refs or []),
-            proposal_metadata={"context_id": context.context_id, "review_context": review_context},
+            proposal_metadata={
+                "context_id": context.context_id,
+                "review_context": review_context,
+                "workflow_state": workflow_state,
+            },
             provider_metadata=self._bounded_payload(proposal.provider_metadata or {}, policy=policy),
             raw_payload=self._bounded_payload(proposal.raw_payload, policy=policy),
         )
@@ -984,12 +1010,84 @@ class EvolutionService:
         if persisted is None or str(persisted.task_id or "") != str(task_id):
             raise KeyError("evolution_proposal_not_found")
         proposal_metadata = dict(persisted.proposal_metadata or {})
+        workflow_service = get_critical_workflow_state_service()
+        workflow_state = proposal_metadata.get("workflow_state")
         review = dict(proposal_metadata.get("review") or {})
+        trace_id = str(persisted.trace_id or "").strip() or None
+
+        workflow_state = workflow_service.handle_timeout(
+            workflow_state,
+            workflow_type="evolution_proposal",
+            reason="apply_timeout_precheck",
+            actor="hub",
+            trace_id=trace_id,
+            task_id=task_id,
+            goal_id=persisted.goal_id,
+        )
+        proposal_metadata["workflow_state"] = workflow_state
+
         if bool(persisted.requires_review) and str(review.get("status") or "").strip().lower() != "approved":
+            workflow_state = workflow_service.apply_fallback(
+                workflow_state,
+                workflow_type="evolution_proposal",
+                reason="apply_prerequisite_blocked",
+                cause="evolution_apply_requires_approved_review",
+                actor="hub",
+                trace_id=trace_id,
+                task_id=task_id,
+                goal_id=persisted.goal_id,
+                details={"proposal_id": proposal_id},
+            )
+            proposal_metadata["workflow_state"] = workflow_state
+            persisted.proposal_metadata = proposal_metadata
+            persisted.status = str(workflow_state.get("state") or persisted.status)
+            repos.evolution_proposal_repo.save(persisted)
             raise PermissionError("evolution_apply_requires_approved_review")
         mutation_approval_artifact = self._extract_mutation_approval_artifact(proposal_metadata)
         if bool(persisted.requires_review) and mutation_approval_artifact is None:
+            workflow_state = workflow_service.apply_fallback(
+                workflow_state,
+                workflow_type="evolution_proposal",
+                reason="apply_prerequisite_blocked",
+                cause="evolution_apply_missing_mutation_approval",
+                actor="hub",
+                trace_id=trace_id,
+                task_id=task_id,
+                goal_id=persisted.goal_id,
+                details={"proposal_id": proposal_id},
+            )
+            proposal_metadata["workflow_state"] = workflow_state
+            persisted.proposal_metadata = proposal_metadata
+            persisted.status = str(workflow_state.get("state") or persisted.status)
+            repos.evolution_proposal_repo.save(persisted)
             raise PermissionError("evolution_apply_missing_mutation_approval")
+
+        try:
+            workflow_state = workflow_service.transition(
+                workflow_state,
+                workflow_type="evolution_proposal",
+                to_state="apply_requested",
+                reason="apply_requested",
+                actor="hub",
+                trace_id=trace_id,
+                task_id=task_id,
+                goal_id=persisted.goal_id,
+                details={"proposal_id": proposal_id},
+            )
+            workflow_state = workflow_service.transition(
+                workflow_state,
+                workflow_type="evolution_proposal",
+                to_state="apply_in_progress",
+                reason="apply_execution_started",
+                actor="hub",
+                trace_id=trace_id,
+                task_id=task_id,
+                goal_id=persisted.goal_id,
+                details={"proposal_id": proposal_id},
+            )
+        except WorkflowTransitionError as exc:
+            raise PermissionError(exc.code) from None
+        proposal_metadata["workflow_state"] = workflow_state
         context = self.build_context_for_task(task_id)
         provider_metadata = dict(persisted.provider_metadata or {})
         if mutation_approval_artifact is not None:
@@ -1007,13 +1105,47 @@ class EvolutionService:
             provider_metadata=provider_metadata,
             raw_payload=persisted.raw_payload,
         )
-        result = self.apply(
-            context,
-            proposal,
-            provider_name=provider_name or persisted.provider_name,
-            config=config,
-            trigger=trigger,
-        )
+        try:
+            result = self.apply(
+                context,
+                proposal,
+                provider_name=provider_name or persisted.provider_name,
+                config=config,
+                trigger=trigger,
+            )
+        except Exception as exc:
+            error_code = str(exc).strip() or type(exc).__name__
+            try:
+                if "timeout" in error_code.lower():
+                    workflow_state = workflow_service.handle_timeout(
+                        workflow_state,
+                        workflow_type="evolution_proposal",
+                        reason="apply_execution_timeout",
+                        actor="hub",
+                        trace_id=trace_id,
+                        task_id=task_id,
+                        goal_id=persisted.goal_id,
+                    )
+                else:
+                    workflow_state = workflow_service.apply_fallback(
+                        workflow_state,
+                        workflow_type="evolution_proposal",
+                        reason="apply_execution_fallback",
+                        cause=error_code,
+                        actor="hub",
+                        trace_id=trace_id,
+                        task_id=task_id,
+                        goal_id=persisted.goal_id,
+                        details={"proposal_id": proposal_id},
+                    )
+                proposal_metadata["workflow_state"] = workflow_state
+                proposal_metadata["last_fallback"] = {"reason": "apply_execution_fallback", "cause": error_code, "timestamp": time.time()}
+                persisted.proposal_metadata = proposal_metadata
+                persisted.status = str(workflow_state.get("state") or persisted.status)
+                repos.evolution_proposal_repo.save(persisted)
+            except WorkflowTransitionError:
+                pass
+            raise
         applies = list(proposal_metadata.get("applies") or [])
         history = list(proposal_metadata.get("history") or [])
         apply_entry = result.model_dump(mode="json")
@@ -1033,6 +1165,21 @@ class EvolutionService:
                 "Apply bleibt hub-gesteuert; pruefe Audit-Trace, Artefakt-Referenzen und betroffene Targets vor Rollback.",
                 "Rollback darf keine Worker-zu-Worker-Orchestrierung ausloesen.",
             ]
+        try:
+            workflow_state = workflow_service.transition(
+                workflow_state,
+                workflow_type="evolution_proposal",
+                to_state="applied" if result.applied else "apply_prepared",
+                reason="apply_execution_completed",
+                actor="hub",
+                trace_id=trace_id,
+                task_id=task_id,
+                goal_id=persisted.goal_id,
+                details={"proposal_id": proposal_id, "apply_id": result.apply_id, "status": result.status},
+            )
+        except WorkflowTransitionError as exc:
+            raise PermissionError(exc.code) from None
+        proposal_metadata["workflow_state"] = workflow_state
         proposal_metadata["last_apply"] = apply_entry
         proposal_metadata["applies"] = applies[-20:]
         proposal_metadata["history"] = history[-20:]
@@ -1180,6 +1327,13 @@ class EvolutionService:
 
     def _proposal_read_model(self, proposal: EvolutionProposalDB) -> dict[str, Any]:
         proposal_metadata = dict(proposal.proposal_metadata or {})
+        workflow_service = get_critical_workflow_state_service()
+        workflow_state = workflow_service.materialize_record(
+            proposal_metadata.get("workflow_state"),
+            workflow_type="evolution_proposal",
+        )
+        workflow_replay = workflow_service.replay(workflow_state, workflow_type="evolution_proposal")
+        workflow_timeout = workflow_service.inspect_timeout(workflow_state, workflow_type="evolution_proposal")
         review = dict(proposal_metadata.get("review") or {})
         validations = list(proposal_metadata.get("validations") or [])
         applies = list(proposal_metadata.get("applies") or [])
@@ -1219,6 +1373,15 @@ class EvolutionService:
                 "rollback_hints": list(proposal_metadata.get("rollback_hints") or []),
             },
             "history": list(proposal_metadata.get("history") or []),
+            "workflow": {
+                "state": workflow_state.get("state"),
+                "transition_count": int(workflow_state.get("transition_count") or 0),
+                "recovery_attempts": int(workflow_state.get("recovery_attempts") or 0),
+                "timeout_seconds": int(workflow_state.get("timeout_seconds") or 0),
+                "last_transition_at": workflow_state.get("last_transition_at"),
+                "replay": workflow_replay,
+                "timeout": workflow_timeout,
+            },
             "mutation_approval": {
                 "approval_id": (approval_artifact or {}).get("approval_id"),
                 "status": (approval_artifact or {}).get("status"),

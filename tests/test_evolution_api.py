@@ -338,12 +338,17 @@ def test_task_evolution_apply_is_blocked_when_mutation_gate_denies(client, app, 
             headers=admin_auth_header,
             json={},
         )
+        read_response = client.get("/tasks/T-EVO-MUT-BLOCK/evolution", headers=admin_auth_header)
     finally:
         registry.clear()
 
     assert review_response.status_code == 200
     assert response.status_code == 403
     assert "mutation_gate_blocked" in str(response.json["message"])
+    assert read_response.status_code == 200
+    proposal = read_response.json["data"]["proposals"][0]
+    assert proposal["workflow"]["state"] == "blocked"
+    assert proposal["proposal_metadata"]["last_fallback"]["cause"].startswith("mutation_gate_blocked")
 
 
 def test_task_evolution_apply_rejects_mismatched_scoped_approval_target(client, app, admin_auth_header):
@@ -637,6 +642,37 @@ def test_task_evolution_review_endpoint_persists_read_model_status(client, app, 
     assert proposal["review"]["review_context"]["target_count"] == 1
     assert proposal["mutation_approval"]["status"] == "approved"
     assert proposal["history"][0]["event_type"] == "proposal_review"
+    assert proposal["workflow"]["state"] == "approved"
+    assert proposal["workflow"]["replay"]["valid"] is True
+
+
+def test_task_evolution_read_model_exposes_workflow_replay_and_timeout(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-WORKFLOW-READ", title="Workflow read model", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-WORKFLOW-READ/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-WORKFLOW-READ/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve"},
+        )
+        read_response = client.get("/tasks/T-EVO-WORKFLOW-READ/evolution", headers=admin_auth_header)
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert read_response.status_code == 200
+    proposal = read_response.json["data"]["proposals"][0]
+    assert proposal["workflow"]["state"] == "approved"
+    assert proposal["workflow"]["replay"]["valid"] is True
+    assert proposal["workflow"]["timeout"]["stuck"] is False
 
 
 def test_failed_task_completion_auto_triggers_evolution_analysis(client, app, admin_auth_header):
