@@ -174,6 +174,27 @@ The `check_heuristic_routing()` function in `worker_routing_policy_utils.py` enf
 - **Eclipse adapter**: only zone classification strings cross the Java↔Python boundary — no raw file content
 - **HallucinationGuardrail**: validates source_refs, blocks concrete file/symbol refs in no_good_match answers, blocks sensitive content
 
+## AI Snake Evolution Extensions (ASH-0xx)
+
+Added as part of the heuristic evolution hardening track:
+
+| Module | Added in |
+|---|---|
+| `governance.py` | ASH-004: GovernanceMode enum |
+| `snake_interfaces.py` | ASH-001: MovementMode, SnakeRuntimeState, CandidateRecord, ActivationPolicy |
+| `snake_state_catalog.py` | ASH-003: SnakeState enum + transition table |
+| `candidate_raw_validator.py` | ASH-013: Raw data protection |
+| `candidate_migration.py` | ASH-016: Migration gate for null simulation_result |
+| `candidate_scorer.py` | ASH-021: CandidateScore |
+| `shadow_runner.py` | ASH-020+023: ShadowRunner + Live Watchdog |
+| `snake_simulation_fixtures.py` | ASH-022: Standard fixture library |
+| `snake_audit_events.py` | ASH-033: Structured lifecycle events |
+| `auto_activator.py` | ASH-030+032+034: AutoActivator, RolloutState, rollback |
+
+See [ai-snake-heuristic-evolution.md](../operator-tui/ai-snake-heuristic-evolution.md) for the full lifecycle documentation.
+
+---
+
 ## File Layout
 
 ```

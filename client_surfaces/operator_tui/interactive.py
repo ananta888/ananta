@@ -524,6 +524,30 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._normal_or_text("G", lambda: self._set_state(self.state.with_updates(selected_index=999999)))
 
+        # ── AI-snake feedback keys (ASH-041) ──────────────────────────────────
+        # Conflict analysis: r=refresh, p=prev_section → use R (Shift+r) and P (Shift+p)
+        # + and - are unbound.
+
+        @bindings.add("+")
+        def _(event) -> None:
+            """Positive feedback for current snake heuristic behavior."""
+            self._snake_feedback(positive=True)
+
+        @bindings.add("-")
+        def _(event) -> None:
+            """Negative feedback for current snake heuristic behavior."""
+            self._snake_feedback(positive=False)
+
+        @bindings.add("R")   # Shift+r — rollback (r is already :refresh)
+        def _(event) -> None:
+            """Rollback current auto-promoted snake heuristic."""
+            self._snake_rollback_heuristic()
+
+        @bindings.add("P")   # Shift+p — pin (p is already :prev)
+        def _(event) -> None:
+            """Pin current heuristic — prevent automatic replacement."""
+            self._snake_pin_heuristic()
+
         @bindings.add("<any>")
         def _(event) -> None:
             if self._snake_message_mode_active():

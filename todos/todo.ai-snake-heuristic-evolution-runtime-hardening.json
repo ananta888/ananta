@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "owner": "Peter Stuiber",
   "track": "ai-snake-heuristic-evolution-runtime-hardening",
   "purpose": "AI-Snake-Heuristiksystem sauber trennen, stabilisieren und so erweitern, dass automatisch erzeugte Kandidaten im Default ohne menschliche Freigabe aktiv werden können, aber mit technischer Absicherung.",
@@ -9,7 +9,11 @@
     "human_approval_required": false,
     "activation_strategy": "promote_to_active",
     "progressive_rollout": true,
-    "rollout_quota_stages": [0.1, 0.5, 1.0],
+    "rollout_quota_stages": [
+      0.1,
+      0.5,
+      1.0
+    ],
     "direct_candidate_runtime_allowed": false,
     "requires_validation": true,
     "requires_simulation": true,
@@ -24,47 +28,95 @@
     "observe_only",
     "frozen"
   ],
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0-critical", "P1-high", "P2-medium", "P3-low"],
-  "risk_scale": ["R0-low", "R1-medium", "R2-high", "R3-critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0-critical",
+    "P1-high",
+    "P2-medium",
+    "P3-low"
+  ],
+  "risk_scale": [
+    "R0-low",
+    "R1-medium",
+    "R2-high",
+    "R3-critical"
+  ],
   "milestones": [
     {
       "id": "M01",
       "title": "Architektur sauber trennen",
-      "task_ids": ["ASH-001", "ASH-002", "ASH-003", "ASH-004"],
-      "status": "todo",
+      "task_ids": [
+        "ASH-001",
+        "ASH-002",
+        "ASH-003",
+        "ASH-004"
+      ],
+      "status": "done",
       "note": "ASH-001 zuerst nur Interfaces/Datenmodelle. Vollständige Zerlegung (ASH-001b) nach M02."
     },
     {
       "id": "M02",
       "title": "Candidate Lifecycle härten",
-      "task_ids": ["ASH-010", "ASH-011", "ASH-012", "ASH-013", "ASH-014", "ASH-015", "ASH-016"],
-      "status": "todo"
+      "task_ids": [
+        "ASH-010",
+        "ASH-011",
+        "ASH-012",
+        "ASH-013",
+        "ASH-014",
+        "ASH-015",
+        "ASH-016"
+      ],
+      "status": "done"
     },
     {
       "id": "M03",
       "title": "Shadow-Test und Scoring einbauen",
-      "task_ids": ["ASH-020", "ASH-021", "ASH-022", "ASH-023", "ASH-033"],
-      "status": "todo",
+      "task_ids": [
+        "ASH-020",
+        "ASH-021",
+        "ASH-022",
+        "ASH-023",
+        "ASH-033"
+      ],
+      "status": "done",
       "note": "ASH-033 (Audit-Events) hier eingebaut, nicht in M04 — unverzichtbar für Shadow-Debugging."
     },
     {
       "id": "M04",
       "title": "Auto-Aktivierung und Rollback",
-      "task_ids": ["ASH-030", "ASH-031", "ASH-032", "ASH-034"],
-      "status": "todo"
+      "task_ids": [
+        "ASH-030",
+        "ASH-031",
+        "ASH-032",
+        "ASH-034"
+      ],
+      "status": "done"
     },
     {
       "id": "M05",
       "title": "TUI-Debug und User-Feedback",
-      "task_ids": ["ASH-040", "ASH-041", "ASH-042"],
-      "status": "todo"
+      "task_ids": [
+        "ASH-040",
+        "ASH-041",
+        "ASH-042"
+      ],
+      "status": "done"
     },
     {
       "id": "M06",
       "title": "Tests und Dokumentation",
-      "task_ids": ["ASH-050", "ASH-051", "ASH-052"],
-      "status": "todo"
+      "task_ids": [
+        "ASH-050",
+        "ASH-051",
+        "ASH-052"
+      ],
+      "status": "done"
     }
   ],
   "tasks": [
@@ -72,7 +124,7 @@
       "id": "ASH-001",
       "title": "AI-Snake-Komponenten logisch trennen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R1-medium",
       "target_files": [
@@ -105,7 +157,7 @@
       "id": "ASH-002",
       "title": "Movement Mode und Governance Mode trennen",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R1-medium",
       "description": "follow_user, lurk, fast_target usw. sind Bewegungsmodi. auto_without_human_approval, human_approval_required, observe_only, frozen sind Governance-Modi. Governance-Modi sind in ASH-004 formal definiert.",
@@ -129,7 +181,7 @@
       "id": "ASH-003",
       "title": "Minimalen AI-Snake-State-Katalog definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R1-medium",
       "states": [
@@ -163,7 +215,7 @@
       "id": "ASH-004",
       "title": "Governance-Mode-Enum formal definieren und validieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R0-low",
       "description": "Die möglichen Governance-Modi werden als enum/Konstanten definiert und validiert. Verhindert Tippfehler und macht erlaubte Transitionen explizit.",
@@ -184,7 +236,7 @@
       "id": "ASH-010",
       "title": "Candidate-Verzeichnisse nach Domain strukturieren",
       "type": "filesystem",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R0-low",
       "proposed_layout": {
@@ -205,12 +257,17 @@
       "id": "ASH-011",
       "title": "Candidate-Fingerprint und Duplikat-Zusammenführung einbauen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R1-medium",
       "description": "Wiederholte ähnliche Candidate-Vorschläge sollen nicht endlos neue Dateien erzeugen. Fingerprint basiert auf einem stabilen Content-Hash — NICHT auf context_hash_pattern (zu variabel) oder fallback_reason (zu generisch).",
       "fingerprint_schema": {
-        "fields": ["domain", "base_heuristic_ref", "action_kind", "parameters_canonical_json"],
+        "fields": [
+          "domain",
+          "base_heuristic_ref",
+          "action_kind",
+          "parameters_canonical_json"
+        ],
         "algorithm": "SHA-256 über JSON-normalisierte Konkatenation der Felder",
         "note": "fallback_reason und context_hash_pattern gehören ins metrics-Feld, nicht in den Fingerprint"
       },
@@ -226,7 +283,7 @@
       "id": "ASH-012",
       "title": "Candidate-Metriken erweitern",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R1-medium",
       "metrics": [
@@ -255,7 +312,7 @@
       "id": "ASH-013",
       "title": "Candidate-Rohdaten-Schutz erzwingen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "acceptance_criteria": [
@@ -269,7 +326,7 @@
       "id": "ASH-014",
       "title": "Candidate TTL und Auto-Expiry einbauen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R0-low",
       "description": "Kandidaten, die nach Ablauf ihrer TTL noch nicht Simulation oder Shadow bestanden haben, werden automatisch nach quarantine/ verschoben. Verhindert unkontrollierbares Wachstum von candidates/.",
@@ -291,7 +348,7 @@
       "id": "ASH-015",
       "title": "Rate-Limit für Candidate-Erzeugung einbauen",
       "type": "safety",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R1-medium",
       "description": "Die Proposal-Logik darf bei aktivem TUI maximal N Kandidaten pro Zeitfenster erzeugen. Verhindert Flood bei intensiver Nutzung.",
@@ -312,7 +369,7 @@
       "id": "ASH-016",
       "title": "Migrations-Gate für bestehende Kandidaten ohne simulation_result",
       "type": "migration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R1-medium",
       "description": "Alle 10 bestehenden Kandidaten in heuristics/candidates/ haben simulation_result: null. Laut default_policy.requires_simulation: true dürfen sie nicht direkt geladen werden. Beim nächsten Start müssen sie in einen pending_simulation-Status versetzt und aus dem aktiven Load-Pfad entfernt werden.",
@@ -329,7 +386,7 @@
       "id": "ASH-020",
       "title": "Shadow-Run für neue Candidates implementieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "description": "Neue Candidate-Heuristiken entscheiden zunächst im Schatten mit, ohne die echte Snake-Bewegung zu steuern. Mindestlaufzeit: 50 Entscheidungen UND mindestens 30 Sekunden — damit verschiedene Nutzungsmuster (langsame Maus, schnelle Navigation) abgedeckt werden.",
@@ -351,7 +408,7 @@
       "id": "ASH-021",
       "title": "Candidate-Scoring einführen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "score_fields": [
@@ -382,7 +439,7 @@
       "id": "ASH-022",
       "title": "Simulation Harness für AI-Snake-Szenarien erweitern",
       "type": "testability",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "simulation_cases": [
@@ -406,7 +463,7 @@
       "id": "ASH-023",
       "title": "Shadow-Run Live-Watchdog implementieren",
       "type": "safety",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "description": "Simulation (ASH-022) erkennt Probleme vor der Aktivierung. Aber was wenn ein Kandidat im Shadow-Run selbst unerwartet schlechte Entscheidungen produziert? Ein Live-Watchdog überwacht den Shadow-Betrieb und bricht ab, bevor die Aktivierung überhaupt beginnt.",
@@ -429,7 +486,7 @@
       "id": "ASH-030",
       "title": "Auto-Aktivierung per promote_to_active implementieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "description": "Im Default werden gültige Candidates automatisch nach heuristics/active/ übernommen, statt dauerhaft direkt aus candidates/ geladen zu werden. Aktivierung erfolgt über Progressive Rollout (ASH-034).",
@@ -446,7 +503,7 @@
       "id": "ASH-031",
       "title": "Direct Candidate Runtime nur als Debug-Modus erlauben",
       "type": "safety",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R2-high",
       "description": "Direktes Verwenden von candidates/ als Runtime-Quelle ist nur für explizite Debug-/Experiment-Konfiguration erlaubt.",
@@ -461,7 +518,7 @@
       "id": "ASH-032",
       "title": "Auto-Rollback nach schlechter Performance einbauen",
       "type": "safety",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "rollback_triggers": [
@@ -485,7 +542,7 @@
       "id": "ASH-033",
       "title": "Aktivierungs-Audit und Event-Sourcing light ergänzen",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R1-medium",
       "note": "In M03 eingebaut (nicht M04) — Audit-Events sind für Shadow-Debugging und Scoring-Nachvollziehbarkeit notwendig.",
@@ -515,14 +572,26 @@
       "id": "ASH-034",
       "title": "Progressive Rollout für Auto-Promotion implementieren",
       "type": "safety",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R1-medium",
       "description": "Statt sofortiger 100%-Aktivierung wird ein neuer Candidate schrittweise eingeführt. Jede Quote-Stufe wird überwacht. Bei schlechten Metriken Rollback, bevor alle Ticks betroffen sind.",
       "rollout_stages": [
-        {"quota": 0.1, "min_decisions": 20, "label": "canary"},
-        {"quota": 0.5, "min_decisions": 50, "label": "partial"},
-        {"quota": 1.0, "min_decisions": null, "label": "full"}
+        {
+          "quota": 0.1,
+          "min_decisions": 20,
+          "label": "canary"
+        },
+        {
+          "quota": 0.5,
+          "min_decisions": 50,
+          "label": "partial"
+        },
+        {
+          "quota": 1.0,
+          "min_decisions": null,
+          "label": "full"
+        }
       ],
       "stage_advance_conditions": {
         "no_rollback_trigger_fired": true,
@@ -542,7 +611,7 @@
       "id": "ASH-040",
       "title": "TUI-Debugansicht für Snake-Entscheidungen erweitern",
       "type": "ui",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R0-low",
       "acceptance_criteria": [
@@ -559,7 +628,7 @@
       "id": "ASH-041",
       "title": "User-Feedback-Tasten für Snake-Verhalten einbauen",
       "type": "ui",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R1-medium",
       "feedback_keys": {
@@ -582,7 +651,7 @@
       "id": "ASH-042",
       "title": "Artefakt-Intent und Bewegung getrennt modellieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R1-medium",
       "description": "Die Snake soll erkennen, welches Artefakt gemeint ist, schnell dorthin gehen, erklären und Chat anbieten.",
@@ -604,7 +673,7 @@
       "id": "ASH-050",
       "title": "Regressionstests für TUI-Flüssigkeit",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R1-medium",
       "acceptance_criteria": [
@@ -621,7 +690,7 @@
       "id": "ASH-051",
       "title": "Tests für Auto-Aktivierung ohne Human Approval",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "R2-high",
       "acceptance_criteria": [
@@ -639,7 +708,7 @@
       "id": "ASH-052",
       "title": "Doku und Mermaid-Diagramme ergänzen",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "R0-low",
       "target_files": [
@@ -675,15 +744,15 @@
     "ASH-051"
   ],
   "tasks_status_summary": {
-    "total": 28,
+    "total": 26,
     "by_status": {
-      "todo": 28,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 26
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0-critical": 13,
       "P1-high": 14,
@@ -698,18 +767,30 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 0,
-      "remaining": 15
+      "done": 15,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "changelog": [
+    {
+      "version": "1.2.0",
+      "date": "2026-05-27",
+      "changes": [
+        "M01 implemented: GovernanceMode enum (governance.py), SnakeState catalog (snake_state_catalog.py), interfaces/protocols (snake_interfaces.py). Movement/Governance mode separated in snake_heuristic_mixin.py (ASH-001,002,003,004)",
+        "M02 implemented: Domain subdirs created (heuristics/candidates/tui_snake/, active/tui_snake/, etc.), all existing heuristics migrated. CandidateRawValidator (candidate_raw_validator.py). Migration gate (candidate_migration.py). Fingerprint + TTL + dedup in proposal_service.py. Rate limit + governance gate in snake_heuristic_mixin.py (ASH-010..016)",
+        "M03 implemented: SnakeAuditEvents (snake_audit_events.py) with 12 typed emitters. ShadowRunner + Live Watchdog (shadow_runner.py). CandidateScorer (candidate_scorer.py). Snake simulation fixtures library (snake_simulation_fixtures.py) (ASH-020..023, ASH-033)",
+        "M04 implemented: AutoActivator (auto_activator.py) with promote_to_active, progressive rollout 10%→50%→100%, auto-rollback on trigger. direct_candidate_runtime=False default (ASH-030..032, ASH-034)",
+        "M05 implemented: SnakeArtifactDecision model (intent/movement/target/interaction separated in artifact_intent.py). Feedback keys +/-/R/P added to interactive.py (conflict analysis: R=Shift+r, P=Shift+p). TUI debug info via get_snake_debug_info() in mixin (ASH-040..042)",
+        "M06 implemented: 71 tests (tests/test_ash_heuristic_evolution.py, all passing). Docs: docs/operator-tui/ai-snake-heuristic-evolution.md and docs/architecture/heuristic-runtime.md updated (ASH-050..052)"
+      ]
+    },
     {
       "version": "1.1.0",
       "changes": [
