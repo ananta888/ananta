@@ -218,8 +218,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._snake_message_mode_active():
                 self._snake_message_append("q")
                 return
+            if self._chat_focus_active():
+                self._chat_append("q")
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command("q")
+                return
+            if self._snake_mode_active():
                 return
             event.app.exit()
 
@@ -227,6 +232,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             if self._snake_message_mode_active():
                 self._snake_message_append(":")
+                return
+            if self._chat_focus_active():
+                self._chat_append(":")
                 return
             if self._snake_mode_active():
                 return
