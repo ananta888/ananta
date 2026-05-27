@@ -11,9 +11,12 @@ All methods use self.* — no back-reference needed beyond normal Python MRO.
 """
 from __future__ import annotations
 
+import json as _json_mod
 import os
+import re
 import time
 import urllib.request
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
@@ -298,9 +301,16 @@ class ChatMixin:
                 depth = self._tutor_depth_mode
                 hints = self._load_codecompass_hints(now=time.monotonic())
                 rag_context = self._load_rag_helper_context(now=time.monotonic())
+                # R01: tokenise question itself for targeted RAG retrieval
+                question_tokens = [
+                    t for t in re.findall(r"[a-z0-9_./-]+", question.lower()) if len(t) >= 2
+                ][:32]
+                # A01: extract prior ai:tutor messages for multi-turn context
+                prior_messages = self._extract_prior_messages(game)
                 self._tutor_ask_future = self._tutor_ask_executor.submit(
-                    self._resolve_ask_question, question, depth=depth,
-                    hints=hints, rag_context=rag_context,
+                    self._resolve_ask_question, question,
+                    depth=depth, hints=hints, rag_context=rag_context,
+                    question_tokens=question_tokens, prior_messages=prior_messages,
                 )
         if self._tutor_ask_future is not None and self._tutor_ask_future.done():
             try:
@@ -317,13 +327,100 @@ class ChatMixin:
             self._inject_tutor_tip(game, f"[ask] {answer}", source="ask")
             self._fire_tutorial_event(game, "ask_command_used")
 
-    def _resolve_ask_question(self, question: str, *, depth: str, hints: list[str], rag_context: list[str]) -> str:
-        context_parts = hints[:6] + rag_context[:6]
+    def _extract_prior_messages(self, game: dict) -> list[dict]:
+        """A01: last 6 ai:tutor messages as prior conversation turns."""
+        try:
+            from client_surfaces.operator_tui.chat_state import get_chat_state
+            chat = get_chat_state(game)
+            ai_ch = (chat.get("channels") or {}).get("ai:tutor") or {}
+            all_msgs = [m for m in (ai_ch.get("messages") or []) if isinstance(m, dict)]
+            result = []
+            for m in all_msgs[-6:]:
+                kind = str(m.get("sender_kind") or "")
+                text = str(m.get("text") or "").strip()
+                if kind == "ai":
+                    result.append({"role": "assistant", "content": text[:300]})
+                elif kind == "user":
+                    result.append({"role": "user", "content": text[:300]})
+            return result[-6:]
+        except Exception:
+            return []
+
+    def _build_active_target_excerpt(self) -> str:
+        """A02: file excerpt or metadata for the currently selected artifact."""
+        try:
+            game = dict(self.state.header_logo_game or {})
+            chat_raw = game.get("artifact_chat_state")
+            if not isinstance(chat_raw, dict):
+                return ""
+            active = chat_raw.get("active_target")
+            if not isinstance(active, dict):
+                return ""
+            label = str(active.get("label") or "")
+            path_str = str(active.get("path") or "").strip()
+            kind = str(active.get("kind") or "")
+            if path_str:
+                p = Path(path_str).expanduser()
+                if not p.is_absolute():
+                    p = (Path.cwd() / p).resolve()
+                # Security: must be inside cwd
+                try:
+                    p.relative_to(Path.cwd())
+                except ValueError:
+                    return f"Kontext: {label}"
+                if p.exists() and p.is_file():
+                    try:
+                        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()[:40]
+                        excerpt = "\n".join(lines)[:1500]
+                        return f"Datei-Kontext ({label}):\n{excerpt}"
+                    except OSError:
+                        pass
+            if label:
+                return f"Ausgewählter Kontext: {label} (kind={kind})"
+        except Exception:
+            pass
+        return ""
+
+    def _resolve_ask_question(
+        self,
+        question: str,
+        *,
+        depth: str,
+        hints: list[str],
+        rag_context: list[str],
+        question_tokens: list[str] | None = None,
+        prior_messages: list[dict] | None = None,
+    ) -> str:
+        from client_surfaces.operator_tui.tutorial_ai_mixin import _load_rag_context_from_dir
+        chat_top_k = max(12, int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24")))
+
+        # R01: question-based RAG retrieval (runs in background thread — blocking OK)
+        question_rag: list[str] = []
+        if question_tokens:
+            out_dir = self._resolve_codecompass_output_dir()
+            if out_dir is not None:
+                max_recs = max(80, min(3000, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_MAX_RECORDS_PER_FILE", "800"))))
+                question_rag = _load_rag_context_from_dir(
+                    out_dir, question_tokens, chat_top_k, max_recs, scope_filter="full"
+                )
+
+        # Merge question-RAG first (higher relevance), deduplicated with TUI-context rag
+        seen: set[str] = set()
+        merged: list[str] = []
+        for item in question_rag + rag_context:
+            key = item[:60]
+            if key not in seen:
+                seen.add(key)
+                merged.append(item)
+
+        # A02: prepend active artifact context
+        active_excerpt = self._build_active_target_excerpt()
+        context_parts = ([active_excerpt] if active_excerpt else []) + hints[:12] + merged[:chat_top_k]
         context_text = "\n".join(context_parts)
+
         try:
             endpoint = str(self.state.endpoint or "http://localhost:5000")
-            import json as _json
-            payload = _json.dumps({"question": question, "context": context_text, "depth": depth}).encode()
+            payload = _json_mod.dumps({"question": question, "context": context_text, "depth": depth}).encode()
             req = urllib.request.Request(
                 f"{endpoint}/snake/ask",
                 data=payload,
@@ -331,58 +428,115 @@ class ChatMixin:
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=3.0) as resp:
-                data = _json.loads(resp.read().decode())
+                data = _json_mod.loads(resp.read().decode())
                 answer = str(data.get("answer") or data.get("text") or "")
                 if answer:
-                    return answer[:400]
+                    return answer[:600]
         except Exception:
             pass
-        return self._tutorial_ai_llm_ask(question=question, context_text=context_text, depth=depth)
+        return self._tutorial_ai_llm_ask(
+            question=question,
+            context_text=context_text,
+            depth=depth,
+            prior_messages=prior_messages or [],
+        )
 
-    def _tutorial_ai_llm_ask(self, *, question: str, context_text: str, depth: str) -> str:
+    def _tutorial_ai_llm_ask(
+        self,
+        *,
+        question: str,
+        context_text: str,
+        depth: str,
+        prior_messages: list[dict] | None = None,
+    ) -> str:
+        # L04: unified config via _get_llm_api_config
+        api_base, model, api_token = self._get_llm_api_config()
+        if not api_base:
+            return self._local_knowledge_answer(question)
+
+        # R02: configurable context window and max_tokens
+        context_chars = max(800, int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000")))
+        max_tokens = max(160, int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400")))
+        timeout = max(1.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0")))
+
+        depth_instruction = {
+            "overview": "Antworte in 2-3 Sätzen.",
+            "deep": "Antworte in 3-4 Sätzen mit einem konkreten Beispiel oder Codepfad.",
+            "expert": "Antworte technisch präzise mit Dateipfaden oder API-Referenzen wenn möglich.",
+        }.get(depth, "Antworte präzise und hilfreich.")
+
+        # A03: configurable system prompt
+        project_name = Path.cwd().name
+        default_system = (
+            f"Du bist tutor-ai, ein hilfreicher Assistent für das Projekt '{project_name}'.\n"
+            f"Kontext:\n{{context}}\n{{depth_instruction}}"
+        )
+        system_template = str(os.environ.get("ANANTA_TUI_CHAT_SYSTEM_PROMPT") or default_system).strip()
+        system_content = system_template.replace("{context}", context_text[:context_chars]).replace(
+            "{depth_instruction}", depth_instruction
+        ).replace("{project_name}", project_name)
+
+        # A01: build message list with prior conversation turns
+        messages: list[dict] = [{"role": "system", "content": system_content}]
+        # Trim prior_messages so they don't exceed half the context budget
+        prior = list(prior_messages or [])
+        char_budget = context_chars // 2
+        used = 0
+        trimmed: list[dict] = []
+        for msg in reversed(prior):
+            chunk = str(msg.get("content") or "")
+            if used + len(chunk) > char_budget:
+                break
+            trimmed.insert(0, msg)
+            used += len(chunk)
+        messages.extend(trimmed)
+        messages.append({"role": "user", "content": question})
+
         try:
-            api_base = os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "")
-            if not api_base:
-                return self._local_knowledge_answer(question)
-            model = os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")
-            timeout = float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "3.0"))
-            depth_instruction = {
-                "overview": "Antworte in 1-2 kurzen Sätzen (max 80 Zeichen pro Satz).",
-                "deep": "Antworte in 2-3 Sätzen mit einem konkreten Beispiel.",
-                "expert": "Antworte technisch mit Dateipfaden oder API-Referenzen wenn möglich.",
-            }.get(depth, "Antworte in 1-2 kurzen Sätzen.")
-            import json as _json
-            body = _json.dumps({
+            body = _json_mod.dumps({
                 "model": model,
-                "messages": [
-                    {"role": "system", "content": f"Du bist tutor-ai, ein hilfreicher KI-Assistent für das Ananta Operator TUI. Kontext:\n{context_text[:800]}\n{depth_instruction}"},
-                    {"role": "user", "content": question},
-                ],
-                "max_tokens": 160,
+                "messages": messages,
+                "max_tokens": max_tokens,
                 "temperature": 0.4,
             }).encode()
+            headers: dict[str, str] = {"Content-Type": "application/json"}
+            if api_token:
+                headers["Authorization"] = f"Bearer {api_token}"
             req = urllib.request.Request(
                 f"{api_base.rstrip('/')}/chat/completions",
                 data=body,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = _json.loads(resp.read().decode())
+                data = _json_mod.loads(resp.read().decode())
                 choices = data.get("choices") or []
                 if choices:
-                    return str(choices[0].get("message", {}).get("content", "")).strip()[:400]
-        except Exception:
-            pass
-        return self._local_knowledge_answer(question)
+                    return str(choices[0].get("message", {}).get("content", "")).strip()[:600]
+        except urllib.error.URLError as exc:
+            # L02: surface connection errors as return value (caller posts as system message)
+            reason = str(exc.reason) if hasattr(exc, "reason") else str(exc)
+            return f"⚠ LMStudio nicht erreichbar: {reason[:80]}. Setze ANANTA_TUI_SNAKE_AI_API_BASE_URL."
+        except TimeoutError:
+            return f"⚠ LMStudio Timeout ({timeout:.0f}s). Erhöhe ANANTA_TUI_SNAKE_AI_TIMEOUT für große Modelle."
+        except Exception as exc:
+            return f"⚠ LLM Fehler: {str(exc)[:80]}"
 
     def _local_knowledge_answer(self, question: str) -> str:
-        q_lower = question.lower()
-        for fact in _TUTORIAL_AI_KNOWLEDGE:
-            words = question.lower().split()
-            if any(w in fact.lower() for w in words if len(w) > 3):
-                return fact
-        return "Ich bin offline. Versuche :ask erneut wenn der Hub verbunden ist."
+        # A04: score all facts, return top-2 combined
+        from client_surfaces.operator_tui.tutorial_ai_mixin import _score_rag_record
+        tokens = [t for t in re.findall(r"[a-z0-9_]+", question.lower()) if len(t) > 3]
+        scored = sorted(
+            ((f, _score_rag_record(f.lower(), tokens)) for f in _TUTORIAL_AI_KNOWLEDGE),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        # Take top-2 facts that scored > 0, or top-1 as generic fallback
+        best = [f for f, s in scored[:2] if s > 0]
+        if best:
+            combined = " — ".join(best)
+            return combined[:300]
+        return scored[0][0] if scored else "TUI: [Tab] Focus, [:] Command, [Ctrl+S] Snake, [?] Hilfe."
 
     # ── E04.T04: tutorial event processing ───────────────────────────────────
 
