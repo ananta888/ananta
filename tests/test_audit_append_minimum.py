@@ -65,3 +65,20 @@ def test_audit_minimum_redacts_sensitive_values_and_keeps_event_envelope() -> No
     assert "raw-password" not in details_text
     assert details.get("_event", {}).get("channel") == "audit"
     assert details.get("_event", {}).get("event_type") == "policy_denied"
+
+
+def test_audit_minimum_strips_raw_prompt_and_messages_payloads() -> None:
+    log_audit(
+        "execution_audit_event",
+        {
+            "task_id": "task-raw",
+            "trace_id": "trace-raw",
+            "raw_prompt": "do not store this prompt text",
+            "messages": [{"role": "user", "content": "secret content"}],
+        },
+    )
+
+    latest = _all_audit_entries()[-1]
+    details = dict(latest.details or {})
+    assert details.get("raw_prompt") == "***REDACTED_AUDIT_PAYLOAD***"
+    assert details.get("messages") == "***REDACTED_AUDIT_PAYLOAD***"

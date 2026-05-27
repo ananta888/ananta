@@ -23,10 +23,35 @@ AUDIT_ARTIFACT_RECONCILIATION_APPLIED = "artifact_reconciliation_applied"
 # Logger für Audit-Events
 audit_logger = logging.getLogger("audit")
 SENSITIVE_FIELDS = tuple(sorted({key for keys in DEFAULT_SENSITIVE_KEYS.values() for key in keys}))
+_FORBIDDEN_RAW_FIELDS = {
+    "prompt",
+    "raw_prompt",
+    "raw_prompts",
+    "messages",
+    "raw_messages",
+    "raw_response",
+    "response_text",
+}
+
+
+def _drop_forbidden_raw_fields(value):
+    if isinstance(value, dict):
+        cleaned = {}
+        for key, item in value.items():
+            normalized = str(key or "").strip().lower()
+            if normalized in _FORBIDDEN_RAW_FIELDS:
+                cleaned[key] = "***REDACTED_AUDIT_PAYLOAD***"
+            else:
+                cleaned[key] = _drop_forbidden_raw_fields(item)
+        return cleaned
+    if isinstance(value, list):
+        return [_drop_forbidden_raw_fields(item) for item in value]
+    return value
 
 
 def _sanitize_details(details: dict | None) -> dict:
     sanitized = redact(details or {}, VisibilityLevel.USER)
+    sanitized = _drop_forbidden_raw_fields(sanitized)
     return sanitized if isinstance(sanitized, dict) else {}
 
 
@@ -59,7 +84,7 @@ def log_audit(action: str, details: dict = None):
     msg = f"Action: {action} | User: {username} | IP: {ip}"
 
     # Extra Felder für strukturiertes Logging (JSON) - maskiert
-    sanitized_details = redact(details or {})
+    sanitized_details = _sanitize_details(details)
     extra = {"extra_fields": {"audit": True, "user": username, "ip": ip, "action": action, "details": sanitized_details}}
 
     event_context = build_hub_event(

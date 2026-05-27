@@ -9,9 +9,11 @@ from agent.routes.tasks.status import normalize_task_status
 from agent.services.commit_metadata_inferrer import get_commit_metadata_inferrer
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.governance_read_model_service import get_governance_read_model_service
+from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.request_cancellation_service import get_request_cancellation_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
+from agent.common.logging import get_correlation_id
 from agent.utils import rate_limit, validate_request
 
 management_bp = Blueprint("tasks_management", __name__)
@@ -495,6 +497,19 @@ def review_task_proposal(tid):
     result = get_core_services().task_management_service.review_task_proposal(task_id=tid, action=action, comment=comment)
     if result.get("error"):
         return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    data = dict(result.get("data") or {})
+    get_execution_audit_service().emit_approval_event(
+        trace_id=get_correlation_id() or None,
+        task_id=tid,
+        goal_id=str(data.get("goal_id") or "").strip() or None,
+        action=action,
+        approver_identity=_actor_username(),
+        approval_scope=str(data.get("review_scope") or "task"),
+        approval_source="task_review_endpoint",
+        write_allowed=action == "approve",
+        actor_role="hub",
+        details={"comment_present": bool(comment)},
+    )
     return api_response(data=result["data"])
 
 

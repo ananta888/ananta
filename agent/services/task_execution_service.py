@@ -1030,6 +1030,20 @@ class TaskExecutionService:
                 "approval_decision": dict(approval_decision or {}),
             },
         )
+        reason_code = str((approval_decision or {}).get("reason_code") or "").strip().lower()
+        approval_action = "expired" if "expired" in reason_code else "reject"
+        get_execution_audit_service().emit_approval_event(
+            trace_id=self._resolve_loop_trace_id(task or {}),
+            task_id=tid,
+            goal_id=(task or {}).get("goal_id"),
+            action=approval_action,
+            approver_identity=str((approval_decision or {}).get("reviewed_by") or "policy_engine"),
+            approval_scope=str((approval_decision or {}).get("scope") or "task_execution"),
+            approval_source="approval_policy_service",
+            write_allowed=False,
+            actor_role="hub",
+            details={"reason_code": reason_code or None},
+        )
 
     def _resolve_loop_trace_id(self, task: dict) -> str | None:
         trace_id = str(task.get("goal_trace_id") or "").strip()
