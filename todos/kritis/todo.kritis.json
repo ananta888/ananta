@@ -227,7 +227,7 @@
         {
           "id": "K1-MUT-T01",
           "title": "MutationGate target model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A target model defines MutationGate as the single backend-controlled boundary for mutation-capable operations.",
@@ -238,7 +238,7 @@
         {
           "id": "K1-MUT-T02",
           "title": "Mutation operation taxonomy define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A mutation taxonomy exists for file writes, patch applies, generated code writes, artifact mutations, task state mutations, shell write effects, install/remove operations and repair actions.",
@@ -249,7 +249,7 @@
         {
           "id": "K1-MUT-T03",
           "title": "Normalized mutation target model add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Mutation targets are normalized before policy and approval checks.",
@@ -260,7 +260,7 @@
         {
           "id": "K1-MUT-T04",
           "title": "Scoped mutation approval model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Approval can be bound to mutation class, normalized target, actor, task, trace and time window.",
@@ -271,7 +271,7 @@
         {
           "id": "K1-MUT-T05",
           "title": "MutationGate service implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A reusable backend service evaluates mutation requests before execution.",

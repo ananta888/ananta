@@ -34,6 +34,7 @@ from agent.models import (
 from agent.pipeline_trace import append_stage
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.command_chain_parser import CommandChainParser
 from agent.services.command_to_tool_mapper import CommandToToolMapper
 from agent.services.shell_command_policy import ShellCommandAnalyzer, ShellCommandPolicy
@@ -419,6 +420,52 @@ class TaskExecutionService:
                     "blocked_reasons": risk_decision.reasons,
                     "guardrails": risk_decision.details,
                     "risk_level": risk_decision.risk_level,
+                }
+            )
+
+        mutation_decision = get_mutation_gate_service().evaluate(
+            command=command,
+            tool_calls=tool_calls,
+            task=effective_task,
+            agent_cfg=guard_cfg,
+            approval_decision=approval_payload,
+            risk_decision=risk_decision,
+            trace_id=loop_trace_id,
+            actor="system",
+        )
+        mutation_payload = mutation_decision.as_dict()
+        if pipeline is not None:
+            append_stage(
+                pipeline,
+                name="mutation_gate",
+                status="blocked" if mutation_payload.get("classification") in {"blocked", "confirm_required"} else "ok",
+                metadata={
+                    "classification": mutation_payload.get("classification"),
+                    "reason_code": mutation_payload.get("reason_code"),
+                    "mutation_class": mutation_payload.get("mutation_class"),
+                    "target": mutation_payload.get("normalized_target"),
+                },
+            )
+        if mutation_payload.get("classification") in {"blocked", "confirm_required"} and not _chain_preflight_deferred:
+            if tid:
+                self._append_approval_block_history(
+                    tid=tid,
+                    task=effective_task,
+                    command=command,
+                    tool_calls=tool_calls,
+                    approval_decision={
+                        "reason_code": mutation_payload.get("reason_code"),
+                        "scope": "mutation_gate",
+                        "reviewed_by": "mutation_gate_service",
+                        "decision": mutation_payload,
+                    },
+                    reason=str(mutation_payload.get("reason_code") or "mutation_gate_blocked"),
+                )
+            raise ToolGuardrailError(
+                details={
+                    "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                    "blocked_reasons": [mutation_payload.get("reason_code")],
+                    "mutation_gate": mutation_payload,
                 }
             )
 
