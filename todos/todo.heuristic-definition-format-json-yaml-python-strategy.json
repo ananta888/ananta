@@ -1,9 +1,9 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "owner": "Peter Stuiber",
   "track": "heuristic-definition-format-json-yaml-python-strategy",
-  "purpose": "Festlegen, in welcher Sprache bzw. welchem Format Ananta-Heuristiken beschrieben, versioniert, gepr\u00fcft, importiert, exportiert und optional mit Python-Strategien ausgef\u00fchrt werden.",
-  "goal": "Ananta verwendet JSON als kanonisches Heuristik-Format. YAML ist optionales Authoring-/Import-Format f\u00fcr Menschen, wird aber intern zu validiertem JSON normalisiert. Komplexere Heuristiken k\u00f6nnen \u00fcber gepr\u00fcfte Python-Strategy-Klassen ausgef\u00fchrt werden, wobei JSON weiterhin die verbindliche Beschreibung f\u00fcr ID, Version, Domain, TTL, Capabilities, Safety, Inputs, Outputs, Runtime-Mode und Freigabezustand bleibt. AI darf HeuristicProposal JSON erzeugen, aber keine neue Python-Runtime ungepr\u00fcft aktivieren.",
+  "purpose": "Festlegen, in welcher Sprache bzw. welchem Format Ananta-Heuristiken beschrieben, versioniert, geprüft, importiert, exportiert und optional mit Python-Strategien ausgeführt werden.",
+  "goal": "Ananta verwendet JSON als kanonisches Heuristik-Format. YAML ist optionales Authoring-/Import-Format für Menschen, wird aber intern zu validiertem JSON normalisiert. Komplexere Heuristiken können über geprüfte Python-Strategy-Klassen ausgeführt werden, wobei JSON weiterhin die verbindliche Beschreibung für ID, Version, Domain, TTL, Capabilities, Safety, Inputs, Outputs, Runtime-Mode und Freigabezustand bleibt. AI darf HeuristicProposal JSON erzeugen, aber keine neue Python-Runtime ungeprüft aktivieren.",
   "status_scale": [
     "todo",
     "in_progress",
@@ -126,11 +126,11 @@
       "milestone_id": "M01",
       "depends_on": [],
       "acceptance_criteria": [
-        "JSON ist das kanonische Speicher-, Import-/Export- und Validierungsformat f\u00fcr aktive Heuristiken.",
+        "JSON ist das kanonische Speicher-, Import-/Export- und Validierungsformat für aktive Heuristiken.",
         "YAML ist nur optionales Authoring-Format und wird vor Speicherung nach JSON normalisiert.",
-        "Python ist keine Beschreibungsquelle der Wahrheit, sondern nur optionale gepr\u00fcfte Runtime-Implementierung.",
+        "Python ist keine Beschreibungsquelle der Wahrheit, sondern nur optionale geprüfte Runtime-Implementierung.",
         "AI darf HeuristicProposal JSON erzeugen, aber keine aktive Heuristik direkt freischalten.",
-        "Policy enth\u00e4lt klare Faustregel: einfache Regeln declarative JSON, komplexe Logik JSON + Python Strategy."
+        "Policy enthält klare Faustregel: einfache Regeln declarative JSON, komplexe Logik JSON + Python Strategy."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "FORMAT_POLICY.md created with format rules, folder structure, naming, runtime modes"
@@ -147,11 +147,11 @@
         "T01.01"
       ],
       "acceptance_criteria": [
-        "Ordner heuristics/schemas/ ist f\u00fcr JSON Schemas vorgesehen.",
-        "Ordner heuristics/active/ enth\u00e4lt aktive *.heuristic.json Dateien.",
-        "Ordner heuristics/candidates/ enth\u00e4lt *.heuristic_proposal.json Dateien.",
+        "Ordner heuristics/schemas/ ist für JSON Schemas vorgesehen.",
+        "Ordner heuristics/active/ enthält aktive *.heuristic.json Dateien.",
+        "Ordner heuristics/candidates/ enthält *.heuristic_proposal.json Dateien.",
         "Ordner heuristics/rejected/, heuristics/quarantine/ und heuristics/archive/ sind definiert.",
-        "Optionaler Ordner heuristics/authoring/ kann YAML-Entw\u00fcrfe enthalten, aber Runtime liest nur normalisierte JSON-Definitionen.",
+        "Optionaler Ordner heuristics/authoring/ kann YAML-Entwürfe enthalten, aber Runtime liest nur normalisierte JSON-Definitionen.",
         "Indexdatei heuristics/index.json listet Heuristiken, Version, Status, Domain und Pfad."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
@@ -169,10 +169,10 @@
         "T01.02"
       ],
       "acceptance_criteria": [
-        "Aktive Heuristiken hei\u00dfen <heuristic_id>.heuristic.json.",
-        "Proposals hei\u00dfen <proposal_id>.heuristic_proposal.json.",
-        "Decision Leases hei\u00dfen optional <lease_id>.heuristic_lease.json, wenn persistiert.",
-        "heuristic_id ist lower_snake_case und enth\u00e4lt Domain-Pr\u00e4fix wie chat_codecompass oder snake_tui.",
+        "Aktive Heuristiken heißen <heuristic_id>.heuristic.json.",
+        "Proposals heißen <proposal_id>.heuristic_proposal.json.",
+        "Decision Leases heißen optional <lease_id>.heuristic_lease.json, wenn persistiert.",
+        "heuristic_id ist lower_snake_case und enthält Domain-Präfix wie chat_codecompass oder snake_tui.",
         "Versionierung folgt SemVer oder dokumentierter vereinfachter Semantik."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
@@ -191,8 +191,8 @@
       ],
       "acceptance_criteria": [
         "runtime.mode erlaubt declarative_rules, python_strategy und composite_chain.",
-        "declarative_rules l\u00e4uft vollst\u00e4ndig aus JSON ohne benutzerdefinierten Code.",
-        "python_strategy referenziert gepr\u00fcfte Python-Module/Klassen, bleibt aber durch JSON-Capabilities begrenzt.",
+        "declarative_rules läuft vollständig aus JSON ohne benutzerdefinierten Code.",
+        "python_strategy referenziert geprüfte Python-Module/Klassen, bleibt aber durch JSON-Capabilities begrenzt.",
         "composite_chain kann mehrere Heuristiken deterministisch kombinieren.",
         "Runtime Mode unknown oder script_inline ist verboten."
       ],
@@ -212,12 +212,12 @@
         "T01.04"
       ],
       "acceptance_criteria": [
-        "Schema enth\u00e4lt heuristic_id, version, status, domain, deterministic, safety_class, runtime, ttl_policy, inputs, outputs, triggers, capabilities, provenance und fallback.",
+        "Schema enthält heuristic_id, version, status, domain, deterministic, safety_class, runtime, ttl_policy, inputs, outputs, triggers, capabilities, provenance und fallback.",
         "status erlaubt active, candidate, rejected, quarantined, deprecated und archived.",
         "domain erlaubt mindestens snake_tui, snake_eclipse, chat_codecompass, helpcenter, planning und custom.",
-        "deterministic=true ist f\u00fcr active Pflicht.",
-        "additionalProperties ist sinnvoll begrenzt; Erweiterungen laufen \u00fcber extensions oder metadata.",
-        "Tests validieren g\u00fcltige Minimal- und Voll-Heuristik."
+        "deterministic=true ist für active Pflicht.",
+        "additionalProperties ist sinnvoll begrenzt; Erweiterungen laufen über extensions oder metadata.",
+        "Tests validieren gültige Minimal- und Voll-Heuristik."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "schemas/heuristic/heuristic_definition.v1.json with full DSL"
@@ -234,11 +234,11 @@
         "T02.01"
       ],
       "acceptance_criteria": [
-        "Schema enth\u00e4lt proposal_id, proposed_by, proposed_at, base_heuristic_ref, proposed_definition, rationale, expected_improvement, risks, required_tests, source_refs und provenance.",
+        "Schema enthält proposal_id, proposed_by, proposed_at, base_heuristic_ref, proposed_definition, rationale, expected_improvement, risks, required_tests, source_refs und provenance.",
         "proposed_by erlaubt ai, user, system und imported.",
-        "Proposal enth\u00e4lt no_auto_activation=true als Pflichtfeld.",
+        "Proposal enthält no_auto_activation=true als Pflichtfeld.",
         "proposed_definition validiert gegen heuristic_definition.v1.json mit status=candidate.",
-        "Tests pr\u00fcfen AI Proposal, User Proposal und ung\u00fcltige Auto-Activation."
+        "Tests prüfen AI Proposal, User Proposal und ungültige Auto-Activation."
       ],
       "completed_at": "2026-05-27T11:30:15Z",
       "notes": "schemas/heuristic/heuristic_proposal.v1.json already existed (confirmed)"
@@ -255,11 +255,11 @@
         "T02.01"
       ],
       "acceptance_criteria": [
-        "Schema enth\u00e4lt lease_id, heuristic_id, heuristic_version, domain, started_at, expires_at, ttl_seconds, selected_by, selected_by_worker_ref, context_hash, reason_codes und provenance.",
+        "Schema enthält lease_id, heuristic_id, heuristic_version, domain, started_at, expires_at, ttl_seconds, selected_by, selected_by_worker_ref, context_hash, reason_codes und provenance.",
         "ttl_seconds wird gegen min/max Policy validiert.",
         "selected_by unterscheidet system, ananta-worker, user und imported.",
-        "OpenCode ist nicht als selected_by f\u00fcr Runtime-Leases erlaubt.",
-        "Tests pr\u00fcfen g\u00fcltige Lease, abgelaufene Lease und ung\u00fcltigen selected_by."
+        "OpenCode ist nicht als selected_by für Runtime-Leases erlaubt.",
+        "Tests prüfen gültige Lease, abgelaufene Lease und ungültigen selected_by."
       ],
       "completed_at": "2026-05-27T11:30:15Z",
       "notes": "schemas/heuristic/heuristic_decision_lease.v1.json already existed (confirmed)"
@@ -279,9 +279,9 @@
       "acceptance_criteria": [
         "Index listet heuristic_id, version, domain, status, path, updated_at, safety_class und runtime.mode.",
         "Index kann active/candidate/rejected/quarantine filtern.",
-        "Index enth\u00e4lt latest_active_version pro heuristic_id.",
+        "Index enthält latest_active_version pro heuristic_id.",
         "Index wird aus Dateien deterministisch neu erzeugbar sein.",
-        "Tests pr\u00fcfen Index-Rebuild aus Fixture-Ordnern."
+        "Tests prüfen Index-Rebuild aus Fixture-Ordnern."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "schemas/heuristic/heuristic_index.v1.json created"
@@ -298,11 +298,11 @@
         "T02.01"
       ],
       "acceptance_criteria": [
-        "Trigger DSL unterst\u00fctzt query_contains_any, query_matches_regex_safe, active_panel_is, selected_artifact_exists, source_scope_allowed, event_kind_is und idle_duration_ms_gte.",
-        "Regex ist optional und muss safe/timeout-begrenzt ausgef\u00fchrt werden.",
+        "Trigger DSL unterstützt query_contains_any, query_matches_regex_safe, active_panel_is, selected_artifact_exists, source_scope_allowed, event_kind_is und idle_duration_ms_gte.",
+        "Regex ist optional und muss safe/timeout-begrenzt ausgeführt werden.",
         "Trigger liefern confidence und reason_codes.",
-        "Keine Trigger k\u00f6nnen Dateisystem, Netzwerk oder Secrets direkt lesen.",
-        "Tests pr\u00fcfen typische Chat- und Snake-Trigger."
+        "Keine Trigger können Dateisystem, Netzwerk oder Secrets direkt lesen.",
+        "Tests prüfen typische Chat- und Snake-Trigger."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "Declarative trigger DSL in schema + evaluator"
@@ -319,11 +319,11 @@
         "T03.01"
       ],
       "acceptance_criteria": [
-        "Selection DSL unterst\u00fctzt ranked_codecompass_refs, selected_artifacts_first, active_goal_first, helpcenter_report_lookup, sourcepack_lookup und no_good_match.",
+        "Selection DSL unterstützt ranked_codecompass_refs, selected_artifacts_first, active_goal_first, helpcenter_report_lookup, sourcepack_lookup und no_good_match.",
         "Kontextbudget ist deterministisch begrenzt.",
         "Ranking-Regeln sind als Liste konfigurierbar.",
-        "Security-Deny \u00fcberstimmt Ranking immer.",
-        "Tests pr\u00fcfen Ranking, Budget und Deny Override."
+        "Security-Deny überstimmt Ranking immer.",
+        "Tests prüfen Ranking, Budget und Deny Override."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "Declarative selection DSL in schema + evaluator"
@@ -340,11 +340,11 @@
         "T03.02"
       ],
       "acceptance_criteria": [
-        "Action DSL unterst\u00fctzt follow_with_distance, lurk_near, show_hint, show_context_summary, open_source_ref, ask_scope und no_action.",
-        "Aktionen sind capability-gepr\u00fcft.",
+        "Action DSL unterstützt follow_with_distance, lurk_near, show_hint, show_context_summary, open_source_ref, ask_scope und no_action.",
+        "Aktionen sind capability-geprüft.",
         "Aktionen erzeugen DecisionResult statt direkt UI zu manipulieren.",
-        "TUI/Eclipse Adapter f\u00fchren DecisionResult separat aus.",
-        "Tests pr\u00fcfen erlaubte und verbotene Aktionen."
+        "TUI/Eclipse Adapter führen DecisionResult separat aus.",
+        "Tests prüfen erlaubte und verbotene Aktionen."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "Declarative action DSL in schema + evaluator"
@@ -363,11 +363,11 @@
         "T03.03"
       ],
       "acceptance_criteria": [
-        "Evaluator l\u00e4dt heuristic_definition JSON mit runtime.mode=declarative_rules.",
-        "Evaluator pr\u00fcft Trigger, Selection, Action und Fallback deterministisch.",
+        "Evaluator lädt heuristic_definition JSON mit runtime.mode=declarative_rules.",
+        "Evaluator prüft Trigger, Selection, Action und Fallback deterministisch.",
         "Evaluator erzeugt DecisionResult mit heuristic_id, version, confidence, selected_context_refs und reason_codes.",
-        "Evaluator l\u00e4uft ohne LLM/AI und ohne Netzwerk.",
-        "Tests pr\u00fcfen vollst\u00e4ndigen Chat- und Snake-Durchlauf."
+        "Evaluator läuft ohne LLM/AI und ohne Netzwerk.",
+        "Tests prüfen vollständigen Chat- und Snake-Durchlauf."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "DeclarativeHeuristicEvaluator in declarative_evaluator.py"
@@ -385,10 +385,10 @@
       ],
       "acceptance_criteria": [
         "Interface HeuristicStrategy mit evaluate(context, definition) -> DecisionResult ist definiert.",
-        "Python Strategy darf nur \u00fcber bereitgestellte Ports/Interfaces auf Kontext zugreifen.",
-        "Strategy erh\u00e4lt keine Secrets und keinen direkten freien Dateisystemzugriff.",
+        "Python Strategy darf nur über bereitgestellte Ports/Interfaces auf Kontext zugreifen.",
+        "Strategy erhält keine Secrets und keinen direkten freien Dateisystemzugriff.",
         "Strategy muss deterministic sein oder darf nicht active werden.",
-        "Tests pr\u00fcfen Mock-Strategy und Capability-Verletzung."
+        "Tests prüfen Mock-Strategy und Capability-Verletzung."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "HeuristicStrategyBase ABC + ports in agent/heuristics/strategies/base.py"
@@ -407,9 +407,9 @@
       "acceptance_criteria": [
         "Loader akzeptiert nur Module/Klassen aus konfigurierter Allowlist.",
         "Inline-Python-Code in Heuristik-JSON ist verboten.",
-        "Dynamischer Import au\u00dferhalb erlaubter Prefixes wird blockiert.",
-        "Fehlerhafte Strategy l\u00e4dt nicht und erzeugt reason_code.",
-        "Tests pr\u00fcfen erlaubte Strategy, nicht erlaubtes Modul und fehlende Klasse."
+        "Dynamischer Import außerhalb erlaubter Prefixes wird blockiert.",
+        "Fehlerhafte Strategy lädt nicht und erzeugt reason_code.",
+        "Tests prüfen erlaubte Strategy, nicht erlaubtes Modul und fehlende Klasse."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "PythonStrategyLoader with allowlist in python_strategy_loader.py"
@@ -426,18 +426,18 @@
         "T04.02"
       ],
       "acceptance_criteria": [
-        "runtime.python_strategy enth\u00e4lt module, class, expected_inputs, expected_outputs und required_capabilities.",
+        "runtime.python_strategy enthält module, class, expected_inputs, expected_outputs und required_capabilities.",
         "Schema verbietet arbitrary code snippets.",
         "Strategy-Metadata muss mit capabilities kompatibel sein.",
-        "Tests pr\u00fcfen g\u00fcltige und ung\u00fcltige Strategy-Metadata."
+        "Tests prüfen gültige und ungültige Strategy-Metadata."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "runtime.python_strategy block in heuristic_definition.v1.json"
     },
     {
       "id": "T04.04",
-      "title": "OpenCode Flow f\u00fcr neue Python Strategies festlegen",
-      "status": "todo",
+      "title": "OpenCode Flow für neue Python Strategies festlegen",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "policy",
@@ -448,16 +448,16 @@
       ],
       "acceptance_criteria": [
         "AI darf keine Python-Strategy direkt als active erzeugen.",
-        "Wenn eine Proposal eine neue Python-Strategy ben\u00f6tigt, wird ein genehmigter Code\u00e4nderungsauftrag f\u00fcr OpenCode erzeugt.",
+        "Wenn eine Proposal eine neue Python-Strategy benötigt, wird ein genehmigter Codeänderungsauftrag für OpenCode erzeugt.",
         "OpenCode implementiert Code plus Tests, aber entscheidet keine Runtime-Lease.",
         "Neue Strategy wird erst nach Tests, Review, Validation und Activation Gate active.",
-        "Tests pr\u00fcfen, dass Proposal mit python_strategy ohne vorhandene Allowlist-Klasse nicht aktivierbar ist."
+        "Tests prüfen, dass Proposal mit python_strategy ohne vorhandene Allowlist-Klasse nicht aktivierbar ist."
       ]
     },
     {
       "id": "T05.01",
       "title": "YAML Importer definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "import",
@@ -466,11 +466,11 @@
         "T02.01"
       ],
       "acceptance_criteria": [
-        "YAML-Dateien k\u00f6nnen aus heuristics/authoring/ importiert werden.",
+        "YAML-Dateien können aus heuristics/authoring/ importiert werden.",
         "Importer normalisiert YAML nach canonical JSON.",
-        "YAML Anchors/Aliases werden entweder sicher unterst\u00fctzt oder verboten dokumentiert.",
+        "YAML Anchors/Aliases werden entweder sicher unterstützt oder verboten dokumentiert.",
         "Importiertes JSON wird gegen heuristic_definition.v1.json validiert.",
-        "Tests pr\u00fcfen g\u00fcltiges YAML, ung\u00fcltiges YAML und Canonical JSON Output."
+        "Tests prüfen gültiges YAML, ungültiges YAML und Canonical JSON Output."
       ]
     },
     {
@@ -486,10 +486,10 @@
       ],
       "acceptance_criteria": [
         "Normalizer sortiert Keys deterministisch oder nutzt definierte Ausgabeordnung.",
-        "Normalizer erg\u00e4nzt Defaults wie status=candidate, deterministic=true f\u00fcr active nur nach Validation, ttl_policy defaults und metadata.",
+        "Normalizer ergänzt Defaults wie status=candidate, deterministic=true für active nur nach Validation, ttl_policy defaults und metadata.",
         "Normalizer entfernt nicht erlaubte Felder.",
-        "Normalizer erzeugt stabile Hashes f\u00fcr gleiche Heuristiken.",
-        "Tests pr\u00fcfen stabile Ausgabe und Hashes."
+        "Normalizer erzeugt stabile Hashes für gleiche Heuristiken.",
+        "Tests prüfen stabile Ausgabe und Hashes."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "HeuristicNormalizer in heuristic_normalizer.py with SHA-256 content_hash"
@@ -506,10 +506,10 @@
         "T05.02"
       ],
       "acceptance_criteria": [
-        "Runtime l\u00e4dt ausschlie\u00dflich validierte JSON-Dateien aus heuristics/active/.",
+        "Runtime lädt ausschließlich validierte JSON-Dateien aus heuristics/active/.",
         "YAML in authoring/ kann nicht direkt active werden.",
         "TUI/CLI zeigt klar, ob eine YAML-Datei nur Draft/Authoring ist.",
-        "Tests pr\u00fcfen, dass YAML im active-Pfad ignoriert oder blockiert wird."
+        "Tests prüfen, dass YAML im active-Pfad ignoriert oder blockiert wird."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "YAML source forces status=candidate; cannot be active"
@@ -527,10 +527,10 @@
       ],
       "acceptance_criteria": [
         "Heuristik liegt als heuristics/active/snake_tui_follow_distance_default.heuristic.json vor.",
-        "Heuristik nutzt declarative_rules oder gepr\u00fcfte Python-Strategy gem\u00e4\u00df Schema.",
+        "Heuristik nutzt declarative_rules oder geprüfte Python-Strategy gemäß Schema.",
         "Snake folgt mit Abstand und blockiert UI nicht.",
         "TTL Policy liegt im Bereich 5 bis 10 Sekunden.",
-        "Tests pr\u00fcfen Follow-Verhalten aus Fixture-Events."
+        "Tests prüfen Follow-Verhalten aus Fixture-Events."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "heuristics/active/snake_tui_follow_distance_default.heuristic.json created"
@@ -551,7 +551,7 @@
         "Heuristik erkennt stabile Maus-/Fokuspositionen.",
         "Heuristik erzeugt keine AI Requests pro Tick.",
         "TTL Policy liegt im Bereich 5 bis 10 Sekunden.",
-        "Tests pr\u00fcfen Follow -> Lurk Transition."
+        "Tests prüfen Follow -> Lurk Transition."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "heuristics/active/snake_tui_lurk_focus_default.heuristic.json created"
@@ -569,9 +569,9 @@
       ],
       "acceptance_criteria": [
         "Heuristik liegt als heuristics/active/chat_codecompass_selected_artifact_first.heuristic.json vor.",
-        "Ausgew\u00e4hlte Artefakte werden vor active_goal und lokalen Projektdateien priorisiert.",
-        "Security-Deny \u00fcberstimmt Ranking.",
-        "Antwort enth\u00e4lt SourceRefs und keine erfundenen Inhalte.",
+        "Ausgewählte Artefakte werden vor active_goal und lokalen Projektdateien priorisiert.",
+        "Security-Deny überstimmt Ranking.",
+        "Antwort enthält SourceRefs und keine erfundenen Inhalte.",
         "TTL Policy liegt im Bereich 10 bis 20 Sekunden."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
@@ -593,7 +593,7 @@
         "Trigger erkennt Fragen nach Klasse, Methode, Funktion, Service, Datei oder Symbol.",
         "Ranking nutzt exact_symbol_match, selected_artifacts, local_project_file und codecompass_relation.",
         "No-good-match fallback ist konfiguriert.",
-        "Tests pr\u00fcfen Symbolfrage mit Treffer und ohne Treffer."
+        "Tests prüfen Symbolfrage mit Treffer und ohne Treffer."
       ],
       "completed_at": "2026-05-27T11:11:06Z",
       "notes": "heuristics/active/chat_codecompass_symbol_lookup_default.heuristic.json created"
@@ -612,9 +612,9 @@
       "acceptance_criteria": [
         "Heuristik liegt als heuristics/active/chat_codecompass_no_good_match_default.heuristic.json vor.",
         "Heuristik liefert keine erfundene Antwort, wenn Treffer-Score unter Schwelle liegt.",
-        "Antwort nennt durchsuchte Scopes und schl\u00e4gt konkrete Scope-Auswahl vor.",
-        "Heuristik ist Standard-Fallback f\u00fcr Chat-CodeCompass-Heuristiken.",
-        "Tests pr\u00fcfen leeren Index und unsicheren Treffer."
+        "Antwort nennt durchsuchte Scopes und schlägt konkrete Scope-Auswahl vor.",
+        "Heuristik ist Standard-Fallback für Chat-CodeCompass-Heuristiken.",
+        "Tests prüfen leeren Index und unsicheren Treffer."
       ],
       "completed_at": "2026-05-27T10:48:26Z",
       "notes": "heuristics/active/chat_codecompass_no_good_match_default.heuristic.json created"
@@ -622,7 +622,7 @@
     {
       "id": "T07.01",
       "title": "Heuristic Validator implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "validation",
@@ -633,17 +633,17 @@
         "T05.03"
       ],
       "acceptance_criteria": [
-        "Validator pr\u00fcft Schema, Runtime Mode, Capabilities, Safety Class, TTL Policy und Status-Regeln.",
+        "Validator prüft Schema, Runtime Mode, Capabilities, Safety Class, TTL Policy und Status-Regeln.",
         "Validator blockiert inline code, unbekannte runtime.mode, nicht allowlistete Python-Strategy und active YAML.",
         "Validator erzeugt maschinenlesbare reason_codes.",
-        "Validator kann einzelne Datei und ganzen heuristics/ Baum pr\u00fcfen.",
-        "Tests pr\u00fcfen sichere und unsichere Heuristiken."
+        "Validator kann einzelne Datei und ganzen heuristics/ Baum prüfen.",
+        "Tests prüfen sichere und unsichere Heuristiken."
       ]
     },
     {
       "id": "T07.02",
-      "title": "AI Proposal Guardrails f\u00fcr Format erg\u00e4nzen",
-      "status": "todo",
+      "title": "AI Proposal Guardrails für Format ergänzen",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ai-safety",
@@ -654,16 +654,16 @@
       ],
       "acceptance_criteria": [
         "AI-Prompt verlangt HeuristicProposal JSON, nicht active HeuristicDefinition.",
-        "AI darf runtime.mode=python_strategy nur vorschlagen, wenn keine declarative L\u00f6sung reicht und required_tests genannt werden.",
+        "AI darf runtime.mode=python_strategy nur vorschlagen, wenn keine declarative Lösung reicht und required_tests genannt werden.",
         "AI darf keinen Inline-Code liefern.",
-        "AI-Proposal enth\u00e4lt Risiken und ben\u00f6tigte Tests.",
-        "Tests pr\u00fcfen Prompt-Contract und ung\u00fcltige AI-Ausgabe."
+        "AI-Proposal enthält Risiken und benötigte Tests.",
+        "Tests prüfen Prompt-Contract und ungültige AI-Ausgabe."
       ]
     },
     {
       "id": "T07.03",
-      "title": "Activation Gate f\u00fcr Format und Runtime",
-      "status": "todo",
+      "title": "Activation Gate für Format und Runtime",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -673,17 +673,17 @@
         "T07.02"
       ],
       "acceptance_criteria": [
-        "Aktivierung ben\u00f6tigt validiertes JSON, passende Tests, Review/Approval und keine Policy-Verletzungen.",
+        "Aktivierung benötigt validiertes JSON, passende Tests, Review/Approval und keine Policy-Verletzungen.",
         "YAML-Quelle muss zuerst nach JSON normalisiert und validiert sein.",
         "Python-Strategy muss allowlisted und getestet sein.",
         "Activation erzeugt Audit-Event mit source_hash.",
-        "Tests pr\u00fcfen keine Auto-Aktivierung."
+        "Tests prüfen keine Auto-Aktivierung."
       ]
     },
     {
       "id": "T07.04",
       "title": "Heuristic Hashing und Provenance",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "provenance",
@@ -694,15 +694,15 @@
       ],
       "acceptance_criteria": [
         "Jede normalisierte Heuristik bekommt content_hash und source_hash.",
-        "Provenance enth\u00e4lt created_by, updated_by, normalized_from, schema_version und validation_result_ref.",
+        "Provenance enthält created_by, updated_by, normalized_from, schema_version und validation_result_ref.",
         "DecisionLease referenziert heuristic_id, version und content_hash.",
-        "Tests pr\u00fcfen stabile Hashes und \u00c4nderung bei Inhaltwechsel."
+        "Tests prüfen stabile Hashes und Änderung bei Inhaltwechsel."
       ]
     },
     {
       "id": "T08.01",
-      "title": "CLI Commands f\u00fcr Heuristik-Formate",
-      "status": "todo",
+      "title": "CLI Commands für Heuristik-Formate",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "cli",
@@ -715,14 +715,14 @@
         "CLI command ananta heuristic validate <file|dir> existiert.",
         "CLI command ananta heuristic normalize <yaml|json> existiert.",
         "CLI command ananta heuristic index rebuild existiert.",
-        "CLI kann JSON-Ausgabe f\u00fcr Automatisierung liefern.",
-        "Tests pr\u00fcfen CLI mit Fixtures."
+        "CLI kann JSON-Ausgabe für Automatisierung liefern.",
+        "Tests prüfen CLI mit Fixtures."
       ]
     },
     {
       "id": "T08.02",
-      "title": "TUI Ansicht f\u00fcr Heuristik-Formate",
-      "status": "todo",
+      "title": "TUI Ansicht für Heuristik-Formate",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "tui",
@@ -735,13 +735,13 @@
         "TUI zeigt runtime.mode, safety_class, ttl_policy und capabilities.",
         "TUI zeigt, ob eine Heuristik JSON canonical oder YAML authoring draft ist.",
         "TUI kann Validation-Fehler menschenlesbar anzeigen.",
-        "Renderer-Test pr\u00fcft Liste und Detailansicht."
+        "Renderer-Test prüft Liste und Detailansicht."
       ]
     },
     {
       "id": "T08.03",
-      "title": "Unit und Integration Tests f\u00fcr Format-System",
-      "status": "todo",
+      "title": "Unit und Integration Tests für Format-System",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -756,14 +756,14 @@
       "acceptance_criteria": [
         "Tests decken JSON Schema Validation, YAML Normalisierung, Declarative Runtime, Python Strategy Loader und Validator ab.",
         "Tests laufen ohne echte AI und ohne Netzwerk.",
-        "Tests pr\u00fcfen Sicherheitsverbote: inline code, active YAML, nicht allowlistete Strategy, ung\u00fcltige TTL.",
-        "Tests pr\u00fcfen Bootstrap-Heuristiken als Fixtures."
+        "Tests prüfen Sicherheitsverbote: inline code, active YAML, nicht allowlistete Strategy, ungültige TTL.",
+        "Tests prüfen Bootstrap-Heuristiken als Fixtures."
       ]
     },
     {
       "id": "T08.04",
       "title": "E2E: YAML Draft zu aktiver JSON-Heuristik",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -777,15 +777,15 @@
       "acceptance_criteria": [
         "E2E startet mit YAML-Draft in heuristics/authoring/.",
         "Normalizer erzeugt kanonisches JSON Candidate.",
-        "Validator pr\u00fcft Candidate.",
+        "Validator prüft Candidate.",
         "Approval/Activation Gate verschiebt nach heuristics/active/.",
-        "Runtime l\u00e4dt nur die aktive JSON-Heuristik."
+        "Runtime lädt nur die aktive JSON-Heuristik."
       ]
     },
     {
       "id": "T08.05",
       "title": "Architektur- und Operator-Doku",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -798,12 +798,12 @@
         "T05.03"
       ],
       "acceptance_criteria": [
-        "Doku erkl\u00e4rt JSON als kanonisches Format.",
-        "Doku erkl\u00e4rt YAML als optionales Authoring-Format.",
-        "Doku erkl\u00e4rt Python Strategy als gepr\u00fcfte Runtime-Implementierung.",
-        "Doku enth\u00e4lt Mermaid Flow: YAML/JSON -> Normalize -> Validate -> Candidate -> Approval -> Active -> Runtime.",
-        "Doku enth\u00e4lt Beispiele f\u00fcr Chat- und Snake-Heuristiken.",
-        "Doku erkl\u00e4rt Sicherheitsregeln: no inline code, no auto activation, no OpenCode runtime decision."
+        "Doku erklärt JSON als kanonisches Format.",
+        "Doku erklärt YAML als optionales Authoring-Format.",
+        "Doku erklärt Python Strategy als geprüfte Runtime-Implementierung.",
+        "Doku enthält Mermaid Flow: YAML/JSON -> Normalize -> Validate -> Candidate -> Approval -> Active -> Runtime.",
+        "Doku enthält Beispiele für Chat- und Snake-Heuristiken.",
+        "Doku erklärt Sicherheitsregeln: no inline code, no auto activation, no OpenCode runtime decision."
       ]
     }
   ],
@@ -908,10 +908,10 @@
   "summary_notes": [
     "JSON ist Wahrheit und Austauschformat.",
     "YAML ist nur optionales Authoring-/Import-Format.",
-    "Python Strategy ist nur gepr\u00fcfte Runtime-Implementierung, nicht Quelle der Wahrheit.",
+    "Python Strategy ist nur geprüfte Runtime-Implementierung, nicht Quelle der Wahrheit.",
     "AI erzeugt HeuristicProposal JSON, keine aktive Runtime-Heuristik.",
-    "OpenCode implementiert Python Strategy nur nach genehmigtem Code\u00e4nderungsauftrag.",
-    "Runtime l\u00e4dt nur validierte JSON-Heuristiken aus heuristics/active/."
+    "OpenCode implementiert Python Strategy nur nach genehmigtem Codeänderungsauftrag.",
+    "Runtime lädt nur validierte JSON-Heuristiken aus heuristics/active/."
   ],
   "end_summaries": [
     {
@@ -924,18 +924,18 @@
         "Declarative Heuristiken laufen direkt im sicheren Evaluator.",
         "Python-Strategy-Heuristiken referenzieren nur allowlistete Klassen.",
         "Activation Gate macht Candidate erst nach Tests/Review aktiv.",
-        "Runtime l\u00e4dt ausschlie\u00dflich active JSON-Heuristiken."
+        "Runtime lädt ausschließlich active JSON-Heuristiken."
       ]
     },
     {
       "summary_id": "definition_of_done",
       "title": "Definition of Done",
       "items": [
-        "Schemas f\u00fcr Definition, Proposal, Lease und Index existieren.",
+        "Schemas für Definition, Proposal, Lease und Index existieren.",
         "Declarative Runtime ist testbar.",
         "Python Strategy Loader ist allowlist-basiert und sicher.",
         "YAML Import normalisiert deterministisch nach JSON.",
-        "Bootstrap-Heuristiken f\u00fcr Snake und Chat existieren.",
+        "Bootstrap-Heuristiken für Snake und Chat existieren.",
         "Validator blockiert inline code, active YAML und unsichere Python-Strategien.",
         "E2E beweist YAML Draft -> JSON Candidate -> active JSON Runtime."
       ]
