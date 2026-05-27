@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+import { PermissionService } from '../services/permission.service';
 import { Subscription, finalize } from 'rxjs';
 import { isTaskDone, isTaskInProgress } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
@@ -176,8 +177,12 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from
                 <span class="badge ml-10">{{ reviewState()?.status }}</span>
               </div>
               <div class="row gap-sm">
-                <button class="success" (click)="reviewProposal('approve')" [disabled]="busy || reviewState()?.status === 'approved'">Freigeben</button>
-                <button class="secondary" (click)="reviewProposal('reject')" [disabled]="busy || reviewState()?.status === 'rejected'">Ablehnen</button>
+                @if (perm.can('write_approvals')) {
+                  <button class="success" (click)="reviewProposal('approve')" [disabled]="busy || reviewState()?.status === 'approved'">Freigeben</button>
+                  <button class="secondary" (click)="reviewProposal('reject')" [disabled]="busy || reviewState()?.status === 'rejected'">Ablehnen</button>
+                } @else {
+                  <span class="muted font-sm">Freigabe erfordert Admin-Rechte</span>
+                }
               </div>
             </div>
             @if (reviewState()?.reason) {
@@ -742,6 +747,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
+  readonly perm = inject(PermissionService);
   private taskFacade = inject(TaskManagementFacade);
 
   hub = this.dir.list().find(a => a.role === 'hub');
