@@ -19,6 +19,7 @@ def test_build_deployment_profile_marks_local_dev_non_container_default() -> Non
     assert payload["target"] == "docker-compose"
     assert payload["local_dev_default_is_non_container"] is True
     assert payload["isolation_level"] == "standard"
+    assert (payload.get("container_hardening_profile") or {}).get("profile_id") == "default-dev-v1"
     assert payload["examples"]
 
 
@@ -37,6 +38,12 @@ def test_build_deployment_profile_marks_sandbox_and_strict_as_stronger_isolation
     )
     assert sandbox_payload["isolation_level"] == "stronger"
     assert strict_payload["isolation_level"] == "stronger"
+    sandbox_profile = sandbox_payload.get("container_hardening_profile") or {}
+    strict_profile = strict_payload.get("container_hardening_profile") or {}
+    assert sandbox_profile.get("profile_id") == "kritis-hardened-v1"
+    assert strict_profile.get("profile_id") == "kritis-hardened-v1"
+    assert sandbox_profile.get("read_only_rootfs") is True
+    assert strict_profile.get("drop_all_capabilities") is True
 
 
 def test_write_deployment_profile_requires_confirmation_or_backup(tmp_path: Path) -> None:
@@ -66,4 +73,3 @@ def test_write_deployment_profile_creates_backup_without_force(tmp_path: Path) -
     backup_path = Path(result.backup_path)
     assert backup_path.exists()
     assert json.loads(target_file.read_text(encoding="utf-8"))["schema"] == "test"
-

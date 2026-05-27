@@ -12,6 +12,7 @@ from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.integration_registry_service import get_integration_registry_service
 from agent.services.operations_observability_service import get_operations_observability_service
+from agent.services.critical_workflow_state_service import get_critical_workflow_state_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
@@ -106,6 +107,98 @@ class ConfigReadModelService:
             "by_window_profile": _aggregate("window_profile"),
         }
 
+    def _build_critical_workflow_observability(self, tasks: list[dict], *, max_tasks: int = 120, max_proposals_per_task: int = 8) -> dict:
+        repos = get_repository_registry()
+        workflow_service = get_critical_workflow_state_service()
+        recent_tasks = sorted(
+            [item for item in tasks if str(item.get("id") or "").strip()],
+            key=lambda task: float(task.get("updated_at") or task.get("created_at") or 0.0),
+            reverse=True,
+        )[: max(1, int(max_tasks))]
+
+        sample_size = 0
+        transition_count_total = 0
+        blocked_transition_count = 0
+        timeout_transition_count = 0
+        invalid_replay_count = 0
+        stuck_workflow_count = 0
+        recovery_attempt_count = 0
+        unstable_pattern_count = 0
+        state_counts: dict[str, int] = {}
+        fallback_causes: dict[str, int] = {}
+        seen_proposals: set[str] = set()
+
+        for task in recent_tasks:
+            task_id = str(task.get("id") or "").strip()
+            if not task_id:
+                continue
+            for proposal in repos.evolution_proposal_repo.get_by_task_id(task_id, limit=max(1, int(max_proposals_per_task))):
+                proposal_id = str(getattr(proposal, "id", "") or "").strip()
+                if not proposal_id or proposal_id in seen_proposals:
+                    continue
+                seen_proposals.add(proposal_id)
+                metadata = dict(getattr(proposal, "proposal_metadata", None) or {})
+                workflow_state = workflow_service.materialize_record(
+                    metadata.get("workflow_state"),
+                    workflow_type="evolution_proposal",
+                )
+                replay = workflow_service.replay(workflow_state, workflow_type="evolution_proposal")
+                timeout = workflow_service.inspect_timeout(workflow_state, workflow_type="evolution_proposal")
+                history = [
+                    event
+                    for event in list(workflow_state.get("history") or [])
+                    if str((event or {}).get("event_type") or "") == "workflow_transition"
+                ]
+
+                sample_size += 1
+                transition_count_total += len(history)
+                blocked_events = sum(1 for event in history if str((event or {}).get("to_state") or "").strip().lower() == "blocked")
+                timeout_events = sum(1 for event in history if str((event or {}).get("to_state") or "").strip().lower() == "timeout")
+                blocked_transition_count += blocked_events
+                timeout_transition_count += timeout_events
+                if not bool(replay.get("valid")):
+                    invalid_replay_count += 1
+                if bool(timeout.get("stuck")):
+                    stuck_workflow_count += 1
+                recovery_attempts = int(workflow_state.get("recovery_attempts") or 0)
+                if recovery_attempts > 0:
+                    recovery_attempt_count += 1
+
+                if blocked_events > 1 or len(history) >= 8 or recovery_attempts > 0:
+                    unstable_pattern_count += 1
+
+                state_key = str(workflow_state.get("state") or "unknown").strip().lower() or "unknown"
+                state_counts[state_key] = int(state_counts.get(state_key) or 0) + 1
+
+                fallback = metadata.get("last_fallback")
+                if isinstance(fallback, dict):
+                    cause = str(fallback.get("cause") or "").strip().lower()
+                    if cause:
+                        fallback_causes[cause] = int(fallback_causes.get(cause) or 0) + 1
+
+        def _top_counts(source: dict[str, int], *, limit: int = 8) -> list[dict]:
+            rows = sorted(source.items(), key=lambda item: (-int(item[1]), item[0]))[: max(1, int(limit))]
+            return [{"key": key, "count": int(count)} for key, count in rows]
+
+        denom = float(sample_size) if sample_size > 0 else 1.0
+        return {
+            "sample_size": sample_size,
+            "transitions_total": transition_count_total,
+            "blocked_transition_count": blocked_transition_count,
+            "timeout_transition_count": timeout_transition_count,
+            "invalid_replay_count": invalid_replay_count,
+            "stuck_workflow_count": stuck_workflow_count,
+            "recovery_attempted_count": recovery_attempt_count,
+            "unstable_pattern_count": unstable_pattern_count,
+            "rates": {
+                "blocked_transition_rate": round(float(blocked_transition_count) / denom, 4),
+                "invalid_replay_rate": round(float(invalid_replay_count) / denom, 4),
+                "unstable_pattern_rate": round(float(unstable_pattern_count) / denom, 4),
+            },
+            "state_distribution": _top_counts(state_counts),
+            "fallback_causes": _top_counts(fallback_causes),
+        }
+
     def assistant_read_model(
         self,
         *,
@@ -188,6 +281,7 @@ class ConfigReadModelService:
             tasks=tasks if include_task_snapshot else [],
             config=cfg,
         )
+        critical_workflow_observability = self._build_critical_workflow_observability(tasks if include_task_snapshot else [])
         contract_catalog = contract_catalog_builder()
         task_status_contract = build_task_status_contract()
         task_state_machine = build_task_state_machine_contract()
@@ -408,6 +502,7 @@ class ConfigReadModelService:
                     "research_backends": dict(runtime_preflight.get("research_backends") or {}),
                     "retrieval_bundles": retrieval_telemetry,
                     "operations": operations_observability,
+                    "critical_workflows": critical_workflow_observability,
                 },
                 "effective_policy_profile": build_effective_policy_profile(cfg),
             },

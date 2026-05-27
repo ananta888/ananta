@@ -798,11 +798,15 @@ def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
     assert retrieval_bundles.get("sample_size") == 0
     assert isinstance(retrieval_bundles.get("by_task_kind"), dict)
     assert isinstance(retrieval_bundles.get("by_bundle_mode"), dict)
+    critical_workflows = runtime_telemetry.get("critical_workflows") or {}
+    assert critical_workflows.get("sample_size") == 0
+    assert isinstance(critical_workflows.get("state_distribution"), list)
+    assert isinstance(critical_workflows.get("rates"), dict)
 
 
 def test_dashboard_read_model_exposes_operations_observability(client, admin_token):
-    from agent.db_models import ContextBundleDB, PolicyDecisionDB, TaskDB, VerificationRecordDB
-    from agent.repository import context_bundle_repo, policy_decision_repo, task_repo, verification_record_repo
+    from agent.db_models import ContextBundleDB, EvolutionProposalDB, PolicyDecisionDB, TaskDB, VerificationRecordDB
+    from agent.repository import context_bundle_repo, evolution_proposal_repo, policy_decision_repo, task_repo, verification_record_repo
     from agent.services.product_event_service import record_product_event
 
     task_repo.save(
@@ -845,6 +849,39 @@ def test_dashboard_read_model_exposes_operations_observability(client, admin_tok
             escalation_code="missing_test_evidence",
         )
     )
+    evolution_proposal_repo.save(
+        EvolutionProposalDB(
+            id="obs-evo-prop-1",
+            run_id="obs-evo-run-1",
+            provider_name="api-evolution",
+            task_id="obs-task-1",
+            title="Observe blocked workflow",
+            description="Proposal for observability",
+            proposal_metadata={
+                "workflow_state": {
+                    "schema": "critical_workflow_state.v1",
+                    "workflow_type": "evolution_proposal",
+                    "state": "blocked",
+                    "started_at": 100.0,
+                    "last_transition_at": 103.0,
+                    "transition_count": 3,
+                    "recovery_attempts": 1,
+                    "timeout_seconds": 300,
+                    "max_recovery_attempts": 1,
+                    "history": [
+                        {"event_type": "workflow_transition", "from_state": "review_required", "to_state": "approved", "timestamp": 101.0},
+                        {"event_type": "workflow_transition", "from_state": "approved", "to_state": "apply_requested", "timestamp": 102.0},
+                        {"event_type": "workflow_transition", "from_state": "apply_requested", "to_state": "blocked", "timestamp": 103.0},
+                    ],
+                },
+                "last_fallback": {
+                    "reason": "apply_execution_fallback",
+                    "cause": "mutation_gate_blocked:mutation_scope_mismatch",
+                    "timestamp": 104.0,
+                },
+            },
+        )
+    )
     record_product_event(
         "goal_blocked",
         details={"source": "ui", "mode": "generic", "reason": "policy_override_requires_admin"},
@@ -879,6 +916,11 @@ def test_dashboard_read_model_exposes_operations_observability(client, admin_tok
     assert (product_events.get("friction") or {}).get("blocked", 0) >= 1
     assert ((product_events.get("channels") or {}).get("counts") or {}).get("ui", 0) >= 1
     assert ((product_events.get("usage_contexts") or {}).get("counts") or {}).get("production", 0) >= 1
+    critical_workflows = runtime_telemetry.get("critical_workflows") or {}
+    assert critical_workflows.get("sample_size", 0) >= 1
+    assert critical_workflows.get("blocked_transition_count", 0) >= 1
+    assert critical_workflows.get("unstable_pattern_count", 0) >= 1
+    assert {"key": "blocked", "count": 1} in (critical_workflows.get("state_distribution") or [])
 
 
 def test_config_read_models_expose_effective_policy_profile(client, admin_token):

@@ -706,7 +706,7 @@
         {
           "id": "K2-WFD-T08",
           "title": "Deterministic workflow tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Tests cover valid and invalid transitions for critical flows.",
@@ -717,7 +717,7 @@
         {
           "id": "K2-WFD-T09",
           "title": "State transition observability add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "Metrics or summaries show transition failures, blocked transitions and unusual patterns.",
@@ -741,7 +741,7 @@
         {
           "id": "K3-SBX-T01",
           "title": "Sandbox threat model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A threat model exists for execution and test environments.",
@@ -752,7 +752,7 @@
         {
           "id": "K3-SBX-T02",
           "title": "Execution isolation classes define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The system defines at least a few isolation classes such as low-risk, bounded mutable and hardened high-risk execution.",
@@ -763,7 +763,7 @@
         {
           "id": "K3-SBX-T03",
           "title": "Hardened container profile create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A hardened execution profile exists for containerized runs.",
