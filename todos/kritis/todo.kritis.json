@@ -47,7 +47,7 @@
         {
           "id": "K1-AUD-T02",
           "title": "Canonical audit event schema define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A single schema exists for audit events across routes and services.",
@@ -58,7 +58,7 @@
         {
           "id": "K1-AUD-T03",
           "title": "Audit logging middleware layer implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A middleware or central hook layer emits audit records for relevant request and execution flows.",
@@ -69,7 +69,7 @@
         {
           "id": "K1-AUD-T04",
           "title": "LLM interaction audit hooks add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Every LLM interaction emits auditable metadata.",
@@ -80,7 +80,7 @@
         {
           "id": "K1-AUD-T05",
           "title": "Prompt and context class logging design add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Audit records can express what kind of context was sent without blindly storing sensitive content.",
@@ -91,7 +91,7 @@
         {
           "id": "K1-AUD-T06",
           "title": "Tool call audit chaining implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Tool calls are linked to the LLM interaction that initiated them.",

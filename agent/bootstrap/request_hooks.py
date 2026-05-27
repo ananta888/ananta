@@ -24,6 +24,8 @@ def configure_audit_logger() -> None:
 
 
 def register_request_hooks(app: Flask) -> None:
+    from agent.bootstrap.audit_middleware import register_audit_middleware
+
     @app.before_request
     def ensure_correlation_id_and_check_shutdown():
         import agent.common.context
@@ -69,3 +71,4 @@ def register_request_hooks(app: Flask) -> None:
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
         return response
 
+    register_audit_middleware(app)
