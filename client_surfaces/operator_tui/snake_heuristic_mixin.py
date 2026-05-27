@@ -6,12 +6,15 @@ to the tutorial AI snake.
 
 Periodically calls ProposalService.generate_from_traces() to generate new
 heuristic candidates from accumulated decision traces.
+
+All disk I/O (heuristic loading, proposal generation) runs in a background
+ThreadPoolExecutor so the 18 TPS main loop is never blocked by file operations.
 """
 from __future__ import annotations
 
 import json
-import os
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,7 +23,6 @@ _HEURISTICS_DIR = Path(__file__).resolve().parents[2] / "heuristics" / "active"
 _HEURISTIC_CACHE_TTL = 60.0        # reload heuristic files at most once per minute
 _PROPOSAL_MIN_TRACES = 25           # generate a proposal after this many decisions
 _PROPOSAL_MIN_INTERVAL = 300.0      # at most one proposal every 5 minutes
-_AI_STATUS_TTL = 10.0               # cache AI-online check result for 10 s
 
 
 class SnakeHeuristicMixin:
@@ -70,20 +72,54 @@ class SnakeHeuristicMixin:
         )
         self._maybe_generate_proposal(now=now)
 
-    # ── heuristic loader ──────────────────────────────────────────────────────
+    # ── heuristic loader (async-safe) ─────────────────────────────────────────
 
     def _load_active_snake_heuristics(self, *, now: float) -> list[dict[str, Any]]:
+        """Return current heuristic list without blocking the main loop.
+
+        Disk I/O runs in a background thread. While loading, the stale cache
+        (or empty list) is returned so the tick never waits on file operations.
+        """
         cached_at, cached = getattr(self, "_active_heuristics_cache", (0.0, []))
+
+        # Poll background load future
+        pending: Future | None = getattr(self, "_heuristic_load_future", None)
+        if pending is not None and pending.done():
+            try:
+                new_result = pending.result()
+                cached = new_result
+                cached_at = now
+                self._active_heuristics_cache = (now, cached)
+            except Exception:
+                pass
+            self._heuristic_load_future = None
+            pending = None
+
+        # Cache still fresh
         if cached and (now - cached_at) < _HEURISTIC_CACHE_TTL:
             return cached
 
+        # Cache expired — submit background load if none already pending
+        if pending is None:
+            executor: ThreadPoolExecutor = getattr(self, "_heuristic_load_executor", None)  # type: ignore[assignment]
+            if executor is None:
+                executor = ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="tui-heuristic-loader"
+                )
+                self._heuristic_load_executor = executor
+            self._heuristic_load_future = executor.submit(self._load_heuristics_from_disk)
+
+        # Return stale data while the background load is in flight
+        return cached
+
+    def _load_heuristics_from_disk(self) -> list[dict[str, Any]]:
+        """Blocking disk load — always called from background thread."""
         result: list[dict[str, Any]] = []
         if not _HEURISTICS_DIR.is_dir():
-            self._active_heuristics_cache = (now, result)
             return result
 
         for path in sorted(_HEURISTICS_DIR.iterdir()):
-            if not path.suffix == ".json":
+            if path.suffix != ".json":
                 continue
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
@@ -99,7 +135,6 @@ class SnakeHeuristicMixin:
 
         # Sort: most specific first (more trigger conditions = more specific)
         result.sort(key=lambda h: -len((h.get("runtime") or {}).get("triggers") or h.get("triggers") or []))
-        self._active_heuristics_cache = (now, result)
         return result
 
     # ── trigger evaluation ────────────────────────────────────────────────────
@@ -168,11 +203,9 @@ class SnakeHeuristicMixin:
             game["tutorial_ai_target_mode"] = "fast_target"
             game["ai_snake_follow_distance"] = 2
         else:
-            # Unknown action — fall back to follow_user
             game["tutorial_ai_target_mode"] = "follow_user"
             game["ai_snake_follow_distance"] = 4
 
-        # Propagate section context hint
         game["tutorial_ai_heuristic_section"] = section
 
     # ── AI status helper ──────────────────────────────────────────────────────
@@ -226,34 +259,64 @@ class SnakeHeuristicMixin:
             traces = traces[-200:]
         self._heuristic_traces = traces
 
-    # ── proposal generation ───────────────────────────────────────────────────
+    # ── proposal generation (async-safe) ─────────────────────────────────────
 
     def _maybe_generate_proposal(self, *, now: float) -> None:
+        """Trigger proposal generation in a background thread when thresholds met.
+
+        Also polls any previously submitted proposal future and surfaces the
+        result in the status bar once done.
+        """
+        # Poll previous proposal future
+        proposal_future: Future | None = getattr(self, "_heuristic_proposal_future", None)
+        if proposal_future is not None and proposal_future.done():
+            self._heuristic_proposal_future = None
+            try:
+                result = proposal_future.result()
+                if result:
+                    pid, dominant_id = result
+                    game = dict(self.state.header_logo_game or {})
+                    if bool(game.get("active")):
+                        self._set_state(self.state.with_updates(
+                            status_message=f"heuristic proposal generiert: {dominant_id} [{pid}]"
+                        ))
+            except Exception:
+                pass
+
+        # Don't start a new proposal while one is running
+        if getattr(self, "_heuristic_proposal_future", None) is not None:
+            return
+
         traces: list = getattr(self, "_heuristic_traces", [])
         last_at: float = getattr(self, "_last_heuristic_proposal_at", 0.0)
-
         if len(traces) < _PROPOSAL_MIN_TRACES:
             return
         if (now - last_at) < _PROPOSAL_MIN_INTERVAL:
             return
 
+        executor: ThreadPoolExecutor = getattr(self, "_heuristic_load_executor", None)  # type: ignore[assignment]
+        if executor is None:
+            executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="tui-heuristic-loader"
+            )
+            self._heuristic_load_executor = executor
+
+        traces_snapshot = list(traces)
+        self._heuristic_traces = []        # reset optimistically
+        self._last_heuristic_proposal_at = now   # prevent double-trigger
+        self._heuristic_proposal_future = executor.submit(
+            self._run_generate_proposal_bg, traces_snapshot
+        )
+
+    def _run_generate_proposal_bg(self, traces_snapshot: list) -> tuple[str, str] | None:
+        """Background worker: generate and save proposal, returns (pid, dominant_id)."""
         try:
             from agent.services.heuristic_runtime.proposal_service import ProposalService
-        except ImportError:
-            return
-
-        try:
             svc = ProposalService()
-            result = svc.generate_from_traces(list(traces), proposed_by="tui-heuristic-mixin", domain="tui_snake")
+            result = svc.generate_from_traces(
+                traces_snapshot, proposed_by="tui-heuristic-mixin", domain="tui_snake"
+            )
             svc.save_candidate(result.proposal)
-            self._last_heuristic_proposal_at = now
-            self._heuristic_traces = []   # reset after proposal
-            # Surface in status bar if snake is active
-            game = dict(self.state.header_logo_game or {})
-            if bool(game.get("active")):
-                pid = result.proposal.proposal_id[:8]
-                self._set_state(self.state.with_updates(
-                    status_message=f"heuristic proposal generiert: {result.dominant_heuristic_id} [{pid}]"
-                ))
+            return result.proposal.proposal_id[:8], result.dominant_heuristic_id
         except Exception:
-            pass
+            return None

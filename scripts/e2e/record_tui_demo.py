@@ -560,6 +560,218 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     )
 
 
+def _snake_lmstudio_heuristic_cast(*, run_id: str) -> str:
+    """Rendered cast: mouse-follow + heuristic switching + LM Studio chat response."""
+    nav_walk = [
+        # (local_head, ai_head, mouse_pos, target, focus, section_id, sel_idx, heuristic_id, phase, user_q, ai_answer)
+        (
+            (90, 8), (80, 8), (90, 8),
+            "header", FocusPane.HEADER, "dashboard", 0,
+            "snake_tui_follow_distance_default",
+            "start",
+            "",
+            "",
+        ),
+        (
+            (82, 10), (74, 10), (82, 10),
+            "nav", FocusPane.NAVIGATION, "dashboard", 0,
+            "snake_tui_follow_distance_default",
+            "mouse-follow-left",
+            "",
+            "",
+        ),
+        (
+            (70, 12), (62, 12), (70, 12),
+            "nav", FocusPane.NAVIGATION, "dashboard", 0,
+            "snake_tui_follow_distance_default",
+            "approach-nav",
+            "",
+            "",
+        ),
+        (
+            (65, 13), (55, 13), (65, 13),
+            "nav", FocusPane.NAVIGATION, "goals", 1,
+            "snake_tui_follow_distance_default",
+            "goals-selected",
+            "Was zeigt der Menüpunkt Goals genau? [mouse-follow] [heuristic:snake_tui_follow_distance_default]",
+            "[lmstudio-chat-active] Goals zeigt Ziele, Status und Priorität. Mit :inspect bekommst du Details zu jedem Ziel.",
+        ),
+        (
+            (62, 14), (52, 14), (62, 14),
+            "nav", FocusPane.NAVIGATION, "goals", 1,
+            "snake_tui_artifact_intent_default",
+            "artifact-detected",
+            "Wie priorisiere ich schnell? [mouse-follow] [heuristic:snake_tui_artifact_intent_default]",
+            "[lmstudio-chat-active] Starte mit active goals, dann ready, danach blocked prüfen.",
+        ),
+        (
+            (60, 15), (50, 15), (60, 15),
+            "content", FocusPane.CONTENT, "goals", 1,
+            "snake_tui_artifact_intent_default",
+            "goals-content",
+            "",
+            "",
+        ),
+        (
+            (58, 16), (48, 16), (58, 16),
+            "nav", FocusPane.NAVIGATION, "tasks", 2,
+            "snake_tui_follow_distance_default",
+            "tasks-selected",
+            "Wo sehe ich laufende Tasks? [mouse-follow] [heuristic:snake_tui_follow_distance_default]",
+            "[lmstudio-chat-active] Im TASKS-Menü siehst du running, queued und Worker-Zuordnung.",
+        ),
+        (
+            (56, 18), (46, 18), (56, 18),
+            "content", FocusPane.CONTENT, "tasks", 2,
+            "snake_tui_follow_distance_default",
+            "tasks-explain",
+            "Welche Frage kann ich der AI-Snake stellen? [mouse-follow]",
+            "[lmstudio-chat-active] Frag nach dem nächsten Schritt, z.B. 'welchen Task zuerst?'.",
+        ),
+        (
+            (54, 19), (54, 19), (54, 19),
+            "follow", FocusPane.CONTENT, "tasks", 2,
+            "snake_tui_follow_distance_default",
+            "contact",
+            "OK, was jetzt konkret? [ai-fast-target] [mouse-follow]",
+            "[lmstudio-chat-active] Ablauf: :inspect ausführen, Ergebnis lesen, dann :refresh.",
+        ),
+    ]
+
+    frames: list[tuple[float, str]] = []
+    history: list[dict[str, object]] = []
+    base_time = 0.4
+
+    for idx, (local_head, ai_head, mouse_pos, target, focus, section_id, sel_idx, heuristic_id, phase, user_q, ai_answer) in enumerate(nav_walk):
+        if user_q.strip():
+            history.append({"at": float(idx) + 0.01, "source": "user", "target": target, "text": user_q.strip()})
+            history.append({
+                "at": float(idx) + 0.02,
+                "source": "openai-compatible",
+                "target": target,
+                "text": ai_answer.strip(),
+            })
+        else:
+            history.append({"at": float(idx), "source": "openai-compatible", "target": target, "text": f"[mouse-follow] Schritt {idx + 1}: {phase}"})
+
+        local_snake = [
+            local_head,
+            ((local_head[0] - 1) % 120, local_head[1]),
+            ((local_head[0] - 2) % 120, local_head[1]),
+            ((local_head[0] - 3) % 120, local_head[1]),
+        ]
+        ai_snake = [
+            ai_head,
+            ((ai_head[0] - 1) % 120, ai_head[1]),
+            ((ai_head[0] - 2) % 120, ai_head[1]),
+            ((ai_head[0] - 3) % 120, ai_head[1]),
+        ]
+
+        has_artifact = idx >= 4
+        ai_mode = "fast_target" if idx >= 4 else "follow_user"
+
+        game = {
+            "active": True,
+            "alive": True,
+            "ui_steering": True,
+            "free_mode": True,
+            "mouse_follow_enabled": True,
+            "movement_mode": "mouse_follow",
+            "mouse_state": {"x": mouse_pos[0], "y": mouse_pos[1], "active": True, "event": "move"},
+            "artifact_intent_confidence": "confirmed" if has_artifact else "weak",
+            "tutorial_ai_target_mode": ai_mode,
+            "active_heuristic_id": heuristic_id,
+            "artifact_intent_target": {"label": "Goals artifact", "id": f"g-{idx}"} if has_artifact else None,
+            "artifact_chat_state": {
+                "active_target": {
+                    "label": "Goals row",
+                    "path": "tests/output/operator_tui_splash.cast",
+                    "id": "artifact-cast",
+                } if has_artifact else None,
+                "messages": [],
+                "backend_source": "openai-compatible",
+            },
+            "tutorial_mode": True,
+            "local_snake_id": "s1",
+            "snake": local_snake,
+            "trail_path": list(local_snake),
+            "message": f"[mouse-follow] frame {idx + 1}",
+            "message_style": "ticker",
+            "snake_color": "mint",
+            "tutorial_user_feed": "Erkläre mir die TUI während ich mich bewege.",
+            "tutorial_ai_local_contact": bool(target == "follow"),
+            "tutorial_ai_contact_zone": "content" if target == "follow" else target,
+            "tutorial_propose_history": history[-8:],
+            "snakes": {
+                "s1": {
+                    "id": "s1",
+                    "pseudonym": "local-snake",
+                    "oidc_provider": "local",
+                    "snake": local_snake,
+                    "trail_path": list(local_snake),
+                    "message": f"[mouse-follow] user {phase}",
+                    "message_style": "trail",
+                    "snake_color": "mint",
+                    "local": True,
+                },
+                "s-ai": {
+                    "id": "s-ai",
+                    "pseudonym": "tutor-ai",
+                    "oidc_provider": "lmstudio-ai",
+                    "snake": ai_snake,
+                    "trail_path": list(ai_snake),
+                    "message": f"[heuristic:{heuristic_id}] {phase}",
+                    "message_style": "ticker",
+                    "snake_color": "amber",
+                    "local": False,
+                    "target_cell": ai_head,
+                },
+            },
+        }
+
+        payloads = {
+            "dashboard": {
+                "agents": {"online": 2, "total": 2},
+                "queue": {"depth": 1},
+                "goal_summary": "1 active goal",
+                "task_summary": "2 running tasks",
+            },
+            "goals": {
+                "items": [
+                    {"id": "g-ui", "title": "Improve TUI onboarding", "status": "active"},
+                    {"id": "g-snakes", "title": "Heuristic snake guidance", "status": "ready"},
+                ]
+            },
+            "tasks": {
+                "running": 2,
+                "queued": 1,
+                "summary": "worker-1 processes g-ui; worker-2 validates heuristics",
+            },
+        }
+
+        state = OperatorState(
+            endpoint="http://localhost:1234",
+            focus=focus,
+            section_id=section_id,
+            selected_index=sel_idx,
+            status_message=(
+                f"[heuristic:{heuristic_id}] [mouse-follow] snake step {idx + 1}/{len(nav_walk)} · run={run_id}"
+            ),
+            panel_states={section_id: PanelState.HEALTHY},
+            section_payloads=payloads,
+            header_logo_game=game,
+        )
+        screen = render_operator_shell(state, width=120, height=32)
+        frames.append((base_time + idx * 0.8, "[2J[H" + screen + "\n"))
+
+    return _asciinema_v2_lines(
+        title=f"Ananta TUI – Snake Heuristic + LM Studio ({run_id})",
+        frames=frames,
+        width=120,
+        height=32,
+    )
+
+
 def _sync_tutorial_ai_live_cast_targets(
     *,
     cast_content: str,
@@ -629,6 +841,10 @@ def record_tui_demo(
     elif normalized_scene == "snake-mode-live-e2e":
         cast_content = _snake_mode_live_e2e_cast(run_id=run_id)
         file_name = "video-tui-snake-mode-live-e2e.cast"
+        synced_targets = _sync_snake_mode_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
+    elif normalized_scene == "snake-lmstudio-heuristic":
+        cast_content = _snake_lmstudio_heuristic_cast(run_id=run_id)
+        file_name = "video-tui-snake-lmstudio-heuristic.cast"
         synced_targets = _sync_snake_mode_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
     else:
         cast_content = _asciinema_v2_lines(
