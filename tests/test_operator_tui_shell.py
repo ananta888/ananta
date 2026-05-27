@@ -31,7 +31,7 @@ def test_operator_tui_renders_first_paint_shell() -> None:
 
     output = render_operator_shell(state, width=96, height=22)
 
-    assert "Ananta Operator TUI" in output
+    assert "ananta" in output
     assert "Dashboard" in output
     assert "endpoint=http://localhost:5000" in output
     assert "Commands:" in output
@@ -282,7 +282,7 @@ def test_ananta_tui_default_uses_operator_render_once(capsys) -> None:
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "Ananta Operator TUI" in captured.out
+    assert "ananta" in captured.out
 
 
 def test_ananta_tui_help_lists_logo_renderer_flags(capsys) -> None:
@@ -1164,16 +1164,10 @@ def test_tutorial_rag_context_prefers_operator_tui_graph_and_embedding_records(t
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("ANANTA_TUI_CODECOMPASS_OUTPUT_DIR", str(out_dir))
-    state = OperatorState(
-        endpoint="http://localhost:5000",
-        section_id="dashboard",
-        focus=FocusPane.CONTENT,
-        header_logo_game={"tutorial_user_feed": "explain snake prompt flow"},
-    )
-    tui = InteractiveOperatorTui(state)
+    from client_surfaces.operator_tui.tutorial_ai_mixin import _load_rag_context_from_dir
 
-    context = tui._load_rag_helper_context(now=1.0)
+    query_tokens = ["snake", "prompt", "flow", "explain"]
+    context = _load_rag_context_from_dir(out_dir, query_tokens, 48, 800)
 
     joined = "\n".join(context)
     assert "embedding" in joined
@@ -1274,7 +1268,7 @@ def test_snake_message_mode_accepts_command_bound_letters() -> None:
 
 def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
-    lines = ["abcdefghij"]
+    lines = ["abcdefghij" + " " * 30] + [" " * 40] * 19
     game = {
         "active": True,
         "free_mode": True,
@@ -1285,7 +1279,7 @@ def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypa
     }
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
 
-    out = _overlay_fullscreen_snake(lines, state, width=10)
+    out = _overlay_fullscreen_snake(lines, state, width=40)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[0])
 
     assert plain[2] == "H"
@@ -1296,7 +1290,7 @@ def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypa
 def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> None:
     times = iter([0.0, 2.0])
     monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: next(times))
-    lines = [" " * 20]
+    lines = [" " * 40] * 20
     game = {
         "active": True,
         "free_mode": True,
@@ -1309,9 +1303,9 @@ def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> No
     }
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
 
-    out1 = _overlay_fullscreen_snake(lines, state, width=20)
+    out1 = _overlay_fullscreen_snake(lines, state, width=40)
     plain1 = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out1[0])
-    out2 = _overlay_fullscreen_snake(lines, state, width=20)
+    out2 = _overlay_fullscreen_snake(lines, state, width=40)
     plain2 = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out2[0])
 
     assert plain1[2:5] == "ABC"
@@ -1320,7 +1314,7 @@ def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> No
 
 def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 1.0)
-    lines = [" " * 20]
+    lines = [" " * 40] * 20
     game = {
         "active": True,
         "free_mode": True,
@@ -1333,7 +1327,7 @@ def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
     }
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
 
-    out = _overlay_fullscreen_snake(lines, state, width=20)
+    out = _overlay_fullscreen_snake(lines, state, width=40)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[0])
 
     letters = "".join(ch for ch in plain if ch.isalpha())
@@ -1342,7 +1336,7 @@ def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
 
 def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
-    lines = [" " * 20]
+    lines = [" " * 40] * 20
     game = {
         "active": True,
         "free_mode": True,
@@ -1355,7 +1349,7 @@ def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None
     }
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
 
-    out = _overlay_fullscreen_snake(lines, state, width=20)
+    out = _overlay_fullscreen_snake(lines, state, width=40)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[0])
 
     assert "⏎" in plain

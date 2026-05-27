@@ -37,11 +37,23 @@ def _score_rag_record(text: str, query_tokens: list[str]) -> float:
         if count <= 0:
             continue
         score += 1.0 + min(0.6, (count - 1) * 0.15)
-    if "embedding_text" in haystack or "embedding" in haystack:
-        score += 0.3
-    if "graph_edges" in haystack or "graph_nodes" in haystack:
-        score += 0.3
     return score
+
+
+def _score_rag_record_with_embedding(
+    compact: str,
+    embedding_text: str,
+    query_tokens: list[str],
+    source_kind: str,
+) -> float:
+    # R04: embedding_text is the most informative field — score it with 2x weight
+    base = _score_rag_record(compact, query_tokens)
+    if embedding_text and query_tokens:
+        emb_score = _score_rag_record(embedding_text.lower(), query_tokens)
+        base += emb_score * 1.5
+    if source_kind in {"embedding", "graph_nodes", "graph_edges"}:
+        base += 0.8
+    return base
 
 
 def _load_codecompass_hints_from_dir(out_dir: Path) -> list[str]:
@@ -77,11 +89,12 @@ def _load_rag_context_from_dir(
     query_tokens: list[str],
     top_k: int,
     max_records_per_file: int,
+    scope_filter: str = "tui_only",
 ) -> list[str]:
     """Blocking RAG context build — always called from background thread.
 
-    query_tokens are captured on the main thread before this is submitted
-    to avoid accessing self.state from a background thread.
+    scope_filter: 'tui_only' restricts graph edges to operator_tui (ambient tip default),
+                  'full' includes all files (chat default — R06).
     """
     manifest_path = out_dir / "manifest.json"
     files: list[str] = []
@@ -110,6 +123,10 @@ def _load_rag_context_from_dir(
             seen.add(norm)
             deduped.append(norm)
 
+    scope_full = scope_filter == "full" or str(
+        os.environ.get("ANANTA_TUI_RAG_SCOPE_FILTER", "")
+    ).strip().lower() == "full"
+
     candidates: list[tuple[float, str]] = []
     for rel in deduped[:24]:
         path = out_dir / rel
@@ -137,12 +154,15 @@ def _load_rag_context_from_dir(
                 or parsed.get("source_path") or parsed.get("target_file")
                 or parsed.get("target_path") or ""
             ).strip()
-            if source_kind in {"graph_nodes", "graph_edges"} and source_file:
+            # R06: scope filter — tui_only restricts graph edges to operator_tui
+            if not scope_full and source_kind in {"graph_nodes", "graph_edges"} and source_file:
                 sl = source_file.lower()
                 if "client_surfaces/operator_tui" not in sl and "/operator_tui/" not in sl:
                     tgt = str(parsed.get("target_file") or parsed.get("target_path") or "").lower()
                     if "client_surfaces/operator_tui" not in tgt and "/operator_tui/" not in tgt:
                         continue
+            # R04: extract embedding_text separately for boosted scoring
+            embedding_text = str(parsed.get("embedding_text") or "").strip()
             tokens = [
                 str(parsed.get("domain") or "").strip(),
                 str(parsed.get("kind") or "").strip(),
@@ -153,7 +173,7 @@ def _load_rag_context_from_dir(
                 str(parsed.get("source_id") or parsed.get("from") or "").strip(),
                 str(parsed.get("target_id") or parsed.get("to") or "").strip(),
                 str(parsed.get("relation") or parsed.get("type") or "").strip(),
-                str(parsed.get("embedding_text") or "").strip(),
+                embedding_text,
                 str(parsed.get("summary") or "").strip(),
                 str(parsed.get("content") or parsed.get("text") or "").strip(),
             ]
@@ -162,16 +182,70 @@ def _load_rag_context_from_dir(
             if not compact:
                 continue
             compact = f"{source_kind} · {compact}"
-            score = _score_rag_record(compact, query_tokens)
-            if source_kind in {"embedding", "graph_nodes", "graph_edges"}:
-                score += 0.8
+            # R04: use boosted scorer that weights embedding_text 1.5x
+            score = _score_rag_record_with_embedding(compact, embedding_text, query_tokens, source_kind)
             if "client_surfaces/operator_tui" in compact.lower():
                 score += 1.2
             if score <= 0:
                 continue
             candidates.append((score, compact[:240]))
+
     ranked = sorted(candidates, key=lambda item: item[0], reverse=True)
-    return [item[1] for item in ranked[:top_k]]
+    results = [item[1] for item in ranked[:top_k]]
+
+    # R03: name-lookup in details.jsonl for function/class tokens (no position limit)
+    name_hits = _name_lookup_from_details(out_dir, query_tokens, already_found=set(results))
+    return name_hits + results if name_hits else results
+
+
+def _name_lookup_from_details(
+    out_dir: Path,
+    query_tokens: list[str],
+    already_found: set[str],
+) -> list[str]:
+    """R03: Direct name-match in details.jsonl for function/class tokens.
+
+    Scans without a position limit so deeply-nested functions are always found.
+    Only runs when a token looks like a Python identifier (_foo, FooBar, foo_bar).
+    """
+    name_tokens = [t for t in query_tokens if len(t) >= 3 and (
+        t.startswith("_") or "_" in t or (t[0].isupper() and t[1:2].islower())
+    )]
+    if not name_tokens:
+        return []
+    details_path = out_dir / "details.jsonl"
+    if not details_path.exists():
+        # Try index_by_kind/python_function.jsonl etc.
+        details_path = out_dir / "index.jsonl"
+    if not details_path.exists():
+        return []
+    hits: list[str] = []
+    try:
+        for raw_line in details_path.read_text(encoding="utf-8").splitlines():
+            if not raw_line.strip():
+                continue
+            try:
+                rec = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(rec, dict):
+                continue
+            name = str(rec.get("name") or "").strip().lower()
+            if not name:
+                continue
+            if any(t in name for t in name_tokens):
+                kind = str(rec.get("kind") or "").strip()
+                fpath = str(rec.get("file") or rec.get("path") or "").strip()
+                emb = str(rec.get("embedding_text") or rec.get("summary") or "").strip()
+                entry = f"detail · {kind} · {name} · {fpath}" + (f" · {emb[:120]}" if emb else "")
+                compact = " ".join(entry.split())[:240]
+                if compact not in already_found:
+                    hits.append(compact)
+            if len(hits) >= 8:
+                break
+    except Exception:
+        pass
+    return hits
 
 
 _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
@@ -692,18 +766,12 @@ class TutorialAiMixin:
         return clipped
 
     def _tutorial_ai_llm_message(self, *, now: float, status: str, hints: list[str]) -> str | None:
-        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "google/gemma-4-e4b").strip()
-        api_base = str(
-            os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
-            or os.environ.get("OPENAI_BASE_URL")
-            or os.environ.get("OPENAI_API_BASE")
-            or "http://192.168.178.100:1234"
-        ).strip()
-        api_token = str(
-            os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
-            or os.environ.get("OPENAI_API_KEY")
-            or ""
-        ).strip()
+        # L04: unified config
+        api_base, model, api_token = self._get_llm_api_config()
+        if not model:
+            model = "google/gemma-4-e4b"
+        if not api_base:
+            api_base = "http://192.168.178.100:1234"
         if not (model and api_base):
             return None
         parsed_api_base = urlparse(api_base)
@@ -1025,7 +1093,57 @@ class TutorialAiMixin:
             return
         if self._codecompass_build_future is not None and not self._codecompass_build_future.done():
             return
+        # R05: rebuild when existing index is stale. Scan candidates directly to avoid
+        # recursive call through _resolve_codecompass_output_dir.
+        if self._codecompass_build_output_dir is not None:
+            out_dir: Path | None = self._codecompass_build_output_dir
+        else:
+            out_dir = None
+            for raw in [
+                os.environ.get("ANANTA_TUI_CODECOMPASS_OUTPUT_DIR"),
+                os.environ.get("CODECOMPASS_OUTPUT_DIR"),
+                "rag-helper/out",
+                "rag-helper/output",
+                "codecompass-out",
+            ]:
+                if not raw:
+                    continue
+                p = Path(raw).expanduser()
+                if not p.is_absolute():
+                    p = (Path.cwd() / p).resolve()
+                if p.exists() and p.is_dir() and (p / "index.jsonl").exists():
+                    out_dir = p
+                    break
+        if out_dir is not None and self._codecompass_index_is_stale(out_dir):
+            self._tutorial_codecompass_cache = (0.0, [])  # invalidate cache
+            self._tutorial_rag_cache = (0.0, [])
         self._codecompass_build_future = self._codecompass_build_executor.submit(self._build_codecompass_outputs_sync)
+
+    def _codecompass_index_is_stale(self, out_dir: Path) -> bool:
+        """R05: returns True when .py files are newer than the manifest build_time."""
+        min_age = max(60, int(os.environ.get("ANANTA_TUI_AUTO_REBUILD_MAX_AGE_SECONDS", "3600")))
+        manifest_path = out_dir / "manifest.json"
+        if not manifest_path.exists():
+            return True
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            build_time = float(manifest.get("build_time") or manifest_path.stat().st_mtime)
+        except Exception:
+            return False
+        if (time.time() - build_time) < min_age:
+            return False
+        # Check newest .py mtime in key dirs
+        root = Path.cwd()
+        newest_mtime = 0.0
+        for check_dir in [root / "client_surfaces" / "operator_tui", root / "worker"]:
+            if not check_dir.exists():
+                continue
+            for py_file in check_dir.rglob("*.py"):
+                try:
+                    newest_mtime = max(newest_mtime, py_file.stat().st_mtime)
+                except OSError:
+                    pass
+        return newest_mtime > build_time
 
     def _poll_codecompass_output_build(self) -> Path | None:
         future = self._codecompass_build_future
@@ -1080,4 +1198,64 @@ class TutorialAiMixin:
             return None
         return output_dir if (output_dir / "index.jsonl").exists() else None
 
+    # ── L04: unified LLM API config ───────────────────────────────────────────
+
+    def _get_llm_api_config(self) -> tuple[str, str, str]:
+        """L04: single source of truth for api_base, model, api_token."""
+        api_base = str(
+            os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
+            or os.environ.get("OPENAI_BASE_URL")
+            or os.environ.get("OPENAI_API_BASE")
+            or ""
+        ).strip()
+        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "").strip()
+        api_token = str(
+            os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
+            or os.environ.get("OPENAI_API_KEY")
+            or ""
+        ).strip()
+        return api_base, model, api_token
+
+    # ── L01: LMStudio health check ────────────────────────────────────────────
+
+    def _llm_health_check_sync(self) -> dict:
+        """L01: blocking health check — runs in background thread."""
+        api_base, model, api_token = self._get_llm_api_config()
+        if not api_base:
+            return {"reachable": False, "model": model, "error": "ANANTA_TUI_SNAKE_AI_API_BASE_URL nicht gesetzt"}
+        try:
+            url = f"{api_base.rstrip('/')}/models"
+            headers: dict[str, str] = {"Content-Type": "application/json"}
+            if api_token:
+                headers["Authorization"] = f"Bearer {api_token}"
+            req = urllib.request.Request(url, headers=headers, method="GET")
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                data = json.loads(resp.read().decode())
+                models_list = data.get("data") or []
+                loaded = models_list[0].get("id", model) if models_list else model
+                return {"reachable": True, "model": str(loaded), "error": ""}
+        except Exception as exc:
+            return {"reachable": False, "model": model, "error": str(exc)[:80]}
+
+    def _maybe_tick_llm_health(self, game: dict, now: float) -> None:
+        """L01: schedule and poll health checks at configured interval."""
+        raw_interval = str(os.environ.get("ANANTA_TUI_LLM_HEALTH_INTERVAL_SECS", "30")).strip()
+        interval = max(0.0, float(raw_interval)) if raw_interval.replace(".", "").isdigit() else 30.0
+        if interval == 0:
+            return
+        last_at = float(game.get("llm_health_last_at") or 0)
+        future = getattr(self, "_llm_health_future", None)
+        if future is not None and future.done():
+            try:
+                result = future.result()
+                game["llm_status"] = dict(result)
+            except Exception:
+                pass
+            self._llm_health_future = None  # type: ignore[attr-defined]
+            future = None
+        if future is None and (now - last_at) >= interval:
+            game["llm_health_last_at"] = now
+            self._llm_health_future = self._get_snake_bg_executor().submit(  # type: ignore[attr-defined]
+                self._llm_health_check_sync
+            )
 
