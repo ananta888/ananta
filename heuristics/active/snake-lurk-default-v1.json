@@ -1,0 +1,20 @@
+{
+  "heuristic_id": "snake-lurk-default",
+  "version": "1.0.0",
+  "domain": "snake_tui",
+  "strategy_kind": "lurk_near",
+  "description": "Lauer-Modus: Snake bleibt in der Nähe ohne hektische Bewegung. Kein AI-Request pro Tick.",
+  "deterministic": true,
+  "safety_class": "bounded",
+  "capabilities": ["read_local_context"],
+  "inputs": ["cursor_position", "board_dimensions", "follow_state", "recent_events"],
+  "outputs": ["suggested_motion", "follow_mode"],
+  "parameters": {
+    "lurk_threshold_px": 3,
+    "lurk_idle_seconds": 2.0,
+    "lurk_update_interval_ms": 500
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Initialer Starter aus ai_snake_follow.py Lurk-Logik"}
+  ]
+}

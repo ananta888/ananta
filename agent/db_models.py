@@ -753,6 +753,22 @@ class WorkerSlotLeaseDB(SQLModel, table=True):
     lease_metadata: dict = Field(default={}, sa_column=Column(JSON))
 
 
+class HeuristicDecisionLeaseDB(SQLModel, table=True):
+    __tablename__ = "heuristic_decision_leases"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    heuristic_id: str = Field(index=True)
+    version: str = Field(default="1.0.0")
+    domain: str = Field(index=True)
+    status: str = Field(default="active", index=True)  # active|expired|superseded|released
+    selected_by: str = Field(default="heuristic_self")  # ai|heuristic_self|operator
+    context_hash: str = Field(default="", index=True)
+    ttl_seconds: float = Field(default=7.0)
+    reason_codes: List[str] = Field(default=[], sa_column=Column(JSON))
+    acquired_at: float = Field(default_factory=time.time, index=True)
+    deadline_at: float = Field(default_factory=lambda: time.time() + 7, index=True)
+    released_at: Optional[float] = Field(default=None, index=True)
+
+
 class EvolutionRunDB(SQLModel, table=True):
     __tablename__ = "evolution_runs"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

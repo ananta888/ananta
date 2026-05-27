@@ -1,0 +1,27 @@
+{
+  "heuristic_id": "chat-codecompass-select-default",
+  "version": "1.0.0",
+  "domain": "chat_codecompass",
+  "strategy_kind": "context_selection",
+  "description": "Selektiert passende CodeCompass-Quellen ohne AI. Ranking: selected_artifacts > active_goal > local_project > helpcenter > technical_sourcepack > wikipedia. Basiert auf ai_snake_context.py build_context_payload().",
+  "deterministic": true,
+  "safety_class": "bounded",
+  "capabilities": ["read_local_context", "read_artifact_refs", "read_active_task", "send_to_chat"],
+  "inputs": ["query", "selected_artifacts", "active_goal_id", "active_task_id", "allowed_source_scopes"],
+  "outputs": ["answer_blocks", "selected_context_refs", "no_good_match"],
+  "parameters": {
+    "max_refs": 5,
+    "min_confidence": 0.3,
+    "ranking_order": [
+      "selected_artifacts",
+      "active_goal",
+      "local_project",
+      "helpcenter",
+      "technical_sourcepack",
+      "wikipedia"
+    ]
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Initialer Starter aus ai_snake_context.py build_context_payload()"}
+  ]
+}
