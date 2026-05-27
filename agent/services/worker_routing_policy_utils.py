@@ -109,3 +109,36 @@ def derive_research_specialization(
         if specialization in normalized_required:
             return specialization
     return "research" if "research" in normalized_required else None
+
+
+# ── Heuristic routing policy ─────────────────────────────────────────────────
+
+_HEURISTIC_CONTROL_BLOCKED_KINDS = frozenset({"opencode", "opencode-worker"})
+_HEURISTIC_CONTROL_ROLES = frozenset({"control_worker", "heuristic_controller", "runtime_mode"})
+
+
+def check_heuristic_routing(
+    worker_kind: str,
+    role: str,
+    *,
+    operator_override: bool = False,
+    human_approval_ref: str | None = None,
+) -> tuple[bool, str]:
+    """Return (allowed, reason_code) for heuristic runtime routing.
+
+    OpenCode as control_worker is always blocked.
+    Code-change tasks require human_approval_ref OR operator_override.
+    """
+    kind = str(worker_kind or "").strip().lower()
+    r = str(role or "").strip().lower()
+
+    if kind in _HEURISTIC_CONTROL_BLOCKED_KINDS and r in _HEURISTIC_CONTROL_ROLES:
+        return False, "opencode_not_allowed_as_heuristic_controller"
+
+    if r == "code_implementation_worker" and kind in _HEURISTIC_CONTROL_BLOCKED_KINDS:
+        return False, "opencode_not_allowed_as_heuristic_controller"
+
+    if r in ("implement_heuristic", "code_change") and not operator_override and not human_approval_ref:
+        return False, "heuristic_code_change_requires_approval"
+
+    return True, "allowed"

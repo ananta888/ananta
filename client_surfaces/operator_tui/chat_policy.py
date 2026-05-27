@@ -185,3 +185,85 @@ def system_message_for_deny(decision: dict[str, Any]) -> str:
     reason = str(decision.get("reason_code") or "policy_deny")
     action = str(decision.get("action") or "?")
     return f"* [system] policy deny: {action} → {reason}"
+
+
+def chat_decision_to_decision_result(decision: dict[str, Any]) -> Any:
+    """Adapter: konvertiert chat_policy decision-dict zu DecisionResult."""
+    from agent.services.heuristic_runtime.decision_result import DecisionResult
+    allowed = str(decision.get("decision") or "deny") == "allow"
+    reason_code = str(decision.get("reason_code") or "")
+    action = str(decision.get("action") or "no_action")
+    if not allowed:
+        return DecisionResult.policy_denied(reason_code or "policy_blocked")
+    action_kind = "send" if action in {"send_hub", "send_ai"} else action
+    return DecisionResult(
+        action_kind=action_kind,
+        confidence=1.0,
+        source="heuristic",
+        reason_codes=[reason_code] if reason_code and reason_code != "allowed" else [],
+    )
+
+
+# ── HallucinationGuardrail ────────────────────────────────────────────────────
+
+from dataclasses import dataclass, field as _field
+
+
+@dataclass
+class GuardrailResult:
+    passed: bool
+    reason_codes: list[str] = _field(default_factory=list)
+    blocked_refs: list[str] = _field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"passed": self.passed, "reason_codes": list(self.reason_codes),
+                "blocked_refs": list(self.blocked_refs)}
+
+
+def validate_heuristic_answer(answer_block: Any, allowed_refs: list[str]) -> GuardrailResult:
+    """Validate a ChatAnswerBlock against the allowed context refs.
+
+    Rules:
+      1. All source_refs must come from allowed_refs — no invented filenames/symbols.
+      2. If no refs (no_good_match), result_text must not contain concrete file/symbol
+         patterns (path-like or PascalCase symbols with dots).
+      3. Sensitive patterns in result_text → block.
+    """
+    import re
+
+    reason_codes: list[str] = []
+    blocked_refs: list[str] = []
+
+    source_refs = [r.get("ref") if isinstance(r, dict) else getattr(r, "ref", str(r))
+                   for r in (getattr(answer_block, "source_refs", None) or [])]
+
+    allowed_set = set(allowed_refs)
+
+    # Rule 1 — all source_refs must be in allowed_refs
+    for ref in source_refs:
+        if ref not in allowed_set:
+            reason_codes.append(f"hallucinated_ref:{ref}")
+            blocked_refs.append(ref)
+
+    # Rule 2 — no_good_match: result_text must not contain concrete refs
+    result_text = str(getattr(answer_block, "result_text", "") or "")
+    if not source_refs:
+        _PATH_RE = re.compile(r"[a-zA-Z0-9_/\\]+\.[a-zA-Z]{2,5}")
+        _SYMBOL_RE = re.compile(r"\b[A-Z][a-zA-Z0-9]+\.[a-zA-Z]+\b")
+        if _PATH_RE.search(result_text) or _SYMBOL_RE.search(result_text):
+            reason_codes.append("no_good_match_but_concrete_ref_in_text")
+
+    # Rule 3 — sensitive content in result_text
+    if _is_sensitive(result_text):
+        reason_codes.append("sensitive_content_in_result_text")
+        result_text = _redact(result_text)
+
+    # Uncertainty note: check if 0 < confidence < 0.7 has uncertainty_note
+    # confidence=0.0 is the explicit no_good_match signal, not a low-quality answer
+    confidence = float(getattr(answer_block, "confidence", 1.0))
+    uncertainty_note = str(getattr(answer_block, "uncertainty_note", "") or "")
+    if 0.0 < confidence < 0.7 and not uncertainty_note:
+        reason_codes.append("low_confidence_without_uncertainty_note")
+
+    passed = len(reason_codes) == 0 and len(blocked_refs) == 0
+    return GuardrailResult(passed=passed, reason_codes=reason_codes, blocked_refs=blocked_refs)

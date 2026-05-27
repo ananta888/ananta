@@ -36,6 +36,55 @@ from agent.services.heuristic_runtime.snake_rules import build_snake_rule_chain
 from agent.services.heuristic_runtime.state_machine import SnakeStateMachine, FallbackActiveState
 
 _AI_TIMEOUT_SECONDS = 2.5
+_LURK_IDLE_SECONDS = 3.0        # cursor stable for this long → enter lurk
+_LURK_UPDATE_INTERVAL_MS = 500  # max 1 position update per this interval in lurk mode
+_LURK_THRESHOLD_PX = 5          # cursor delta below this is considered "stable"
+
+
+# ── Lurk state manager (T04.04) ───────────────────────────────────────────────
+
+@dataclass
+class LurkStateManager:
+    """Tracks idle time and rate-limits lurk updates.
+
+    idle_since: timestamp when cursor last had a significant move.
+    last_lurk_update: timestamp of the last lurk position update emitted.
+    """
+    idle_since: float | None = None
+    last_lurk_update: float = 0.0
+    lurk_update_interval_ms: float = _LURK_UPDATE_INTERVAL_MS
+    lurk_idle_seconds: float = _LURK_IDLE_SECONDS
+    lurk_threshold_px: int = _LURK_THRESHOLD_PX
+
+    def record_motion(self, dx: int, dy: int, *, now: float | None = None) -> None:
+        now = now or time.time()
+        magnitude = abs(dx) + abs(dy)
+        if magnitude >= self.lurk_threshold_px:
+            self.idle_since = None  # reset idle on significant motion
+        elif self.idle_since is None:
+            self.idle_since = now
+
+    def should_lurk(self, *, now: float | None = None) -> bool:
+        """True if cursor has been stable for lurk_idle_seconds."""
+        if self.idle_since is None:
+            return False
+        return (now or time.time()) - self.idle_since >= self.lurk_idle_seconds
+
+    def can_emit_lurk_update(self, *, now: float | None = None) -> bool:
+        """Rate-limit: at most 1 lurk position update per lurk_update_interval_ms."""
+        now = now or time.time()
+        interval_s = self.lurk_update_interval_ms / 1000.0
+        if (now - self.last_lurk_update) >= interval_s:
+            self.last_lurk_update = now
+            return True
+        return False
+
+    @property
+    def tui_status_indicator(self) -> str:
+        """Returns '[L]' when in lurk mode, '[F]' when in fallback follow, '' otherwise."""
+        if self.idle_since is not None:
+            return "[L]"
+        return ""
 
 
 # ── Fallback commands ─────────────────────────────────────────────────────────
@@ -82,6 +131,7 @@ class SnakeDecisionManager:
         self._state_machine = SnakeStateMachine()
         self._metrics = DecisionMetricsAccumulator()
         self._last_ai_request_at: float | None = None
+        self._lurk = LurkStateManager()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -113,6 +163,10 @@ class SnakeDecisionManager:
 
         # Run rule chain with current context
         result = self._chain.run(ctx)
+
+        # Lurk rate-limiting: if result is lurk, check interval throttle
+        if result.action_kind == "lurk" and not self._lurk.can_emit_lurk_update():
+            result = DecisionResult.heuristic_lurk(strategy_id=result.strategy_id)
 
         # Enrich trace
         if lease:
@@ -149,6 +203,21 @@ class SnakeDecisionManager:
     @property
     def is_fallback_active(self) -> bool:
         return self._state_machine.state_name == "fallback_active"
+
+    def record_motion(self, dx: int, dy: int) -> None:
+        """Feed cursor/snake motion so lurk-idle tracking stays accurate."""
+        self._lurk.record_motion(dx, dy)
+
+    @property
+    def tui_status_indicator(self) -> str:
+        """Status badge for TUI: '[L]' lurk, '[F]' fallback, ''."""
+        if self._state_machine.state_name == "fallback_active":
+            return "[F]"
+        return self._lurk.tui_status_indicator
+
+    @property
+    def lurk_state(self) -> LurkStateManager:
+        return self._lurk
 
     def get_metrics(self) -> dict[str, Any]:
         return {s: m.to_dict() for s, m in self._metrics.all().items()}

@@ -4,11 +4,13 @@ from __future__ import annotations
 import time
 from typing import List
 
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from agent.database import engine
 from agent.db_models import DecisionTraceDB
 from agent.services.heuristic_runtime.decision_trace import DecisionTrace
+
+_SECONDS_PER_DAY = 86_400.0
 
 
 class DecisionTraceRepository:
@@ -80,3 +82,35 @@ class DecisionTraceRepository:
         for r in rows:
             counts[r.source] = counts.get(r.source, 0) + 1
         return counts
+
+    def get_recent(self, surface: str, n: int) -> List[DecisionTraceDB]:
+        return self.list_by_surface(surface, limit=n)
+
+    def get_expired_lease_traces(
+        self,
+        surface: str,
+        *,
+        hours_back: float = 24.0,
+    ) -> List[DecisionTraceDB]:
+        since_ts = time.time() - hours_back * 3600.0
+        with Session(engine) as session:
+            stmt = (
+                select(DecisionTraceDB)
+                .where(DecisionTraceDB.surface == surface)
+                .where(DecisionTraceDB.started_at >= since_ts)
+                .where(DecisionTraceDB.fallback_reason.isnot(None))
+            )
+            rows = list(session.exec(stmt).all())
+        return [
+            r for r in rows
+            if r.fallback_reason and ("ttl" in r.fallback_reason or "expired" in r.fallback_reason
+                                       or "timeout" in r.fallback_reason)
+        ]
+
+    def cleanup_old_traces(self, *, retention_days: int = 7) -> int:
+        cutoff = time.time() - retention_days * _SECONDS_PER_DAY
+        with Session(engine) as session:
+            stmt = delete(DecisionTraceDB).where(DecisionTraceDB.started_at < cutoff)
+            result = session.exec(stmt)
+            session.commit()
+            return result.rowcount or 0

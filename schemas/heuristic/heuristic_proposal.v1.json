@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "heuristic_proposal.v1",
+  "title": "HeuristicProposal",
+  "type": "object",
+  "required": ["proposal_id", "proposed_by", "domain", "strategy_kind", "capabilities", "requested_ttl_seconds", "description"],
+  "properties": {
+    "proposal_id": {"type": "string", "minLength": 1},
+    "proposed_by": {"type": "string", "enum": ["ananta-worker", "operator", "system"]},
+    "domain": {
+      "type": "string",
+      "enum": ["tui_snake", "eclipse_snake", "chat_codecompass"]
+    },
+    "strategy_kind": {"type": "string", "minLength": 1},
+    "description": {"type": "string", "minLength": 1},
+    "capabilities": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "inputs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "outputs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "parameters": {
+      "type": "object"
+    },
+    "requested_ttl_seconds": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 60.0
+    },
+    "safety_class": {
+      "type": "string",
+      "enum": ["low_risk", "bounded", "safety_critical", "elevated"]
+    },
+    "deterministic": {"type": "boolean"},
+    "base_heuristic_ref": {
+      "type": ["string", "null"],
+      "description": "heuristic_id of the heuristic this proposal is based on"
+    },
+    "simulation_result": {
+      "type": ["object", "null"],
+      "description": "SimulationReport summary if pre-simulated"
+    },
+    "human_approval_ref": {
+      "type": ["string", "null"],
+      "description": "Audit event ID for heuristic_proposal_approved"
+    },
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"}
+  },
+  "additionalProperties": false
+}
