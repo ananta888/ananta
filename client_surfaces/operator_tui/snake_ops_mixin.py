@@ -196,7 +196,10 @@ class SnakeOpsMixin:
         game["selection_frame_mode"] = False
         game["selection_frame_anchor"] = None
         game["last_move"] = time.monotonic()
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an"))
+        # Enable tutorial AI snake by default when entering snake mode
+        if not game.get("tutorial_mode"):
+            game["tutorial_mode"] = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {"0", "false", "no", "off"}
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an | U=tutorial-AI an/aus"))
 
     def _toggle_tutorial_ai_mode(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
