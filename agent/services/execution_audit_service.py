@@ -99,6 +99,117 @@ class ExecutionAuditService:
             details=details or {},
         )
 
+    def emit_write_operation(
+        self,
+        *,
+        trace_id: str | None,
+        task_id: str | None,
+        goal_id: str | None,
+        target_path_class: str,
+        write_reason: str,
+        approval_source: str,
+        verification_result: str,
+        risk_level: str = "low",
+        actor_role: str = "system",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self.emit(
+            operation_type="write_operation",
+            outcome="success" if str(verification_result or "").strip().lower() in {"verified", "passed", "ok"} else "pending",
+            trace_id=trace_id,
+            goal_id=goal_id,
+            task_id=task_id,
+            actor="agent",
+            actor_role=actor_role,
+            policy_version="kritis-audit-v1",
+            target={
+                "target_path_class": str(target_path_class or "unknown"),
+                "risk_level": str(risk_level or "low"),
+            },
+            details={
+                "write_reason": str(write_reason or "unknown"),
+                "approval_source": str(approval_source or "unknown"),
+                "verification_result": str(verification_result or "unknown"),
+                **dict(details or {}),
+            },
+        )
+
+    def emit_approval_event(
+        self,
+        *,
+        trace_id: str | None,
+        task_id: str | None,
+        goal_id: str | None,
+        action: str,
+        approver_identity: str,
+        approval_scope: str,
+        approval_source: str,
+        write_allowed: bool,
+        actor_role: str = "system",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        normalized_action = str(action or "unknown").strip().lower()
+        if normalized_action not in {"approve", "reject", "expired"}:
+            normalized_action = "unknown"
+        self.emit(
+            operation_type="approval_event",
+            outcome=normalized_action,
+            trace_id=trace_id,
+            goal_id=goal_id,
+            task_id=task_id,
+            actor=approver_identity or "unknown",
+            actor_role=actor_role,
+            policy_version="kritis-audit-v1",
+            target={"approval_scope": str(approval_scope or "task")},
+            details={
+                "approval_source": str(approval_source or "unknown"),
+                "write_allowed": bool(write_allowed),
+                **dict(details or {}),
+            },
+        )
+
+    def emit_workflow_transition(
+        self,
+        *,
+        trace_id: str | None,
+        task_id: str | None,
+        goal_id: str | None,
+        from_state: str,
+        to_state: str,
+        trigger: str,
+        policy_context: str = "default",
+        actor_role: str = "system",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        f = str(from_state or "").strip().lower() or "unknown"
+        t = str(to_state or "").strip().lower() or "unknown"
+        expected = {
+            ("todo", "in_progress"),
+            ("in_progress", "completed"),
+            ("in_progress", "failed"),
+            ("todo", "blocked"),
+            ("blocked", "todo"),
+            ("failed", "completed"),
+        }
+        unexpected = (f, t) not in expected
+        self.emit(
+            operation_type="workflow_transition",
+            outcome="unexpected" if unexpected else "success",
+            trace_id=trace_id,
+            goal_id=goal_id,
+            task_id=task_id,
+            actor="workflow_engine",
+            actor_role=actor_role,
+            policy_version="kritis-audit-v1",
+            target={"from_state": f, "to_state": t},
+            details={
+                "trigger": str(trigger or "unknown"),
+                "policy_context": str(policy_context or "default"),
+                "unexpected_transition": unexpected,
+                **dict(details or {}),
+            },
+        )
+
     def schema(self) -> dict[str, Any]:
         return dict(EXECUTION_AUDIT_EVENT_SCHEMA)
 

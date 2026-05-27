@@ -102,7 +102,7 @@
         {
           "id": "K1-AUD-T07",
           "title": "Write operation audit detail add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Every file/code/artifact mutation emits structured audit detail.",
@@ -113,7 +113,7 @@
         {
           "id": "K1-AUD-T08",
           "title": "Approval event audit integration add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Approvals, rejections and expired approvals are fully audited.",
@@ -124,7 +124,7 @@
         {
           "id": "K1-AUD-T09",
           "title": "Workflow transition audit events add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Critical workflow state transitions emit structured audit records.",
@@ -135,7 +135,7 @@
         {
           "id": "K1-AUD-T10",
           "title": "Audit redaction rules harden",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Audit logs respect central redaction policies.",
@@ -146,7 +146,7 @@
         {
           "id": "K1-AUD-T11",
           "title": "Audit retention and storage policy define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Retention periods and storage classes are defined for audit data.",

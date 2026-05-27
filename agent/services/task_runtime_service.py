@@ -275,6 +275,33 @@ def update_local_task_status(
         append_task_history_event(task, event_type=event_type, actor=event_actor, details=event_details or {})
 
     task_repo.save(task)
+    if old_status != normalized_status:
+        from agent.services.execution_audit_service import get_execution_audit_service
+
+        trace_id = str(getattr(task, "goal_trace_id", "") or "").strip() or None
+        get_execution_audit_service().emit_workflow_transition(
+            trace_id=trace_id,
+            task_id=tid,
+            goal_id=getattr(task, "goal_id", None),
+            from_state=str(old_status or "unknown"),
+            to_state=normalized_status,
+            trigger=str(event_type or "status_update"),
+            policy_context="task_runtime_state_machine",
+            actor_role="hub",
+            details={"force": bool(force)},
+        )
+        get_execution_audit_service().emit_write_operation(
+            trace_id=trace_id,
+            task_id=tid,
+            goal_id=getattr(task, "goal_id", None),
+            target_path_class="task_state",
+            write_reason=str(event_type or "status_update"),
+            approval_source="task_state_machine",
+            verification_result="verified" if normalized_status in _TERMINAL_TASK_STATUSES else "pending",
+            risk_level="low" if normalized_status in {"todo", "in_progress", "completed"} else "high",
+            actor_role="hub",
+            details={"from_status": str(old_status or ""), "to_status": normalized_status},
+        )
     notify_task_update(tid)
     try:
         from agent.routes.tasks.autopilot import request_autopilot_wake
