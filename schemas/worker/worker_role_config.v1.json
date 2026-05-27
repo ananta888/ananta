@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "worker_role_config.v1",
+  "title": "WorkerRoleConfig",
+  "description": "Konfiguriert Worker-Rollen für das Heuristic-Runtime-System",
+  "type": "object",
+  "properties": {
+    "runtime_mode": {
+      "type": "string",
+      "enum": ["local", "hybrid"],
+      "default": "local",
+      "description": "local = Heuristik läuft immer lokal deterministisch. hybrid = AI kann Heuristik wählen."
+    },
+    "control_worker": {
+      "type": "string",
+      "default": "ananta-worker",
+      "description": "Worker der Heuristik-Leases auswählen darf. Darf NICHT opencode sein."
+    },
+    "evolution_worker": {
+      "type": "string",
+      "default": "ananta-worker",
+      "description": "Worker der Proposals und Reevaluation durchführt. Darf NICHT opencode sein."
+    },
+    "code_implementation_worker": {
+      "type": "string",
+      "default": "opencode",
+      "description": "Worker für genehmigte Codeänderungen (neue HeuristicDefinition, Tests)."
+    },
+    "auto_activation": {
+      "type": "boolean",
+      "default": false,
+      "description": "Muss immer false sein. Technisch erzwungen durch ActivationGate."
+    },
+    "domain_overrides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "ttl_min_seconds": {"type": "number", "minimum": 1, "maximum": 60},
+          "ttl_max_seconds": {"type": "number", "minimum": 1, "maximum": 60},
+          "ttl_default_seconds": {"type": "number", "minimum": 1, "maximum": 60}
+        }
+      },
+      "description": "Domain-spezifische TTL-Overrides. Keys: snake_tui, snake_eclipse, chat_codecompass."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "owner": "Peter Stuiber",
   "track": "heuristic-runtime-registry-snake-chat-ai-evolution-master",
   "purpose": "Konsolidierte Master-TODO für alle Heuristik-Themen: AI-Snake-Fallback, Chat-CodeCompass-Fallback, AI-assisted Heuristik-Evolution und Worker-Routing.",
@@ -202,7 +202,7 @@
     {
       "id": "T01.01",
       "title": "Heuristic Runtime Policy definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "policy",
@@ -222,7 +222,7 @@
     {
       "id": "T01.02",
       "title": "WorkerRoleConfig-v1 definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
@@ -244,7 +244,7 @@
     {
       "id": "T01.03",
       "title": "HeuristicDefinition-v1 und HeuristicRegistry implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
@@ -266,7 +266,7 @@
     {
       "id": "T01.04",
       "title": "Heuristic Storage Layout anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "structure",
@@ -287,7 +287,7 @@
     {
       "id": "T01.05",
       "title": "Heuristic Capability Boundaries definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -309,7 +309,7 @@
     {
       "id": "T02.01",
       "title": "Gemeinsamen DecisionContext definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -330,7 +330,7 @@
     {
       "id": "T02.02",
       "title": "Gemeinsames DecisionResult definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -350,7 +350,7 @@
     {
       "id": "T02.03",
       "title": "HeuristicDecisionLease-v1 mit TTL definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
@@ -372,7 +372,7 @@
     {
       "id": "T02.04",
       "title": "TTL Reevaluation implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "runtime",
@@ -393,7 +393,7 @@
     {
       "id": "T03.01",
       "title": "Strategy Pattern fuer Heuristik-Profile",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "behavioral-pattern",
@@ -1233,5 +1233,6 @@
         "log_audit() (agent/common/audit.py) fuer Review-Workflow Audit-Events."
       ]
     }
-  ]
+  ],
+  "last_updated": "2026-05-27"
 }

@@ -1,0 +1,19 @@
+{
+  "heuristic_id": "snake-eclipse-zone-default",
+  "version": "1.0.0",
+  "domain": "snake_eclipse",
+  "strategy_kind": "zone_based_follow",
+  "description": "Zone-basierte Prediction für Eclipse: problems→explain, git_compare→diff, editor→follow, console→lurk. Basiert auf AnantaSnakePredictionRuntime.java.",
+  "deterministic": true,
+  "safety_class": "readonly",
+  "capabilities": ["read_local_context"],
+  "inputs": ["ide_zone", "active_file", "follow_state"],
+  "outputs": ["suggested_motion", "intent_kind", "follow_mode"],
+  "parameters": {
+    "zones": ["problems", "git_compare", "editor", "console"],
+    "default_zone": "editor"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Portiert aus AnantaSnakePredictionRuntime.java Zone-Logik"}
+  ]
+}

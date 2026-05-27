@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_context.v1",
+  "title": "DecisionContext",
+  "type": "object",
+  "required": ["source_surface", "ai_status"],
+  "properties": {
+    "source_surface": {
+      "type": "string",
+      "enum": ["tui_snake", "eclipse_snake", "chat_codecompass"]
+    },
+    "active_goal_id": {"type": ["string", "null"]},
+    "active_task_id": {"type": ["string", "null"]},
+    "selected_artifacts": {
+      "type": "array",
+      "items": {"type": "string"},
+      "maxItems": 5
+    },
+    "active_panel": {"type": ["string", "null"]},
+    "recent_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "event_id": {"type": "string"},
+          "kind": {"type": "string"},
+          "normalized_value": {"type": "string"},
+          "ref_id": {"type": ["string", "null"]},
+          "timestamp": {"type": "number"}
+        }
+      },
+      "maxItems": 20
+    },
+    "allowed_source_scopes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "ai_status": {
+      "type": "string",
+      "enum": ["available", "timeout", "offline", "invalid"]
+    },
+    "policy_state": {"type": ["string", "null"]},
+    "context_hash": {"type": "string"}
+  },
+  "additionalProperties": false
+}

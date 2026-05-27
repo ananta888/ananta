@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "heuristic_decision_lease.v1",
+  "title": "HeuristicDecisionLease",
+  "type": "object",
+  "required": ["id", "heuristic_id", "version", "domain", "status", "selected_by", "context_hash", "ttl_seconds", "acquired_at", "deadline_at"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "heuristic_id": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "domain": {
+      "type": "string",
+      "enum": ["tui_snake", "eclipse_snake", "chat_codecompass"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "expired", "superseded", "released"]
+    },
+    "selected_by": {
+      "type": "string",
+      "enum": ["ai", "heuristic_self", "operator"]
+    },
+    "context_hash": {"type": "string"},
+    "ttl_seconds": {"type": "number", "minimum": 1.0, "maximum": 60.0},
+    "reason_codes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "acquired_at": {"type": "number"},
+    "deadline_at": {"type": "number"},
+    "released_at": {"type": ["number", "null"]}
+  },
+  "additionalProperties": false
+}

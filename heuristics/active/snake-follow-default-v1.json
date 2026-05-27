@@ -1,0 +1,20 @@
+{
+  "heuristic_id": "snake-follow-default",
+  "version": "1.0.0",
+  "domain": "snake_tui",
+  "strategy_kind": "follow_with_distance",
+  "description": "Folgt dem Cursor mit konfiguriertem Abstand. Basiert auf ai_snake_follow.py step_follow_state().",
+  "deterministic": true,
+  "safety_class": "bounded",
+  "capabilities": ["read_local_context", "read_active_task"],
+  "inputs": ["cursor_position", "board_dimensions", "follow_state"],
+  "outputs": ["suggested_motion", "follow_mode"],
+  "parameters": {
+    "follow_distance": 4,
+    "linger_distance": 6,
+    "speed_factor": 0.45
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Initialer Starter aus ai_snake_follow.py"}
+  ]
+}

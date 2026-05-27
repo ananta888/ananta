@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "description": "Heuristic Registry Index — Quelle für HeuristicRegistryService",
+  "heuristics": [
+    {
+      "heuristic_id": "snake-follow-default",
+      "version": "1.0.0",
+      "domain": "snake_tui",
+      "status": "active",
+      "file": "active/snake-follow-default-v1.json",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake-lurk-default",
+      "version": "1.0.0",
+      "domain": "snake_tui",
+      "status": "active",
+      "file": "active/snake-lurk-default-v1.json",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "snake-eclipse-zone-default",
+      "version": "1.0.0",
+      "domain": "snake_eclipse",
+      "status": "active",
+      "file": "active/snake-eclipse-zone-default-v1.json",
+      "last_modified": "2026-05-27"
+    },
+    {
+      "heuristic_id": "chat-codecompass-select-default",
+      "version": "1.0.0",
+      "domain": "chat_codecompass",
+      "status": "active",
+      "file": "active/chat-codecompass-select-default-v1.json",
+      "last_modified": "2026-05-27"
+    }
+  ]
+}

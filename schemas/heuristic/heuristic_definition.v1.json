@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "heuristic_definition.v1",
+  "title": "HeuristicDefinition",
+  "type": "object",
+  "required": ["heuristic_id", "version", "domain", "strategy_kind", "deterministic", "safety_class", "capabilities", "inputs", "outputs"],
+  "properties": {
+    "heuristic_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Eindeutige ID, kebab-case"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantische Version"
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["snake_tui", "snake_eclipse", "chat_codecompass", "universal"]
+    },
+    "strategy_kind": {"type": "string"},
+    "description": {"type": "string"},
+    "deterministic": {
+      "type": "boolean",
+      "description": "true = kein LLM-Aufruf zur Laufzeit"
+    },
+    "safety_class": {
+      "type": "string",
+      "enum": ["readonly", "bounded", "elevated"],
+      "description": "readonly < bounded < elevated"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "read_local_context",
+          "read_artifact_refs",
+          "read_active_task",
+          "write_local_notes",
+          "send_to_chat",
+          "send_to_worker",
+          "request_context_extension",
+          "file_write",
+          "network_access",
+          "secret_access"
+        ]
+      }
+    },
+    "inputs": {"type": "array", "items": {"type": "string"}},
+    "outputs": {"type": "array", "items": {"type": "string"}},
+    "parameters": {"type": "object"},
+    "changelog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["version", "date", "note"],
+        "properties": {
+          "version": {"type": "string"},
+          "date": {"type": "string"},
+          "note": {"type": "string"}
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
