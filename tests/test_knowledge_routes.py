@@ -595,3 +595,107 @@ def test_knowledge_wiki_import_url_route_rejects_zim_prototype(client, admin_aut
 
     assert response.status_code == 400
     assert response.get_json()["message"] == "wiki_preset_not_supported"
+
+
+def test_knowledge_indices_list_route_returns_completed_entries(client, admin_auth_header, monkeypatch):
+    class StubIndexRepo:
+        def list_completed(self, *, source_scope=None):
+            assert source_scope == "wiki"
+            return [
+                SimpleNamespace(
+                    model_dump=lambda: {
+                        "id": "idx-1",
+                        "source_scope": "wiki",
+                        "index_metadata": {"security_metadata": {"sensitivity": "public"}},
+                    }
+                )
+            ]
+
+    monkeypatch.setattr("agent.routes.knowledge._knowledge_index_repo", lambda: StubIndexRepo())
+    response = client.get("/knowledge/indices?source_scope=wiki&limit=10", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["count"] == 1
+    assert payload["items"][0]["id"] == "idx-1"
+    assert payload["items"][0]["security_metadata"]["sensitivity"] == "public"
+
+
+def test_knowledge_index_security_metadata_update_route_patches_metadata(client, admin_auth_header, monkeypatch):
+    class StubIndex:
+        id = "idx-1"
+        source_scope = "artifact"
+        index_metadata = {"security_metadata": {"sensitivity": "internal_low"}}
+
+        def model_dump(self):
+            return {"id": self.id, "source_scope": self.source_scope, "index_metadata": self.index_metadata}
+
+    class StubRepo:
+        def __init__(self):
+            self.item = StubIndex()
+
+        def get_by_id(self, knowledge_index_id: str):
+            return self.item if knowledge_index_id == "idx-1" else None
+
+        def save(self, knowledge_index):
+            self.item = knowledge_index
+            return self.item
+
+    captured_audit: list[tuple[str, dict]] = []
+    monkeypatch.setattr("agent.routes.knowledge._knowledge_index_repo", lambda: StubRepo())
+    monkeypatch.setattr("agent.routes.knowledge.log_audit", lambda action, payload: captured_audit.append((action, payload)))
+
+    response = client.post(
+        "/knowledge/indices/idx-1/metadata/security",
+        headers=admin_auth_header,
+        json={"security_metadata_patch": {"sensitivity": "internal_high", "classification": "restricted"}},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]["knowledge_index"]
+    assert payload["security_metadata"]["sensitivity"] == "internal_high"
+    assert payload["security_metadata"]["classification"] == "restricted"
+    assert captured_audit and captured_audit[0][0] == "knowledge_security_metadata_updated"
+
+
+def test_knowledge_index_security_metadata_batch_route_supports_dry_run(client, admin_auth_header, monkeypatch):
+    class StubIndex:
+        def __init__(self, index_id: str):
+            self.id = index_id
+            self.source_scope = "artifact"
+            self.index_metadata = {"security_metadata": {"sensitivity": "internal_low"}}
+
+        def model_dump(self):
+            return {"id": self.id, "source_scope": self.source_scope, "index_metadata": self.index_metadata}
+
+    class StubRepo:
+        def list_completed(self, *, source_scope=None):
+            assert source_scope == "artifact"
+            return [StubIndex("idx-a"), StubIndex("idx-b")]
+
+        def get_by_id(self, knowledge_index_id: str):
+            return None
+
+        def save(self, knowledge_index):
+            return knowledge_index
+
+    captured_audit: list[tuple[str, dict]] = []
+    monkeypatch.setattr("agent.routes.knowledge._knowledge_index_repo", lambda: StubRepo())
+    monkeypatch.setattr("agent.routes.knowledge.log_audit", lambda action, payload: captured_audit.append((action, payload)))
+
+    response = client.post(
+        "/knowledge/indices/metadata/security/batch",
+        headers=admin_auth_header,
+        json={
+            "source_scope": "artifact",
+            "dry_run": True,
+            "security_metadata_patch": {"approval_class": "operator_review"},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["updated_count"] == 2
+    assert payload["dry_run"] is True
+    assert payload["updated_ids"] == ["idx-a", "idx-b"]
+    assert captured_audit and captured_audit[0][0] == "knowledge_security_metadata_batch_updated"

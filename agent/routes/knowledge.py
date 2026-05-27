@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import time
+
 from flask import Blueprint, g, request
 
 from agent.auth import check_auth
+from agent.common.audit import log_audit
 from agent.common.errors import BadRequestError, ConflictError, NotFoundError, api_response
 from agent.db_models import KnowledgeCollectionDB
 from agent.models import (
@@ -218,6 +221,57 @@ def _wiki_import_url_request() -> dict:
 def _current_username() -> str:
     user = getattr(g, "user", {}) or {}
     return str(user.get("sub") or user.get("username") or "anonymous")
+
+
+def _normalize_security_metadata_patch(raw: dict) -> dict:
+    if not isinstance(raw, dict):
+        raise BadRequestError("invalid_security_metadata_patch")
+    allowed_keys = {"classification", "source_origin", "sensitivity", "tenancy", "approval_class", "chunk_security_tags"}
+    patch: dict = {}
+    for key, value in raw.items():
+        normalized_key = str(key or "").strip()
+        if normalized_key not in allowed_keys:
+            continue
+        if normalized_key == "chunk_security_tags":
+            if not isinstance(value, list):
+                raise BadRequestError("invalid_chunk_security_tags")
+            patch[normalized_key] = [str(item).strip().lower() for item in value if str(item).strip()]
+        else:
+            patch[normalized_key] = str(value or "").strip().lower() or None
+    if not patch:
+        raise BadRequestError("empty_security_metadata_patch")
+    return patch
+
+
+def _apply_security_metadata_patch(*, knowledge_index, patch: dict, actor: str):
+    metadata = dict(getattr(knowledge_index, "index_metadata", None) or {})
+    security_metadata = dict(metadata.get("security_metadata") or {})
+    security_metadata.update({key: value for key, value in patch.items() if value is not None})
+    metadata["security_metadata"] = security_metadata
+    metadata["security_metadata_updated_by"] = actor
+    metadata["security_metadata_updated_at"] = time.time()
+    knowledge_index.index_metadata = metadata
+    return knowledge_index
+
+
+def _index_payload(item) -> dict:
+    payload = item.model_dump()
+    metadata = dict(payload.get("index_metadata") or {})
+    payload["security_metadata"] = dict(metadata.get("security_metadata") or {})
+    return payload
+
+
+def _metadata_batch_candidates(payload: dict) -> list:
+    ids = [str(item).strip() for item in list(payload.get("knowledge_index_ids") or []) if str(item).strip()]
+    candidates = []
+    if ids:
+        for index_id in ids:
+            row = _knowledge_index_repo().get_by_id(index_id)
+            if row is not None:
+                candidates.append(row)
+        return candidates
+    source_scope = str(payload.get("source_scope") or "").strip().lower() or None
+    return list(_knowledge_index_repo().list_completed(source_scope=source_scope))
 
 
 def _collection_payload(collection_id: str) -> dict | None:
@@ -665,6 +719,85 @@ def search_knowledge_collection(collection_id: str):
 @check_auth
 def get_knowledge_retrieval_preflight():
     return api_response(data=get_retrieval_service().get_source_preflight())
+
+
+@knowledge_bp.route("/knowledge/indices", methods=["GET"])
+@check_auth
+def list_knowledge_indices():
+    source_scope = str(request.args.get("source_scope") or "").strip().lower() or None
+    limit = max(1, min(int(request.args.get("limit") or 100), 500))
+    rows = list(_knowledge_index_repo().list_completed(source_scope=source_scope))[:limit]
+    return api_response(
+        data={
+            "items": [_index_payload(item) for item in rows],
+            "count": len(rows),
+            "source_scope": source_scope,
+            "limit": limit,
+        }
+    )
+
+
+@knowledge_bp.route("/knowledge/indices/<knowledge_index_id>/metadata/security", methods=["POST"])
+@check_auth
+def update_knowledge_index_security_metadata(knowledge_index_id: str):
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    patch = _normalize_security_metadata_patch(dict(payload.get("security_metadata_patch") or {}))
+    row = _knowledge_index_repo().get_by_id(knowledge_index_id)
+    if row is None:
+        raise NotFoundError("knowledge_index_not_found")
+    actor = _current_username()
+    saved = _knowledge_index_repo().save(_apply_security_metadata_patch(knowledge_index=row, patch=patch, actor=actor))
+    log_audit(
+        "knowledge_security_metadata_updated",
+        {
+            "knowledge_index_id": knowledge_index_id,
+            "source_scope": saved.source_scope,
+            "actor": actor,
+            "patch_keys": sorted(patch.keys()),
+        },
+    )
+    return api_response(data={"knowledge_index": _index_payload(saved)})
+
+
+@knowledge_bp.route("/knowledge/indices/metadata/security/batch", methods=["POST"])
+@check_auth
+def batch_update_knowledge_index_security_metadata():
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    patch = _normalize_security_metadata_patch(dict(payload.get("security_metadata_patch") or {}))
+    dry_run = bool(payload.get("dry_run", False))
+    limit = max(1, min(int(payload.get("limit") or 200), 1000))
+    candidates = _metadata_batch_candidates(payload)[:limit]
+    actor = _current_username()
+    updated_ids: list[str] = []
+    if not dry_run:
+        for row in candidates:
+            saved = _knowledge_index_repo().save(_apply_security_metadata_patch(knowledge_index=row, patch=patch, actor=actor))
+            updated_ids.append(str(saved.id))
+    else:
+        updated_ids = [str(getattr(row, "id", "")) for row in candidates if str(getattr(row, "id", ""))]
+    log_audit(
+        "knowledge_security_metadata_batch_updated",
+        {
+            "actor": actor,
+            "updated_count": len(updated_ids),
+            "dry_run": dry_run,
+            "patch_keys": sorted(patch.keys()),
+            "source_scope": str(payload.get("source_scope") or "").strip().lower() or None,
+        },
+    )
+    return api_response(
+        data={
+            "updated_count": len(updated_ids),
+            "updated_ids": updated_ids,
+            "dry_run": dry_run,
+            "patch": patch,
+            "limit": limit,
+        }
+    )
 
 
 @knowledge_bp.route("/knowledge/orchestration-contract", methods=["GET"])

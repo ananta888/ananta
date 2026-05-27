@@ -583,7 +583,7 @@
         {
           "id": "K2-RAG-T08",
           "title": "RAG metadata admin tooling add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "There is an admin path for tagging or retagging indexed content where needed.",
@@ -594,7 +594,7 @@
         {
           "id": "K2-RAG-T09",
           "title": "Contract and regression tests for metadata filtering add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Tests prove that forbidden content is excluded from prompt bundles under the relevant policy.",
@@ -605,7 +605,7 @@
         {
           "id": "K2-RAG-T10",
           "title": "Security-focused retrieval benchmark add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "A small benchmark exists for security tagging and retrieval correctness.",
@@ -629,7 +629,7 @@
         {
           "id": "K2-WFD-T01",
           "title": "Deterministic workflow target model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A target model defines deterministic expectations for critical Ananta workflows.",
@@ -640,7 +640,7 @@
         {
           "id": "K2-WFD-T02",
           "title": "Critical flow inventory create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "An inventory lists all critical flows such as approval, mutation, repair, review and high-risk execution.",
