@@ -63,6 +63,7 @@ def test_denied_later_segment_prevents_earlier_execution() -> None:
     with (
         patch("agent.services.task_execution_service.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_deny_git_diff),
+        patch("agent.services.segment_preflight_validator.evaluate_execution_risk", side_effect=_deny_git_diff),
     ):
         _, code, _, _, _ = svc._execute_shell_command_with_policy(
             tid="E2E-CC-2",
@@ -127,6 +128,24 @@ def test_opencode_dangerous_variant_blocked_before_any_execution() -> None:
             command=dangerous_cmd,
             execution_policy=_policy(),
             task={"worker_execution_context": {}},
+            agent_cfg={"execution_risk_policy": {"enabled": True, "task_scoped_only": False}},
+        )
+    assert code == -1
+    assert shell.commands == []
+
+
+def test_sandbox_class_blocks_high_risk_wrapper_command() -> None:
+    svc = TaskExecutionService()
+    shell = _StubShell()
+    with (
+        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
+    ):
+        _, code, _, _, _ = svc._execute_shell_command_with_policy(
+            tid="E2E-SBX-1",
+            command="docker run hello-world",
+            execution_policy=_policy(),
+            task={"worker_execution_context": {"sandbox_class": "bounded-mutable"}},
             agent_cfg={"execution_risk_policy": {"enabled": True, "task_scoped_only": False}},
         )
     assert code == -1

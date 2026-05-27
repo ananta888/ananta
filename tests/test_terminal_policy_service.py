@@ -28,12 +28,12 @@ def test_hub_as_worker_requires_explicit_permission():
 
     denied = svc.evaluate(user_ctx=user, operation="create", target_type="hub_as_worker", target_id="h1", cfg=cfg)
     assert denied.allow is False
-    assert denied.reason_code == "terminal_permission_denied"
+    assert denied.reason_code == "terminal_target_blocked_by_sandbox_policy"
 
-    user2 = {"sub": "u2", "role": "user", "terminal_permissions": ["terminal.hub_as_worker.create"]}
+    user2 = {"sub": "u2", "role": "admin", "terminal_permissions": ["terminal.hub_as_worker.create"]}
     allowed = svc.evaluate(user_ctx=user2, operation="create", target_type="hub_as_worker", target_id="h1", cfg=cfg)
-    assert allowed.allow is True
-    assert allowed.matched_rule_id == "hub_as_worker.create.allow"
+    assert allowed.allow is False
+    assert allowed.reason_code == "terminal_target_blocked_by_sandbox_policy"
 
 
 def test_denied_and_allowed_decisions_include_stable_metadata():
@@ -47,3 +47,25 @@ def test_denied_and_allowed_decisions_include_stable_metadata():
     assert allowed.allow is True
     assert allowed.policy_version
     assert allowed.matched_rule_id == "worker.read.allow"
+
+
+def test_terminal_sandbox_admin_required_for_hub_write_like_actions():
+    svc = TerminalPolicyService()
+    cfg = {
+        "sandbox_policy": {
+            "terminal_access": {
+                "enforce": True,
+                "blocked_target_types": [],
+                "write_requires_admin_for": ["hub"],
+            }
+        }
+    }
+    denied = svc.evaluate(
+        user_ctx={"sub": "u1", "role": "user", "terminal_permissions": ["terminal.hub.attach"]},
+        operation="attach",
+        target_type="hub",
+        target_id="hub1",
+        cfg=cfg,
+    )
+    assert denied.allow is False
+    assert denied.reason_code == "terminal_sandbox_admin_required"

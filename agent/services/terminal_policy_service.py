@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.config import settings
+from agent.services.sandbox_policy_service import get_sandbox_policy_service
 
 
 @dataclass(frozen=True)
@@ -115,11 +116,35 @@ class TerminalPolicyService:
         permission = f"terminal.{target_key}.{action}"
         app_cfg = dict(cfg or {})
         perms = self._permissions_for_user(user_ctx, app_cfg)
+        sandbox_terminal = get_sandbox_policy_service().resolve(app_cfg).get("terminal_access") or {}
 
         if target_key == "hub" and permission not in perms:
             return TerminalPolicyDecision(
                 allow=False,
                 reason_code="terminal_hub_access_denied_default",
+                decision_id=decision_id,
+                policy_version=policy_version,
+                matched_rule_id=None,
+                permission=permission,
+            )
+        if bool(sandbox_terminal.get("enforce", True)) and target_key in set(
+            str(item or "").strip().lower() for item in list(sandbox_terminal.get("blocked_target_types") or [])
+        ):
+            return TerminalPolicyDecision(
+                allow=False,
+                reason_code="terminal_target_blocked_by_sandbox_policy",
+                decision_id=decision_id,
+                policy_version=policy_version,
+                matched_rule_id=None,
+                permission=permission,
+            )
+        write_like = {"create", "attach", "write"}
+        admin_gate_targets = set(str(item or "").strip().lower() for item in list(sandbox_terminal.get("write_requires_admin_for") or []))
+        role = str(user_ctx.get("role") or "").strip().lower()
+        if action in write_like and target_key in admin_gate_targets and role != "admin":
+            return TerminalPolicyDecision(
+                allow=False,
+                reason_code="terminal_sandbox_admin_required",
                 decision_id=decision_id,
                 policy_version=policy_version,
                 matched_rule_id=None,

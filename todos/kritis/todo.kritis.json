@@ -774,7 +774,7 @@
         {
           "id": "K3-SBX-T04",
           "title": "Filesystem boundary controls add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Writable locations are explicit and minimal.",
@@ -785,7 +785,7 @@
         {
           "id": "K3-SBX-T05",
           "title": "Network egress control strategy define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "A strategy exists for controlling outbound network access in hardened execution contexts.",
@@ -796,7 +796,7 @@
         {
           "id": "K3-SBX-T06",
           "title": "Command execution wrappers enforce sandbox classes",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Execution wrappers can choose the required isolation class per action.",
@@ -807,7 +807,7 @@
         {
           "id": "K3-SBX-T07",
           "title": "Terminal access restrictions harden",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Interactive terminal behavior is reviewed against hardened mode requirements.",
@@ -818,7 +818,7 @@
         {
           "id": "K3-SBX-T08",
           "title": "Sandboxed test environment rollout define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The test/lab execution environment has a rollout path toward hardened isolation.",
