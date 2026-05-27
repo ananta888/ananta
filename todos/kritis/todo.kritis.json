@@ -36,7 +36,7 @@
         {
           "id": "K1-AUD-T01",
           "title": "Audit coverage target model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A target model defines which operations must always be audited.",
