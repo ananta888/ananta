@@ -1,5 +1,5 @@
 {
-  "version": "1.4",
+  "version": "1.5",
   "owner": "Peter Stuiber",
   "track": "bootstrap-heuristic-catalog-snake-chat-helpcenter-planning",
   "purpose": "Konkreter Bootstrap-Katalog f\u00fcr erste aktive Ananta-Heuristiken nach Fertigstellung der Heuristic Runtime und des JSON/YAML/Python-Strategy-Formats.",
@@ -632,7 +632,7 @@
     {
       "id": "T07.01",
       "title": "Bootstrap-Katalog gegen heuristic_definition.v1 validieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "validation",
@@ -649,7 +649,9 @@
         "Alle haben deterministic=true und erlaubte runtime.mode.",
         "Alle haben TTL, safety_class, capabilities und fallback soweit n\u00f6tig.",
         "Validator blockiert ung\u00fcltige Bootstrap-Dateien."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "HeuristicCatalogValidator in heuristic_catalog_validator.py validates all 21 bootstrap files"
     },
     {
       "id": "T07.02",
@@ -694,7 +696,7 @@
     {
       "id": "T07.04",
       "title": "No-Hallucination und Policy Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security-test",
@@ -708,12 +710,14 @@
         "Snake-Heuristiken senden keine Dateiinhalte.",
         "Helpcenter-Heuristiken starten keine Reparatur.",
         "Planning-Heuristiken \u00e4ndern keine Dateien automatisch."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "No-hallucination and policy tests in test_round9_catalog_e2e.py::TestNoHallucinationPolicy"
     },
     {
       "id": "T08.01",
       "title": "E2E: Snake nutzt Bootstrap-Heuristik ohne AI",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -728,12 +732,14 @@
         "snake_tui_follow_distance_default oder lurk_focus \u00fcbernimmt sichtbar.",
         "DecisionTrace zeigt source=heuristic und heuristic_id.",
         "Keine Worker-Abh\u00e4ngigkeit f\u00fcr lokale Bewegung."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E snake tests in test_round9_catalog_e2e.py::TestE2ESnakeBootstrap"
     },
     {
       "id": "T08.02",
       "title": "E2E: Chat nutzt CodeCompass Bootstrap-Heuristik",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -749,12 +755,14 @@
         "Heuristik selektiert CodeCompass SourceRefs.",
         "Antwort ist als heuristic markiert.",
         "Bei unbekanntem Symbol greift no_good_match."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E chat tests in test_round9_catalog_e2e.py::TestE2EChatBootstrap"
     },
     {
       "id": "T08.03",
       "title": "E2E: Helpcenter und Planning Bootstrap-Heuristiken",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -770,12 +778,14 @@
         "Planning-E2E schl\u00e4gt n\u00e4chsten Task und Archivkandidat vor.",
         "Keine Datei wird ohne explizite Aktion ver\u00e4ndert.",
         "Trace/Report enth\u00e4lt heuristic_id und reason_codes."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "E2E helpcenter and planning in test_round9_catalog_e2e.py::TestE2EHelpcenterPlanningBootstrap"
     },
     {
       "id": "T08.04",
       "title": "Bootstrap-Katalog Dokumentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -788,7 +798,9 @@
         "Doku erkl\u00e4rt welche Heuristiken lokal laufen und welche nur Vorschl\u00e4ge erzeugen.",
         "Doku enth\u00e4lt Beispiele f\u00fcr Snake, Chat, Helpcenter und Planning.",
         "Doku erkl\u00e4rt No-Hallucination und No-Auto-Repair/No-Auto-Archive Regeln."
-      ]
+      ],
+      "completed_at": "2026-05-27T11:30:15Z",
+      "notes": "Bootstrap catalog documented in heuristics/CATALOG.md"
     }
   ],
   "critical_path_tasks": [
@@ -912,5 +924,5 @@
       ]
     }
   ],
-  "updated_at": "2026-05-27T11:21:00Z"
+  "updated_at": "2026-05-27T11:30:15Z"
 }

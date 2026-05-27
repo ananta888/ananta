@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "description": "Fallback chains between Python strategies per domain. When a strategy returns fallback_reason, the runtime tries the next strategy in the chain.",
+  "chains": {
+    "tui_snake": {
+      "description": "TUI snake motion fallback chain",
+      "order": [
+        "snake_tui_artifact_intent_default",
+        "snake_tui_diff_focus_default",
+        "snake_tui_follow_distance_default",
+        "snake_tui_lurk_focus_default"
+      ],
+      "terminal": "snake_tui_lurk_focus_default",
+      "notes": "artifact_intent fires first when artifact is selected; diff_focus when in compare view; follow_distance for normal goal-following; lurk_focus as stable terminal"
+    },
+    "snake_eclipse": {
+      "description": "Eclipse snake motion fallback chain",
+      "order": [
+        "snake_eclipse_package_explorer_default",
+        "snake_eclipse_problem_view_default",
+        "snake_eclipse_compare_default",
+        "snake_eclipse_editor_lurk_default"
+      ],
+      "terminal": "snake_eclipse_editor_lurk_default",
+      "notes": "zone-based priority: package_explorer > problems > compare > editor (default)"
+    },
+    "chat_codecompass": {
+      "description": "Chat CodeCompass context selection chain",
+      "order": [
+        "chat_codecompass_selected_artifact_first",
+        "chat_codecompass_symbol_lookup_default",
+        "chat_codecompass_error_lookup_default",
+        "chat_codecompass_todo_status_default",
+        "chat_codecompass_sourcepack_lookup_default",
+        "chat_codecompass_no_good_match_default"
+      ],
+      "terminal": "chat_codecompass_no_good_match_default",
+      "notes": "selected artifact takes priority; then domain-specific lookups; no_good_match is the anti-hallucination guard"
+    },
+    "helpcenter": {
+      "description": "Helpcenter failure analysis chain",
+      "order": [
+        "helpcenter_failure_triage_default",
+        "helpcenter_github_failure_source_refs_default",
+        "helpcenter_duplicate_failure_grouping_default"
+      ],
+      "terminal": "helpcenter_duplicate_failure_grouping_default",
+      "notes": "triage first; then GitHub-specific refs; duplicate grouping as catch-all"
+    },
+    "planning": {
+      "description": "Planning task management chain",
+      "order": [
+        "planning_next_task_default",
+        "planning_summary_recompute_default",
+        "planning_archive_done_default",
+        "planning_related_todo_merge_default"
+      ],
+      "terminal": "planning_related_todo_merge_default",
+      "notes": "next task is the most common query; summary for status updates; archive/merge for housekeeping"
+    }
+  }
+}

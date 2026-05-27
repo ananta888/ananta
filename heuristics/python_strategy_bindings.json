@@ -1,0 +1,132 @@
+{
+  "version": "1.0",
+  "description": "Canonical bindings between Python strategy classes and their bootstrap heuristic JSON IDs.",
+  "bindings": [
+    {
+      "heuristic_id": "snake_tui_follow_distance_default",
+      "domain": "tui_snake",
+      "module": "agent.heuristics.strategies.snake_tui.follow_distance",
+      "class": "TuiFollowDistanceStrategy"
+    },
+    {
+      "heuristic_id": "snake_tui_lurk_focus_default",
+      "domain": "tui_snake",
+      "module": "agent.heuristics.strategies.snake_tui.lurk_focus",
+      "class": "TuiLurkFocusStrategy"
+    },
+    {
+      "heuristic_id": "snake_tui_artifact_intent_default",
+      "domain": "tui_snake",
+      "module": "agent.heuristics.strategies.snake_tui.artifact_intent",
+      "class": "TuiArtifactIntentStrategy"
+    },
+    {
+      "heuristic_id": "snake_tui_diff_focus_default",
+      "domain": "tui_snake",
+      "module": "agent.heuristics.strategies.snake_tui.diff_focus",
+      "class": "TuiDiffFocusStrategy"
+    },
+    {
+      "heuristic_id": "snake_eclipse_editor_lurk_default",
+      "domain": "snake_eclipse",
+      "module": "agent.heuristics.strategies.snake_eclipse.editor_lurk",
+      "class": "EclipseEditorLurkStrategy"
+    },
+    {
+      "heuristic_id": "snake_eclipse_problem_view_default",
+      "domain": "snake_eclipse",
+      "module": "agent.heuristics.strategies.snake_eclipse.problem_view",
+      "class": "EclipseProblemViewStrategy"
+    },
+    {
+      "heuristic_id": "snake_eclipse_compare_default",
+      "domain": "snake_eclipse",
+      "module": "agent.heuristics.strategies.snake_eclipse.compare",
+      "class": "EclipseCompareStrategy"
+    },
+    {
+      "heuristic_id": "snake_eclipse_package_explorer_default",
+      "domain": "snake_eclipse",
+      "module": "agent.heuristics.strategies.snake_eclipse.package_explorer",
+      "class": "EclipsePackageExplorerStrategy"
+    },
+    {
+      "heuristic_id": "chat_codecompass_selected_artifact_first",
+      "domain": "chat_codecompass",
+      "module": "agent.heuristics.strategies.chat_codecompass.selected_artifact_first",
+      "class": "SelectedArtifactFirstStrategy"
+    },
+    {
+      "heuristic_id": "chat_codecompass_symbol_lookup_default",
+      "domain": "chat_codecompass",
+      "module": "agent.heuristics.strategies.chat_codecompass.symbol_lookup",
+      "class": "SymbolLookupStrategy"
+    },
+    {
+      "heuristic_id": "chat_codecompass_error_lookup_default",
+      "domain": "chat_codecompass",
+      "module": "agent.heuristics.strategies.chat_codecompass.error_lookup",
+      "class": "ErrorLookupStrategy"
+    },
+    {
+      "heuristic_id": "chat_codecompass_todo_status_default",
+      "domain": "chat_codecompass",
+      "module": "agent.heuristics.strategies.chat_codecompass.todo_status",
+      "class": "TodoStatusStrategy"
+    },
+    {
+      "heuristic_id": "chat_codecompass_sourcepack_lookup_default",
+      "domain": "chat_codecompass",
+      "module": "agent.heuristics.strategies.chat_codecompass.sourcepack_lookup",
+      "class": "SourcePackLookupStrategy"
+    },
+    {
+      "heuristic_id": "chat_codecompass_no_good_match_default",
+      "domain": "chat_codecompass",
+      "module": "agent.heuristics.strategies.chat_codecompass.no_good_match",
+      "class": "NoGoodMatchStrategy"
+    },
+    {
+      "heuristic_id": "helpcenter_failure_triage_default",
+      "domain": "helpcenter",
+      "module": "agent.heuristics.strategies.helpcenter.failure_triage",
+      "class": "FailureTriageStrategy"
+    },
+    {
+      "heuristic_id": "helpcenter_github_failure_source_refs_default",
+      "domain": "helpcenter",
+      "module": "agent.heuristics.strategies.helpcenter.github_failure_refs",
+      "class": "GithubFailureSourceRefsStrategy"
+    },
+    {
+      "heuristic_id": "helpcenter_duplicate_failure_grouping_default",
+      "domain": "helpcenter",
+      "module": "agent.heuristics.strategies.helpcenter.duplicate_grouping",
+      "class": "DuplicateFailureGroupingStrategy"
+    },
+    {
+      "heuristic_id": "planning_next_task_default",
+      "domain": "planning",
+      "module": "agent.heuristics.strategies.planning.next_task",
+      "class": "NextTaskStrategy"
+    },
+    {
+      "heuristic_id": "planning_archive_done_default",
+      "domain": "planning",
+      "module": "agent.heuristics.strategies.planning.archive_done",
+      "class": "ArchiveDoneStrategy"
+    },
+    {
+      "heuristic_id": "planning_summary_recompute_default",
+      "domain": "planning",
+      "module": "agent.heuristics.strategies.planning.summary_recompute",
+      "class": "SummaryRecomputeStrategy"
+    },
+    {
+      "heuristic_id": "planning_related_todo_merge_default",
+      "domain": "planning",
+      "module": "agent.heuristics.strategies.planning.related_todo_merge",
+      "class": "RelatedTodoMergeStrategy"
+    }
+  ]
+}
