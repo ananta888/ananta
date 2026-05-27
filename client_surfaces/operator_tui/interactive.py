@@ -351,6 +351,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command(" ")
                 return
+            if self._chat_focus_active():
+                self._chat_append(" ")
+                return
             if not self._snake_mode_active():
                 return
             self._toggle_snake_pause()  # T01.02: Space togglet Pause statt Stopp
@@ -371,6 +374,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if not self._snake_mode_active():
                 return
+            if self._chat_focus_active():
+                self._chat_append("m")
+                return
             self._toggle_snake_message_mode()
 
         @bindings.add("x")
@@ -383,6 +389,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if not self._snake_mode_active():
                 return
+            if self._chat_focus_active():
+                self._chat_append("x")
+                return
             self._snake_toggle_selection()
 
         @bindings.add("b")
@@ -394,6 +403,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._snake_message_append("b")
                 return
             if not self._snake_mode_active():
+                return
+            if self._chat_focus_active():
+                self._chat_append("b")
                 return
             self._snake_toggle_frame_mode()
 
@@ -422,6 +434,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if not self._snake_mode_active():
                 return
+            if self._chat_focus_active():
+                self._chat_append("v")
+                return
             self._snake_replace_selection()
 
         @bindings.add("t")
@@ -433,6 +448,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._snake_message_append("t")
                 return
             if not self._snake_mode_active():
+                return
+            if self._chat_focus_active():
+                self._chat_append("t")
                 return
             self._snake_cycle_message_style()
 
@@ -446,6 +464,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if not self._snake_mode_active():
                 return
+            if self._chat_focus_active():
+                self._chat_append("y")
+                return
             self._snake_cycle_color()
 
         @bindings.add("z")
@@ -457,6 +478,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._snake_message_append("z")
                 return
             if not self._snake_mode_active():
+                return
+            if self._chat_focus_active():
+                self._chat_append("z")
                 return
             self._snake_clear_visual_marks()
 
@@ -470,6 +494,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if not self._snake_mode_active():
                 return
+            if self._chat_focus_active():
+                self._chat_append("u")
+                return
             self._toggle_tutorial_ai_mode()
 
         @bindings.add("o")
@@ -481,6 +508,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._snake_message_append("o")
                 return
             if not self._snake_mode_active():
+                return
+            if self._chat_focus_active():
+                self._chat_append("o")
                 return
             self._toggle_snake_mouse_follow()
 
@@ -662,6 +692,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return
         if self.state.mode is OperatorMode.COMMAND:
             self._append_command(text)
+            return
+        if self._chat_focus_active():
+            self._chat_append(text)
             return
         if self._snake_mode_active():
             return
