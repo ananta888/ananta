@@ -1,0 +1,57 @@
+{
+  "proposal_id": "5355aca3-e539-4f70-834d-cf9ceced51a3",
+  "proposed_by": "tui-heuristic-mixin",
+  "domain": "tui_snake",
+  "strategy_kind": "follow",
+  "description": "Improvement proposal for snake_tui_artifact_intent_default: Dominant fallback pattern: no_match.",
+  "capabilities": [
+    "read_local_context",
+    "read_active_task"
+  ],
+  "requested_ttl_seconds": 7.0,
+  "safety_class": "bounded",
+  "deterministic": true,
+  "base_heuristic_ref": "snake_tui_artifact_intent_default",
+  "simulation_result": null,
+  "human_approval_ref": null,
+  "version": "1.0.0",
+  "inputs": [],
+  "outputs": [],
+  "parameters": {
+    "rationale": "Dominant fallback pattern: no_match.",
+    "expected_improvement": "Reduce no_match events by ≥20% over next 50 decisions.",
+    "risks": [
+      "New heuristic may over-generalise for domain tui_snake.",
+      "Insufficient test coverage for edge cases."
+    ],
+    "required_tests": [
+      "test_snake_tui_artifact_intent_default_handles_no_match",
+      "test_snake_tui_artifact_intent_default_ttl_boundary",
+      "test_policy_violations_zero"
+    ],
+    "trace_evidence": [
+      "d23a2b9f-fbc6-4662-a1f4-f66c3fe3af16",
+      "1a18a57a-b16b-47be-afc0-ae25c5ddd407",
+      "43e98381-275b-4226-9996-086ea933534b",
+      "b909814a-1532-4271-9bf1-a09bf1b366c6",
+      "f9ea40ca-2a4c-431f-aa8a-d79a5db308fd",
+      "157c4ee6-d68f-4e78-ade4-c1f790588f27",
+      "6b5c751a-4d30-4337-b297-1aba7babb06e",
+      "b6a85a89-5a62-48f6-b17c-8e2f7fbe577c",
+      "1d7f1236-c4f1-439c-ab85-1c28abe76095",
+      "4a08b03a-8d20-451c-a1ff-4e6cc0d138ad",
+      "e458f7e6-4c3f-467e-bc7a-1c76c2b46503",
+      "34deafda-d155-41c8-983a-d2b09f3c9878",
+      "a300e229-a262-4627-ab28-7d16963a58d2",
+      "dfa07ed0-2adf-4f7a-b6fd-83f24cd9425d",
+      "bdc4f9c5-343d-43aa-b27d-28b3c1223afd",
+      "c2dfc82a-94c5-4315-ae1a-0357f8338a9c",
+      "a40cbc73-c915-45e8-8fc7-26d1d624ed88",
+      "0ac5138d-cff1-4cc1-ad74-ed1df54ab242",
+      "b5b12028-3598-4680-86c0-43fa5d9aeaa9",
+      "3370f5f1-b45e-4969-911c-29cdeb81042c"
+    ]
+  },
+  "saved_at": 1779889977.0022225,
+  "status": "candidate"
+}

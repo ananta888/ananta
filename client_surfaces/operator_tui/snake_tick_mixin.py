@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any, cast
 
 from client_surfaces.operator_tui.ai_snake_context import (
@@ -42,6 +43,22 @@ from client_surfaces.operator_tui.ai_snake_training_store import (
     save_patterns,
 )
 from client_surfaces.operator_tui.models import FocusPane
+
+
+def _run_learning_cycle_bg(min_cases: int) -> None:
+    """Pattern mining cycle — always called from background thread, never main loop."""
+    from client_surfaces.operator_tui.ai_snake_training_store import (
+        merge_patterns,
+        mine_patterns_from_events,
+        read_events,
+        read_patterns,
+        save_patterns,
+    )
+    events = read_events(max_items=5000)
+    mined = mine_patterns_from_events(events=events, min_cases=min_cases)
+    if mined:
+        merged = merge_patterns(existing=read_patterns(), mined=mined)
+        save_patterns(merged, backup=False)
 
 
 class SnakeTickMixin:
@@ -233,7 +250,7 @@ class SnakeTickMixin:
 
     def _tick_ai_snake_prediction(self, game: dict[str, object], *, now: float) -> None:
         section = str(self.state.section_id or "dashboard")
-        if (now - float(self._ai_learning_settings_loaded_at or 0.0)) >= 1.0:
+        if (now - float(self._ai_learning_settings_loaded_at or 0.0)) >= 10.0:
             profile_payload = read_active_profile()
             self._ai_learning_settings = (
                 dict(profile_payload.get("learning_settings") or {}) if isinstance(profile_payload, dict) else {}
@@ -244,12 +261,17 @@ class SnakeTickMixin:
         self._ai_training_recorder.set_paused(bool(profile_learning.get("paused", False)))
         learning_enabled = bool(profile_learning.get("enabled", True))
         learning_paused = bool(profile_learning.get("paused", False)) or bool(game.get("ai_learning_session_paused"))
-        self._ai_training_recorder.record_event(
-            event_type="section_visit",
-            value_norm=section,
-            refs=[f"section:{section}"],
-            privacy_class="public_ui",
-        )
+
+        # Throttle: section_visit only when section actually changes
+        _last_rec_section: str = getattr(self, "_recorder_last_section", "")
+        if section != _last_rec_section:
+            self._recorder_last_section = section
+            self._ai_training_recorder.record_event(
+                event_type="section_visit",
+                value_norm=section,
+                refs=[f"section:{section}"],
+                privacy_class="public_ui",
+            )
         self._ai_observation.add_event(kind="section", value=section, timestamp=now)
         if bool(game.get("tutorial_mode")):
             self._ai_observation.add_event(kind="chat_channel", value="ai:tutor", timestamp=now)
@@ -257,12 +279,16 @@ class SnakeTickMixin:
         if isinstance(artifact_ref, dict):
             ref_value = str(artifact_ref.get("path") or artifact_ref.get("label") or "artifact")
             ref_id = str(artifact_ref.get("path") or "")
-            self._ai_training_recorder.record_event(
-                event_type="artifact_focus",
-                value_norm=ref_value,
-                refs=[ref_id] if ref_id else [],
-                privacy_class="workspace",
-            )
+            # Throttle: artifact_focus only when the referenced artifact changes
+            _last_rec_artifact: str = getattr(self, "_recorder_last_artifact", "")
+            if ref_id != _last_rec_artifact:
+                self._recorder_last_artifact = ref_id
+                self._ai_training_recorder.record_event(
+                    event_type="artifact_focus",
+                    value_norm=ref_value,
+                    refs=[ref_id] if ref_id else [],
+                    privacy_class="workspace",
+                )
             self._ai_observation.add_event(
                 kind="artifact",
                 value=ref_value,
@@ -276,12 +302,16 @@ class SnakeTickMixin:
         else:
             movement = "down" if vy > 0.25 else ("up" if vy < -0.25 else "idle")
         self._ai_observation.add_event(kind="movement", value=movement, timestamp=now)
-        self._ai_training_recorder.record_event(
-            event_type="movement_vector",
-            value_norm=movement,
-            refs=[f"section:{section}"],
-            privacy_class="public_ui",
-        )
+        # Throttle: movement_vector at most every 400 ms (not 18-24×/s)
+        _last_rec_move: float = getattr(self, "_recorder_last_move_at", 0.0)
+        if (now - _last_rec_move) >= 0.4:
+            self._recorder_last_move_at = now
+            self._ai_training_recorder.record_event(
+                event_type="movement_vector",
+                value_norm=movement,
+                refs=[f"section:{section}"],
+                privacy_class="public_ui",
+            )
         self._ai_observation.add_event(
             kind="notes_active",
             value=bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False,
@@ -290,11 +320,21 @@ class SnakeTickMixin:
         summary = compact_observation_summary(self._ai_observation.compact_summary(max_facts=20), max_facts=20)
         quick = quick_predict(self._ai_observation.events(), now=now)
         prediction = quick.as_dict()
-        # Cache codecompass artifact: reading from disk every tick (24/s) causes hangs
+        # Codecompass artifact: fully async — disk read in background thread, stale cache on main loop
         _cc_loaded_at, _cc_cached = getattr(self, "_codecompass_artifact_cache", (0.0, None))
-        if (now - _cc_loaded_at) >= 5.0:
-            _cc_cached = load_codecompass_artifact()
-            self._codecompass_artifact_cache = (now, _cc_cached)
+        _cc_future: Future | None = getattr(self, "_codecompass_artifact_future", None)
+        if _cc_future is not None and _cc_future.done():
+            try:
+                _cc_cached = _cc_future.result()
+                _cc_loaded_at = now
+                self._codecompass_artifact_cache = (now, _cc_cached)
+            except Exception:
+                pass
+            self._codecompass_artifact_future = None
+            _cc_future = None
+        if _cc_future is None and (now - _cc_loaded_at) >= 10.0:
+            _bg = self._get_snake_bg_executor()
+            self._codecompass_artifact_future = _bg.submit(load_codecompass_artifact)
         codecompass = _cc_cached
         ai_ctx = default_ai_context()
         set_ai_context(game, ai_ctx)
@@ -547,13 +587,28 @@ class SnakeTickMixin:
             game["ai_last_auto_feedback_key"] = auto_feedback_key
 
         min_cases = max(1, int(profile_learning.get("evidence_min_cases") or 3))
-        if learning_enabled and not learning_paused and (now - float(self._ai_learning_last_mined_at or 0.0)) >= 5.0:
-            events = read_events(max_items=5000)
-            mined = mine_patterns_from_events(events=events, min_cases=min_cases)
-            if mined:
-                merged = merge_patterns(existing=read_patterns(), mined=mined)
-                save_patterns(merged, backup=False)
-            self._ai_learning_last_mined_at = now
+        # Poll completed mining future
+        _mining_future: Future | None = getattr(self, "_ai_mining_future", None)
+        if _mining_future is not None and _mining_future.done():
+            self._ai_mining_future = None
+        # Mining loop: runs in background executor, never on main thread
+        if (
+            _mining_future is None
+            and learning_enabled
+            and not learning_paused
+            and (now - float(self._ai_learning_last_mined_at or 0.0)) >= 30.0
+        ):
+            self._ai_learning_last_mined_at = now   # prevent double-submit
+            _bg = self._get_snake_bg_executor()
+            self._ai_mining_future = _bg.submit(
+                _run_learning_cycle_bg, min_cases
+            )
+
+        # Flush recorder queue to disk in background at most once per second
+        _flush_at: float = getattr(self, "_recorder_flush_at", 0.0)
+        if (now - _flush_at) >= 1.0:
+            self._recorder_flush_at = now
+            self._get_snake_bg_executor().submit(self._ai_training_recorder.flush_queued)
 
         game["ai_snake_prediction"] = prediction
         game["ai_snake_context_envelope"] = envelope
@@ -585,6 +640,15 @@ class SnakeTickMixin:
             "matched_pattern_id": matched_pattern_id,
             "prediction_source": prediction_source,
         }
+
+    # ── Background executor (shared across all snake I/O) ─────────────────────
+
+    def _get_snake_bg_executor(self) -> ThreadPoolExecutor:
+        executor: ThreadPoolExecutor | None = getattr(self, "_snake_bg_executor", None)
+        if executor is None:
+            executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tui-snake-io")
+            self._snake_bg_executor = executor
+        return executor
 
     # ── Multi-snake state ─────────────────────────────────────────────────────
 
