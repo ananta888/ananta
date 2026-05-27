@@ -8,6 +8,18 @@ def test_sanitize_path_rejects_traversal():
     assert stw._sanitize_path("../../etc/passwd") is None
 
 
+def test_sanitize_path_rejects_blocked_fragments(monkeypatch):
+    monkeypatch.setenv("ANANTA_WORKSPACE_ROOTS", "/workspace,/project-workspaces")
+    monkeypatch.setenv("ANANTA_BLOCKED_PATH_FRAGMENTS", "/.ssh,/etc/")
+    assert stw._sanitize_path("/workspace/.ssh/id_rsa") is None
+
+
+def test_sanitize_path_allows_multiple_workspace_roots(monkeypatch):
+    monkeypatch.setenv("ANANTA_WORKSPACE_ROOTS", "/workspace,/project-workspaces")
+    sanitized = stw._sanitize_path("/project-workspaces/goal-1")
+    assert sanitized == "/project-workspaces/goal-1"
+
+
 def test_parse_env_context_rejects_invalid_target_type(monkeypatch):
     monkeypatch.setenv("ANANTA_SSH_USER_ID", "u1")
     monkeypatch.setenv("ANANTA_SSH_PRINCIPAL", "ananta-worker-u1")

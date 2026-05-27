@@ -17,12 +17,31 @@ import sys
 from dataclasses import dataclass
 from typing import Any
 
+from agent.config import settings
+
 LOGGER = logging.getLogger("agent.ssh_terminal_wrapper")
 
 _SAFE_SESSION_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 _SAFE_TARGET_ID = re.compile(r"^[a-zA-Z0-9_.-]{1,128}$")
 _SAFE_TARGET_TYPE = {"worker", "hub", "hub_as_worker"}
-_WORKSPACE_BASE = os.environ.get("ANANTA_WORKSPACE_BASE", "/workspace")
+
+
+def _workspace_roots() -> list[str]:
+    configured = str(os.environ.get("ANANTA_WORKSPACE_ROOTS", "") or "").strip()
+    if configured:
+        roots = [os.path.normpath(item.strip()) for item in configured.split(",") if item.strip()]
+        if roots:
+            return roots
+    single = str(os.environ.get("ANANTA_WORKSPACE_BASE", "/workspace") or "/workspace").strip()
+    fallback = [single, "/project-workspaces"]
+    return [os.path.normpath(item) for item in fallback if item]
+
+
+def _blocked_path_fragments() -> list[str]:
+    configured = str(os.environ.get("ANANTA_BLOCKED_PATH_FRAGMENTS", "") or "").strip()
+    if configured:
+        return [item.strip() for item in configured.split(",") if item.strip()]
+    return ["/.ssh", "/etc/", "/proc/", "/sys/"]
 
 
 @dataclass(frozen=True)
@@ -46,18 +65,21 @@ class WrapperDecision:
 
 
 def _sanitize_path(raw: str | None) -> str | None:
-    """Reject path traversal; resolve to absolute path under WORKSPACE_BASE."""
+    """Reject path traversal and privileged path access; enforce workspace boundary roots."""
     if not raw:
         return None
-    # Normalize and reject traversal
     resolved = os.path.normpath(raw)
     if ".." in resolved.split(os.sep):
         return None
-    # Must stay under workspace base or be absolute within allowed mount
+    roots = _workspace_roots()
+    root = roots[0] if roots else "/workspace"
     if not os.path.isabs(resolved):
-        resolved = os.path.join(_WORKSPACE_BASE, resolved)
+        resolved = os.path.join(root, resolved)
         resolved = os.path.normpath(resolved)
-    if not resolved.startswith(_WORKSPACE_BASE):
+    lowered = resolved.lower()
+    if any(fragment.lower() in lowered for fragment in _blocked_path_fragments()):
+        return None
+    if not any(resolved == item or resolved.startswith(item + os.sep) for item in roots):
         return None
     return resolved
 
@@ -105,8 +127,6 @@ class AnantaSshTerminalWrapper:
 
     def run(self, ctx: WrapperContext | None = None) -> int:
         """Main entry point. Returns exit code."""
-        from agent.config import settings
-
         if not settings.native_ssh_enabled:
             self._print_error("ssh_wrapper_native_ssh_disabled")
             return 1

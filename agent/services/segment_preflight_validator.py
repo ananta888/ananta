@@ -9,6 +9,7 @@ from agent.services.command_to_tool_mapper import CommandToToolMapper
 from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.mutation_gate_service import get_mutation_gate_service
+from agent.services.sandbox_policy_service import get_sandbox_policy_service
 from agent.services.task_execution_policy_service import resolve_task_scope_allowed_tools, validate_task_scoped_tool_calls
 
 
@@ -20,6 +21,8 @@ class SegmentValidationRow:
     allowed: bool
     reason_codes: list[str]
     mapped_tool: str | None
+    sandbox_required_class: str | None = None
+    sandbox_active_class: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -29,6 +32,8 @@ class SegmentValidationRow:
             "allowed": self.allowed,
             "reason_codes": list(self.reason_codes),
             "mapped_tool": self.mapped_tool,
+            "sandbox_required_class": self.sandbox_required_class,
+            "sandbox_active_class": self.sandbox_active_class,
         }
 
 
@@ -115,6 +120,12 @@ class SegmentPreflightValidator:
 
         allowed = True
         reason_codes: list[str] = []
+        active_sandbox_class = self._resolve_active_sandbox_class(effective_task, cfg)
+        sandbox_decision = get_sandbox_policy_service().evaluate_command(
+            command=seg_cmd,
+            active_class=active_sandbox_class,
+            cfg=cfg,
+        )
         if seg_approval.get("classification") == "blocked" and seg_approval.get("enforced"):
             allowed = False
             reason_codes.append(str(seg_approval.get("reason_code") or "approval_blocked"))
@@ -124,6 +135,9 @@ class SegmentPreflightValidator:
         if mutation_decision.get("classification") in {"blocked", "confirm_required"}:
             allowed = False
             reason_codes.append(str(mutation_decision.get("reason_code") or "mutation_gate_blocked"))
+        if not sandbox_decision.allowed:
+            allowed = False
+            reason_codes.append(str(sandbox_decision.reason_code))
         if mapped_is_known:
             blocked, reasons = validate_task_scoped_tool_calls(
                 mapped_tool_calls,
@@ -141,4 +155,22 @@ class SegmentPreflightValidator:
             allowed=allowed,
             reason_codes=list(dict.fromkeys(reason_codes)),
             mapped_tool=mapped.mapped_tool if mapped_is_known else None,
+            sandbox_required_class=sandbox_decision.required_class,
+            sandbox_active_class=sandbox_decision.active_class,
         )
+
+    @staticmethod
+    def _resolve_active_sandbox_class(effective_task: dict, cfg: dict[str, Any]) -> str | None:
+        context = effective_task.get("worker_execution_context")
+        if isinstance(context, dict):
+            for key in ("sandbox_class", "sandbox_isolation_class"):
+                value = str(context.get(key) or "").strip().lower()
+                if value:
+                    return value
+        for key in ("sandbox_class", "sandbox_isolation_class"):
+            value = str(effective_task.get(key) or "").strip().lower()
+            if value:
+                return value
+        wrappers = ((cfg.get("sandbox_policy") or {}).get("command_wrappers") or {})
+        default_class = str(wrappers.get("default_isolation_class") or "").strip().lower()
+        return default_class or None
