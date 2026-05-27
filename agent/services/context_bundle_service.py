@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from worker.core.propose_orchestrator import ProposeContext
+from agent.services.retrieval_policy_filter_service import get_retrieval_policy_filter_service
 
 
 _CONTEXT_BUNDLE_DEFAULTS: dict = {
@@ -121,17 +122,11 @@ Output ONLY valid JSON matching schema."""
     ) -> dict:
         """FA-T012: Build a governed context bundle with scope-aware filtering."""
         chunks = list((context_payload or {}).get("chunks") or [])
-        filtered = []
-        denied = 0
-        cloud_deny_sensitivities = {"internal_high", "secret", "credential", "security_sensitive"}
-        for chunk in chunks:
-            meta = dict(chunk.get("metadata") or {})
-            sensitivity = str(meta.get("sensitivity") or "public").lower()
-            # external cloud scope: deny internal_high/secret-like content by default
-            if llm_scope == "external_cloud_allowed" and sensitivity in cloud_deny_sensitivities:
-                denied += 1
-                continue
-            filtered.append(chunk)
+        filtered, policy_filter_meta = get_retrieval_policy_filter_service().apply_filter(
+            chunks=chunks,
+            llm_scope=llm_scope,
+            policy_mode=policy_mode,
+        )
 
         # Compatibility ordering: architecture-like intents prioritize wiki over repo.
         effective_intent = str(retrieval_intent or "").lower()
@@ -153,19 +148,45 @@ Output ONLY valid JSON matching schema."""
         # OHA-014: build memory_tree_view from MemoryRetrievalResult
         memory_tree_view: dict | None = None
         mt_denied = 0
+        mt_allowed = 0
+        mt_downgraded = 0
+        mt_denied_by_reason: dict[str, int] = {}
         if memory_tree_retrieval_result is not None:
-            mt_chunks_allowed = []
+            mt_candidates = []
             for mc in getattr(memory_tree_retrieval_result, "chunks", []):
-                if llm_scope == "external_cloud_allowed" and mc.sensitivity in cloud_deny_sensitivities:
-                    mt_denied += 1
-                    continue
+                mt_candidates.append(
+                    {
+                        "engine": "memory_tree",
+                        "source": str(getattr(mc, "source_id", "") or ""),
+                        "content": str(getattr(mc, "content", "") or ""),
+                        "score": float(getattr(mc, "score", 0.0) or 0.0),
+                        "metadata": {
+                            "source_type": "task_memory",
+                            "source_origin": "task_memory",
+                            "sensitivity": str(getattr(mc, "sensitivity", "") or ""),
+                            "chunk_id": str(getattr(mc, "chunk_id", "") or ""),
+                        },
+                    }
+                )
+            filtered_mt, mt_filter_meta = get_retrieval_policy_filter_service().apply_filter(
+                chunks=mt_candidates,
+                llm_scope=llm_scope,
+                policy_mode=policy_mode,
+            )
+            mt_denied = int(mt_filter_meta.get("denied_count") or 0)
+            mt_allowed = len(filtered_mt)
+            mt_downgraded = int(mt_filter_meta.get("downgraded_count") or 0)
+            mt_denied_by_reason = dict(mt_filter_meta.get("denied_by_reason") or {})
+            mt_chunks_allowed = []
+            for entry in filtered_mt:
+                meta = dict(entry.get("metadata") or {})
                 mt_chunks_allowed.append({
-                    "chunk_id": mc.chunk_id,
-                    "source_id": mc.source_id,
-                    "label": mc.label,
-                    "content": mc.content,
-                    "sensitivity": mc.sensitivity,
-                    "score": mc.score,
+                    "chunk_id": str(meta.get("chunk_id") or ""),
+                    "source_id": entry.get("source"),
+                    "label": str(meta.get("label") or ""),
+                    "content": str(entry.get("content") or ""),
+                    "sensitivity": str(meta.get("sensitivity") or ""),
+                    "score": float(entry.get("score") or 0.0),
                 })
             summary_node = getattr(memory_tree_retrieval_result, "summary_node", None)
             memory_tree_view = {
@@ -174,6 +195,7 @@ Output ONLY valid JSON matching schema."""
                 "chunk_count": len(mt_chunks_allowed),
                 "chunks": mt_chunks_allowed,
                 "denied_count": mt_denied + getattr(memory_tree_retrieval_result, "filtered_by_policy", 0),
+                "downgraded_count": mt_downgraded,
                 "drilldown_refs": list(getattr(memory_tree_retrieval_result, "drilldown_refs", [])),
                 "summary_node": {
                     "node_id": summary_node.node_id,
@@ -233,8 +255,9 @@ Output ONLY valid JSON matching schema."""
             "context_text": (context_payload or {}).get("context_text") if include_context_text is not False else None,
             "token_estimate": int((context_payload or {}).get("token_estimate") or 0),
             "context_policy": {
-                "default_deny": llm_scope == "external_cloud_allowed",
+                "default_deny": llm_scope in {"external_cloud_allowed", "trusted_private_cloud"},
                 "llm_scope": llm_scope,
+                "retrieval_policy_filter": "retrieval_policy_filter.v1",
             },
             "retrieval_trace": retrieval_trace,
             "selection_trace": {
@@ -253,10 +276,18 @@ Output ONLY valid JSON matching schema."""
             "policy_filter": {
                 "input_count": len(chunks),
                 "allowed_count": len(filtered),
-                "denied_count": denied,
+                "denied_count": int(policy_filter_meta.get("denied_count") or 0),
+                "downgraded_count": int(policy_filter_meta.get("downgraded_count") or 0),
+                "denied_by_reason": dict(policy_filter_meta.get("denied_by_reason") or {}),
+                "downgraded_by_reason": dict(policy_filter_meta.get("downgraded_by_reason") or {}),
+                "source_class_contributions_before": dict(policy_filter_meta.get("source_class_contributions_before") or {}),
+                "source_class_contributions_after": dict(policy_filter_meta.get("source_class_contributions_after") or {}),
+                "segregation": dict(policy_filter_meta.get("segregation") or {}),
+                "decisions": list(policy_filter_meta.get("decisions") or []),
                 # OHA-014: separate memory_tree counts
-                "memory_tree_allowed_count": len(mt_chunks_allowed) if memory_tree_view else 0,
+                "memory_tree_allowed_count": mt_allowed if memory_tree_view else 0,
                 "memory_tree_denied_count": mt_denied,
+                "memory_tree_denied_by_reason": mt_denied_by_reason if memory_tree_view else {},
             },
         }
         if memory_tree_view is not None:

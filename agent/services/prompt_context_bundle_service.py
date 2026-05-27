@@ -4,9 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.common.redaction import redact
-
-
-_SENSITIVE_CLASSES = {"internal_high", "secret", "credential", "security_sensitive"}
+from agent.services.retrieval_policy_filter_service import get_retrieval_policy_filter_service
 
 
 @dataclass(frozen=True)
@@ -40,18 +38,32 @@ class PromptContextBundleService:
             return int(default)
 
     def _bounded_chunks(self, chunks: list[dict[str, Any]], *, max_chunks: int, total_budget_tokens: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        filter_candidates = []
+        for item in chunks:
+            filter_candidates.append(
+                {
+                    "engine": "prompt_context",
+                    "source": str(item.get("source_id") or item.get("title") or ""),
+                    "content": str(item.get("content") or ""),
+                    "score": float(item.get("score") or 0.0),
+                    "metadata": dict(item.get("metadata") or {}),
+                    "raw": dict(item),
+                }
+            )
+        filtered, policy_meta = get_retrieval_policy_filter_service().apply_filter(
+            chunks=filter_candidates,
+            llm_scope="external_cloud_allowed",
+            policy_mode="standard",
+        )
+
         selected: list[dict[str, Any]] = []
-        denied = 0
         truncated_for_budget = 0
         budget_used = 0
-        for chunk in chunks:
+        for candidate in filtered:
+            chunk = dict(candidate.get("raw") or {})
             if len(selected) >= max_chunks:
                 break
-            meta = dict(chunk.get("metadata") or {})
-            sensitivity = str(meta.get("sensitivity") or "public").strip().lower()
-            if sensitivity in _SENSITIVE_CLASSES:
-                denied += 1
-                continue
+            meta = dict(candidate.get("metadata") or chunk.get("metadata") or {})
             content = str(chunk.get("content") or "")
             token_estimate = self._safe_int(chunk.get("token_estimate"), max(1, len(content) // 4))
             if budget_used + token_estimate > total_budget_tokens:
@@ -69,7 +81,9 @@ class PromptContextBundleService:
         return selected, {
             "input_count": len(chunks),
             "selected_count": len(selected),
-            "denied_count": denied,
+            "denied_count": int(policy_meta.get("denied_count") or 0),
+            "downgraded_count": int(policy_meta.get("downgraded_count") or 0),
+            "denied_by_reason": dict(policy_meta.get("denied_by_reason") or {}),
             "truncated_for_budget": truncated_for_budget,
             "budget_used_tokens": budget_used,
             "total_budget_tokens": total_budget_tokens,
