@@ -238,10 +238,14 @@ def _fetch_dashboard(base: str, token: str, timeout: float) -> SectionLoadResult
     checks = health.get("checks") or {}
     llm_providers: dict = checks.get("llm_providers") or {}
     queue_info: dict = checks.get("queue") or {}
+    agents_check: dict = checks.get("agents") or {}
+    agents_info: dict = {
+        "online": agents_check.get("online", 0),
+        "total": agents_check.get("total", 0),
+    }
 
     goal_summary = ""
     task_summary = ""
-    agents_info: dict = {}
     try:
         goals_data = _checked_get(base, "/goals", token, per)
         goals: list = goals_data if isinstance(goals_data, list) else []
@@ -257,7 +261,6 @@ def _fetch_dashboard(base: str, token: str, timeout: float) -> SectionLoadResult
         active = sum(1 for t in tasks if _normalize_task_status(str(t.get("status") or "")) == "running")
         completed = sum(1 for t in tasks if _normalize_task_status(str(t.get("status") or "")) == "done")
         task_summary = f"{active} active · {completed} completed"
-        agents_info = {"online": 1, "total": 1}
     except Exception:
         pass
 
@@ -287,8 +290,12 @@ def _fetch_system(base: str, token: str, timeout: float) -> SectionLoadResult:
     except Exception:
         pass
 
+    agents_check: dict = checks.get("agents") or {}
     payload: dict[str, Any] = {
-        "agents": {"online": 1, "total": 1},
+        "agents": {
+            "online": agents_check.get("online", 0),
+            "total": agents_check.get("total", 0),
+        },
         "llm_providers": llm_providers,
         "queue": {"depth": queue_info.get("depth", 0), "counts": queue_counts},
         "contracts": contracts,
