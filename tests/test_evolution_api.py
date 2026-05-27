@@ -98,6 +98,8 @@ def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
     assert payload["health"]["status"] == "available"
     assert payload["config"]["analyze_only"] is True
     assert payload["config"]["apply_allowed"] is False
+    assert payload["mutation_gate"]["enabled"] in {True, False}
+    assert payload["mutation_gate"]["global_deny_mutations"] in {True, False}
     assert payload["config"]["provider_overrides"]["api-evolution"]["bearer_token"] == "***REDACTED_TOKEN***"
     assert payload["config"]["provider_overrides"]["api-evolution"]["headers"]["Authorization"] == "***REDACTED_CREDENTIAL***"
     matrix = payload["providers"][0]["capability_matrix"]
@@ -109,6 +111,7 @@ def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
 
     assert detail_response.status_code == 200
     assert detail_response.json["data"]["providers"][0]["provider_name"] == "api-evolution"
+    assert detail_response.json["data"]["mutation_gate"]["enabled"] in {True, False}
 
 
 def test_task_evolution_analyze_and_read_model_endpoints(client, app, admin_auth_header):
@@ -383,6 +386,224 @@ def test_task_evolution_apply_rejects_mismatched_scoped_approval_target(client, 
     assert review_response.status_code == 200
     assert response.status_code == 403
     assert response.json["message"] == "evolution_apply_invalid_mutation_approval:target"
+
+
+def test_task_evolution_apply_rejects_missing_mutation_approval_artifact(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-MISSING-APPROVAL", title="Missing mutation approval", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-MISSING-APPROVAL/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-MISSING-APPROVAL/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "remove artifact for negative test"},
+        )
+        repos = get_repository_registry()
+        persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
+        assert persisted is not None
+        metadata = dict(persisted.proposal_metadata or {})
+        metadata.pop("mutation_approval_artifact", None)
+        persisted.proposal_metadata = metadata
+        repos.evolution_proposal_repo.save(persisted)
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": False,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-MISSING-APPROVAL/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert response.status_code == 403
+    assert response.json["message"] == "evolution_apply_missing_mutation_approval"
+
+
+def test_task_evolution_apply_rejects_expired_mutation_approval_artifact(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-EXPIRED-APPROVAL", title="Expired mutation approval", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-EXPIRED-APPROVAL/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-EXPIRED-APPROVAL/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "expire artifact for negative test"},
+        )
+        repos = get_repository_registry()
+        persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
+        assert persisted is not None
+        metadata = dict(persisted.proposal_metadata or {})
+        artifact = dict(metadata.get("mutation_approval_artifact") or {})
+        artifact["expires_at"] = 1.0
+        metadata["mutation_approval_artifact"] = artifact
+        persisted.proposal_metadata = metadata
+        repos.evolution_proposal_repo.save(persisted)
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": False,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-EXPIRED-APPROVAL/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert response.status_code == 403
+    assert response.json["message"] == "evolution_apply_invalid_mutation_approval:expired"
+
+
+def test_task_evolution_apply_rejects_wrong_mutation_class_binding(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-CLASS-MISMATCH", title="Wrong class in approval", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-CLASS-MISMATCH/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-CLASS-MISMATCH/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "override class for negative test"},
+        )
+        repos = get_repository_registry()
+        persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
+        assert persisted is not None
+        metadata = dict(persisted.proposal_metadata or {})
+        artifact = dict(metadata.get("mutation_approval_artifact") or {})
+        artifact["mutation_classes"] = ["artifact_mutation"]
+        metadata["mutation_approval_artifact"] = artifact
+        persisted.proposal_metadata = metadata
+        repos.evolution_proposal_repo.save(persisted)
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": False,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-CLASS-MISMATCH/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert response.status_code == 403
+    assert "mutation_gate_blocked:mutation_scope_mismatch:class" == response.json["message"]
+
+
+def test_task_evolution_apply_allows_with_valid_scoped_approval(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-ALLOW-SCOPED", title="Scoped approval allow path", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-ALLOW-SCOPED/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-ALLOW-SCOPED/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "valid scoped approval"},
+        )
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": False,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-ALLOW-SCOPED/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert response.status_code == 200
+    assert response.json["data"]["status"] == "prepared"
+    assert response.json["data"]["applied"] is False
+
+
+def test_task_evolution_apply_blocks_when_global_mutation_deny_enabled(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-DENY-SWITCH", title="Global deny switch", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    old_cfg = dict(app.config.get("AGENT_CONFIG") or {})
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-DENY-SWITCH/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-DENY-SWITCH/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "approved but deny switch should block"},
+        )
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": False,
+        }
+        cfg["mutation_gate"] = {
+            **dict(cfg.get("mutation_gate") or {}),
+            "enabled": True,
+            "global_deny_mutations": True,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-DENY-SWITCH/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+        app.config["AGENT_CONFIG"] = old_cfg
+
+    assert review_response.status_code == 200
+    assert response.status_code == 403
+    assert response.json["message"] == "mutation_gate_blocked:mutation_gate_global_deny"
 
 
 def test_task_evolution_review_endpoint_persists_read_model_status(client, app, admin_auth_header):

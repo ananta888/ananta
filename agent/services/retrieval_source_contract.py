@@ -8,6 +8,31 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 SOURCE_TYPES: tuple[str, ...] = ("repo", "artifact", "task_memory", "wiki")
 _SOURCE_TYPE_SET = set(SOURCE_TYPES)
 _NORMALIZE_SPACES = re.compile(r"\s+")
+_SENSITIVITY_CLASSES = {
+    "public",
+    "internal_low",
+    "internal_medium",
+    "internal_high",
+    "confidential",
+    "secret",
+    "credential",
+    "customer_data",
+    "legal",
+    "security_sensitive",
+}
+_CLASSIFICATION_CLASSES = {
+    "public",
+    "internal",
+    "restricted",
+    "confidential",
+}
+_SOURCE_ORIGIN_CLASSES = {
+    "repo",
+    "artifact",
+    "wiki",
+    "external_research",
+    "task_memory",
+}
 
 
 @runtime_checkable
@@ -182,6 +207,57 @@ def _build_chunk_id(*, source_type: str, source_id: str, engine: str, source: st
     return f"{source_type}:{digest}"
 
 
+def normalize_security_metadata(*, source_type: str, metadata: Mapping[str, Any] | None) -> dict[str, Any]:
+    payload = dict(metadata or {})
+    source_origin = str(payload.get("source_origin") or source_type or "repo").strip().lower()
+    if source_origin not in _SOURCE_ORIGIN_CLASSES:
+        source_origin = source_type if source_type in _SOURCE_ORIGIN_CLASSES else "repo"
+
+    sensitivity = str(payload.get("sensitivity") or "").strip().lower()
+    if sensitivity not in _SENSITIVITY_CLASSES:
+        fallback = {
+            "wiki": "public",
+            "repo": "internal_low",
+            "artifact": "internal_medium",
+            "task_memory": "internal_medium",
+        }
+        sensitivity = fallback.get(source_type, "internal_medium")
+
+    classification = str(payload.get("classification") or "").strip().lower()
+    if classification not in _CLASSIFICATION_CLASSES:
+        if sensitivity in {"public"}:
+            classification = "public"
+        elif sensitivity in {"internal_low", "internal_medium"}:
+            classification = "internal"
+        elif sensitivity in {"internal_high", "legal"}:
+            classification = "restricted"
+        else:
+            classification = "confidential"
+
+    tenancy = str(payload.get("tenancy") or "").strip().lower()
+    if not tenancy:
+        tenancy = "single_tenant"
+    approval_class = str(payload.get("approval_class") or payload.get("operation_class") or "").strip().lower()
+    if not approval_class:
+        approval_class = "standard"
+
+    chunk_security_tags = payload.get("chunk_security_tags")
+    tags: list[str] = []
+    if isinstance(chunk_security_tags, list):
+        tags = [str(item).strip().lower() for item in chunk_security_tags if str(item).strip()]
+    if not tags:
+        tags = [classification, sensitivity, source_origin]
+
+    return {
+        "classification": classification,
+        "source_origin": source_origin,
+        "sensitivity": sensitivity,
+        "tenancy": tenancy,
+        "approval_class": approval_class,
+        "chunk_security_tags": tags,
+    }
+
+
 def normalize_chunk_metadata(
     *,
     engine: str,
@@ -203,6 +279,14 @@ def normalize_chunk_metadata(
     payload["source_type"] = source_type
     payload["source_id"] = source_id
     payload["chunk_id"] = chunk_id
+    security_metadata = normalize_security_metadata(source_type=source_type, metadata=payload)
+    payload["security_metadata"] = security_metadata
+    payload["classification"] = security_metadata["classification"]
+    payload["source_origin"] = security_metadata["source_origin"]
+    payload["sensitivity"] = security_metadata["sensitivity"]
+    payload["tenancy"] = security_metadata["tenancy"]
+    payload["approval_class"] = security_metadata["approval_class"]
+    payload["chunk_security_tags"] = list(security_metadata["chunk_security_tags"])
     payload["citation"] = build_citation(source_type=source_type, source_id=source_id, source=source, metadata=payload)
     payload["provenance"] = {
         "engine": str(engine or ""),
