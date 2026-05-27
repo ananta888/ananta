@@ -19,6 +19,10 @@ from client_surfaces.operator_tui.sections import normalize_section_id
 from client_surfaces.operator_tui.terminal import get_tty_size
 
 
+def _get_hub_token() -> str:
+    return str(os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or "")
+
+
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Ananta operator TUI shell.")
     parser.add_argument("--base-url", default=os.environ.get("ANANTA_BASE_URL", "http://localhost:5000"))
@@ -138,7 +142,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("checks=" + ",".join(result.checks))
         print(result.output_preview)
         return 0 if result.ok else 1
-    registry = SectionAdapterRegistry()
+    registry = SectionAdapterRegistry(
+        endpoint=str(args.base_url).rstrip("/"),
+        token=_get_hub_token(),
+    )
     budget = PerformanceBudget()
     state = load_active_section(build_initial_state(args), registry)
     for command in args.command:
