@@ -9,8 +9,18 @@
     "schemas/worker/worker_todo_contract.v1.json",
     "schemas/worker/worker_todo_result.v1.json"
   ],
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
   "goal": "Ananta should become suitable for higher-trust and KRITIS-like environments by enforcing auditable LLM interactions, central mutation gating, explicit write approvals, secure retrieval filtering, deterministic workflow control, hardened execution isolation and enterprise-grade role handling.",
   "program_success_criteria": [
     "Every security-relevant LLM and tool interaction can be reconstructed through an auditable chain.",
@@ -829,7 +839,7 @@
         {
           "id": "K3-SBX-T09",
           "title": "Sandbox escape and policy regression tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "Tests verify key isolation assumptions for critical sandbox classes.",
@@ -840,7 +850,7 @@
         {
           "id": "K3-SBX-T10",
           "title": "Sandbox operations guide add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "Operators have a practical guide for running Ananta in hardened execution mode.",
@@ -864,7 +874,7 @@
         {
           "id": "K3-RBAC-T01",
           "title": "RBAC model alignment review perform",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A review aligns backend auth model, policy model and frontend visibility rules.",
@@ -875,7 +885,7 @@
         {
           "id": "K3-RBAC-T02",
           "title": "Frontend permission matrix define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A permission matrix exists for views, actions and admin operations in Angular.",
@@ -886,7 +896,7 @@
         {
           "id": "K3-RBAC-T03",
           "title": "Frontend guard and action-policy layer implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Angular routes and action surfaces use a shared permission layer.",
@@ -897,7 +907,7 @@
         {
           "id": "K3-RBAC-T04",
           "title": "User and role management UI implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Admins can view users and manage roles through the UI.",
@@ -908,7 +918,7 @@
         {
           "id": "K3-RBAC-T05",
           "title": "Sensitive action gating in UI add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "High-risk actions such as approvals, write applies, terminal access and policy changes are hidden or disabled appropriately.",
@@ -919,7 +929,7 @@
         {
           "id": "K3-RBAC-T06",
           "title": "Admin read-model and diagnostics views refine",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Admin-only diagnostics and policy summaries have dedicated UI handling.",
@@ -930,7 +940,7 @@
         {
           "id": "K3-RBAC-T07",
           "title": "Role change audit visibility add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "UI users with the right role can inspect recent role and permission changes.",
@@ -941,7 +951,7 @@
         {
           "id": "K3-RBAC-T08",
           "title": "RBAC tests and route guard regression add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Tests verify permission matrix behavior for representative roles.",
@@ -952,7 +962,7 @@
         {
           "id": "K3-RBAC-T09",
           "title": "RBAC operations guide add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "Operators have a practical guide for user, role and permission handling.",
