@@ -140,3 +140,18 @@ def test_mutation_gate_fails_closed_for_expired_scoped_approval() -> None:
     assert payload["classification"] == "blocked"
     assert payload["reason_code"] == "mutation_scope_expired"
 
+
+def test_mutation_gate_fails_closed_for_unknown_mutation_in_strict_mode() -> None:
+    svc = get_mutation_gate_service()
+    decision = svc.evaluate(
+        command=None,
+        tool_calls=[{"name": "artifact_upload", "args": {"artifact_id": "a-1"}}],
+        task={"id": "task-7"},
+        agent_cfg={"governance_mode": "strict"},
+        approval_decision=_approval(classification="allow", operation_class="read_only"),
+        risk_decision=_risk(),
+        trace_id="trace-7",
+    )
+    payload = decision.as_dict()
+    assert payload["classification"] == "blocked"
+    assert payload["reason_code"] == "mutation_gate_unknown_high_risk_classification"

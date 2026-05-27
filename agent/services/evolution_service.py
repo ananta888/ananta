@@ -29,6 +29,10 @@ from agent.services.evolution.models import (
     ValidationResult,
 )
 from agent.services.evolution.registry import EvolutionProviderRegistry, get_evolution_provider_registry
+from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.execution_audit_service import get_execution_audit_service
+from agent.services.execution_risk_policy_service import evaluate_execution_risk
+from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -700,6 +704,69 @@ class EvolutionService:
             provider_metadata=dict(persisted.provider_metadata or {}),
             raw_payload=persisted.raw_payload,
         )
+        task_row = repos.task_repo.get_by_id(task_id)
+        task_payload = task_row.model_dump() if task_row is not None else {"id": task_id}
+        trace_id = str(context.trace_id or task_payload.get("goal_trace_id") or "").strip() or None
+        actor = str((trigger.actor if trigger else None) or review.get("reviewed_by") or "system")
+        mutation_tool_calls = [
+            {
+                "name": "evolution_apply",
+                "args": {
+                    "proposal_id": proposal_id,
+                    "task_id": task_id,
+                    "goal_id": context.goal_id,
+                    "target_refs": list(proposal.target_refs or []),
+                },
+            }
+        ]
+        approval_payload = get_approval_policy_service().evaluate(
+            command=None,
+            tool_calls=mutation_tool_calls,
+            task={**task_payload, "approval_confirmed": True},
+            agent_cfg=config or {},
+        )
+        risk_payload = evaluate_execution_risk(
+            command=None,
+            tool_calls=mutation_tool_calls,
+            task=task_payload,
+            agent_cfg=config or {},
+        )
+        mutation_gate = get_mutation_gate_service().evaluate(
+            command=None,
+            tool_calls=mutation_tool_calls,
+            task={
+                **task_payload,
+                "mutation_approval": {
+                    "task_id": task_id,
+                    "trace_id": trace_id,
+                    "mutation_classes": ["patch_apply"],
+                    "expires_at": time.time() + 600,
+                },
+            },
+            agent_cfg=config or {},
+            approval_decision=approval_payload,
+            risk_decision=risk_payload,
+            trace_id=trace_id,
+            actor=actor,
+        ).as_dict()
+        get_execution_audit_service().emit(
+            operation_type="mutation_gate_decision",
+            outcome=str(mutation_gate.get("classification") or "unknown"),
+            trace_id=trace_id,
+            goal_id=context.goal_id,
+            task_id=task_id,
+            actor_role="hub",
+            details={
+                "reason_code": mutation_gate.get("reason_code"),
+                "mutation_class": mutation_gate.get("mutation_class"),
+                "normalized_target": mutation_gate.get("normalized_target"),
+                "approval_scope": mutation_gate.get("approval_scope"),
+                "source": "evolution_service.apply_persisted_proposal",
+                "proposal_id": proposal_id,
+            },
+        )
+        if mutation_gate.get("classification") in {"blocked", "confirm_required"}:
+            raise PermissionError(f"mutation_gate_blocked:{mutation_gate.get('reason_code')}")
         result = self.apply(
             context,
             proposal,

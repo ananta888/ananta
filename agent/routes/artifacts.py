@@ -7,6 +7,10 @@ from flask import Blueprint, current_app, g, request, send_file
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.models import ArtifactRagIndexRequest, ArtifactUploadRequest
+from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.execution_audit_service import get_execution_audit_service
+from agent.services.execution_risk_policy_service import evaluate_execution_risk
+from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
 from agent.services.repository_registry import get_repository_registry
 from agent.services.retrieval_service import get_retrieval_service
@@ -66,6 +70,61 @@ def _artifact_rag_index_request() -> ArtifactRagIndexRequest:
 def _current_username() -> str:
     user = getattr(g, "user", {}) or {}
     return str(user.get("sub") or user.get("username") or "anonymous")
+
+
+def _enforce_mutation_gate(operation: str, *, artifact_id: str | None = None):
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    tool_call = {
+        "name": operation,
+        "args": {"artifact_id": artifact_id} if artifact_id else {},
+    }
+    approval = get_approval_policy_service().evaluate(
+        command=None,
+        tool_calls=[tool_call],
+        task={"id": f"artifact:{artifact_id}" if artifact_id else "artifact:route"},
+        agent_cfg=cfg,
+    )
+    risk = evaluate_execution_risk(
+        command=None,
+        tool_calls=[tool_call],
+        task={"id": f"artifact:{artifact_id}" if artifact_id else "artifact:route"},
+        agent_cfg=cfg,
+    )
+    decision = get_mutation_gate_service().evaluate(
+        command=None,
+        tool_calls=[tool_call],
+        task={"id": f"artifact:{artifact_id}" if artifact_id else "artifact:route"},
+        agent_cfg=cfg,
+        approval_decision=approval,
+        risk_decision=risk,
+        trace_id=None,
+        actor=_current_username(),
+    ).as_dict()
+    get_execution_audit_service().emit(
+        operation_type="mutation_gate_decision",
+        outcome=str(decision.get("classification") or "unknown"),
+        trace_id=None,
+        goal_id=None,
+        task_id=None,
+        actor_role="hub",
+        details={
+            "reason_code": decision.get("reason_code"),
+            "mutation_class": decision.get("mutation_class"),
+            "normalized_target": decision.get("normalized_target"),
+            "approval_scope": decision.get("approval_scope"),
+            "source": "artifacts_route",
+            "operation": operation,
+            "artifact_id": artifact_id,
+        },
+    )
+    if decision.get("classification") in {"blocked", "confirm_required"}:
+        return api_response(
+            status="error",
+            message="mutation_gate_blocked",
+            data={"reason_code": decision.get("reason_code"), "decision": decision},
+            code=403,
+        )
+    return None
 
 
 def _serialize_artifact_detail(artifact_id: str) -> dict | None:
@@ -130,6 +189,9 @@ def _model_status(item) -> str:
 @artifacts_bp.route("/artifacts/upload", methods=["POST"])
 @check_auth
 def upload_artifact():
+    blocked = _enforce_mutation_gate("artifact_upload")
+    if blocked:
+        return blocked
     uploaded = request.files.get("file")
     if uploaded is None or not uploaded.filename:
         raise BadRequestError("file_required")
@@ -180,6 +242,9 @@ def get_artifact(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/extract", methods=["POST"])
 @check_auth
 def extract_artifact(artifact_id: str):
+    blocked = _enforce_mutation_gate("artifact_extract", artifact_id=artifact_id)
+    if blocked:
+        return blocked
     artifact, version, document = get_ingestion_service().extract_artifact(artifact_id)
     if artifact is None:
         raise NotFoundError()
@@ -197,6 +262,9 @@ def extract_artifact(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-index", methods=["POST"])
 @check_auth
 def index_artifact_for_rag(artifact_id: str):
+    blocked = _enforce_mutation_gate("artifact_rag_index", artifact_id=artifact_id)
+    if blocked:
+        return blocked
     if _artifact_repo().get_by_id(artifact_id) is None:
         raise NotFoundError()
     payload = _artifact_rag_index_request()

@@ -8,6 +8,7 @@ from agent.services.command_chain_parser import CommandChainSegment
 from agent.services.command_to_tool_mapper import CommandToToolMapper
 from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
+from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.task_execution_policy_service import resolve_task_scope_allowed_tools, validate_task_scoped_tool_calls
 
 
@@ -101,6 +102,16 @@ class SegmentPreflightValidator:
             task=effective_task,
             agent_cfg=cfg,
         )
+        mutation_decision = get_mutation_gate_service().evaluate(
+            command=None if mapped_is_known else seg_cmd,
+            tool_calls=mapped_tool_calls,
+            task=effective_task,
+            agent_cfg=cfg,
+            approval_decision=seg_approval,
+            risk_decision=seg_risk,
+            trace_id=str(effective_task.get("goal_trace_id") or "").strip() or None,
+            actor="system",
+        ).as_dict()
 
         allowed = True
         reason_codes: list[str] = []
@@ -110,6 +121,9 @@ class SegmentPreflightValidator:
         if not seg_risk.allowed:
             allowed = False
             reason_codes.extend([str(item) for item in (seg_risk.reasons or [])] or ["risk_policy_blocked"])
+        if mutation_decision.get("classification") in {"blocked", "confirm_required"}:
+            allowed = False
+            reason_codes.append(str(mutation_decision.get("reason_code") or "mutation_gate_blocked"))
         if mapped_is_known:
             blocked, reasons = validate_task_scoped_tool_calls(
                 mapped_tool_calls,

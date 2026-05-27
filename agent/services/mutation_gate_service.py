@@ -65,6 +65,12 @@ class MutationGateService:
         normalized_target = self.normalize_target(command=command, tool_calls=tool_calls, task=task)
         is_mutation = mutation_class != "read_only"
         scope = self._approval_scope(task=task, trace_id=trace_id, actor=actor)
+        governance_mode = str(
+            approval_payload.get("governance_mode")
+            or (agent_cfg or {}).get("governance_mode")
+            or "balanced"
+        ).strip().lower()
+        operation_class = str(approval_payload.get("operation_class") or "read_only").strip().lower()
 
         if not is_mutation:
             return MutationGateDecision(
@@ -74,6 +80,15 @@ class MutationGateService:
                 normalized_target=normalized_target,
                 approval_scope=scope,
                 details={"enabled": True},
+            )
+        if governance_mode in {"safe", "strict"} and operation_class == "read_only":
+            return MutationGateDecision(
+                classification="blocked",
+                reason_code="mutation_gate_unknown_high_risk_classification",
+                mutation_class=mutation_class,
+                normalized_target=normalized_target,
+                approval_scope=scope,
+                details={"blocked_by": "mutation_gate_hardening", "governance_mode": governance_mode},
             )
 
         if approval_payload.get("classification") == "blocked" and bool(approval_payload.get("enforced", False)):
@@ -175,6 +190,8 @@ class MutationGateService:
             if intent == "shell_command":
                 return "shell_write_effect"
             lowered = name.lower()
+            if "evolution" in lowered and "apply" in lowered:
+                return "patch_apply"
             if "artifact" in lowered:
                 return "artifact_mutation"
             if "task" in lowered and any(part in lowered for part in ("update", "patch", "set_", "review", "status")):
@@ -352,4 +369,3 @@ _mutation_gate_service = MutationGateService()
 
 def get_mutation_gate_service() -> MutationGateService:
     return _mutation_gate_service
-

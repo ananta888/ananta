@@ -281,6 +281,59 @@ def test_task_evolution_apply_requires_explicit_review_approval(client, app, adm
     assert response.json["message"] == "evolution_apply_requires_approved_review"
 
 
+def test_task_evolution_apply_is_blocked_when_mutation_gate_denies(client, app, admin_auth_header, monkeypatch):
+    task_repo.save(TaskDB(id="T-EVO-MUT-BLOCK", title="Mutation blocked apply", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+
+    class _BlockedDecision:
+        def as_dict(self):
+            return {
+                "classification": "blocked",
+                "reason_code": "mutation_gate_unknown_high_risk_classification",
+                "mutation_class": "patch_apply",
+                "normalized_target": {"target_type": "none"},
+                "approval_scope": {},
+            }
+
+    class _BlockedGate:
+        def evaluate(self, **kwargs):
+            return _BlockedDecision()
+
+    monkeypatch.setattr("agent.services.evolution_service.get_mutation_gate_service", lambda: _BlockedGate())
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-MUT-BLOCK/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-MUT-BLOCK/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "approve for gate test"},
+        )
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": True,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-MUT-BLOCK/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert response.status_code == 403
+    assert "mutation_gate_blocked" in str(response.json["message"])
+
+
 def test_task_evolution_review_endpoint_persists_read_model_status(client, app, admin_auth_header):
     task_repo.save(TaskDB(id="T-EVO-REVIEW", title="Review proposal", status="failed"))
     registry = get_evolution_provider_registry()
