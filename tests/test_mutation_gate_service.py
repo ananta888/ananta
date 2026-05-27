@@ -155,3 +155,70 @@ def test_mutation_gate_fails_closed_for_unknown_mutation_in_strict_mode() -> Non
     payload = decision.as_dict()
     assert payload["classification"] == "blocked"
     assert payload["reason_code"] == "mutation_gate_unknown_high_risk_classification"
+
+
+def test_mutation_gate_blocks_when_scoped_target_mismatches() -> None:
+    svc = get_mutation_gate_service()
+    task = {"id": "task-8", "goal_id": "goal-8"}
+    target = svc.normalize_target(command="chmod +x scripts/run.sh", tool_calls=None, task=task)
+    task["mutation_approval"] = {
+        "task_id": "task-8",
+        "trace_id": "trace-8",
+        "mutation_classes": ["file_write"],
+        "target_fingerprint": "deadbeef",
+        "expires_at": time.time() + 300,
+    }
+    decision = svc.evaluate(
+        command="chmod +x scripts/run.sh",
+        tool_calls=None,
+        task=task,
+        agent_cfg={},
+        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        risk_decision=_risk(),
+        trace_id="trace-8",
+    )
+    payload = decision.as_dict()
+    assert target["target_fingerprint"] != "deadbeef"
+    assert payload["classification"] == "blocked"
+    assert payload["reason_code"] == "mutation_scope_mismatch:target"
+
+
+def test_mutation_gate_blocks_when_scoped_class_mismatches() -> None:
+    svc = get_mutation_gate_service()
+    task = {"id": "task-9", "goal_id": "goal-9"}
+    target = svc.normalize_target(command="chmod +x scripts/run.sh", tool_calls=None, task=task)
+    task["mutation_approval"] = {
+        "task_id": "task-9",
+        "trace_id": "trace-9",
+        "mutation_classes": ["artifact_mutation"],
+        "target_fingerprint": target["target_fingerprint"],
+        "expires_at": time.time() + 300,
+    }
+    decision = svc.evaluate(
+        command="chmod +x scripts/run.sh",
+        tool_calls=None,
+        task=task,
+        agent_cfg={},
+        approval_decision=_approval(classification="confirm_required", reason_code="approval_confirmation_required:mutation"),
+        risk_decision=_risk(),
+        trace_id="trace-9",
+    )
+    payload = decision.as_dict()
+    assert payload["classification"] == "blocked"
+    assert payload["reason_code"] == "mutation_scope_mismatch:class"
+
+
+def test_mutation_gate_global_deny_switch_blocks_mutation() -> None:
+    svc = get_mutation_gate_service()
+    decision = svc.evaluate(
+        command="chmod +x scripts/run.sh",
+        tool_calls=None,
+        task={"id": "task-10"},
+        agent_cfg={"mutation_gate": {"enabled": True, "global_deny_mutations": True}},
+        approval_decision=_approval(classification="allow"),
+        risk_decision=_risk(),
+        trace_id="trace-10",
+    )
+    payload = decision.as_dict()
+    assert payload["classification"] == "blocked"
+    assert payload["reason_code"] == "mutation_gate_global_deny"

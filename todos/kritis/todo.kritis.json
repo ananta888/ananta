@@ -337,7 +337,7 @@
         {
           "id": "K1-MUT-T11",
           "title": "Global mutation deny switch add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Operators can globally disable mutation-capable operations in hardened mode.",
@@ -348,7 +348,7 @@
         {
           "id": "K1-MUT-T12",
           "title": "MutationGate bypass regression tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Tests prove that mutation-capable paths cannot bypass MutationGate.",
@@ -359,7 +359,7 @@
         {
           "id": "K1-MUT-T13",
           "title": "MutationGate release evidence checklist add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "A checklist exists for validating MutationGate behavior during release or KRITIS review.",
@@ -383,7 +383,7 @@
         {
           "id": "K1-EVO-T01",
           "title": "Evolver write-lock target model align with MutationGate",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A target model defines which Evolver operations are mutation-capable.",
@@ -394,7 +394,7 @@
         {
           "id": "K1-EVO-T02",
           "title": "Evolver MutationGate boundary implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Evolver write paths call the central MutationGate before mutation.",

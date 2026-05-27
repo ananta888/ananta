@@ -47,3 +47,25 @@ def test_execute_local_step_blocks_unknown_high_risk_mutation_in_strict_mode() -
             )
     assert any(event[0] == "mutation_gate_decision" and event[1] == "blocked" for event in audit.events)
 
+
+def test_execute_local_step_blocks_when_global_deny_switch_enabled() -> None:
+    svc = TaskExecutionService()
+    audit = _AuditCollector()
+    with (
+        patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
+        patch("agent.services.task_execution_service.get_execution_audit_service", return_value=audit),
+    ):
+        with pytest.raises(ToolGuardrailError):
+            svc.execute_local_step(
+                tid=None,
+                task={"worker_execution_context": {}},
+                command="chmod +x scripts/run.sh",
+                tool_calls=None,
+                execution_policy=_policy(),
+                guard_cfg={
+                    "governance_mode": "balanced",
+                    "mutation_gate": {"enabled": True, "global_deny_mutations": True},
+                    "execution_risk_policy": {"enabled": True, "task_scoped_only": False},
+                },
+            )
+    assert any(event[0] == "mutation_gate_decision" and event[1] == "blocked" for event in audit.events)

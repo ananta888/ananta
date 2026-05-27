@@ -164,6 +164,10 @@ def build_default_agent_config() -> dict:
             "worker_404_hub_fallback_enabled": True,
             "worker_task_sync_from_hub_enabled": True,
         },
+        "mutation_gate": {
+            "enabled": True,
+            "global_deny_mutations": False,
+        },
         "routing_fallback_policy": {
             "enabled": True,
             "allow_static_providers": True,

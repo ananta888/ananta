@@ -923,10 +923,13 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     governance = summary.get("governance") or {}
     review_policy = governance.get("review_policy") or {}
     risk_policy = governance.get("execution_risk_policy") or {}
+    mutation_gate = governance.get("mutation_gate") or {}
     assert review_policy.get("enabled") is True
     assert review_policy.get("min_risk_level_for_review") in {"high", "medium", "critical", "low"}
     assert risk_policy.get("enabled") is True
     assert risk_policy.get("default_action") in {"deny", "allow"}
+    assert mutation_gate.get("enabled") in {True, False}
+    assert mutation_gate.get("global_deny_mutations") in {True, False}
     exposure_policy = governance.get("exposure_policy") or {}
     openai_compat = exposure_policy.get("openai_compat") or {}
     assert openai_compat.get("enabled") in {True, False}

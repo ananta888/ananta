@@ -398,6 +398,16 @@ def set_config():
             **new_cfg,
             "unified_approval_policy": shared.normalize_unified_approval_policy_config(merged_approval_policy),
         }
+    if "mutation_gate" in new_cfg:
+        mutation_gate_cfg = new_cfg.get("mutation_gate")
+        if not isinstance(mutation_gate_cfg, dict):
+            return api_response(status="error", message="invalid_mutation_gate", code=400)
+        merged_mutation_gate = (current_cfg.get("mutation_gate", {}) or {}).copy()
+        merged_mutation_gate.update(mutation_gate_cfg)
+        new_cfg = {
+            **new_cfg,
+            "mutation_gate": shared.normalize_mutation_gate_config(merged_mutation_gate),
+        }
     if "specialized_worker_profiles" in new_cfg:
         specialized_cfg = new_cfg.get("specialized_worker_profiles")
         if not isinstance(specialized_cfg, dict):

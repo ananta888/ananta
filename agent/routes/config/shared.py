@@ -50,6 +50,14 @@ _SPECIALIZED_PROFILE_CAPABILITY_CLASSES = {
 }
 
 
+def normalize_mutation_gate_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    return {
+        "enabled": bool(payload.get("enabled", True)),
+        "global_deny_mutations": bool(payload.get("global_deny_mutations", False)),
+    }
+
+
 def normalize_ml_intern_spike_config(value: dict | None) -> dict:
     return _normalize_ml_intern_spike_config(value)
 
