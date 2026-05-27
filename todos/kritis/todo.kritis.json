@@ -651,7 +651,7 @@
         {
           "id": "K2-WFD-T03",
           "title": "Explicit state machine for critical workflows add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "At least the most critical workflows gain explicit state machine enforcement.",
@@ -662,7 +662,7 @@
         {
           "id": "K2-WFD-T04",
           "title": "Transition guard layer implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A transition guard layer checks policy, approval and preconditions before state changes.",
@@ -673,7 +673,7 @@
         {
           "id": "K2-WFD-T05",
           "title": "Fallback behavior explicitness improve",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Fallbacks are visible and structured in stateful critical flows.",
@@ -684,7 +684,7 @@
         {
           "id": "K2-WFD-T06",
           "title": "Replayability and trace reconstruction improve",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "A critical workflow can be reconstructed from state records and audit traces.",
@@ -695,7 +695,7 @@
         {
           "id": "K2-WFD-T07",
           "title": "Timeout and stuck-state handling add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Critical workflows handle timeout, waiting and interrupted states explicitly.",
