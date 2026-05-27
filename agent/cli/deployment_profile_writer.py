@@ -28,6 +28,7 @@ def build_deployment_profile(
         raise ValueError(f"unsupported deployment target: {target}")
 
     stronger_isolation = runtime_mode in {"sandbox", "strict"}
+    container_profile = _container_hardening_profile(runtime_mode=runtime_mode, runtime_profile=runtime_profile)
     return {
         "schema": "ananta.deployment-profile.v1",
         "version": "1",
@@ -38,9 +39,11 @@ def build_deployment_profile(
         "governance_mode": governance_mode,
         "local_dev_default_is_non_container": True,
         "isolation_level": "stronger" if stronger_isolation else "standard",
+        "container_hardening_profile": container_profile,
         "notes": [
             "Container deployment is optional; local-dev remains non-container by default.",
             "Sandbox and strict modes are stronger isolation choices.",
+            "Container hardening profile is declarative and should be mapped to compose/k8s runtime settings.",
         ],
         "examples": _deployment_examples(normalized_target, runtime_mode),
         "config_patch": dict(config_patch or {}),
@@ -85,3 +88,34 @@ def _deployment_examples(target: str, runtime_mode: str) -> list[str]:
         ]
     return ["podman compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build"]
 
+
+def _container_hardening_profile(*, runtime_mode: str, runtime_profile: str) -> dict[str, Any]:
+    mode = str(runtime_mode or "").strip().lower()
+    profile = str(runtime_profile or "").strip().lower()
+    if mode in {"sandbox", "strict"}:
+        return {
+            "profile_id": "kritis-hardened-v1",
+            "runtime_mode": mode,
+            "runtime_profile": profile,
+            "rootless_required": True,
+            "read_only_rootfs": True,
+            "drop_all_capabilities": True,
+            "allow_privilege_escalation": False,
+            "seccomp_profile": "runtime/default",
+            "apparmor_profile": "docker-default",
+            "network_policy_class": "restricted-egress",
+            "workspace_mount_mode": "bounded_rw",
+            "tmpfs_mounts": ["/tmp", "/run"],
+        }
+    return {
+        "profile_id": "default-dev-v1",
+        "runtime_mode": mode or "local-dev",
+        "runtime_profile": profile,
+        "rootless_required": False,
+        "read_only_rootfs": False,
+        "drop_all_capabilities": False,
+        "allow_privilege_escalation": True,
+        "network_policy_class": "default",
+        "workspace_mount_mode": "standard_rw",
+        "tmpfs_mounts": [],
+    }
