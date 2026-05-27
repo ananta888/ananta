@@ -75,6 +75,7 @@ from client_surfaces.operator_tui.chat_mixin import ChatMixin
 from client_surfaces.operator_tui.snake_tick_mixin import SnakeTickMixin
 from client_surfaces.operator_tui.header_snake_mixin import HeaderSnakeMixin
 from client_surfaces.operator_tui.mouse_artifact_mixin import MouseArtifactMixin
+from client_surfaces.operator_tui.snake_heuristic_mixin import SnakeHeuristicMixin
 from client_surfaces.operator_tui.snake_ops_mixin import SnakeOpsMixin
 from client_surfaces.operator_tui.tutorial_ai_mixin import TutorialAiMixin
 
@@ -82,7 +83,7 @@ if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
 
 
-class InteractiveOperatorTui(SnakeTickMixin, SnakeOpsMixin, TutorialAiMixin, HeaderSnakeMixin, MouseArtifactMixin, ChatMixin):
+class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin, TutorialAiMixin, HeaderSnakeMixin, MouseArtifactMixin, ChatMixin):
     def __init__(
         self,
         state: OperatorState,
@@ -155,6 +156,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeOpsMixin, TutorialAiMixin, Hea
         self._command_buffer = ""
         # E03: Chat transport (initialized lazily when snake registers with Hub)
         self._chat_transport: Any = None
+        # Heuristic selection state
+        self._codecompass_artifact_cache: tuple[float, dict[str, Any] | None] = (0.0, None)
+        self._active_heuristics_cache: tuple[float, list[dict[str, Any]]] = (0.0, [])
+        self._heuristic_traces: list[Any] = []
+        self._last_heuristic_proposal_at: float = 0.0
+        self._selected_heuristic_id: str = ""
         # E05: Load initial notes into notes:self channel
         self._init_notes_channel()
         self._rendered_text = self._render()

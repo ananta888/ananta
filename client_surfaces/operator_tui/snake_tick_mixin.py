@@ -214,6 +214,8 @@ class SnakeTickMixin:
             self._section_first_visit_pending = ""
 
         self._tick_ai_snake_prediction(game, now=now)
+        # Heuristic selection: evaluate tui_snake heuristics against current screen state
+        self._tick_snake_heuristic(game, now=now)
 
         # sync tutor depth mode into game state
         game["tutor_depth_mode"] = self._tutor_depth_mode
@@ -288,7 +290,12 @@ class SnakeTickMixin:
         summary = compact_observation_summary(self._ai_observation.compact_summary(max_facts=20), max_facts=20)
         quick = quick_predict(self._ai_observation.events(), now=now)
         prediction = quick.as_dict()
-        codecompass = load_codecompass_artifact()
+        # Cache codecompass artifact: reading from disk every tick (24/s) causes hangs
+        _cc_loaded_at, _cc_cached = getattr(self, "_codecompass_artifact_cache", (0.0, None))
+        if (now - _cc_loaded_at) >= 5.0:
+            _cc_cached = load_codecompass_artifact()
+            self._codecompass_artifact_cache = (now, _cc_cached)
+        codecompass = _cc_cached
         ai_ctx = default_ai_context()
         set_ai_context(game, ai_ctx)
         envelope = build_context_envelope_ref(ai_ctx, codecompass_artifact=codecompass, selected_artifact_ref=artifact_ref)

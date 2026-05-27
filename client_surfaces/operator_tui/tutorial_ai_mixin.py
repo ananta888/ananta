@@ -63,8 +63,10 @@ class TutorialAiMixin:
         context_tokens = [*hints[:10], *rag_context[:10]]
         intent_confidence = str(game.get("artifact_intent_confidence") or "none")
         artifact_target = game.get("artifact_intent_target")
-        target_mode = "follow_user"
-        if intent_confidence in {"likely", "confirmed"}:
+        # Respect heuristic-selected target mode; artifact intent can escalate to fast_target
+        heuristic_mode = str(game.get("tutorial_ai_target_mode") or "follow_user")
+        target_mode = heuristic_mode
+        if intent_confidence in {"likely", "confirmed"} and heuristic_mode != "lurk":
             target_mode = "fast_target"
             if isinstance(artifact_target, dict):
                 context_tokens.insert(0, f"artifact:{artifact_target.get('label')}")
@@ -79,12 +81,18 @@ class TutorialAiMixin:
                 head = local_snake[0]
                 if isinstance(head, (list, tuple)) and len(head) == 2:
                     local_head = (int(head[0]) % max(1, board_w), int(head[1]) % max(1, board_h))
-        target = self._tutorial_ai_target_cell(
-            board_w=board_w,
-            board_h=board_h,
-            context_tokens=context_tokens,
-            local_head=local_head,
-        )
+        # For lurk mode: target a cell offset from user (keep distance)
+        follow_distance = max(2, int(game.get("ai_snake_follow_distance") or 4))
+        if target_mode == "lurk" and local_head is not None:
+            lx, ly = local_head
+            target = ((lx + follow_distance) % max(1, board_w), (ly + follow_distance // 2) % max(1, board_h))
+        else:
+            target = self._tutorial_ai_target_cell(
+                board_w=board_w,
+                board_h=board_h,
+                context_tokens=context_tokens,
+                local_head=local_head,
+            )
         artifact_cell = game.get("artifact_target_cell")
         if target_mode == "fast_target" and isinstance(artifact_cell, (list, tuple)) and len(artifact_cell) == 2:
             target = (int(artifact_cell[0]) % max(1, board_w), int(artifact_cell[1]) % max(1, board_h))
