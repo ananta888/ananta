@@ -22,6 +22,17 @@ class PolicyDecision:
             "decision_ref": self.decision_ref,
         }
 
+    def to_decision_result(self) -> Any:
+        from agent.services.heuristic_runtime.decision_result import DecisionResult
+        if not self.allowed:
+            return DecisionResult.policy_denied(self.reason_code or "policy_blocked")
+        return DecisionResult(
+            action_kind="follow",
+            confidence=1.0,
+            source="heuristic",
+            reason_codes=[self.reason_code] if self.reason_code and self.reason_code != "allowed" else [],
+        )
+
 
 def evaluate_policy(
     *,

@@ -19,7 +19,7 @@ _VALID_STATUSES = frozenset({"active", "candidate", "rejected", "quarantined", "
 _SNAKE_FORBIDDEN_CAPS = frozenset({"file_write", "network_access", "secret_access", "send_to_worker", "request_context_extension"})
 # Capabilities die für chat erlaubt sind (als Obermenge)
 _CHAT_ALLOWED_CAPS = frozenset({
-    "read_local_context", "read_artifact_refs", "read_active_task",
+    "read_local_context", "read_artifact_refs", "read_source_refs", "read_active_task",
     "write_local_notes", "send_to_chat",
 })
 _SNAKE_ALLOWED_CAPS = frozenset({
@@ -63,7 +63,7 @@ class HeuristicDefinition:
         violations: list[str] = []
         caps = set(self.capabilities)
         domain = self.domain
-        if domain in ("snake_tui", "snake_eclipse"):
+        if domain in ("tui_snake", "eclipse_snake", "snake_tui", "snake_eclipse"):
             forbidden = caps & _SNAKE_FORBIDDEN_CAPS
             for cap in sorted(forbidden):
                 violations.append(f"capability_violation:{cap}:not_allowed_for_{domain}")
