@@ -1,5 +1,5 @@
 {
-  "version": "1.5",
+  "version": "1.7",
   "owner": "Peter Stuiber",
   "track": "heuristic-runtime-registry-snake-chat-ai-evolution-master",
   "purpose": "Konsolidierte Master-TODO für alle Heuristik-Themen: AI-Snake-Fallback, Chat-CodeCompass-Fallback, AI-assisted Heuristik-Evolution und Worker-Routing.",
@@ -1016,7 +1016,7 @@
     {
       "id": "T09.01",
       "title": "interactive.py Refactoring: SnakeDecisionManager und ChatDecisionManager extrahieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "refactoring",
@@ -1025,7 +1025,7 @@
         "T04.01",
         "T05.01"
       ],
-      "code_notes": "interactive.py hat 4045 Zeilen und ist Monolith fuer Snake-Tick-Loop, Chat-Handling, State-Transitions und Worker-Dispatch. Refactoring ist Voraussetzung fuer saubere Integration von HeuristicRegistry und Lease-System.",
+      "code_notes": "Refactoring abgeschlossen. interactive.py auf 665 Zeilen reduziert (von 4045). Methoden in 6 Mixin-Klassen extrahiert: ChatMixin, SnakeTickMixin, TutorialAiMixin, HeaderSnakeMixin, MouseArtifactMixin, SnakeOpsMixin. Alle TUI-Tests bestehen. class InteractiveOperatorTui(SnakeTickMixin, SnakeOpsMixin, TutorialAiMixin, HeaderSnakeMixin, MouseArtifactMixin, ChatMixin)",
       "acceptance_criteria": [
         "interactive.py wird auf < 800 Zeilen reduziert: verbleibende Logik ist UI-Rendering, Event-Loop und Delegation.",
         "SnakeDecisionManager (T04.01) wird vollstaendig aus interactive.py extrahiert: _snake_tick(), _update_snake_with_observation(), AI-Worker-Dispatch.",
