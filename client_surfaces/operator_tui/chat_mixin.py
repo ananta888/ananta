@@ -1108,7 +1108,7 @@ class ChatMixin:
                         piece = str(message.get("content") or "")
                 if piece:
                     chunks.append(piece)
-                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-20000:])
+                    setattr(self, "_llm_streaming_partial", "".join(chunks))
         except Exception:
             return "".join(chunks)
         finally:
@@ -1139,7 +1139,7 @@ class ChatMixin:
                 piece = str(delta.get("content") or "") if isinstance(delta, dict) else ""
                 if piece:
                     chunks.append(piece)
-                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-20000:])
+                    setattr(self, "_llm_streaming_partial", "".join(chunks))
         except Exception:
             if chunks:
                 chunks.append("\n⚠ Streaming-Fehler")

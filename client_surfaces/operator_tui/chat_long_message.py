@@ -56,18 +56,21 @@ def configure_middle_view_for_message(
 ) -> bool:
     if not should_use_middle_view_for_message(message):
         return False
+    text = str(message.get("text") or "")
     game["chat_long_message_markdown"] = markdown_for_message(message, streaming=streaming)
+    game["chat_long_message_plain_text"] = text
     game["chat_long_message_id"] = str(message.get("id") or ("streaming" if streaming else ""))
     game["chat_long_message_channel"] = channel_id
     game["visual_viewport_enabled"] = True
     game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
     game["visual_viewport_force_render"] = True
     game["markdown_auto_follow"] = True
+    game["markdown_stream_plain"] = bool(streaming)
     game["markdown_mermaid_config"] = {
         "markdown_mode": "ansi",
         "mermaid_mode": "auto",
         "mermaid_renderers": ["mermaid_cli", "playwright", "fallback_codeblock"],
     }
-    version_suffix = len(str(message.get("text") or ""))
+    version_suffix = len(text)
     game["visual_state_version"] = f"chat-long-message:{game['chat_long_message_id']}:{version_suffix}"
     return True
