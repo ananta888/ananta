@@ -2509,6 +2509,51 @@ def test_chat_model_option_label_marks_loaded_status() -> None:
     assert chat_model_option_label(game, "unknown/model").endswith("[status unbekannt]")
 
 
+def test_chat_codecompass_context_can_be_disabled_via_config() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={"chat_use_codecompass": False},
+    )
+    tui = InteractiveOperatorTui(state)
+
+    hints = tui._chat_codecompass_context_for_question(question="wie geht x")
+
+    assert hints == []
+
+
+def test_tutorial_ai_llm_ask_uses_chat_max_tokens_from_config(monkeypatch) -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={"chat_context_chars": 1200, "chat_max_tokens": 900},
+    )
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setenv("ANANTA_TUI_CHAT_STREAMING", "0")
+    captured: dict[str, object] = {}
+
+    class _FakeResp:
+        headers: dict[str, str] = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
+
+    def _fake_urlopen(req, timeout=0):
+        captured["body"] = json.loads(req.data.decode())
+        return _FakeResp()
+
+    monkeypatch.setattr("client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", _fake_urlopen)
+
+    answer = tui._tutorial_ai_llm_ask(question="hi", context_text="ctx", depth="overview", prior_messages=[])
+
+    assert answer == "ok"
+    assert int((captured.get("body") or {}).get("max_tokens") or 0) == 900
+
+
 def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatch) -> None:
     game: dict[str, object] = {
         "chat_backend": "ananta-worker",
@@ -2764,11 +2809,42 @@ def test_ai_snake_config_includes_chat_provider_and_api_base_fields() -> None:
     assert "chat_api_base" in by_key
 
 
+def test_ai_snake_config_includes_chat_context_control_fields() -> None:
+    items = ai_snake_config_items({})
+    keys = {str(item.get("key") or "") for item in items}
+    assert "chat_use_codecompass" in keys
+    assert "chat_include_local_project" in keys
+    assert "chat_include_wikipedia" in keys
+    assert "chat_source_pack_id" in keys
+    assert "chat_context_chars" in keys
+    assert "chat_max_tokens" in keys
+    assert "chat_rag_top_k" in keys
+
+
 def test_ai_snake_config_applies_chat_ask_timeout_value() -> None:
     game: dict[str, object] = {}
     status = apply_ai_snake_config_value(game, key="chat_ask_timeout_s", value="90")
     assert game.get("chat_ask_timeout_s") == 90.0
     assert "90" in status
+
+
+def test_ai_snake_config_applies_chat_context_settings() -> None:
+    game: dict[str, object] = {}
+    status_a = apply_ai_snake_config_value(game, key="chat_use_codecompass", value="AUS")
+    status_b = apply_ai_snake_config_value(game, key="chat_source_pack_id", value="ananta-local-only")
+    status_c = apply_ai_snake_config_value(game, key="chat_context_chars", value="6000")
+    status_d = apply_ai_snake_config_value(game, key="chat_max_tokens", value="1200")
+    status_e = apply_ai_snake_config_value(game, key="chat_rag_top_k", value="48")
+    assert game.get("chat_use_codecompass") is False
+    assert game.get("chat_source_pack_id") == "ananta-local-only"
+    assert game.get("chat_context_chars") == 6000
+    assert game.get("chat_max_tokens") == 1200
+    assert game.get("chat_rag_top_k") == 48
+    assert "AUS" in status_a
+    assert "ananta-local-only" in status_b
+    assert "6000" in status_c
+    assert "1200" in status_d
+    assert "48" in status_e
 
 
 def test_ai_snake_config_backend_switch_fetches_lmstudio_models(monkeypatch) -> None:
