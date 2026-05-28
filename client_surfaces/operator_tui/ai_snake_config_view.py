@@ -38,6 +38,14 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
         timeout_value = 45.0
     timeout_value = max(3.0, min(180.0, timeout_value))
     timeout_options = ["20", "30", "45", "60", "90", "120", "180"]
+    chat_api_base = str(game.get("chat_backend_api_base") or "http://localhost:1234/v1").strip()
+    chat_api_base_options = [
+        "http://localhost:1234/v1",
+        "http://127.0.0.1:1234/v1",
+        "http://192.168.178.100:1234/v1",
+    ]
+    if chat_api_base and chat_api_base not in chat_api_base_options:
+        chat_api_base_options.insert(0, chat_api_base)
     return [
         {"key": "visual_enabled", "label": "Visual AI-Snake", "type": "bool", "value": visual_on},
         {"key": "chat_panel_open", "label": "AI-Chat Panel", "type": "bool", "value": chat_open},
@@ -45,7 +53,7 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
         {"key": "visual_codecompass", "label": "Visual CodeCompass", "type": "bool", "value": codecompass_on},
         {
             "key": "chat_backend",
-            "label": "Chat Backend",
+            "label": "Chat Provider",
             "type": "choice",
             "value": str(game.get("chat_backend") or "ananta-worker"),
             "options": chat_backends,
@@ -56,6 +64,13 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(game.get("chat_backend_model") or "-"),
             "options": chat_models,
+        },
+        {
+            "key": "chat_api_base",
+            "label": "Chat API Base",
+            "type": "choice",
+            "value": chat_api_base,
+            "options": chat_api_base_options,
         },
         {
             "key": "chat_ask_timeout_s",
@@ -207,6 +222,9 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         game["chat_backend_models_last_refresh_at"] = 0.0
         if raw_value.strip().lower() in {"lmstudio", "local", "openai"}:
             models, fetch_error = refresh_chat_backend_models(game, force=True)
+            current_model = str(game.get("chat_backend_model") or "").strip()
+            if models and (not current_model or current_model == "-"):
+                game["chat_backend_model"] = models[0]
             if models:
                 return f"ai config: {label} -> {raw_value} ({len(models)} modelle)"
             if fetch_error:
@@ -220,6 +238,10 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             models.append(raw_value)
         game["chat_backend_models"] = [m for m in models if m][-40:]
         return f"ai config: {label} -> {raw_value}"
+    if key == "chat_api_base":
+        game["chat_backend_api_base"] = raw_value.rstrip("/")
+        game["chat_backend_models_last_refresh_at"] = 0.0
+        return f"ai config: {label} -> {game['chat_backend_api_base']}"
     if key == "chat_ask_timeout_s":
         try:
             timeout_s = float(raw_value)
