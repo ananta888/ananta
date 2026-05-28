@@ -457,6 +457,7 @@ class ChatMixin:
 
         # R01: question-based RAG retrieval (runs in background thread — blocking OK)
         question_rag = self._rag_context_for_question(question, question_tokens=question_tokens, top_k=chat_top_k)
+        codecompass_refs = self._chat_codecompass_context_for_question(question=question)
 
         # Merge question-RAG first (higher relevance), deduplicated with TUI-context rag
         seen: set[str] = set()
@@ -469,7 +470,7 @@ class ChatMixin:
 
         # A02: prepend active artifact context
         active_excerpt = self._build_active_target_excerpt()
-        context_parts = ([active_excerpt] if active_excerpt else []) + merged[:chat_top_k] + hints[:10]
+        context_parts = ([active_excerpt] if active_excerpt else []) + codecompass_refs[:8] + merged[:chat_top_k] + hints[:10]
         context_text = "\n".join(context_parts)
 
         game = dict(self.state.header_logo_game or {})
@@ -587,6 +588,50 @@ class ChatMixin:
             return []
         max_recs = max(80, min(3000, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_MAX_RECORDS_PER_FILE", "800"))))
         return _load_rag_context_from_dir(out_dir, tokens, top_k, max_recs, scope_filter="full")
+
+    def _chat_codecompass_context_for_question(self, *, question: str) -> list[str]:
+        enabled = str(os.environ.get("ANANTA_TUI_CHAT_USE_CODECOMPASS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+        if not enabled:
+            return []
+        game = dict(self.state.header_logo_game or {})
+        source_pack_id = str(game.get("chat_source_pack_id") or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK") or "ananta-dev-default").strip()
+        if not source_pack_id:
+            return []
+        include_wikipedia = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", "0")).strip().lower() in {"1", "true", "yes", "on"}
+        include_local_project = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", "1")).strip().lower() not in {"0", "false", "no", "off"}
+        try:
+            from agent.sources.source_pack_service import SourcePackService
+            from agent.sources.source_registry import SourceRegistry
+            from agent.sources.source_snapshot_store import SourceSnapshotStore
+
+            service = SourcePackService(registry=SourceRegistry(), snapshots=SourceSnapshotStore())
+            result = service.answer_preview(
+                source_pack_id=source_pack_id,
+                query=question,
+                include_wikipedia=include_wikipedia,
+                include_local_project=include_local_project,
+            )
+        except Exception:
+            return []
+        rows = list(result.get("source_references") or [])
+        if not rows:
+            return []
+        hints: list[str] = []
+        bundle_id = str(result.get("codecompass_bundle_id") or "").strip()
+        if bundle_id:
+            hints.append(f"CodeCompass bundle={bundle_id}")
+        for row in rows[:8]:
+            if not isinstance(row, dict):
+                continue
+            source_id = str(row.get("source_id") or "").strip()
+            trust = str(row.get("trust_level") or "").strip()
+            if not source_id:
+                continue
+            if source_id == "local-project-context":
+                hints.append("CodeCompass local-project-context (Ananta workspace)")
+            else:
+                hints.append(f"CodeCompass source={source_id}" + (f" trust={trust}" if trust else ""))
+        return hints
 
     def _tutorial_ai_llm_ask(
         self,

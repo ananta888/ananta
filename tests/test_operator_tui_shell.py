@@ -476,6 +476,7 @@ def test_tutorial_ai_snake_is_added_with_knowledge_message() -> None:
 
 
 def test_tutorial_ai_tip_uses_codecompass_hints_when_available(monkeypatch) -> None:
+    monkeypatch.setenv("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "1")
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["method · plan_tasks · client_surfaces/operator_tui/interactive.py"])
@@ -688,6 +689,7 @@ def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> N
 
 
 def test_tutorial_ai_tip_includes_rag_helper_context_when_llm_missing(monkeypatch) -> None:
+    monkeypatch.setenv("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "1")
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: [])
