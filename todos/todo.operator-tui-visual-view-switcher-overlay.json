@@ -1,0 +1,470 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-visual-view-switcher-overlay",
+  "title": "Operator TUI visual view switcher overlay for center viewport",
+  "purpose": "Extend the center VisualViewport system with a toggleable two-line view switcher/status overlay that shows which center views are usable in the current environment and which views are unavailable, including visible keybinding help and safe default shortcut selection.",
+  "goal": "The different center views must be switchable at runtime. A compact overlay must show available/working view types in one line and unavailable/impossible view types in a second line. The overlay can be shown/hidden with a default keybinding. Ctrl+M may be supported only when the terminal/input stack can distinguish it from Enter; otherwise F7 is the default. The meaning of the shortcut must be visible in the lower TUI help/status area.",
+  "context": {
+    "extends_track": "todos/archiv/todo.operator-tui-center-visual-viewport-renderer-system.json",
+    "user_goal": "Die verschiedenen Views in der Mitte sollen umschaltbar sein. Dafür werden zwei Zeilen benötigt: eine Zeile mit erkannten funktionierenden View-Arten, eine zweite Zeile mit View-Arten, die in dieser Umgebung nicht möglich sind. Die Anzeige soll über Ctrl+M ein-/ausblendbar sein; falls Ctrl+M belegt oder ungeeignet ist, soll ein anderer Default verwendet werden. Unten soll eingeblendet werden, was die Tastenkombination bedeutet.",
+    "keybinding_observation": {
+      "current_config_file": "config/operator_tui_keybindings.default.json",
+      "ctrl_m_in_config": false,
+      "ctrl_m_risk": "Ctrl+M is usually carriage return / Enter in many terminal input stacks, so it may not be safely distinguishable.",
+      "recommended_default": "F7",
+      "optional_alias": "Ctrl+M only if keymap probing proves it is distinguishable from Enter in the active terminal/input stack."
+    },
+    "desired_overlay_layout": {
+      "line_1": "Views OK: [logo] [snake] [artifact] [strategy-map] [diagnostics] ...",
+      "line_2": "Views unavailable: [opengl-scene: no OpenGL/EGL] [kitty-image: unsupported] ...",
+      "footer_hint": "F7 View-Leiste ein/aus | Ctrl+N nächste View | Ctrl+P vorherige View (or configured keys)"
+    },
+    "design_rules": [
+      "The overlay is metadata/control UI, not part of the rendered visual frame itself.",
+      "The overlay must not steal space from logs/input unpredictably; it must reserve exactly two rows when visible.",
+      "Available/unavailable status must be based on actual registry + capability checks, not hardcoded assumptions.",
+      "Unavailable views must include a short reason.",
+      "Hotkey conflicts must be detected before registering defaults."
+    ],
+    "suggested_paths": {
+      "keybindings": "config/operator_tui_keybindings.default.json",
+      "keymap": "client_surfaces/operator_tui/keymap.py",
+      "view_switcher": "client_surfaces/operator_tui/visual/runtime/view_switcher.py",
+      "view_capabilities": "client_surfaces/operator_tui/visual/runtime/view_capability_report.py",
+      "overlay": "client_surfaces/operator_tui/visual/viewport/view_switcher_overlay.py",
+      "interactive_integration": "client_surfaces/operator_tui/interactive.py",
+      "renderer_integration": "client_surfaces/operator_tui/renderer.py",
+      "tests": "tests/operator_tui/visual/"
+    }
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Keybinding conflict handling and overlay contract",
+      "status": "todo",
+      "task_ids": [
+        "VSW-001",
+        "VSW-002",
+        "VSW-003"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "View capability report and switcher runtime",
+      "status": "todo",
+      "task_ids": [
+        "VSW-004",
+        "VSW-005",
+        "VSW-006"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Two-line overlay rendering and footer help integration",
+      "status": "todo",
+      "task_ids": [
+        "VSW-007",
+        "VSW-008",
+        "VSW-009"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Tests and documentation",
+      "status": "todo",
+      "task_ids": [
+        "VSW-010",
+        "VSW-011",
+        "VSW-012"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "VSW-001",
+      "title": "Add visual view switcher keybinding actions",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "config/operator_tui_keybindings.default.json",
+        "client_surfaces/operator_tui/keymap.py"
+      ],
+      "description": "Add keybinding actions for toggling the view switcher overlay and cycling center views.",
+      "acceptance_criteria": [
+        "A new action toggle_visual_view_switcher_overlay exists.",
+        "Default key is F7 because Ctrl+M is commonly indistinguishable from Enter in terminal input handling.",
+        "Optional Ctrl+M alias is allowed only if keymap/input probing confirms it does not collide with Enter in the active environment.",
+        "Actions for next_visual_view and previous_visual_view exist or are explicitly mapped to existing navigation actions without ambiguity.",
+        "The configured shortcut appears in footer/shortcut help with a clear label such as 'View-Leiste'."
+      ]
+    },
+    {
+      "id": "VSW-002",
+      "title": "Implement keybinding conflict detector for visual overlay shortcuts",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/keymap.py"
+      ],
+      "description": "Detect duplicate or unsafe keybindings during keymap loading.",
+      "acceptance_criteria": [
+        "Duplicate keybindings in the same active area are rejected or reported deterministically.",
+        "Ctrl+M is marked unsafe when the input layer maps it to Enter/carriage return.",
+        "When Ctrl+M is unsafe, F7 remains the active default without requiring user interaction.",
+        "Conflict diagnostics list action name, key, display label and conflicting action."
+      ]
+    },
+    {
+      "id": "VSW-003",
+      "title": "Define overlay layout contract for two reserved rows",
+      "type": "docs",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": [
+        "docs/operator-tui/visual-viewport-renderer-system.md"
+      ],
+      "description": "Document where the two-line view switcher appears and how it interacts with the center viewport and footer.",
+      "acceptance_criteria": [
+        "Docs define that the overlay uses exactly two rows when visible.",
+        "Docs define whether the overlay is directly below the center viewport or docked at the lower edge of the center area.",
+        "Docs state that the visual renderer itself must not draw those two control rows.",
+        "Docs include an ASCII mockup showing available and unavailable view lines plus footer hint."
+      ]
+    },
+    {
+      "id": "VSW-004",
+      "title": "Implement ViewCapabilityReport",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/view_capability_report.py"
+      ],
+      "description": "Compute which registered views are usable in the current runtime and which are unavailable with reasons.",
+      "acceptance_criteria": [
+        "Report includes available_views and unavailable_views lists.",
+        "Each available item includes view_id, display_name, selected flag and optional renderer/adapter requirement summary.",
+        "Each unavailable item includes view_id, display_name and a short reason such as missing renderer, unsupported terminal protocol, missing artifact source, missing OpenGL/EGL or disabled by config.",
+        "The report is generated from registries, view requirements, renderer availability and terminal capabilities, not from hardcoded view names only.",
+        "The report is stable and serializable for logging/debug output."
+      ]
+    },
+    {
+      "id": "VSW-005",
+      "title": "Add per-view requirements metadata",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/base_view.py",
+        "client_surfaces/operator_tui/visual/views/logo_animation_view.py",
+        "client_surfaces/operator_tui/visual/views/snake_debug_view.py",
+        "client_surfaces/operator_tui/visual/views/artifact_preview_view.py",
+        "client_surfaces/operator_tui/visual/views/strategy_map_preview_view.py",
+        "client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py"
+      ],
+      "description": "Each VisualView must expose minimal requirements so the switcher can decide whether it is possible in the active environment.",
+      "acceptance_criteria": [
+        "VisualView metadata includes view_id, display_name, description, required_render_features and optional_runtime_requirements.",
+        "Views that work in ANSI fallback declare that explicitly.",
+        "Optional high-fidelity views can declare requirements such as raster_frame, image_protocol, opengl_offscreen or artifact_source.",
+        "Unavailable status does not require instantiating heavy optional dependencies when metadata is enough."
+      ]
+    },
+    {
+      "id": "VSW-006",
+      "title": "Implement ViewSwitcher runtime",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/view_switcher.py",
+        "client_surfaces/operator_tui/visual/runtime/visual_runtime.py"
+      ],
+      "description": "Provide runtime logic for switching only among currently available center views and for toggling the overlay visibility.",
+      "acceptance_criteria": [
+        "ViewSwitcher can switch by view id and cycle next/previous through available views.",
+        "Unavailable views are shown but cannot be selected unless force/debug mode is explicitly enabled.",
+        "Switching views clears stale frame/image state where required by the active output adapter.",
+        "Overlay visibility is independent from the active center view.",
+        "The selected view is reflected in ViewCapabilityReport."
+      ]
+    },
+    {
+      "id": "VSW-007",
+      "title": "Implement two-line ViewSwitcherOverlay renderer",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/viewport/view_switcher_overlay.py",
+        "client_surfaces/operator_tui/renderer.py"
+      ],
+      "description": "Render the available/unavailable view lists as two compact rows around the center viewport.",
+      "acceptance_criteria": [
+        "First line starts with a clear label such as 'Views OK:' and lists all currently usable views.",
+        "Second line starts with a clear label such as 'Views unavailable:' and lists unavailable views with short reasons.",
+        "The active view is visibly marked, for example with brackets, star or prefix.",
+        "Long lists are truncated deterministically with a '+N more' indicator instead of wrapping unpredictably.",
+        "The overlay uses exactly two rows and does not overwrite the input/footer area."
+      ]
+    },
+    {
+      "id": "VSW-008",
+      "title": "Integrate overlay toggle into Operator TUI event handling",
+      "type": "integration",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/keymap.py"
+      ],
+      "description": "Wire the overlay toggle keybinding into the interactive TUI without breaking existing input/chat behavior.",
+      "acceptance_criteria": [
+        "Pressing F7 toggles the two-line overlay on/off.",
+        "If Ctrl+M is configured and distinguishable, pressing Ctrl+M also toggles the overlay.",
+        "If Ctrl+M is not distinguishable from Enter, pressing Enter keeps existing behavior and does not toggle the overlay.",
+        "Toggling the overlay recalculates layout so the center viewport stays bounded and surrounding areas remain stable.",
+        "The toggle works in normal mode, snake mode and chat-visible mode unless a mode explicitly disables it with a visible reason."
+      ]
+    },
+    {
+      "id": "VSW-009",
+      "title": "Show bottom help hint for view overlay and view switching",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "config/operator_tui_keybindings.default.json"
+      ],
+      "description": "Make the meaning of the key combination visible in the lower shortcut/footer area.",
+      "acceptance_criteria": [
+        "Footer/shortcut area includes 'F7 View-Leiste' or the configured equivalent.",
+        "If Ctrl+M alias is active, footer may show 'Ctrl+M/F7 View-Leiste'; if not active, it must not claim Ctrl+M works.",
+        "Footer also shows configured next/previous view shortcuts when available.",
+        "Shortcut labels are loaded from keybinding config, not duplicated as hardcoded strings in multiple places."
+      ]
+    },
+    {
+      "id": "VSW-010",
+      "title": "Add tests for keybinding conflict and Ctrl+M fallback behavior",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "tests/operator_tui/visual/test_view_switcher_keybindings.py"
+      ],
+      "description": "Ensure the default shortcut strategy is deterministic and safe.",
+      "acceptance_criteria": [
+        "Tests verify F7 is selected when Ctrl+M is unsafe or indistinguishable from Enter.",
+        "Tests verify Ctrl+M can be enabled as alias only when explicitly supported by the input probe/config.",
+        "Tests verify duplicate active-area bindings produce deterministic diagnostics.",
+        "Tests verify footer help reflects the actually active keybinding."
+      ]
+    },
+    {
+      "id": "VSW-011",
+      "title": "Add tests for ViewCapabilityReport and view switching",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "tests/operator_tui/visual/test_view_capability_report.py",
+        "tests/operator_tui/visual/test_view_switcher.py"
+      ],
+      "description": "Verify that available and unavailable views are detected and switched correctly.",
+      "acceptance_criteria": [
+        "Tests cover all initial views with full ANSI fallback available.",
+        "Tests cover an OpenGL-only view becoming unavailable when OpenGL support is missing.",
+        "Tests cover unavailable views being listed with reasons but skipped by next/previous switching.",
+        "Tests cover active view marker updating after view switch."
+      ]
+    },
+    {
+      "id": "VSW-012",
+      "title": "Add snapshot tests for two-line overlay rendering",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "tests/operator_tui/visual/test_view_switcher_overlay_rendering.py"
+      ],
+      "description": "Keep overlay output stable, compact and predictable.",
+      "acceptance_criteria": [
+        "Snapshot tests verify the exact two-line output for a normal terminal width.",
+        "Snapshot tests verify truncation behavior for narrow terminal widths.",
+        "Snapshot tests verify unavailable view reasons are included but shortened.",
+        "Snapshot tests verify the active view is visibly marked."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "VSW-001",
+    "VSW-002",
+    "VSW-004",
+    "VSW-006",
+    "VSW-007",
+    "VSW-008",
+    "VSW-009",
+    "VSW-010",
+    "VSW-011"
+  ],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "critical": 7,
+      "high": 4,
+      "medium": 1,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 6,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 12,
+    "by_type": {
+      "implementation": {
+        "total": 6,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "integration": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "test": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "docs": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "ready_for_implementation",
+    "todo_remaining": 12,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Ctrl+M is not currently present in the default keybinding config, but it is unsafe as default because many terminal stacks treat it as Enter.",
+    "F7 is the recommended deterministic default for toggling the view switcher overlay.",
+    "The overlay must show two rows: available working views and unavailable views with reasons.",
+    "The footer must always show the actually active shortcut label, not a hardcoded assumed shortcut."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "expected_result",
+      "title": "Expected result after completion",
+      "items": [
+        "The user can toggle a compact two-line view switcher/status overlay for the center VisualViewport.",
+        "The first line lists all currently usable center views; the second line lists unavailable views with short reasons.",
+        "The user can switch between available center views at runtime.",
+        "The footer clearly shows the active shortcut, defaulting to F7 and only showing Ctrl+M when it is safe and active.",
+        "Unavailable views are visible for transparency but skipped by normal cycling."
+      ]
+    }
+  ]
+}
