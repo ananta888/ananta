@@ -2139,6 +2139,7 @@ def test_compact_artifact_chat_input_sends_ai_question() -> None:
             "messages": [],
         },
         "chat_panel_open": True,
+        "tutorial_mode": False,
     }
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
     tui = InteractiveOperatorTui(state)
@@ -2148,7 +2149,7 @@ def test_compact_artifact_chat_input_sends_ai_question() -> None:
 
     updated = tui.state.header_logo_game or {}
     assert updated.get("tutor_ask_question") == "Was macht das?"
-    assert updated.get("tutorial_mode") is True
+    assert updated.get("tutorial_mode") is False
     artifact_messages = ((updated.get("artifact_chat_state") or {}).get("messages") or [])
     assert artifact_messages[-1]["source"] == "user"
 
