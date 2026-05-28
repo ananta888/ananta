@@ -65,7 +65,7 @@ from client_surfaces.operator_tui.mouse import (
     normalize_mouse_state,
 )
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
-from client_surfaces.operator_tui.keybindings_config import key_for_action
+from client_surfaces.operator_tui.keybindings_config import key_for_action, keybinding_conflicts
 from client_surfaces.operator_tui.ai_snake_config_view import (
     ai_snake_config_filter_options,
     ai_snake_config_items,
@@ -127,6 +127,17 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         term_graphics = dict(self.state.terminal_graphics or {})
         term_graphics["mouse_support"] = dict(self._mouse_capabilities)
         self.state = self.state.with_updates(terminal_graphics=term_graphics)
+        self._keybinding_conflicts = keybinding_conflicts()
+        if self._keybinding_conflicts:
+            game = dict(self.state.header_logo_game or {})
+            game["keybinding_conflicts"] = list(self._keybinding_conflicts)
+            first = dict(self._keybinding_conflicts[0])
+            key = str(first.get("key") or "?")
+            actions = ", ".join(str(item) for item in (first.get("actions") or []))
+            self.state = self.state.with_updates(
+                header_logo_game=game,
+                status_message=f"keybinding-konflikt: {key} -> {actions}",
+            )
         self._tutorial_codecompass_cache: tuple[float, list[str]] = (0.0, [])
         self._tutorial_rag_cache: tuple[float, list[str]] = (0.0, [])
         self._tutorial_worker_cache: tuple[float, str] = (0.0, "")
@@ -269,19 +280,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._snake_message_mode_active():
                 self._snake_message_append("/")
                 return
-            if self._chat_focus_active():
-                self._chat_focus_leave()
-                self._open_command_mode()
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_focus_leave(clear=False)
-                self._open_command_mode()
-                return
-            if self._snake_mode_active():
-                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command("/")
                 return
+            self._enter_command_mode_from_anywhere()
 
         @bindings.add("enter")
         def _(event) -> None:
@@ -392,24 +394,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("toggle_shortcut_help", "c-]"))
         def _(event) -> None:
-            if self._snake_message_mode_active():
-                self._snake_message_backspace()
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_backspace()
-                return
-            if self._chat_focus_active():
-                self._chat_backspace()
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_backspace()
-                return
             self._toggle_context_help()
 
         @bindings.add(key_for_action("send_terminal_context", "c-t"))
         def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
+            self._exit_command_mode_for_global_shortcut()
             self._send_terminal_context_to_ai()
 
         @bindings.add(key_for_action("cycle_focus_or_channel", "c-w"))
@@ -417,11 +406,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
                 self._chat_cycle_channel()
                 return
-            if self._snake_mode_active():
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command(" ")
-                return
+            self._exit_command_mode_for_global_shortcut()
             self._move_focus(1)
 
         @bindings.add(key_for_action("snake_pause", "c-p"))
@@ -434,32 +419,26 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("toggle_snake_mode", "c-s"))
         def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
+            self._exit_command_mode_for_global_shortcut()
             self._toggle_snake_mode()
 
         @bindings.add(key_for_action("chat_focus", "c-e"))
         def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
+            self._exit_command_mode_for_global_shortcut()
             self._toggle_chat_focus()
 
         @bindings.add(key_for_action("toggle_chat_panel", "c-g"))
         def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
+            self._exit_command_mode_for_global_shortcut()
             self._toggle_chat_panel_open()
 
         @bindings.add(key_for_action("copy_chat_panel", "c-c"))
         def _(event) -> None:
-            if self._cancel_active_input_mode():
-                return
             self._copy_chat_panel_snapshot()
 
         @bindings.add(key_for_action("copy_ai_status", "c-i"))
         def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
+            self._exit_command_mode_for_global_shortcut()
             self._copy_ai_status_snapshot()
 
         @bindings.add(key_for_action("clear_chat_input", "c-l"))
@@ -1350,6 +1329,43 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._command_saved_draft = ""
         game["command_input_cursor"] = self._command_cursor
         self._set_state(self.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line=self._command_buffer))
+
+    def _exit_command_mode_for_global_shortcut(self) -> None:
+        if self.state.mode is not OperatorMode.COMMAND:
+            return
+        game = dict(self.state.header_logo_game or {})
+        self._command_buffer = ""
+        self._command_cursor = 0
+        self._command_history_index = None
+        self._command_saved_draft = ""
+        game["command_input_cursor"] = 0
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+            )
+        )
+
+    def _enter_command_mode_from_anywhere(self) -> None:
+        if self._chat_focus_active():
+            self._chat_focus_leave()
+        if self._artifact_chat_focus_active():
+            self._artifact_chat_focus_leave(clear=False)
+        if self._snake_message_mode_active():
+            self._snake_cancel_message()
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        if bool(game.get("ai_snake_config_open")):
+            game["ai_snake_config_open"] = False
+            game["ai_snake_config_combo"] = {"open": False}
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                )
+            )
+        self._open_command_mode()
 
     def _sync_command_line_state(self) -> None:
         game = dict(self.state.header_logo_game or {})

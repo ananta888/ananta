@@ -76,3 +76,20 @@ def shortcut_tokens_for_area(area: str) -> list[tuple[str, str]]:
         if display and label:
             tokens.append((display, label))
     return tokens
+
+
+def keybinding_conflicts() -> list[dict[str, object]]:
+    data = _load_bindings(str(_resolve_config_file()))
+    by_key: dict[str, list[str]] = {}
+    for action, entry in data.items():
+        key = str(entry.get("key") or "").strip()
+        if not key:
+            continue
+        by_key.setdefault(key, []).append(action)
+    conflicts: list[dict[str, object]] = []
+    for key, actions in by_key.items():
+        if len(actions) < 2:
+            continue
+        conflicts.append({"key": key, "actions": sorted(actions)})
+    conflicts.sort(key=lambda row: str(row.get("key") or ""))
+    return conflicts
