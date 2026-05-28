@@ -79,6 +79,7 @@ from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_
 from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
 from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.tui_snapshot import rendered_tui_snapshot_text, write_tui_snapshot
 
 from client_surfaces.operator_tui.chat_mixin import ChatMixin
 from client_surfaces.operator_tui.snake_tick_mixin import SnakeTickMixin
@@ -442,6 +443,16 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._exit_command_mode_for_global_shortcut()
             self._copy_ai_status_snapshot()
+
+        @bindings.add(key_for_action("copy_tui_snapshot", "f11"))
+        def _(event) -> None:
+            self._exit_command_mode_for_global_shortcut()
+            self._copy_tui_snapshot()
+
+        @bindings.add(key_for_action("save_tui_snapshot", "f12"))
+        def _(event) -> None:
+            self._exit_command_mode_for_global_shortcut()
+            self._save_tui_snapshot()
 
         @bindings.add(key_for_action("clear_chat_input", "c-l"))
         def _(event) -> None:
@@ -1270,6 +1281,35 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         ok = self._copy_to_system_clipboard(copied) if copied else False
         status = "ai status copy: intern + System-Zwischenablage" if ok else "ai status copy: intern"
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+
+    def _current_rendered_text(self) -> str:
+        rendered = str(self._rendered_text or "")
+        if rendered.strip():
+            return rendered
+        return self._render()
+
+    def _copy_tui_snapshot(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        copied = rendered_tui_snapshot_text(self._current_rendered_text())
+        game["clipboard"] = copied
+        ok = self._copy_to_system_clipboard(copied) if copied.strip() else False
+        status = "tui snapshot: intern + System-Zwischenablage" if ok else "tui snapshot: intern"
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+
+    def _save_tui_snapshot(self) -> None:
+        try:
+            target = write_tui_snapshot(self._current_rendered_text())
+        except OSError as exc:
+            self._set_state(self.state.with_updates(status_message=f"tui snapshot speichern fehlgeschlagen: {exc}"))
+            return
+        game = dict(self.state.header_logo_game or {})
+        game["last_tui_snapshot_path"] = str(target)
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=f"tui snapshot gespeichert: {target}",
+            )
+        )
 
     def _open_latest_long_chat_message(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
