@@ -43,6 +43,17 @@ class HeaderSnakeMixin:
         "chat_max_tokens",
         "chat_rag_top_k",
         "chat_answer_chars",
+        # Memory settings (CMW track)
+        "chat_use_history",
+        "chat_history_turns",
+        "chat_history_chars",
+        "chat_use_summary",
+        "chat_summary_chars",
+        "chat_summary_update_every_turns",
+        "chat_pass_memory_to_worker",
+        "chat_worker_mode",
+        "chat_backend_fallback",
+        "chat_include_runtime_status",
     )
 
     def _header_snake_enabled(self) -> bool:
@@ -50,7 +61,19 @@ class HeaderSnakeMixin:
 
     def _default_header_snake(self) -> dict[str, object]:
         cfg = self._load_snake_message_config()
+        # Load from legacy tui_chat_settings.json (CWD-scoped)
         persisted_cfg = load_tui_chat_settings()
+        # Overlay with UserConfigManager (project user.json → ~/.anana/user.json)
+        try:
+            from client_surfaces.operator_tui.config.user_config_manager import load_user_config
+            user_cfg = load_user_config()
+            # user_cfg merges defaults→global→project; only override persisted_cfg keys
+            for k, v in user_cfg.items():
+                if isinstance(v, (str, int, float, bool)):
+                    persisted_cfg.setdefault(k, v)
+                    persisted_cfg[k] = v  # project wins
+        except Exception:
+            pass
         board_w, board_h = 18, 6
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
