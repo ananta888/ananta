@@ -174,6 +174,11 @@ def _persist_tui_chat_settings(game: dict[str, object]) -> None:
 
 
 def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
+    try:
+        from client_surfaces.operator_tui.config.user_config_manager import _DEFAULTS
+    except ImportError:
+        _DEFAULTS = {}
+
     backends_raw = game.get("chat_backends_available")
     chat_backends = [str(item).strip() for item in backends_raw] if isinstance(backends_raw, list) else []
     chat_backends = [item for item in chat_backends if item]
@@ -203,11 +208,12 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
         or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK")
         or "ananta-dev-default"
     ).strip()
+    timeout_default = _DEFAULTS.get("chat_ask_timeout_s", 45.0)
     timeout_value_raw = game.get("chat_ask_timeout_s")
     try:
-        timeout_value = float(timeout_value_raw) if timeout_value_raw is not None else 45.0
+        timeout_value = float(timeout_value_raw) if timeout_value_raw is not None else timeout_default
     except (TypeError, ValueError):
-        timeout_value = 45.0
+        timeout_value = timeout_default
     timeout_value = max(3.0, min(180.0, timeout_value))
     timeout_options = ["20", "30", "45", "60", "90", "120", "180"]
     chat_api_base = str(game.get("chat_backend_api_base") or "http://localhost:1234/v1").strip()
@@ -218,23 +224,26 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     ]
     if chat_api_base and chat_api_base not in chat_api_base_options:
         chat_api_base_options.insert(0, chat_api_base)
+    context_default = int(_DEFAULTS.get("chat_context_chars", 3000))
     context_chars_raw = game.get("chat_context_chars")
     try:
-        context_chars = int(context_chars_raw) if context_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000"))
+        context_chars = int(context_chars_raw) if context_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", str(context_default)))
     except (TypeError, ValueError):
-        context_chars = 3000
+        context_chars = context_default
     context_chars = max(500, min(20000, context_chars))
+    max_tokens_default = int(_DEFAULTS.get("chat_max_tokens", 400))
     max_tokens_raw = game.get("chat_max_tokens")
     try:
-        max_tokens = int(max_tokens_raw) if max_tokens_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400"))
+        max_tokens = int(max_tokens_raw) if max_tokens_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", str(max_tokens_default)))
     except (TypeError, ValueError):
-        max_tokens = 400
+        max_tokens = max_tokens_default
     max_tokens = max(100, min(8000, max_tokens))
+    top_k_default = int(_DEFAULTS.get("chat_rag_top_k", 24))
     top_k_raw = game.get("chat_rag_top_k")
     try:
-        chat_rag_top_k = int(top_k_raw) if top_k_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24"))
+        chat_rag_top_k = int(top_k_raw) if top_k_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", str(top_k_default)))
     except (TypeError, ValueError):
-        chat_rag_top_k = 24
+        chat_rag_top_k = top_k_default
     chat_rag_top_k = max(8, min(120, chat_rag_top_k))
     answer_chars_raw = game.get("chat_answer_chars")
     try:
