@@ -3228,6 +3228,14 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         game = dict(state.header_logo_game or {})
         game["tutor_ask_question"] = question
         game["tutor_ask_at"] = __import__("time").monotonic()
+        timeout_raw = str(__import__("os").environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT") or __import__("os").environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT") or "20").strip()
+        try:
+            timeout_s = float(timeout_raw)
+        except ValueError:
+            timeout_s = 20.0
+        timeout_s = max(3.0, min(120.0, timeout_s))
+        game["tutor_ask_timeout_s"] = timeout_s
+        game["tutor_ask_deadline_at"] = float(game["tutor_ask_at"]) + timeout_s
         game["tutor_ask_answered"] = False
         game["_ask_submitted"] = False
         game["active"] = True

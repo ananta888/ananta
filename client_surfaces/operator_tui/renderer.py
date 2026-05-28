@@ -911,6 +911,8 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
             prefix = _participant_label(game, sender, fallback="Du" if active_ch_id == "ai:tutor" else sender[:8]) + ": "
         for row in _wrap_plain(prefix + text, max(8, width - 2)):
             lines.append("  " + _ansi_color(row, line_col))
+    if bool(chat.get("ai_typing")) and active_ch_id == "ai:tutor":
+        lines.append("  " + _chat_timeout_progress_text(game))
 
     lines.append("  " + "-" * max(8, width - 4))
     if chat_focus:
@@ -1656,6 +1658,20 @@ def _chat_channel_label(channel_id: str) -> str:
     }.get(channel_id, channel_id.replace("direct:", "@"))
 
 
+def _chat_timeout_progress_text(game: dict[str, object]) -> str:
+    ask_at = game.get("tutor_ask_at")
+    if not isinstance(ask_at, (int, float)):
+        return "(AI schreibt...)"
+    timeout_s_raw = game.get("tutor_ask_timeout_s")
+    if not isinstance(timeout_s_raw, (int, float)):
+        return "(AI schreibt...)"
+    timeout_s = max(0.1, float(timeout_s_raw))
+    elapsed = max(0.0, time.monotonic() - float(ask_at))
+    remaining = max(0.0, timeout_s - elapsed)
+    progress = max(0, min(100, int((elapsed / timeout_s) * 100)))
+    return f"(AI schreibt... timeout in {remaining:0.1f}s [{progress}%])"
+
+
 def _command_line(state: OperatorState, width: int) -> str:
     if state.mode.value != "command":
         return _clip(f" {state.command_line}", width)
@@ -2301,7 +2317,7 @@ def _overlay_snake_chat_panel(
         f"\x1b[38;2;90;90;90mCopy Chat [{display_for_action('copy_chat_panel', 'Ctrl+C')}]\x1b[0m"
     )
     if ai_typing:
-        panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")
+        panel_lines.append(f"\x1b[38;2;120;120;120m  {_chat_timeout_progress_text(game)}\x1b[0m")
 
     panel_lines.append("─" * panel_width)
 

@@ -2002,6 +2002,30 @@ def test_ai_chat_send_does_not_pause_snake() -> None:
     assert updated.get("tutorial_mode") is False
 
 
+def test_poll_tutor_ask_result_sets_timeout_answer() -> None:
+    from concurrent.futures import Future
+
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game={})
+    tui = InteractiveOperatorTui(state)
+    pending: Future[str] = Future()
+    tui._tutor_ask_future = pending
+    game = {
+        "tutor_ask_question": "frage",
+        "tutor_ask_answered": False,
+        "_ask_submitted": True,
+        "tutor_ask_at": time.monotonic() - 20.0,
+        "tutor_ask_timeout_s": 5.0,
+        "tutor_ask_deadline_at": time.monotonic() - 1.0,
+    }
+
+    tui._poll_tutor_ask_result(game)
+
+    assert game.get("tutor_ask_answered") is True
+    assert "Timeout" in str(game.get("tutor_ask_answer") or "")
+    assert game.get("_ask_submitted") is False
+    assert tui._tutor_ask_future is None
+
+
 def test_command_from_chat_does_not_force_chat_focus_after_run() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
@@ -2082,6 +2106,34 @@ def test_status_line_shows_visual_ai_mode_marker() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"tutorial_mode": False})
     output = render_operator_shell(state, width=96, height=20)
     assert "VAI:off" in output
+
+
+def test_chat_panel_shows_timeout_progress_while_ai_typing() -> None:
+    now = time.monotonic()
+    game = {
+        "chat_panel_open": True,
+        "tutor_ask_at": now - 1.2,
+        "tutor_ask_timeout_s": 8.0,
+        "chat_state": {
+            "active_channel": "ai:tutor",
+            "chat_focus": True,
+            "ai_typing": True,
+            "channels": {
+                "ai:tutor": {
+                    "id": "ai:tutor",
+                    "channel_type": "ai",
+                    "display_name": "AI tutor-ai",
+                    "messages": [{"sender_id": "s1", "sender_kind": "user", "text": "frage", "created_at": now - 2}],
+                    "unread": 0,
+                },
+                "room:main": {"id": "room:main", "channel_type": "room", "display_name": "#room", "messages": [], "unread": 0},
+                "notes:self": {"id": "notes:self", "channel_type": "notes", "display_name": "notes", "messages": [], "unread": 0},
+            },
+        },
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.DETAIL, section_id="tasks", header_logo_game=game)
+    output = render_operator_shell(state, width=110, height=24)
+    assert "timeout in" in output
 
 
 def test_ai_snake_config_panel_toggles_in_middle_content() -> None:
