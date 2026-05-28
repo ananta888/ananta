@@ -606,8 +606,12 @@ class TutorialAiMixin:
 
     def _tutorial_ai_tip(self, *, now: float) -> str:
         status = self._tutorial_status_delta_summary()
-        hints = self._load_codecompass_hints(now=now)
-        rag_context = self._load_rag_helper_context(now=now)
+        include_external_context = (
+            str(os.environ.get("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "0")).strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
+        hints = self._load_codecompass_hints(now=now) if include_external_context else []
+        rag_context = self._load_rag_helper_context(now=now) if include_external_context else []
         if not self._tutorial_async_enabled():
             result = self._tutorial_ai_tip_sync(now=now, status=status, hints=hints, rag_context=rag_context)
             if result:
@@ -818,7 +822,7 @@ class TutorialAiMixin:
         prompt = (
             f"{status}\n"
             "You are the tutorial snake controller for Ananta TUI.\n"
-            "Use CodeCompass and rag_helper context.\n"
+            "Use provided context hints when present.\n"
             "Return exactly one line <=180 chars with immediate guidance.\n"
             "Prefix the line with one steering tag in this format: [target=header|nav|content|detail|follow].\n"
             f"CodeCompass hints:\n{hint_block}\n"
