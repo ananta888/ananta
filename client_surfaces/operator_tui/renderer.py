@@ -13,7 +13,7 @@ from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artif
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
 from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
-from client_surfaces.operator_tui.chat_long_message import compact_chat_message_text
+from client_surfaces.operator_tui.chat_long_message import compact_chat_message_text, should_use_middle_view_for_message
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -952,7 +952,9 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
     for msg in messages:
         sender_kind = str(msg.get("sender_kind") or "user")
         sender = str(msg.get("sender_id") or "?")
-        text = compact_chat_message_text(sanitize_text(str(msg.get("text") or ""), max_len=6000))
+        text = sanitize_text(str(msg.get("text") or ""), max_len=6000)
+        if should_use_middle_view_for_message(msg | {"text": text}):
+            text = compact_chat_message_text(text)
         line_col = _participant_color(game, sender_id=sender, sender_kind=sender_kind)
         if sender_kind == "system":
             prefix = "* "
@@ -2435,7 +2437,9 @@ def _overlay_snake_chat_panel(
             continue
         sender = str(msg.get("sender_id") or "?")
         sender_kind = str(msg.get("sender_kind") or "user")
-        text = compact_chat_message_text(sanitize_text(str(msg.get("text") or ""), max_len=6000))
+        text = sanitize_text(str(msg.get("text") or ""), max_len=6000)
+        if should_use_middle_view_for_message(msg | {"text": text}):
+            text = compact_chat_message_text(text)
         delivery = str(msg.get("delivery_state") or "")
 
         ts = _chat_msg_timestamp(msg)

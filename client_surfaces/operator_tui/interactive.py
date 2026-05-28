@@ -58,7 +58,7 @@ from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerCli
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.chat_long_message import latest_long_message_for_channel, markdown_for_message
+from client_surfaces.operator_tui.chat_long_message import configure_middle_view_for_message, latest_long_message_for_channel
 from client_surfaces.operator_tui.mouse import (
     MouseEventType as NormalizedMouseEventType,
     MouseState,
@@ -1286,18 +1286,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._set_state(self.state.with_updates(status_message="keine lange Chatnachricht im aktiven Kanal"))
             return
 
-        game["chat_long_message_markdown"] = markdown_for_message(message)
-        game["chat_long_message_id"] = str(message.get("id") or "")
-        game["chat_long_message_channel"] = active_ch_id
-        game["visual_viewport_enabled"] = True
-        game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
-        game["visual_viewport_force_render"] = True
-        game["markdown_mermaid_config"] = {
-            "markdown_mode": "ansi",
-            "mermaid_mode": "auto",
-            "mermaid_renderers": ["mermaid_cli", "playwright", "fallback_codeblock"],
-        }
-        game["visual_state_version"] = f"chat-long-message:{message.get('id') or time.monotonic()}"
+        configure_middle_view_for_message(game, message, channel_id=active_ch_id, streaming=False)
         self._set_state(
             self.state.with_updates(
                 header_logo_game=game,
