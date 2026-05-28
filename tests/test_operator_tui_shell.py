@@ -2341,6 +2341,49 @@ def test_ai_snake_config_combo_arrow_selection_applies_option() -> None:
     assert updated.get("chat_backend") == "opencode"
 
 
+def test_ai_snake_config_chat_model_combo_loads_lmstudio_models(monkeypatch) -> None:
+    game = {
+        "ai_snake_config_open": True,
+        "chat_backend": "lmstudio",
+        "chat_backend_api_base": "http://lmstudio.test/v1",
+        "chat_backend_models": [],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=5)
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {
+                    "data": [
+                        {"id": "qwen/qwen3-coder-30b"},
+                        {"id": "google/gemma-3n-e4b"},
+                    ]
+                }
+            ).encode("utf-8")
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        lambda req, timeout=0: _FakeResp(),
+    )
+
+    tui._toggle_ai_snake_config_selected()
+
+    updated = tui.state.header_logo_game or {}
+    models = [str(item) for item in (updated.get("chat_backend_models") or [])]
+    combo = dict(updated.get("ai_snake_config_combo") or {})
+    assert bool(combo.get("open")) is True
+    assert "qwen/qwen3-coder-30b" in models
+    assert "google/gemma-3n-e4b" in models
+
+
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)

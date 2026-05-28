@@ -71,6 +71,7 @@ from client_surfaces.operator_tui.ai_snake_config_view import (
     ai_snake_config_items,
     ai_snake_config_options,
     apply_ai_snake_config_value,
+    refresh_chat_backend_models,
 )
 from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
@@ -1412,9 +1413,16 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         return max(0, min(len(items) - 1, cur + int(delta)))
 
     def _open_ai_snake_config_combo(self, game: dict[str, object], *, key: str, idx: int) -> None:
+        if key == "chat_model":
+            _, fetch_error = refresh_chat_backend_models(game, force=True)
+        else:
+            fetch_error = ""
         options = ai_snake_config_options(game, key=key)
         if not options:
-            self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message="ai config: keine optionen"))
+            status = "ai config: keine optionen"
+            if key == "chat_model" and fetch_error:
+                status = f"ai config: chat model fetch fehlgeschlagen ({fetch_error})"
+            self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
             return
         game["ai_snake_config_combo"] = {
             "open": True,
