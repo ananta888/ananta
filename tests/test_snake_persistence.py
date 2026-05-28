@@ -158,3 +158,34 @@ def test_reset_tutorial_progress_unknown_name_is_noop(isolated_config_dir):
     from client_surfaces.operator_tui.snake_persistence import reset_tutorial_progress
 
     reset_tutorial_progress("nonexistent")  # must not raise
+
+
+def test_save_and_load_tui_chat_settings_scoped_by_cwd(isolated_config_dir):
+    from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
+
+    save_tui_chat_settings({"chat_backend": "lmstudio", "chat_max_tokens": 1200}, cwd="/tmp/project-a")
+    save_tui_chat_settings({"chat_backend": "ananta-worker", "chat_max_tokens": 800}, cwd="/tmp/project-b")
+
+    cfg_a = load_tui_chat_settings(cwd="/tmp/project-a")
+    cfg_b = load_tui_chat_settings(cwd="/tmp/project-b")
+
+    assert cfg_a.get("chat_backend") == "lmstudio"
+    assert cfg_a.get("chat_max_tokens") == 1200
+    assert cfg_b.get("chat_backend") == "ananta-worker"
+    assert cfg_b.get("chat_max_tokens") == 800
+
+
+def test_save_tui_chat_settings_ignores_non_scalar_values(isolated_config_dir):
+    from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
+
+    save_tui_chat_settings(
+        {
+            "chat_backend": "lmstudio",
+            "chat_context_chars": 3000,
+            "nested": {"invalid": True},
+            "list": [1, 2, 3],
+        },
+        cwd="/tmp/project-c",
+    )
+    cfg = load_tui_chat_settings(cwd="/tmp/project-c")
+    assert cfg == {"chat_backend": "lmstudio", "chat_context_chars": 3000}
