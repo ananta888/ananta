@@ -312,6 +312,19 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._command_buffer = self._command_buffer[:-1]
                 self._set_state(self.state.with_updates(command_line=self._command_buffer))
 
+        @bindings.add("delete")
+        def _(event) -> None:
+            if self._snake_message_mode_active():
+                return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_delete()
+                return
+            if self._chat_focus_active():
+                self._chat_delete()
+                return
+            if self._snake_mode_active() or self.state.mode is OperatorMode.COMMAND:
+                return
+
         @bindings.add(key_for_action("selection_down", "c-j"))
         def _(event) -> None:
             def _j():
@@ -508,24 +521,48 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("left")
         def _(event) -> None:
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_move_cursor(-1)
+                return
+            if self._chat_focus_active():
+                self._chat_move_cursor(-1)
+                return
             if self._try_header_snake_direction((-1, 0)):
                 return
             self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
 
         @bindings.add("right")
         def _(event) -> None:
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_move_cursor(1)
+                return
+            if self._chat_focus_active():
+                self._chat_move_cursor(1)
+                return
             if self._try_header_snake_direction((1, 0)):
                 return
             self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
 
         @bindings.add("up")
         def _(event) -> None:
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_history_move(-1)
+                return
+            if self._chat_focus_active():
+                self._chat_history_move(-1)
+                return
             if self._try_header_snake_direction((0, -1)):
                 return
             self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
 
         @bindings.add("down")
         def _(event) -> None:
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_history_move(1)
+                return
+            if self._chat_focus_active():
+                self._chat_history_move(1)
+                return
             if self._try_header_snake_direction((0, 1)):
                 return
             self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
@@ -656,6 +693,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         chat = get_chat_state(game)
         switch_channel(chat, "ai:tutor", preserve_input=True)
         chat["chat_focus"] = True
+        chat["chat_input_cursor"] = len(str(chat.get("chat_input_buffer") or ""))
+        chat["chat_input_history_index"] = None
         set_chat_state(game, chat)
         self._set_state(
             self.state.with_updates(
@@ -697,6 +736,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         chat = get_chat_state(game)
         chat["chat_focus"] = True
         chat["chat_input_buffer"] = ""
+        chat["chat_input_cursor"] = 0
+        chat["chat_input_history_index"] = None
+        chat["chat_input_saved_draft"] = ""
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: focus"))
 
@@ -706,6 +748,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         chat = get_chat_state(game)
         chat["chat_focus"] = False
         chat["chat_input_buffer"] = ""
+        chat["chat_input_cursor"] = 0
+        chat["chat_input_history_index"] = None
+        chat["chat_input_saved_draft"] = ""
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: game focus"))
 
@@ -714,7 +759,16 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
         chat = get_chat_state(game)
         buf = str(chat.get("chat_input_buffer") or "")
-        chat["chat_input_buffer"] = (buf + ch)[:200]
+        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
+        if len(buf) >= 200:
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        new_buf = (buf[:cursor] + ch + buf[cursor:])[:200]
+        new_cursor = min(len(new_buf), cursor + len(ch))
+        chat["chat_input_buffer"] = new_buf
+        chat["chat_input_cursor"] = new_cursor
+        chat["chat_input_history_index"] = None
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game))
 
@@ -723,7 +777,81 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
         chat = get_chat_state(game)
         buf = str(chat.get("chat_input_buffer") or "")
-        chat["chat_input_buffer"] = buf[:-1]
+        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
+        if cursor <= 0:
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        chat["chat_input_buffer"] = buf[:cursor - 1] + buf[cursor:]
+        chat["chat_input_cursor"] = cursor - 1
+        chat["chat_input_history_index"] = None
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _chat_delete(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        buf = str(chat.get("chat_input_buffer") or "")
+        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
+        if cursor >= len(buf):
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        chat["chat_input_buffer"] = buf[:cursor] + buf[cursor + 1:]
+        chat["chat_input_cursor"] = cursor
+        chat["chat_input_history_index"] = None
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _chat_move_cursor(self, delta: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        buf = str(chat.get("chat_input_buffer") or "")
+        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
+        chat["chat_input_cursor"] = max(0, min(len(buf), cursor + int(delta)))
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _chat_history_move(self, step: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        history = [str(item) for item in (chat.get("chat_input_history") or []) if str(item).strip()]
+        if not history:
+            return
+        buf = str(chat.get("chat_input_buffer") or "")
+        idx_raw = chat.get("chat_input_history_index")
+        idx = int(idx_raw) if isinstance(idx_raw, int) else None
+
+        if int(step) < 0:
+            if idx is None:
+                chat["chat_input_saved_draft"] = buf
+                idx = len(history) - 1
+            else:
+                idx = max(0, idx - 1)
+            selected = history[idx]
+            chat["chat_input_buffer"] = selected
+            chat["chat_input_cursor"] = len(selected)
+            chat["chat_input_history_index"] = idx
+        else:
+            if idx is None:
+                set_chat_state(game, chat)
+                self._set_state(self.state.with_updates(header_logo_game=game))
+                return
+            if idx < len(history) - 1:
+                idx += 1
+                selected = history[idx]
+                chat["chat_input_buffer"] = selected
+                chat["chat_input_cursor"] = len(selected)
+                chat["chat_input_history_index"] = idx
+            else:
+                draft = str(chat.get("chat_input_saved_draft") or "")
+                chat["chat_input_buffer"] = draft
+                chat["chat_input_cursor"] = len(draft)
+                chat["chat_input_history_index"] = None
+
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game))
 
@@ -732,6 +860,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
         chat = get_chat_state(game)
         chat["chat_input_buffer"] = ""
+        chat["chat_input_cursor"] = 0
+        chat["chat_input_history_index"] = None
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: input cleared"))
 
@@ -741,6 +871,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return
         game["artifact_chat_focus"] = True
         game.setdefault("artifact_chat_input", "")
+        game["artifact_chat_cursor"] = max(0, min(len(str(game.get("artifact_chat_input") or "")), int(game.get("artifact_chat_cursor") or len(str(game.get("artifact_chat_input") or "")))))
+        game["artifact_chat_history_index"] = None
+        game.setdefault("artifact_chat_history", [])
+        game.setdefault("artifact_chat_saved_draft", "")
         game["chat_panel_open"] = True
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: focus"))
 
@@ -749,23 +883,95 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["artifact_chat_focus"] = False
         if clear:
             game["artifact_chat_input"] = ""
+            game["artifact_chat_cursor"] = 0
+            game["artifact_chat_history_index"] = None
+            game["artifact_chat_saved_draft"] = ""
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: closed"))
 
     def _artifact_chat_append(self, ch: str) -> None:
         game = dict(self.state.header_logo_game or {})
         buf = str(game.get("artifact_chat_input") or "")
-        game["artifact_chat_input"] = (buf + ch)[:500]
+        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
+        if len(buf) >= 500:
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        new_buf = (buf[:cursor] + ch + buf[cursor:])[:500]
+        game["artifact_chat_input"] = new_buf
+        game["artifact_chat_cursor"] = min(len(new_buf), cursor + len(ch))
+        game["artifact_chat_history_index"] = None
         self._set_state(self.state.with_updates(header_logo_game=game))
 
     def _artifact_chat_backspace(self) -> None:
         game = dict(self.state.header_logo_game or {})
         buf = str(game.get("artifact_chat_input") or "")
-        game["artifact_chat_input"] = buf[:-1]
+        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
+        if cursor <= 0:
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        game["artifact_chat_input"] = buf[:cursor - 1] + buf[cursor:]
+        game["artifact_chat_cursor"] = cursor - 1
+        game["artifact_chat_history_index"] = None
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _artifact_chat_delete(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        buf = str(game.get("artifact_chat_input") or "")
+        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
+        if cursor >= len(buf):
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        game["artifact_chat_input"] = buf[:cursor] + buf[cursor + 1:]
+        game["artifact_chat_cursor"] = cursor
+        game["artifact_chat_history_index"] = None
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _artifact_chat_move_cursor(self, delta: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        buf = str(game.get("artifact_chat_input") or "")
+        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
+        game["artifact_chat_cursor"] = max(0, min(len(buf), cursor + int(delta)))
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _artifact_chat_history_move(self, step: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        history = [str(item) for item in (game.get("artifact_chat_history") or []) if str(item).strip()]
+        if not history:
+            return
+        buf = str(game.get("artifact_chat_input") or "")
+        idx_raw = game.get("artifact_chat_history_index")
+        idx = int(idx_raw) if isinstance(idx_raw, int) else None
+        if int(step) < 0:
+            if idx is None:
+                game["artifact_chat_saved_draft"] = buf
+                idx = len(history) - 1
+            else:
+                idx = max(0, idx - 1)
+            selected = history[idx]
+            game["artifact_chat_input"] = selected
+            game["artifact_chat_cursor"] = len(selected)
+            game["artifact_chat_history_index"] = idx
+        else:
+            if idx is None:
+                self._set_state(self.state.with_updates(header_logo_game=game))
+                return
+            if idx < len(history) - 1:
+                idx += 1
+                selected = history[idx]
+                game["artifact_chat_input"] = selected
+                game["artifact_chat_cursor"] = len(selected)
+                game["artifact_chat_history_index"] = idx
+            else:
+                draft = str(game.get("artifact_chat_saved_draft") or "")
+                game["artifact_chat_input"] = draft
+                game["artifact_chat_cursor"] = len(draft)
+                game["artifact_chat_history_index"] = None
         self._set_state(self.state.with_updates(header_logo_game=game))
 
     def _artifact_chat_clear_input(self) -> None:
         game = dict(self.state.header_logo_game or {})
         game["artifact_chat_input"] = ""
+        game["artifact_chat_cursor"] = 0
+        game["artifact_chat_history_index"] = None
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: input cleared"))
 
     def _artifact_chat_send_message(self) -> None:
@@ -774,6 +980,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if not text:
             return
         game["artifact_chat_input"] = ""
+        game["artifact_chat_cursor"] = 0
+        history = [str(item) for item in (game.get("artifact_chat_history") or []) if str(item).strip()]
+        if not history or history[-1] != text:
+            history.append(text)
+        game["artifact_chat_history"] = history[-50:]
+        game["artifact_chat_history_index"] = None
+        game["artifact_chat_saved_draft"] = ""
         artifact_chat = dict(game.get("artifact_chat_state") or {})
         messages = [dict(m) for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
         messages.append({"at": time.time(), "source": "user", "text": text})

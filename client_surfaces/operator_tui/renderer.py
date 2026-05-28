@@ -877,11 +877,14 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
     if chat_focus:
         if bool(game.get("artifact_chat_focus")):
             buf = str(game.get("artifact_chat_input") or "")
+            cursor = int(game.get("artifact_chat_cursor") or len(buf))
         else:
             buf = str(chat.get("chat_input_buffer") or "")
+            cursor = int(chat.get("chat_input_cursor") or len(buf))
         prompt_map = {"room": "#room>", "direct": "@>", "ai": "AI>", "notes": "notes>", "system": ">"}
         prompt = prompt_map.get(ch_type, ">")
-        lines.append(f"  {prompt} {buf}_")
+        visible = _inline_input_with_cursor(buf, cursor, max(1, width - len(prompt) - 3))
+        lines.append(f"  {prompt} {visible}")
     else:
         lines.append(
             f"  {display_for_action('chat_focus', 'Ctrl+E')} Eingabe  "
@@ -944,6 +947,17 @@ def _wrap_plain(text: str, width: int) -> list[str]:
     if row:
         rows.append(row)
     return rows
+
+
+def _inline_input_with_cursor(text: str, cursor: int, width: int) -> str:
+    raw = str(text or "")
+    cur = max(0, min(len(raw), int(cursor)))
+    rendered = raw[:cur] + "_" + raw[cur:]
+    max_w = max(1, int(width))
+    if len(rendered) <= max_w:
+        return rendered
+    start = max(0, min(cur, len(rendered) - max_w))
+    return rendered[start:start + max_w]
 
 
 def _chat_msg_timestamp(msg: dict[str, object]) -> str:
@@ -1993,9 +2007,9 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
 
     if focus_active:
         panel.append("\x1b[38;2;60;60;80m" + "─" * panel_width + "\x1b[0m")
-        cursor = "_" if int(time.time() * 2) % 2 == 0 else " "
         prompt = "▶ "
-        visible_input = (input_text + cursor)[:max(1, panel_width - len(prompt) - 1)]
+        cursor_idx = int(game.get("artifact_chat_cursor") or len(input_text))
+        visible_input = _inline_input_with_cursor(input_text, cursor_idx, max(1, panel_width - len(prompt) - 1))
         panel.append(f"\x1b[38;2;220;220;90m{prompt}{visible_input}\x1b[0m")
 
     # Overlay panel lines into output rows
@@ -2319,7 +2333,9 @@ def _overlay_snake_chat_panel(
         buf = str(chat.get("chat_input_buffer") or "")
         prompt_map = {"room": "#room>", "direct": "@>", "ai": "@ai>", "notes": "notes>", "system": ">"}
         prompt = prompt_map.get(ch_type, ">")
-        input_line = f"\x1b[38;2;200;200;80m{prompt}\x1b[0m {buf[:panel_width - len(prompt) - 2]}_"
+        cursor = int(chat.get("chat_input_cursor") or len(buf))
+        visible = _inline_input_with_cursor(buf, cursor, max(1, panel_width - len(prompt) - 2))
+        input_line = f"\x1b[38;2;200;200;80m{prompt}\x1b[0m {visible}"
         panel_lines.append(input_line)
     else:
         panel_lines.append(

@@ -150,6 +150,10 @@ def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:
         "channels": default_channels(),
         "chat_focus": False,
         "chat_input_buffer": "",
+        "chat_input_cursor": 0,
+        "chat_input_history": [],
+        "chat_input_history_index": None,
+        "chat_input_saved_draft": "",
         "notes_context_released": False,
         "ai_typing": False,
     }
