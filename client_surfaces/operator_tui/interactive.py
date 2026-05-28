@@ -245,6 +245,27 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._command_buffer = ""
             self._set_state(self.state.with_updates(mode=OperatorMode.COMMAND, command_line=""))
 
+        @bindings.add("/")
+        def _(event) -> None:
+            if self._snake_message_mode_active():
+                self._snake_message_append("/")
+                return
+            if self._chat_focus_active():
+                self._chat_focus_leave()
+                self._command_buffer = ""
+                self._set_state(self.state.with_updates(mode=OperatorMode.COMMAND, command_line=""))
+                return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_focus_leave(clear=False)
+                self._command_buffer = ""
+                self._set_state(self.state.with_updates(mode=OperatorMode.COMMAND, command_line=""))
+                return
+            if self._snake_mode_active():
+                return
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("/")
+                return
+
         @bindings.add("enter")
         def _(event) -> None:
             if self._snake_message_mode_active():
