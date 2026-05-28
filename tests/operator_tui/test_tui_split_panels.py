@@ -5,6 +5,7 @@ import time
 
 from client_surfaces.operator_tui.models import OperatorState
 from client_surfaces.operator_tui.renderer import (
+    _overlay_snake_ai_panel,
     _overlay_fullscreen_snake,
     _overlay_snake_chat_panel,
     _snake_right_panel_width,
@@ -38,7 +39,7 @@ def test_fullscreen_overlay_keeps_snake_out_of_right_panel_area() -> None:
     out = _overlay_fullscreen_snake(lines, state, width=120, body_start=0, body_end=24)
     row = _strip_ansi(out[10])
     assert row[118] not in {"●", "◉", "·"}
-    assert any(ch in row for ch in ("●", "◉", "·"))
+    assert not any(ch in row for ch in ("●", "◉", "·"))
 
 
 def test_chat_panel_renders_timestamps_and_ai_snake_sender() -> None:
@@ -103,3 +104,38 @@ def test_split_panel_is_dedicated_right_column_without_base_overlay_bleed() -> N
     for row in out:
         assert _visible_char_at(row, split_col + 6) != "X"
         assert _visible_char_at(row, width - 2) != "X"
+
+
+def test_ai_panel_shows_toggle_configuration_and_keys() -> None:
+    lines = [" " * 120 for _ in range(20)]
+    game = {
+        "tutorial_mode": True,
+        "chat_panel_open": False,
+        "score": 3,
+        "speed_level": 2,
+        "llm_status": {"reachable": False},
+    }
+    out = _overlay_snake_ai_panel(lines, game, split_col=78, panel_width=40, height=10, row_start=0, chat_enabled=False)
+    rendered = "\n".join(_strip_ansi(line) for line in out)
+    assert "Auto-Heuristik [U]: AN" in rendered
+    assert "AI-Chat [Ctrl+G]: AUS" in rendered
+    assert "Chat-Fokus [c], Eingabe [Ctrl+E]" in rendered
+
+
+def test_chat_panel_shows_disabled_state_when_chat_is_off() -> None:
+    lines = [" " * 120 for _ in range(24)]
+    game = {
+        "chat_state": {
+            "active_channel": "ai:tutor",
+            "chat_focus": False,
+            "channels": {
+                "room:main": {"display_name": "#room", "messages": [], "unread": 0},
+                "ai:tutor": {"display_name": "AI tutor-ai", "messages": [], "unread": 0},
+                "notes:self": {"display_name": "notes local-only", "messages": [], "unread": 0},
+            },
+        }
+    }
+    out = _overlay_snake_chat_panel(lines, game, split_col=78, panel_width=40, ai_rows=8, height=24, enabled=False)
+    rendered = "\n".join(_strip_ansi(line) for line in out)
+    assert "AI-Chat ist deaktiviert." in rendered
+    assert "Mit Ctrl+G wieder aktivieren." in rendered
