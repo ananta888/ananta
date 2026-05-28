@@ -146,7 +146,7 @@
     {
       "id": "M5",
       "title": "Renderer implementations",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "VVP-018",
         "VVP-019",
@@ -157,7 +157,7 @@
     {
       "id": "M6",
       "title": "Terminal output adapters",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VVP-022",
         "VVP-023",
@@ -168,7 +168,7 @@
     {
       "id": "M7",
       "title": "Operator TUI integration",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VVP-026",
         "VVP-027",
@@ -654,7 +654,7 @@
       "id": "VVP-026",
       "title": "Integrate CenterViewport into existing Operator TUI layout",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -673,7 +673,7 @@
       "id": "VVP-027",
       "title": "Add runtime commands or key bindings for switching views",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "target_files": [
@@ -692,7 +692,7 @@
       "id": "VVP-028",
       "title": "Expose visual runtime status in TUI diagnostics/status area",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "target_files": [
@@ -711,12 +711,12 @@
       "id": "VVP-029",
       "title": "Add safe config wiring for visual viewport options",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
-        "config/config.example.json",
-        "client_surfaces/operator_tui/visual/runtime/config.py"
+        "config/operator_tui_visual_viewport.default.json",
+        "client_surfaces/operator_tui/interactive.py"
       ],
       "description": "Wire visual viewport config into the existing project configuration path using conservative defaults.",
       "acceptance_criteria": [
@@ -769,11 +769,11 @@
       "id": "VVP-032",
       "title": "Add snapshot-style tests for ANSI fallback output",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "target_files": [
-        "tests/operator_tui/visual/test_ansi_renderer_snapshots.py"
+        "tests/client_surfaces/operator_tui/visual/test_ansi_renderer_snapshots.py"
       ],
       "description": "Ensure the universal ANSI fallback remains deterministic and readable.",
       "acceptance_criteria": [
@@ -839,13 +839,13 @@
   "tasks_status_summary": {
     "total": 34,
     "by_status": {
-      "todo": 12,
+      "todo": 7,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 22
+      "done": 27
     },
-    "progress_percent_done": 65,
+    "progress_percent_done": 79,
     "by_priority": {
       "critical": 12,
       "high": 12,

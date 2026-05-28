@@ -856,6 +856,72 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             state.with_updates(header_logo_game=game, status_message=f"mouse-follow {label}"),
             f"mouse-follow {label}",
         )
+    if command == "visual":
+        game = dict(state.header_logo_game or {})
+        action = str(args[0]).strip().lower() if args else "status"
+        current_enabled = bool(game.get("visual_viewport_enabled"))
+        if action in {"on", "off", "toggle"}:
+            if action == "toggle":
+                enabled = not current_enabled
+            else:
+                enabled = action == "on"
+            game["visual_viewport_enabled"] = enabled
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    status_message=f"visual viewport: {'an' if enabled else 'aus'}",
+                ),
+                "visual toggled",
+            )
+        if action == "list":
+            views = [str(item) for item in (game.get("visual_viewport_available_views") or []) if str(item).strip()]
+            listed = ", ".join(views) if views else "(keine bekannt)"
+            return CommandResult(
+                state.with_updates(status_message=f"visual views: {listed}"),
+                "visual views listed",
+            )
+        if action == "view":
+            if len(args) < 2:
+                return CommandResult(state, "visual view: id erforderlich", handled=False)
+            target = str(args[1]).strip()
+            if not target:
+                return CommandResult(state, "visual view: id erforderlich", handled=False)
+            available_views = [str(item) for item in (game.get("visual_viewport_available_views") or []) if str(item).strip()]
+            if available_views and target not in available_views:
+                listed = ", ".join(available_views)
+                return CommandResult(
+                    state.with_updates(status_message=f"visual view unbekannt: {target} | {listed}"),
+                    "visual view unknown",
+                    handled=False,
+                )
+            game["visual_viewport_active_view_request"] = target
+            game["visual_viewport_enabled"] = True
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    status_message=f"visual view requested: {target}",
+                ),
+                "visual view requested",
+            )
+        if action == "status":
+            runtime = dict(game.get("visual_runtime_status") or {})
+            view = str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "-")
+            renderer = str(runtime.get("active_renderer") or "-")
+            adapter = str(runtime.get("active_adapter") or "-")
+            return CommandResult(
+                state.with_updates(
+                    status_message=(
+                        f"visual: {'an' if current_enabled else 'aus'} "
+                        f"view={view} renderer={renderer} adapter={adapter}"
+                    )
+                ),
+                "visual status",
+            )
+        return CommandResult(state, "visual: on|off|toggle|status|list|view <id>", handled=False)
     if command in {"snake-access", "snake_access"}:
         if len(args) < 2:
             return CommandResult(state, "snake-access requires: <snake-id> <cancel|view|full>", handled=False)

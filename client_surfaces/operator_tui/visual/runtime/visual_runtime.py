@@ -124,6 +124,55 @@ class VisualRuntime:
             context=RenderContext(now=now, metadata={"fallback": True}),
         )
 
+    def render_frame(
+        self,
+        *,
+        region: ViewportRegion,
+        now: float | None = None,
+        state: dict[str, Any] | None = None,
+        force: bool = False,
+    ) -> RenderFrame | None:
+        t_now = float(now if now is not None else time.monotonic())
+        if not self._scheduler.should_render(now=t_now, force=force):
+            return None
+
+        state_map = dict(state or {})
+        cache_key = FrameCacheKey(
+            view_id=self._active_view_id,
+            renderer_id=self._active_renderer_id,
+            width=region.pixel_width,
+            height=region.pixel_height,
+            state_version=str(state_map.get("visual_state_version") or ""),
+            theme_version=str(state_map.get("theme_version") or ""),
+        )
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            view = self._view()
+            view.update(0.0, state_map)
+            scene = view.render(ViewContext(region=region, now=t_now, state=state_map))
+            renderer = self._renderer()
+            frame = renderer.render(
+                scene,
+                width=region.pixel_width,
+                height=region.pixel_height,
+                context=RenderContext(now=t_now, metadata={"view": self._active_view_id}),
+            )
+            self._cache.put(cache_key, frame)
+            return frame
+        except Exception as exc:
+            self._runtime_errors.append(f"render failed: {exc}")
+            self._runtime_errors = self._runtime_errors[-20:]
+            self._excluded_pairs.add((self._active_renderer_id, self._active_adapter_id))
+            self._select_renderer_adapter()
+            return self._scene_to_diagnostic_frame(
+                region=region,
+                now=t_now,
+                message=f"render fallback: {exc}",
+            )
+
     def draw(
         self,
         *,
@@ -146,43 +195,9 @@ class VisualRuntime:
                 if result.drawn:
                     return result
 
-        if not self._scheduler.should_render(now=t_now):
-            return DrawResult(drawn=False, reason="scheduler_skip")
-
-        state_map = dict(state or {})
-        cache_key = FrameCacheKey(
-            view_id=self._active_view_id,
-            renderer_id=self._active_renderer_id,
-            width=region.pixel_width,
-            height=region.pixel_height,
-            state_version=str(state_map.get("visual_state_version") or ""),
-            theme_version=str(state_map.get("theme_version") or ""),
-        )
-        cached = self._cache.get(cache_key)
-        frame = cached
+        frame = self.render_frame(region=region, now=t_now, state=state, force=False)
         if frame is None:
-            try:
-                view = self._view()
-                view.update(0.0, state_map)
-                scene = view.render(ViewContext(region=region, now=t_now, state=state_map))
-                renderer = self._renderer()
-                frame = renderer.render(
-                    scene,
-                    width=region.pixel_width,
-                    height=region.pixel_height,
-                    context=RenderContext(now=t_now, metadata={"view": self._active_view_id}),
-                )
-                self._cache.put(cache_key, frame)
-            except Exception as exc:
-                self._runtime_errors.append(f"render failed: {exc}")
-                self._runtime_errors = self._runtime_errors[-20:]
-                self._excluded_pairs.add((self._active_renderer_id, self._active_adapter_id))
-                self._select_renderer_adapter()
-                frame = self._scene_to_diagnostic_frame(
-                    region=region,
-                    now=t_now,
-                    message=f"render fallback: {exc}",
-                )
+            return DrawResult(drawn=False, reason="scheduler_skip")
 
         adapter = self._adapter()
         draw_result = adapter.draw(

@@ -2204,6 +2204,69 @@ def test_config_command_toggles_ai_snake_config_panel() -> None:
     assert bool(game_closed.get("ai_snake_config_open")) is False
 
 
+def test_visual_command_toggles_and_requests_view() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+
+    on = execute_command(":visual on", state).state
+    game_on = dict(on.header_logo_game or {})
+    assert bool(game_on.get("visual_viewport_enabled")) is True
+
+    requested = execute_command(":visual view snake_debug_view", on).state
+    game_requested = dict(requested.header_logo_game or {})
+    assert game_requested.get("visual_viewport_active_view_request") == "snake_debug_view"
+    assert bool(game_requested.get("visual_viewport_enabled")) is True
+
+
+def test_visual_command_rejects_unknown_view_with_known_view_list() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={"visual_viewport_available_views": ["logo_animation", "snake_debug_view"]},
+    )
+
+    result = execute_command(":visual view not-real", state)
+
+    assert result.handled is False
+    assert "logo_animation" in str(result.state.status_message or "")
+    assert "snake_debug_view" in str(result.state.status_message or "")
+
+
+def test_visual_viewport_content_lines_render_in_center_pane() -> None:
+    game = {
+        "visual_viewport": {"enabled": True},
+        "visual_runtime_status": {
+            "active_view": "renderer_diagnostics",
+            "active_renderer": "ansi_blocks",
+            "active_adapter": "ansi",
+        },
+        "visual_viewport_frame_lines": ["[renderer_diagnostics]", "view=renderer_diagnostics"],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, header_logo_game=game)
+
+    output = render_operator_shell(state, width=110, height=24)
+
+    assert "VISUAL VIEWPORT" in output
+    assert "[renderer_diagnostics]" in output
+
+
+def test_status_line_shows_visual_viewport_runtime_marker() -> None:
+    game = {
+        "visual_viewport": {"enabled": True},
+        "visual_runtime_status": {
+            "active_view": "snake_debug_view",
+            "active_renderer": "ansi_blocks",
+            "active_adapter": "ansi",
+        },
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    output = render_operator_shell(state, width=110, height=24)
+
+    assert "VVP:on" in output
+    assert "vv=snake_debug_view" in output
+    assert "vr=ansi_blocks" in output
+    assert "va=ansi" in output
+
+
 def test_ai_snake_config_open_resets_chat_focus_and_command_mode() -> None:
     from client_surfaces.operator_tui.chat_state import get_chat_state
 

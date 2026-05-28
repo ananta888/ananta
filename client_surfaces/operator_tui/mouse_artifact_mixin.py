@@ -456,6 +456,8 @@ class MouseArtifactMixin:
         state = result.state.with_updates(status_message=str(result.state.status_message or result.message))
         if state.section_id != self.state.section_id or command.strip().lower() in {":refresh", "refresh", "r", ":next", ":prev"}:
             state = load_active_section(state, self._registry)
+        if hasattr(self, "_apply_visual_command_requests"):
+            state = self._apply_visual_command_requests(state)  # type: ignore[assignment]
         self._command_buffer = ""
         if hasattr(self, "_command_cursor"):
             self._command_cursor = 0

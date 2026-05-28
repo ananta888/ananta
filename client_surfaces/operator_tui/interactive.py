@@ -85,6 +85,24 @@ from client_surfaces.operator_tui.mouse_artifact_mixin import MouseArtifactMixin
 from client_surfaces.operator_tui.snake_heuristic_mixin import SnakeHeuristicMixin
 from client_surfaces.operator_tui.snake_ops_mixin import SnakeOpsMixin
 from client_surfaces.operator_tui.tutorial_ai_mixin import TutorialAiMixin
+from client_surfaces.operator_tui.visual.adapters.ansi_adapter import AnsiOutputAdapter
+from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
+from client_surfaces.operator_tui.visual.adapters.noop_adapter import NoopDiagnosticsAdapter
+from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutputAdapter
+from client_surfaces.operator_tui.visual.capabilities.models import TerminalVisualCapabilities
+from client_surfaces.operator_tui.visual.renderers.ansi_renderer import AnsiBlocksRenderer
+from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
+from client_surfaces.operator_tui.visual.renderers.opengl_offscreen_renderer import OpenGlOffscreenRenderer
+from client_surfaces.operator_tui.visual.renderers.svg_raster_renderer import SvgRasterRenderer
+from client_surfaces.operator_tui.visual.runtime.config import VisualViewportConfig
+from client_surfaces.operator_tui.visual.runtime.registry import OutputAdapterRegistry, RendererRegistry, ViewRegistry
+from client_surfaces.operator_tui.visual.runtime.visual_runtime import VisualRuntime
+from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion, derive_pixel_size
+from client_surfaces.operator_tui.visual.views.artifact_preview_view import ArtifactPreviewView
+from client_surfaces.operator_tui.visual.views.logo_animation_view import LogoAnimationView
+from client_surfaces.operator_tui.visual.views.renderer_diagnostics_view import RendererDiagnosticsView
+from client_surfaces.operator_tui.visual.views.snake_debug_view import SnakeDebugView
+from client_surfaces.operator_tui.visual.views.strategy_map_preview_view import StrategyMapPreviewView
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
@@ -175,6 +193,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._selected_heuristic_id: str = ""
         # E05: Load initial notes into notes:self channel
         self._init_notes_channel()
+        self._visual_config_error: str = ""
+        self._visual_viewport_config = self._load_visual_viewport_config()
+        self._visual_runtime: VisualRuntime | None = None
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
         self._output = Window(content=self._control, wrap_lines=False)
@@ -1531,6 +1552,188 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         status = "an" if not enabled else "aus"
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake mouse-follow: {status}"))
 
+    def _visual_capabilities(self) -> TerminalVisualCapabilities:
+        term = dict(os.environ)
+        return TerminalVisualCapabilities(
+            ansi=True,
+            sixel="sixel" in str(term.get("TERM", "")).lower() or str(term.get("ANANTA_TUI_FORCE_SIXEL", "")).strip() == "1",
+            kitty_graphics=bool(str(term.get("KITTY_WINDOW_ID") or "").strip())
+            or str(term.get("TERM", "")).lower() == "xterm-kitty",
+            opengl_offscreen=str(term.get("ANANTA_TUI_VISUAL_OPENGL", "0")).strip().lower() in {"1", "true", "yes", "on"},
+        )
+
+    def _load_visual_viewport_config(self) -> VisualViewportConfig:
+        file_mapping: dict[str, Any] = {}
+        cfg_path = Path("config/operator_tui_visual_viewport.default.json")
+        if cfg_path.exists():
+            try:
+                parsed = json.loads(cfg_path.read_text(encoding="utf-8"))
+                if isinstance(parsed, dict):
+                    file_mapping = dict(parsed.get("visual_viewport") or {})
+            except (OSError, json.JSONDecodeError) as exc:
+                self._visual_config_error = f"visual config fehler: {exc}"
+                file_mapping = {}
+        else:
+            self._visual_config_error = ""
+        env_enabled = str(os.environ.get("ANANTA_TUI_VISUAL_VIEWPORT_ENABLED", "0")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        mapping: dict[str, Any] = {
+            **file_mapping,
+            "enabled": env_enabled if "ANANTA_TUI_VISUAL_VIEWPORT_ENABLED" in os.environ else bool(file_mapping.get("enabled", False)),
+            "default_view": str(
+                os.environ.get("ANANTA_TUI_VISUAL_DEFAULT_VIEW", file_mapping.get("default_view", "renderer_diagnostics"))
+            ).strip(),
+            "default_renderer": str(
+                os.environ.get("ANANTA_TUI_VISUAL_DEFAULT_RENDERER", file_mapping.get("default_renderer", "cpu_raster"))
+            ).strip(),
+            "default_output_adapter": str(
+                os.environ.get("ANANTA_TUI_VISUAL_DEFAULT_ADAPTER", file_mapping.get("default_output_adapter", "kitty"))
+            ).strip(),
+        }
+        try:
+            cfg = VisualViewportConfig.from_mapping(mapping)
+            if not self._visual_config_error:
+                self._visual_config_error = ""
+            return cfg
+        except (TypeError, ValueError) as exc:
+            self._visual_config_error = f"visual config fehler: {exc}"
+            return VisualViewportConfig()
+
+    def _build_visual_runtime(self) -> VisualRuntime:
+        views = ViewRegistry()
+        views.register_factory("logo_animation", lambda: LogoAnimationView())
+        views.register_factory("snake_debug_view", lambda: SnakeDebugView())
+        views.register_factory("artifact_preview", lambda: ArtifactPreviewView())
+        views.register_factory("strategy_map_preview", lambda: StrategyMapPreviewView())
+        views.register_factory("renderer_diagnostics", lambda: RendererDiagnosticsView())
+
+        renderers = RendererRegistry()
+        renderers.register_factory("ansi_blocks", lambda: AnsiBlocksRenderer())
+        renderers.register_factory("cpu_raster", lambda: CpuRasterRenderer())
+        renderers.register_factory("svg_raster_optional", lambda: SvgRasterRenderer())
+        renderers.register_factory("opengl_offscreen_optional", lambda: OpenGlOffscreenRenderer())
+
+        adapters = OutputAdapterRegistry()
+        adapters.register_factory("ansi", lambda: AnsiOutputAdapter())
+        adapters.register_factory("sixel", lambda: SixelOutputAdapter(supported=self._visual_capabilities().sixel))
+        adapters.register_factory("kitty", lambda: KittyOutputAdapter(supported=self._visual_capabilities().kitty_graphics))
+        adapters.register_factory("noop_diagnostics", lambda: NoopDiagnosticsAdapter())
+
+        return VisualRuntime(
+            config=self._visual_viewport_config,
+            view_registry=views,
+            renderer_registry=renderers,
+            adapter_registry=adapters,
+            capabilities=self._visual_capabilities(),
+        )
+
+    def _ensure_visual_runtime(self) -> VisualRuntime:
+        if self._visual_runtime is None:
+            self._visual_runtime = self._build_visual_runtime()
+        return self._visual_runtime
+
+    def _apply_visual_command_requests(self, state: OperatorState) -> OperatorState:
+        game = dict(state.header_logo_game or {})
+        requested_view = str(game.get("visual_viewport_active_view_request") or "").strip()
+        if not requested_view:
+            return state
+        runtime = self._ensure_visual_runtime()
+        ok = runtime.switch_view(requested_view)
+        game.pop("visual_viewport_active_view_request", None)
+        game["visual_viewport_enabled"] = True
+        game["visual_viewport_active_view"] = requested_view if ok else str(runtime.status().active_view)
+        status = f"visual view: {game['visual_viewport_active_view']}" if ok else f"visual view unbekannt: {requested_view}"
+        return state.with_updates(header_logo_game=game, status_message=status)
+
+    def _sync_visual_viewport_state(self, *, width: int, height: int) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        enabled = bool(game.get("visual_viewport_enabled", self._visual_viewport_config.enabled))
+        if not enabled:
+            game["visual_viewport"] = {"enabled": False}
+            if self._visual_config_error:
+                game["visual_runtime_status"] = {
+                    "runtime_error": self._visual_config_error,
+                }
+            game.pop("visual_viewport_frame_lines", None)
+            self.state = self.state.with_updates(header_logo_game=game)
+            return
+
+        runtime = self._ensure_visual_runtime()
+        requested_view = str(game.get("visual_viewport_active_view_request") or "").strip()
+        if requested_view:
+            if runtime.switch_view(requested_view):
+                game["visual_viewport_active_view"] = requested_view
+            game.pop("visual_viewport_active_view_request", None)
+
+        left_width = 22
+        detail_width = 34
+        middle_width = max(18, int(width) - left_width - detail_width - 6)
+        body_height = max(3, int(height) - 5 - 8)
+        body_start = 8
+        px_w, px_h = derive_pixel_size(
+            columns=middle_width,
+            rows=body_height,
+            default_pixel_width=self._visual_viewport_config.default_pixel_width,
+            default_pixel_height=self._visual_viewport_config.default_pixel_height,
+            max_pixel_width=self._visual_viewport_config.max_pixel_width,
+            max_pixel_height=self._visual_viewport_config.max_pixel_height,
+        )
+        region = ViewportRegion(
+            x=24,
+            y=body_start,
+            columns=middle_width,
+            rows=body_height,
+            pixel_width=px_w,
+            pixel_height=px_h,
+        )
+        state_map = {
+            "runtime_status": dict(game.get("visual_runtime_status") or {}),
+            "active_view": str(game.get("visual_viewport_active_view") or ""),
+            "active_renderer": str(game.get("visual_viewport_active_renderer") or ""),
+            "active_adapter": str(game.get("visual_viewport_active_adapter") or ""),
+            "artifact": dict(game.get("active_artifact") or {}),
+            "allowed_roots": [str(Path.cwd())],
+            "snake": list(game.get("snake") or []),
+            "target": game.get("food"),
+            "territories": list(game.get("territories") or []),
+            "selected_territory": game.get("selected_territory"),
+            "zoom": game.get("map_zoom", 1.0),
+            "selected_heuristic": game.get("selected_heuristic_id"),
+            "heuristic_confidence": game.get("heuristic_confidence"),
+            "visual_state_version": str(game.get("visual_state_version") or int(time.monotonic())),
+            "theme_version": "default",
+        }
+        frame = runtime.render_frame(region=region, now=time.monotonic(), state=state_map, force=False)
+        frame_lines: list[str] = []
+        if frame is not None and frame.frame_type == "ansi" and isinstance(frame.payload, list):
+            frame_lines = [str(row) for row in frame.payload[:body_height]]
+        elif frame is not None:
+            frame_lines = [f"[{frame.frame_type}] {frame.mime_or_format} {frame.width}x{frame.height}"]
+
+        status = runtime.status()
+        diagnostics = list(status.fallback_diagnostics)
+        game["visual_viewport_frame_lines"] = frame_lines
+        game["visual_viewport_available_views"] = list(runtime.available_views())
+        game["visual_runtime_status"] = {
+            "active_view": status.active_view,
+            "active_renderer": status.active_renderer,
+            "active_adapter": status.active_adapter,
+            "rendered_frames": int(status.scheduler.get("rendered_frames", 0)),
+            "skipped_frames": int(status.scheduler.get("skipped_frames", 0)),
+            "dropped_frames": int(status.scheduler.get("dropped_frames", 0)),
+            "fallback_reason": diagnostics[-1] if diagnostics else "",
+            "runtime_error": status.runtime_errors[-1] if status.runtime_errors else self._visual_config_error,
+        }
+        game["visual_viewport"] = {"enabled": True}
+        game["visual_viewport_active_view"] = status.active_view
+        game["visual_viewport_active_renderer"] = status.active_renderer
+        game["visual_viewport_active_adapter"] = status.active_adapter
+        self.state = self.state.with_updates(header_logo_game=game)
+
     def _set_state(self, state: OperatorState) -> None:
         if self._splash is not None:
             from agent.cli.splash import SplashState
@@ -1545,4 +1748,5 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if self._splash is not None:
             self._splash.tick()
         size = shutil.get_terminal_size((120, 32))
+        self._sync_visual_viewport_state(width=size.columns, height=max(18, size.lines - 1))
         return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)

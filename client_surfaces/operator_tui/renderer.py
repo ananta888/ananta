@@ -514,6 +514,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
         return _content_shortcut_lines(state, width)
     if bool(game.get("ai_snake_config_open")):
         return _content_ai_snake_config_lines(state, width)
+    if bool(dict(game.get("visual_viewport") or {}).get("enabled")):
+        return _content_visual_viewport_lines(state, width)
 
     if panel_state == PanelState.LOADING:
         lines.append("  loading...")
@@ -590,6 +592,26 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
         lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=max_lines))
 
     return lines
+
+
+def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    runtime = dict(game.get("visual_runtime_status") or {})
+    lines = [_pane_title("VISUAL VIEWPORT", state.focus == FocusPane.CONTENT)]
+    frame_lines = [str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)]
+    if frame_lines:
+        lines.extend(frame_lines)
+    else:
+        lines.append("  visual runtime aktiv, warte auf frame ...")
+    view = str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "-")
+    renderer = str(runtime.get("active_renderer") or "-")
+    adapter = str(runtime.get("active_adapter") or "-")
+    fallback = str(runtime.get("fallback_reason") or "").strip()
+    lines.append("")
+    lines.append(f"  view={view} renderer={renderer} adapter={adapter}")
+    if fallback:
+        lines.append(f"  fallback: {fallback}")
+    return [_clip(line, width) for line in lines]
 
 
 def _content_shortcut_lines(state: OperatorState, width: int) -> list[str]:
@@ -1654,6 +1676,22 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         parts.append("CFG:on")
     if bool(game.get("chat_panel_open")):
         parts.append("[C]")
+    visual = dict(game.get("visual_runtime_status") or {})
+    visual_enabled = bool(dict(game.get("visual_viewport") or {}).get("enabled")) or bool(game.get("visual_viewport_enabled"))
+    if visual_enabled:
+        parts.append("VVP:on")
+        view = str(visual.get("active_view") or game.get("visual_viewport_active_view") or "").strip()
+        renderer = str(visual.get("active_renderer") or "").strip()
+        adapter = str(visual.get("active_adapter") or "").strip()
+        if view:
+            parts.append(f"vv={view}")
+        if renderer:
+            parts.append(f"vr={renderer}")
+        if adapter:
+            parts.append(f"va={adapter}")
+        runtime_error = str(visual.get("runtime_error") or "").strip()
+        if runtime_error:
+            parts.append("vvp_err")
     try:
         from client_surfaces.operator_tui.chat_state import get_chat_state
         active_chat = str(get_chat_state(dict(game)).get("active_channel") or "room:main")

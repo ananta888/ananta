@@ -1,0 +1,21 @@
+{
+  "visual_viewport": {
+    "enabled": false,
+    "position": "center",
+    "default_view": "renderer_diagnostics",
+    "default_renderer": "cpu_raster",
+    "default_output_adapter": "kitty",
+    "target_fps": 10,
+    "animation_fps": 15,
+    "max_fps": 30,
+    "default_pixel_width": 800,
+    "default_pixel_height": 450,
+    "max_pixel_width": 1280,
+    "max_pixel_height": 720,
+    "fallback_chain": [
+      { "renderer": "cpu_raster", "adapter": "kitty" },
+      { "renderer": "cpu_raster", "adapter": "sixel" },
+      { "renderer": "ansi_blocks", "adapter": "ansi" }
+    ]
+  }
+}
