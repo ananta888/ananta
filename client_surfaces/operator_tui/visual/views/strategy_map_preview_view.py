@@ -3,12 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
-from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+from client_surfaces.operator_tui.visual.views.base_view import ViewContext, ViewRequirements
 
 
 @dataclass
 class StrategyMapPreviewView:
     view_id: str = "strategy_map_preview"
+
+    def view_requirements(self) -> ViewRequirements:
+        return ViewRequirements(
+            view_id=self.view_id,
+            display_name="Strategy Map",
+            description="Territory overview strategy map",
+            required_render_features=("ansi",),
+            optional_runtime_requirements=(),
+        )
 
     def update(self, dt: float, state: dict[str, object]) -> None:
         _ = dt

@@ -56,39 +56,76 @@
       "docs": "docs/operator-tui/snake-chat-control-commands.md"
     }
   },
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
     {
       "id": "M1",
       "title": "Command contract and action registry",
-      "status": "todo",
-      "task_ids": ["SCC-001", "SCC-002", "SCC-003"]
+      "status": "done",
+      "task_ids": [
+        "SCC-001",
+        "SCC-002",
+        "SCC-003"
+      ]
     },
     {
       "id": "M2",
       "title": "Parser, policy and dispatcher",
-      "status": "todo",
-      "task_ids": ["SCC-004", "SCC-005", "SCC-006", "SCC-007"]
+      "status": "done",
+      "task_ids": [
+        "SCC-004",
+        "SCC-005",
+        "SCC-006",
+        "SCC-007"
+      ]
     },
     {
       "id": "M3",
       "title": "Snake Chat integration and visible feedback",
-      "status": "todo",
-      "task_ids": ["SCC-008", "SCC-009", "SCC-010"]
+      "status": "done",
+      "task_ids": [
+        "SCC-008",
+        "SCC-009",
+        "SCC-010"
+      ]
     },
     {
       "id": "M4",
       "title": "Natural-language control optional layer",
-      "status": "todo",
-      "task_ids": ["SCC-011", "SCC-012"]
+      "status": "done",
+      "task_ids": [
+        "SCC-011",
+        "SCC-012"
+      ]
     },
     {
       "id": "M5",
       "title": "Tests and documentation",
-      "status": "todo",
-      "task_ids": ["SCC-013", "SCC-014", "SCC-015", "SCC-016"]
+      "status": "done",
+      "task_ids": [
+        "SCC-013",
+        "SCC-014",
+        "SCC-015",
+        "SCC-016"
+      ]
     }
   ],
   "tasks": [
@@ -96,10 +133,12 @@
       "id": "SCC-001",
       "title": "Document Snake Chat TUI control command contract",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
-      "target_files": ["docs/operator-tui/snake-chat-control-commands.md"],
+      "target_files": [
+        "docs/operator-tui/snake-chat-control-commands.md"
+      ],
       "description": "Define which chat messages are treated as TUI control commands and which remain normal chat/AI messages.",
       "acceptance_criteria": [
         "Docs define slash-command syntax and optional natural-language control mode.",
@@ -112,10 +151,12 @@
       "id": "SCC-002",
       "title": "Implement TuiActionRegistry for safe callable TUI actions",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/tui_action_dispatcher.py"
+      ],
       "description": "Create a registry of named, safe TUI actions that can be invoked by chat commands and keybindings.",
       "acceptance_criteria": [
         "Registry contains action id, display label, risk level, allowed modes, argument schema and handler reference.",
@@ -129,7 +170,7 @@
       "id": "SCC-003",
       "title": "Map existing keybinding actions to TUI action ids where possible",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -149,10 +190,12 @@
       "id": "SCC-004",
       "title": "Implement deterministic slash-command parser",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_control_parser.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_parser.py"
+      ],
       "description": "Parse explicit chat commands into structured action requests without using an LLM.",
       "acceptance_criteria": [
         "Parser recognizes /view, /overlay, /focus, /open artifact, /snake and /help tui command groups.",
@@ -166,10 +209,12 @@
       "id": "SCC-005",
       "title": "Implement chat-control policy with default deny",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_control_policy.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_policy.py"
+      ],
       "description": "Validate parsed chat commands against mode, action allowlist, argument schema and risk level.",
       "acceptance_criteria": [
         "Unknown commands and unknown action ids are denied.",
@@ -183,10 +228,12 @@
       "id": "SCC-006",
       "title": "Implement TUI action dispatcher",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/tui_action_dispatcher.py"
+      ],
       "description": "Execute validated action requests against the TUI state through safe handlers.",
       "acceptance_criteria": [
         "Dispatcher accepts only policy-allowed normalized action requests.",
@@ -200,10 +247,12 @@
       "id": "SCC-007",
       "title": "Implement audit trail for chat-control actions",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_control_audit.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_audit.py"
+      ],
       "description": "Record every chat-control parse/policy/dispatch decision for debugging and safety review.",
       "acceptance_criteria": [
         "Audit event includes timestamp, source channel, sender kind, raw text hash or text according to config, parsed action, policy decision and dispatch result.",
@@ -216,10 +265,12 @@
       "id": "SCC-008",
       "title": "Integrate chat-control path into ChatMixin send flow",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
       "description": "Intercept eligible Snake Chat messages before they become normal AI questions or room messages.",
       "acceptance_criteria": [
         "Slash commands starting with / are routed to chat-control parser when chat-control is enabled.",
@@ -233,10 +284,12 @@
       "id": "SCC-009",
       "title": "Return command results into Snake Chat messages and TUI status",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
       "description": "Make command execution visible to the user inside chat and status line.",
       "acceptance_criteria": [
         "Allowed commands append a system/control message such as 'View switched to markdown_mermaid_document'.",
@@ -250,10 +303,12 @@
       "id": "SCC-010",
       "title": "Implement initial safe command handlers",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/tui_action_dispatcher.py"
+      ],
       "description": "Add the first practical TUI actions needed from Snake Chat mode.",
       "acceptance_criteria": [
         "View commands can list, select, next and previous center VisualViewport views.",
@@ -267,10 +322,12 @@
       "id": "SCC-011",
       "title": "Add optional natural-language TUI intent parser",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_control_parser.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_parser.py"
+      ],
       "description": "Optionally map simple natural-language phrases to the same structured action requests, without allowing free-form execution.",
       "acceptance_criteria": [
         "Natural-language control is disabled by default or clearly configurable.",
@@ -284,7 +341,7 @@
       "id": "SCC-012",
       "title": "Add confirmation flow for risky or ambiguous chat-control actions",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "high",
       "target_files": [
@@ -303,10 +360,12 @@
       "id": "SCC-013",
       "title": "Add unit tests for slash-command parsing",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/chat_control/test_chat_control_parser.py"],
+      "target_files": [
+        "tests/operator_tui/chat_control/test_chat_control_parser.py"
+      ],
       "description": "Verify deterministic parsing of supported and unsupported commands.",
       "acceptance_criteria": [
         "Tests cover /view list, /view next, /view markdown, /overlay views on/off, /focus artifacts, /open artifact 3, /snake pause/resume and /help tui.",
@@ -319,7 +378,7 @@
       "id": "SCC-014",
       "title": "Add unit tests for policy and dispatcher",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -339,10 +398,12 @@
       "id": "SCC-015",
       "title": "Add integration tests for ChatMixin command routing",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/chat_control/test_chat_mixin_command_routing.py"],
+      "target_files": [
+        "tests/operator_tui/chat_control/test_chat_mixin_command_routing.py"
+      ],
       "description": "Ensure commands are routed before normal AI ask behavior and produce visible chat/status results.",
       "acceptance_criteria": [
         "A slash command in AI channel executes as TUI control and does not set tutor_ask_question.",
@@ -355,7 +416,7 @@
       "id": "SCC-016",
       "title": "Document command list and examples in TUI help",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "target_files": [
@@ -386,29 +447,107 @@
   ],
   "tasks_status_summary": {
     "total": 16,
-    "by_status": {"todo": 16, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"critical": 10, "high": 4, "medium": 2, "low": 0},
-    "by_risk": {"low": 3, "medium": 8, "high": 5, "critical": 0},
-    "critical_path": {"total": 11, "done": 0, "remaining": 11},
-    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 16
+    },
+    "progress_percent_done": 100,
+    "by_priority": {
+      "critical": 10,
+      "high": 4,
+      "medium": 2,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 8,
+      "high": 5,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 11,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 5
+    }
   },
   "tasks_type_summary": {
     "total": 16,
     "by_type": {
-      "docs": {"total": 2, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 2, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "implementation": {"total": 8, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "integration": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "test": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+      "docs": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "implementation": {
+        "total": 8,
+        "done": 8,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 8
+        }
+      },
+      "integration": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "test": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      }
     }
   },
   "progress_summary": {
-    "state": "ready_for_implementation",
-    "todo_remaining": 16,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 16
   },
   "summary_notes": [
     "This feature must be deterministic first: slash commands before natural-language or LLM intent extraction.",

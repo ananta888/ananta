@@ -27,6 +27,9 @@
     { "action": "help", "key": "c-y", "display": "Ctrl+Y", "label": "Help", "areas": ["footer-normal", "shortcuts"] },
     { "action": "inspect", "key": "c-f", "display": "Ctrl+F", "label": "Inspect/Open", "areas": ["footer-normal", "shortcuts"] },
     { "action": "next_section", "key": "c-n", "display": "Ctrl+N", "label": "Nächste Section", "areas": ["footer-normal", "shortcuts"] },
-    { "action": "quit", "key": "c-q", "display": "Ctrl+Q", "label": "Quit", "areas": ["footer-normal", "shortcuts"] }
+    { "action": "quit", "key": "c-q", "display": "Ctrl+Q", "label": "Quit", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "toggle_visual_view_switcher_overlay", "key": "f8", "display": "F8", "label": "View-Leiste", "areas": ["footer-normal", "footer-snake", "shortcuts"] },
+    { "action": "next_visual_view", "key": "f9", "display": "F9", "label": "Nächste View", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "previous_visual_view", "key": "f10", "display": "F10", "label": "Vorherige View", "areas": ["footer-normal", "shortcuts"] }
   ]
 }

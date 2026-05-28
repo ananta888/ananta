@@ -277,3 +277,15 @@ idle:
       Artefakt-Erzeugung in worker/loop/ via create_artifact(task_id, payload).
       Artefakt-Schema: {type, task_id, goal_id, content, created_at, worker_id}.
       Nachverfolgbarkeit: jeder Code-Change hat task_id und goal_id als Referenz.
+
+  tui_chat_control:
+    overview: "TUI aus dem Chat steuern: /view, /overlay, /snake, /help tui"
+    deep: |
+      Im Snake-Chat-Modus können TUI-Aktionen per Slash-Befehl ausgelöst werden.
+      Beispiele: /view markdown öffnet die Markdown-View, /overlay views on blendet
+      die View-Leiste ein, /snake pause stoppt das Spiel.
+    expert: |
+      Slash-Befehle gehen durch chat_control_parser → chat_control_policy (default-deny)
+      → TuiActionDispatcher. Alle Aktionen werden auditiert.
+      Konfiguration: chat_control.mode=interactive_safe (default) oder autonomous_e2e (E2E-Tests).
+      Docs: docs/operator-tui/snake-chat-control-commands.md

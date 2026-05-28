@@ -17,7 +17,7 @@ class ViewSwitcherOverlay:
         self._active_view_id = view_id
 
     def render_two_line(self, *, width: int = 80) -> tuple[str, str]:
-        """Return the two overlay lines: (views_ok_line, status_detail_line)."""
+        """Return (views_ok_line, views_unavailable_line), each truncated to width."""
         ok_views = [r for r in self._reports if r.available and not r.degraded]
         degraded_views = [r for r in self._reports if r.available and r.degraded]
         unavailable_views = [r for r in self._reports if not r.available]
@@ -25,19 +25,48 @@ class ViewSwitcherOverlay:
         def _marker(vid: str) -> str:
             return "*" if vid == self._active_view_id else " "
 
-        ok_parts = [f"[{_marker(r.view_id)}{r.view_id}]" for r in ok_views]
-        line1 = "Views OK: " + "  ".join(ok_parts) if ok_parts else "Views OK: (none)"
+        line1 = _build_line(
+            label="Views OK:",
+            items=[f"[{_marker(r.view_id)}{r.view_id}]" for r in ok_views],
+            width=width,
+        )
+        unavail_items = [
+            f"[~{r.view_id}: {r.short_reason()}]" for r in degraded_views
+        ] + [
+            f"[!{r.view_id}: {r.short_reason()}]" for r in unavailable_views
+        ]
+        if unavail_items:
+            line2 = _build_line(label="Views unavailable:", items=unavail_items, width=width)
+        else:
+            line2 = ""
 
-        detail_parts: list[str] = []
-        for r in degraded_views:
-            features = ",".join(r.degraded_features) if r.degraded_features else "degraded"
-            detail_parts.append(f"[~{r.view_id}: {features}]")
-        for r in unavailable_views:
-            reason = r.unavailable_reason or "unavailable"
-            detail_parts.append(f"[!{r.view_id}: {reason}]")
-        line2 = "  ".join(detail_parts)
-
-        return line1[:width], line2[:width]
+        return line1, line2
 
     def all_reports(self) -> list[ViewCapabilityReport]:
         return list(self._reports)
+
+
+def _build_line(label: str, items: list[str], width: int) -> str:
+    prefix = label + " "
+    available_width = max(0, width - len(prefix))
+    if not items:
+        return (prefix + "(none)")[:width]
+
+    parts: list[str] = []
+    used = 0
+    remaining = len(items)
+    for item in items:
+        remaining -= 1
+        needed = len(item) + (1 if parts else 0)
+        reserve = 0
+        if remaining > 0:
+            reserve = len(f"  +{remaining} more")
+        if parts and used + needed + reserve > available_width:
+            parts.append(f"+{remaining + 1} more")
+            break
+        if parts:
+            used += 1
+        parts.append(item)
+        used += len(item)
+
+    return (prefix + "  ".join(parts))[:width]

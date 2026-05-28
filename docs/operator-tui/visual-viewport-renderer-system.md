@@ -112,3 +112,63 @@ flowchart LR
 2. If redraw is slow, reduce target FPS and pixel size (prefer `800x450` and `10-15 FPS`).
 3. If GPU/OpenGL path fails, do not block startup: switch renderer to `cpu_raster` or `ansi_blocks`.
 4. If protocol support is flaky, force ANSI adapter and validate viewport clipping before re-enabling image adapters.
+
+---
+
+## View Switcher Overlay
+
+The view switcher overlay provides a two-line status display that shows which center views
+are usable in the current environment.
+
+### Layout
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  ... TUI content above ...                               │
+├──────────────────────────────────────────────────────────┤
+│  [center VisualViewport — active view renders here]      │
+├──────────────────────────────────────────────────────────┤
+│  Views OK: [*renderer_diagnostics]  [logo_animation]     │  ← overlay line 1
+│  Views unavailable: [!opengl_scene: no OpenGL/EGL]       │  ← overlay line 2
+├──────────────────────────────────────────────────────────┤
+│  F8 View-Leiste | F9 Nächste View | F10 Vorherige View  │  ← footer hint
+└──────────────────────────────────────────────────────────┘
+```
+
+- The overlay uses **exactly two rows** when visible.
+- The visual renderer must **not** draw these two control rows.
+- The overlay is docked directly below the center viewport, above the footer.
+- `*` marks the currently active view; `!` marks unavailable views with short reason.
+- Long lists are truncated with `+N more` instead of wrapping.
+
+### Keybindings
+
+| Key | Action | Description |
+|---|---|---|
+| F8 | `toggle_visual_view_switcher_overlay` | Show/hide the two-line overlay |
+| F9 | `next_visual_view` | Cycle to next available center view |
+| F10 | `previous_visual_view` | Cycle to previous available center view |
+
+Note: Ctrl+M is **not** used as default because many terminal stacks cannot distinguish it
+from Enter/carriage-return.  F8 is the safe default.  If Ctrl+M is explicitly configured and
+probed to be distinguishable, it can be added as an alias — the conflict detector in
+`keybindings_config.py` will flag it if it is unsafe.
+
+### ViewCapabilityReport
+
+Each view declares `ViewRequirements` with `required_render_features` and
+`optional_runtime_requirements`.  The `build_full_capability_report()` function checks these
+against the detected terminal capabilities and produces a `ViewCapabilityBundle` with
+`available` and `unavailable` lists.
+
+```python
+from client_surfaces.operator_tui.visual.runtime.view_capability_report import build_full_capability_report
+
+bundle = build_full_capability_report(
+    view_ids=["logo_animation", "renderer_diagnostics", "opengl_scene"],
+    view_requirements={"opengl_scene": {"required_render_features": ["opengl_offscreen"]}},
+    terminal_capabilities={"ansi": True, "opengl_offscreen": False},
+)
+# bundle.available = [logo_animation, renderer_diagnostics]
+# bundle.unavailable = [opengl_scene (missing: opengl_offscreen)]
+```

@@ -27,5 +27,17 @@
     "max_diagram_height": 720,
     "cache_enabled": true,
     "allowed_roots": []
+  },
+  "chat_control": {
+    "mode": "interactive_safe",
+    "enabled": true,
+    "nl_mode_enabled": false,
+    "confirmation_timeout_seconds": 30.0,
+    "e2e_allowlist": [
+      "help.tui", "view.list", "view.next", "view.previous", "view.select",
+      "overlay.views.on", "overlay.views.off", "overlay.views.toggle",
+      "focus.chat", "focus.artifacts",
+      "snake.pause", "snake.resume", "snake.follow.on", "snake.follow.off"
+    ]
   }
 }

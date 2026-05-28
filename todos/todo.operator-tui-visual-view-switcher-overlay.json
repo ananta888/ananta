@@ -61,7 +61,7 @@
     {
       "id": "M1",
       "title": "Keybinding conflict handling and overlay contract",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VSW-001",
         "VSW-002",
@@ -71,7 +71,7 @@
     {
       "id": "M2",
       "title": "View capability report and switcher runtime",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VSW-004",
         "VSW-005",
@@ -81,7 +81,7 @@
     {
       "id": "M3",
       "title": "Two-line overlay rendering and footer help integration",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VSW-007",
         "VSW-008",
@@ -91,7 +91,7 @@
     {
       "id": "M4",
       "title": "Tests and documentation",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VSW-010",
         "VSW-011",
@@ -104,7 +104,7 @@
       "id": "VSW-001",
       "title": "Add visual view switcher keybinding actions",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -124,7 +124,7 @@
       "id": "VSW-002",
       "title": "Implement keybinding conflict detector for visual overlay shortcuts",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -142,7 +142,7 @@
       "id": "VSW-003",
       "title": "Define overlay layout contract for two reserved rows",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "target_files": [
@@ -160,7 +160,7 @@
       "id": "VSW-004",
       "title": "Implement ViewCapabilityReport",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -179,7 +179,7 @@
       "id": "VSW-005",
       "title": "Add per-view requirements metadata",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -202,7 +202,7 @@
       "id": "VSW-006",
       "title": "Implement ViewSwitcher runtime",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -222,7 +222,7 @@
       "id": "VSW-007",
       "title": "Implement two-line ViewSwitcherOverlay renderer",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -242,7 +242,7 @@
       "id": "VSW-008",
       "title": "Integrate overlay toggle into Operator TUI event handling",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -262,7 +262,7 @@
       "id": "VSW-009",
       "title": "Show bottom help hint for view overlay and view switching",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "target_files": [
@@ -281,7 +281,7 @@
       "id": "VSW-010",
       "title": "Add tests for keybinding conflict and Ctrl+M fallback behavior",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -299,7 +299,7 @@
       "id": "VSW-011",
       "title": "Add tests for ViewCapabilityReport and view switching",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -318,7 +318,7 @@
       "id": "VSW-012",
       "title": "Add snapshot tests for two-line overlay rendering",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "target_files": [
@@ -347,13 +347,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 12,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 12
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "critical": 7,
       "high": 4,
@@ -368,15 +368,15 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 0,
-      "remaining": 9
+      "done": 9,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -384,69 +384,69 @@
     "by_type": {
       "implementation": {
         "total": 6,
-        "done": 0,
+        "done": 6,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 6,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 6
         }
       },
       "integration": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "test": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "docs": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "ready_for_implementation",
-    "todo_remaining": 12,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 12
   },
   "summary_notes": [
     "Ctrl+M is not currently present in the default keybinding config, but it is unsafe as default because many terminal stacks treat it as Enter.",
