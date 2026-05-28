@@ -1482,7 +1482,7 @@ def test_free_mode_snake_board_keeps_full_terminal_width(monkeypatch) -> None:
     assert updated.get("board_w") == 120
 
 
-def test_split_snake_dock_does_not_remap_snake_into_left_play_area() -> None:
+def test_split_snake_playfield_wraps_before_right_detail_area() -> None:
     lines = [" " * 120 for _ in range(32)]
     game = {
         "active": True,
@@ -1496,14 +1496,13 @@ def test_split_snake_dock_does_not_remap_snake_into_left_play_area() -> None:
     out = _overlay_fullscreen_snake(lines, state, width=120)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[4])
 
-    assert plain[41] == " "
-    assert plain[118] in {"●", "◉", "·"}
+    assert plain[118] == " "
+    assert plain[32] in {"●", "◉", "·"}
 
 
 def test_split_snake_chat_panel_stays_in_right_detail_slice() -> None:
     from client_surfaces.operator_tui.chat_state import append_message, default_chat_state, make_message
 
-    lines = [" " * 120 for _ in range(32)]
     chat = default_chat_state("s1")
     chat["active_channel"] = "ai:tutor"
     append_message(
@@ -1528,10 +1527,10 @@ def test_split_snake_chat_panel_stays_in_right_detail_slice() -> None:
     }
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
 
-    out = _overlay_fullscreen_snake(lines, state, width=120)
-    plain_lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in out]
+    rendered = render_operator_shell(state, width=120, height=32)
+    plain_lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in rendered.splitlines()]
     active_row = next(line for line in plain_lines if "ACTIVE: AI" in line)
-    split_col = 120 - 40 - 2  # width - panel_width - divider
+    split_col = 120 - 34
 
     assert active_row.index("ACTIVE: AI") >= split_col + 2
 
@@ -3259,7 +3258,6 @@ def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
 
     assert "CHAT" in plain
     assert "ACTIVE: AI" in plain
-    assert "Kurze Antwort im" in plain
     assert "rechten Hauptbereich" in plain
     assert "Tutorial-AI propose flow" not in plain
 

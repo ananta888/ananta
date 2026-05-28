@@ -73,11 +73,11 @@ def render_operator_shell(
     elif not splash_lines:
         lines.append(rule_line)
 
-    nav_lines = _navigation_lines(state)
-    content_lines = _content_lines(state, middle_width)
-    detail_lines = _detail_lines(state, detail_width)
     body_height = height - 5 - body_offset
     body_height = max(3, body_height)
+    nav_lines = _navigation_lines(state)
+    content_lines = _content_lines(state, middle_width)
+    detail_lines = _detail_lines(state, detail_width, height=body_height)
     body_start = len(lines)
     for index in range(body_height):
         lines.append(
@@ -781,14 +781,26 @@ def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> 
     return lines
 
 
-def _detail_lines(state: OperatorState, width: int) -> list[str]:
-    section = get_section(state.section_id)
-    lines = [_pane_title("DETAIL", state.focus == FocusPane.DETAIL)]
+def _detail_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     if bool(game.get("shortcut_help_open")):
         return _context_shortcut_lines(state, width)
-    if bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")):
-        return _chat_detail_lines(state, width)
+    if bool(game.get("active")) and bool(game.get("free_mode")):
+        return _snake_ai_chat_detail_lines(state, width, height=max(3, int(height or 18)))
+    if height is None:
+        return [*_standard_detail_lines(state, width), "", *_chat_detail_lines(state, width)]
+    chat_height = max(7, min(int(height), int(height * 0.45)))
+    detail_height = max(0, int(height) - chat_height)
+    detail_lines = _standard_detail_lines(state, width)[:detail_height]
+    if len(detail_lines) < detail_height:
+        detail_lines.extend([""] * (detail_height - len(detail_lines)))
+    chat_lines = _chat_detail_lines(state, width, max_height=chat_height, bottom_align=True)
+    return [_clip(line, width) for line in [*detail_lines, *chat_lines]][: int(height)]
+
+
+def _standard_detail_lines(state: OperatorState, width: int) -> list[str]:
+    section = get_section(state.section_id)
+    lines = [_pane_title("DETAIL", state.focus == FocusPane.DETAIL)]
     runtime_lines = _runtime_detail_lines(state, width)
     if runtime_lines:
         lines.extend(runtime_lines)
@@ -830,51 +842,6 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
     if section.id in {"goals", "tasks"}:
         lines.append("    :inspect        show selected")
         lines.append("    :action <n> <r> dispatch action")
-    if section.id == "artifacts":
-        payload = (state.section_payloads or {}).get(section.id, {})
-        if bool(payload.get("diff3_mode")):
-            lines.append("    :diff3")
-            lines.append("    :diff3 panel <A|B|C> current [--mode <mode>]")
-            lines.append("    :diff3 panel <A|B|C> output <output-id>")
-            lines.append("    :diff3 panel <A|B|C> ai <review|explain|risk|tests|patch|chat>")
-            lines.append("    :diff3 panel <A|B|C> mode <render-mode>")
-            lines.append("    :diff3 panel <A|B|C> filter key=value ...")
-            lines.append("    :diff3 focus <A|B|C> | :diff3 scroll ...")
-            lines.append("    :diff3 sync on|off | :diff3 ai <mode> | :diff3 ai run [mode]")
-        if bool(payload.get("goal_artifacts_mode")):
-            lines.append("    :goal artifacts [filter ...|clear-filter]")
-            lines.append("    :goal sources candidates")
-            lines.append("    :goal source grant/revoke/detail ...")
-            lines.append("    :artifact provenance <output-id>")
-            lines.append("    :artifact prompt <output-id>")
-            lines.append("    :artifact config <output-id>")
-        if bool(payload.get("planning_track_mode")):
-            lines.append("    :plan track [--from-goal <goal-id>]")
-            lines.append("    :plan track filter status=... priority=... risk=... type=...")
-            lines.append("    :plan track clear-filter")
-            lines.append("    :plan track adopt <output-id> | reject <output-id>")
-            lines.append("    :plan track execute-next | sync-status <plan-task-id> <status>")
-            lines.append("    :plan track diff <left-output-id> <right-output-id>")
-            lines.append("    :plan summary doctor <file> | fix <file> | recompute")
-        if bool(payload.get("helpcenter_mode")):
-            lines.append("    :helpcenter")
-            lines.append("    :helpcenter ingest github-failures [--repo owner/repo] [--limit N] [--dry-run]")
-            lines.append("    :helpcenter open <analysis-id>")
-            lines.append("    :helpcenter suggest-followup [analysis-id]")
-        if bool(payload.get("mail_mode")):
-            lines.append("    :mail")
-            lines.append("    :mail account list|status|create|use|disable|delete")
-            lines.append("    :mail mailbox <name> | :mail open <message-id|uid> | :mail load-body [id]")
-            lines.append("    :mail search from:... to:... subject:... mailbox:... date:YYYY..YYYY unread:true")
-            lines.append("    :mail filter key=value ... | :mail scroll <delta>")
-            lines.append("    :mail note add <text> | :mail link-current-to-goal <goal-id>")
-            lines.append("    :mail artifact register-current [--scope metadata_only|excerpt|full_body]")
-            lines.append("    :mail attachment list|download <filename>|register <filename>")
-            lines.append("    :mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]")
-            lines.append("    :mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body]")
-            lines.append("    :mail revoke-grant <goal-id> <grant-id> | :mail context-envelope <goal-id> [--target ...]")
-            lines.append("    :mail snake-explain")
-
     return [_clip(line, width) for line in lines]
 
 
@@ -909,7 +876,13 @@ def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
     return [_clip(line, width) for line in lines]
 
 
-def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
+def _chat_detail_lines(
+    state: OperatorState,
+    width: int,
+    *,
+    max_height: int | None = None,
+    bottom_align: bool = False,
+) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     try:
         from client_surfaces.operator_tui.chat_state import get_chat_state, sanitize_text
@@ -931,14 +904,14 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
     if isinstance(channels, dict):
         unread_total = sum(int(c.get("unread") or 0) for c in channels.values() if isinstance(c, dict))
 
-    lines = [_pane_title("CHAT", state.focus == FocusPane.DETAIL)]
+    header_lines = [_pane_title("CHAT", state.focus == FocusPane.DETAIL)]
     focus_note = " INPUT" if chat_focus else ""
-    lines.append(f"  ACTIVE: {active_label}{focus_note}")
+    header_lines.append(f"  ACTIVE: {active_label}{focus_note}")
     if unread_total:
-        lines.append(f"  unread: {unread_total}")
+        header_lines.append(f"  unread: {unread_total}")
     selector = _plain_channel_selector(active_ch_id)
-    lines.append(f"  {selector}")
-    lines.append("  " + "-" * max(8, width - 4))
+    header_lines.append(f"  {selector}")
+    header_lines.append("  " + "-" * max(8, width - 4))
 
     messages: list[dict] = []
     for msg in list(ch.get("messages") or [])[-10:]:
@@ -947,8 +920,9 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
     partial = str(game.get("llm_streaming_partial") or "").strip()
     if partial and active_ch_id == "ai:tutor":
         messages.append({"sender_kind": "ai", "sender_id": "s-ai", "text": partial, "delivery_state": "streaming"})
+    message_lines: list[str] = []
     if not messages:
-        lines.append("  keine Nachrichten")
+        message_lines.append("  keine Nachrichten")
     for msg in messages:
         sender_kind = str(msg.get("sender_kind") or "user")
         sender = str(msg.get("sender_id") or "?")
@@ -963,11 +937,11 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
         else:
             prefix = _participant_label(game, sender, fallback="Du" if active_ch_id == "ai:tutor" else sender[:8]) + ": "
         for row in _wrap_plain(prefix + text, max(8, width - 2)):
-            lines.append("  " + _ansi_color(row, line_col))
+            message_lines.append("  " + _ansi_color(row, line_col))
     if bool(chat.get("ai_typing")) and active_ch_id == "ai:tutor":
-        lines.append("  " + _chat_timeout_progress_text(game))
+        message_lines.append("  " + _chat_timeout_progress_text(game))
 
-    lines.append("  " + "-" * max(8, width - 4))
+    footer_lines = ["  " + "-" * max(8, width - 4)]
     if chat_focus:
         if bool(game.get("artifact_chat_focus")):
             buf = str(game.get("artifact_chat_input") or "")
@@ -978,12 +952,67 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
         prompt_map = {"room": "#room>", "direct": "@>", "ai": "AI>", "notes": "notes>", "system": ">"}
         prompt = prompt_map.get(ch_type, ">")
         visible = _inline_input_with_cursor(buf, cursor, max(1, width - len(prompt) - 3))
-        lines.append(f"  {prompt} {visible}")
+        footer_lines.append(f"  {prompt} {visible}")
     else:
-        lines.append(
+        footer_lines.append(
             f"  {display_for_action('chat_focus', 'Ctrl+E')} Eingabe  "
             f"{display_for_action('cycle_focus_or_channel', 'Ctrl+W')} Kanal"
         )
+    if max_height is not None:
+        available = max(0, int(max_height) - len(header_lines) - len(footer_lines))
+        message_lines = message_lines[-available:] if available else []
+    lines = [*header_lines, *message_lines, *footer_lines]
+    if max_height is not None and bottom_align and len(lines) < int(max_height):
+        lines = [""] * (int(max_height) - len(lines)) + lines
+    return [_clip(line, width) for line in lines]
+
+
+def _snake_ai_chat_detail_lines(state: OperatorState, width: int, *, height: int) -> list[str]:
+    chat_height = max(8, min(height, int(height * 0.58)))
+    ai_height = max(0, height - chat_height)
+    ai_lines = _snake_ai_detail_lines(state, width)[:ai_height]
+    if len(ai_lines) < ai_height:
+        ai_lines.extend([""] * (ai_height - len(ai_lines)))
+    chat_lines = _chat_detail_lines(state, width, max_height=chat_height, bottom_align=True)
+    return [_clip(line, width) for line in [*ai_lines, *chat_lines]][:height]
+
+
+def _snake_ai_detail_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    depth = str(game.get("tutor_depth_mode") or "overview")
+    score = int(game.get("score") or 0)
+    scores_raw = game.get("_scores_cache")
+    high = int(scores_raw.get("high") or 0) if isinstance(scores_raw, dict) else 0
+    speed_level = int(game.get("speed_level") or 3)
+    tutorial_enabled = bool(game.get("tutorial_mode"))
+    paused = bool(game.get("paused"))
+    llm_status = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
+    model = str(llm_status.get("model") or "LM")[:12] if llm_status.get("reachable") else "lokal"
+    lines = [_pane_title("AI-SNAKE", state.focus == FocusPane.DETAIL)]
+    lines.append(f"  tutor-ai {depth}")
+    lines.append(f"  score:{score} best:{max(score, high)} spd:{speed_level}/5")
+    lines.append(f"  llm:{model}" + (" paused" if paused else ""))
+    question = str(game.get("tutor_ask_question") or "")
+    if question and not bool(game.get("tutor_ask_answered")):
+        lines.append(_clip(f"  ask: loading {question}", width))
+    elif question:
+        lines.append(_clip(f"  ask: ready {question}", width))
+    lines.append("  " + "-" * max(8, width - 4))
+    lines.append(f"  {display_for_action('toggle_tutorial_ai', 'Ctrl+U')} Heuristik:{'AN' if tutorial_enabled else 'AUS'}")
+    lines.append(f"  {display_for_action('chat_focus', 'Ctrl+E')} Chat-Fokus")
+    lines.append(f"  {display_for_action('copy_ai_status', 'Ctrl+I')} Status kopieren")
+    lines.append(f"  {display_for_action('toggle_mouse_follow', 'Ctrl+O')} MouseFollow")
+    lines.append("  " + "-" * max(8, width - 4))
+    runtime_status = str(game.get("ai_snake_runtime_status") or "idle")
+    ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
+    lines.append(_clip(f"  mode={ai_mode}", width))
+    lines.append(_clip(f"  runtime={runtime_status}", width))
+    monitor_log = game.get("ai_snake_monitor_log")
+    rows = [dict(item) for item in monitor_log if isinstance(item, dict)] if isinstance(monitor_log, list) else []
+    if rows:
+        for item in rows[-3:]:
+            label = str(item.get("label") or item.get("event") or "event")
+            lines.append(_clip(f"  {label}", width))
     return [_clip(line, width) for line in lines]
 
 
@@ -1644,6 +1673,8 @@ def _cell(lines: list[str], index: int, width: int) -> str:
 def _status_line(state: OperatorState, width: int, splash_state: str = "") -> str:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     parts = [
+        f"endpoint={state.endpoint}",
+        f"auth={state.auth_state}",
         f"focus={state.focus.value}",
         f"mode={state.mode.value}",
         str(state.status_message or "ready")[:48],
@@ -1874,13 +1905,12 @@ def _overlay_fullscreen_snake(
     body_e = len(shell) if body_end is None else max(body_s, min(len(shell), int(body_end)))
     body_h = body_e - body_s
 
-    # Split-view: if wide enough, reserve right portion for AI+Chat panels (T01.01)
-    ai_panel_width = _snake_right_panel_width(width)
-    split_col = width - ai_panel_width - 2  # 2 for divider; panel text starts at the DETAIL column
+    # Wide terminals keep the right detail column for AI-Snake status + chat.
+    # The snake playfield is kept left of that column instead of opening a
+    # separate top-right overlay.
     split_view = width >= 100
-    play_width = max(1, width)
-    chat_panel_enabled = width >= 100 and body_h >= 10
-    chat_enabled_by_setting = bool(game.get("chat_panel_open", True))
+    right_detail_col = max(1, width - 34) if split_view else width
+    play_width = max(1, right_detail_col)
 
     def _project_x(raw_x: int) -> int:
         return int(raw_x) % play_width
@@ -1889,34 +1919,6 @@ def _overlay_fullscreen_snake(
     snakes = _collect_snakes(game, local_snake_id=local_id)
     local_snapshot = snakes.get(local_id, {}) if isinstance(snakes.get(local_id), dict) else {}
     local_pal = _snake_palette(str(local_snapshot.get("snake_color") or game.get("snake_color") or "mint"))
-
-    # Split-view right column is rendered first; snake rendering stays on top so
-    # selections/segments can traverse and mark panel content as requested.
-    ai_panel_height = body_h
-    if split_view and chat_panel_enabled:
-        chat_rows = max(10, min(body_h - 6, int(body_h * 0.45)))
-        ai_panel_height = max(6, body_h - chat_rows)
-    if split_view:
-        out[body_s:body_e] = _reserve_snake_right_dock(out[body_s:body_e], split_col=split_col, width=width)
-        out = _overlay_snake_ai_panel(
-            out,
-            game,
-            split_col=split_col,
-            panel_width=ai_panel_width,
-            height=ai_panel_height,
-            row_start=body_s,
-            chat_enabled=chat_enabled_by_setting,
-        )
-    if split_view and chat_panel_enabled:
-        out = _overlay_snake_chat_panel(
-            out,
-            game,
-            split_col=split_col,
-            panel_width=ai_panel_width,
-            ai_rows=body_s + ai_panel_height,
-            height=body_e,
-            enabled=chat_enabled_by_setting,
-        )
 
     # Markings and selections are rendered in each snake's own color.
     for sid, snapshot in snakes.items():
