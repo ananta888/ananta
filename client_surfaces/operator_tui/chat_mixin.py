@@ -110,6 +110,83 @@ class ChatMixin:
         ch_type = str(getattr(ch_type_raw, "value", ch_type_raw))
         local_id = str(game.get("local_snake_id") or "s1")
 
+        if buf.startswith("/") and not buf.startswith("//"):
+            from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
+            from client_surfaces.operator_tui.chat_control_config import load_chat_control_config
+            from client_surfaces.operator_tui.chat_control_policy import evaluate
+            from client_surfaces.operator_tui.tui_action_dispatcher import TuiActionDispatcher, ActionRequest
+            from client_surfaces.operator_tui.chat_control_audit import get_default_audit_log
+
+            cc_cfg_raw = game.get("chat_control_config") if isinstance(game.get("chat_control_config"), dict) else {}
+            cc_cfg = load_chat_control_config(cc_cfg_raw)
+
+            if cc_cfg.enabled:
+                parsed = parse_chat_command(buf, nl_mode_enabled=cc_cfg.nl_mode_enabled)
+                decision = evaluate(parsed, config=cc_cfg)
+                audit_log = get_default_audit_log()
+
+                if decision.allowed():
+                    dispatcher = TuiActionDispatcher()
+                    dispatcher.set_tui_state(dict(game))
+                    req = ActionRequest(action_id=decision.action_id, args=decision.normalized_args, source="chat")
+                    result = dispatcher.dispatch(req)
+
+                    audit_log.record(
+                        source_channel=ch_id,
+                        sender_kind="user",
+                        raw_text=buf,
+                        parsed_action_id=parsed.action_id,
+                        policy_verdict=decision.verdict,
+                        dispatch_status=result.status,
+                        mode=cc_cfg.mode,
+                        auto_confirmed=decision.auto_confirmed,
+                        reason=decision.reason,
+                        extra={"control_result_marker": result.control_result_marker},
+                    )
+
+                    for k, v in result.changed_state_summary.items():
+                        game[k] = v
+
+                    ctrl_msg = make_message(
+                        channel_id=ch_id, channel_type=ch_type,
+                        sender_id="tui_control", sender_kind="control",
+                        text=f"[TUI] {result.message}",
+                        visibility="local_only",
+                        delivery_state="sent",
+                    )
+                    append_message(chat, ctrl_msg)
+                    set_chat_state(game, chat)
+                    self._set_state(self.state.with_updates(
+                        header_logo_game=game,
+                        status_message=result.message[:60],
+                    ))
+                    return
+
+                audit_log.record(
+                    source_channel=ch_id,
+                    sender_kind="user",
+                    raw_text=buf,
+                    parsed_action_id=parsed.action_id,
+                    policy_verdict=decision.verdict,
+                    dispatch_status="skipped",
+                    mode=cc_cfg.mode,
+                    reason=decision.reason,
+                )
+                deny_msg = make_message(
+                    channel_id=ch_id, channel_type=ch_type,
+                    sender_id="tui_control", sender_kind="control",
+                    text=f"[TUI] Denied: {decision.reason}",
+                    visibility="local_only",
+                    delivery_state="sent",
+                )
+                append_message(chat, deny_msg)
+                set_chat_state(game, chat)
+                self._set_state(self.state.with_updates(
+                    header_logo_game=game,
+                    status_message=f"command denied: {decision.reason[:40]}",
+                ))
+                return
+
         if ch_type == "notes":
             note = append_note(buf)
             if note:

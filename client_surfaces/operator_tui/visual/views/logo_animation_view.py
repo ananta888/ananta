@@ -3,13 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
-from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+from client_surfaces.operator_tui.visual.views.base_view import ViewContext, ViewRequirements
 
 
 @dataclass
 class LogoAnimationView:
     view_id: str = "logo_animation"
     _phase: float = 0.0
+
+    def view_requirements(self) -> ViewRequirements:
+        return ViewRequirements(
+            view_id=self.view_id,
+            display_name="Logo Animation",
+            description="Animated ANANTA logo spinner",
+            required_render_features=("ansi",),
+            optional_runtime_requirements=(),
+        )
 
     def update(self, dt: float, state: dict[str, object]) -> None:
         if bool(state.get("paused")):

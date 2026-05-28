@@ -66,33 +66,67 @@
       "docs": "docs/operator-tui/snake-chat-autonomous-e2e-mode.md"
     }
   },
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
     {
       "id": "M1",
       "title": "Mode separation and configuration",
-      "status": "todo",
-      "task_ids": ["AEM-001", "AEM-002", "AEM-003"]
+      "status": "done",
+      "task_ids": [
+        "AEM-001",
+        "AEM-002",
+        "AEM-003"
+      ]
     },
     {
       "id": "M2",
       "title": "Autonomous E2E policy and command execution",
-      "status": "todo",
-      "task_ids": ["AEM-004", "AEM-005", "AEM-006"]
+      "status": "done",
+      "task_ids": [
+        "AEM-004",
+        "AEM-005",
+        "AEM-006"
+      ]
     },
     {
       "id": "M3",
       "title": "E2E runner, fixtures and assertions",
-      "status": "todo",
-      "task_ids": ["AEM-007", "AEM-008", "AEM-009", "AEM-010"]
+      "status": "done",
+      "task_ids": [
+        "AEM-007",
+        "AEM-008",
+        "AEM-009",
+        "AEM-010"
+      ]
     },
     {
       "id": "M4",
       "title": "Safety diagnostics, docs and CI integration",
-      "status": "todo",
-      "task_ids": ["AEM-011", "AEM-012", "AEM-013", "AEM-014"]
+      "status": "done",
+      "task_ids": [
+        "AEM-011",
+        "AEM-012",
+        "AEM-013",
+        "AEM-014"
+      ]
     }
   ],
   "tasks": [
@@ -100,10 +134,12 @@
       "id": "AEM-001",
       "title": "Document autonomous Snake Chat E2E mode",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
-      "target_files": ["docs/operator-tui/snake-chat-autonomous-e2e-mode.md"],
+      "target_files": [
+        "docs/operator-tui/snake-chat-autonomous-e2e-mode.md"
+      ],
       "description": "Document why autonomous mode exists and how it differs from normal interactive mode.",
       "acceptance_criteria": [
         "Docs define interactive_safe and autonomous_e2e modes.",
@@ -116,10 +152,12 @@
       "id": "AEM-002",
       "title": "Add chat-control mode config loader",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_control_config.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_config.py"
+      ],
       "description": "Add config/env/CLI resolvable mode selection for chat-control behavior.",
       "acceptance_criteria": [
         "Config supports mode values interactive_safe and autonomous_e2e.",
@@ -133,10 +171,12 @@
       "id": "AEM-003",
       "title": "Expose autonomous mode through TUI CLI/test startup path",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/interactive.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py"
+      ],
       "description": "Ensure tests can start the TUI in autonomous_e2e mode without requiring manual key presses.",
       "acceptance_criteria": [
         "TUI startup can receive chat-control mode from config/env/test harness.",
@@ -149,10 +189,12 @@
       "id": "AEM-004",
       "title": "Implement autonomous_e2e policy profile",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_control_policy.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_policy.py"
+      ],
       "description": "Add a policy profile that auto-allows only deterministic low-risk allowlisted actions during E2E tests.",
       "acceptance_criteria": [
         "autonomous_e2e auto-allows only the configured safe command/action allowlist.",
@@ -166,10 +208,13 @@
       "id": "AEM-005",
       "title": "Add command allowlist configuration for autonomous E2E",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_control_config.py", "config/config.example.json"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_config.py",
+        "config/config.example.json"
+      ],
       "description": "Make autonomous E2E command allowlist explicit and inspectable.",
       "acceptance_criteria": [
         "Allowlist is defined by action ids, not raw free-form text only.",
@@ -182,10 +227,13 @@
       "id": "AEM-006",
       "title": "Add deterministic command result markers for E2E assertions",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py", "client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/tui_action_dispatcher.py"
+      ],
       "description": "Return machine-checkable status markers in chat/control result messages during autonomous E2E mode.",
       "acceptance_criteria": [
         "Successful autonomous commands produce a structured result marker such as control_result.status=ok and action_id.",
@@ -198,10 +246,12 @@
       "id": "AEM-007",
       "title": "Create JSON fixture format for scripted Snake Chat E2E commands",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/e2e/fixtures/snake_chat_control_basic.json"],
+      "target_files": [
+        "tests/e2e/fixtures/snake_chat_control_basic.json"
+      ],
       "description": "Define a simple fixture format for feeding commands and expected outcomes into the TUI test harness.",
       "acceptance_criteria": [
         "Fixture supports initial mode, initial view, commands, expected result markers and expected final state.",
@@ -214,10 +264,12 @@
       "id": "AEM-008",
       "title": "Implement autonomous Snake Chat E2E runner",
       "type": "tooling",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["scripts/e2e/snake_chat_control_e2e.py"],
+      "target_files": [
+        "scripts/e2e/snake_chat_control_e2e.py"
+      ],
       "description": "Add a runner that starts or simulates the Operator TUI chat-control path and feeds scripted commands without human input.",
       "acceptance_criteria": [
         "Runner accepts a fixture path.",
@@ -231,10 +283,13 @@
       "id": "AEM-009",
       "title": "Add basic autonomous E2E scenario for view and overlay control",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/chat_control/test_autonomous_e2e_basic.py", "tests/e2e/fixtures/snake_chat_control_basic.json"],
+      "target_files": [
+        "tests/operator_tui/chat_control/test_autonomous_e2e_basic.py",
+        "tests/e2e/fixtures/snake_chat_control_basic.json"
+      ],
       "description": "Test the simplest no-human flow: help, list views, switch view, toggle overlay, return success markers.",
       "acceptance_criteria": [
         "Test sends /help tui and asserts a successful control response.",
@@ -248,10 +303,12 @@
       "id": "AEM-010",
       "title": "Add negative autonomous E2E policy scenario",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/chat_control/test_autonomous_e2e_policy_denies.py"],
+      "target_files": [
+        "tests/operator_tui/chat_control/test_autonomous_e2e_policy_denies.py"
+      ],
       "description": "Verify autonomous mode still denies commands outside the test allowlist.",
       "acceptance_criteria": [
         "Test verifies unknown command is denied.",
@@ -264,10 +321,13 @@
       "id": "AEM-011",
       "title": "Add visible autonomous mode banner/status",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
-      "target_files": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/renderer.py"
+      ],
       "description": "Make it obvious when the TUI is running in autonomous E2E mode.",
       "acceptance_criteria": [
         "Status/footer/diagnostics include 'AUTONOMOUS_E2E' or equivalent when active.",
@@ -280,10 +340,12 @@
       "id": "AEM-012",
       "title": "Add audit assertions for autonomous commands",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/chat_control/test_autonomous_e2e_audit.py"],
+      "target_files": [
+        "tests/operator_tui/chat_control/test_autonomous_e2e_audit.py"
+      ],
       "description": "Ensure autonomous command execution remains auditable.",
       "acceptance_criteria": [
         "Successful autonomous commands produce audit events containing mode, action_id and result status.",
@@ -296,10 +358,14 @@
       "id": "AEM-013",
       "title": "Add CI-safe command to run autonomous Snake Chat E2E tests",
       "type": "tooling",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
-      "target_files": ["Makefile", "pyproject.toml", "scripts/e2e/snake_chat_control_e2e.py"],
+      "target_files": [
+        "Makefile",
+        "pyproject.toml",
+        "scripts/e2e/snake_chat_control_e2e.py"
+      ],
       "description": "Expose a stable command for local and CI execution of the autonomous E2E path.",
       "acceptance_criteria": [
         "A documented command such as make test-tui-chat-control-e2e or python scripts/e2e/snake_chat_control_e2e.py --fixture ... exists.",
@@ -312,10 +378,12 @@
       "id": "AEM-014",
       "title": "Document safety boundary for autonomous mode",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
-      "target_files": ["docs/operator-tui/snake-chat-autonomous-e2e-mode.md"],
+      "target_files": [
+        "docs/operator-tui/snake-chat-autonomous-e2e-mode.md"
+      ],
       "description": "Explicitly document why autonomous E2E is safe enough for tests but not a general unrestricted agent mode.",
       "acceptance_criteria": [
         "Docs explain that autonomous_e2e is allowlist-based, not free-form autonomy.",
@@ -326,34 +394,134 @@
     }
   ],
   "critical_path_tasks": [
-    "AEM-001", "AEM-002", "AEM-004", "AEM-005", "AEM-006", "AEM-007", "AEM-008", "AEM-009", "AEM-010", "AEM-014"
+    "AEM-001",
+    "AEM-002",
+    "AEM-004",
+    "AEM-005",
+    "AEM-006",
+    "AEM-007",
+    "AEM-008",
+    "AEM-009",
+    "AEM-010",
+    "AEM-014"
   ],
   "tasks_status_summary": {
     "total": 14,
-    "by_status": {"todo": 14, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"critical": 9, "high": 4, "medium": 1, "low": 0},
-    "by_risk": {"low": 4, "medium": 7, "high": 3, "critical": 0},
-    "critical_path": {"total": 10, "done": 0, "remaining": 10},
-    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 14
+    },
+    "progress_percent_done": 100,
+    "by_priority": {
+      "critical": 9,
+      "high": 4,
+      "medium": 1,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 7,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 10,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 4
+    }
   },
   "tasks_type_summary": {
     "total": 14,
     "by_type": {
-      "docs": {"total": 2, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 2, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "implementation": {"total": 6, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 6, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "integration": {"total": 2, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 2, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "test": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "tooling": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+      "docs": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "implementation": {
+        "total": 6,
+        "done": 6,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 6
+        }
+      },
+      "integration": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "test": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "tooling": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      }
     }
   },
   "progress_summary": {
-    "state": "ready_for_implementation",
-    "todo_remaining": 14,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 14
   },
   "summary_notes": [
     "Autonomous E2E mode is required so simple UI/chat flows can be tested without a human.",

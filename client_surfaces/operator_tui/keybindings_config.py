@@ -93,3 +93,55 @@ def keybinding_conflicts() -> list[dict[str, object]]:
         conflicts.append({"key": key, "actions": sorted(actions)})
     conflicts.sort(key=lambda row: str(row.get("key") or ""))
     return conflicts
+
+
+def area_keybinding_conflicts(area: str) -> list[dict[str, object]]:
+    data = _load_bindings(str(_resolve_config_file()))
+    by_key: dict[str, list[str]] = {}
+    for action, entry in data.items():
+        areas = entry.get("areas")
+        if not isinstance(areas, list):
+            continue
+        if area not in {str(a) for a in areas}:
+            continue
+        key = str(entry.get("key") or "").strip()
+        if not key:
+            continue
+        by_key.setdefault(key, []).append(action)
+    conflicts: list[dict[str, object]] = []
+    for key, actions in by_key.items():
+        if len(actions) < 2:
+            continue
+        conflicts.append({"key": key, "area": area, "actions": sorted(actions)})
+    conflicts.sort(key=lambda row: str(row.get("key") or ""))
+    return conflicts
+
+
+_CTRL_M_KEYS = frozenset({"c-m", "ctrl+m", "ctrl-m"})
+
+
+def ctrl_m_is_unsafe() -> bool:
+    """Return True when Ctrl+M is configured — it is typically indistinguishable from Enter."""
+    data = _load_bindings(str(_resolve_config_file()))
+    for entry in data.values():
+        key = str(entry.get("key") or "").strip().lower()
+        if key in _CTRL_M_KEYS:
+            return True
+    return False
+
+
+def ctrl_m_binding_diagnostics() -> dict[str, object] | None:
+    """Return the binding info for any Ctrl+M key, or None if not configured."""
+    data = _load_bindings(str(_resolve_config_file()))
+    for action, entry in data.items():
+        key = str(entry.get("key") or "").strip().lower()
+        if key in _CTRL_M_KEYS:
+            return {
+                "action": action,
+                "key": entry.get("key"),
+                "display": entry.get("display"),
+                "label": entry.get("label"),
+                "unsafe_reason": "Ctrl+M is commonly indistinguishable from Enter/carriage-return in terminal input stacks.",
+                "recommended_alternative": key_for_action("toggle_visual_view_switcher_overlay", "f8"),
+            }
+    return None

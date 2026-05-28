@@ -17,7 +17,7 @@ from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_m
 from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import extract_mermaid_blocks
 from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
 from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
-from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+from client_surfaces.operator_tui.visual.views.base_view import ViewContext, ViewRequirements
 
 
 @dataclass
@@ -85,6 +85,15 @@ class MarkdownMermaidDocumentView:
                     "mermaid_image": "available" if mermaid_ok else "degraded",
                 },
             },
+        )
+
+    def view_requirements(self) -> ViewRequirements:
+        return ViewRequirements(
+            view_id=self.view_id,
+            display_name="Markdown/Mermaid",
+            description="Renders Markdown documents and embedded Mermaid diagrams",
+            required_render_features=("ansi",),
+            optional_runtime_requirements=("mermaid_image",),
         )
 
     def capability_report(self) -> dict[str, Any]:

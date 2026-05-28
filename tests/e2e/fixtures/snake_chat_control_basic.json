@@ -1,0 +1,45 @@
+{
+  "version": "snake_chat_e2e_fixture.v1",
+  "description": "Basic autonomous E2E scenario: help, list, switch view, toggle overlay",
+  "mode": "autonomous_e2e",
+  "initial_state": {
+    "active_view": "logo_animation",
+    "available_views": ["logo_animation", "renderer_diagnostics", "markdown_mermaid_document"],
+    "visual_view_switcher_overlay_visible": false
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "command": "/help tui",
+      "expected_marker": { "status": "ok", "action_id": "help.tui" },
+      "timeout_ms": 500
+    },
+    {
+      "id": "s2",
+      "command": "/view list",
+      "expected_marker": { "status": "ok", "action_id": "view.list" },
+      "timeout_ms": 500
+    },
+    {
+      "id": "s3",
+      "command": "/view diagnostics",
+      "expected_marker": { "status": "ok", "action_id": "view.select" },
+      "expected_state_change": { "visual_viewport_active_view_request": "renderer_diagnostics" },
+      "timeout_ms": 500
+    },
+    {
+      "id": "s4",
+      "command": "/overlay views on",
+      "expected_marker": { "status": "ok", "action_id": "overlay.views.on" },
+      "expected_state_change": { "visual_view_switcher_overlay_visible": true },
+      "timeout_ms": 500
+    },
+    {
+      "id": "s5_negative",
+      "command": "/rm -rf /",
+      "expected_marker": { "status": "denied" },
+      "expect_denied": true,
+      "timeout_ms": 200
+    }
+  ]
+}

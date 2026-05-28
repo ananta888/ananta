@@ -26,6 +26,7 @@ _NORMAL_HINTS = (
     f"[{display_for_action('refresh', 'Ctrl+R')}] Refresh  "
     f"[{display_for_action('next_section', 'Ctrl+N')}] Section  "
     f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
+    f"[{display_for_action('toggle_visual_view_switcher_overlay', 'F8')}] {display_for_action('toggle_visual_view_switcher_overlay', 'View-Leiste')}  "
     f"[{display_for_action('inspect', 'Ctrl+F')}] Inspect  "
     "[:config] Fallback  "
     f"[{display_for_action('help', 'Ctrl+Y')}] Help  "

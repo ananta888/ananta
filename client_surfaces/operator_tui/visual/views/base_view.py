@@ -14,6 +14,15 @@ class ViewContext:
     state: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ViewRequirements:
+    view_id: str
+    display_name: str
+    description: str
+    required_render_features: tuple[str, ...]
+    optional_runtime_requirements: tuple[str, ...]
+
+
 class VisualView(Protocol):
     view_id: str
 

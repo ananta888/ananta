@@ -509,6 +509,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             self._snake_clear_visual_marks()
 
+        @bindings.add(key_for_action("toggle_visual_view_switcher_overlay", "f8"))
+        def _(event) -> None:
+            self._toggle_visual_view_switcher_overlay()
+
+        @bindings.add(key_for_action("next_visual_view", "f9"))
+        def _(event) -> None:
+            self._next_visual_view()
+
+        @bindings.add(key_for_action("previous_visual_view", "f10"))
+        def _(event) -> None:
+            self._previous_visual_view()
+
         @bindings.add(key_for_action("toggle_tutorial_ai", "c-u"))
         def _(event) -> None:
             self._toggle_tutorial_ai_mode()
@@ -695,6 +707,27 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _artifact_chat_focus_active(self) -> bool:
         game = self.state.header_logo_game or {}
         return bool(game.get("artifact_chat_focus")) and not self._snake_mode_active()
+
+    def _toggle_visual_view_switcher_overlay(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        current = bool(game.get("visual_view_switcher_overlay_visible", False))
+        game["visual_view_switcher_overlay_visible"] = not current
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message="View-Leiste: an" if game["visual_view_switcher_overlay_visible"] else "View-Leiste: aus",
+            )
+        )
+
+    def _next_visual_view(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        game["visual_viewport_cycle_next"] = True
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="view: nächste"))
+
+    def _previous_visual_view(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        game["visual_viewport_cycle_previous"] = True
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="view: vorherige"))
 
     def _toggle_chat_panel_open(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())

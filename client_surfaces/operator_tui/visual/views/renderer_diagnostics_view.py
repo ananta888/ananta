@@ -3,12 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
-from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+from client_surfaces.operator_tui.visual.views.base_view import ViewContext, ViewRequirements
 
 
 @dataclass
 class RendererDiagnosticsView:
     view_id: str = "renderer_diagnostics"
+
+    def view_requirements(self) -> ViewRequirements:
+        return ViewRequirements(
+            view_id=self.view_id,
+            display_name="Renderer Diagnostics",
+            description="Runtime renderer and adapter diagnostics",
+            required_render_features=("ansi",),
+            optional_runtime_requirements=(),
+        )
 
     def update(self, dt: float, state: dict[str, object]) -> None:
         _ = dt
