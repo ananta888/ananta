@@ -55,7 +55,7 @@
   },
   "saved_at": 1779953350.3160381,
   "expires_at": 1781162950.3160381,
-  "status": "candidate",
+  "status": "pending_simulation",
   "fingerprint": "5432d3b8d4a3e473372051bae0427d213d4149b58ff76037fec36336deff9498",
   "metrics": {
     "trace_count": 200,

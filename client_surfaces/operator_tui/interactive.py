@@ -354,6 +354,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._normal_or_text("?", lambda: self._run_command(":help"))
 
+        @bindings.add("c-h")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._toggle_context_help()
+
         @bindings.add("tab")
         def _(event) -> None:
             if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
@@ -698,9 +704,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(Keys.Vt100MouseEvent)
         def _(event) -> None:
-            game = dict(self.state.header_logo_game or {})
-            if not self._snake_mode_active(game):
-                return
             data = event.key_sequence[0].data or ""
             parsed = self._parse_sgr_mouse_event(data)
             if parsed is None:
@@ -742,6 +745,16 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self.state.with_updates(
                 header_logo_game=game,
                 status_message="chat panel: an" if game["chat_panel_open"] else "chat panel: aus",
+            )
+        )
+
+    def _toggle_context_help(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        game["shortcut_help_open"] = not bool(game.get("shortcut_help_open"))
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message="shortcuts: an" if game["shortcut_help_open"] else "shortcuts: aus",
             )
         )
 

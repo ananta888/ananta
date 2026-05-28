@@ -26,6 +26,7 @@ import math
 import os
 import re
 import shutil
+import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -654,6 +655,15 @@ class SnakeOpsMixin:
 
     def _snake_copy_selection(self) -> None:
         game = dict(self.state.header_logo_game or {})
+        self._snake_copy_selection_to_game(game)
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=str(game.get("_copy_status_message") or "snake copy"),
+            )
+        )
+
+    def _snake_copy_selection_to_game(self, game: dict[str, object]) -> None:
         cells_raw = game.get("selection_cells") or []
         cells = [
             (int(c[0]), int(c[1]))
@@ -661,7 +671,7 @@ class SnakeOpsMixin:
             if isinstance(c, (list, tuple)) and len(c) == 2
         ]
         if not cells:
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake copy: keine auswahl"))
+            game["_copy_status_message"] = "snake copy: keine auswahl"
             return
         lines = self._snake_render_plain_lines()
         by_row: dict[int, list[int]] = {}
@@ -695,12 +705,40 @@ class SnakeOpsMixin:
         game["clipboard"] = copied
         if copied:
             game["message"] = copied
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message="snake copy: in clipboard + message",
-            )
+        system_clipboard = self._copy_to_system_clipboard(copied) if copied else False
+        game["_copy_status_message"] = (
+            "snake copy: intern + Windows-Zwischenablage"
+            if system_clipboard
+            else "snake copy: intern (System-Zwischenablage nicht erreichbar)"
         )
+
+    def _copy_to_system_clipboard(self, text: str) -> bool:
+        if not text:
+            return False
+        commands = [
+            ["clip.exe"],
+            ["powershell.exe", "-NoProfile", "-Command", "Set-Clipboard"],
+            ["powershell", "-NoProfile", "-Command", "Set-Clipboard"],
+            ["pbcopy"],
+            ["xclip", "-selection", "clipboard"],
+            ["xsel", "--clipboard", "--input"],
+        ]
+        for command in commands:
+            try:
+                completed = subprocess.run(
+                    command,
+                    input=text,
+                    text=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=1.5,
+                    check=False,
+                )
+            except (OSError, subprocess.SubprocessError):
+                continue
+            if completed.returncode == 0:
+                return True
+        return False
 
     def _snake_replace_selection(self) -> None:
         game = dict(self.state.header_logo_game or {})
@@ -1049,5 +1087,4 @@ class SnakeOpsMixin:
             return snake[-1] if snake else (0, 0)
         idx = (seed * 17 + board_w * 13 + board_h * 7) % len(free)
         return free[idx]
-
 

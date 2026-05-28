@@ -96,7 +96,6 @@ def render_operator_shell(
     if state.show_help or section.id == "help":
         lines.extend(_help_overlay(state, width))
     lines = _overlay_fullscreen_snake(lines, state, width=width)
-    lines = _overlay_artifact_chat_compact(lines, state, width=width)
     return "\n".join(_clip(line, width) for line in lines)
 
 
@@ -640,6 +639,11 @@ def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> 
 def _detail_lines(state: OperatorState, width: int) -> list[str]:
     section = get_section(state.section_id)
     lines = [_pane_title("DETAIL", state.focus == FocusPane.DETAIL)]
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    if bool(game.get("shortcut_help_open")):
+        return _context_shortcut_lines(state, width)
+    if bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")):
+        return _chat_detail_lines(state, width)
     runtime_lines = _runtime_detail_lines(state, width)
     if runtime_lines:
         lines.extend(runtime_lines)
@@ -727,6 +731,131 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :mail snake-explain")
 
     return [_clip(line, width) for line in lines]
+
+
+def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    lines = [_pane_title("SHORTCUTS", state.focus == FocusPane.DETAIL)]
+    lines.append("  Ctrl+H hide help")
+    lines.append("  Tab focus/channel")
+    lines.append("  Ctrl+G chat panel")
+    lines.append("  Ctrl+E/c chat input")
+    lines.append("  Ctrl+S snake mode")
+    if bool(game.get("free_mode")) or bool(game.get("ui_steering")):
+        lines.append("")
+        lines.append("  Snake:")
+        lines.append("    Left drag: mark area")
+        lines.append("    Left click: select/explain")
+        lines.append("    Right click: copy mark")
+        lines.append("    X: select/frame")
+        lines.append("    C: copy mark")
+        lines.append("    V: replace command text")
+        lines.append("    Z: clear marks")
+        lines.append("    O: mouse follow")
+    if bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")):
+        lines.append("")
+        lines.append("  Chat:")
+        lines.append("    Tab: channel")
+        lines.append("    Enter: send")
+        lines.append("    Esc: leave input")
+        lines.append("    Ctrl+L: clear input")
+        lines.append("    Alt+1/2/3: room/AI/notes")
+    lines.append("")
+    lines.append("  Commands:")
+    lines.append("    :help full help")
+    lines.append("    :section <id>")
+    lines.append("    :refresh")
+    return [_clip(line, width) for line in lines]
+
+
+def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    try:
+        from client_surfaces.operator_tui.chat_state import get_chat_state, sanitize_text
+        chat = get_chat_state(dict(game))
+    except Exception:
+        chat = {}
+        sanitize_text = lambda value: str(value)
+
+    active_ch_id = str(chat.get("active_channel") or "room:main")
+    channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
+    ch = channels.get(active_ch_id) if isinstance(channels, dict) else {}
+    if not isinstance(ch, dict):
+        ch = {}
+    ch_type = str(ch.get("channel_type") or "room")
+    chat_focus = bool(chat.get("chat_focus")) or bool(game.get("artifact_chat_focus"))
+    active_label = _chat_channel_label(active_ch_id)
+    unread_total = 0
+    if isinstance(channels, dict):
+        unread_total = sum(int(c.get("unread") or 0) for c in channels.values() if isinstance(c, dict))
+
+    lines = [_pane_title("CHAT", state.focus == FocusPane.DETAIL)]
+    focus_note = " INPUT" if chat_focus else ""
+    lines.append(f"  ACTIVE: {active_label}{focus_note}")
+    if unread_total:
+        lines.append(f"  unread: {unread_total}")
+    selector = _plain_channel_selector(active_ch_id)
+    lines.append(f"  {selector}")
+    lines.append("  " + "-" * max(8, width - 4))
+
+    messages: list[dict] = []
+    for msg in list(ch.get("messages") or [])[-10:]:
+        if isinstance(msg, dict):
+            messages.append(msg)
+    partial = str(game.get("llm_streaming_partial") or "").strip()
+    if partial and active_ch_id == "ai:tutor":
+        messages.append({"sender_kind": "ai", "sender_id": "s-ai", "text": partial, "delivery_state": "streaming"})
+    if not messages:
+        lines.append("  keine Nachrichten")
+    for msg in messages:
+        sender_kind = str(msg.get("sender_kind") or "user")
+        sender = str(msg.get("sender_id") or "?")
+        text = sanitize_text(str(msg.get("text") or ""))
+        if sender_kind == "system":
+            prefix = "* "
+        elif sender_kind == "ai":
+            prefix = "AI: "
+        else:
+            prefix = "Du: " if active_ch_id == "ai:tutor" else f"{sender[:8]}: "
+        for row in _wrap_plain(prefix + text, max(8, width - 2)):
+            lines.append("  " + row)
+
+    lines.append("  " + "-" * max(8, width - 4))
+    if chat_focus:
+        if bool(game.get("artifact_chat_focus")):
+            buf = str(game.get("artifact_chat_input") or "")
+        else:
+            buf = str(chat.get("chat_input_buffer") or "")
+        prompt_map = {"room": "#room>", "direct": "@>", "ai": "AI>", "notes": "notes>", "system": ">"}
+        prompt = prompt_map.get(ch_type, ">")
+        lines.append(f"  {prompt} {buf}_")
+    else:
+        lines.append("  Ctrl+E/c Eingabe  Tab Kanal")
+    return [_clip(line, width) for line in lines]
+
+
+def _plain_channel_selector(active_ch_id: str) -> str:
+    labels = []
+    for cid, label in [("room:main", "#room"), ("ai:tutor", "AI"), ("notes:self", "notes")]:
+        labels.append(f"[{label}]" if cid == active_ch_id else label)
+    return " ".join(labels)
+
+
+def _wrap_plain(text: str, width: int) -> list[str]:
+    words = str(text or "").split()
+    if not words:
+        return [""]
+    rows: list[str] = []
+    row = ""
+    for word in words:
+        if len(row) + len(word) + 1 > width:
+            rows.append(row)
+            row = word
+        else:
+            row = (row + " " + word).strip() if row else word
+    if row:
+        rows.append(row)
+    return rows
 
 
 def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
@@ -1553,9 +1682,6 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     # Chat panel (E01)
     if split_view and chat_panel_enabled:
         out = _overlay_snake_chat_panel(out, game, split_col=split_col, panel_width=ai_panel_width, ai_rows=ai_panel_height, height=len(out))
-    elif split_view:
-        # Compact unread status line at bottom-right when chat panel doesn't fit
-        out = _overlay_snake_chat_unread(out, game, split_col=split_col, panel_width=ai_panel_width, height=len(out))
 
     # Score / highscore header (T01.05)
     if not split_view:
@@ -1590,6 +1716,8 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     game = state.header_logo_game or {}
     if bool(game.get("free_mode")):
         return lines  # already rendered by _overlay_fullscreen_snake
+    if bool(game.get("chat_panel_open")):
+        return lines
 
     chat_raw = game.get("artifact_chat_state")
     chat_panel_open = bool(game.get("chat_panel_open"))

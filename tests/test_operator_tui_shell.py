@@ -19,7 +19,7 @@ from client_surfaces.operator_tui.models import FocusPane, OperatorMode, Operato
 from client_surfaces.operator_tui.performance import measure
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
 from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
-from client_surfaces.operator_tui.renderer import _overlay_artifact_chat_compact, _overlay_fullscreen_snake, render_operator_shell
+from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
@@ -1740,18 +1740,34 @@ def test_compact_artifact_chat_input_sends_ai_question() -> None:
     assert artifact_messages[-1]["source"] == "user"
 
 
-def test_compact_overlay_renders_at_72_columns() -> None:
+def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
+    from client_surfaces.operator_tui.chat_state import default_chat_state, make_message, append_message
+
+    chat = default_chat_state("s1")
+    chat["active_channel"] = "ai:tutor"
+    append_message(
+        chat,
+        make_message(
+            channel_id="ai:tutor",
+            channel_type="ai",
+            sender_id="s-ai",
+            sender_kind="ai",
+            text="Kurze Antwort im rechten Hauptbereich",
+            delivery_state="received",
+        ),
+    )
     game = {
         "artifact_chat_state": {
             "active_target": {"kind": "file", "label": "sample.py", "path": "sample.py"},
-            "messages": [{"source": "ai", "text": "Kurze Antwort fuer schmales Terminal"}],
-        }
+            "messages": [],
+        },
+        "chat_panel_open": True,
+        "chat_state": chat,
     }
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
-    lines = [" " * 72 for _ in range(14)]
 
-    out = _overlay_artifact_chat_compact(lines, state, width=72)
-    plain = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in out)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", render_operator_shell(state, width=100, height=24))
 
-    assert "AI" in plain
-    assert "Kurze" in plain
+    assert "CHAT" in plain
+    assert "ACTIVE: AI" in plain
+    assert "Kurze Antwort im rechten Hauptbereich" in plain
