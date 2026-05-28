@@ -92,7 +92,6 @@ from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutp
 from client_surfaces.operator_tui.visual.capabilities.models import TerminalVisualCapabilities
 from client_surfaces.operator_tui.visual.renderers.ansi_renderer import AnsiBlocksRenderer
 from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
-from client_surfaces.operator_tui.visual.renderers.opengl_offscreen_renderer import OpenGlOffscreenRenderer
 from client_surfaces.operator_tui.visual.renderers.svg_raster_renderer import SvgRasterRenderer
 from client_surfaces.operator_tui.visual.runtime.config import VisualViewportConfig
 from client_surfaces.operator_tui.visual.runtime.registry import OutputAdapterRegistry, RendererRegistry, ViewRegistry
@@ -1604,6 +1603,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return VisualViewportConfig()
 
     def _build_visual_runtime(self) -> VisualRuntime:
+        def _build_opengl_renderer():
+            from client_surfaces.operator_tui.visual.renderers.opengl_offscreen_renderer import OpenGlOffscreenRenderer
+
+            return OpenGlOffscreenRenderer()
+
         views = ViewRegistry()
         views.register_factory("logo_animation", lambda: LogoAnimationView())
         views.register_factory("snake_debug_view", lambda: SnakeDebugView())
@@ -1615,7 +1619,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         renderers.register_factory("ansi_blocks", lambda: AnsiBlocksRenderer())
         renderers.register_factory("cpu_raster", lambda: CpuRasterRenderer())
         renderers.register_factory("svg_raster_optional", lambda: SvgRasterRenderer())
-        renderers.register_factory("opengl_offscreen_optional", lambda: OpenGlOffscreenRenderer())
+        renderers.register_factory("opengl_offscreen_optional", _build_opengl_renderer)
 
         adapters = OutputAdapterRegistry()
         adapters.register_factory("ansi", lambda: AnsiOutputAdapter())

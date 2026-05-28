@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
 from argparse import Namespace
 from pathlib import Path
@@ -2265,6 +2266,13 @@ def test_status_line_shows_visual_viewport_runtime_marker() -> None:
     assert "vv=snake_debug_view" in output
     assert "vr=ansi_blocks" in output
     assert "va=ansi" in output
+
+
+def test_operator_tui_does_not_import_opengl_renderer_on_startup() -> None:
+    sys.modules.pop("client_surfaces.operator_tui.visual.renderers.opengl_offscreen_renderer", None)
+    state = OperatorState(endpoint="http://localhost:5000")
+    InteractiveOperatorTui(state)
+    assert "client_surfaces.operator_tui.visual.renderers.opengl_offscreen_renderer" not in sys.modules
 
 
 def test_ai_snake_config_open_resets_chat_focus_and_command_mode() -> None:

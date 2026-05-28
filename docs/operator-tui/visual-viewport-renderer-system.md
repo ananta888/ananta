@@ -90,3 +90,25 @@ flowchart LR
   2. `cpu_raster + sixel`
   3. `ansi_blocks + ansi`
 
+## Operational Guidance and Terminal Limits
+
+- OpenGL remains an **optional offscreen plugin**: it renders to frame buffers and the terminal still receives encoded frames via Kitty/Sixel/ANSI adapters.
+- Recommended interactive target sizes:
+  - normal: `800x450`
+  - larger: `1024x576`
+  - upper bound for responsive use: `1280x720`
+- `1920x1080` at `60 FPS` is intentionally **not** the default terminal target; it can starve TUI input and status updates.
+- On unsupported terminals (or broken graphics paths), keep `ansi_blocks + ansi` as stable fallback.
+
+### Terminal-specific notes
+
+- **Windows Terminal / WSL2**: Sixel/Kitty support varies by build and host; keep fallback chain enabled and avoid forcing image adapters.
+- **WezTerm / Kitty / Ghostty-like**: Kitty protocol generally works best with raster frames; clear stale images on view switches.
+- **Generic xterm/SSH**: assume ANSI-only unless capability detection explicitly says otherwise.
+
+### Troubleshooting
+
+1. If no image appears, run `python3 scripts/operator_tui_visual_smoke.py --capabilities-only` and verify detected adapters.
+2. If redraw is slow, reduce target FPS and pixel size (prefer `800x450` and `10-15 FPS`).
+3. If GPU/OpenGL path fails, do not block startup: switch renderer to `cpu_raster` or `ansi_blocks`.
+4. If protocol support is flaky, force ANSI adapter and validate viewport clipping before re-enabling image adapters.

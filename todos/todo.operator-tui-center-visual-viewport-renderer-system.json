@@ -179,7 +179,7 @@
     {
       "id": "M8",
       "title": "Tests, documentation and runtime diagnostics",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "VVP-030",
         "VVP-031",
@@ -563,7 +563,7 @@
       "id": "VVP-021",
       "title": "Add optional OpenGL offscreen renderer plugin",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "critical",
       "target_files": [
@@ -582,7 +582,7 @@
       "id": "VVP-022",
       "title": "Implement ANSI output adapter",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -600,7 +600,7 @@
       "id": "VVP-023",
       "title": "Implement Sixel output adapter",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "target_files": [
@@ -618,7 +618,7 @@
       "id": "VVP-024",
       "title": "Implement Kitty graphics output adapter",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "high",
       "target_files": [
@@ -636,7 +636,7 @@
       "id": "VVP-025",
       "title": "Implement noop diagnostics adapter",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "low",
       "risk": "low",
       "target_files": [
@@ -787,7 +787,7 @@
       "id": "VVP-033",
       "title": "Add manual smoke-test command for terminal graphics capability",
       "type": "tooling",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "target_files": [
@@ -805,7 +805,7 @@
       "id": "VVP-034",
       "title": "Document operational guidance and known terminal limitations",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "target_files": [
@@ -839,13 +839,13 @@
   "tasks_status_summary": {
     "total": 34,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 27
+      "done": 34
     },
-    "progress_percent_done": 79,
+    "progress_percent_done": 100,
     "by_priority": {
       "critical": 12,
       "high": 12,
@@ -860,16 +860,16 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 12,
-      "remaining": 2
+      "done": 14,
+      "remaining": 0
     },
     "milestones": {
       "total": 8,
-      "todo": 2,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 2,
+      "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 8
     }
   },
   "tasks_type_summary": {
@@ -877,83 +877,83 @@
     "by_type": {
       "docs": {
         "total": 2,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 50,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 1
-        }
-      },
-      "implementation": {
-        "total": 23,
-        "done": 19,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 83,
-        "by_status": {
-          "todo": 4,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 19
-        }
-      },
-      "integration": {
-        "total": 4,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 4,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "test": {
-        "total": 3,
         "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 67,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 2
         }
       },
-      "tooling": {
-        "total": 1,
-        "done": 0,
+      "implementation": {
+        "total": 24,
+        "done": 24,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 24
+        }
+      },
+      "integration": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      },
+      "test": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "tooling": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 12,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 22
+    "done": 34
   },
   "summary_notes": [
     "This track intentionally replaces a one-off terminal image hack with a reusable center viewport rendering subsystem.",
