@@ -1618,13 +1618,11 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     ai_panel_width = 40
     split_col = width - ai_panel_width - 2  # 2 for divider
     split_view = width >= 100
-    play_width = max(1, split_col - 1) if split_view else width
+    play_width = width
     # Chat panel: bottom portion of the right column (requires width>=120, height>=32)
     chat_panel_enabled = width >= 120 and len(lines) >= 32
 
     out = list(lines)
-    if split_view:
-        out = _reserve_snake_right_dock(out, split_col=split_col, width=width)
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
     local_snapshot = snakes.get(local_id, {}) if isinstance(snakes.get(local_id), dict) else {}
@@ -1713,6 +1711,9 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     # Pause overlay (T01.02)
     if bool(game.get("paused")):
         out = _overlay_snake_paused(out, width=width, height=len(out))
+
+    if split_view:
+        out = _reserve_snake_right_dock(out, split_col=split_col, width=width)
 
     # Split-view AI panel (T01.01)
     ai_panel_height = len(out)

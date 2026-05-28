@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from argparse import Namespace
@@ -1436,6 +1437,53 @@ def test_snake_tick_populates_local_snapshot_for_collab_state() -> None:
     local = snakes.get("s1") if isinstance(snakes, dict) else None
     assert isinstance(local, dict)
     assert local.get("local") is True
+
+
+def test_free_mode_snake_board_keeps_full_terminal_width(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "snake": [(118, 4), (117, 4), (116, 4)],
+        "trail_path": [(118, 4), (117, 4), (116, 4)],
+        "mark_cells": [],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "vel_x": 0.0,
+        "vel_y": 0.0,
+        "accum_x": 0.0,
+        "accum_y": 0.0,
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr("client_surfaces.operator_tui.snake_tick_mixin.time.monotonic", lambda: 1.0)
+    monkeypatch.setattr("client_surfaces.operator_tui.snake_tick_mixin.shutil.get_terminal_size", lambda fallback: os.terminal_size((120, 32)))
+
+    tui._tick_header_snake()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("board_w") == 120
+
+
+def test_split_snake_dock_does_not_remap_snake_into_left_play_area() -> None:
+    lines = [" " * 120 for _ in range(32)]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(118, 4), (117, 4), (116, 4)],
+        "trail_path": [(118, 4), (117, 4), (116, 4)],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    out = _overlay_fullscreen_snake(lines, state, width=120)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[4])
+
+    assert plain[41] == " "
+
+
 def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -> None:
     game = {
         "active": True,

@@ -192,10 +192,6 @@ class SnakeTickMixin:
         game["last_move"] = now
         game["free_mode"] = free_mode
 
-        # T01.01: in split-view, restrict board to left portion
-        if free_mode and board_w >= 100:
-            game["board_w"] = max(24, board_w - 42)
-
         # T01.05: score = moves // 20, cache highscore
         score = moves // 20
         game["score"] = score
