@@ -57,7 +57,8 @@ class ChatMixin:
             self._set_state(self.state.with_updates(header_logo_game=game))
             return
         ch_id = str(ch.get("id") or "room:main")
-        ch_type = str(ch.get("channel_type") or "room")
+        ch_type_raw = ch.get("channel_type") or "room"
+        ch_type = str(getattr(ch_type_raw, "value", ch_type_raw))
         local_id = str(game.get("local_snake_id") or "s1")
 
         if ch_type == "notes":
@@ -87,7 +88,6 @@ class ChatMixin:
             game["tutor_ask_at"] = time.monotonic()
             game["tutor_ask_answered"] = False
             game["_ask_submitted"] = False
-            game["paused"] = True
             game["active"] = True
             game["alive"] = True
             game["tutorial_mode"] = True
@@ -463,18 +463,20 @@ class ChatMixin:
 
         try:
             endpoint = str(self.state.endpoint or "http://localhost:5000")
-            payload = _json_mod.dumps({"question": question, "context": context_text, "depth": depth}).encode()
-            req = urllib.request.Request(
-                f"{endpoint}/snake/ask",
-                data=payload,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                data = _json_mod.loads(resp.read().decode())
-                answer = str(data.get("answer") or data.get("text") or "")
-                if answer:
-                    return answer[:600]
+            endpoint_norm = endpoint.rstrip("/")
+            if not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
+                payload = _json_mod.dumps({"question": question, "context": context_text, "depth": depth}).encode()
+                req = urllib.request.Request(
+                    f"{endpoint_norm}/snake/ask",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=3.0) as resp:
+                    data = _json_mod.loads(resp.read().decode())
+                    answer = str(data.get("answer") or data.get("text") or "")
+                    if answer:
+                        return answer[:600]
         except Exception:
             pass
         return self._tutorial_ai_llm_ask(

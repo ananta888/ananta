@@ -934,7 +934,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["tutor_ask_at"] = time.monotonic()
         game["tutor_ask_answered"] = False
         game["_ask_submitted"] = False
-        game["paused"] = True
         game["active"] = True
         game["alive"] = True
         game["tutorial_mode"] = True

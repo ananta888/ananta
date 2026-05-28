@@ -3228,8 +3228,6 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         game["tutor_ask_at"] = __import__("time").monotonic()
         game["tutor_ask_answered"] = False
         game["_ask_submitted"] = False
-        # pause game while AI answers
-        game["paused"] = True
         game["active"] = True
         game["alive"] = True
         game["tutorial_mode"] = True

@@ -1340,9 +1340,9 @@ class TutorialAiMixin:
             os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
             or os.environ.get("OPENAI_BASE_URL")
             or os.environ.get("OPENAI_API_BASE")
-            or ""
+            or "http://192.168.178.100:1234/v1"
         ).strip()
-        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "").strip()
+        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "google/gemma-4-e4b").strip()
         api_token = str(
             os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
             or os.environ.get("OPENAI_API_KEY")
