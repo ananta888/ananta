@@ -546,16 +546,16 @@ class SnakeTickMixin:
         if isinstance(worker_response, dict) and str(worker_response.get("status") or "") == "ok":
             prediction_source = "worker_context"
         if isinstance(game.get("chat_state"), dict):
-            from client_surfaces.operator_tui.chat_state import maybe_add_prediction_comment
             forced = bool(game.pop("ai_force_question", False))
-            maybe_add_prediction_comment(
-                cast(dict[str, Any], game["chat_state"]),
-                prediction=prediction,
-                now=now,
-                quiet=(ai_mode == "quiet"),
-                forced=forced,
-                cooldown_seconds=20,
-            ) if (allow_proactive_comment or forced) else None
+            if allow_proactive_comment or forced:
+                self._route_prediction_comment_to_monitor(
+                    game,
+                    prediction=prediction,
+                    now=now,
+                    quiet=(ai_mode == "quiet"),
+                    forced=forced,
+                    cooldown_seconds=20,
+                )
 
         target_ref = str(prediction.get("target_ref") or "")
         reached_target = False
@@ -640,6 +640,42 @@ class SnakeTickMixin:
             "matched_pattern_id": matched_pattern_id,
             "prediction_source": prediction_source,
         }
+
+    def _route_prediction_comment_to_monitor(
+        self,
+        game: dict[str, object],
+        *,
+        prediction: dict[str, object],
+        now: float,
+        quiet: bool,
+        forced: bool = False,
+        cooldown_seconds: int = 20,
+    ) -> bool:
+        if quiet and not forced:
+            return False
+        confidence = float(prediction.get("confidence") or 0.0)
+        if confidence < 0.65 and not forced:
+            return False
+        chat_raw = game.get("chat_state")
+        if not isinstance(chat_raw, dict):
+            return False
+        chat = cast(dict[str, Any], chat_raw)
+        last_comment_at = float(chat.get("ai_last_proactive_comment_at") or 0.0)
+        if (now - last_comment_at) < max(5, int(cooldown_seconds)) and not forced:
+            return False
+        intent = str(prediction.get("predicted_intent") or "unknown")
+        target_ref = str(prediction.get("target_ref") or "").strip() or "aktuellen Bereich"
+        text = f"Ich glaube, du willst zu {target_ref} ({intent}, conf={confidence:.2f})."
+        if hasattr(self, "_append_ai_monitor_log"):
+            try:
+                self._append_ai_monitor_log(game, event="prediction_comment", label=text)  # type: ignore[attr-defined]
+            except Exception:
+                return False
+        else:
+            return False
+        chat["ai_last_proactive_comment_at"] = float(now)
+        game["chat_state"] = chat
+        return True
 
     # ── Background executor (shared across all snake I/O) ─────────────────────
 
