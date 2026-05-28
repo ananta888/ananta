@@ -734,7 +734,7 @@ def _build_helpcenter_payload(*, game: dict[str, object], repo_root: Path) -> di
 
 def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
     text = str(raw_command or "").strip()
-    if text.startswith(":"):
+    if text.startswith(":") or text.startswith("/"):
         text = text[1:].strip()
     if not text:
         return CommandResult(state.with_updates(mode=OperatorMode.NORMAL, command_line=""), "empty command ignored")
