@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import math
 import subprocess
 import time
 import urllib.error
@@ -46,14 +47,75 @@ def _score_rag_record_with_embedding(
     query_tokens: list[str],
     source_kind: str,
 ) -> float:
-    # R04: embedding_text is the most informative field — score it with 2x weight
+    # R04: embedding_text is the most informative field, so score it above
+    # generic compact text while keeping keyword fallback active.
     base = _score_rag_record(compact, query_tokens)
     if embedding_text and query_tokens:
         emb_score = _score_rag_record(embedding_text.lower(), query_tokens)
-        base += emb_score * 1.5
+        base += emb_score * 2.0
     if source_kind in {"embedding", "graph_nodes", "graph_edges"}:
         base += 0.8
     return base
+
+
+def _cosine_similarity(left: list[float], right: list[float]) -> float:
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    dot = sum(a * b for a, b in zip(left, right))
+    lnorm = math.sqrt(sum(a * a for a in left))
+    rnorm = math.sqrt(sum(b * b for b in right))
+    if lnorm <= 0.0 or rnorm <= 0.0:
+        return 0.0
+    return dot / (lnorm * rnorm)
+
+
+def _embedding_vector_for_text(text: str) -> list[float]:
+    api_base = str(
+        os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
+        or os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("OPENAI_API_BASE")
+        or ""
+    ).strip()
+    if not api_base:
+        return []
+    model = str(
+        os.environ.get("ANANTA_TUI_CHAT_EMBEDDING_MODEL")
+        or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL")
+        or ""
+    ).strip()
+    token = str(
+        os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
+        or os.environ.get("OPENAI_API_KEY")
+        or ""
+    ).strip()
+    body = json.dumps({"model": model, "input": text[:1200]}).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(
+        api_base.rstrip("/") + "/embeddings",
+        data=body,
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8", errors="replace"))
+    except Exception:
+        return []
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, list) or not data:
+        return []
+    embedding = data[0].get("embedding") if isinstance(data[0], dict) else None
+    if not isinstance(embedding, list):
+        return []
+    result: list[float] = []
+    for item in embedding:
+        try:
+            result.append(float(item))
+        except (TypeError, ValueError):
+            return []
+    return result
 
 
 def _load_codecompass_hints_from_dir(out_dir: Path) -> list[str]:
@@ -127,7 +189,11 @@ def _load_rag_context_from_dir(
         os.environ.get("ANANTA_TUI_RAG_SCOPE_FILTER", "")
     ).strip().lower() == "full"
 
+    use_embedding_api = str(os.environ.get("ANANTA_TUI_CHAT_USE_EMBEDDING_API", "")).strip().lower() in {"1", "true", "yes", "on"}
+    query_embedding = _embedding_vector_for_text(" ".join(query_tokens)) if use_embedding_api and query_tokens else []
+
     candidates: list[tuple[float, str]] = []
+    embedding_api_calls = 0
     for rel in deduped[:24]:
         path = out_dir / rel
         if not path.exists() or not path.is_file() or path.suffix.lower() != ".jsonl":
@@ -182,8 +248,14 @@ def _load_rag_context_from_dir(
             if not compact:
                 continue
             compact = f"{source_kind} · {compact}"
-            # R04: use boosted scorer that weights embedding_text 1.5x
+            # R04: use boosted scorer that weights embedding_text above generic text.
             score = _score_rag_record_with_embedding(compact, embedding_text, query_tokens, source_kind)
+            if query_embedding and embedding_text:
+                embedding_api_limit = max(1, min(128, int(os.environ.get("ANANTA_TUI_CHAT_EMBEDDING_API_MAX_RECORDS", "64"))))
+                if embedding_api_calls < embedding_api_limit:
+                    embedding_api_calls += 1
+                    candidate_embedding = _embedding_vector_for_text(embedding_text)
+                    score += max(0.0, _cosine_similarity(query_embedding, candidate_embedding)) * 4.0
             if "client_surfaces/operator_tui" in compact.lower():
                 score += 1.2
             if score <= 0:
@@ -208,43 +280,65 @@ def _name_lookup_from_details(
     Scans without a position limit so deeply-nested functions are always found.
     Only runs when a token looks like a Python identifier (_foo, FooBar, foo_bar).
     """
-    name_tokens = [t for t in query_tokens if len(t) >= 3 and (
-        t.startswith("_") or "_" in t or (t[0].isupper() and t[1:2].islower())
-    )]
+    name_stopwords = {
+        "was", "wie", "ist", "sind", "und", "oder", "the", "what", "how", "does",
+        "erkläre", "erklaere", "zeige", "mir", "bitte",
+    }
+    name_tokens = [
+        t.lower()
+        for t in query_tokens
+        if len(t) >= 3
+        and t.lower() not in name_stopwords
+        and (t.startswith("_") or "_" in t or len(t) >= 5)
+    ]
     if not name_tokens:
         return []
-    details_path = out_dir / "details.jsonl"
-    if not details_path.exists():
-        # Try index_by_kind/python_function.jsonl etc.
-        details_path = out_dir / "index.jsonl"
-    if not details_path.exists():
+    candidate_paths: list[Path] = []
+    index_by_kind = out_dir / "index_by_kind"
+    if index_by_kind.exists() and index_by_kind.is_dir():
+        for path in sorted(index_by_kind.glob("*.jsonl")):
+            name = path.name.lower()
+            if any(part in name for part in ("class", "function", "method", "symbol", "python")):
+                candidate_paths.append(path)
+    for path in [out_dir / "details.jsonl", out_dir / "index.jsonl"]:
+        if path.exists():
+            candidate_paths.append(path)
+    deduped_paths: list[Path] = []
+    seen_paths: set[Path] = set()
+    for path in candidate_paths:
+        if path not in seen_paths and path.exists() and path.is_file():
+            seen_paths.add(path)
+            deduped_paths.append(path)
+    if not deduped_paths:
         return []
     hits: list[str] = []
-    try:
-        for raw_line in details_path.read_text(encoding="utf-8").splitlines():
-            if not raw_line.strip():
-                continue
-            try:
-                rec = json.loads(raw_line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(rec, dict):
-                continue
-            name = str(rec.get("name") or "").strip().lower()
-            if not name:
-                continue
-            if any(t in name for t in name_tokens):
-                kind = str(rec.get("kind") or "").strip()
-                fpath = str(rec.get("file") or rec.get("path") or "").strip()
-                emb = str(rec.get("embedding_text") or rec.get("summary") or "").strip()
-                entry = f"detail · {kind} · {name} · {fpath}" + (f" · {emb[:120]}" if emb else "")
-                compact = " ".join(entry.split())[:240]
-                if compact not in already_found:
-                    hits.append(compact)
-            if len(hits) >= 8:
-                break
-    except Exception:
-        pass
+    for details_path in deduped_paths:
+        try:
+            for raw_line in details_path.read_text(encoding="utf-8").splitlines():
+                if not raw_line.strip():
+                    continue
+                try:
+                    rec = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                name = str(rec.get("name") or rec.get("symbol") or "").strip()
+                name_l = name.lower()
+                if not name_l:
+                    continue
+                if any(t in name_l or t.replace("_", "") in name_l.replace("_", "") for t in name_tokens):
+                    kind = str(rec.get("kind") or "").strip()
+                    fpath = str(rec.get("file") or rec.get("path") or "").strip()
+                    emb = str(rec.get("embedding_text") or rec.get("summary") or "").strip()
+                    entry = f"detail · {kind} · {name} · {fpath}" + (f" · {emb[:120]}" if emb else "")
+                    compact = " ".join(entry.split())[:240]
+                    if compact not in already_found and compact not in hits:
+                        hits.append(compact)
+                if len(hits) >= 8:
+                    return hits
+        except Exception:
+            continue
     return hits
 
 
@@ -769,9 +863,9 @@ class TutorialAiMixin:
         # L04: unified config
         api_base, model, api_token = self._get_llm_api_config()
         if not model:
-            model = "google/gemma-4-e4b"
+            model = "ananta-smoke"
         if not api_base:
-            api_base = "http://192.168.178.100:1234"
+            return None
         if not (model and api_base):
             return None
         parsed_api_base = urlparse(api_base)
@@ -916,7 +1010,7 @@ class TutorialAiMixin:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": max(0.0, min(1.0, float(temperature))),
-            "max_tokens": max(24, min(120, int(max_tokens))),
+            "max_tokens": max(24, min(160, int(max_tokens))),
         }
         body = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
@@ -1063,6 +1157,7 @@ class TutorialAiMixin:
         return _score_rag_record(text, query_tokens)
 
     def _resolve_codecompass_output_dir(self) -> Path | None:
+        self._poll_codecompass_output_build()
         candidates = [
             os.environ.get("ANANTA_TUI_CODECOMPASS_OUTPUT_DIR"),
             os.environ.get("CODECOMPASS_OUTPUT_DIR"),
@@ -1080,12 +1175,31 @@ class TutorialAiMixin:
             if not path.is_absolute():
                 path = (Path.cwd() / path).resolve()
             if path.exists() and path.is_dir() and (path / "index.jsonl").exists():
+                self._maybe_schedule_codecompass_rebuild(path)
                 return path
-        built_dir = self._poll_codecompass_output_build()
-        if built_dir is not None and built_dir.exists() and (built_dir / "index.jsonl").exists():
-            return built_dir
         self._ensure_codecompass_output_build_started()
         return None
+
+    def _maybe_schedule_codecompass_rebuild(self, out_dir: Path) -> None:
+        auto_enabled = str(os.environ.get("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")).strip().lower() in {"1", "true", "yes", "on"}
+        game = dict(self.state.header_logo_game or {})
+        if not auto_enabled:
+            game["codecompass_build_status"] = "ready"
+            self.state = self.state.with_updates(header_logo_game=game)
+            return
+        if self._codecompass_build_future is not None and not self._codecompass_build_future.done():
+            game["codecompass_build_status"] = "building"
+            self.state = self.state.with_updates(header_logo_game=game)
+            return
+        if self._codecompass_index_is_stale(out_dir):
+            game["codecompass_build_status"] = "stale"
+            self._tutorial_codecompass_cache = (0.0, [])
+            self._tutorial_rag_cache = (0.0, [])
+            self._codecompass_build_future = self._codecompass_build_executor.submit(self._build_codecompass_outputs_sync)
+            game["codecompass_build_status"] = "building"
+        else:
+            game["codecompass_build_status"] = "ready"
+        self.state = self.state.with_updates(header_logo_game=game)
 
     def _ensure_codecompass_output_build_started(self) -> None:
         auto_enabled = str(os.environ.get("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")).strip().lower() in {"1", "true", "yes", "on"}
@@ -1114,9 +1228,14 @@ class TutorialAiMixin:
                 if p.exists() and p.is_dir() and (p / "index.jsonl").exists():
                     out_dir = p
                     break
+        game = dict(self.state.header_logo_game or {})
         if out_dir is not None and self._codecompass_index_is_stale(out_dir):
-            self._tutorial_codecompass_cache = (0.0, [])  # invalidate cache
+            self._tutorial_codecompass_cache = (0.0, [])
             self._tutorial_rag_cache = (0.0, [])
+            game["codecompass_build_status"] = "stale"
+        else:
+            game["codecompass_build_status"] = "building"
+        self.state = self.state.with_updates(header_logo_game=game)
         self._codecompass_build_future = self._codecompass_build_executor.submit(self._build_codecompass_outputs_sync)
 
     def _codecompass_index_is_stale(self, out_dir: Path) -> bool:
@@ -1151,9 +1270,16 @@ class TutorialAiMixin:
             return None
         self._codecompass_build_future = None
         built = future.result()
+        game = dict(self.state.header_logo_game or {})
         if built is None:
+            game["codecompass_build_status"] = "stale"
+            self.state = self.state.with_updates(header_logo_game=game)
             return None
         self._codecompass_build_output_dir = built
+        self._tutorial_codecompass_cache = (0.0, [])
+        self._tutorial_rag_cache = (0.0, [])
+        game["codecompass_build_status"] = "ready"
+        self.state = self.state.with_updates(header_logo_game=game)
         return built
 
     def _build_codecompass_outputs_sync(self) -> Path | None:
@@ -1220,9 +1346,10 @@ class TutorialAiMixin:
 
     def _llm_health_check_sync(self) -> dict:
         """L01: blocking health check — runs in background thread."""
+        checked_at = time.time()
         api_base, model, api_token = self._get_llm_api_config()
         if not api_base:
-            return {"reachable": False, "model": model, "error": "ANANTA_TUI_SNAKE_AI_API_BASE_URL nicht gesetzt"}
+            return {"reachable": False, "model": model, "last_check_at": checked_at, "error": "ANANTA_TUI_SNAKE_AI_API_BASE_URL nicht gesetzt"}
         try:
             url = f"{api_base.rstrip('/')}/models"
             headers: dict[str, str] = {"Content-Type": "application/json"}
@@ -1233,9 +1360,15 @@ class TutorialAiMixin:
                 data = json.loads(resp.read().decode())
                 models_list = data.get("data") or []
                 loaded = models_list[0].get("id", model) if models_list else model
-                return {"reachable": True, "model": str(loaded), "error": ""}
+                return {"reachable": True, "model": str(loaded), "last_check_at": checked_at, "error": ""}
+        except TimeoutError:
+            return {"reachable": False, "model": model, "last_check_at": checked_at, "error": "timeout"}
+        except urllib.error.URLError as exc:
+            reason = getattr(exc, "reason", exc)
+            err = "timeout" if isinstance(reason, TimeoutError) else str(reason)[:80]
+            return {"reachable": False, "model": model, "last_check_at": checked_at, "error": err}
         except Exception as exc:
-            return {"reachable": False, "model": model, "error": str(exc)[:80]}
+            return {"reachable": False, "model": model, "last_check_at": checked_at, "error": str(exc)[:80]}
 
     def _maybe_tick_llm_health(self, game: dict, now: float) -> None:
         """L01: schedule and poll health checks at configured interval."""
@@ -1258,4 +1391,4 @@ class TutorialAiMixin:
             self._llm_health_future = self._get_snake_bg_executor().submit(  # type: ignore[attr-defined]
                 self._llm_health_check_sync
             )
-
+        self.state = self.state.with_updates(header_logo_game=game)

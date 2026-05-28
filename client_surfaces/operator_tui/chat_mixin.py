@@ -15,6 +15,7 @@ import json as _json_mod
 import os
 import re
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -271,6 +272,13 @@ class ChatMixin:
         if bool(game.get("_chat_ai_answer_posted")):
             return
         game["_chat_ai_answer_posted"] = True
+        is_error = answer.startswith("⚠")
+        if is_error:
+            game["llm_last_error"] = answer
+            game["llm_last_error_at"] = time.time()
+        else:
+            game.pop("llm_last_error", None)
+            game.pop("llm_last_error_at", None)
         try:
             from client_surfaces.operator_tui.chat_state import (
                 get_chat_state, set_chat_state, append_message, make_message,
@@ -279,8 +287,9 @@ class ChatMixin:
             chat["ai_typing"] = False
             ai_msg = make_message(
                 channel_id=channel_id, channel_type="ai",
-                sender_id="s-ai", sender_kind="ai",
-                text=answer, visibility="ai_context",
+                sender_id="system" if is_error else "s-ai",
+                sender_kind="system" if is_error else "ai",
+                text=answer, visibility="ai_context" if not is_error else "system",
                 delivery_state="received",
             )
             append_message(chat, ai_msg)
@@ -293,6 +302,9 @@ class ChatMixin:
 
     def _poll_tutor_ask_result(self, game: dict[str, object]) -> None:
         question = str(game.get("tutor_ask_question") or "")
+        partial = str(getattr(self, "_llm_streaming_partial", "") or "")
+        if partial:
+            game["llm_streaming_partial"] = partial
         if not question or bool(game.get("tutor_ask_answered")):
             return
         if self._tutor_ask_future is None or self._tutor_ask_future.done():
@@ -306,7 +318,7 @@ class ChatMixin:
                     t for t in re.findall(r"[a-z0-9_./-]+", question.lower()) if len(t) >= 2
                 ][:32]
                 # A01: extract prior ai:tutor messages for multi-turn context
-                prior_messages = self._extract_prior_messages(game)
+                prior_messages = self._extract_prior_messages(game, current_question=question)
                 self._tutor_ask_future = self._tutor_ask_executor.submit(
                     self._resolve_ask_question, question,
                     depth=depth, hints=hints, rag_context=rag_context,
@@ -317,6 +329,8 @@ class ChatMixin:
                 answer = self._tutor_ask_future.result(timeout=0.01) or "Keine Antwort erhalten."
             except Exception:
                 answer = "Fehler beim Abrufen der Antwort."
+            game.pop("llm_streaming_partial", None)
+            setattr(self, "_llm_streaming_partial", "")
             game["tutor_ask_answered"] = True
             game["tutor_ask_answer"] = answer
             game["_chat_ai_answer_posted"] = False
@@ -327,7 +341,7 @@ class ChatMixin:
             self._inject_tutor_tip(game, f"[ask] {answer}", source="ask")
             self._fire_tutorial_event(game, "ask_command_used")
 
-    def _extract_prior_messages(self, game: dict) -> list[dict]:
+    def _extract_prior_messages(self, game: dict, *, current_question: str = "") -> list[dict]:
         """A01: last 6 ai:tutor messages as prior conversation turns."""
         try:
             from client_surfaces.operator_tui.chat_state import get_chat_state
@@ -335,9 +349,12 @@ class ChatMixin:
             ai_ch = (chat.get("channels") or {}).get("ai:tutor") or {}
             all_msgs = [m for m in (ai_ch.get("messages") or []) if isinstance(m, dict)]
             result = []
-            for m in all_msgs[-6:]:
+            current_norm = " ".join(str(current_question or "").split())
+            for m in all_msgs:
                 kind = str(m.get("sender_kind") or "")
                 text = str(m.get("text") or "").strip()
+                if kind == "user" and current_norm and " ".join(text.split()) == current_norm:
+                    continue
                 if kind == "ai":
                     result.append({"role": "assistant", "content": text[:300]})
                 elif kind == "user":
@@ -359,6 +376,14 @@ class ChatMixin:
             label = str(active.get("label") or "")
             path_str = str(active.get("path") or "").strip()
             kind = str(active.get("kind") or "")
+            if kind == "goal":
+                goal_id = str(active.get("id") or active.get("goal_id") or "").strip()
+                goal = self._lookup_active_goal_payload(goal_id=goal_id, label=label)
+                if goal:
+                    title = str(goal.get("title") or label or goal_id)
+                    status = str(goal.get("status") or "")
+                    desc = str(goal.get("description") or goal.get("summary") or "")
+                    return f"Goal-Kontext: {title}\nStatus: {status}\nBeschreibung: {desc}"[:1500]
             if path_str:
                 p = Path(path_str).expanduser()
                 if not p.is_absolute():
@@ -381,6 +406,24 @@ class ChatMixin:
             pass
         return ""
 
+    def _lookup_active_goal_payload(self, *, goal_id: str, label: str) -> dict[str, Any]:
+        payloads = self.state.section_payloads or {}
+        for payload in payloads.values():
+            if not isinstance(payload, dict):
+                continue
+            for key in ("items", "goals", "rows"):
+                rows = payload.get(key)
+                if not isinstance(rows, list):
+                    continue
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    row_id = str(row.get("id") or row.get("goal_id") or "")
+                    row_title = str(row.get("title") or row.get("name") or "")
+                    if (goal_id and row_id == goal_id) or (label and row_title == label):
+                        return row
+        return {}
+
     def _resolve_ask_question(
         self,
         question: str,
@@ -391,18 +434,10 @@ class ChatMixin:
         question_tokens: list[str] | None = None,
         prior_messages: list[dict] | None = None,
     ) -> str:
-        from client_surfaces.operator_tui.tutorial_ai_mixin import _load_rag_context_from_dir
         chat_top_k = max(12, int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24")))
 
         # R01: question-based RAG retrieval (runs in background thread — blocking OK)
-        question_rag: list[str] = []
-        if question_tokens:
-            out_dir = self._resolve_codecompass_output_dir()
-            if out_dir is not None:
-                max_recs = max(80, min(3000, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_MAX_RECORDS_PER_FILE", "800"))))
-                question_rag = _load_rag_context_from_dir(
-                    out_dir, question_tokens, chat_top_k, max_recs, scope_filter="full"
-                )
+        question_rag = self._rag_context_for_question(question, question_tokens=question_tokens, top_k=chat_top_k)
 
         # Merge question-RAG first (higher relevance), deduplicated with TUI-context rag
         seen: set[str] = set()
@@ -415,7 +450,7 @@ class ChatMixin:
 
         # A02: prepend active artifact context
         active_excerpt = self._build_active_target_excerpt()
-        context_parts = ([active_excerpt] if active_excerpt else []) + hints[:12] + merged[:chat_top_k]
+        context_parts = ([active_excerpt] if active_excerpt else []) + merged[:chat_top_k] + hints[:10]
         context_text = "\n".join(context_parts)
 
         try:
@@ -441,6 +476,26 @@ class ChatMixin:
             prior_messages=prior_messages or [],
         )
 
+    def _rag_context_for_question(
+        self,
+        question: str,
+        *,
+        question_tokens: list[str] | None,
+        top_k: int,
+    ) -> list[str]:
+        from client_surfaces.operator_tui.tutorial_ai_mixin import _load_rag_context_from_dir
+
+        tokens = list(question_tokens or [])
+        if not tokens:
+            tokens = [t for t in re.findall(r"[a-z0-9_./-]+", str(question).lower()) if len(t) >= 2][:32]
+        if not tokens:
+            tokens = self._tutorial_relevance_tokens()
+        out_dir = self._resolve_codecompass_output_dir()
+        if out_dir is None:
+            return []
+        max_recs = max(80, min(3000, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_MAX_RECORDS_PER_FILE", "800"))))
+        return _load_rag_context_from_dir(out_dir, tokens, top_k, max_recs, scope_filter="full")
+
     def _tutorial_ai_llm_ask(
         self,
         *,
@@ -455,9 +510,9 @@ class ChatMixin:
             return self._local_knowledge_answer(question)
 
         # R02: configurable context window and max_tokens
-        context_chars = max(800, int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000")))
-        max_tokens = max(160, int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400")))
-        timeout = max(1.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0")))
+        context_chars = max(0, int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000")))
+        max_tokens = max(400, int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400")))
+        timeout = max(1.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0"))))
 
         depth_instruction = {
             "overview": "Antworte in 2-3 Sätzen.",
@@ -468,10 +523,18 @@ class ChatMixin:
         # A03: configurable system prompt
         project_name = Path.cwd().name
         default_system = (
-            f"Du bist tutor-ai, ein hilfreicher Assistent für das Projekt '{project_name}'.\n"
+            f"Du bist ein hilfreicher Assistent für das Projekt {project_name}.\n"
             f"Kontext:\n{{context}}\n{{depth_instruction}}"
         )
         system_template = str(os.environ.get("ANANTA_TUI_CHAT_SYSTEM_PROMPT") or default_system).strip()
+        if "{context}" not in system_template:
+            system_template = default_system
+            try:
+                game = dict(self.state.header_logo_game or {})
+                game["chat_prompt_warning"] = "ANANTA_TUI_CHAT_SYSTEM_PROMPT ohne {context}; nutze Default"
+                self.state = self.state.with_updates(header_logo_game=game, status_message="chat prompt fallback: {context} fehlt")
+            except Exception:
+                pass
         system_content = system_template.replace("{context}", context_text[:context_chars]).replace(
             "{depth_instruction}", depth_instruction
         ).replace("{project_name}", project_name)
@@ -492,12 +555,14 @@ class ChatMixin:
         messages.extend(trimmed)
         messages.append({"role": "user", "content": question})
 
+        stream_enabled = str(os.environ.get("ANANTA_TUI_CHAT_STREAMING", "1")).strip().lower() not in {"0", "false", "no", "off"}
         try:
             body = _json_mod.dumps({
                 "model": model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": 0.4,
+                **({"stream": True} if stream_enabled else {}),
             }).encode()
             headers: dict[str, str] = {"Content-Type": "application/json"}
             if api_token:
@@ -509,10 +574,32 @@ class ChatMixin:
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = _json_mod.loads(resp.read().decode())
+                content_type = ""
+                try:
+                    content_type = str(resp.headers.get("Content-Type") or "")
+                except Exception:
+                    content_type = ""
+                if stream_enabled and "text/event-stream" in content_type.lower():
+                    streamed = self._read_chat_stream_response(resp)
+                    if streamed:
+                        return streamed[:600]
+                    return "⚠ LLM Streaming-Fehler: keine Antwort erhalten"
+                raw_response = resp.read().decode("utf-8", errors="replace")
+                if stream_enabled:
+                    streamed = self._read_chat_stream(raw_response)
+                    if streamed:
+                        return streamed[:600]
+                data = _json_mod.loads(raw_response)
                 choices = data.get("choices") or []
                 if choices:
                     return str(choices[0].get("message", {}).get("content", "")).strip()[:600]
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")[:80]
+            except Exception:
+                detail = str(exc.reason or "")[:80]
+            return f"⚠ LLM HTTP {exc.code}: {detail}"
         except urllib.error.URLError as exc:
             # L02: surface connection errors as return value (caller posts as system message)
             reason = str(exc.reason) if hasattr(exc, "reason") else str(exc)
@@ -521,6 +608,74 @@ class ChatMixin:
             return f"⚠ LMStudio Timeout ({timeout:.0f}s). Erhöhe ANANTA_TUI_SNAKE_AI_TIMEOUT für große Modelle."
         except Exception as exc:
             return f"⚠ LLM Fehler: {str(exc)[:80]}"
+
+    def _read_chat_stream(self, raw_response: str) -> str:
+        chunks: list[str] = []
+        try:
+            for line in raw_response.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    parsed = _json_mod.loads(payload)
+                except _json_mod.JSONDecodeError:
+                    continue
+                choices = parsed.get("choices") if isinstance(parsed, dict) else None
+                if not isinstance(choices, list) or not choices:
+                    continue
+                delta = choices[0].get("delta") if isinstance(choices[0], dict) else None
+                piece = ""
+                if isinstance(delta, dict):
+                    piece = str(delta.get("content") or "")
+                if not piece and isinstance(choices[0], dict):
+                    message = choices[0].get("message")
+                    if isinstance(message, dict):
+                        piece = str(message.get("content") or "")
+                if piece:
+                    chunks.append(piece)
+                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-600:])
+        except Exception:
+            return "".join(chunks)
+        finally:
+            setattr(self, "_llm_streaming_partial", "")
+        return "".join(chunks).strip()
+
+    def _read_chat_stream_response(self, resp: Any) -> str:
+        chunks: list[str] = []
+        try:
+            while True:
+                raw_line = resp.readline()
+                if not raw_line:
+                    break
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line or not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    parsed = _json_mod.loads(payload)
+                except _json_mod.JSONDecodeError:
+                    continue
+                choices = parsed.get("choices") if isinstance(parsed, dict) else None
+                if not isinstance(choices, list) or not choices:
+                    continue
+                delta = choices[0].get("delta") if isinstance(choices[0], dict) else None
+                piece = str(delta.get("content") or "") if isinstance(delta, dict) else ""
+                if piece:
+                    chunks.append(piece)
+                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-600:])
+        except Exception:
+            if chunks:
+                chunks.append("\n⚠ Streaming-Fehler")
+        finally:
+            setattr(self, "_llm_streaming_partial", "")
+        return "".join(chunks).strip()
 
     def _local_knowledge_answer(self, question: str) -> str:
         # A04: score all facts, return top-2 combined

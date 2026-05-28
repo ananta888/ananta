@@ -1334,6 +1334,16 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
                 parts.append(f"gfx_frame={frame_w}x{frame_h}")
     if splash_state:
         parts.append(f"splash={splash_state}")
+    if bool(game.get("chat_panel_open")):
+        parts.append("[C]")
+    if not bool(game.get("free_mode")):
+        try:
+            from client_surfaces.operator_tui.chat_state import get_chat_state, unread_total
+            unread = unread_total(get_chat_state(dict(game)))
+        except Exception:
+            unread = 0
+        if unread > 0:
+            parts.append(f"[chat +{unread}]")
     return _clip(" ".join(parts), width)
 
 
@@ -1352,11 +1362,13 @@ def _hints_line(state: OperatorState, width: int) -> str:
             active_ch = ""
             if isinstance(chat_raw, dict):
                 active_ch = str(chat_raw.get("active_channel") or "room:main")
-            hints = f"[Esc] game  [Enter] send  [PageUp/Down] scroll  [{active_ch}]"
+            hints = f"[Esc] game  [Enter] send  [Tab] channel  [Ctrl+L] clear  [{active_ch}]"
+        elif bool(game.get("artifact_chat_focus")):
+            hints = "[Esc] close  [Enter] send  [Tab] channel  [Ctrl+L] clear"
         elif game.get("paused"):
             hints = "[Space] Resume  [c] chat  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select  [Z] Clear"
         else:
-            hints = "[Ctrl+S] Snake  [Space] Pause  [c] chat  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [Z] Clear"
+            hints = "[Ctrl+S] Snake  [Ctrl+G] Chat  [Ctrl+E/c] Input  [Space] Pause  [U] Tutorial-AI"
     return _clip(hints, width)
 
 
@@ -1550,25 +1562,57 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
         return lines  # already rendered by _overlay_fullscreen_snake
 
     chat_raw = game.get("artifact_chat_state")
-    if not isinstance(chat_raw, dict):
+    chat_panel_open = bool(game.get("chat_panel_open"))
+    if not isinstance(chat_raw, dict) and not chat_panel_open:
         return lines
-    active_target = chat_raw.get("active_target")
-    if not isinstance(active_target, dict):
-        return lines
-
-    messages = [m for m in (chat_raw.get("messages") or []) if isinstance(m, dict)]
-    if not messages:
-        return lines
-
-    if width < 80 or len(lines) < 12:
+    artifact_chat = chat_raw if isinstance(chat_raw, dict) else {}
+    active_target = artifact_chat.get("active_target")
+    has_target = isinstance(active_target, dict)
+    if not has_target and not chat_panel_open:
         return lines
 
-    panel_width = min(46, width // 3)
+    messages = [m for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
+    active_ch_id = "ai:tutor"
+    unread_count = 0
+    try:
+        from client_surfaces.operator_tui.chat_state import get_chat_state
+        chat_state = get_chat_state(dict(game))
+        active_ch_id = str(chat_state.get("active_channel") or "ai:tutor")
+        ch = (chat_state.get("channels") or {}).get(active_ch_id) or {}
+        unread_count = sum(int(c.get("unread") or 0) for c in (chat_state.get("channels") or {}).values())
+        if chat_panel_open or not messages:
+            messages = []
+            for msg in list(ch.get("messages") or [])[-8:]:
+                if not isinstance(msg, dict):
+                    continue
+                kind = str(msg.get("sender_kind") or "user")
+                source = "ai" if kind == "ai" else ("system" if kind == "system" else "user")
+                messages.append({"source": source, "text": str(msg.get("text") or "")})
+    except Exception:
+        pass
+    partial = str(game.get("llm_streaming_partial") or "").strip()
+    if partial:
+        messages.append({"source": "ai", "text": partial})
+    focus_active = bool(game.get("artifact_chat_focus"))
+    input_text = str(game.get("artifact_chat_input") or "")
+    if not messages and not focus_active and not chat_panel_open:
+        return lines
+
+    if width <= 60 or len(lines) < 8:
+        return lines
+
+    ultra_compact = width < 80
+    panel_width = min(46, width // 3) if not ultra_compact else min(30, max(20, width // 3))
     split_col = width - panel_width - 1
-    label = str(active_target.get("label") or active_target.get("path") or "Artefakt")[:panel_width - 8]
+    if has_target:
+        active_dict = active_target if isinstance(active_target, dict) else {}
+        label = str(active_dict.get("label") or active_dict.get("path") or "Artefakt")
+    else:
+        label = active_ch_id
+    label = label[:max(4, panel_width - 14)]
 
     # How many rows can we show? reserve last 2 rows for status/command
-    max_rows = min(10, len(lines) - 3)
+    max_rows = min(3 if ultra_compact else 12, len(lines) - 3)
     start_row = len(lines) - 2 - max_rows
 
     out = list(lines)
@@ -1577,12 +1621,28 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     panel: list[str] = []
     # header row
     hcol = (255, 205, 130)
+    llm_status = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
+    if llm_status.get("reachable"):
+        llm_label = f"● {str(llm_status.get('model') or 'LM')[:12]}"
+    else:
+        llm_label = "○ kein LLM" if not llm_status else "○ lokal"
+    unread_label = f" +{unread_count}" if unread_count else ""
     panel.append(
-        f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m AI · {label}\x1b[0m"
+        f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m AI · {label}{unread_label} · {llm_label}\x1b[0m"
     )
     panel.append("\x1b[38;2;60;60;80m" + "─" * panel_width + "\x1b[0m")
+    if chat_panel_open and not ultra_compact:
+        channel_line = "#room  AI  notes"
+        if active_ch_id == "room:main":
+            channel_line = "[#room] AI notes"
+        elif active_ch_id == "ai:tutor":
+            channel_line = "#room [AI] notes"
+        elif active_ch_id == "notes:self":
+            channel_line = "#room AI [notes]"
+        panel.append(f"\x1b[38;2;120;120;120m{channel_line[:panel_width]}\x1b[0m")
 
-    for msg in messages[-(max_rows):]:
+    message_budget = max(1, max_rows - (5 if focus_active else 2))
+    for msg in messages[-message_budget:]:
         source = str(msg.get("source") or "?")
         text = str(msg.get("text") or "").strip()
         if not text:
@@ -1595,7 +1655,7 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
             pref = "* "
         else:
             col = "\x1b[38;2;160;200;255m"
-            pref = f"{source[:6]}: "
+            pref = "▶ "
         # word-wrap
         words = (pref + text).split()
         row_buf = ""
@@ -1607,6 +1667,13 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
                 row_buf = (row_buf + " " + word).strip() if row_buf else word
         if row_buf:
             panel.append(f"{col}{row_buf}\x1b[0m")
+
+    if focus_active:
+        panel.append("\x1b[38;2;60;60;80m" + "─" * panel_width + "\x1b[0m")
+        cursor = "_" if int(time.time() * 2) % 2 == 0 else " "
+        prompt = "▶ "
+        visible_input = (input_text + cursor)[:max(1, panel_width - len(prompt) - 1)]
+        panel.append(f"\x1b[38;2;220;220;90m{prompt}{visible_input}\x1b[0m")
 
     # Overlay panel lines into output rows
     for i, pline in enumerate(panel[:max_rows]):
@@ -1666,6 +1733,14 @@ def _overlay_snake_ai_panel(
     hcol = pal["head"]
 
     status_parts = [f"tutor-ai [{ai_color}]", depth]
+    llm_status = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
+    if llm_status.get("reachable"):
+        status_parts.append(f"● {str(llm_status.get('model') or 'LM')[:16]}")
+    else:
+        status_parts.append("○ kein LLM" if not llm_status else "○ lokal")
+    codecompass_status = str(game.get("codecompass_build_status") or "")
+    if codecompass_status:
+        status_parts.append(f"cc:{codecompass_status}")
     if paused:
         status_parts.append("⏸ paused")
     if tutorial_mode:
@@ -1867,17 +1942,24 @@ def _overlay_snake_chat_panel(
     # Separator between AI panel and Chat panel
     panel_lines.append("═" * panel_width)
 
-    # Header: channel name, visibility, unread
-    is_notes = ch_type == "notes"
-    header_color = (160, 100, 220) if is_notes else (100, 180, 255)
+    # Header: all channels, active channel and unread badges.
     focus_marker = "▶" if chat_focus else " "
-    visibility_marker = " local-only" if is_notes else ""
-    unread_str = f" +{unread_total}" if unread_total > 0 else ""
-    header_text = f"{focus_marker}CHAT {display_name[:14]}{visibility_marker}{unread_str}"
-    hcol = header_color
-    panel_lines.append(
-        f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m{header_text[:panel_width]}\x1b[0m"
-    )
+    compact = panel_width < 34
+    channel_labels: list[str] = []
+    for cid, short in [("room:main", "#"), ("ai:tutor", "AI"), ("notes:self", "N")]:
+        cdata = channels.get(cid) or {}
+        unread = int(cdata.get("unread") or 0)
+        badge = f"+{unread}" if unread else ""
+        label = short if compact else str(cdata.get("display_name") or cid).replace(" local-only", "")
+        text = f"[{label}{(' ' + badge) if badge else ''}]"
+        if cid == active_ch_id:
+            channel_labels.append(f"\x1b[1;38;2;100;180;255m{text}\x1b[0m")
+        elif unread:
+            channel_labels.append(f"\x1b[38;2;255;170;80m{text}\x1b[0m")
+        else:
+            channel_labels.append(f"\x1b[38;2;120;120;120m{text}\x1b[0m")
+    panel_lines.append(focus_marker + "CHAT " + " ".join(channel_labels))
+    panel_lines.append(f"\x1b[38;2;90;90;90mTab=Kanal c=Eingabe PgUp/Dn=Scroll Esc=raus\x1b[0m")
     if ai_typing:
         panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")
 
@@ -1885,6 +1967,9 @@ def _overlay_snake_chat_panel(
 
     # Messages
     msgs: list[dict] = list(ch.get("messages") or [])
+    partial = str(game.get("llm_streaming_partial") or "").strip()
+    if partial and active_ch_id == "ai:tutor":
+        msgs.append({"sender_id": "s-ai", "sender_kind": "ai", "text": partial, "delivery_state": "streaming"})
     available_rows = max(2, height - ai_rows - len(panel_lines) - 2)  # -2 for input line
     scroll_offset = int(chat.get("scroll_offset") or 0)
 
