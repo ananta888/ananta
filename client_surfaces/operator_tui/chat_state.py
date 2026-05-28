@@ -276,14 +276,15 @@ def get_active_channel(chat: dict[str, Any]) -> dict[str, Any] | None:
     return get_channel(chat, str(chat.get("active_channel") or "room:main"))
 
 
-def switch_channel(chat: dict[str, Any], channel_id: str) -> bool:
+def switch_channel(chat: dict[str, Any], channel_id: str, *, preserve_input: bool = False) -> bool:
     if channel_id not in (chat.get("channels") or {}):
         return False
     ch = chat["channels"][channel_id]
     ch["unread"] = 0
     chat["active_channel"] = channel_id
     chat["scroll_offset"] = 0
-    chat["chat_input_buffer"] = ""
+    if not preserve_input:
+        chat["chat_input_buffer"] = ""
     return True
 
 

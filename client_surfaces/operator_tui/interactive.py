@@ -249,6 +249,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._snake_message_mode_active():
                 self._snake_commit_message()
                 return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_send_message()
+                return
             if self._chat_focus_active():
                 self._chat_send_message()
                 return
@@ -280,6 +283,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._snake_message_mode_active():
                 self._snake_cancel_message()
                 return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_focus_leave(clear=False)
+                return
             if self._chat_focus_active():
                 self._chat_focus_leave()
                 return
@@ -292,6 +298,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             if self._snake_message_mode_active():
                 self._snake_message_backspace()
+                return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_backspace()
                 return
             if self._chat_focus_active():
                 self._chat_backspace()
@@ -347,6 +356,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("tab")
         def _(event) -> None:
+            if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
+                self._chat_cycle_channel()
+                return
             if self._snake_mode_active():
                 return
             if self.state.mode is OperatorMode.COMMAND:
@@ -358,6 +370,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command(" ")
+                return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_append(" ")
                 return
             if self._chat_focus_active():
                 self._chat_append(" ")
@@ -371,6 +386,29 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 return
             self._toggle_snake_mode()
+
+        @bindings.add("c-e")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            if self._snake_mode_active():
+                self._chat_focus_enter()
+                return
+            self._artifact_chat_focus_enter()
+
+        @bindings.add("c-g")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._toggle_chat_panel_open()
+
+        @bindings.add("c-l")
+        def _(event) -> None:
+            if self._chat_focus_active():
+                self._chat_clear_input()
+                return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_clear_input()
 
         @bindings.add("m")
         def _(event) -> None:
@@ -424,6 +462,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._snake_message_mode_active():
                 self._snake_message_append("c")
+                return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_append("c")
+                return
+            if not self._snake_mode_active() and self._chat_panel_available():
+                self._artifact_chat_focus_enter()
                 return
             if not self._snake_mode_active():
                 return
@@ -569,21 +613,33 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("+")
         def _(event) -> None:
             """Positive feedback for current snake heuristic behavior."""
+            if self._chat_focus_active() or self._artifact_chat_focus_active():
+                self._normal_or_text("+", lambda: None)
+                return
             self._snake_feedback(positive=True)
 
         @bindings.add("-")
         def _(event) -> None:
             """Negative feedback for current snake heuristic behavior."""
+            if self._chat_focus_active() or self._artifact_chat_focus_active():
+                self._normal_or_text("-", lambda: None)
+                return
             self._snake_feedback(positive=False)
 
         @bindings.add("R")   # Shift+r — rollback (r is already :refresh)
         def _(event) -> None:
             """Rollback current auto-promoted snake heuristic."""
+            if self._chat_focus_active() or self._artifact_chat_focus_active():
+                self._normal_or_text("R", lambda: None)
+                return
             self._snake_rollback_heuristic()
 
         @bindings.add("P")   # Shift+p — pin (p is already :prev)
         def _(event) -> None:
             """Pin current heuristic — prevent automatic replacement."""
+            if self._chat_focus_active() or self._artifact_chat_focus_active():
+                self._normal_or_text("P", lambda: None)
+                return
             self._snake_pin_heuristic()
 
         @bindings.add("<any>")
@@ -592,6 +648,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
                     self._snake_message_append(data)
+                return
+            if self._artifact_chat_focus_active():
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._artifact_chat_append(data)
                 return
             if self._chat_focus_active():
                 data = event.key_sequence[0].data
@@ -623,6 +684,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._chat_focus_active():
                 self._chat_scroll(1)
 
+        @bindings.add("escape", "1")
+        def _(event) -> None:
+            self._chat_switch_channel("room:main")
+
+        @bindings.add("escape", "2")
+        def _(event) -> None:
+            self._chat_switch_channel("ai:tutor")
+
+        @bindings.add("escape", "3")
+        def _(event) -> None:
+            self._chat_switch_channel("notes:self")
+
         @bindings.add(Keys.Vt100MouseEvent)
         def _(event) -> None:
             game = dict(self.state.header_logo_game or {})
@@ -648,6 +721,56 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game = self.state.header_logo_game or {}
         chat_raw = game.get("chat_state")
         return isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus")) and self._snake_mode_active()
+
+    def _chat_panel_available(self) -> bool:
+        game = self.state.header_logo_game or {}
+        artifact_chat = game.get("artifact_chat_state")
+        return bool(game.get("chat_panel_open")) or (
+            isinstance(artifact_chat, dict) and isinstance(artifact_chat.get("active_target"), dict)
+        )
+
+    def _artifact_chat_focus_active(self) -> bool:
+        game = self.state.header_logo_game or {}
+        return bool(game.get("artifact_chat_focus")) and not self._snake_mode_active()
+
+    def _toggle_chat_panel_open(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        game["chat_panel_open"] = not bool(game.get("chat_panel_open"))
+        if not game["chat_panel_open"]:
+            game["artifact_chat_focus"] = False
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message="chat panel: an" if game["chat_panel_open"] else "chat panel: aus",
+            )
+        )
+
+    def _chat_cycle_channel(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+        chat = get_chat_state(game)
+        channels = list((chat.get("channels") or {}).keys())
+        preferred = [ch for ch in ["room:main", "ai:tutor", "notes:self"] if ch in channels]
+        ordered = preferred + [ch for ch in channels if ch not in preferred and ch != "system"]
+        if not ordered:
+            return
+        current = str(chat.get("active_channel") or ordered[0])
+        try:
+            idx = ordered.index(current)
+        except ValueError:
+            idx = -1
+        next_id = ordered[(idx + 1) % len(ordered)]
+        switch_channel(chat, next_id, preserve_input=True)
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"kanal: {next_id}"))
+
+    def _chat_switch_channel(self, channel_id: str) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+        chat = get_chat_state(game)
+        if switch_channel(chat, channel_id, preserve_input=True):
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"kanal: {channel_id}"))
 
     def _chat_focus_enter(self) -> None:
         game = dict(self.state.header_logo_game or {})
@@ -685,6 +808,86 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game))
 
+    def _chat_clear_input(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+        chat = get_chat_state(game)
+        chat["chat_input_buffer"] = ""
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: input cleared"))
+
+    def _artifact_chat_focus_enter(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        if not self._chat_panel_available():
+            return
+        game["artifact_chat_focus"] = True
+        game.setdefault("artifact_chat_input", "")
+        game["chat_panel_open"] = True
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: focus"))
+
+    def _artifact_chat_focus_leave(self, *, clear: bool = False) -> None:
+        game = dict(self.state.header_logo_game or {})
+        game["artifact_chat_focus"] = False
+        if clear:
+            game["artifact_chat_input"] = ""
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: closed"))
+
+    def _artifact_chat_append(self, ch: str) -> None:
+        game = dict(self.state.header_logo_game or {})
+        buf = str(game.get("artifact_chat_input") or "")
+        game["artifact_chat_input"] = (buf + ch)[:500]
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _artifact_chat_backspace(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        buf = str(game.get("artifact_chat_input") or "")
+        game["artifact_chat_input"] = buf[:-1]
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _artifact_chat_clear_input(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        game["artifact_chat_input"] = ""
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: input cleared"))
+
+    def _artifact_chat_send_message(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        text = str(game.get("artifact_chat_input") or "").strip()
+        if not text:
+            return
+        game["artifact_chat_input"] = ""
+        artifact_chat = dict(game.get("artifact_chat_state") or {})
+        messages = [dict(m) for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
+        messages.append({"at": time.time(), "source": "user", "text": text})
+        artifact_chat["messages"] = messages[-12:]
+        game["artifact_chat_state"] = artifact_chat
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel, append_message, make_message
+        chat = get_chat_state(game)
+        switch_channel(chat, "ai:tutor", preserve_input=True)
+        msg = make_message(
+            channel_id="ai:tutor",
+            channel_type="ai",
+            sender_id=str(game.get("local_snake_id") or "s1"),
+            sender_kind="user",
+            text=text,
+            visibility="ai_context",
+            delivery_state="sent",
+        )
+        append_message(chat, msg)
+        set_chat_state(game, chat)
+        game["tutor_ask_question"] = text
+        game["tutor_ask_at"] = time.monotonic()
+        game["tutor_ask_answered"] = False
+        game["_ask_submitted"] = False
+        game["paused"] = True
+        game["active"] = True
+        game["alive"] = True
+        game["tutorial_mode"] = True
+        game["ui_steering"] = False
+        game["free_mode"] = False
+        chat["ai_typing"] = True
+        set_chat_state(game, chat)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"ask: {text[:40]}"))
+
     def _chat_scroll(self, delta: int) -> None:
         game = dict(self.state.header_logo_game or {})
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
@@ -697,6 +900,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _normal_or_text(self, text: str, normal_action) -> None:
         if self._snake_message_mode_active():
             self._snake_message_append(text)
+            return
+        if self._artifact_chat_focus_active():
+            self._artifact_chat_append(text)
             return
         if self.state.mode is OperatorMode.COMMAND:
             self._append_command(text)

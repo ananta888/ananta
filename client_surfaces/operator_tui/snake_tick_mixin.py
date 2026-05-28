@@ -73,6 +73,7 @@ class SnakeTickMixin:
         if not self.state.header_logo_game:
             self.state = self.state.with_updates(header_logo_game=self._default_header_snake())
         game = dict(self.state.header_logo_game)  # type: ignore[arg-type]
+        self._maybe_tick_llm_health(game, now=time.monotonic())
         # Allow tick when: in HEADER focus, OR ui_steering on, OR tutorial AI is running
         if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering") and not game.get("tutorial_mode"):
             return

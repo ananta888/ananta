@@ -19,7 +19,7 @@ from client_surfaces.operator_tui.models import FocusPane, OperatorMode, Operato
 from client_surfaces.operator_tui.performance import measure
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
 from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
-from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
+from client_surfaces.operator_tui.renderer import _overlay_artifact_chat_compact, _overlay_fullscreen_snake, render_operator_shell
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
@@ -1635,3 +1635,123 @@ def test_snake_hover_selection_uses_delay_before_selecting_nav() -> None:
     assert s1.focus is FocusPane.HEADER
     assert s2.focus is FocusPane.HEADER
     assert s3.focus is FocusPane.NAVIGATION
+
+
+def test_chat_rag_question_tokens_and_name_lookup_prefer_function_detail(tmp_path: Path) -> None:
+    out_dir = tmp_path / "rag-out"
+    out_dir.mkdir()
+    (out_dir / "index.jsonl").write_text(
+        json.dumps({"kind": "function", "file": "src/unrelated.py", "name": "toggle_misc"}) + "\n",
+        encoding="utf-8",
+    )
+    details = [
+        {"kind": "function", "file": "src/unrelated.py", "name": "other"},
+        {"kind": "function", "file": "client_surfaces/operator_tui/snake_ops_mixin.py", "name": "_toggle_snake_mode"},
+        {"kind": "class", "file": "client_surfaces/operator_tui/snake_ops_mixin.py", "name": "SnakeOpsMixin"},
+    ]
+    (out_dir / "details.jsonl").write_text("\n".join(json.dumps(d) for d in details) + "\n", encoding="utf-8")
+
+    from client_surfaces.operator_tui.tutorial_ai_mixin import _load_rag_context_from_dir
+
+    context = _load_rag_context_from_dir(out_dir, ["toggle", "snake", "mode"], 5, 1, scope_filter="full")
+    joined = "\n".join(context)
+
+    assert context
+    assert "snake_ops_mixin.py" in context[0]
+    assert "_toggle_snake_mode" in joined
+
+    class_context = _load_rag_context_from_dir(out_dir, ["snakeopsmixin"], 5, 1, scope_filter="full")
+    assert "SnakeOpsMixin" in "\n".join(class_context)
+
+
+def test_chat_llm_prompt_honors_context_char_opt_out_and_prior_messages(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+    captured: dict[str, object] = {}
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
+
+    def _fake_urlopen(req, timeout):
+        captured["body"] = json.loads(req.data.decode())
+        return _Resp()
+
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://lmstudio.test/v1")
+    monkeypatch.setenv("ANANTA_TUI_CHAT_CONTEXT_CHARS", "500")
+    monkeypatch.setenv("ANANTA_TUI_CHAT_STREAMING", "0")
+    monkeypatch.setattr("client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", _fake_urlopen)
+
+    answer = tui._tutorial_ai_llm_ask(
+        question="und was bedeutet das?",
+        context_text="x" * 900,
+        depth="deep",
+        prior_messages=[{"role": "assistant", "content": "vorherige antwort"}],
+    )
+
+    assert answer == "ok"
+    body = captured["body"]
+    assert isinstance(body, dict)
+    messages = body["messages"]
+    assert messages[0]["role"] == "system"
+    assert messages[0]["content"].count("x") == 500
+    assert {"role": "assistant", "content": "vorherige antwort"} in messages
+    assert body["max_tokens"] >= 400
+
+
+def test_chat_channel_cycle_preserves_input_buffer() -> None:
+    game = {"active": True, "alive": True, "ui_steering": True}
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui._chat_focus_enter()
+    tui._chat_append("abc")
+
+    tui._chat_cycle_channel()
+
+    chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
+    assert chat.get("active_channel") == "ai:tutor"
+    assert chat.get("chat_input_buffer") == "abc"
+
+
+def test_compact_artifact_chat_input_sends_ai_question() -> None:
+    game = {
+        "artifact_chat_state": {
+            "active_target": {"kind": "file", "label": "sample.py", "path": "sample.py", "id": "sample"},
+            "messages": [],
+        },
+        "chat_panel_open": True,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui._artifact_chat_focus_enter()
+    tui._artifact_chat_append("Was macht das?")
+    tui._artifact_chat_send_message()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("tutor_ask_question") == "Was macht das?"
+    assert updated.get("tutorial_mode") is True
+    artifact_messages = ((updated.get("artifact_chat_state") or {}).get("messages") or [])
+    assert artifact_messages[-1]["source"] == "user"
+
+
+def test_compact_overlay_renders_at_72_columns() -> None:
+    game = {
+        "artifact_chat_state": {
+            "active_target": {"kind": "file", "label": "sample.py", "path": "sample.py"},
+            "messages": [{"source": "ai", "text": "Kurze Antwort fuer schmales Terminal"}],
+        }
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+    lines = [" " * 72 for _ in range(14)]
+
+    out = _overlay_artifact_chat_compact(lines, state, width=72)
+    plain = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in out)
+
+    assert "AI" in plain
+    assert "Kurze" in plain
