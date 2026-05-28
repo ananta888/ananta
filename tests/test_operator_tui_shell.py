@@ -2035,6 +2035,68 @@ def test_toggle_snake_mode_preserves_tutorial_setting() -> None:
     assert on_state.get("ui_steering") is True
 
 
+def test_toggle_tutorial_ai_mode_removes_visual_ai_snake_immediately() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": False,
+        "free_mode": False,
+        "tutorial_mode": True,
+        "snakes": {
+            "s1": {"id": "s1", "pseudonym": "local", "snake": [(1, 1)]},
+            "s-ai": {"id": "s-ai", "pseudonym": "tutor-ai", "snake": [(2, 2)]},
+        },
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._toggle_tutorial_ai_mode()
+
+    updated = tui.state.header_logo_game or {}
+    snakes = dict(updated.get("snakes") or {})
+    assert updated.get("tutorial_mode") is False
+    assert "s-ai" not in snakes
+    assert "visual ai-snake: aus" in str(tui.state.status_message or "")
+
+
+def test_status_line_shows_visual_ai_mode_marker() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"tutorial_mode": False})
+    output = render_operator_shell(state, width=96, height=20)
+    assert "VAI:off" in output
+
+
+def test_ai_snake_config_panel_toggles_in_middle_content() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"tutorial_mode": True})
+    tui = InteractiveOperatorTui(state)
+
+    tui._toggle_ai_snake_config_panel()
+    output_open = render_operator_shell(tui.state, width=110, height=24)
+    assert "AI-SNAKE CONFIG" in output_open
+    assert "CFG:on" in output_open
+
+    tui._toggle_ai_snake_config_panel()
+    output_closed = render_operator_shell(tui.state, width=110, height=24)
+    assert "CFG:on" not in output_closed
+
+
+def test_ai_snake_config_selected_can_disable_visual_ai() -> None:
+    game = {
+        "tutorial_mode": True,
+        "ai_snake_config_open": True,
+        "snakes": {"s-ai": {"id": "s-ai", "pseudonym": "tutor-ai"}},
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=0, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=0)
+
+    tui._toggle_ai_snake_config_selected()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("tutorial_mode") is False
+    assert "s-ai" not in dict(updated.get("snakes") or {})
+
+
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)

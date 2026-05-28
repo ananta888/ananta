@@ -12,6 +12,7 @@ from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_
 from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
 from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -511,6 +512,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
 
     if bool(game.get("shortcut_help_middle_open")):
         return _content_shortcut_lines(state, width)
+    if bool(game.get("ai_snake_config_open")):
+        return _content_ai_snake_config_lines(state, width)
 
     if panel_state == PanelState.LOADING:
         lines.append("  loading...")
@@ -598,6 +601,26 @@ def _content_shortcut_lines(state: OperatorState, width: int) -> list[str]:
     lines.append("    // im Chat-Input: Shortcut-Ansicht ein/aus")
     lines.append("    /  im Chat-Input: Command-Modus")
     lines.append("    :  normal: Command-Modus")
+    return [_clip(line, width) for line in lines]
+
+
+def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    lines = [_pane_title("AI-SNAKE CONFIG", state.focus == FocusPane.CONTENT)]
+    lines.append("  Visual + Chat getrennt konfigurieren")
+    lines.append("  Enter/Click toggelt Feld | Auswahl mit Ctrl+J/K")
+    lines.append("")
+    items = ai_snake_config_items(dict(game))
+    selected = max(0, int(state.selected_index))
+    for idx, item in enumerate(items):
+        marker = DEFAULT_THEME.selected_prefix if idx == selected else " "
+        label = str(item.get("label") or item.get("key") or f"item-{idx}")
+        value = item.get("value")
+        value_text = ("AN" if value else "AUS") if isinstance(value, bool) else str(value or "-")
+        lines.append(f"{marker} {label:<22} {value_text}")
+    lines.append("")
+    lines.append(f"  {display_for_action('toggle_ai_snake_config', 'F6')} Config ein/aus")
+    lines.append(f"  {display_for_action('toggle_tutorial_ai', 'Ctrl+U')} Visual AI hart an/aus")
     return [_clip(line, width) for line in lines]
 
 
@@ -1602,6 +1625,8 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
     if splash_state:
         parts.append(f"splash={splash_state}")
     parts.append("VAI:on" if bool(game.get("tutorial_mode")) else "VAI:off")
+    if bool(game.get("ai_snake_config_open")):
+        parts.append("CFG:on")
     if bool(game.get("chat_panel_open")):
         parts.append("[C]")
     try:
