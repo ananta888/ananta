@@ -1896,6 +1896,29 @@ def test_ai_chat_send_does_not_pause_snake() -> None:
     assert updated.get("_ask_submitted") is False
 
 
+def test_chat_double_slash_toggles_middle_shortcuts() -> None:
+    game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui._chat_focus_enter()
+    tui._chat_append("/")
+    tui._chat_append("/")
+
+    tui._chat_send_message()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("shortcut_help_middle_open") is True
+    assert updated.get("tutor_ask_question") is None
+
+    tui._chat_focus_enter()
+    tui._chat_append("/")
+    tui._chat_append("/")
+    tui._chat_send_message()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("shortcut_help_middle_open") is False
+
+
 def test_llm_ask_uses_lmstudio_defaults_without_explicit_env(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)

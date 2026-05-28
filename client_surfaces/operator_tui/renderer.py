@@ -506,7 +506,11 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     section = get_section(state.section_id)
     panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
     payload = (state.section_payloads or {}).get(section.id, {})
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     lines = [_pane_title(section.title.upper(), state.focus == FocusPane.CONTENT)]
+
+    if bool(game.get("shortcut_help_middle_open")):
+        return _content_shortcut_lines(state, width)
 
     if panel_state == PanelState.LOADING:
         lines.append("  loading...")
@@ -583,6 +587,18 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
         lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=max_lines))
 
     return lines
+
+
+def _content_shortcut_lines(state: OperatorState, width: int) -> list[str]:
+    lines = [_pane_title("SHORTCUTS", state.focus == FocusPane.CONTENT)]
+    for combo, label in shortcut_tokens_for_area("shortcuts"):
+        lines.append(f"  {combo} {label}")
+    lines.append("")
+    lines.append("  Chat:")
+    lines.append("    // im Chat-Input: Shortcut-Ansicht ein/aus")
+    lines.append("    /  im Chat-Input: Command-Modus")
+    lines.append("    :  normal: Command-Modus")
+    return [_clip(line, width) for line in lines]
 
 
 def _dashboard_content_lines(payload: dict, *, state: OperatorState | None = None, width: int = 72) -> list[str]:
