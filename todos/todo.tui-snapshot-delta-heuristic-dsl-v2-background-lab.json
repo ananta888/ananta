@@ -1,0 +1,1244 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "tui-snapshot-delta-heuristic-dsl-v2-background-lab",
+  "created_at": "2026-05-28",
+  "status": "todo",
+  "purpose": "Die AI-Snake soll nicht direkt durch LLM-Antworten gesteuert werden. Stattdessen läuft die TUI immer flüssig und deterministisch, während ein Hintergrundsystem vollständige TUI-Snapshots und Deltas analysiert, LLM-gestützt neue Heuristiken als mächtige DSL erzeugt, simuliert, bewertet und nur kontrolliert als experimentelle oder aktive Heuristiken in den Snake-Entscheidungspfad bringt.",
+  "goal": "Render-/Input-Pfad und LLM-Pfad strikt entkoppeln. Der sichtbare TUI-Bereich wird ähnlich wie im asciinema cast als Zellen-/Semantik-Snapshot erfasst. Deltas werden effizient gespeichert. Eine neue heuristic_dsl.v2 beschreibt komplexe Beobachtungen, Pattern, Scoring, Zielwahl, Motion-Vorschläge, TTL/Lease-Regeln und Sicherheitsgrenzen. LLMs dürfen nur Heuristik-Kandidaten erzeugen oder verbessern; die Snake-Bewegung selbst bleibt zur Laufzeit deterministisch, schnell und capability-begrenzt.",
+  "non_goals": [
+    "Keine direkten LLM-Aufrufe im TUI-Render-Loop.",
+    "Keine direkte LLM-Steuerung von Snake-Koordinaten im sichtbaren UI-Pfad.",
+    "Keine ungeprüfte Aktivierung von Kandidaten als stable active Heuristik.",
+    "Keine Inline-Python-Codeausführung aus DSL/JSON/YAML.",
+    "Keine Erlaubnis für Netzwerk-, Secret- oder Dateischreibzugriffe in Snake-Motion-Heuristiken."
+  ],
+  "current_state_summary": {
+    "decision_context": "agent/services/heuristic_runtime/decision_context.py enthält aktuell nur grobe Felder wie source_surface, ai_status, active_goal_id, selected_artifacts, active_panel und recent_events. Zellmatrix, Dirty Regions, Panel-Bounding-Boxes, Mouse-Pfad und sichtbarer Text fehlen noch.",
+    "heuristic_schema": "schemas/heuristic/heuristic_definition.v1.json kennt declarative_rules, python_strategy und composite_chain, aber nur einfache Trigger und Actions. Für TUI-Snapshot-Analyse reicht das nicht.",
+    "cast_recording": "scripts/e2e/record_tui_demo.py kann Demo-Casts rendern und in snake-mode-live-e2e echte PTY-Ausgabe als asciinema v2 Events aufzeichnen. Semantische Snapshots/Deltas werden noch nicht parallel geschrieben.",
+    "policy": "heuristics/FORMAT_POLICY.md verlangt für active Heuristiken Validation, Simulation und Human Approval. Für gewünschtes automatisches Ausprobieren braucht es einen getrennten experimental_live Modus mit harten Grenzen."
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "related_files": [
+    "agent/services/heuristic_runtime/decision_context.py",
+    "agent/services/heuristic_runtime/snake_decision_manager.py",
+    "agent/services/heuristic_runtime/lease_reevaluation_service.py",
+    "agent/services/heuristic_runtime/heuristic_registry_service.py",
+    "agent/services/heuristic_runtime/heuristic_catalog_validator.py",
+    "schemas/heuristic/heuristic_definition.v1.json",
+    "heuristics/FORMAT_POLICY.md",
+    "heuristics/index.json",
+    "heuristics/python_strategy_bindings.json",
+    "scripts/e2e/record_tui_demo.py",
+    "tests/e2e/test_tui_snake_lmstudio_heuristic_cast.py",
+    "client_surfaces/operator_tui/renderer.py"
+  ],
+  "design_principles": [
+    "Fast path first: TUI, Input, Rendering und Snake-Motion dürfen nie auf ein LLM warten.",
+    "LLM produces heuristics, not motion: LLM erzeugt DSL-Kandidaten, Erklärungen und Auswertungen, aber keine direkte Bewegung im UI-Pfad.",
+    "Deterministic runtime: geladene Snake-Heuristiken laufen deterministisch auf Snapshots/Deltas.",
+    "Shadow before influence: neue Heuristiken laufen zuerst im Shadow Mode gegen echte Snapshots/Casts.",
+    "Experimental is not stable: auto-experimentelle Kandidaten dürfen zeitlich begrenzt getestet werden, aber nicht automatisch stable active werden.",
+    "Observable and reversible: jede Entscheidung, Lease, Kandidatenversion und Simulation bekommt Trace/Audit-Daten.",
+    "Least privilege: Snake-Heuristiken bleiben ui_motion_only oder readonly und haben keinen Netzwerk-/Secret-/File-Write-Zugriff."
+  ],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Ist-Zustand absichern und Regression-Baseline schaffen",
+      "status": "todo",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03"
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "TUI Snapshot- und Delta-Pipeline einführen",
+      "status": "todo",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04",
+        "T02.05",
+        "T02.06"
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "DecisionContext v2 für sichtbaren TUI-Bereich erweitern",
+      "status": "todo",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04"
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "heuristic_dsl.v2 entwerfen und validieren",
+      "status": "todo",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04",
+        "T04.05",
+        "T04.06"
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "Deterministische DSL Runtime und Motion Planner bauen",
+      "status": "todo",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03",
+        "T05.04",
+        "T05.05"
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "Background LLM Heuristic Lab implementieren",
+      "status": "todo",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03",
+        "T06.04",
+        "T06.05",
+        "T06.06"
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "Experimental Live Modus mit Safety Gates einführen",
+      "status": "todo",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04",
+        "T07.05"
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "Cast-/Snapshot-E2E und Qualitätsmetriken",
+      "status": "todo",
+      "task_ids": [
+        "T08.01",
+        "T08.02",
+        "T08.03",
+        "T08.04",
+        "T08.05"
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "Dokumentation und Betriebsmodi",
+      "status": "todo",
+      "task_ids": [
+        "T09.01",
+        "T09.02",
+        "T09.03"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Aktuellen AI-Snake/Heuristik-Ist-Zustand als Architektur-Notiz festhalten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "documentation",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "target_files": [
+        "docs/architecture/tui-snake-background-heuristics.md",
+        "agent/services/heuristic_runtime/snake_decision_manager.py",
+        "agent/services/heuristic_runtime/decision_context.py",
+        "scripts/e2e/record_tui_demo.py"
+      ],
+      "acceptance_criteria": [
+        "Dokument beschreibt klar: LLM darf die Snake nicht direkt im Render-/Input-Pfad steuern.",
+        "Dokument nennt aktuelle Engstelle: DecisionContext enthält keine Zellmatrix, Dirty Regions oder TUI-Semantik.",
+        "Dokument unterscheidet gerenderte Demo-Casts und echte PTY-E2E-Casts.",
+        "Dokument enthält mindestens ein Mermaid-Diagramm für Fast Path vs. Background Heuristic Lab.",
+        "Dokument referenziert relevante Code-Dateien und beschreibt, welche davon geändert werden müssen."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T01.02",
+      "title": "Bestehende Tests für Cast, Heuristik-Registry und SnakeDecisionManager als Regression-Baseline markieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "testing",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "target_files": [
+        "tests/e2e/test_tui_snake_lmstudio_heuristic_cast.py",
+        "tests/",
+        "agent/services/heuristic_runtime/"
+      ],
+      "acceptance_criteria": [
+        "Vor Änderungen laufen bestehende Tests für heuristic runtime und TUI cast unverändert oder bekannte Ausnahmen sind dokumentiert.",
+        "Testausgabe hält fest, ob snake-lmstudio-heuristic nur gerendert/simuliert ist.",
+        "Live-LMStudio-Test bleibt optional und wird nur mit ANANTA_E2E_LIVE_LMSTUDIO=1 ausgeführt.",
+        "Keine neue Änderung macht den existierenden gerenderten Cast kaputt.",
+        "CI/Local-Testanweisung ist im TODO-Umsetzungsdokument hinterlegt."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T01.03",
+      "title": "Technische Begriffe vereinheitlichen: snapshot, delta, semantic overlay, heuristic candidate, experimental_live",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "documentation",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "target_files": [
+        "docs/architecture/tui-snake-background-heuristics.md",
+        "heuristics/FORMAT_POLICY.md"
+      ],
+      "acceptance_criteria": [
+        "Begriffe sind in einem Glossar definiert.",
+        "experimental_live ist klar von active und candidate getrennt.",
+        "semantic overlay beschreibt Panels, Artifacts, Mouse, Focus und sichtbare Tokens.",
+        "delta meint nicht nur asciinema output chunk, sondern Änderung gegenüber vorherigem Screen Snapshot.",
+        "Glossar wird in späteren DSL- und Snapshot-Dokumenten wiederverwendet."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T02.01",
+      "title": "CellGrid-Modell für terminalweiten TUI-Snapshot einführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "model",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T01.01"
+      ],
+      "target_files": [
+        "client_surfaces/operator_tui/snapshot.py",
+        "schemas/tui/tui_snapshot.v1.json",
+        "tests/operator_tui/test_tui_snapshot_grid.py"
+      ],
+      "acceptance_criteria": [
+        "Ein Snapshot enthält width, height, cells, timestamp, screen_hash und optional style Attribute.",
+        "Cells enthalten mindestens x, y, char und optional fg/bg/bold/inverse.",
+        "ANSI-freie gerenderte Screens aus render_operator_shell können in ein CellGrid normalisiert werden.",
+        "CellGrid Hash ist deterministisch für identische Screens.",
+        "Tests prüfen leere Screens, Unicode-Zeichen, breite Zeichen soweit unterstützt und feste 120x32 Screens."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T02.02",
+      "title": "ANSI/PTTY-Ausgabe aus snake-mode-live-e2e in Snapshot-Frames rekonstruieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "capture",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "target_files": [
+        "scripts/e2e/record_tui_demo.py",
+        "client_surfaces/operator_tui/ansi_replay.py",
+        "tests/e2e/test_tui_cast_snapshot_replay.py"
+      ],
+      "acceptance_criteria": [
+        "Echte PTY-Output-Chunks werden zusätzlich zum asciinema cast durch einen ANSI-Replay-State geführt.",
+        "Replay-State erzeugt vollständige CellGrid-Snapshots nach Output-Events.",
+        "Asciinema-v2-Ausgabe bleibt kompatibel und wird nicht durch Snapshot-JSON ersetzt.",
+        "Fehlerhafte oder unbekannte ANSI-Sequenzen führen nicht zum Abbruch, sondern zu warnings im Snapshot-Metadatenfeld.",
+        "Test nutzt einen kleinen ANSI-Fixture mit Clear-Screen, Cursor-Move und Text-Update."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T02.03",
+      "title": "DeltaEncoder für Snapshot-Unterschiede implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "performance",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "target_files": [
+        "client_surfaces/operator_tui/snapshot_delta.py",
+        "schemas/tui/tui_delta.v1.json",
+        "tests/operator_tui/test_tui_snapshot_delta.py"
+      ],
+      "acceptance_criteria": [
+        "Delta enthält previous_hash, current_hash, changed_cells, changed_lines und dirty_regions.",
+        "Dirty Regions werden aus zusammenhängenden Zelländerungen gebildet.",
+        "Unveränderter Screen erzeugt leeres Delta mit changed_cell_count=0.",
+        "Delta kann auf vorherigen Snapshot angewendet werden und erzeugt exakt den aktuellen Snapshot.",
+        "Tests prüfen einzelne Zeichenänderung, ganze Zeilenänderung, mehrere Rechtecke und Clear-Screen."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T02.04",
+      "title": "Block-/Line-Hashing für effiziente Cast-Optimierung ergänzen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "performance",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.03"
+      ],
+      "target_files": [
+        "client_surfaces/operator_tui/snapshot_delta.py",
+        "tests/operator_tui/test_tui_delta_hashing.py"
+      ],
+      "acceptance_criteria": [
+        "Jede Zeile bekommt einen line_hash.",
+        "Konfigurierbare Blockgröße z. B. 8x4 erzeugt block_hashes.",
+        "DeltaEncoder nutzt line_hash/block_hash, um große unveränderte Bereiche nicht zellweise zu vergleichen.",
+        "Performance-Test mit 120x32 und 220x80 Screens bleibt unter einer dokumentierten lokalen Grenzzeit.",
+        "Hashing ist deterministisch und unabhängig von Dictionary-Reihenfolge."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T02.05",
+      "title": "Parallele Snapshot-/Delta-Artefakte neben Cast schreiben",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "artifact",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.02",
+        "T02.03"
+      ],
+      "target_files": [
+        "scripts/e2e/record_tui_demo.py",
+        "scripts/e2e/e2e_artifacts.py",
+        "tests/e2e/test_tui_cast_snapshot_artifacts.py"
+      ],
+      "acceptance_criteria": [
+        "record_tui_demo kann neben video-tui-*.cast auch *.tui-snapshots.jsonl und *.tui-deltas.jsonl schreiben.",
+        "Feature ist per Env/Argument aktivierbar, ohne bestehende Cast-Tests zu brechen.",
+        "Jede JSONL-Zeile ist valides JSON und enthält frame_id, timestamp, hash und size.",
+        "Payload von record_tui_demo listet snapshot_ref und delta_ref, wenn erzeugt.",
+        "Synced web assets bleiben optional; große Snapshot-Artefakte werden nicht ungefragt in web/www/assets kopiert."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T02.06",
+      "title": "Semantic Overlay aus OperatorState erzeugen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "semantic-model",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "target_files": [
+        "client_surfaces/operator_tui/semantic_overlay.py",
+        "client_surfaces/operator_tui/models.py",
+        "tests/operator_tui/test_semantic_overlay.py"
+      ],
+      "acceptance_criteria": [
+        "Semantic Overlay enthält Panels mit bbox, active_panel, section_id und selected_index.",
+        "Navigationseinträge, sichtbare Artefakte und Chat-/Detailbereiche bekommen stabile semantic_id Werte.",
+        "Mouse-State und Snake-Positionen werden als separate Entities abgebildet.",
+        "Overlay kann aus header_logo_game und OperatorState-Daten erzeugt werden, ohne Renderer intern zu hacken.",
+        "Tests prüfen GOALS/TASKS/NAV/CONTENT/DETAIL-Bereiche mit festen Bounding Boxes oder stabilen Näherungen."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T03.01",
+      "title": "DecisionContext v2 um tui_snapshot_ref, tui_delta_ref und semantic_overlay erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "context",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T02.05",
+        "T02.06"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/decision_context.py",
+        "schemas/heuristic/decision_context.v2.json",
+        "tests/heuristic_runtime/test_decision_context_v2.py"
+      ],
+      "acceptance_criteria": [
+        "DecisionContext behält v1-Felder rückwärtskompatibel bei.",
+        "Neue Felder enthalten keine vollständigen riesigen Snapshots per Default, sondern Referenzen/kompakte Zusammenfassungen.",
+        "context_hash berücksichtigt screen_hash, semantic_hash und relevante Delta-Metadaten, aber nicht volatile timestamps.",
+        "build_from_tui_state kann Snapshot-/Delta-/Overlay-Daten entgegennehmen.",
+        "Tests prüfen Hash-Stabilität und Änderung bei Fokus-/Screen-/Artifact-Wechsel."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T03.02",
+      "title": "TuiObservationBuffer für letzte N Snapshots/Deltas einführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "runtime",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/tui_observation_buffer.py",
+        "tests/heuristic_runtime/test_tui_observation_buffer.py"
+      ],
+      "acceptance_criteria": [
+        "Buffer hält konfigurierbar z. B. letzte 20 Snapshots und 100 Deltas.",
+        "Buffer kann nach frame_id, screen_hash und Zeitfenster abfragen.",
+        "Buffer begrenzt Speicherverbrauch und verwirft alte Frames deterministisch.",
+        "Buffer liefert kompakte llm_observation_pack Daten für Hintergrundanalyse.",
+        "Tests prüfen Ringbuffer-Verhalten und deterministische Reihenfolge."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T03.03",
+      "title": "DecisionTrace um Snapshot-/Heuristik-Versuchs-Kontext erweitern",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "trace",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/decision_trace.py",
+        "agent/repositories/decision_trace_repo.py",
+        "tests/heuristic_runtime/test_decision_trace_snapshot_refs.py"
+      ],
+      "acceptance_criteria": [
+        "Trace speichert optional snapshot_hash, delta_hash, semantic_hash und heuristic_experiment_id.",
+        "Trace-Persistenz bleibt best-effort und blockiert keine UI-Entscheidung.",
+        "Bestehende Trace-Daten bleiben lesbar.",
+        "Tests prüfen, dass fehlende Snapshot-Felder erlaubt sind.",
+        "Trace-Ausgabe ist ausreichend, um eine Snake-Entscheidung später gegen den Snapshot zu reproduzieren."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T03.04",
+      "title": "Fast-Path-Konfiguration erzwingen: LLM-Aufrufe im TUI-Pfad verhindern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "safety",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/snake_decision_manager.py",
+        "agent/services/heuristic_runtime/lease_reevaluation_service.py",
+        "tests/heuristic_runtime/test_no_llm_in_fast_path.py"
+      ],
+      "acceptance_criteria": [
+        "SnakeDecisionManager ruft keine Netzwerk-/LLM-Clients direkt auf.",
+        "Tests verwenden Monkeypatch/Spy, um sicherzustellen, dass bei decide(ctx) kein OpenAI-/LMStudio-/HTTP-Aufruf erfolgt.",
+        "ai_status darf den Zustand beeinflussen, aber keine synchrone LLM-Wartezeit im UI-Pfad auslösen.",
+        "Fallback bleibt deterministisch bei timeout/offline.",
+        "Dokumentation nennt diese Regel als harte Architekturgrenze."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T04.01",
+      "title": "heuristic_dsl.v2 Schema entwerfen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "schema",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T03.01"
+      ],
+      "target_files": [
+        "schemas/heuristic/heuristic_dsl.v2.json",
+        "docs/architecture/heuristic-dsl-v2.md",
+        "tests/heuristic_runtime/test_heuristic_dsl_v2_schema.py"
+      ],
+      "acceptance_criteria": [
+        "Schema unterstützt observe, match, score, select, action, lease, safety, experiment und provenance.",
+        "Schema erlaubt TUI-spezifische Quellen wie tui.snapshot, tui.delta, tui.semantic, tui.mouse, tui.focus und tui.history.",
+        "Schema verbietet inline_code, shell commands, network_access, secret_access und file_write für tui_snake.",
+        "Schema ist JSON Schema validierbar und enthält mindestens drei Beispiel-Heuristiken.",
+        "Tests validieren gültige und ungültige DSL-Beispiele."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T04.02",
+      "title": "DSL-Ausdruckssprache für Match/Score definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "dsl",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/dsl/expression.py",
+        "docs/architecture/heuristic-dsl-v2.md",
+        "tests/heuristic_runtime/test_dsl_expressions.py"
+      ],
+      "acceptance_criteria": [
+        "Ausdruckssprache unterstützt all/any/not, Vergleichsoperatoren, contains, regex_safe, distance, intersects, changed_recently und direction_towards.",
+        "Regex ist zeit-/komplexitätsbegrenzt oder nutzt safe-regex-Regeln.",
+        "Keine eval/exec-Nutzung.",
+        "Ungültige Pfade im Kontext liefern definierte false/null Ergebnisse statt Exceptions im UI-Pfad.",
+        "Tests prüfen verschachtelte Regeln, fehlende Felder und verbotene Operatoren."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T04.03",
+      "title": "DSL Action-Modell für Snake-Ziele und Motion-Vorschläge erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "dsl",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "target_files": [
+        "schemas/heuristic/heuristic_dsl.v2.json",
+        "agent/services/heuristic_runtime/decision_result.py",
+        "tests/heuristic_runtime/test_dsl_motion_actions.py"
+      ],
+      "acceptance_criteria": [
+        "Actions unterstützen suggest_target, follow_artifact, lurk_near, smooth_follow, fast_target, explain_target und no_action.",
+        "Action kann target_cell, target_artifact_id, target_bbox, confidence und reason_codes liefern.",
+        "DecisionResult kann diese Felder aufnehmen, ohne alte heuristic_follow/heuristic_lurk Tests zu brechen.",
+        "Motion-Vorschläge enthalten max_step, min_distance und optional acceleration_limit.",
+        "Tests prüfen Mapping DSL Action -> DecisionResult."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T04.04",
+      "title": "TTL-/Lease-Semantik für DSL v2 definieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "dsl",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "target_files": [
+        "schemas/heuristic/heuristic_dsl.v2.json",
+        "agent/services/heuristic_runtime/lease_reevaluation_service.py",
+        "tests/heuristic_runtime/test_dsl_lease_policy.py"
+      ],
+      "acceptance_criteria": [
+        "DSL kann ttl_seconds, min/max TTL und refresh_on Bedingungen beschreiben.",
+        "refresh_on unterstützt screen_hash_changed, semantic_target_changed, mouse_direction_changed, focus_changed und artifact_visibility_changed.",
+        "LeaseReevaluationService kann DSL-Policy berücksichtigen oder sauber als TODO-Kompatibilitätsschicht dokumentieren.",
+        "TTL für experimental_live ist hart begrenzt, z. B. 5-20 Sekunden.",
+        "Tests prüfen TTL-Grenzen und Kontextwechsel."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T04.05",
+      "title": "HeuristicDefinition v1 kompatibel um dsl_v2 Runtime Mode erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "target_files": [
+        "schemas/heuristic/heuristic_definition.v1.json",
+        "agent/services/heuristic_runtime/heuristic_catalog_validator.py",
+        "heuristics/FORMAT_POLICY.md"
+      ],
+      "acceptance_criteria": [
+        "runtime.mode akzeptiert zusätzlich dsl_v2 oder es wird eine neue heuristic_definition.v2 eingeführt.",
+        "Validator prüft dsl_v2 gegen schemas/heuristic/heuristic_dsl.v2.json.",
+        "Bestehende declarative_rules/python_strategy/composite_chain Heuristiken bleiben valide.",
+        "FORMAT_POLICY beschreibt JSON als Runtime-Quelle und YAML nur als Authoring-Format weiterhin klar.",
+        "Tests prüfen alte und neue Heuristikdefinitionen."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T04.06",
+      "title": "DSL-Beispiele für TUI-Snake-Heuristiken anlegen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "examples",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.05"
+      ],
+      "target_files": [
+        "heuristics/authoring/examples/",
+        "docs/architecture/heuristic-dsl-v2.md"
+      ],
+      "acceptance_criteria": [
+        "Mindestens Beispiele: mouse_follow_artifact, changed_region_attention, idle_lurk_after_stable_screen, click_select_explain.",
+        "Beispiele referenzieren nur erlaubte TUI-Snapshot-/Delta-Felder.",
+        "Beispiele sind nicht active und nicht automatisch runtime-geladen.",
+        "Jedes Beispiel hat kurze Beschreibung und erwartetes Verhalten.",
+        "Schema-Test validiert alle Beispiele."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T05.01",
+      "title": "DSL v2 Loader und Validator implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "runtime",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T04.05"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/dsl/loader.py",
+        "agent/services/heuristic_runtime/dsl/validator.py",
+        "tests/heuristic_runtime/test_dsl_loader_validator.py"
+      ],
+      "acceptance_criteria": [
+        "Loader lädt DSL nur aus erlaubten Heuristikdefinitionen.",
+        "Validator lehnt unbekannte Felder, inline_code und verbotene Capabilities ab.",
+        "Fehler enthalten konkrete Pfade, z. B. runtime.dsl.observe.sources[0].",
+        "Loader ist read-only und schreibt keine Dateien.",
+        "Tests prüfen candidate, experimental_live und active Status."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T05.02",
+      "title": "Deterministische DSL Evaluation Engine bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "runtime",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.01",
+        "T04.02"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/dsl/evaluator.py",
+        "tests/heuristic_runtime/test_dsl_evaluator.py"
+      ],
+      "acceptance_criteria": [
+        "Evaluator nimmt DecisionContext v2 und DSL-Heuristik entgegen.",
+        "Evaluator gibt DecisionResult mit confidence, reason_codes, source=heuristic und strategy_id zurück.",
+        "Evaluator ist deterministisch für identischen Context.",
+        "Fehlerhafte DSL-Ausdrücke führen zu no_action oder rejected evaluation, nicht zu UI-Abbruch.",
+        "Tests prüfen positive Treffer, no_match, Score-Berechnung und deterministische Wiederholung."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T05.03",
+      "title": "Motion Planner für target_cell/target_bbox implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "motion",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T04.03",
+        "T05.02"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/motion_planner.py",
+        "tests/heuristic_runtime/test_motion_planner.py"
+      ],
+      "acceptance_criteria": [
+        "Planner berechnet dx/dy aus snake_head, target_cell und max_step.",
+        "Planner respektiert min_distance, max_step und optional acceleration_limit.",
+        "Planner kann fast_target und smooth_follow unterscheiden.",
+        "Planner verhindert Sprünge außerhalb des sichtbaren TUI-Grids.",
+        "Tests prüfen horizontale, vertikale, diagonale und already-near Fälle."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T05.04",
+      "title": "DSL Runtime in SnakeDecisionManager integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.02",
+        "T05.03"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/snake_decision_manager.py",
+        "agent/services/heuristic_runtime/heuristic_registry_service.py",
+        "tests/heuristic_runtime/test_snake_decision_manager_dsl_v2.py"
+      ],
+      "acceptance_criteria": [
+        "SnakeDecisionManager kann aktive dsl_v2 Heuristiken über Registry/Lease nutzen.",
+        "Bestehende RuleChain bleibt als Fallback erhalten.",
+        "Wenn DSL keine Entscheidung liefert, greift bisherige RuleChain/DefaultFollow.",
+        "Keine LLM-Aufrufe werden durch DSL Runtime ausgelöst.",
+        "Tests prüfen Priorität: DSL Treffer, DSL no_match, RuleChain fallback, timeout fallback."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T05.05",
+      "title": "Capability-Grenzen für DSL Runtime erzwingen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.01",
+        "T05.02"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/dsl/security.py",
+        "agent/services/heuristic_runtime/heuristic_catalog_validator.py",
+        "tests/heuristic_runtime/test_dsl_security.py"
+      ],
+      "acceptance_criteria": [
+        "tui_snake DSL darf nur ui_motion_only/readonly Capabilities nutzen.",
+        "DSL kann keine zusätzlichen Context Extensions anfordern, wenn safety_class ui_motion_only ist.",
+        "network_access, secret_access, file_write, send_to_worker werden für Snake abgelehnt.",
+        "Capability-Verletzungen verhindern Aktivierung und experimental_live.",
+        "Tests prüfen alle verbotenen Capabilities."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T06.01",
+      "title": "Background Heuristic Lab Service einführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "background-service",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T02.05",
+        "T03.02",
+        "T04.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/background_heuristic_lab.py",
+        "tests/heuristic_runtime/test_background_heuristic_lab.py"
+      ],
+      "acceptance_criteria": [
+        "Service läuft entkoppelt vom TUI-Fast-Path.",
+        "Service konsumiert Snapshot-/Delta-/Trace-Packs aus ObservationBuffer oder Artefakten.",
+        "Service kann deaktiviert werden, ohne Snake/FastPath zu beeinflussen.",
+        "Service schreibt Vorschläge nur in candidates/ oder experiment storage, nie direkt in active/.",
+        "Tests nutzen Fake-LLM und prüfen, dass decide(ctx) nicht blockiert."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T06.02",
+      "title": "LLM Prompt Contract für Heuristik-Vorschläge definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "llm-contract",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.01",
+        "T04.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/prompts/heuristic_dsl_v2_proposal.j2",
+        "docs/architecture/heuristic-dsl-v2.md",
+        "tests/heuristic_runtime/test_heuristic_lab_prompt_contract.py"
+      ],
+      "acceptance_criteria": [
+        "Prompt verlangt strikt JSON ohne Markdown-Fences.",
+        "Prompt beschreibt erlaubte observe/match/score/action Felder und verbotene Aktionen.",
+        "Prompt enthält aktuelle Snapshot-/Delta-Zusammenfassung, aber keine Secrets.",
+        "Prompt fordert provenance.created_by und rationale.",
+        "Test prüft Template-Rendering mit minimalem ObservationPack."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T06.03",
+      "title": "LLM Response Parser mit Reparatur-/Fallback-Stufen implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "parser",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.02"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/llm_heuristic_parser.py",
+        "tests/heuristic_runtime/test_llm_heuristic_parser.py"
+      ],
+      "acceptance_criteria": [
+        "Parser akzeptiert striktes JSON.",
+        "Parser kann einfache Markdown-Fences entfernen, markiert das aber als repaired.",
+        "Parser lehnt unvollständige oder nicht validierbare DSL ab.",
+        "Parser gibt rohe Antwort in Audit/Debug nur gekürzt und ohne Secrets aus.",
+        "Tests prüfen valides JSON, fenced JSON, kaputtes JSON und Halluzinationsfelder."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T06.04",
+      "title": "Heuristic Proposal Storage für Kandidaten und Experimente bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "storage",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.03",
+        "T05.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/heuristic_proposal_store.py",
+        "heuristics/candidates/",
+        "tests/heuristic_runtime/test_heuristic_proposal_store.py"
+      ],
+      "acceptance_criteria": [
+        "LLM-Vorschläge werden als candidate JSON mit stabiler proposal_id gespeichert.",
+        "Jeder Vorschlag enthält provenance, source_snapshot_hashes, model, created_at und validation_result.",
+        "Keine Candidate-Datei behauptet status active.",
+        "Duplikate werden über content_hash erkannt.",
+        "Tests prüfen Schreiben, Lesen, Hashing und Duplikaterkennung."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T06.05",
+      "title": "Simulation gegen aufgezeichnete Cast-/Snapshot-Artefakte implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "simulation",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T02.05",
+        "T05.02",
+        "T06.04"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/heuristic_simulator.py",
+        "tests/heuristic_runtime/test_heuristic_simulator.py",
+        "tests/fixtures/tui_snapshots/"
+      ],
+      "acceptance_criteria": [
+        "Simulator kann eine DSL-Heuristik gegen JSONL Snapshots/Deltas laufen lassen.",
+        "Simulation erzeugt Metriken: hit_rate, no_action_rate, target_stability, jitter_score, average_confidence.",
+        "Simulation hat keine Auswirkung auf sichtbare TUI oder aktive Leases.",
+        "Simulation bricht bei invalid DSL sauber ab und markiert proposal failed.",
+        "Tests prüfen eine gute und eine absichtlich jitternde Heuristik."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T06.06",
+      "title": "LLM Heuristic Lab als optionalen Worker/Job triggerbar machen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "orchestration",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.05"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/background_heuristic_lab.py",
+        "config.json",
+        "docs/architecture/tui-snake-background-heuristics.md"
+      ],
+      "acceptance_criteria": [
+        "Feature ist per Config/Env aktivierbar, default sicher deaktiviert oder shadow-only.",
+        "Konfigurierbar sind Modell/Backend, Intervall, Max-Proposals, Snapshot-Pack-Größe und Auto-Experiment-Modus.",
+        "Bei fehlendem LLM bleibt TUI ohne Fehler flüssig.",
+        "Logs zeigen HeuristicLab disabled/offline/active klar an.",
+        "Tests nutzen Fake-Konfiguration ohne echten Netzwerkzugriff."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T07.01",
+      "title": "experimental_live Status und Policy definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "policy",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T06.05"
+      ],
+      "target_files": [
+        "heuristics/FORMAT_POLICY.md",
+        "schemas/heuristic/heuristic_definition.v1.json",
+        "agent/services/heuristic_runtime/heuristic_registry_service.py"
+      ],
+      "acceptance_criteria": [
+        "experimental_live ist klar von candidate und active getrennt.",
+        "experimental_live darf nur nach Validation und Simulation gesetzt werden.",
+        "experimental_live hat TTL/Max-Runtime und kann automatisch auslaufen.",
+        "stable active benötigt weiterhin Human Approval, sofern nicht explizit anders konfiguriert.",
+        "Policy dokumentiert Standardmodus: human_required für stable active, optional auto_experimental für begrenzte Tests."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T07.02",
+      "title": "Registry-Unterstützung für experimental_live mit harten Grenzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "registry",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.01"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/heuristic_registry_service.py",
+        "tests/heuristic_runtime/test_heuristic_registry_experimental_live.py"
+      ],
+      "acceptance_criteria": [
+        "Registry kann active und experimental_live getrennt listen.",
+        "SnakeDecisionManager bekommt experimental_live nur, wenn Config dies erlaubt.",
+        "Experimental-Heuristiken laufen mit niedrigerer Priorität als stable active oder nur im Shadow Mode, je nach Config.",
+        "Expired experimental_live wird nicht mehr geladen.",
+        "Tests prüfen Statusfilter und Domainfilter."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T07.03",
+      "title": "Shadow Mode/A-B-Auswertung ohne UI-Einfluss implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "experiment",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T06.05",
+        "T07.02"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/heuristic_experiment_runner.py",
+        "tests/heuristic_runtime/test_shadow_experiment_runner.py"
+      ],
+      "acceptance_criteria": [
+        "Shadow Runner berechnet Entscheidungen parallel, aber schreibt sie nicht in sichtbare Snake-Bewegung.",
+        "Shadow Resultate werden mit echter aktiver Entscheidung verglichen.",
+        "Metriken enthalten jitter_score, target_match, confidence und safety violations.",
+        "Shadow Runner kann für einzelne Heuristiken, Domains oder Snapshot-Replays gestartet werden.",
+        "Tests prüfen, dass sichtbarer DecisionResult unverändert bleibt."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T07.04",
+      "title": "Auto-Experimental-Modus für begrenzte Heuristik-Leases implementieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "type": "experiment",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.02",
+        "T07.03"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/lease_reevaluation_service.py",
+        "agent/services/heuristic_runtime/snake_decision_manager.py",
+        "tests/heuristic_runtime/test_auto_experimental_leases.py"
+      ],
+      "acceptance_criteria": [
+        "Auto-Experimental ist default aus oder shadow-only, außer Config erlaubt es ausdrücklich.",
+        "Wenn aktiv, dürfen nur bestandene experimental_live Heuristiken für 5-20 Sekunden eine Lease bekommen.",
+        "Jede experimentelle Lease hat experiment_id und rollback_reason.",
+        "Bei schlechter Metrik, Exception oder Jitter wird sofort auf stable/Fallback zurückgeschaltet.",
+        "Tests prüfen TTL-Ablauf, Rollback und Config-Off-Verhalten."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T07.05",
+      "title": "UI-/Statusanzeige für aktive und experimentelle Heuristik ergänzen",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "medium",
+      "type": "ui",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T07.04"
+      ],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/models.py",
+        "tests/operator_tui/test_tui_heuristic_status_rendering.py"
+      ],
+      "acceptance_criteria": [
+        "TUI kann aktive Heuristik-ID, Mode stable/shadow/experimental und Fallback-Status anzeigen.",
+        "Anzeige ist kompakt und stört Layout nicht.",
+        "Bei disabled/shadow-only wird klar angezeigt, dass LLM nicht direkt steuert.",
+        "Tests prüfen Textmarker ohne exakte fragile Vollbild-Snapshots, soweit möglich.",
+        "Status kann in Cast-Frames erscheinen."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T08.01",
+      "title": "E2E: echter PTY-Cast plus Snapshot-/Delta-Artefakte",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T02.05",
+        "T03.01"
+      ],
+      "target_files": [
+        "tests/e2e/test_tui_snake_snapshot_delta_cast.py",
+        "scripts/e2e/record_tui_demo.py"
+      ],
+      "acceptance_criteria": [
+        "Test startet snake-mode-live-e2e oder eine kleine PTY-Fixture und erzeugt cast + snapshots + deltas.",
+        "Artefakte existieren und enthalten mindestens Header + mehrere Frames.",
+        "Delta-Replay rekonstruiert den letzten Snapshot.",
+        "Test bleibt ohne LM Studio ausführbar.",
+        "Bei fehlender lokaler TUI-Binary skippt der Live-Anteil sauber, aber Fixture-Test läuft."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T08.02",
+      "title": "E2E: LLM erzeugt DSL-Kandidat, aber beeinflusst TUI nicht direkt",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T06.03",
+        "T06.04",
+        "T07.03"
+      ],
+      "target_files": [
+        "tests/e2e/test_background_llm_heuristic_lab_no_ui_block.py"
+      ],
+      "acceptance_criteria": [
+        "Fake-LLM erzeugt einen DSL-Kandidaten aus Snapshot-Pack.",
+        "Währenddessen liefert SnakeDecisionManager weiter deterministische Ergebnisse.",
+        "Kandidat landet in candidates/ oder Test-Tempdir, nicht in active/.",
+        "Test misst/prüft, dass kein synchroner LLM-Aufruf in decide(ctx) erfolgt.",
+        "Trace/Audit enthält proposal_id und source_snapshot_hashes."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T08.03",
+      "title": "E2E: Simulation bewertet DSL-Kandidat gegen Cast/Snapshots",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T06.05"
+      ],
+      "target_files": [
+        "tests/e2e/test_heuristic_candidate_simulation_against_tui_snapshots.py"
+      ],
+      "acceptance_criteria": [
+        "Ein gültiger DSL-Kandidat wird gegen gespeicherte Snapshot-Fixture simuliert.",
+        "Simulation erzeugt Metrik-JSON.",
+        "Ungültiger Kandidat wird abgelehnt und nicht experimental_live.",
+        "Gute Heuristik erreicht dokumentierten Mindestscore.",
+        "Jitternde Heuristik fällt durch oder bekommt niedrigen Score."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T08.04",
+      "title": "E2E: experimental_live Rollback bei schlechter Heuristik",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T07.04"
+      ],
+      "target_files": [
+        "tests/e2e/test_experimental_live_rollback.py"
+      ],
+      "acceptance_criteria": [
+        "Eine absichtlich schlechte experimental_live Heuristik erzeugt Rollback.",
+        "Nach Rollback nutzt Snake wieder stable active oder Default RuleChain.",
+        "Rollback-Grund wird in Trace/Audit gespeichert.",
+        "UI-Fast-Path bleibt ohne Exception.",
+        "Test prüft TTL und sofortigen Fallback bei Fehler."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T08.05",
+      "title": "Qualitätsmetriken für Snake-Flüssigkeit und Heuristik-Nutzen definieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "metrics",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T06.05",
+        "T07.03"
+      ],
+      "target_files": [
+        "agent/services/heuristic_runtime/metrics.py",
+        "docs/architecture/tui-snake-background-heuristics.md"
+      ],
+      "acceptance_criteria": [
+        "Metriken umfassen ui_decision_latency_ms, llm_background_latency_ms, jitter_score, target_switch_rate, no_action_rate und rollback_count.",
+        "Fast-Path-Metrik wird ohne LLM-Abhängigkeit erhoben.",
+        "Schwellwerte für experimentelle Aktivierung sind dokumentiert.",
+        "Metriken können in Tests mit Fake-Zeit geprüft werden.",
+        "Keine Metrik enthält Secrets oder vollständige unnötige Screen-Inhalte."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T09.01",
+      "title": "Architektur-Dokument mit Mermaid-Diagrammen finalisieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "documentation",
+      "milestone_id": "M09",
+      "depends_on": [
+        "T04.01",
+        "T06.01",
+        "T07.01"
+      ],
+      "target_files": [
+        "docs/architecture/tui-snake-background-heuristics.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument enthält Diagramme für Fast Path, Background Lab, Snapshot/Delta Pipeline, DSL Lifecycle und experimental_live Policy.",
+        "Dokument erklärt, warum LLM nicht direkt die Snake steuert.",
+        "Dokument nennt alle Hauptdateien und Erweiterungspunkte.",
+        "Dokument enthält Beispiel-DSL v2.",
+        "Dokument beschreibt sichere Defaults."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T09.02",
+      "title": "README-/Developer-Hinweise für neue Artefakte ergänzen",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "type": "documentation",
+      "milestone_id": "M09",
+      "depends_on": [
+        "T02.05",
+        "T08.01"
+      ],
+      "target_files": [
+        "README.md",
+        "docs/development/tui-cast-snapshot-delta.md"
+      ],
+      "acceptance_criteria": [
+        "Entwickler sehen, wie sie cast/snapshot/delta lokal erzeugen.",
+        "Dokument nennt relevante Env-Variablen für record_tui_demo.",
+        "Dokument erklärt Speicher-/Privacy-Hinweis: Snapshots können sichtbaren TUI-Text enthalten.",
+        "Dokument zeigt, wie man Deltas replayt.",
+        "Dokument enthält Troubleshooting für ANSI-Replay und PTY-Ausgabe."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T09.03",
+      "title": "Migration/Kompatibilität für bestehende Heuristiken dokumentieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "migration",
+      "milestone_id": "M09",
+      "depends_on": [
+        "T04.05",
+        "T05.04"
+      ],
+      "target_files": [
+        "docs/architecture/heuristic-dsl-v2.md",
+        "heuristics/CATALOG.md"
+      ],
+      "acceptance_criteria": [
+        "Bestehende declarative_rules und python_strategy Heuristiken bleiben lauffähig.",
+        "Für jede bestehende tui_snake Heuristik ist dokumentiert, ob sie unverändert bleibt, in DSL v2 migriert oder als Fallback dient.",
+        "Migration erzwingt keine sofortige Löschung alter RuleChain.",
+        "Catalog nennt stable, candidate und experimental_live Bedeutung.",
+        "Tests oder Validierungsanweisung für Catalog sind dokumentiert."
+      ],
+      "notes": ""
+    }
+  ]
+}
