@@ -1,0 +1,976 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-center-visual-viewport-renderer-system",
+  "title": "Operator TUI center visual viewport with exchangeable views, renderers and terminal output adapters",
+  "purpose": "Build a modular visual rendering subsystem for the Ananta Operator TUI where all high-resolution or fallback visual content is rendered only inside a controlled center viewport. Views, renderers and terminal output adapters must be independently exchangeable so later features such as logo animation, AI snake visualization, artifact previews, strategy-game map previews and optional OpenGL offscreen scenes can reuse the same pipeline.",
+  "goal": "Introduce a stable VisualViewport architecture for the middle area of the TUI with deterministic layout ownership, capability detection, fallback chains, test coverage and safe performance defaults. The TUI must not know whether the active output uses ANSI, Sixel, Kitty graphics, CPU rasterization or OpenGL offscreen rendering.",
+  "context": {
+    "user_goal": "Eine umfangreiche TODO JSON für eine austauschbare Renderer/View-Architektur, die immer den mittleren Bereich der Ananta TUI verwendet.",
+    "design_principles": [
+      "The center viewport owns visual output. Visual renderers must never write outside the assigned region.",
+      "Views describe what should be shown; renderers create frames; output adapters draw frames into the terminal.",
+      "OpenGL is optional and must be a plugin renderer, not the foundation of the subsystem.",
+      "Every high-fidelity path needs a deterministic ANSI/Unicode fallback.",
+      "The normal TUI must remain usable if terminal graphics are unsupported, slow or broken.",
+      "Frame rate must be capped and configurable to avoid starving input handling, logs, chat and worker status updates.",
+      "All renderer decisions must be explicit, inspectable and visible in debug/status output. No silent magic."
+    ],
+    "target_architecture": {
+      "layers": [
+        "CenterViewport: receives a rectangular TUI region and exposes its cell and pixel dimensions.",
+        "ViewController: owns active view selection, update ticks, input state forwarding and view switching.",
+        "VisualView: produces a RenderScene or direct frame model without knowing the terminal protocol.",
+        "Renderer: converts RenderScene into a RenderFrame for a requested pixel/cell size.",
+        "OutputAdapter: writes RenderFrame into the assigned terminal region using ANSI, Sixel, Kitty or another protocol.",
+        "CapabilityDetector: detects supported protocols, terminal dimensions, pixel geometry and known limitations.",
+        "FrameScheduler: controls FPS, dirty-frame rendering, pause/resume and backpressure."
+      ],
+      "initial_views": [
+        "logo_animation",
+        "snake_debug_view",
+        "artifact_preview",
+        "strategy_map_preview",
+        "renderer_diagnostics"
+      ],
+      "initial_renderers": [
+        "ansi_blocks",
+        "cpu_raster",
+        "svg_raster_optional",
+        "opengl_offscreen_optional"
+      ],
+      "initial_output_adapters": [
+        "ansi",
+        "sixel",
+        "kitty",
+        "noop_diagnostics"
+      ]
+    },
+    "recommended_defaults": {
+      "default_pixel_width": 800,
+      "default_pixel_height": 450,
+      "max_pixel_width": 1280,
+      "max_pixel_height": 720,
+      "target_fps": 10,
+      "animation_fps": 15,
+      "max_fps": 30,
+      "fallback_chain": [
+        { "renderer": "cpu_raster", "adapter": "kitty" },
+        { "renderer": "cpu_raster", "adapter": "sixel" },
+        { "renderer": "ansi_blocks", "adapter": "ansi" }
+      ]
+    },
+    "suggested_paths": {
+      "visual_root": "client_surfaces/operator_tui/visual/",
+      "viewport": "client_surfaces/operator_tui/visual/viewport/",
+      "views": "client_surfaces/operator_tui/visual/views/",
+      "renderers": "client_surfaces/operator_tui/visual/renderers/",
+      "adapters": "client_surfaces/operator_tui/visual/adapters/",
+      "capabilities": "client_surfaces/operator_tui/visual/capabilities/",
+      "runtime": "client_surfaces/operator_tui/visual/runtime/",
+      "tests": "tests/operator_tui/visual/",
+      "docs": "docs/operator-tui/visual-viewport-renderer-system.md"
+    },
+    "non_goals": [
+      "Do not replace the entire Operator TUI framework in this track.",
+      "Do not require OpenGL, GPU support, Kitty or Sixel for the TUI to start.",
+      "Do not render visual frames across the full terminal except for already existing splash/introduction flows.",
+      "Do not let a view write raw terminal escape sequences directly. Only output adapters may write protocol-specific output."
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Architecture contract and center viewport ownership",
+      "status": "todo",
+      "task_ids": [
+        "VVP-001",
+        "VVP-002",
+        "VVP-003",
+        "VVP-004"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Registries, configuration and fallback chain",
+      "status": "todo",
+      "task_ids": [
+        "VVP-005",
+        "VVP-006",
+        "VVP-007",
+        "VVP-008"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Core frame model, scheduler and safe redraw behavior",
+      "status": "todo",
+      "task_ids": [
+        "VVP-009",
+        "VVP-010",
+        "VVP-011",
+        "VVP-012"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Initial views for logo, snake, artifacts and diagnostics",
+      "status": "todo",
+      "task_ids": [
+        "VVP-013",
+        "VVP-014",
+        "VVP-015",
+        "VVP-016",
+        "VVP-017"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Renderer implementations",
+      "status": "todo",
+      "task_ids": [
+        "VVP-018",
+        "VVP-019",
+        "VVP-020",
+        "VVP-021"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Terminal output adapters",
+      "status": "todo",
+      "task_ids": [
+        "VVP-022",
+        "VVP-023",
+        "VVP-024",
+        "VVP-025"
+      ]
+    },
+    {
+      "id": "M7",
+      "title": "Operator TUI integration",
+      "status": "todo",
+      "task_ids": [
+        "VVP-026",
+        "VVP-027",
+        "VVP-028",
+        "VVP-029"
+      ]
+    },
+    {
+      "id": "M8",
+      "title": "Tests, documentation and runtime diagnostics",
+      "status": "todo",
+      "task_ids": [
+        "VVP-030",
+        "VVP-031",
+        "VVP-032",
+        "VVP-033",
+        "VVP-034"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "VVP-001",
+      "title": "Define VisualViewport architecture document",
+      "type": "docs",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": [
+        "docs/operator-tui/visual-viewport-renderer-system.md"
+      ],
+      "description": "Document the layer split between CenterViewport, ViewController, VisualView, Renderer, OutputAdapter, CapabilityDetector and FrameScheduler.",
+      "acceptance_criteria": [
+        "Documentation contains a Mermaid flowchart for the full rendering pipeline from Operator TUI layout allocation to terminal output.",
+        "Documentation clearly states that only OutputAdapter implementations may emit terminal protocol escape sequences.",
+        "Documentation defines that all visual output must be clipped or constrained to the CenterViewport region.",
+        "Documentation lists the initial views, renderers and output adapters and marks OpenGL as optional plugin functionality."
+      ]
+    },
+    {
+      "id": "VVP-002",
+      "title": "Create VisualViewport package skeleton",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/__init__.py",
+        "client_surfaces/operator_tui/visual/viewport/__init__.py",
+        "client_surfaces/operator_tui/visual/views/__init__.py",
+        "client_surfaces/operator_tui/visual/renderers/__init__.py",
+        "client_surfaces/operator_tui/visual/adapters/__init__.py",
+        "client_surfaces/operator_tui/visual/capabilities/__init__.py",
+        "client_surfaces/operator_tui/visual/runtime/__init__.py"
+      ],
+      "description": "Create a dedicated package tree for the visual subsystem without mixing it into existing string renderer code.",
+      "acceptance_criteria": [
+        "All new modules can be imported without optional dependencies such as OpenGL, moderngl, numpy or chafa installed.",
+        "The package structure separates viewport, views, renderers, adapters, capabilities and runtime concerns.",
+        "No existing Operator TUI behavior changes just because the package exists."
+      ]
+    },
+    {
+      "id": "VVP-003",
+      "title": "Implement ViewportRegion and pixel geometry model",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/viewport/layout_contract.py",
+        "client_surfaces/operator_tui/visual/viewport/viewport_state.py"
+      ],
+      "description": "Introduce immutable data structures for terminal-cell region and estimated/render-target pixel dimensions.",
+      "acceptance_criteria": [
+        "ViewportRegion contains x, y, columns, rows, pixel_width and pixel_height.",
+        "ViewportRegion validates non-negative coordinates and positive size values.",
+        "Pixel size can be derived from configured defaults when terminal pixel geometry is unknown.",
+        "Tests cover small terminals, zero-sized regions and max-resolution clamping."
+      ]
+    },
+    {
+      "id": "VVP-004",
+      "title": "Implement CenterViewport boundary contract",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/viewport/center_viewport.py"
+      ],
+      "description": "Provide the controlled center-region component used by the TUI to allocate visual space and pass only that region to the rendering runtime.",
+      "acceptance_criteria": [
+        "CenterViewport exposes the current ViewportRegion but does not know the active renderer or terminal protocol.",
+        "CenterViewport can be resized by the parent TUI layout without reinitializing the active view.",
+        "CenterViewport enforces a minimum fallback display when the region is too small for image protocols.",
+        "Unit tests verify that drawing requests are always passed together with the assigned region."
+      ]
+    },
+    {
+      "id": "VVP-005",
+      "title": "Define VisualView, Renderer and OutputAdapter interfaces",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/base_view.py",
+        "client_surfaces/operator_tui/visual/renderers/base_renderer.py",
+        "client_surfaces/operator_tui/visual/adapters/base_output_adapter.py"
+      ],
+      "description": "Introduce explicit protocols/base classes so view, renderer and output adapter implementations remain replaceable.",
+      "acceptance_criteria": [
+        "VisualView has update(dt, state) and render(context) or equivalent methods.",
+        "Renderer has render(scene, size, context) and returns a RenderFrame without terminal escape sequences.",
+        "OutputAdapter has draw(frame, region, stream/context) and is the only layer allowed to write protocol-specific terminal output.",
+        "Interfaces are dependency-light and importable in unit tests without starting the TUI."
+      ]
+    },
+    {
+      "id": "VVP-006",
+      "title": "Implement registries for views, renderers and adapters",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/registry.py"
+      ],
+      "description": "Create simple registries to resolve configured component names to implementations.",
+      "acceptance_criteria": [
+        "ViewRegistry, RendererRegistry and OutputAdapterRegistry exist or an equivalent typed registry abstraction is provided.",
+        "Unknown component names produce clear errors listing available options.",
+        "Registries support lazy construction so optional renderer imports do not break base startup.",
+        "Tests verify name resolution, duplicate registration rejection and error messages."
+      ]
+    },
+    {
+      "id": "VVP-007",
+      "title": "Add visual viewport configuration model",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/config.py"
+      ],
+      "description": "Provide typed/defaulted configuration for enabling the viewport, choosing view/renderer/adapter, FPS and fallback chain.",
+      "acceptance_criteria": [
+        "Configuration supports enabled, position, default_view, default_renderer, default_output_adapter, target_fps, max_fps, default_pixel_width, default_pixel_height, max_pixel_width and max_pixel_height.",
+        "Configuration supports a fallback_chain list with renderer and adapter pairs.",
+        "Invalid FPS values, negative sizes and unknown modes are rejected with clear messages.",
+        "Defaults match the recommended 800x450 target, 1280x720 max and 10-15 FPS animation behavior."
+      ]
+    },
+    {
+      "id": "VVP-008",
+      "title": "Implement automatic fallback-chain resolver",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/fallback_resolver.py"
+      ],
+      "description": "Resolve the best working renderer/output-adapter pair based on configuration and detected terminal capabilities.",
+      "acceptance_criteria": [
+        "Resolver tries configured choices first and then the fallback chain in order.",
+        "Resolver never selects OpenGL unless explicitly available and importable.",
+        "Resolver always falls back to ansi_blocks + ansi when no high-fidelity protocol is usable.",
+        "Diagnostic output explains why a candidate was accepted or skipped."
+      ]
+    },
+    {
+      "id": "VVP-009",
+      "title": "Implement RenderScene and RenderFrame models",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/frame_model.py"
+      ],
+      "description": "Create a small frame model that can represent raster frames, ANSI block frames and diagnostic frames without terminal coupling.",
+      "acceptance_criteria": [
+        "RenderFrame contains frame_type, width, height, payload, mime_or_format, timestamp and optional metadata.",
+        "Raster frames can carry RGBA/PNG-like data or an internal byte payload abstraction.",
+        "ANSI frames can carry text lines plus style metadata or precomputed ANSI-safe text.",
+        "Frame metadata includes renderer name, view name and generation duration for diagnostics."
+      ]
+    },
+    {
+      "id": "VVP-010",
+      "title": "Implement FrameScheduler with FPS limiting and dirty-frame mode",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/frame_scheduler.py",
+        "client_surfaces/operator_tui/visual/runtime/fps_limiter.py"
+      ],
+      "description": "Control animation ticks without blocking input handling or flooding the terminal with image frames.",
+      "acceptance_criteria": [
+        "Scheduler enforces target_fps and max_fps.",
+        "Scheduler supports dirty-only rendering for static views such as artifact previews.",
+        "Scheduler can pause/resume rendering when TUI is backgrounded or the viewport is hidden.",
+        "Tests verify that a configured 10 FPS limit does not schedule more than the allowed number of frames over simulated time."
+      ]
+    },
+    {
+      "id": "VVP-011",
+      "title": "Implement frame cache and backpressure behavior",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/frame_cache.py"
+      ],
+      "description": "Avoid redundant expensive rendering and prevent slow adapters from accumulating stale frames.",
+      "acceptance_criteria": [
+        "Static views can reuse cached frames until size, view state or theme changes.",
+        "Slow output adapters drop stale animation frames instead of queuing them indefinitely.",
+        "Cache keys include view id, renderer id, viewport size and relevant visual state version.",
+        "Diagnostics expose cache hit/miss and dropped-frame counters."
+      ]
+    },
+    {
+      "id": "VVP-012",
+      "title": "Implement VisualRuntime orchestration",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/visual_runtime.py"
+      ],
+      "description": "Wire active view, renderer, output adapter, scheduler, cache and fallback resolver into one runtime object used by the TUI.",
+      "acceptance_criteria": [
+        "VisualRuntime exposes tick/update/draw methods suitable for the existing Operator TUI event loop.",
+        "VisualRuntime can switch active views without recreating the entire TUI.",
+        "VisualRuntime reports selected renderer, adapter, active view, FPS and viewport size.",
+        "Runtime failures in a view or renderer are caught, logged and switched to diagnostics or ANSI fallback without crashing the whole TUI."
+      ]
+    },
+    {
+      "id": "VVP-013",
+      "title": "Implement logo_animation view",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/logo_animation_view.py"
+      ],
+      "description": "Provide a reusable center-viewport logo animation view independent from startup splash logic.",
+      "acceptance_criteria": [
+        "View can render a static and animated Ananta logo scene.",
+        "View scales to current viewport size without assuming fullscreen rendering.",
+        "Animation can be paused and rendered as a deterministic frame for tests.",
+        "View works with ansi_blocks and cpu_raster renderers."
+      ]
+    },
+    {
+      "id": "VVP-014",
+      "title": "Implement snake_debug_view",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/snake_debug_view.py"
+      ],
+      "description": "Show a lightweight visual representation of the AI snake state, mouse target, selected heuristic and intended movement path.",
+      "acceptance_criteria": [
+        "View displays snake body/head, target point, selected heuristic name and confidence/debug metadata when available.",
+        "View can consume a normalized state object without directly depending on AI snake implementation internals.",
+        "View supports a deterministic test fixture where expected rendered scene objects are stable.",
+        "View remains useful in ANSI fallback mode."
+      ]
+    },
+    {
+      "id": "VVP-015",
+      "title": "Implement artifact_preview view",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/artifact_preview_view.py"
+      ],
+      "description": "Provide a visual preview view for selected artifacts such as images, SVGs, terminal casts or generated diagrams.",
+      "acceptance_criteria": [
+        "View accepts a safe artifact descriptor instead of raw uncontrolled file paths.",
+        "View handles missing/unsupported artifact types by rendering a clear placeholder.",
+        "View supports static cached rendering to avoid re-rendering unchanged previews.",
+        "View never reads files outside allowed project/artifact roots."
+      ]
+    },
+    {
+      "id": "VVP-016",
+      "title": "Implement strategy_map_preview view",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/strategy_map_preview_view.py"
+      ],
+      "description": "Add a first generic view for the Ananta strategy-game map/board preview using the same viewport pipeline.",
+      "acceptance_criteria": [
+        "View can render a simple territory/board layout from an in-memory model.",
+        "View supports zoom-to-fit inside the center viewport.",
+        "View can render selected territory/actor information as overlay metadata.",
+        "View works without any game engine dependency."
+      ]
+    },
+    {
+      "id": "VVP-017",
+      "title": "Implement renderer_diagnostics view",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py"
+      ],
+      "description": "Show runtime information about viewport size, selected renderer, adapter, capability detection and FPS.",
+      "acceptance_criteria": [
+        "View displays active view, renderer, output adapter, viewport cell size, pixel size, FPS and fallback decisions.",
+        "View is selectable via config or debug command.",
+        "View works in pure ANSI mode.",
+        "Failures in other views can fall back to this diagnostics view."
+      ]
+    },
+    {
+      "id": "VVP-018",
+      "title": "Implement ansi_blocks renderer",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/renderers/ansi_renderer.py"
+      ],
+      "description": "Provide the mandatory deterministic fallback renderer using text, Unicode blocks and ANSI-safe output.",
+      "acceptance_criteria": [
+        "Renderer requires no optional dependencies.",
+        "Renderer can render all initial views in a degraded but readable form.",
+        "Renderer clips output to viewport rows and columns.",
+        "Renderer output is stable enough for snapshot tests."
+      ]
+    },
+    {
+      "id": "VVP-019",
+      "title": "Implement cpu_raster renderer",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py"
+      ],
+      "description": "Render scenes into raster frames using CPU/Pillow-compatible primitives suitable for Sixel or Kitty adapters.",
+      "acceptance_criteria": [
+        "Renderer can output a raster RenderFrame at the requested pixel size.",
+        "Renderer clamps pixel size to configured max width/height.",
+        "Renderer renders basic primitives needed by logo, snake, artifact placeholder and diagnostics views.",
+        "Renderer performance metadata includes render duration and output size."
+      ]
+    },
+    {
+      "id": "VVP-020",
+      "title": "Add optional SVG rasterization path",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py"
+      ],
+      "description": "Allow SVG assets such as the Ananta logo to be converted into raster frames through an optional dependency or external tool path when available.",
+      "acceptance_criteria": [
+        "SVG rasterization is optional and disabled gracefully when dependencies/tools are missing.",
+        "The renderer never shells out to untrusted paths without explicit config.",
+        "SVG output can be cached per viewport size.",
+        "Fallback to cpu_raster or ansi_blocks is automatic when SVG rendering fails."
+      ]
+    },
+    {
+      "id": "VVP-021",
+      "title": "Add optional OpenGL offscreen renderer plugin",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "critical",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/renderers/opengl_offscreen_renderer.py"
+      ],
+      "description": "Introduce an optional plugin renderer that renders to an offscreen framebuffer and returns raster frames for existing output adapters.",
+      "acceptance_criteria": [
+        "OpenGL renderer is never imported during normal startup unless selected or probed safely.",
+        "OpenGL renderer reports unavailable instead of crashing when EGL/OpenGL/driver support is missing.",
+        "OpenGL renderer returns normal raster RenderFrame objects and does not write to the terminal directly.",
+        "A small deterministic test/demo scene exists, but CI can skip GPU-specific tests when unavailable.",
+        "Documentation states that OpenGL acceleration is optional and the terminal still receives encoded frames, not direct OpenGL output."
+      ]
+    },
+    {
+      "id": "VVP-022",
+      "title": "Implement ANSI output adapter",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/adapters/ansi_adapter.py"
+      ],
+      "description": "Draw text/ANSI frames into the assigned viewport region as the universal fallback path.",
+      "acceptance_criteria": [
+        "Adapter can position output at the viewport origin without overwriting unrelated TUI regions.",
+        "Adapter clips lines to viewport columns and rows.",
+        "Adapter provides a clear degraded rendering when it receives a raster frame it cannot display.",
+        "Tests verify clipping and cursor-position output generation."
+      ]
+    },
+    {
+      "id": "VVP-023",
+      "title": "Implement Sixel output adapter",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/adapters/sixel_adapter.py"
+      ],
+      "description": "Add terminal image output using Sixel for terminals that support it, especially Windows Terminal and compatible emulators.",
+      "acceptance_criteria": [
+        "Adapter accepts raster RenderFrame payloads and encodes or forwards them as Sixel output.",
+        "Adapter can be disabled by config even if detection thinks Sixel is available.",
+        "Adapter exposes capability status and last error in diagnostics.",
+        "Adapter falls back cleanly to ANSI if encoding fails or terminal support is absent."
+      ]
+    },
+    {
+      "id": "VVP-024",
+      "title": "Implement Kitty graphics output adapter",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/adapters/kitty_adapter.py"
+      ],
+      "description": "Add optional high-quality terminal graphics output via Kitty-compatible graphics protocol.",
+      "acceptance_criteria": [
+        "Adapter is only selected when capability detection or explicit config allows it.",
+        "Adapter supports drawing raster frames into the assigned region without disturbing the surrounding TUI layout.",
+        "Adapter has a cleanup/clear behavior for stale images when views switch or viewport resizes.",
+        "Adapter degrades to Sixel or ANSI when unsupported."
+      ]
+    },
+    {
+      "id": "VVP-025",
+      "title": "Implement noop diagnostics adapter",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "low",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/adapters/noop_adapter.py"
+      ],
+      "description": "Provide a no-output adapter for tests, benchmark mode and headless diagnostics.",
+      "acceptance_criteria": [
+        "Adapter records draw calls without writing terminal output.",
+        "Adapter is usable in unit tests for VisualRuntime and scheduler behavior.",
+        "Adapter exposes last frame metadata for assertions.",
+        "Adapter is never selected for normal interactive use unless explicitly configured."
+      ]
+    },
+    {
+      "id": "VVP-026",
+      "title": "Integrate CenterViewport into existing Operator TUI layout",
+      "type": "integration",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/renderer.py"
+      ],
+      "description": "Reserve the middle TUI area for VisualViewport output while preserving existing menu/status/log/chat areas.",
+      "acceptance_criteria": [
+        "The center viewport is visible and bounded in the normal Operator TUI layout.",
+        "Existing keyboard controls, chat/input area and status rendering continue to work.",
+        "Visual output does not overwrite logs, prompt/input, menus or status lines.",
+        "When visual_viewport.enabled is false, current TUI rendering behavior remains effectively unchanged."
+      ]
+    },
+    {
+      "id": "VVP-027",
+      "title": "Add runtime commands or key bindings for switching views",
+      "type": "integration",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/visual/runtime/visual_runtime.py"
+      ],
+      "description": "Allow changing the active center view during a running TUI session for debugging and demos.",
+      "acceptance_criteria": [
+        "User can switch between logo_animation, snake_debug_view, artifact_preview, strategy_map_preview and renderer_diagnostics without restarting the TUI.",
+        "Invalid view names are rejected with a visible list of valid views.",
+        "View switching clears stale protocol-specific images where required.",
+        "The selected view is reflected in diagnostics/status output."
+      ]
+    },
+    {
+      "id": "VVP-028",
+      "title": "Expose visual runtime status in TUI diagnostics/status area",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/visual/runtime/visual_runtime.py"
+      ],
+      "description": "Make the chosen view, renderer, adapter, FPS, frame drops and fallback reason visible to the user/developer.",
+      "acceptance_criteria": [
+        "Status output includes active renderer and output adapter.",
+        "Fallback events are visible and logged once, not spammed every frame.",
+        "Diagnostics include frame render time and adapter draw time if available.",
+        "When a renderer fails, the fallback reason is visible in renderer_diagnostics view."
+      ]
+    },
+    {
+      "id": "VVP-029",
+      "title": "Add safe config wiring for visual viewport options",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "config/config.example.json",
+        "client_surfaces/operator_tui/visual/runtime/config.py"
+      ],
+      "description": "Wire visual viewport config into the existing project configuration path using conservative defaults.",
+      "acceptance_criteria": [
+        "Example config documents visual_viewport options and fallback chain.",
+        "Missing config uses safe defaults and enables at most low-risk fallback rendering unless explicitly changed.",
+        "OpenGL renderer is opt-in or only selected after safe probing, not forced by default.",
+        "Config errors are reported clearly during TUI startup."
+      ]
+    },
+    {
+      "id": "VVP-030",
+      "title": "Add unit tests for viewport, config and fallback resolver",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "tests/operator_tui/visual/test_viewport_region.py",
+        "tests/operator_tui/visual/test_visual_config.py",
+        "tests/operator_tui/visual/test_fallback_resolver.py"
+      ],
+      "description": "Cover the deterministic non-terminal parts of the subsystem with fast tests.",
+      "acceptance_criteria": [
+        "Tests cover valid and invalid viewport dimensions.",
+        "Tests cover default config and invalid FPS/size values.",
+        "Tests cover fallback order, unavailable adapters and guaranteed ANSI fallback.",
+        "Tests run without terminal graphics support."
+      ]
+    },
+    {
+      "id": "VVP-031",
+      "title": "Add unit tests for registries and runtime switching",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "tests/operator_tui/visual/test_visual_registries.py",
+        "tests/operator_tui/visual/test_visual_runtime.py"
+      ],
+      "description": "Verify that views, renderers and adapters can be exchanged independently and safely at runtime.",
+      "acceptance_criteria": [
+        "Tests verify registration and lookup for views, renderers and adapters.",
+        "Tests verify duplicate registration handling and unknown-name errors.",
+        "Tests verify VisualRuntime can switch views using a noop adapter.",
+        "Tests verify renderer failure falls back without crashing the runtime."
+      ]
+    },
+    {
+      "id": "VVP-032",
+      "title": "Add snapshot-style tests for ANSI fallback output",
+      "type": "test",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "target_files": [
+        "tests/operator_tui/visual/test_ansi_renderer_snapshots.py"
+      ],
+      "description": "Ensure the universal ANSI fallback remains deterministic and readable.",
+      "acceptance_criteria": [
+        "Snapshot tests cover logo_animation, snake_debug_view and renderer_diagnostics.",
+        "Snapshots are clipped to a known viewport size.",
+        "Tests do not require an interactive terminal.",
+        "Snapshot output contains no unsupported raw image protocol escape sequences."
+      ]
+    },
+    {
+      "id": "VVP-033",
+      "title": "Add manual smoke-test command for terminal graphics capability",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": [
+        "scripts/operator_tui_visual_smoke.py"
+      ],
+      "description": "Provide a small script to test ANSI, Sixel and Kitty output adapters outside the full Operator TUI.",
+      "acceptance_criteria": [
+        "Script can print capability detection result.",
+        "Script can render a test frame with selected adapter.",
+        "Script has flags for adapter, width, height and fps.",
+        "Script exits cleanly when a protocol is unsupported and suggests the next fallback."
+      ]
+    },
+    {
+      "id": "VVP-034",
+      "title": "Document operational guidance and known terminal limitations",
+      "type": "docs",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "target_files": [
+        "docs/operator-tui/visual-viewport-renderer-system.md"
+      ],
+      "description": "Document practical expectations for Windows Terminal, WSL2, WezTerm, Kitty/Ghostty-like terminals, Sixel, Kitty protocol and optional GPU/OpenGL rendering.",
+      "acceptance_criteria": [
+        "Docs explain that OpenGL renders offscreen to frames and terminal protocols display those frames.",
+        "Docs recommend 800x450 or 1024x576 as normal center viewport render sizes and 1280x720 as an upper interactive target.",
+        "Docs warn that 1920x1080 and 60 FPS are not the default target for terminal graphics.",
+        "Docs include troubleshooting steps for unsupported protocols, slow redraws and broken GPU/OpenGL paths."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "VVP-001",
+    "VVP-002",
+    "VVP-003",
+    "VVP-004",
+    "VVP-005",
+    "VVP-007",
+    "VVP-008",
+    "VVP-009",
+    "VVP-010",
+    "VVP-012",
+    "VVP-018",
+    "VVP-022",
+    "VVP-026",
+    "VVP-030"
+  ],
+  "tasks_status_summary": {
+    "total": 34,
+    "by_status": {
+      "todo": 34,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "critical": 12,
+      "high": 12,
+      "medium": 9,
+      "low": 1
+    },
+    "by_risk": {
+      "low": 6,
+      "medium": 20,
+      "high": 7,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 14,
+      "done": 0,
+      "remaining": 14
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 34,
+    "by_type": {
+      "docs": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "implementation": {
+        "total": 23,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 23,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "integration": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "test": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "tooling": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "ready_for_implementation",
+    "todo_remaining": 34,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "This track intentionally replaces a one-off terminal image hack with a reusable center viewport rendering subsystem.",
+    "The first reliable milestone must be ANSI fallback and clear layout ownership; high-fidelity terminal image protocols come after the contract is stable.",
+    "OpenGL is useful later, but it must remain optional because WSL2/terminal/GPU combinations can break or fall back to software rendering.",
+    "The same subsystem should later serve AI snake visualization, artifact previews, TUI cast playback and Ananta strategy-game previews."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "expected_result",
+      "title": "Expected result after completion",
+      "items": [
+        "The Operator TUI has a controlled middle visual viewport that can show different visual views without touching surrounding TUI regions.",
+        "Renderer and output technologies are exchangeable via config and registries.",
+        "ANSI fallback always works, while Sixel/Kitty/OpenGL paths are optional improvements.",
+        "Diagnostics make it obvious which renderer/adapter is active and why fallbacks were selected.",
+        "The subsystem is testable without a graphical terminal or GPU."
+      ]
+    }
+  ]
+}
