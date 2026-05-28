@@ -118,7 +118,6 @@ class ChatMixin:
             game["_ask_submitted"] = False
             game["active"] = True
             game["alive"] = True
-            game["tutorial_mode"] = True
             chat["ai_typing"] = True
             chat["ai_pending_msg_channel"] = ch_id
             set_chat_state(game, chat)

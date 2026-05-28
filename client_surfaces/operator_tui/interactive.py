@@ -241,8 +241,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._chat_focus_active():
                 self._chat_focus_leave()
-                self._command_buffer = ""
-                self._set_state(self.state.with_updates(mode=OperatorMode.COMMAND, command_line=""))
+                game = dict(self.state.header_logo_game or {})
+                game["command_return_chat_focus"] = True
+                self._command_buffer = "/"
+                self._set_state(self.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line="/"))
                 return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_focus_leave(clear=False)
@@ -1047,7 +1049,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["_ask_submitted"] = False
         game["active"] = True
         game["alive"] = True
-        game["tutorial_mode"] = True
         game["ui_steering"] = False
         game["free_mode"] = False
         chat["ai_typing"] = True

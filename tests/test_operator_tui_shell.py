@@ -1923,7 +1923,7 @@ def test_chat_input_supports_cursor_backspace_delete_and_history() -> None:
 
 
 def test_ai_chat_send_does_not_pause_snake() -> None:
-    game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
+    game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True, "tutorial_mode": False}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
     tui = InteractiveOperatorTui(state)
     tui._chat_focus_enter()
@@ -1936,6 +1936,60 @@ def test_ai_chat_send_does_not_pause_snake() -> None:
     assert updated.get("paused") is not True
     assert updated.get("tutor_ask_question") == "hi"
     assert updated.get("_ask_submitted") is False
+    assert updated.get("tutorial_mode") is False
+
+
+def test_command_from_chat_restores_chat_focus_after_run() -> None:
+    game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui._chat_focus_enter()
+
+    from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
+    game2 = dict(tui.state.header_logo_game or {})
+    chat = get_chat_state(game2)
+    chat["chat_focus"] = False
+    set_chat_state(game2, chat)
+    game2["command_return_chat_focus"] = True
+    tui.state = tui.state.with_updates(header_logo_game=game2, mode=OperatorMode.COMMAND, command_line="/cancel")
+    tui._command_buffer = "/cancel"
+
+    tui._run_command("/cancel")
+
+    updated = tui.state.header_logo_game or {}
+    chat_after = get_chat_state(updated)
+    assert chat_after.get("chat_focus") is True
+    assert updated.get("command_return_chat_focus") is None
+    assert tui.state.mode is OperatorMode.NORMAL
+
+
+def test_toggle_snake_mode_preserves_tutorial_setting() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "tutorial_mode": False,
+        "snake": [(2, 3), (1, 3), (0, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "board_w": 40,
+        "board_h": 12,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._toggle_snake_mode()
+    off_state = tui.state.header_logo_game or {}
+    assert off_state.get("tutorial_mode") is False
+    assert off_state.get("ui_steering") is False
+
+    tui._toggle_snake_mode()
+    on_state = tui.state.header_logo_game or {}
+    assert on_state.get("tutorial_mode") is False
+    assert on_state.get("ui_steering") is True
 
 
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:
