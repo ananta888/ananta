@@ -42,6 +42,7 @@ class HeaderSnakeMixin:
         "chat_context_chars",
         "chat_max_tokens",
         "chat_rag_top_k",
+        "chat_answer_chars",
     )
 
     def _header_snake_enabled(self) -> bool:

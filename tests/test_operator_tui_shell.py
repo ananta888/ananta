@@ -33,6 +33,7 @@ from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
 from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+from client_surfaces.operator_tui.chat_state import sanitize_text
 from agent.cli.main import _run_tui
 
 
@@ -2733,6 +2734,41 @@ def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> N
     assert calls == ["http://192.168.178.100:1234/v1/chat/completions"]
 
 
+def test_resolve_ask_worker_response_is_not_clipped_to_600(monkeypatch) -> None:
+    long_answer = "A" * 1200
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={"chat_backend": "ananta-worker", "chat_answer_chars": 2000},
+    )
+    tui = InteractiveOperatorTui(state)
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"answer": long_answer}).encode()
+
+    monkeypatch.setattr("client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", lambda req, timeout=0: _Resp())
+    monkeypatch.setattr(tui, "_rag_context_for_question", lambda *args, **kwargs: [])
+    monkeypatch.setattr(tui, "_build_active_target_excerpt", lambda: "")
+    monkeypatch.setattr(tui, "_chat_codecompass_context_for_question", lambda **kwargs: [])
+
+    answer = tui._resolve_ask_question(
+        "hi",
+        depth="overview",
+        hints=[],
+        rag_context=[],
+        question_tokens=[],
+        prior_messages=[],
+    )
+
+    assert len(answer) == 1200
+
+
 def test_terminal_context_shortcut_prepares_ai_chat_context() -> None:
     state = OperatorState(endpoint="http://localhost:5000", section_id="tasks")
     tui = InteractiveOperatorTui(state)
@@ -2893,6 +2929,7 @@ def test_ai_snake_config_includes_chat_context_control_fields() -> None:
     assert "chat_context_chars" in keys
     assert "chat_max_tokens" in keys
     assert "chat_rag_top_k" in keys
+    assert "chat_answer_chars" in keys
 
 
 def test_ai_snake_config_applies_chat_ask_timeout_value() -> None:
@@ -2909,16 +2946,24 @@ def test_ai_snake_config_applies_chat_context_settings() -> None:
     status_c = apply_ai_snake_config_value(game, key="chat_context_chars", value="6000")
     status_d = apply_ai_snake_config_value(game, key="chat_max_tokens", value="1200")
     status_e = apply_ai_snake_config_value(game, key="chat_rag_top_k", value="48")
+    status_f = apply_ai_snake_config_value(game, key="chat_answer_chars", value="4000")
     assert game.get("chat_use_codecompass") is False
     assert game.get("chat_source_pack_id") == "ananta-local-only"
     assert game.get("chat_context_chars") == 6000
     assert game.get("chat_max_tokens") == 1200
     assert game.get("chat_rag_top_k") == 48
+    assert game.get("chat_answer_chars") == 4000
     assert "AUS" in status_a
     assert "ananta-local-only" in status_b
     assert "6000" in status_c
     assert "1200" in status_d
     assert "48" in status_e
+    assert "4000" in status_f
+
+
+def test_chat_state_sanitize_text_can_keep_long_messages() -> None:
+    long_text = "x" * 1500
+    assert len(sanitize_text(long_text, max_len=None)) == 1500
 
 
 def test_ai_snake_config_backend_switch_fetches_lmstudio_models(monkeypatch) -> None:

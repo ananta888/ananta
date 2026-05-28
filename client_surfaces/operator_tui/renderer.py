@@ -950,7 +950,7 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
     for msg in messages:
         sender_kind = str(msg.get("sender_kind") or "user")
         sender = str(msg.get("sender_id") or "?")
-        text = sanitize_text(str(msg.get("text") or ""))
+        text = sanitize_text(str(msg.get("text") or ""), max_len=6000)
         line_col = _participant_color(game, sender_id=sender, sender_kind=sender_kind)
         if sender_kind == "system":
             prefix = "* "
@@ -2432,7 +2432,7 @@ def _overlay_snake_chat_panel(
             continue
         sender = str(msg.get("sender_id") or "?")
         sender_kind = str(msg.get("sender_kind") or "user")
-        text = sanitize_text(str(msg.get("text") or ""))
+        text = sanitize_text(str(msg.get("text") or ""), max_len=6000)
         delivery = str(msg.get("delivery_state") or "")
 
         ts = _chat_msg_timestamp(msg)

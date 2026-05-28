@@ -577,7 +577,7 @@ class ChatMixin:
                     data = _json_mod.loads(resp.read().decode())
                     answer = str(data.get("answer") or data.get("text") or "")
                     if answer:
-                        return answer[:600]
+                        return answer[: self._chat_answer_char_limit()]
         except Exception:
             pass
         return self._tutorial_ai_llm_ask(
@@ -631,7 +631,7 @@ class ChatMixin:
         if not isinstance(data, dict):
             return ""
         text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
-        return " ".join(text.split())[:600]
+        return " ".join(text.split())[: self._chat_answer_char_limit()]
 
     def _rag_context_for_question(
         self,
@@ -1001,3 +1001,11 @@ class ChatMixin:
             )
         except Exception:
             pass
+    def _chat_answer_char_limit(self) -> int:
+        game = dict(self.state.header_logo_game or {})
+        raw = game.get("chat_answer_chars")
+        try:
+            value = int(raw) if raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", "6000"))
+        except (TypeError, ValueError):
+            value = 6000
+        return max(600, min(12000, value))
