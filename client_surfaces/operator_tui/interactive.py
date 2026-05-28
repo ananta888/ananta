@@ -433,6 +433,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             self._toggle_chat_panel_open()
 
+        @bindings.add(key_for_action("copy_chat_panel", "c-c"))
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._copy_chat_panel_snapshot()
+
+        @bindings.add(key_for_action("copy_ai_status", "c-i"))
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._copy_ai_status_snapshot()
+
         @bindings.add(key_for_action("clear_chat_input", "c-l"))
         def _(event) -> None:
             if self._chat_focus_active():
@@ -1039,6 +1051,65 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         chat["scroll_offset"] = max(0, current + delta)
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _copy_chat_panel_snapshot(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        from client_surfaces.operator_tui.chat_state import get_chat_state, sanitize_text
+        chat = get_chat_state(game)
+        active_ch_id = str(chat.get("active_channel") or "room:main")
+        channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
+        ch = channels.get(active_ch_id) if isinstance(channels, dict) else {}
+        if not isinstance(ch, dict):
+            ch = {}
+        display_name = str(ch.get("display_name") or active_ch_id)
+        lines = [f"CHAT {display_name} ({active_ch_id})"]
+        msgs = [m for m in (ch.get("messages") or []) if isinstance(m, dict)]
+        for msg in msgs[-80:]:
+            sender_kind = str(msg.get("sender_kind") or "user")
+            sender_id = str(msg.get("sender_id") or "?")
+            if sender_kind == "ai" or sender_id == "s-ai":
+                sender = "AI-snake"
+            elif sender_kind == "system":
+                sender = "system"
+            else:
+                sender = "user"
+            created_at = msg.get("created_at")
+            if isinstance(created_at, (int, float)):
+                ts = time.strftime("%H:%M", time.localtime(float(created_at)))
+            else:
+                ts = "--:--"
+            text = sanitize_text(str(msg.get("text") or ""))
+            if text:
+                lines.append(f"[{ts}] {sender}: {text}")
+        copied = "\n".join(lines).strip()
+        game["clipboard"] = copied
+        ok = self._copy_to_system_clipboard(copied) if copied else False
+        status = "chat copy: intern + System-Zwischenablage" if ok else "chat copy: intern"
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+
+    def _copy_ai_status_snapshot(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        lines = ["AI-SNAKE STATUS"]
+        lines.append(f"tutorial_mode={bool(game.get('tutorial_mode'))}")
+        lines.append(f"chat_panel_open={bool(game.get('chat_panel_open'))}")
+        lines.append(f"ai_snake_mode={str(game.get('ai_snake_mode') or 'lurking_follow')}")
+        lines.append(f"runtime_status={str(game.get('ai_snake_runtime_status') or 'idle')}")
+        lines.append(f"provider={str(game.get('ai_snake_provider_preference') or 'lmstudio')}")
+        lines.append(f"model={str(game.get('ai_snake_provider_model') or 'ananta-smoke')}")
+        monitor = game.get("ai_snake_monitor_log")
+        rows = [dict(item) for item in monitor if isinstance(item, dict)] if isinstance(monitor, list) else []
+        if rows:
+            lines.append("events:")
+            for item in rows[-20:]:
+                created_at = item.get("created_at")
+                ts = time.strftime("%H:%M", time.localtime(float(created_at))) if isinstance(created_at, (int, float)) else "--:--"
+                label = str(item.get("label") or item.get("event") or "event")
+                lines.append(f"- {ts} {label}")
+        copied = "\n".join(lines).strip()
+        game["clipboard"] = copied
+        ok = self._copy_to_system_clipboard(copied) if copied else False
+        status = "ai status copy: intern + System-Zwischenablage" if ok else "ai status copy: intern"
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
 
     def _normal_or_text(self, text: str, normal_action) -> None:
         if self._snake_message_mode_active():

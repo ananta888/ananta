@@ -5,6 +5,8 @@
     { "action": "toggle_snake_mode", "key": "c-s", "display": "Ctrl+S", "label": "Snake", "areas": ["footer-normal", "footer-snake", "shortcuts", "ai-panel"] },
     { "action": "toggle_chat_panel", "key": "c-g", "display": "Ctrl+G", "label": "AI-Chat", "areas": ["footer-normal", "footer-snake", "shortcuts", "ai-panel", "chat-panel"] },
     { "action": "chat_focus", "key": "c-e", "display": "Ctrl+E", "label": "Chat-Fokus", "areas": ["footer-normal", "footer-snake", "shortcuts", "ai-panel", "chat-panel"] },
+    { "action": "copy_chat_panel", "key": "c-c", "display": "Ctrl+C", "label": "Chat kopieren", "areas": ["shortcuts", "chat-panel"] },
+    { "action": "copy_ai_status", "key": "c-i", "display": "Ctrl+I", "label": "AI-Status kopieren", "areas": ["shortcuts", "ai-panel"] },
     { "action": "clear_chat_input", "key": "c-l", "display": "Ctrl+L", "label": "Input leeren", "areas": ["footer-chat", "shortcuts", "chat-panel"] },
     { "action": "cycle_focus_or_channel", "key": "c-w", "display": "Ctrl+W", "label": "Fokus/Kanal", "areas": ["footer-normal", "footer-chat", "shortcuts", "chat-panel"] },
     { "action": "toggle_tutorial_ai", "key": "c-u", "display": "Ctrl+U", "label": "Auto-Heuristik", "areas": ["footer-snake", "shortcuts", "ai-panel"] },

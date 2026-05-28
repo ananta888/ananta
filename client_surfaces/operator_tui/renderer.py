@@ -2146,6 +2146,9 @@ def _overlay_snake_ai_panel(
     panel_lines.append(
         f"\x1b[38;2;90;90;90mChat-Fokus [{display_for_action('chat_focus', 'Ctrl+E')}]\x1b[0m"
     )
+    panel_lines.append(
+        f"\x1b[38;2;90;90;90mCopy Status [{display_for_action('copy_ai_status', 'Ctrl+I')}]\x1b[0m"
+    )
     panel_lines.append("─" * panel_width)
     ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
     runtime_status = str(game.get("ai_snake_runtime_status") or "idle")
@@ -2238,6 +2241,9 @@ def _overlay_snake_chat_panel(
     panel_lines.append(
         f"\x1b[38;2;90;90;90m{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}=Kanal "
         f"{display_for_action('chat_focus', 'Ctrl+E')}=Eingabe PgUp/Dn=Scroll Esc=raus\x1b[0m"
+    )
+    panel_lines.append(
+        f"\x1b[38;2;90;90;90mCopy Chat [{display_for_action('copy_chat_panel', 'Ctrl+C')}]\x1b[0m"
     )
     if ai_typing:
         panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")
