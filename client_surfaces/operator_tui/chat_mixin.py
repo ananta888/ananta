@@ -55,6 +55,13 @@ class ChatMixin:
         if not buf:
             return
         chat["chat_input_buffer"] = ""
+        chat["chat_input_cursor"] = 0
+        history = [str(item) for item in (chat.get("chat_input_history") or []) if str(item).strip()]
+        if not history or history[-1] != buf:
+            history.append(buf)
+        chat["chat_input_history"] = history[-50:]
+        chat["chat_input_history_index"] = None
+        chat["chat_input_saved_draft"] = ""
         ch = get_active_channel(chat)
         if ch is None:
             set_chat_state(game, chat)

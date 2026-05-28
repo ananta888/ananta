@@ -1841,6 +1841,43 @@ def test_chat_channel_cycle_preserves_input_buffer() -> None:
     assert chat.get("chat_input_buffer") == "abc"
 
 
+def test_chat_input_supports_cursor_backspace_delete_and_history() -> None:
+    from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game={"active": True})
+    tui = InteractiveOperatorTui(state)
+    tui._chat_focus_enter()
+    tui._chat_append("abcd")
+    tui._chat_move_cursor(-2)
+    tui._chat_backspace()
+    tui._chat_delete()
+
+    game = dict(tui.state.header_logo_game or {})
+    chat = get_chat_state(game)
+    assert chat.get("chat_input_buffer") == "ad"
+    assert int(chat.get("chat_input_cursor") or 0) == 1
+
+    chat["chat_input_buffer"] = "draft"
+    chat["chat_input_cursor"] = 5
+    chat["chat_input_history"] = ["eins", "zwei"]
+    chat["chat_input_history_index"] = None
+    set_chat_state(game, chat)
+    tui._set_state(tui.state.with_updates(header_logo_game=game))
+
+    tui._chat_history_move(-1)
+    chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
+    assert chat.get("chat_input_buffer") == "zwei"
+    tui._chat_history_move(-1)
+    chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
+    assert chat.get("chat_input_buffer") == "eins"
+    tui._chat_history_move(1)
+    chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
+    assert chat.get("chat_input_buffer") == "zwei"
+    tui._chat_history_move(1)
+    chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
+    assert chat.get("chat_input_buffer") == "draft"
+
+
 def test_ai_chat_send_does_not_pause_snake() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
@@ -1993,6 +2030,33 @@ def test_compact_artifact_chat_input_sends_ai_question() -> None:
     assert updated.get("tutorial_mode") is True
     artifact_messages = ((updated.get("artifact_chat_state") or {}).get("messages") or [])
     assert artifact_messages[-1]["source"] == "user"
+
+
+def test_artifact_chat_input_supports_cursor_delete_and_history() -> None:
+    game = {
+        "artifact_chat_state": {"active_target": {"kind": "file", "label": "sample.py"}},
+        "chat_panel_open": True,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui._artifact_chat_focus_enter()
+    tui._artifact_chat_append("wxyz")
+    tui._artifact_chat_move_cursor(-2)
+    tui._artifact_chat_backspace()
+    tui._artifact_chat_delete()
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("artifact_chat_input") == "wz"
+    assert int(updated.get("artifact_chat_cursor") or 0) == 1
+
+    updated["artifact_chat_input"] = "draft-art"
+    updated["artifact_chat_cursor"] = len("draft-art")
+    updated["artifact_chat_history"] = ["alt-1", "alt-2"]
+    updated["artifact_chat_history_index"] = None
+    tui._set_state(tui.state.with_updates(header_logo_game=updated))
+    tui._artifact_chat_history_move(-1)
+    assert (tui.state.header_logo_game or {}).get("artifact_chat_input") == "alt-2"
+    tui._artifact_chat_history_move(1)
+    assert (tui.state.header_logo_game or {}).get("artifact_chat_input") == "draft-art"
 
 
 def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
