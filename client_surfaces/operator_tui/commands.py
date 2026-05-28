@@ -3232,7 +3232,6 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         game["_ask_submitted"] = False
         game["active"] = True
         game["alive"] = True
-        game["tutorial_mode"] = True
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,

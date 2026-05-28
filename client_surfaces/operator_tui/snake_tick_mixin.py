@@ -77,6 +77,10 @@ class SnakeTickMixin:
         free_mode = bool(game.get("free_mode"))
         # Allow tick when: in HEADER focus, OR ui_steering on, OR tutorial AI is running, OR free_mode active
         if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering") and not game.get("tutorial_mode") and not free_mode:
+            self._poll_tutor_ask_result(game)
+            self._tick_chat(game, now=time.monotonic())
+            self._tick_chat_ai_response(game)
+            self._set_state(self.state.with_updates(header_logo_game=game))
             return
         if not game.get("active", False) or not game.get("alive", True):
             return
