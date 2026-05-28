@@ -2690,6 +2690,64 @@ def test_ai_snake_config_backend_switch_fetches_lmstudio_models(monkeypatch) -> 
     assert "modelle" in status
 
 
+def test_ai_snake_config_backend_switch_sets_ananta_worker_default_model(monkeypatch) -> None:
+    game: dict[str, object] = {"chat_backend_models": []}
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        lambda req, timeout=0: (_ for _ in ()).throw(OSError("unreachable")),
+    )
+
+    status = apply_ai_snake_config_value(game, key="chat_backend", value="ananta-worker")
+    models = [str(item) for item in (game.get("chat_backend_models") or [])]
+
+    assert "google/gemma-4-e4b" in models
+    assert game.get("chat_backend_model") == "google/gemma-4-e4b"
+    assert "ananta-worker" in status
+
+
+def test_ai_snake_config_backend_switch_uses_opencode_default_model(monkeypatch) -> None:
+    game: dict[str, object] = {"chat_backend_models": []}
+    monkeypatch.delenv("ANANTA_TUI_CHAT_MODEL", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_MODEL", raising=False)
+    monkeypatch.setenv("OPENCODE_DEFAULT_MODEL", "opencode/test-model")
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        lambda req, timeout=0: (_ for _ in ()).throw(OSError("unreachable")),
+    )
+
+    status = apply_ai_snake_config_value(game, key="chat_backend", value="opencode")
+    models = [str(item) for item in (game.get("chat_backend_models") or [])]
+
+    assert "opencode/test-model" in models
+    assert game.get("chat_backend_model") == "opencode/test-model"
+    assert "opencode" in status
+
+
+def test_chat_backend_use_sets_default_model_for_opencode(monkeypatch) -> None:
+    monkeypatch.delenv("ANANTA_TUI_CHAT_MODEL", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_MODEL", raising=False)
+    monkeypatch.setenv("OPENCODE_DEFAULT_MODEL", "opencode/cli-default")
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        lambda req, timeout=0: (_ for _ in ()).throw(OSError("unreachable")),
+    )
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={
+            "chat_backends_available": ["ananta-worker", "opencode", "lmstudio"],
+            "chat_backend": "ananta-worker",
+            "chat_backend_model": "-",
+            "chat_backend_models": [],
+        },
+    )
+
+    result = execute_command(":chat backend use opencode", state)
+    game = dict(result.state.header_logo_game or {})
+
+    assert game.get("chat_backend") == "opencode"
+    assert game.get("chat_backend_model") == "opencode/cli-default"
+
+
 def test_chat_ask_uses_timeout_from_ai_snake_config() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",

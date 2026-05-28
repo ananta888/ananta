@@ -3530,6 +3530,11 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     return CommandResult(state, f"chat backend '{target}' nicht in Liste", handled=False)
                 chosen = normalized[target]
                 game["chat_backend"] = chosen
+                game["chat_backend_models_last_refresh_at"] = 0.0
+                models, _ = refresh_chat_backend_models(game, force=True)
+                current_model = str(game.get("chat_backend_model") or "").strip()
+                if models and (not current_model or current_model == "-"):
+                    game["chat_backend_model"] = models[0]
                 message = f"chat backend aktiv: {chosen}"
                 return CommandResult(
                     state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=message),
@@ -3544,8 +3549,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 models = [str(item).strip() for item in models_raw if str(item).strip()]
             else:
                 models = []
-            backend = str(game.get("chat_backend") or "ananta-worker").strip().lower()
-            if action == "list" and backend in {"lmstudio", "local", "openai"}:
+            if action == "list":
                 models, _ = refresh_chat_backend_models(game, force=True)
             current_model = str(game.get("chat_backend_model") or "").strip()
             if current_model and current_model not in models:

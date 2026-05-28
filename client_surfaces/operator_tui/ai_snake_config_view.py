@@ -9,6 +9,28 @@ import urllib.request
 from typing import Any
 
 
+def _append_unique(values: list[str], candidate: str) -> None:
+    item = str(candidate or "").strip()
+    if item and item != "-" and item not in values:
+        values.append(item)
+
+
+def _default_models_for_backend(backend: str, game: dict[str, object]) -> list[str]:
+    normalized = str(backend or "").strip().lower()
+    defaults: list[str] = []
+    _append_unique(defaults, str(game.get("chat_backend_model") or ""))
+    _append_unique(defaults, str(os.environ.get("ANANTA_TUI_CHAT_MODEL") or ""))
+    _append_unique(defaults, str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or ""))
+    if normalized in {"opencode"}:
+        _append_unique(defaults, str(os.environ.get("OPENCODE_DEFAULT_MODEL") or ""))
+        _append_unique(defaults, "opencode/glm-5-free")
+    if normalized in {"ananta-worker", "worker", "hub", "default", "auto"}:
+        _append_unique(defaults, "google/gemma-4-e4b")
+    if normalized in {"hermes"}:
+        _append_unique(defaults, "ananta-smoke")
+    return defaults
+
+
 def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     backends_raw = game.get("chat_backends_available")
     chat_backends = [str(item).strip() for item in backends_raw] if isinstance(backends_raw, list) else []
@@ -86,8 +108,13 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
     backend = str(game.get("chat_backend") or "ananta-worker").strip().lower()
     models_raw = game.get("chat_backend_models")
     models = [str(item).strip() for item in models_raw] if isinstance(models_raw, list) else []
-    models = [item for item in models if item]
-    if backend not in {"lmstudio", "local", "openai"}:
+    models = [item for item in models if item and item != "-"]
+    for model in _default_models_for_backend(backend, game):
+        _append_unique(models, model)
+
+    local_backends = {"lmstudio", "local", "openai"}
+    worker_backends = {"ananta-worker", "worker", "hub", "default", "auto", "opencode", "hermes"}
+    if backend not in local_backends and backend not in worker_backends:
         game["chat_backend_models"] = models[-40:]
         game["chat_backend_models_error"] = ""
         return models[-40:], ""
@@ -99,20 +126,32 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
         return models[-40:], str(game.get("chat_backend_models_error") or "")
 
     configured_base = str(game.get("chat_backend_api_base") or "").strip()
+    worker_base = str(game.get("chat_worker_api_base") or "").strip()
     env_base = str(
         os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL")
         or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
         or ""
     ).strip()
+    hub_base = str(os.environ.get("ANANTA_BASE_URL") or "").strip()
     base_candidates: list[str] = []
-    for base in (
-        configured_base,
-        env_base,
-        "http://localhost:1234/v1",
-        "http://127.0.0.1:1234/v1",
-        "http://localhost:1234",
-        "http://127.0.0.1:1234",
-    ):
+    if backend in local_backends:
+        candidates = (
+            configured_base,
+            env_base,
+            "http://localhost:1234/v1",
+            "http://127.0.0.1:1234/v1",
+            "http://localhost:1234",
+            "http://127.0.0.1:1234",
+        )
+    else:
+        candidates = (
+            worker_base,
+            hub_base,
+            "http://localhost:5000",
+            "http://127.0.0.1:5000",
+            configured_base,
+        )
+    for base in candidates:
         normalized = str(base or "").strip().rstrip("/")
         if normalized and normalized not in base_candidates:
             base_candidates.append(normalized)
@@ -145,8 +184,12 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
     models = models[-40:]
     game["chat_backend_models"] = models
     game["chat_backend_models_last_refresh_at"] = now
-    if resolved_base:
+    if resolved_base and backend in local_backends:
         game["chat_backend_api_base"] = resolved_base
+        game["chat_backend_models_error"] = ""
+        error = ""
+    elif resolved_base and backend in worker_backends:
+        game["chat_worker_api_base"] = resolved_base.removesuffix("/v1")
         game["chat_backend_models_error"] = ""
         error = ""
     else:
@@ -220,15 +263,14 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
     if key == "chat_backend":
         game["chat_backend"] = raw_value
         game["chat_backend_models_last_refresh_at"] = 0.0
-        if raw_value.strip().lower() in {"lmstudio", "local", "openai"}:
-            models, fetch_error = refresh_chat_backend_models(game, force=True)
-            current_model = str(game.get("chat_backend_model") or "").strip()
-            if models and (not current_model or current_model == "-"):
-                game["chat_backend_model"] = models[0]
-            if models:
-                return f"ai config: {label} -> {raw_value} ({len(models)} modelle)"
-            if fetch_error:
-                return f"ai config: {label} -> {raw_value} ({fetch_error})"
+        models, fetch_error = refresh_chat_backend_models(game, force=True)
+        current_model = str(game.get("chat_backend_model") or "").strip()
+        if models and (not current_model or current_model == "-"):
+            game["chat_backend_model"] = models[0]
+        if models:
+            return f"ai config: {label} -> {raw_value} ({len(models)} modelle)"
+        if fetch_error:
+            return f"ai config: {label} -> {raw_value} ({fetch_error})"
         return f"ai config: {label} -> {raw_value}"
     if key == "chat_model":
         game["chat_backend_model"] = raw_value
