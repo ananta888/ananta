@@ -116,16 +116,26 @@ def render_markdown_ansi(
     scroll_offset: int = 0,
     mermaid_fallbacks: dict[str, MermaidFallbackInfo] | None = None,
 ) -> list[str]:
-    fallbacks = mermaid_fallbacks or {}
-    all_lines: list[str] = []
-    for block in blocks:
-        all_lines.extend(_render_block(block, width=width, mermaid_fallbacks=fallbacks))
-
-    if not all_lines:
-        all_lines = ["(empty document)"]
+    all_lines = render_markdown_ansi_lines(blocks, width=width, mermaid_fallbacks=mermaid_fallbacks)
 
     start = max(0, scroll_offset)
     visible = all_lines[start : start + height]
     while len(visible) < height:
         visible.append("")
     return visible
+
+
+def render_markdown_ansi_lines(
+    blocks: list[MarkdownBlock],
+    *,
+    width: int,
+    mermaid_fallbacks: dict[str, MermaidFallbackInfo] | None = None,
+) -> list[str]:
+    fallbacks = mermaid_fallbacks or {}
+    all_lines: list[str] = []
+    for block in blocks:
+        all_lines.extend(_render_block(block, width=width, mermaid_fallbacks=fallbacks))
+
+    if not all_lines:
+        return ["(empty document)"]
+    return all_lines

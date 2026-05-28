@@ -62,6 +62,7 @@ def configure_middle_view_for_message(
     game["visual_viewport_enabled"] = True
     game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
     game["visual_viewport_force_render"] = True
+    game["markdown_auto_follow"] = True
     game["markdown_mermaid_config"] = {
         "markdown_mode": "ansi",
         "mermaid_mode": "auto",

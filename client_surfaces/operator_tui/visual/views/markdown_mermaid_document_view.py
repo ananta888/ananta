@@ -12,6 +12,7 @@ from client_surfaces.operator_tui.visual.markdown.document_source import (
 from client_surfaces.operator_tui.visual.markdown.markdown_ansi_renderer import (
     MermaidFallbackInfo,
     render_markdown_ansi,
+    render_markdown_ansi_lines,
 )
 from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
 from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import extract_mermaid_blocks
@@ -59,11 +60,20 @@ class MarkdownMermaidDocumentView:
                         reason=result.reason or "Mermaid image renderer unavailable",
                     )
 
+        scroll_offset = self._scroll_offset
+        if bool(context.state.get("markdown_auto_follow")):
+            rendered_lines = render_markdown_ansi_lines(
+                blocks,
+                width=context.region.columns,
+                mermaid_fallbacks=mermaid_fallbacks,
+            )
+            scroll_offset = max(0, len(rendered_lines) - context.region.rows)
+
         lines = render_markdown_ansi(
             blocks,
             width=context.region.columns,
             height=context.region.rows,
-            scroll_offset=self._scroll_offset,
+            scroll_offset=scroll_offset,
             mermaid_fallbacks=mermaid_fallbacks,
         )
 
@@ -78,7 +88,7 @@ class MarkdownMermaidDocumentView:
             metadata={
                 "animated": False,
                 "cache_hint": "state_versioned",
-                "scroll_offset": self._scroll_offset,
+                "scroll_offset": scroll_offset,
                 "mermaid_fallback_count": len(mermaid_fallbacks),
                 "view_requirements": {
                     "markdown_ansi": "available",
