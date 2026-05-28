@@ -1,0 +1,432 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-snake-chat-control-commands",
+  "title": "Operator TUI control from Snake Chat mode via safe chat commands",
+  "purpose": "Allow the user to control the Operator TUI from Snake Chat mode by sending explicit chat commands or structured natural-language control intents. The implementation must route chat input through a deterministic command/intent layer, enforce default-deny policy, show visible results in chat/status, and avoid allowing arbitrary LLM-generated UI actions without validation.",
+  "goal": "In Snake Chat mode the user can type commands such as '/view markdown', '/view next', '/overlay views', '/open artifact 3', '/focus artifacts', '/snake pause', or natural-language variants if explicitly enabled. These are converted into allowed TUI actions, executed through the same action registry/keymap used by keyboard controls, and confirmed in the chat output.",
+  "context": {
+    "user_goal": "Im Snake Chat Modus soll aus dem Chat heraus die TUI gesteuert werden können.",
+    "current_observation": [
+      "client_surfaces/operator_tui/chat_mixin.py already handles chat send behavior and has a special // shortcut toggle path.",
+      "AI chat messages currently set tutor_ask_question and trigger ask/AI behavior rather than direct TUI control.",
+      "config/operator_tui_keybindings.default.json already defines named actions and labels that should be reused instead of duplicating command behavior.",
+      "The VisualViewport/ViewSwitcher TODOs introduce center-view switching and overlay controls that should become chat-controllable actions."
+    ],
+    "design_decision": "Implement chat control as an explicit TuiChatCommand layer. Do not let the LLM directly call arbitrary TUI methods. Chat input is parsed into structured commands, validated against an allowlist, optionally confirmed for risky actions, then dispatched through a TuiActionRegistry.",
+    "command_examples": [
+      "/view list",
+      "/view next",
+      "/view previous",
+      "/view markdown",
+      "/view snake",
+      "/overlay views on",
+      "/overlay views off",
+      "/focus artifacts",
+      "/focus chat",
+      "/open artifact 3",
+      "/snake pause",
+      "/snake resume",
+      "/snake follow on",
+      "/help tui"
+    ],
+    "natural_language_examples_optional": [
+      "zeige mir markdown in der mitte",
+      "wechsel zur nächsten view",
+      "blende die view leiste ein",
+      "öffne das dritte artefakt",
+      "pausiere die snake"
+    ],
+    "safety_rules": [
+      "Default-deny: unknown chat commands do not execute TUI actions.",
+      "LLM output may propose a TUI action but cannot execute it until validated by the deterministic dispatcher.",
+      "No shell command execution through chat-control commands in this track.",
+      "No file modification/deletion through chat-control commands in this track except explicitly safe notes operations that already exist.",
+      "Risky or ambiguous actions require confirmation or are rejected with a clear chat message.",
+      "All executed chat-control actions must be auditable with source message, parsed command, decision and result."
+    ],
+    "suggested_paths": {
+      "chat_mixin": "client_surfaces/operator_tui/chat_mixin.py",
+      "commands": "client_surfaces/operator_tui/chat_control_commands.py",
+      "parser": "client_surfaces/operator_tui/chat_control_parser.py",
+      "dispatcher": "client_surfaces/operator_tui/tui_action_dispatcher.py",
+      "policy": "client_surfaces/operator_tui/chat_control_policy.py",
+      "audit": "client_surfaces/operator_tui/chat_control_audit.py",
+      "tests": "tests/operator_tui/chat_control/",
+      "docs": "docs/operator-tui/snake-chat-control-commands.md"
+    }
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Command contract and action registry",
+      "status": "todo",
+      "task_ids": ["SCC-001", "SCC-002", "SCC-003"]
+    },
+    {
+      "id": "M2",
+      "title": "Parser, policy and dispatcher",
+      "status": "todo",
+      "task_ids": ["SCC-004", "SCC-005", "SCC-006", "SCC-007"]
+    },
+    {
+      "id": "M3",
+      "title": "Snake Chat integration and visible feedback",
+      "status": "todo",
+      "task_ids": ["SCC-008", "SCC-009", "SCC-010"]
+    },
+    {
+      "id": "M4",
+      "title": "Natural-language control optional layer",
+      "status": "todo",
+      "task_ids": ["SCC-011", "SCC-012"]
+    },
+    {
+      "id": "M5",
+      "title": "Tests and documentation",
+      "status": "todo",
+      "task_ids": ["SCC-013", "SCC-014", "SCC-015", "SCC-016"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SCC-001",
+      "title": "Document Snake Chat TUI control command contract",
+      "type": "docs",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": ["docs/operator-tui/snake-chat-control-commands.md"],
+      "description": "Define which chat messages are treated as TUI control commands and which remain normal chat/AI messages.",
+      "acceptance_criteria": [
+        "Docs define slash-command syntax and optional natural-language control mode.",
+        "Docs include a Mermaid flowchart: chat input -> parser -> policy -> dispatcher -> TUI action -> chat/status result.",
+        "Docs explicitly state that unknown commands are rejected, not sent to arbitrary execution.",
+        "Docs list initial supported commands for view switching, overlay toggling, focus changes, artifact opening and snake controls."
+      ]
+    },
+    {
+      "id": "SCC-002",
+      "title": "Implement TuiActionRegistry for safe callable TUI actions",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "description": "Create a registry of named, safe TUI actions that can be invoked by chat commands and keybindings.",
+      "acceptance_criteria": [
+        "Registry contains action id, display label, risk level, allowed modes, argument schema and handler reference.",
+        "Registry rejects unknown action ids.",
+        "Registry can expose action metadata for /help tui and diagnostics.",
+        "Initial actions include view.list, view.next, view.previous, view.select, overlay.views.toggle/on/off, focus.chat, focus.artifacts, artifact.open, snake.pause, snake.resume and snake.follow.set.",
+        "No action handler accepts arbitrary Python method names or shell commands from chat input."
+      ]
+    },
+    {
+      "id": "SCC-003",
+      "title": "Map existing keybinding actions to TUI action ids where possible",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "config/operator_tui_keybindings.default.json",
+        "client_surfaces/operator_tui/keymap.py",
+        "client_surfaces/operator_tui/tui_action_dispatcher.py"
+      ],
+      "description": "Avoid duplicating behavior by reusing the same action names used by keyboard shortcuts when feasible.",
+      "acceptance_criteria": [
+        "Chat-control action labels can reuse configured keybinding labels where appropriate.",
+        "Footer/help text and chat-control help do not drift into different names for the same action.",
+        "If an existing keybinding action cannot be reused directly, the reason is documented in code comments or docs.",
+        "Tests verify at least one keybinding-backed action and one chat-only action."
+      ]
+    },
+    {
+      "id": "SCC-004",
+      "title": "Implement deterministic slash-command parser",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/chat_control_parser.py"],
+      "description": "Parse explicit chat commands into structured action requests without using an LLM.",
+      "acceptance_criteria": [
+        "Parser recognizes /view, /overlay, /focus, /open artifact, /snake and /help tui command groups.",
+        "Parser returns structured objects containing command, action_id, args, raw_text and parse diagnostics.",
+        "Invalid syntax produces helpful error messages with examples.",
+        "Parser never executes side effects itself.",
+        "Parser supports quoted arguments where needed, for example /view \"markdown mermaid\"."
+      ]
+    },
+    {
+      "id": "SCC-005",
+      "title": "Implement chat-control policy with default deny",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/chat_control_policy.py"],
+      "description": "Validate parsed chat commands against mode, action allowlist, argument schema and risk level.",
+      "acceptance_criteria": [
+        "Unknown commands and unknown action ids are denied.",
+        "Commands are allowed only in configured modes, especially snake chat mode where requested.",
+        "Argument types and ranges are validated before dispatch.",
+        "Risky actions can return require_confirmation instead of allow.",
+        "Policy decision includes allow/deny/require_confirmation, reason, action_id and normalized args."
+      ]
+    },
+    {
+      "id": "SCC-006",
+      "title": "Implement TUI action dispatcher",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "description": "Execute validated action requests against the TUI state through safe handlers.",
+      "acceptance_criteria": [
+        "Dispatcher accepts only policy-allowed normalized action requests.",
+        "Dispatcher updates TUI state through existing state update methods instead of mutating unrelated internals blindly.",
+        "Dispatcher returns a structured result with status, message, changed_state summary and optional next suggested commands.",
+        "Dispatcher failures are caught and returned as chat-visible errors without crashing the TUI.",
+        "Dispatcher can be unit-tested without starting a real terminal."
+      ]
+    },
+    {
+      "id": "SCC-007",
+      "title": "Implement audit trail for chat-control actions",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/chat_control_audit.py"],
+      "description": "Record every chat-control parse/policy/dispatch decision for debugging and safety review.",
+      "acceptance_criteria": [
+        "Audit event includes timestamp, source channel, sender kind, raw text hash or text according to config, parsed action, policy decision and dispatch result.",
+        "Denied and failed commands are audited as well as successful commands.",
+        "Audit output avoids leaking secret document contents by default.",
+        "Audit can be disabled or redirected by config for tests."
+      ]
+    },
+    {
+      "id": "SCC-008",
+      "title": "Integrate chat-control path into ChatMixin send flow",
+      "type": "integration",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/chat_mixin.py"],
+      "description": "Intercept eligible Snake Chat messages before they become normal AI questions or room messages.",
+      "acceptance_criteria": [
+        "Slash commands starting with / are routed to chat-control parser when chat-control is enabled.",
+        "Normal chat messages without command syntax keep current behavior.",
+        "AI-channel messages that are commands do not trigger tutor_ask_question unless the command explicitly asks for AI help.",
+        "The existing // shortcut behavior is either preserved or migrated into the new command system with compatibility noted.",
+        "After command execution, chat input buffer/history behavior remains consistent with normal chat sends."
+      ]
+    },
+    {
+      "id": "SCC-009",
+      "title": "Return command results into Snake Chat messages and TUI status",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/chat_mixin.py"],
+      "description": "Make command execution visible to the user inside chat and status line.",
+      "acceptance_criteria": [
+        "Allowed commands append a system/control message such as 'View switched to markdown_mermaid_document'.",
+        "Denied commands append a concise reason and one or two valid examples.",
+        "TUI status_message is updated for successful visible actions.",
+        "Command result messages are marked with sender_kind system or control, not normal AI response.",
+        "No duplicate result messages are produced for a single command."
+      ]
+    },
+    {
+      "id": "SCC-010",
+      "title": "Implement initial safe command handlers",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "description": "Add the first practical TUI actions needed from Snake Chat mode.",
+      "acceptance_criteria": [
+        "View commands can list, select, next and previous center VisualViewport views.",
+        "Overlay commands can show/hide/toggle the two-line view switcher overlay.",
+        "Focus commands can switch focus to chat, artifacts, main/content or diagnostics where supported.",
+        "Artifact command can open/select an artifact by visible index or stable id with bounds checking.",
+        "Snake commands can pause/resume and enable/disable mouse-follow where supported."
+      ]
+    },
+    {
+      "id": "SCC-011",
+      "title": "Add optional natural-language TUI intent parser",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/chat_control_parser.py"],
+      "description": "Optionally map simple natural-language phrases to the same structured action requests, without allowing free-form execution.",
+      "acceptance_criteria": [
+        "Natural-language control is disabled by default or clearly configurable.",
+        "Only a small deterministic phrase map is supported in the first version.",
+        "Examples include 'nächste view', 'zeige markdown', 'view leiste an', 'snake pausieren'.",
+        "Ambiguous phrases are rejected with suggestions instead of guessed execution.",
+        "LLM-based intent extraction, if later added, must still output into the same policy-validated action schema."
+      ]
+    },
+    {
+      "id": "SCC-012",
+      "title": "Add confirmation flow for risky or ambiguous chat-control actions",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_policy.py",
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
+      "description": "Provide a small confirmation state machine for actions that are allowed only after explicit user confirmation.",
+      "acceptance_criteria": [
+        "Policy can return require_confirmation with a short confirmation prompt.",
+        "User can confirm with /yes or cancel with /no within the same chat context.",
+        "Pending confirmations expire after a configurable timeout or after unrelated commands if configured.",
+        "The initial command set avoids destructive actions, but the confirmation mechanism is ready for future higher-risk actions."
+      ]
+    },
+    {
+      "id": "SCC-013",
+      "title": "Add unit tests for slash-command parsing",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["tests/operator_tui/chat_control/test_chat_control_parser.py"],
+      "description": "Verify deterministic parsing of supported and unsupported commands.",
+      "acceptance_criteria": [
+        "Tests cover /view list, /view next, /view markdown, /overlay views on/off, /focus artifacts, /open artifact 3, /snake pause/resume and /help tui.",
+        "Tests cover invalid commands and invalid argument formats.",
+        "Tests cover quoted arguments.",
+        "Tests prove parser has no side effects."
+      ]
+    },
+    {
+      "id": "SCC-014",
+      "title": "Add unit tests for policy and dispatcher",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "tests/operator_tui/chat_control/test_chat_control_policy.py",
+        "tests/operator_tui/chat_control/test_tui_action_dispatcher.py"
+      ],
+      "description": "Verify default-deny, safe dispatch and state update behavior.",
+      "acceptance_criteria": [
+        "Unknown action ids are denied.",
+        "Invalid args are denied before dispatch.",
+        "Allowed view switch actions update a fake TUI state as expected.",
+        "Dispatcher exceptions return structured error results instead of raising through to the TUI loop.",
+        "No test requires an interactive terminal."
+      ]
+    },
+    {
+      "id": "SCC-015",
+      "title": "Add integration tests for ChatMixin command routing",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["tests/operator_tui/chat_control/test_chat_mixin_command_routing.py"],
+      "description": "Ensure commands are routed before normal AI ask behavior and produce visible chat/status results.",
+      "acceptance_criteria": [
+        "A slash command in AI channel executes as TUI control and does not set tutor_ask_question.",
+        "A normal AI chat message still sets tutor_ask_question as before.",
+        "A denied command appends a system/control message with reason.",
+        "The existing // shortcut behavior is covered by compatibility tests or documented migration tests."
+      ]
+    },
+    {
+      "id": "SCC-016",
+      "title": "Document command list and examples in TUI help",
+      "type": "docs",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "docs/operator-tui/snake-chat-control-commands.md",
+        "client_surfaces/operator_tui/snake_tutor_texts.yaml"
+      ],
+      "description": "Make the feature discoverable from Snake Chat and /help tui.",
+      "acceptance_criteria": [
+        "Docs include command table with command, effect, risk level and examples.",
+        "/help tui returns the current supported chat-control commands or a concise static equivalent.",
+        "Snake tutor/help text mentions that TUI can be controlled from chat using slash commands.",
+        "Docs include clear warning that shell/file-destructive operations are intentionally out of scope."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "SCC-001",
+    "SCC-002",
+    "SCC-004",
+    "SCC-005",
+    "SCC-006",
+    "SCC-008",
+    "SCC-009",
+    "SCC-010",
+    "SCC-013",
+    "SCC-014",
+    "SCC-015"
+  ],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": {"todo": 16, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"critical": 10, "high": 4, "medium": 2, "low": 0},
+    "by_risk": {"low": 3, "medium": 8, "high": 5, "critical": 0},
+    "critical_path": {"total": 11, "done": 0, "remaining": 11},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 16,
+    "by_type": {
+      "docs": {"total": 2, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 2, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "implementation": {"total": 8, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "integration": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "test": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+    }
+  },
+  "progress_summary": {
+    "state": "ready_for_implementation",
+    "todo_remaining": 16,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "This feature must be deterministic first: slash commands before natural-language or LLM intent extraction.",
+    "The chat should control the TUI through the same safe action layer as keybindings where possible.",
+    "The AI/Snake may suggest actions, but execution must pass parser, policy and dispatcher validation.",
+    "Initial scope intentionally excludes shell execution and destructive file operations."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "expected_result",
+      "title": "Expected result after completion",
+      "items": [
+        "In Snake Chat mode, explicit slash commands can control safe TUI actions.",
+        "The user can switch center views, toggle the view overlay, focus panels, open/select artifacts and pause/resume snake behavior from chat.",
+        "Normal AI chat still works and is not confused with commands.",
+        "Every command produces visible chat/status feedback and an audit event.",
+        "Unknown or unsafe commands are denied with useful help instead of guessed execution."
+      ]
+    }
+  ]
+}
