@@ -3199,6 +3199,38 @@ def test_copy_ai_status_snapshot_writes_clipboard(monkeypatch) -> None:
     assert "events:" in copied
 
 
+def test_copy_tui_snapshot_writes_entire_rendered_view(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000", status_message="snapshot-ready")
+    tui = InteractiveOperatorTui(state)
+    tui._rendered_text = "\x1b[31mHEADER\x1b[0m\nbody line\n"
+    copied_values: list[str] = []
+    monkeypatch.setattr(tui, "_copy_to_system_clipboard", lambda text: copied_values.append(text) or True)
+
+    tui._copy_tui_snapshot()
+
+    game = tui.state.header_logo_game or {}
+    copied = str(game.get("clipboard") or "")
+    assert copied == "HEADER\nbody line\n"
+    assert copied_values == [copied]
+    assert "System-Zwischenablage" in str(tui.state.status_message)
+
+
+def test_save_tui_snapshot_writes_file(monkeypatch, tmp_path) -> None:
+    state = OperatorState(endpoint="http://localhost:5000", status_message="snapshot-ready")
+    tui = InteractiveOperatorTui(state)
+    tui._rendered_text = "HEADER\nbody line\n"
+    monkeypatch.setenv("ANANTA_TUI_SNAPSHOT_DIR", str(tmp_path))
+
+    tui._save_tui_snapshot()
+
+    game = tui.state.header_logo_game or {}
+    target = Path(str(game.get("last_tui_snapshot_path") or ""))
+    assert target.exists()
+    assert target.parent == tmp_path
+    assert target.read_text(encoding="utf-8") == "HEADER\nbody line\n"
+    assert "gespeichert" in str(tui.state.status_message)
+
+
 def test_prediction_comments_are_routed_to_ai_monitor_not_chat() -> None:
     from client_surfaces.operator_tui.chat_state import default_chat_state
 

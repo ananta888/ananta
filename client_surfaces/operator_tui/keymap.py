@@ -27,6 +27,7 @@ _NORMAL_HINTS = (
     f"[{display_for_action('next_section', 'Ctrl+N')}] Section  "
     f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
     f"[{display_for_action('toggle_visual_view_switcher_overlay', 'F8')}] {display_for_action('toggle_visual_view_switcher_overlay', 'View-Leiste')}  "
+    f"[{display_for_action('copy_tui_snapshot', 'F11')}/{display_for_action('save_tui_snapshot', 'F12')}] Snapshot  "
     f"[{display_for_action('open_long_chat_message', 'Ctrl+Space')}] Chat-Rest  "
     f"[{display_for_action('scroll_page_up', 'PgUp')}/{display_for_action('scroll_page_down', 'PgDn')}] Scroll  "
     f"[{display_for_action('inspect', 'Ctrl+F')}] Inspect  "
