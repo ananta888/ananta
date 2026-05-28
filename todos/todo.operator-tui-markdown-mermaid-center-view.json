@@ -1,0 +1,599 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-markdown-mermaid-center-view",
+  "title": "Operator TUI Markdown and Mermaid rendering in center VisualViewport",
+  "purpose": "Add a dedicated center viewport view that can render Markdown documents and Mermaid diagrams inside the Operator TUI using the existing VisualViewport renderer/adapter architecture. Markdown must work with a pure ANSI fallback. Mermaid diagrams should render as SVG/PNG frames when supported and fall back to visible source blocks with clear error reasons when rendering is unavailable.",
+  "goal": "Implement a markdown_mermaid_document_view that can display Markdown and Mermaid content in the middle TUI area, reuse the existing view/renderer/output-adapter contracts, support runtime switching, cache rendered diagrams, and expose capability status to the view switcher overlay.",
+  "context": {
+    "extends_tracks": [
+      "todos/archiv/todo.operator-tui-center-visual-viewport-renderer-system.json",
+      "todos/todo.operator-tui-visual-view-switcher-overlay.json"
+    ],
+    "user_goal": "Markdown und Mermaid sollen in der mittleren TUI einfach renderbar sein.",
+    "design_decision": "Markdown is rendered directly to ANSI/Rich-style text first. Mermaid rendering is optional and should use mermaid-cli or a headless browser/Playwright path to produce SVG/PNG, then the existing raster/output adapters display it. If unavailable, the original Mermaid code block is shown with a concise reason.",
+    "rendering_modes": {
+      "markdown_ansi": "Markdown -> parsed blocks -> ANSI/text frame -> CenterViewport",
+      "markdown_raster_optional": "Markdown -> HTML/SVG/PNG preview -> raster frame -> Sixel/Kitty/ANSI fallback",
+      "mermaid_image": "Mermaid source -> SVG/PNG via renderer backend -> raster frame -> Sixel/Kitty",
+      "mermaid_fallback": "Mermaid source -> fenced code block with error/capability reason -> ANSI"
+    },
+    "recommended_defaults": {
+      "default_view_id": "markdown_mermaid_document",
+      "markdown_mode": "ansi",
+      "mermaid_mode": "auto",
+      "mermaid_renderers": [
+        "mermaid_cli",
+        "playwright",
+        "fallback_codeblock"
+      ],
+      "cache_enabled": true,
+      "max_diagram_width": 1280,
+      "max_diagram_height": 720,
+      "safe_default": "never execute arbitrary shell commands except configured trusted renderer binaries"
+    },
+    "security_rules": [
+      "Do not execute Mermaid/Markdown embedded scripts.",
+      "Do not load remote resources from Markdown/HTML/Mermaid by default.",
+      "Only render files from allowed project/artifact/document roots.",
+      "Mermaid rendering must run with timeout and size limits.",
+      "Renderer command paths must be configured/trusted, not taken from document content.",
+      "Fallback must show source safely if rendering fails."
+    ],
+    "suggested_paths": {
+      "view": "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+      "markdown_parser": "client_surfaces/operator_tui/visual/markdown/markdown_parser.py",
+      "markdown_ansi_renderer": "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py",
+      "mermaid_extractor": "client_surfaces/operator_tui/visual/markdown/mermaid_block_extractor.py",
+      "mermaid_renderer": "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py",
+      "mermaid_cache": "client_surfaces/operator_tui/visual/markdown/mermaid_cache.py",
+      "config": "client_surfaces/operator_tui/visual/markdown/config.py",
+      "tests": "tests/operator_tui/visual/markdown/",
+      "docs": "docs/operator-tui/markdown-mermaid-center-view.md"
+    }
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Markdown/Mermaid view contract and safe configuration",
+      "status": "todo",
+      "task_ids": [
+        "MDM-001",
+        "MDM-002",
+        "MDM-003"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Markdown parsing and ANSI rendering",
+      "status": "todo",
+      "task_ids": [
+        "MDM-004",
+        "MDM-005",
+        "MDM-006"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Mermaid extraction, rendering and cache",
+      "status": "todo",
+      "task_ids": [
+        "MDM-007",
+        "MDM-008",
+        "MDM-009",
+        "MDM-010"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Center viewport integration and view switcher capability reporting",
+      "status": "todo",
+      "task_ids": [
+        "MDM-011",
+        "MDM-012",
+        "MDM-013"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Tests, smoke tooling and documentation",
+      "status": "todo",
+      "task_ids": [
+        "MDM-014",
+        "MDM-015",
+        "MDM-016",
+        "MDM-017"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "MDM-001",
+      "title": "Define markdown_mermaid_document view contract",
+      "type": "docs",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": [
+        "docs/operator-tui/markdown-mermaid-center-view.md"
+      ],
+      "description": "Document the Markdown/Mermaid view as a normal VisualView running inside the center VisualViewport.",
+      "acceptance_criteria": [
+        "Documentation contains a Mermaid flowchart for Markdown and Mermaid render paths.",
+        "Documentation states that the view never writes terminal escape sequences directly.",
+        "Documentation defines fallback behavior for unsupported Mermaid rendering.",
+        "Documentation explains how the view appears in the two-line view switcher overlay as available or unavailable."
+      ]
+    },
+    {
+      "id": "MDM-002",
+      "title": "Add Markdown/Mermaid config model",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/config.py",
+        "config/config.example.json"
+      ],
+      "description": "Add typed/defaulted config for Markdown rendering mode, Mermaid renderer selection, cache behavior, timeouts and allowed roots.",
+      "acceptance_criteria": [
+        "Config supports markdown_mode values ansi, raster_optional and source_only.",
+        "Config supports mermaid_mode values auto, image, source_only and disabled.",
+        "Config supports mermaid_renderers order with mermaid_cli, playwright and fallback_codeblock.",
+        "Config supports timeout_seconds, max_diagram_width, max_diagram_height, cache_enabled and allowed_roots.",
+        "Unsafe or unknown config values fail with clear diagnostics."
+      ]
+    },
+    {
+      "id": "MDM-003",
+      "title": "Add safe document source descriptor",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/document_source.py"
+      ],
+      "description": "Represent Markdown sources safely without allowing arbitrary file access from the TUI view.",
+      "acceptance_criteria": [
+        "DocumentSource supports inline text, artifact reference and allowed file path reference.",
+        "File sources are rejected when outside configured allowed roots.",
+        "Missing or unreadable documents produce a user-visible placeholder frame, not a crash.",
+        "Source descriptor contains stable identity/hash data for cache keys."
+      ]
+    },
+    {
+      "id": "MDM-004",
+      "title": "Implement Markdown block parser",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_parser.py"
+      ],
+      "description": "Parse Markdown into a small internal block model suitable for ANSI rendering and Mermaid block extraction.",
+      "acceptance_criteria": [
+        "Parser recognizes headings, paragraphs, bullet lists, numbered lists, fenced code blocks, tables as fallback text, blockquotes and horizontal rules.",
+        "Parser detects fenced mermaid code blocks without losing their original source.",
+        "Parser is deterministic and does not execute embedded HTML/scripts.",
+        "Invalid Markdown still produces readable fallback blocks."
+      ]
+    },
+    {
+      "id": "MDM-005",
+      "title": "Implement Markdown ANSI renderer",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
+      "description": "Render parsed Markdown blocks to ANSI/text frames for the center viewport fallback path.",
+      "acceptance_criteria": [
+        "Headings, lists, paragraphs, code fences and blockquotes are visibly distinct in ANSI/text mode.",
+        "Output is clipped to the assigned viewport width and height.",
+        "Long documents support scroll offset or paging state.",
+        "Rendering works without optional image or Mermaid dependencies.",
+        "Snapshot tests can assert stable output for fixed viewport sizes."
+      ]
+    },
+    {
+      "id": "MDM-006",
+      "title": "Add syntax-highlight placeholder strategy",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
+      "description": "Provide simple readable code block rendering first; optional syntax highlighting can be added later without changing the view contract.",
+      "acceptance_criteria": [
+        "Code blocks display language label when present.",
+        "Code blocks are framed or indented consistently.",
+        "No dependency on pygments or rich is required for the base path.",
+        "Optional syntax highlighting is explicitly documented as a future enhancement, not required for MVP."
+      ]
+    },
+    {
+      "id": "MDM-007",
+      "title": "Implement Mermaid block extractor",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_block_extractor.py"
+      ],
+      "description": "Extract Mermaid fenced blocks from parsed Markdown and assign deterministic block IDs/hashes.",
+      "acceptance_criteria": [
+        "Extractor recognizes fenced code blocks labeled mermaid.",
+        "Extractor preserves exact Mermaid source for rendering and fallback display.",
+        "Each block receives a stable hash based on source and render config.",
+        "Multiple Mermaid blocks in one document are supported."
+      ]
+    },
+    {
+      "id": "MDM-008",
+      "title": "Implement Mermaid renderer backend abstraction",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py"
+      ],
+      "description": "Create a safe abstraction for Mermaid-to-SVG/PNG rendering through configured renderer backends.",
+      "acceptance_criteria": [
+        "MermaidRenderer has backends for mermaid_cli, playwright and fallback_codeblock or equivalent abstractions.",
+        "Renderer reports availability without crashing when node, mmdc or browser dependencies are missing.",
+        "Renderer runs with timeout, max output size and clear error reporting.",
+        "Renderer never loads remote resources by default.",
+        "Renderer returns raster/SVG frame payloads compatible with existing VisualViewport render/output adapters."
+      ]
+    },
+    {
+      "id": "MDM-009",
+      "title": "Implement Mermaid render cache",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_cache.py"
+      ],
+      "description": "Cache rendered Mermaid diagrams by source hash, renderer backend and target size.",
+      "acceptance_criteria": [
+        "Cache key includes Mermaid source hash, renderer backend, target format and size/theme options.",
+        "Cache can be disabled by config.",
+        "Cache failures do not prevent fallback rendering.",
+        "Diagnostics expose cache hit/miss and render duration."
+      ]
+    },
+    {
+      "id": "MDM-010",
+      "title": "Implement Mermaid fallback code block rendering",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py",
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
+      "description": "Show Mermaid source safely when image rendering is unavailable or fails.",
+      "acceptance_criteria": [
+        "Fallback displays a concise reason such as 'Mermaid image renderer unavailable: mmdc not found'.",
+        "Fallback displays the original Mermaid source as a fenced code block.",
+        "Fallback is readable in the center viewport ANSI mode.",
+        "A failed Mermaid block does not prevent the rest of the Markdown document from rendering."
+      ]
+    },
+    {
+      "id": "MDM-011",
+      "title": "Implement markdown_mermaid_document_view",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"
+      ],
+      "description": "Add a VisualView implementation that renders Markdown documents and embedded Mermaid diagrams inside the center viewport.",
+      "acceptance_criteria": [
+        "View implements the existing VisualView contract.",
+        "View supports inline Markdown text and DocumentSource references.",
+        "View can render in pure ANSI mode without Mermaid image support.",
+        "View can include Mermaid image frames when a Mermaid renderer and image-capable output adapter are available.",
+        "View exposes metadata and requirements for the view switcher overlay."
+      ]
+    },
+    {
+      "id": "MDM-012",
+      "title": "Register Markdown/Mermaid view in VisualViewport registry",
+      "type": "integration",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/registry.py",
+        "client_surfaces/operator_tui/visual/views/__init__.py"
+      ],
+      "description": "Make the new view selectable like logo, snake, artifact preview and diagnostics views.",
+      "acceptance_criteria": [
+        "View id markdown_mermaid_document is registered by default.",
+        "View can be selected through the same switching mechanism as other center views.",
+        "If only ANSI is available, the view still appears under Views OK because Markdown text fallback works.",
+        "If Mermaid image rendering is unavailable, the view remains available but reports Mermaid image mode as degraded."
+      ]
+    },
+    {
+      "id": "MDM-013",
+      "title": "Integrate Markdown/Mermaid capability reporting with view switcher overlay",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/view_capability_report.py",
+        "client_surfaces/operator_tui/visual/viewport/view_switcher_overlay.py"
+      ],
+      "description": "Expose whether Markdown and Mermaid rendering are fully available, degraded or unavailable.",
+      "acceptance_criteria": [
+        "Overlay can show markdown_mermaid_document under Views OK when ANSI Markdown fallback is available.",
+        "Overlay detail/diagnostics reports Mermaid status: image, degraded/source-only or disabled.",
+        "Unavailable reasons are concise and actionable, for example 'Mermaid image: mmdc missing'.",
+        "The active view marker works for markdown_mermaid_document."
+      ]
+    },
+    {
+      "id": "MDM-014",
+      "title": "Add unit tests for Markdown parsing and ANSI rendering",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "tests/operator_tui/visual/markdown/test_markdown_parser.py",
+        "tests/operator_tui/visual/markdown/test_markdown_ansi_renderer.py"
+      ],
+      "description": "Verify deterministic Markdown parsing/rendering without optional dependencies.",
+      "acceptance_criteria": [
+        "Tests cover headings, paragraphs, lists, code blocks, tables as fallback text and blockquotes.",
+        "Tests cover viewport clipping and scroll offset/paging behavior.",
+        "Tests run without Mermaid, node, browser or image protocol support.",
+        "Snapshot output is stable for fixed viewport sizes."
+      ]
+    },
+    {
+      "id": "MDM-015",
+      "title": "Add unit tests for Mermaid extraction, rendering availability and fallback",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "tests/operator_tui/visual/markdown/test_mermaid_extractor.py",
+        "tests/operator_tui/visual/markdown/test_mermaid_renderer.py",
+        "tests/operator_tui/visual/markdown/test_mermaid_fallback.py"
+      ],
+      "description": "Verify Mermaid handling works with and without external renderer support.",
+      "acceptance_criteria": [
+        "Tests cover one and multiple Mermaid blocks in a Markdown document.",
+        "Tests cover renderer unavailable producing source-code fallback with reason.",
+        "Tests cover timeout/error path producing fallback, not a crash.",
+        "Tests use fake renderer backends rather than requiring real mmdc/playwright in CI."
+      ]
+    },
+    {
+      "id": "MDM-016",
+      "title": "Add manual smoke command for Markdown/Mermaid center rendering",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": [
+        "scripts/operator_tui_markdown_mermaid_smoke.py"
+      ],
+      "description": "Provide a quick manual tool to render a Markdown/Mermaid sample through ANSI and optional image paths.",
+      "acceptance_criteria": [
+        "Script accepts a Markdown file path and a mode flag.",
+        "Script prints Mermaid renderer availability diagnostics.",
+        "Script can render ANSI fallback output without starting full Operator TUI.",
+        "Script can optionally emit SVG/PNG/Sixel/Kitty test output when supported."
+      ]
+    },
+    {
+      "id": "MDM-017",
+      "title": "Document usage examples and failure modes",
+      "type": "docs",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "docs/operator-tui/markdown-mermaid-center-view.md"
+      ],
+      "description": "Add practical examples for using the center Markdown/Mermaid view with project docs and generated agent artifacts.",
+      "acceptance_criteria": [
+        "Docs include a minimal Markdown example and a Mermaid diagram example.",
+        "Docs explain how to switch to the view from the ViewSwitcher overlay.",
+        "Docs explain dependency choices for mermaid-cli and Playwright paths.",
+        "Docs list common failures: mmdc missing, browser missing, timeout, unsupported image protocol, and source-only fallback.",
+        "Docs state that Markdown remains usable even when Mermaid image rendering is unavailable."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "MDM-001",
+    "MDM-002",
+    "MDM-003",
+    "MDM-004",
+    "MDM-005",
+    "MDM-007",
+    "MDM-008",
+    "MDM-010",
+    "MDM-011",
+    "MDM-012",
+    "MDM-014",
+    "MDM-015"
+  ],
+  "tasks_status_summary": {
+    "total": 17,
+    "by_status": {
+      "todo": 17,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "critical": 12,
+      "high": 4,
+      "medium": 1,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 10,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 17,
+    "by_type": {
+      "docs": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "implementation": {
+        "total": 10,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 10,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "integration": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "test": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "tooling": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "ready_for_implementation",
+    "todo_remaining": 17,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Markdown should be usable immediately through ANSI/text fallback once the view exists.",
+    "Mermaid image rendering must be optional because it depends on node/mermaid-cli or a browser path.",
+    "The center VisualViewport architecture makes this a normal view, not a special TUI hack.",
+    "Security defaults must prevent arbitrary shell execution, remote resource loading and file access outside allowed roots."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "expected_result",
+      "title": "Expected result after completion",
+      "items": [
+        "The Operator TUI can switch to a markdown_mermaid_document center view.",
+        "Markdown documents render readably in ANSI/text mode without optional dependencies.",
+        "Mermaid blocks render as images when configured renderer support exists.",
+        "Mermaid blocks fall back to visible source code with a clear reason when image rendering is unavailable.",
+        "The view switcher overlay reports the Markdown/Mermaid view as available, degraded or unavailable based on real capabilities."
+      ]
+    }
+  ]
+}
