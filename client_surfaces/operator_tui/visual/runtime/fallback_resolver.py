@@ -34,8 +34,10 @@ def resolve_renderer_adapter_pair(
     capabilities: TerminalVisualCapabilities,
     available_renderers: set[str],
     available_adapters: set[str],
+    excluded_pairs: set[tuple[str, str]] | None = None,
 ) -> FallbackResolution:
     diagnostics: list[str] = []
+    blocked = set(excluded_pairs or set())
     candidates: list[FallbackPair] = [
         FallbackPair(renderer=config.default_renderer, adapter=config.default_output_adapter),
         *list(config.fallback_chain),
@@ -46,6 +48,9 @@ def resolve_renderer_adapter_pair(
     for pair in candidates:
         renderer = pair.renderer.strip()
         adapter = pair.adapter.strip()
+        if (renderer, adapter) in blocked:
+            diagnostics.append(f"skip {renderer}+{adapter}: excluded")
+            continue
         if renderer not in available_renderers:
             diagnostics.append(f"skip {renderer}+{adapter}: renderer unavailable")
             continue
@@ -62,4 +67,3 @@ def resolve_renderer_adapter_pair(
         return FallbackResolution(renderer=renderer, adapter=adapter, diagnostics=tuple(diagnostics))
 
     raise RuntimeError("no viable renderer/adapter pair; ensure ansi_blocks+ansi is registered")
-
