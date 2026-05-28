@@ -30,6 +30,12 @@
     { "action": "quit", "key": "c-q", "display": "Ctrl+Q", "label": "Quit", "areas": ["footer-normal", "shortcuts"] },
     { "action": "toggle_visual_view_switcher_overlay", "key": "f8", "display": "F8", "label": "View-Leiste", "areas": ["footer-normal", "footer-snake", "shortcuts"] },
     { "action": "next_visual_view", "key": "f9", "display": "F9", "label": "Nächste View", "areas": ["footer-normal", "shortcuts"] },
-    { "action": "previous_visual_view", "key": "f10", "display": "F10", "label": "Vorherige View", "areas": ["footer-normal", "shortcuts"] }
+    { "action": "previous_visual_view", "key": "f10", "display": "F10", "label": "Vorherige View", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "scroll_page_up", "key": "pageup", "display": "PgUp", "label": "Scroll hoch", "areas": ["footer-normal", "footer-snake", "shortcuts"] },
+    { "action": "scroll_page_down", "key": "pagedown", "display": "PgDn", "label": "Scroll runter", "areas": ["footer-normal", "footer-snake", "shortcuts"] },
+    { "action": "scroll_line_up", "key": "s-up", "display": "Shift+Up", "label": "Zeile hoch", "areas": ["shortcuts"] },
+    { "action": "scroll_line_down", "key": "s-down", "display": "Shift+Down", "label": "Zeile runter", "areas": ["shortcuts"] },
+    { "action": "scroll_home", "key": "s-home", "display": "Shift+Home", "label": "Scroll Anfang", "areas": ["shortcuts"] },
+    { "action": "scroll_end", "key": "s-end", "display": "Shift+End", "label": "Scroll Ende", "areas": ["shortcuts"] }
   ]
 }

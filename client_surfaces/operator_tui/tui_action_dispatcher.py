@@ -51,6 +51,15 @@ _INITIAL_ACTIONS: tuple[TuiAction, ...] = (
     TuiAction("snake.resume", "Snake Resume", "Resume snake game", "safe", "snake", frozenset({"any"})),
     TuiAction("snake.follow.on", "Snake Follow On", "Enable mouse follow mode", "safe", "snake", frozenset({"any"})),
     TuiAction("snake.follow.off", "Snake Follow Off", "Disable mouse follow mode", "safe", "snake", frozenset({"any"})),
+    TuiAction("scroll.page_up", "Scroll Page Up", "Scroll active panel one page up", "safe", "scroll", frozenset({"any"})),
+    TuiAction("scroll.page_down", "Scroll Page Down", "Scroll active panel one page down", "safe", "scroll", frozenset({"any"})),
+    TuiAction("scroll.line_up", "Scroll Line Up", "Scroll active panel one line up", "safe", "scroll", frozenset({"any"})),
+    TuiAction("scroll.line_down", "Scroll Line Down", "Scroll active panel one line down", "safe", "scroll", frozenset({"any"})),
+    TuiAction("scroll.home", "Scroll To Top", "Scroll active panel to top", "safe", "scroll", frozenset({"any"})),
+    TuiAction("scroll.end", "Scroll To Bottom", "Scroll active panel to bottom", "safe", "scroll", frozenset({"any"})),
+    TuiAction("focus.center", "Focus Center", "Move focus to center viewport", "safe", "focus", frozenset({"any"})),
+    TuiAction("focus.logs", "Focus Logs", "Move focus to log panel", "safe", "focus", frozenset({"any"})),
+    TuiAction("focus.nav", "Focus Nav", "Move focus to navigation panel", "safe", "focus", frozenset({"any"})),
 )
 
 _FORBIDDEN_CATEGORIES: frozenset[str] = frozenset({"shell", "file_write", "file_delete", "network", "destructive"})
@@ -239,6 +248,26 @@ class TuiActionDispatcher:
                 message=f"Snake mouse follow {'enabled' if follow_on else 'disabled'}",
                 changed_state_summary=changed,
                 control_result_marker={"status": "ok", "action_id": action.action_id, "follow": follow_on},
+            )
+
+        if action.action_id.startswith("scroll."):
+            sub = action.action_id[len("scroll."):]
+            changed["scroll_command_request"] = sub
+            return DispatchResult(
+                status="ok", action_id=action.action_id,
+                message=f"Scroll: {sub}",
+                changed_state_summary=changed,
+                control_result_marker={"status": "ok", "action_id": action.action_id, "scroll_command": sub},
+            )
+
+        if action.action_id in ("focus.center", "focus.logs", "focus.nav"):
+            target = action.action_id[len("focus."):]
+            changed["focus_target_request"] = target
+            return DispatchResult(
+                status="ok", action_id=action.action_id,
+                message=f"Focus moved to: {target}",
+                changed_state_summary=changed,
+                control_result_marker={"status": "ok", "action_id": action.action_id, "focus": target},
             )
 
         return DispatchResult(

@@ -662,15 +662,29 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                     self._chat_append(data)
                 return
 
-        @bindings.add("pageup")
+        @bindings.add(key_for_action("scroll_page_up", "pageup"))
         def _(event) -> None:
-            if self._chat_focus_active():
-                self._chat_scroll(-5)
+            self._scroll_active_panel(direction="page_up")
 
-        @bindings.add("pagedown")
+        @bindings.add(key_for_action("scroll_page_down", "pagedown"))
         def _(event) -> None:
-            if self._chat_focus_active():
-                self._chat_scroll(5)
+            self._scroll_active_panel(direction="page_down")
+
+        @bindings.add(key_for_action("scroll_line_up", "s-up"))
+        def _(event) -> None:
+            self._scroll_active_panel(direction="line_up")
+
+        @bindings.add(key_for_action("scroll_line_down", "s-down"))
+        def _(event) -> None:
+            self._scroll_active_panel(direction="line_down")
+
+        @bindings.add(key_for_action("scroll_home", "s-home"))
+        def _(event) -> None:
+            self._scroll_active_panel(direction="home")
+
+        @bindings.add(key_for_action("scroll_end", "s-end"))
+        def _(event) -> None:
+            self._scroll_active_panel(direction="end")
 
         @bindings.add(Keys.Vt100MouseEvent)
         def _(event) -> None:
@@ -707,6 +721,59 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _artifact_chat_focus_active(self) -> bool:
         game = self.state.header_logo_game or {}
         return bool(game.get("artifact_chat_focus")) and not self._snake_mode_active()
+
+    def _get_scroll_manager(self):
+        from client_surfaces.operator_tui.scroll.scroll_manager import ScrollManager
+        if not hasattr(self, "_scroll_manager_instance"):
+            self._scroll_manager_instance = ScrollManager()
+            self._scroll_manager_instance.register(
+                __import__("client_surfaces.operator_tui.scroll.scroll_context", fromlist=["ScrollContext"]).ScrollContext(
+                    id="chat_panel", label="Chat", content_height=100, viewport_height=20
+                )
+            )
+        return self._scroll_manager_instance
+
+    def _get_focus_manager(self):
+        from client_surfaces.operator_tui.focus.focus_manager import FocusManager
+        if not hasattr(self, "_focus_manager_instance"):
+            self._focus_manager_instance = FocusManager()
+            self._focus_manager_instance.register_scroll_context("chat_panel", "chat_panel")
+            self._focus_manager_instance.register_scroll_context("main_content", "main_content")
+            self._focus_manager_instance.register_scroll_context("artifact_panel", "artifact_panel")
+            self._focus_manager_instance.register_scroll_context("center_viewport", "center_viewport")
+        return self._focus_manager_instance
+
+    def _scroll_active_panel(self, direction: str) -> None:
+        if self._chat_focus_active():
+            delta_map = {"page_up": -10, "page_down": 10, "line_up": -1, "line_down": 1, "home": -9999, "end": 9999}
+            self._chat_scroll(delta_map.get(direction, 0))
+            return
+        sm = self._get_scroll_manager()
+        fm = self._get_focus_manager()
+        ctx_id = fm.active_scroll_context_id()
+        if ctx_id is None:
+            self._set_state(self.state.with_updates(status_message="kein scrollbarer Bereich fokussiert"))
+            return
+        ctx = sm.get(ctx_id)
+        if ctx is None:
+            return
+        moved = False
+        if direction == "page_up":
+            moved = ctx.scroll_page_up()
+        elif direction == "page_down":
+            moved = ctx.scroll_page_down()
+        elif direction == "line_up":
+            moved = ctx.scroll_line_up()
+        elif direction == "line_down":
+            moved = ctx.scroll_line_down()
+        elif direction == "home":
+            moved = ctx.scroll_home()
+        elif direction == "end":
+            moved = ctx.scroll_end()
+        if moved:
+            game = dict(self.state.header_logo_game or self._default_header_snake())
+            game[f"scroll_offset_{ctx_id}"] = ctx.offset
+            self._set_state(self.state.with_updates(header_logo_game=game))
 
     def _toggle_visual_view_switcher_overlay(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())

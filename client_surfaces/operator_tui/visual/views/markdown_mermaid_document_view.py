@@ -123,6 +123,16 @@ class MarkdownMermaidDocumentView:
             return inline_source(text)
         return inline_source("(no document)")
 
+    def scroll_context(self, *, content_lines: int = 0) -> "object":
+        from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
+        return ScrollContext(
+            id="center_viewport",
+            label="Center Viewport",
+            content_height=max(content_lines, self._scroll_offset + 1),
+            viewport_height=max(1, 24),
+            offset=self._scroll_offset,
+        )
+
     def _error_scene(self, message: str) -> RenderScene:
         return RenderScene(
             scene_type="markdown_mermaid_document",

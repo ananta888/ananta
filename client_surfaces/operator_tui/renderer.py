@@ -18,6 +18,7 @@ from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelS
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
+from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
@@ -2475,6 +2476,17 @@ def _overlay_snake_chat_panel(
     else:
         start = max(0, total - available_rows)
     visible_msgs = rendered[start:start + available_rows]
+    # Scrollbar indicator: append compact indicator when scrolled away from bottom
+    if total > available_rows and scroll_offset > 0:
+        max_s = max(0, total - available_rows)
+        indicator = minimal_scroll_indicator(offset=scroll_offset, max_scroll=max_s)
+        if indicator:
+            indicator_line = f"\x1b[38;2;100;100;120m{indicator}\x1b[0m"
+            visible_msgs = list(visible_msgs)
+            if visible_msgs:
+                visible_msgs[-1] = indicator_line
+            else:
+                visible_msgs.append(indicator_line)
     panel_lines.extend(visible_msgs)
 
     # Input line

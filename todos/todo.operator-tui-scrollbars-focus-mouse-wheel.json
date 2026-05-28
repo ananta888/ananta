@@ -10,19 +10,63 @@
     "current_keybinding_observation": {
       "config_file": "config/operator_tui_keybindings.default.json",
       "existing_focus_related_bindings": [
-        { "action": "cycle_focus_or_channel", "key": "c-w", "display": "Ctrl+W", "label": "Fokus/Kanal" },
-        { "action": "chat_focus", "key": "c-e", "display": "Ctrl+E", "label": "Chat-Fokus" },
-        { "action": "focus_left", "key": "f7", "display": "F7", "label": "Fokus links" },
-        { "action": "focus_right", "key": "c-d", "display": "Ctrl+D", "label": "Fokus rechts" }
+        {
+          "action": "cycle_focus_or_channel",
+          "key": "c-w",
+          "display": "Ctrl+W",
+          "label": "Fokus/Kanal"
+        },
+        {
+          "action": "chat_focus",
+          "key": "c-e",
+          "display": "Ctrl+E",
+          "label": "Chat-Fokus"
+        },
+        {
+          "action": "focus_left",
+          "key": "f7",
+          "display": "F7",
+          "label": "Fokus links"
+        },
+        {
+          "action": "focus_right",
+          "key": "c-d",
+          "display": "Ctrl+D",
+          "label": "Fokus rechts"
+        }
       ],
       "important_conflict_note": "F7 is already used for focus_left in the current keybinding config. Do not reuse F7 for the view-switcher overlay unless the keybinding plan is updated consistently.",
       "recommended_scroll_keys": [
-        { "action": "scroll_page_up", "key": "pageup", "display": "PgUp" },
-        { "action": "scroll_page_down", "key": "pagedown", "display": "PgDn" },
-        { "action": "scroll_line_up", "key": "up_when_scroll_focus_or_alt_up", "display": "Alt+Up optional" },
-        { "action": "scroll_line_down", "key": "down_when_scroll_focus_or_alt_down", "display": "Alt+Down optional" },
-        { "action": "scroll_home", "key": "home_when_scroll_focus_or_alt_home", "display": "Alt+Home optional" },
-        { "action": "scroll_end", "key": "end_when_scroll_focus_or_alt_end", "display": "Alt+End optional" }
+        {
+          "action": "scroll_page_up",
+          "key": "pageup",
+          "display": "PgUp"
+        },
+        {
+          "action": "scroll_page_down",
+          "key": "pagedown",
+          "display": "PgDn"
+        },
+        {
+          "action": "scroll_line_up",
+          "key": "up_when_scroll_focus_or_alt_up",
+          "display": "Alt+Up optional"
+        },
+        {
+          "action": "scroll_line_down",
+          "key": "down_when_scroll_focus_or_alt_down",
+          "display": "Alt+Down optional"
+        },
+        {
+          "action": "scroll_home",
+          "key": "home_when_scroll_focus_or_alt_home",
+          "display": "Alt+Home optional"
+        },
+        {
+          "action": "scroll_end",
+          "key": "end_when_scroll_focus_or_alt_end",
+          "display": "Alt+End optional"
+        }
       ]
     },
     "design_decision": "Build one shared scroll subsystem instead of adding independent ad-hoc offsets to each panel. Each panel/view registers a ScrollContext with content height, viewport height, current offset and rendering metadata. Keyboard and mouse events route through FocusManager to the active ScrollContext.",
@@ -65,39 +109,80 @@
       "Do not introduce shortcut conflicts with existing focus and chat keybindings."
     ]
   },
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
     {
       "id": "M1",
       "title": "Scroll and focus architecture",
-      "status": "todo",
-      "task_ids": ["SCR-001", "SCR-002", "SCR-003", "SCR-004"]
+      "status": "done",
+      "task_ids": [
+        "SCR-001",
+        "SCR-002",
+        "SCR-003",
+        "SCR-004"
+      ]
     },
     {
       "id": "M2",
       "title": "Keyboard scrolling and focus integration",
-      "status": "todo",
-      "task_ids": ["SCR-005", "SCR-006", "SCR-007", "SCR-008"]
+      "status": "done",
+      "task_ids": [
+        "SCR-005",
+        "SCR-006",
+        "SCR-007",
+        "SCR-008"
+      ]
     },
     {
       "id": "M3",
       "title": "Mouse wheel routing",
-      "status": "todo",
-      "task_ids": ["SCR-009", "SCR-010", "SCR-011"]
+      "status": "done",
+      "task_ids": [
+        "SCR-009",
+        "SCR-010",
+        "SCR-011"
+      ]
     },
     {
       "id": "M4",
       "title": "Scrollbar rendering in panels and views",
-      "status": "todo",
-      "task_ids": ["SCR-012", "SCR-013", "SCR-014", "SCR-015"]
+      "status": "done",
+      "task_ids": [
+        "SCR-012",
+        "SCR-013",
+        "SCR-014",
+        "SCR-015"
+      ]
     },
     {
       "id": "M5",
       "title": "Tests, docs and E2E coverage",
-      "status": "todo",
-      "task_ids": ["SCR-016", "SCR-017", "SCR-018", "SCR-019", "SCR-020"]
+      "status": "done",
+      "task_ids": [
+        "SCR-016",
+        "SCR-017",
+        "SCR-018",
+        "SCR-019",
+        "SCR-020"
+      ]
     }
   ],
   "tasks": [
@@ -105,10 +190,12 @@
       "id": "SCR-001",
       "title": "Document focus-aware scrolling architecture",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
-      "target_files": ["docs/operator-tui/scrollbars-focus-mouse-wheel.md"],
+      "target_files": [
+        "docs/operator-tui/scrollbars-focus-mouse-wheel.md"
+      ],
       "description": "Document shared ScrollContext, ScrollManager, FocusManager and MouseRouter responsibilities.",
       "acceptance_criteria": [
         "Docs include a Mermaid flowchart showing keyboard and mouse events routed to the active ScrollContext.",
@@ -121,10 +208,12 @@
       "id": "SCR-002",
       "title": "Implement ScrollContext model",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/scroll/scroll_context.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/scroll/scroll_context.py"
+      ],
       "description": "Add a reusable model for scrollable content state.",
       "acceptance_criteria": [
         "ScrollContext contains id, label, content_height, viewport_height, offset, focusable, visible and optional cursor/selection metadata.",
@@ -138,10 +227,12 @@
       "id": "SCR-003",
       "title": "Implement ScrollManager registry",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/scroll/scroll_manager.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/scroll/scroll_manager.py"
+      ],
       "description": "Manage all active ScrollContext instances for current TUI layout.",
       "acceptance_criteria": [
         "ScrollManager can register, update, remove and retrieve ScrollContext instances by id.",
@@ -155,10 +246,12 @@
       "id": "SCR-004",
       "title": "Implement FocusManager for panels and scroll contexts",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/focus/focus_manager.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/focus/focus_manager.py"
+      ],
       "description": "Track focused TUI area and active ScrollContext, reusing existing focus actions.",
       "acceptance_criteria": [
         "FocusManager supports focus ids for chat_panel, ai_panel, artifact_panel, log_panel, main_content_panel and center_viewport.",
@@ -172,10 +265,13 @@
       "id": "SCR-005",
       "title": "Add keyboard scroll actions to keybinding config",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["config/operator_tui_keybindings.default.json", "client_surfaces/operator_tui/keymap.py"],
+      "target_files": [
+        "config/operator_tui_keybindings.default.json",
+        "client_surfaces/operator_tui/keymap.py"
+      ],
       "description": "Register PageUp/PageDown and optional line/home/end scroll shortcuts without conflicting with existing shortcuts.",
       "acceptance_criteria": [
         "Actions scroll_page_up and scroll_page_down are registered with keys pageup and pagedown.",
@@ -189,10 +285,14 @@
       "id": "SCR-006",
       "title": "Route PageUp/PageDown to active ScrollContext",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/scroll/scroll_manager.py", "client_surfaces/operator_tui/focus/focus_manager.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/scroll/scroll_manager.py",
+        "client_surfaces/operator_tui/focus/focus_manager.py"
+      ],
       "description": "Make keyboard scrolling operate on the currently focused panel/view.",
       "acceptance_criteria": [
         "PageUp scrolls the active ScrollContext up by one page.",
@@ -206,10 +306,14 @@
       "id": "SCR-007",
       "title": "Extend focus keybindings and footer help for scroll target clarity",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/keymap.py", "config/operator_tui_keybindings.default.json"],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/keymap.py",
+        "config/operator_tui_keybindings.default.json"
+      ],
       "description": "Make it visible which area currently receives scroll commands.",
       "acceptance_criteria": [
         "Footer/status shows active focus target, for example 'Focus: Chat' or 'Focus: Center'.",
@@ -223,10 +327,13 @@
       "id": "SCR-008",
       "title": "Add chat-control commands for scrolling and focus",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_control_parser.py", "client_surfaces/operator_tui/tui_action_dispatcher.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_control_parser.py",
+        "client_surfaces/operator_tui/tui_action_dispatcher.py"
+      ],
       "description": "Allow Snake Chat command mode to drive scroll and focus for E2E and accessibility.",
       "acceptance_criteria": [
         "Commands /focus chat, /focus center, /focus artifacts and /focus logs are supported where corresponding panels exist.",
@@ -240,10 +347,13 @@
       "id": "SCR-009",
       "title": "Enable terminal mouse event support where supported",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/input/mouse_router.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/input/mouse_router.py"
+      ],
       "description": "Capture mouse wheel events from the terminal/TUI framework without making mouse support mandatory.",
       "acceptance_criteria": [
         "Mouse support can be enabled/disabled by config.",
@@ -257,10 +367,13 @@
       "id": "SCR-010",
       "title": "Implement MouseRouter hit-testing for panels",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/input/mouse_router.py", "client_surfaces/operator_tui/renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/input/mouse_router.py",
+        "client_surfaces/operator_tui/renderer.py"
+      ],
       "description": "Route mouse wheel to the panel under the cursor when coordinates are available.",
       "acceptance_criteria": [
         "MouseRouter knows current panel rectangles and associated ScrollContext ids.",
@@ -274,10 +387,14 @@
       "id": "SCR-011",
       "title": "Integrate mouse wheel with AI snake and artifact mouse behavior",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/mouse_artifact_mixin.py", "client_surfaces/operator_tui/snake_ops_mixin.py", "client_surfaces/operator_tui/input/mouse_router.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/mouse_artifact_mixin.py",
+        "client_surfaces/operator_tui/snake_ops_mixin.py",
+        "client_surfaces/operator_tui/input/mouse_router.py"
+      ],
       "description": "Avoid conflicts between mouse wheel scrolling, mouse-follow snake behavior and artifact interactions.",
       "acceptance_criteria": [
         "Mouse movement/click behavior used by snake/artifacts continues to work.",
@@ -291,10 +408,13 @@
       "id": "SCR-012",
       "title": "Implement compact terminal scrollbar renderer",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/scroll/scrollbar_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/scroll/scrollbar_renderer.py"
+      ],
       "description": "Render a simple scrollbar indicator for text panels and scrollable viewport chrome.",
       "acceptance_criteria": [
         "Scrollbar renderer can compute thumb position and size from content_height, viewport_height and offset.",
@@ -308,10 +428,13 @@
       "id": "SCR-013",
       "title": "Add scrollbars to chat and AI panels",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py", "client_surfaces/operator_tui/renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/renderer.py"
+      ],
       "description": "Make chat history and AI/status panels independently scrollable.",
       "acceptance_criteria": [
         "Chat history panel has its own ScrollContext independent from chat input buffer cursor.",
@@ -325,10 +448,13 @@
       "id": "SCR-014",
       "title": "Add scrollbars to artifacts, logs and main content panels",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/mouse_artifact_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/mouse_artifact_mixin.py"
+      ],
       "description": "Make non-chat panels scroll consistently through the same ScrollManager.",
       "acceptance_criteria": [
         "Artifact list has independent scroll offset and scrollbar.",
@@ -342,10 +468,14 @@
       "id": "SCR-015",
       "title": "Integrate scrolling with center VisualViewport text views",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/visual/viewport/center_viewport.py", "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/viewport/center_viewport.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py"
+      ],
       "description": "Allow scrollable center views such as Markdown/Mermaid and diagnostics to participate in the shared scroll system.",
       "acceptance_criteria": [
         "Markdown/Mermaid document view exposes a ScrollContext for long documents.",
@@ -359,10 +489,13 @@
       "id": "SCR-016",
       "title": "Add unit tests for ScrollContext and ScrollManager",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/scroll/test_scroll_context.py", "tests/operator_tui/scroll/test_scroll_manager.py"],
+      "target_files": [
+        "tests/operator_tui/scroll/test_scroll_context.py",
+        "tests/operator_tui/scroll/test_scroll_manager.py"
+      ],
       "description": "Verify core scrolling behavior without terminal dependencies.",
       "acceptance_criteria": [
         "Tests cover line/page/home/end scrolling.",
@@ -375,10 +508,13 @@
       "id": "SCR-017",
       "title": "Add unit tests for FocusManager and keyboard routing",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/scroll/test_focus_manager.py", "tests/operator_tui/scroll/test_keyboard_scroll_routing.py"],
+      "target_files": [
+        "tests/operator_tui/scroll/test_focus_manager.py",
+        "tests/operator_tui/scroll/test_keyboard_scroll_routing.py"
+      ],
       "description": "Verify that focus selection determines which panel scrolls.",
       "acceptance_criteria": [
         "Tests cover Ctrl+W-style focus cycling across registered focus targets.",
@@ -391,10 +527,12 @@
       "id": "SCR-018",
       "title": "Add unit tests for MouseRouter wheel hit-testing",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/scroll/test_mouse_wheel_routing.py"],
+      "target_files": [
+        "tests/operator_tui/scroll/test_mouse_wheel_routing.py"
+      ],
       "description": "Verify mouse wheel events route to the correct panel based on coordinates.",
       "acceptance_criteria": [
         "Tests cover wheel over chat panel, artifact panel, center viewport and non-scrollable footer.",
@@ -407,10 +545,13 @@
       "id": "SCR-019",
       "title": "Add E2E/autonomous chat-control scroll scenario",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["tests/e2e/fixtures/snake_chat_scroll_control_basic.json", "tests/operator_tui/scroll/test_autonomous_scroll_e2e.py"],
+      "target_files": [
+        "tests/e2e/fixtures/snake_chat_scroll_control_basic.json",
+        "tests/operator_tui/scroll/test_autonomous_scroll_e2e.py"
+      ],
       "description": "Use autonomous Snake Chat mode to test focus and scroll without a human.",
       "acceptance_criteria": [
         "Fixture focuses chat, scrolls page up/down and asserts chat scroll offset changes.",
@@ -423,10 +564,12 @@
       "id": "SCR-020",
       "title": "Document usage and troubleshooting for scrolling",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
-      "target_files": ["docs/operator-tui/scrollbars-focus-mouse-wheel.md"],
+      "target_files": [
+        "docs/operator-tui/scrollbars-focus-mouse-wheel.md"
+      ],
       "description": "Make scrolling discoverable and explain terminal limitations.",
       "acceptance_criteria": [
         "Docs list keyboard controls: Ctrl+W focus cycle, Ctrl+E chat focus, F7 focus left, Ctrl+D focus right, PgUp/PgDn scroll.",
@@ -437,33 +580,123 @@
     }
   ],
   "critical_path_tasks": [
-    "SCR-001", "SCR-002", "SCR-003", "SCR-004", "SCR-005", "SCR-006", "SCR-009", "SCR-010", "SCR-012", "SCR-013", "SCR-016", "SCR-017", "SCR-020"
+    "SCR-001",
+    "SCR-002",
+    "SCR-003",
+    "SCR-004",
+    "SCR-005",
+    "SCR-006",
+    "SCR-009",
+    "SCR-010",
+    "SCR-012",
+    "SCR-013",
+    "SCR-016",
+    "SCR-017",
+    "SCR-020"
   ],
   "tasks_status_summary": {
     "total": 20,
-    "by_status": {"todo": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"critical": 12, "high": 7, "medium": 1, "low": 0},
-    "by_risk": {"low": 3, "medium": 13, "high": 4, "critical": 0},
-    "critical_path": {"total": 13, "done": 0, "remaining": 13},
-    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 20
+    },
+    "progress_percent_done": 100,
+    "by_priority": {
+      "critical": 12,
+      "high": 7,
+      "medium": 1,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 13,
+      "high": 4,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 13,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 5
+    }
   },
   "tasks_type_summary": {
     "total": 20,
     "by_type": {
-      "docs": {"total": 2, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 2, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "implementation": {"total": 8, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "integration": {"total": 6, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 6, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "test": {"total": 4, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 4, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+      "docs": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "implementation": {
+        "total": 8,
+        "done": 8,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 8
+        }
+      },
+      "integration": {
+        "total": 6,
+        "done": 6,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 6
+        }
+      },
+      "test": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      }
     }
   },
   "progress_summary": {
-    "state": "ready_for_implementation",
-    "todo_remaining": 20,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 20
   },
   "summary_notes": [
     "There are already focus-related keybindings: Ctrl+W, Ctrl+E, F7 and Ctrl+D.",
