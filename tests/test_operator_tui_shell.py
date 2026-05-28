@@ -32,7 +32,7 @@ from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, ren
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
-from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
 from client_surfaces.operator_tui.chat_state import sanitize_text
 from agent.cli.main import _run_tui
 
@@ -2523,6 +2523,30 @@ def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkey
 
     assert game.get("chat_backend") == "lmstudio"
     assert game.get("chat_context_chars") == 5000
+
+
+def test_toggle_chat_panel_persists_setting(tmp_path, monkeypatch) -> None:
+    import client_surfaces.operator_tui.snake_persistence as sp
+
+    monkeypatch.setattr(sp, "_config_dir", lambda: tmp_path / "ananta")
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    tui._toggle_chat_panel_open()
+    persisted = load_tui_chat_settings(cwd=Path.cwd())
+
+    assert isinstance(persisted.get("chat_panel_open"), bool)
+
+
+def test_toggle_tutorial_mode_persists_setting(tmp_path, monkeypatch) -> None:
+    import client_surfaces.operator_tui.snake_persistence as sp
+
+    monkeypatch.setattr(sp, "_config_dir", lambda: tmp_path / "ananta")
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    tui._toggle_tutorial_ai_mode()
+    persisted = load_tui_chat_settings(cwd=Path.cwd())
+
+    assert isinstance(persisted.get("tutorial_mode"), bool)
 
 
 def test_chat_codecompass_context_can_be_disabled_via_config() -> None:

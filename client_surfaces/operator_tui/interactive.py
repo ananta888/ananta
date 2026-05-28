@@ -706,6 +706,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         )
         if not game["chat_panel_open"]:
             game["artifact_chat_focus"] = False
+        try:
+            from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+
+            save_tui_chat_settings({"chat_panel_open": bool(game.get("chat_panel_open"))})
+        except Exception:
+            pass
         self._set_state(
             self.state.with_updates(
                 header_logo_game=game,

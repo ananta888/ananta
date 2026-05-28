@@ -226,6 +226,12 @@ class SnakeOpsMixin:
             # Disable visual AI-snake immediately and stop pending visual-AI loops/caches.
             self._disable_visual_ai_snake_runtime(game)
             label = "aus"
+        try:
+            from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+
+            save_tui_chat_settings({"tutorial_mode": bool(game.get("tutorial_mode"))})
+        except Exception:
+            pass
         self._fire_tutorial_event(game, "tutorial_toggled")
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"visual ai-snake: {label}"))
 
