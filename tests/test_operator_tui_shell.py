@@ -1950,6 +1950,22 @@ def test_chat_channel_cycle_preserves_input_buffer() -> None:
     assert chat.get("chat_input_buffer") == "abc"
 
 
+def test_ctrl_c_cancel_does_not_exit_chat_input_mode() -> None:
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game={"active": True})
+    tui = InteractiveOperatorTui(state)
+    tui._chat_focus_enter()
+    tui._chat_append("abc")
+
+    handled = tui._cancel_active_input_mode()
+
+    chat = get_chat_state(dict(tui.state.header_logo_game or {}))
+    assert handled is False
+    assert bool(chat.get("chat_focus")) is True
+    assert str(chat.get("chat_input_buffer") or "") == "abc"
+
+
 def test_chat_input_supports_cursor_backspace_delete_and_history() -> None:
     from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
 

@@ -488,7 +488,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("copy_chat_panel", "c-c"))
         def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
+            if self._cancel_active_input_mode():
                 return
             self._copy_chat_panel_snapshot()
 
@@ -1224,6 +1224,20 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if self._snake_mode_active():
             return
         normal_action()
+
+    def _cancel_active_input_mode(self) -> bool:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        if self._ai_snake_config_combo_active(game):
+            self._ai_snake_config_combo_close(status="input: config-auswahl beendet")
+            return True
+        if self.state.mode is OperatorMode.COMMAND:
+            self._command_reset()
+            self._set_state(self.state.with_updates(mode=OperatorMode.NORMAL, status_message="input: command beendet"))
+            return True
+        if self._snake_message_mode_active():
+            self._snake_cancel_message()
+            return True
+        return False
 
     def _append_command(self, text: str) -> None:
         cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
