@@ -158,3 +158,4 @@ scripts/dyndns.conf
 /data/
 /rag-helper/out/
 /artifacts/
+/.claude/
