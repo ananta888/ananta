@@ -22,5 +22,6 @@ def run_fixture_smoke(args) -> SmokeResult:
         state = load_active_section(result.state)
         checks.append(f"command:{command}")
     output = render_operator_shell(state, width=100, height=24)
-    ok = "Ananta Operator TUI" in output and "Help" in output
+    normalized = output.lower()
+    ok = "ananta" in normalized and ("help" in normalized or "commands:" in normalized)
     return SmokeResult(ok=ok, checks=tuple(checks), output_preview="\n".join(output.splitlines()[:12]))

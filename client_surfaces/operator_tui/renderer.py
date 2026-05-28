@@ -1657,6 +1657,15 @@ def _overlay_fullscreen_snake(
     split_view = width >= 100
     play_width = max(1, split_col - 1) if split_view else width
     chat_panel_enabled = width >= 100 and body_h >= 10
+    chat_enabled_by_setting = bool(game.get("chat_panel_open", True))
+
+    def _project_x(raw_x: int) -> int | None:
+        x_val = int(raw_x)
+        if split_view:
+            if 0 <= x_val < play_width:
+                return x_val
+            return None
+        return x_val % max(1, play_width)
 
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
@@ -1672,7 +1681,10 @@ def _overlay_fullscreen_snake(
         for item in mark_cells:
             if not isinstance(item, (list, tuple)) or len(item) < 2:
                 continue
-            x = int(item[0]) % max(1, play_width)
+            px = _project_x(int(item[0]))
+            if px is None:
+                continue
+            x = px
             y = int(item[1]) % max(1, len(out))
             base = _visible_char_at(out[y], x)
             if base == " ":
@@ -1685,7 +1697,10 @@ def _overlay_fullscreen_snake(
         for item in selection:
             if not isinstance(item, (list, tuple)) or len(item) != 2:
                 continue
-            x = int(item[0]) % max(1, play_width)
+            px = _project_x(int(item[0]))
+            if px is None:
+                continue
+            x = px
             y = int(item[1]) % max(1, len(out))
             base = _visible_char_at(out[y], x)
             if base == " ":
@@ -1696,11 +1711,13 @@ def _overlay_fullscreen_snake(
 
     anchor = game.get("selection_anchor")
     if isinstance(anchor, (list, tuple)) and len(anchor) == 2:
-        x = int(anchor[0]) % max(1, play_width)
-        y = int(anchor[1]) % max(1, len(out))
-        acol = local_pal["label"]
-        repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
-        out[y] = _overlay_at_visible_col(out[y], x, repl)
+        px = _project_x(int(anchor[0]))
+        if px is not None:
+            x = px
+            y = int(anchor[1]) % max(1, len(out))
+            acol = local_pal["label"]
+            repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
+            out[y] = _overlay_at_visible_col(out[y], x, repl)
 
     if bool(game.get("selection_frame_mode")):
         frame_anchor = game.get("selection_frame_anchor")
@@ -1718,7 +1735,10 @@ def _overlay_fullscreen_snake(
         for idx, pos in enumerate(snake):
             if not isinstance(pos, (list, tuple)) or len(pos) != 2:
                 continue
-            x = int(pos[0]) % max(1, play_width)
+            px = _project_x(int(pos[0]))
+            if px is None:
+                continue
+            x = px
             y = int(pos[1]) % max(1, len(out))
             ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
             col = pal["head"] if idx == 0 else pal["body"]
@@ -1756,11 +1776,27 @@ def _overlay_fullscreen_snake(
     if split_view:
         # Snake split mode: right column is a dedicated static dock (no content overlay bleed-through).
         out[body_s:body_e] = _reserve_snake_right_dock(out[body_s:body_e], split_col=split_col, width=width)
-        out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=ai_panel_height, row_start=body_s)
+        out = _overlay_snake_ai_panel(
+            out,
+            game,
+            split_col=split_col,
+            panel_width=ai_panel_width,
+            height=ai_panel_height,
+            row_start=body_s,
+            chat_enabled=chat_enabled_by_setting,
+        )
 
     # Chat panel (E01) — starts after AI panel, ends at body_e
     if split_view and chat_panel_enabled:
-        out = _overlay_snake_chat_panel(out, game, split_col=split_col, panel_width=ai_panel_width, ai_rows=body_s + ai_panel_height, height=body_e)
+        out = _overlay_snake_chat_panel(
+            out,
+            game,
+            split_col=split_col,
+            panel_width=ai_panel_width,
+            ai_rows=body_s + ai_panel_height,
+            height=body_e,
+            enabled=chat_enabled_by_setting,
+        )
 
     # Score / highscore header (T01.05) — in top row of body area
     if not split_view and body_h > 0:
@@ -1971,6 +2007,7 @@ def _overlay_snake_ai_panel(
     panel_width: int,
     height: int,
     row_start: int = 0,
+    chat_enabled: bool = True,
 ) -> list[str]:
     """Render the AI explanation panel on the right side (T01.01)."""
     out = list(lines)
@@ -1999,6 +2036,7 @@ def _overlay_snake_ai_panel(
     chat_raw = game.get("chat_state")
     chat_focus = isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus"))
     active_marker = "◉" if not chat_focus else "○"
+    tutorial_enabled = bool(game.get("tutorial_mode"))
     status_parts = [f"{active_marker} tutor-ai", depth, f"score:{score}", f"best:{max(score, high)}", f"spd:{speed_level}/5"]
     llm_status = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
     if llm_status.get("reachable"):
@@ -2031,6 +2069,12 @@ def _overlay_snake_ai_panel(
     if paused:
         panel_lines.append("\x1b[38;2;255;200;80mpaused\x1b[0m")
     panel_lines.append("─" * panel_width)
+    heur_state = "AN" if tutorial_enabled else "AUS"
+    chat_state = "AN" if chat_enabled else "AUS"
+    panel_lines.append(f"\x1b[38;2;120;180;255mAuto-Heuristik [U]: {heur_state}\x1b[0m")
+    panel_lines.append(f"\x1b[38;2;120;180;255mAI-Chat [Ctrl+G]: {chat_state}\x1b[0m")
+    panel_lines.append(f"\x1b[38;2;90;90;90mChat-Fokus [c], Eingabe [Ctrl+E]\x1b[0m")
+    panel_lines.append("─" * panel_width)
     panel_lines.append("\x1b[38;2;90;90;90mDetails bleiben in NAV | CONTENT | DETAIL\x1b[0m")
 
     divider_col = split_col
@@ -2054,6 +2098,7 @@ def _overlay_snake_chat_panel(
     panel_width: int,
     ai_rows: int,
     height: int,
+    enabled: bool = True,
 ) -> list[str]:
     """Render Chat/Notes panel below the AI panel in the right column (E01)."""
     out = list(lines)
@@ -2103,6 +2148,26 @@ def _overlay_snake_chat_panel(
         panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")
 
     panel_lines.append("─" * panel_width)
+
+    if not enabled:
+        panel_lines.append("\x1b[38;2;120;120;120mAI-Chat ist deaktiviert.\x1b[0m")
+        panel_lines.append("\x1b[38;2;120;120;120mMit Ctrl+G wieder aktivieren.\x1b[0m")
+        panel_lines.append("─" * panel_width)
+        panel_lines.append(f"\x1b[38;2;80;80;80m[c] chat focus\x1b[0m")
+        divider_col = split_col
+        for row_idx_offset, pline in enumerate(panel_lines):
+            row_idx = ai_rows + row_idx_offset
+            if row_idx >= height or row_idx >= len(out):
+                break
+            out[row_idx] = _overlay_at_visible_col(out[row_idx], divider_col, "\x1b[38;2;60;60;80m│\x1b[0m")
+            pcol = divider_col + 2
+            raw = _ANSI_STRIP.sub("", pline)
+            total_width = split_col + panel_width + 4
+            if pcol < total_width and raw:
+                pad = max(0, panel_width - len(raw))
+                padded = pline + (" " * pad)
+                out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, padded)
+        return out
 
     # Messages
     msgs: list[dict] = list(ch.get("messages") or [])

@@ -187,7 +187,8 @@ class SnakeOpsMixin:
         game["active"] = True
         game["ui_steering"] = True
         game["free_mode"] = True
-        game["tutorial_mode"] = False  # AI snake off by default in manual snake mode; enable with U
+        game["tutorial_mode"] = True
+        game["chat_panel_open"] = bool(game.get("chat_panel_open", True))
         game["mouse_follow_enabled"] = bool(game.get("mouse_follow_enabled", self._mouse_capabilities.get("enabled")))
         game["movement_mode"] = "mouse_follow" if bool(game.get("mouse_follow_enabled")) else "keyboard"
         game["message_mode"] = False
@@ -200,7 +201,7 @@ class SnakeOpsMixin:
         game["selection_frame_mode"] = False
         game["selection_frame_anchor"] = None
         game["last_move"] = time.monotonic()
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an | U=AI-Tutorial an/aus"))
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an | U=Auto-Heuristik | Ctrl+G=AI-Chat"))
 
     def _toggle_tutorial_ai_mode(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
@@ -1087,4 +1088,3 @@ class SnakeOpsMixin:
             return snake[-1] if snake else (0, 0)
         idx = (seed * 17 + board_w * 13 + board_h * 7) % len(free)
         return free[idx]
-
