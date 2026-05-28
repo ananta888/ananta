@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import time
+from importlib import reload
 from argparse import Namespace
 from pathlib import Path
 
@@ -2568,6 +2569,30 @@ def test_tutorial_ai_llm_ask_uses_chat_max_tokens_from_config(monkeypatch) -> No
     assert int((captured.get("body") or {}).get("max_tokens") or 0) == 900
 
 
+def test_keybinding_conflicts_detect_duplicate_keys(tmp_path, monkeypatch) -> None:
+    cfg_path = tmp_path / "bindings.json"
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "bindings": [
+                    {"action": "a_one", "key": "c-w", "display": "Ctrl+W", "label": "one", "areas": ["shortcuts"]},
+                    {"action": "a_two", "key": "c-w", "display": "Ctrl+W", "label": "two", "areas": ["shortcuts"]},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ANANTA_TUI_KEYBINDINGS_FILE", str(cfg_path))
+    import client_surfaces.operator_tui.keybindings_config as kb
+
+    reload(kb)
+    conflicts = kb.keybinding_conflicts()
+
+    assert conflicts
+    assert conflicts[0]["key"] == "c-w"
+    assert set(conflicts[0]["actions"]) == {"a_one", "a_two"}
+
+
 def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatch) -> None:
     game: dict[str, object] = {
         "chat_backend": "ananta-worker",
@@ -2807,6 +2832,41 @@ def test_enter_handles_config_even_when_focus_is_not_content() -> None:
     combo = dict(updated.get("ai_snake_config_combo") or {})
     assert tui.state.focus is FocusPane.CONTENT
     assert bool(combo.get("open")) is True
+
+
+def test_enter_command_mode_from_anywhere_closes_chat_artifact_and_config() -> None:
+    game = {
+        "ai_snake_config_open": True,
+        "ai_snake_config_combo": {"open": True, "key": "chat_backend"},
+        "artifact_chat_focus": True,
+        "chat_panel_open": True,
+        "chat_state": {"chat_focus": True, "chat_input_buffer": "x", "chat_input_cursor": 1},
+    }
+    state = OperatorState(endpoint="http://localhost:5000", mode=OperatorMode.NORMAL, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+
+    tui._enter_command_mode_from_anywhere()
+
+    updated = tui.state.header_logo_game or {}
+    chat_state = dict(updated.get("chat_state") or {})
+    assert tui.state.mode is OperatorMode.COMMAND
+    assert chat_state.get("chat_focus") is False
+    assert updated.get("artifact_chat_focus") is False
+    assert bool(dict(updated.get("ai_snake_config_combo") or {}).get("open")) is False
+    assert updated.get("ai_snake_config_open") is False
+
+
+def test_global_shortcut_exit_command_mode_resets_to_normal() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", mode=OperatorMode.COMMAND, command_line=":help")
+    tui = InteractiveOperatorTui(state)
+    tui._command_buffer = ":help"
+    tui._command_cursor = 5
+
+    tui._exit_command_mode_for_global_shortcut()
+
+    assert tui.state.mode is OperatorMode.NORMAL
+    assert tui.state.command_line == ""
+    assert tui._command_buffer == ""
 
 
 def test_ai_snake_config_includes_chat_ask_timeout_field() -> None:
