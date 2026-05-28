@@ -1919,6 +1919,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "heuristic_confidence": game.get("heuristic_confidence"),
             "visual_state_version": str(game.get("visual_state_version") or int(time.monotonic())),
             "markdown_text": str(game.get("chat_long_message_markdown") or ""),
+            "markdown_auto_follow": bool(game.get("markdown_auto_follow")),
             "markdown_mermaid_config": dict(game.get("markdown_mermaid_config") or {}),
             "theme_version": "default",
         }
