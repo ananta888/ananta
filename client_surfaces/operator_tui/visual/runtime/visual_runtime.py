@@ -124,6 +124,23 @@ class VisualRuntime:
             context=RenderContext(now=now, metadata={"fallback": True}),
         )
 
+    def _plain_diagnostic_frame(self, *, region: ViewportRegion, now: float, message: str) -> RenderFrame:
+        width = max(1, int(region.pixel_width))
+        height = max(1, int(region.pixel_height))
+        rows = [" " * width for _ in range(height)]
+        rows[0] = "[renderer_diagnostics]".ljust(width)[:width]
+        if height > 1:
+            rows[1] = str(message or "render fallback unavailable").ljust(width)[:width]
+        return RenderFrame(
+            frame_type="ansi",
+            width=width,
+            height=height,
+            payload=rows,
+            mime_or_format="text/plain",
+            timestamp=now,
+            metadata={"fallback": True, "renderer": "plain_diagnostics"},
+        )
+
     def render_frame(
         self,
         *,
@@ -166,7 +183,16 @@ class VisualRuntime:
             self._runtime_errors.append(f"render failed: {exc}")
             self._runtime_errors = self._runtime_errors[-20:]
             self._excluded_pairs.add((self._active_renderer_id, self._active_adapter_id))
-            self._select_renderer_adapter()
+            try:
+                self._select_renderer_adapter()
+            except RuntimeError as fallback_exc:
+                self._runtime_errors.append(f"fallback failed: {fallback_exc}")
+                self._runtime_errors = self._runtime_errors[-20:]
+                return self._plain_diagnostic_frame(
+                    region=region,
+                    now=t_now,
+                    message=f"render fallback unavailable: {exc}",
+                )
             return self._scene_to_diagnostic_frame(
                 region=region,
                 now=t_now,
