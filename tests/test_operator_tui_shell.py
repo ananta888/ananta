@@ -2163,6 +2163,12 @@ def test_ai_snake_config_selected_can_disable_visual_ai() -> None:
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=0)
 
     tui._toggle_ai_snake_config_selected()
+    opened = tui.state.header_logo_game or {}
+    combo = dict(opened.get("ai_snake_config_combo") or {})
+    assert combo.get("open") is True
+
+    tui._ai_snake_config_combo_append_filter("aus")
+    tui._ai_snake_config_combo_commit()
 
     updated = tui.state.header_logo_game or {}
     assert updated.get("tutorial_mode") is False
@@ -2209,6 +2215,42 @@ def test_ai_snake_config_open_resets_chat_focus_and_command_mode() -> None:
     assert tui.state.focus is FocusPane.CONTENT
     assert chat.get("chat_focus") is False
     assert updated.get("artifact_chat_focus") is False
+
+
+def test_ai_snake_config_combo_enter_applies_filter_input_value() -> None:
+    game = {
+        "ai_snake_config_open": True,
+        "chat_backends_available": ["ananta-worker", "opencode", "lmstudio"],
+        "chat_backend": "ananta-worker",
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=4, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=4)
+
+    tui._toggle_ai_snake_config_selected()
+    tui._ai_snake_config_combo_append_filter("code|studio")
+    tui._ai_snake_config_combo_commit()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("chat_backend") == "code|studio"
+
+
+def test_ai_snake_config_combo_arrow_selection_applies_option() -> None:
+    game = {
+        "ai_snake_config_open": True,
+        "chat_backends_available": ["ananta-worker", "opencode", "lmstudio"],
+        "chat_backend": "ananta-worker",
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=4, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=4)
+
+    tui._toggle_ai_snake_config_selected()
+    tui._ai_snake_config_combo_move(1)
+    tui._ai_snake_config_combo_commit()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("chat_backend") == "opencode"
 
 
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:

@@ -12,7 +12,7 @@ from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_
 from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
 from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -606,9 +606,11 @@ def _content_shortcut_lines(state: OperatorState, width: int) -> list[str]:
 
 def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    combo = dict(game.get("ai_snake_config_combo") or {})
+    combo_open = bool(combo.get("open"))
     lines = [_pane_title("AI-SNAKE CONFIG", state.focus == FocusPane.CONTENT)]
     lines.append("  Visual + Chat getrennt konfigurieren")
-    lines.append("  Enter/Click toggelt Feld | Auswahl mit Ctrl+J/K")
+    lines.append("  Enter/Click oeffnet Auswahl | Auswahl mit Ctrl+J/K")
     lines.append("")
     items = ai_snake_config_items(dict(game))
     selected = max(0, int(state.selected_index))
@@ -618,6 +620,27 @@ def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str
         value = item.get("value")
         value_text = ("AN" if value else "AUS") if isinstance(value, bool) else str(value or "-")
         lines.append(f"{marker} {label:<22} {value_text}")
+    if combo_open:
+        key = str(combo.get("key") or "")
+        item = next((row for row in items if str(row.get("key") or "") == key), {})
+        label = str(item.get("label") or key or "-")
+        filter_text = str(combo.get("filter") or "")
+        cursor = max(0, min(len(filter_text), int(combo.get("filter_cursor") or len(filter_text))))
+        filtered, filter_error = ai_snake_config_filter_options(dict(game), key=key, regex_filter=filter_text)
+        selected_option = max(0, min(max(0, len(filtered) - 1), int(combo.get("selected_option") or 0)))
+        lines.append("")
+        lines.append(f"  COMBOBOX: {label}")
+        lines.append("  Regex-Filter (Enter uebernimmt Eingabe):")
+        lines.append("  > " + _inline_input_with_cursor(filter_text, cursor, max(8, width - 6)))
+        if filter_error:
+            lines.append(f"  ! {filter_error}")
+        if not filtered:
+            lines.append("    (keine Treffer)")
+        else:
+            for idx, option in enumerate(filtered[:10]):
+                marker = ">" if idx == selected_option else " "
+                lines.append(f"  {marker} {option}")
+        lines.append("  Up/Down oder Click waehlt Option | Esc schliesst Auswahl")
     lines.append("")
     lines.append(f"  {display_for_action('toggle_ai_snake_config', 'F6')} Config ein/aus")
     lines.append(f"  {display_for_action('toggle_tutorial_ai', 'Ctrl+U')} Visual AI hart an/aus")

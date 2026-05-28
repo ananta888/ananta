@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 
 
@@ -101,6 +101,8 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
 
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     config_mode = bool(game.get("ai_snake_config_open"))
+    combo = dict(game.get("ai_snake_config_combo") or {})
+    combo_open = config_mode and bool(combo.get("open"))
     if config_mode:
         items = [
             {"id": str(item.get("key") or f"cfg-{idx}"), "title": str(item.get("label") or ""), "ai_snake_config_key": str(item.get("key") or ""), "index": idx}
@@ -139,6 +141,34 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                             "path": artifact_path,
                             "title": str(item.get("title") or ""),
                             "ai_snake_config_key": str(item.get("ai_snake_config_key") or ""),
+                        },
+                    ),
+                )
+            )
+
+    if combo_open:
+        combo_key = str(combo.get("key") or "")
+        filter_text = str(combo.get("filter") or "")
+        options, filter_error = ai_snake_config_filter_options(dict(game), key=combo_key, regex_filter=filter_text)
+        combo_row_start = body_y1 + 8 + len(items) + (1 if filter_error else 0)
+        for idx, option in enumerate(options[:10]):
+            row = combo_row_start + idx
+            if row > body_y2:
+                break
+            regions.append(
+                RegionRect(
+                    x1=content_x1,
+                    y1=row,
+                    x2=content_x2,
+                    y2=row,
+                    target=RegionTarget(
+                        kind="item",
+                        section_id=section.id,
+                        pane="content",
+                        label=str(option),
+                        payload={
+                            "selected_index": int(state.selected_index),
+                            "ai_snake_combo_option_value": str(option),
                         },
                     ),
                 )

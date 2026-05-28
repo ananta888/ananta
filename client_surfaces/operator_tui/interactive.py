@@ -66,7 +66,12 @@ from client_surfaces.operator_tui.mouse import (
 )
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.keybindings_config import key_for_action
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items, apply_ai_snake_config_change
+from client_surfaces.operator_tui.ai_snake_config_view import (
+    ai_snake_config_filter_options,
+    ai_snake_config_items,
+    ai_snake_config_options,
+    apply_ai_snake_config_value,
+)
 from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
 from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
@@ -261,7 +266,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
             if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                self._toggle_ai_snake_config_selected()
+                if self._ai_snake_config_combo_active(game):
+                    self._ai_snake_config_combo_commit()
+                else:
+                    self._toggle_ai_snake_config_selected()
                 return
             if self._snake_message_mode_active():
                 self._snake_commit_message()
@@ -298,6 +306,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("escape")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._ai_snake_config_combo_active(game):
+                self._ai_snake_config_combo_close(status="ai config: auswahl geschlossen")
+                return
             if self._snake_message_mode_active():
                 self._snake_cancel_message()
                 return
@@ -315,6 +327,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("backspace")
         @bindings.add("c-h")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._ai_snake_config_combo_active(game):
+                self._ai_snake_config_combo_backspace()
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_backspace()
                 return
@@ -332,6 +348,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("delete")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._ai_snake_config_combo_active(game):
+                self._ai_snake_config_combo_delete()
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_delete()
                 return
@@ -350,7 +370,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
             if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+                if self._ai_snake_config_combo_active(game):
+                    self._ai_snake_config_combo_move(1)
+                else:
+                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(1, game)))
                 return
             def _j():
                 self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
@@ -360,7 +383,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
             if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+                if self._ai_snake_config_combo_active(game):
+                    self._ai_snake_config_combo_move(-1)
+                else:
+                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(-1, game)))
                 return
             self._normal_or_text("k", lambda: self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1))))
 
@@ -565,6 +591,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("left")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._ai_snake_config_combo_active(game):
+                self._ai_snake_config_combo_move_cursor(-1)
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_move_cursor(-1)
                 return
@@ -580,6 +610,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("right")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._ai_snake_config_combo_active(game):
+                self._ai_snake_config_combo_move_cursor(1)
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_move_cursor(1)
                 return
@@ -597,7 +631,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
             if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+                if self._ai_snake_config_combo_active(game):
+                    self._ai_snake_config_combo_move(-1)
+                else:
+                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(-1, game)))
                 return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_history_move(-1)
@@ -616,7 +653,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
             if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+                if self._ai_snake_config_combo_active(game):
+                    self._ai_snake_config_combo_move(1)
+                else:
+                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(1, game)))
                 return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_history_move(1)
@@ -637,6 +677,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("<any>")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._ai_snake_config_combo_active(game):
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._ai_snake_config_combo_append_filter(data)
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 data = event.key_sequence[0].data
                 if data in {"\b", "\x7f"}:
@@ -1294,6 +1340,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._command_cursor = 0
             self._command_history_index = None
             self._command_saved_draft = ""
+            game["ai_snake_config_combo"] = {
+                "open": False,
+                "key": "",
+                "filter": "",
+                "filter_cursor": 0,
+                "selected_option": 0,
+            }
             self._set_state(self.state.with_updates(
                 header_logo_game=game,
                 focus=FocusPane.CONTENT,
@@ -1303,6 +1356,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 status_message="ai config: offen",
             ))
             return
+        game["ai_snake_config_combo"] = {"open": False}
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="ai config: geschlossen"))
 
     def _toggle_ai_snake_config_selected(self) -> None:
@@ -1313,14 +1367,144 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return
         idx = max(0, min(len(items) - 1, int(self.state.selected_index)))
         key = str(items[idx].get("key") or "")
-        status = apply_ai_snake_config_change(game, key=key)
-        # Ensure visual AI-snake stops immediately when disabled from config.
+        self._open_ai_snake_config_combo(game, key=key, idx=idx)
+
+    def _ai_snake_config_combo_active(self, game: dict[str, object] | None = None) -> bool:
+        snapshot = game if isinstance(game, dict) else dict(self.state.header_logo_game or {})
+        combo = snapshot.get("ai_snake_config_combo")
+        return isinstance(combo, dict) and bool(combo.get("open"))
+
+    def _ai_snake_config_next_index(self, delta: int, game: dict[str, object] | None = None) -> int:
+        snapshot = game if isinstance(game, dict) else dict(self.state.header_logo_game or {})
+        items = ai_snake_config_items(snapshot)
+        if not items:
+            return 0
+        cur = max(0, min(len(items) - 1, int(self.state.selected_index)))
+        return max(0, min(len(items) - 1, cur + int(delta)))
+
+    def _open_ai_snake_config_combo(self, game: dict[str, object], *, key: str, idx: int) -> None:
+        options = ai_snake_config_options(game, key=key)
+        if not options:
+            self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message="ai config: keine optionen"))
+            return
+        game["ai_snake_config_combo"] = {
+            "open": True,
+            "key": key,
+            "filter": "",
+            "filter_cursor": 0,
+            "selected_option": 0,
+        }
+        self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=f"ai config: auswahl für {key}"))
+
+    def _ai_snake_config_combo_close(self, *, status: str = "ai config: auswahl geschlossen") -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        game["ai_snake_config_combo"] = {"open": False}
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+
+    def _ai_snake_config_combo_filter_text(self, combo: dict[str, object]) -> str:
+        return str(combo.get("filter") or "")
+
+    def _ai_snake_config_combo_apply(self, game: dict[str, object], *, value: str) -> None:
+        combo = dict(game.get("ai_snake_config_combo") or {})
+        key = str(combo.get("key") or "")
+        idx = max(0, int(self.state.selected_index))
+        status = apply_ai_snake_config_value(game, key=key, value=value)
+        game["ai_snake_config_combo"] = {"open": False}
         if key == "visual_enabled" and not bool(game.get("tutorial_mode")):
             self._disable_visual_ai_snake_runtime(game)
             game["ai_snake_config_open"] = True
-            self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
-            return
         self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
+
+    def _ai_snake_config_combo_commit(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        combo = dict(game.get("ai_snake_config_combo") or {})
+        key = str(combo.get("key") or "")
+        filter_text = self._ai_snake_config_combo_filter_text(combo)
+        options, _ = ai_snake_config_filter_options(game, key=key, regex_filter=filter_text)
+        if filter_text.strip():
+            self._ai_snake_config_combo_apply(game, value=filter_text.strip())
+            return
+        if not options:
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="ai config: keine treffer"))
+            return
+        selected = max(0, min(len(options) - 1, int(combo.get("selected_option") or 0)))
+        self._ai_snake_config_combo_apply(game, value=options[selected])
+
+    def _ai_snake_config_combo_move(self, delta: int) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        combo = dict(game.get("ai_snake_config_combo") or {})
+        if not bool(combo.get("open")):
+            return
+        key = str(combo.get("key") or "")
+        options, _ = ai_snake_config_filter_options(game, key=key, regex_filter=self._ai_snake_config_combo_filter_text(combo))
+        if not options:
+            combo["selected_option"] = 0
+        else:
+            cur = max(0, min(len(options) - 1, int(combo.get("selected_option") or 0)))
+            combo["selected_option"] = max(0, min(len(options) - 1, cur + int(delta)))
+        game["ai_snake_config_combo"] = combo
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _ai_snake_config_combo_append_filter(self, ch: str) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        combo = dict(game.get("ai_snake_config_combo") or {})
+        if not bool(combo.get("open")):
+            return
+        buf = str(combo.get("filter") or "")
+        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
+        next_buf = buf[:cursor] + ch + buf[cursor:]
+        combo["filter"] = next_buf
+        combo["filter_cursor"] = min(len(next_buf), cursor + len(ch))
+        combo["selected_option"] = 0
+        game["ai_snake_config_combo"] = combo
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _ai_snake_config_combo_backspace(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        combo = dict(game.get("ai_snake_config_combo") or {})
+        if not bool(combo.get("open")):
+            return
+        buf = str(combo.get("filter") or "")
+        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
+        if cursor <= 0:
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        combo["filter"] = buf[:cursor - 1] + buf[cursor:]
+        combo["filter_cursor"] = cursor - 1
+        combo["selected_option"] = 0
+        game["ai_snake_config_combo"] = combo
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _ai_snake_config_combo_delete(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        combo = dict(game.get("ai_snake_config_combo") or {})
+        if not bool(combo.get("open")):
+            return
+        buf = str(combo.get("filter") or "")
+        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
+        if cursor >= len(buf):
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        combo["filter"] = buf[:cursor] + buf[cursor + 1:]
+        combo["filter_cursor"] = cursor
+        combo["selected_option"] = 0
+        game["ai_snake_config_combo"] = combo
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _ai_snake_config_combo_move_cursor(self, delta: int) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        combo = dict(game.get("ai_snake_config_combo") or {})
+        if not bool(combo.get("open")):
+            return
+        buf = str(combo.get("filter") or "")
+        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
+        combo["filter_cursor"] = max(0, min(len(buf), cursor + int(delta)))
+        game["ai_snake_config_combo"] = combo
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _ai_snake_config_combo_select_value(self, *, value: str) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        self._ai_snake_config_combo_apply(game, value=value)
 
     def _handle_quit_key(self, event) -> None:
         event.app.exit()

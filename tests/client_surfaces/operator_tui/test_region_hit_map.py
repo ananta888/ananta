@@ -47,3 +47,25 @@ def test_ai_snake_config_rows_align_with_rendered_content() -> None:
     assert hit.pane == "content"
     assert hit.payload.get("selected_index") == 0
     assert hit.payload.get("ai_snake_config_key") == "visual_enabled"
+
+
+def test_ai_snake_config_combobox_option_rows_are_clickable() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="tasks",
+        header_logo_game={
+            "ai_snake_config_open": True,
+            "ai_snake_config_combo": {
+                "open": True,
+                "key": "visual_enabled",
+                "filter": "",
+                "filter_cursor": 0,
+                "selected_option": 0,
+            },
+        },
+    )
+    # body_start=9; options begin at row index 8 + len(items=6) => y=23 for first option.
+    hit = build_region_index(state, width=120, height=40).get_target_at(28, 23)
+    assert hit is not None
+    assert hit.pane == "content"
+    assert str(hit.payload.get("ai_snake_combo_option_value") or "") in {"AN", "AUS"}
