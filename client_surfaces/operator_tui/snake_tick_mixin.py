@@ -74,8 +74,9 @@ class SnakeTickMixin:
             self.state = self.state.with_updates(header_logo_game=self._default_header_snake())
         game = dict(self.state.header_logo_game)  # type: ignore[arg-type]
         self._maybe_tick_llm_health(game, now=time.monotonic())
-        # Allow tick when: in HEADER focus, OR ui_steering on, OR tutorial AI is running
-        if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering") and not game.get("tutorial_mode"):
+        free_mode = bool(game.get("free_mode"))
+        # Allow tick when: in HEADER focus, OR ui_steering on, OR tutorial AI is running, OR free_mode active
+        if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering") and not game.get("tutorial_mode") and not free_mode:
             return
         if not game.get("active", False) or not game.get("alive", True):
             return
@@ -93,12 +94,10 @@ class SnakeTickMixin:
         if (now - last_move) < step:
             return
         dt = max(step, now - last_move)
-
-        free_mode = bool(game.get("free_mode"))
         if free_mode:
             size = shutil.get_terminal_size((120, 32))
             board_w = max(24, int(size.columns))
-            board_h = max(12, int(size.lines - 1))
+            board_h = max(12, int(size.lines) - 2)  # matches len(rendered shell)
         else:
             board_w = max(18, int(game.get("board_w", 18)))
             board_h = max(6, int(game.get("board_h", 6)))

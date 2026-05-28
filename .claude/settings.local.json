@@ -166,7 +166,14 @@
       "Bash(.venv/bin/pip show *)",
       "Bash(asciinema --version)",
       "Bash(.venv/bin/ananta --version)",
-      "Bash(pip list *)"
+      "Bash(pip list *)",
+      "Bash(.venv/bin/pytest tests/test_operator_tui_shell.py -x -q)",
+      "Bash(.venv/bin/python3 *)",
+      "Bash(.venv/bin/pytest tests/test_operator_tui_shell.py::test_operator_tui_fixture_smoke_detects_first_paint -q)",
+      "Bash(.venv/bin/pytest tests/test_operator_tui_shell.py -x -q --ignore-glob='*smoke*' -k \"not smoke\")",
+      "Bash(.venv/bin/pytest tests/test_operator_tui_shell.py -q -k \"not smoke\")",
+      "Bash(.venv/bin/pytest tests/test_operator_tui_shell.py::test_chat_llm_prompt_honors_context_char_opt_out_and_prior_messages -q)",
+      "Bash(.venv/bin/pytest tests/test_operator_tui_shell.py -q -k \"not smoke and not test_chat_llm_prompt_honors_context_char_opt_out\")"
     ]
   }
 }
