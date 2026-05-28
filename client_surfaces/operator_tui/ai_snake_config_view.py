@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
 import re
+import time
+import urllib.error
+import urllib.request
 from typing import Any
 
 
@@ -60,6 +64,46 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "options": timeout_options,
         },
     ]
+
+
+def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False) -> tuple[list[str], str]:
+    backend = str(game.get("chat_backend") or "ananta-worker").strip().lower()
+    models_raw = game.get("chat_backend_models")
+    models = [str(item).strip() for item in models_raw] if isinstance(models_raw, list) else []
+    models = [item for item in models if item]
+    if backend not in {"lmstudio", "local", "openai"}:
+        game["chat_backend_models"] = models[-40:]
+        game["chat_backend_models_error"] = ""
+        return models[-40:], ""
+
+    now = time.monotonic()
+    last_refresh_raw = game.get("chat_backend_models_last_refresh_at")
+    last_refresh = float(last_refresh_raw) if isinstance(last_refresh_raw, (int, float)) else 0.0
+    if not force and (now - last_refresh) < 15.0:
+        return models[-40:], str(game.get("chat_backend_models_error") or "")
+
+    llm_url = str(game.get("chat_backend_api_base") or "http://192.168.178.100:1234/v1").strip().rstrip("/")
+    error = ""
+    try:
+        req = urllib.request.Request(f"{llm_url}/models", method="GET")
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        model_rows = data.get("data") if isinstance(data, dict) else []
+        if isinstance(model_rows, list):
+            for row in model_rows:
+                if not isinstance(row, dict):
+                    continue
+                model_id = str(row.get("id") or "").strip()
+                if model_id and model_id not in models:
+                    models.append(model_id)
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        error = f"model-fetch fehlgeschlagen: {exc}"
+
+    models = models[-40:]
+    game["chat_backend_models"] = models
+    game["chat_backend_models_last_refresh_at"] = now
+    game["chat_backend_models_error"] = error
+    return models, error
 
 
 def ai_snake_config_options(game: dict[str, object], *, key: str) -> list[str]:
@@ -127,6 +171,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         return f"ai config: {label} -> {raw_value}"
     if key == "chat_backend":
         game["chat_backend"] = raw_value
+        game["chat_backend_models_last_refresh_at"] = 0.0
         return f"ai config: {label} -> {raw_value}"
     if key == "chat_model":
         game["chat_backend_model"] = raw_value
