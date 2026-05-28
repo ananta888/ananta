@@ -1340,13 +1340,21 @@ class TutorialAiMixin:
 
     def _get_llm_api_config(self) -> tuple[str, str, str]:
         """L04: single source of truth for api_base, model, api_token."""
+        game = self.state.header_logo_game if isinstance(getattr(self.state, "header_logo_game", None), dict) else {}
         api_base = str(
-            os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
+            game.get("chat_backend_api_base")
+            or os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL")
+            or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
             or os.environ.get("OPENAI_BASE_URL")
             or os.environ.get("OPENAI_API_BASE")
             or "http://192.168.178.100:1234/v1"
         ).strip()
-        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "google/gemma-4-e4b").strip()
+        model = str(
+            game.get("chat_backend_model")
+            or os.environ.get("ANANTA_TUI_CHAT_MODEL")
+            or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL")
+            or "google/gemma-4-e4b"
+        ).strip()
         api_token = str(
             os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
             or os.environ.get("OPENAI_API_KEY")

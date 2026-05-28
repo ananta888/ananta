@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import hashlib
+import urllib.error
+import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -793,7 +795,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         if args:
             sub = args[0].lower()
             if sub == "chat":
-                msg = "chat: [c] focus | Esc game | :chat room|ai|@id | :channels | :chat retry"
+                msg = "chat: [c] focus | Esc game | :chat room|ai|@id|retry | :chat backend list|use|status | :chat model list|use"
                 return CommandResult(state.with_updates(status_message=msg), "help chat")
             if sub == "notes":
                 msg = "notes: :notes | :notes find <t> | :notes pin/unpin/delete <id> | LOCAL ONLY"
@@ -3367,10 +3369,102 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
     if command == "chat":
         sub = args[0].lower() if args else ""
         if not sub:
-            return CommandResult(state, "chat: room | ai | @<snake-id> | retry", handled=False)
+            return CommandResult(
+                state,
+                "chat: room | ai | @<snake-id> | retry | backend list|use <id>|status | model list|use <id>",
+                handled=False,
+            )
         game = dict(state.header_logo_game or {})
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel, add_direct_channel
         chat = get_chat_state(game)
+
+        if sub == "backend":
+            action = args[1].lower() if len(args) > 1 else "status"
+            available = game.get("chat_backends_available")
+            if not isinstance(available, list) or not available:
+                available = ["ananta-worker", "opencode", "lmstudio", "hermes"]
+            available_norm = [str(item).strip() for item in available if str(item).strip()]
+            current = str(game.get("chat_backend") or "ananta-worker").strip()
+            if action == "list":
+                listed = ", ".join(available_norm)
+                return CommandResult(
+                    state.with_updates(status_message=f"chat backends: {listed}"),
+                    "chat backends listed",
+                )
+            if action == "status":
+                model = str(game.get("chat_backend_model") or "-").strip() or "-"
+                return CommandResult(
+                    state.with_updates(status_message=f"chat backend: {current} | model: {model}"),
+                    "chat backend status",
+                )
+            if action == "use":
+                target = str(args[2]).strip().lower() if len(args) > 2 else ""
+                if not target:
+                    return CommandResult(state, "chat backend use: backend-id erforderlich", handled=False)
+                normalized = {item.lower(): item for item in available_norm}
+                if target not in normalized:
+                    return CommandResult(state, f"chat backend '{target}' nicht in Liste", handled=False)
+                chosen = normalized[target]
+                game["chat_backend"] = chosen
+                message = f"chat backend aktiv: {chosen}"
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=message),
+                    f"chat backend {chosen}",
+                )
+            return CommandResult(state, "chat backend: list | use <id> | status", handled=False)
+
+        if sub == "model":
+            action = args[1].lower() if len(args) > 1 else "list"
+            models_raw = game.get("chat_backend_models")
+            if isinstance(models_raw, list):
+                models = [str(item).strip() for item in models_raw if str(item).strip()]
+            else:
+                models = []
+            backend = str(game.get("chat_backend") or "ananta-worker").strip().lower()
+            if action == "list" and backend in {"lmstudio", "local", "openai"}:
+                llm_url = str(game.get("chat_backend_api_base") or "http://192.168.178.100:1234/v1").strip().rstrip("/")
+                try:
+                    req = urllib.request.Request(f"{llm_url}/models", method="GET")
+                    with urllib.request.urlopen(req, timeout=1.8) as resp:
+                        data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                    model_rows = data.get("data") if isinstance(data, dict) else []
+                    if isinstance(model_rows, list):
+                        for row in model_rows:
+                            if not isinstance(row, dict):
+                                continue
+                            model_id = str(row.get("id") or "").strip()
+                            if model_id and model_id not in models:
+                                models.append(model_id)
+                except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
+                    pass
+                game["chat_backend_models"] = models[-40:]
+            current_model = str(game.get("chat_backend_model") or "").strip()
+            if current_model and current_model not in models:
+                models.insert(0, current_model)
+            if action == "list":
+                if not models:
+                    msg = "chat models: keine geladen (nutze :chat model use <id> oder setze ANANTA_TUI_CHAT_MODEL)"
+                else:
+                    msg = "chat models: " + ", ".join(models)
+                return CommandResult(state.with_updates(header_logo_game=game, status_message=msg), "chat models listed")
+            if action == "use":
+                target_model = " ".join(args[2:]).strip() if len(args) > 2 else ""
+                if not target_model:
+                    return CommandResult(state, "chat model use: model-id erforderlich", handled=False)
+                game["chat_backend_model"] = target_model
+                if target_model not in models:
+                    models.append(target_model)
+                    game["chat_backend_models"] = models[-20:]
+                return CommandResult(
+                    state.with_updates(
+                        header_logo_game=game,
+                        mode=OperatorMode.NORMAL,
+                        command_line="",
+                        status_message=f"chat model aktiv: {target_model}",
+                    ),
+                    f"chat model {target_model}",
+                )
+            return CommandResult(state, "chat model: list | use <id>", handled=False)
 
         if sub == "retry":
             # retry failed outbox messages
