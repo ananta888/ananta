@@ -58,6 +58,7 @@ from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerCli
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.chat_long_message import latest_long_message_for_channel, markdown_for_message
 from client_surfaces.operator_tui.mouse import (
     MouseEventType as NormalizedMouseEventType,
     MouseState,
@@ -100,6 +101,7 @@ from client_surfaces.operator_tui.visual.runtime.visual_runtime import VisualRun
 from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion, derive_pixel_size
 from client_surfaces.operator_tui.visual.views.artifact_preview_view import ArtifactPreviewView
 from client_surfaces.operator_tui.visual.views.logo_animation_view import LogoAnimationView
+from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
 from client_surfaces.operator_tui.visual.views.renderer_diagnostics_view import RendererDiagnosticsView
 from client_surfaces.operator_tui.visual.views.snake_debug_view import SnakeDebugView
 from client_surfaces.operator_tui.visual.views.strategy_map_preview_view import StrategyMapPreviewView
@@ -448,6 +450,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_clear_input()
+
+        @bindings.add(key_for_action("open_long_chat_message", "c-space"))
+        def _(event) -> None:
+            self._exit_command_mode_for_global_shortcut()
+            self._open_latest_long_chat_message()
 
         @bindings.add(key_for_action("snake_toggle_selection", "c-x"))
         def _(event) -> None:
@@ -1264,6 +1271,40 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         status = "ai status copy: intern + System-Zwischenablage" if ok else "ai status copy: intern"
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
 
+    def _open_latest_long_chat_message(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        from client_surfaces.operator_tui.chat_state import get_chat_state
+
+        chat = get_chat_state(game)
+        channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
+        active_ch_id = str(chat.get("active_channel") or "room:main")
+        channel = channels.get(active_ch_id) if isinstance(channels, dict) else {}
+        if not isinstance(channel, dict):
+            channel = {}
+        message = latest_long_message_for_channel(channel)
+        if message is None:
+            self._set_state(self.state.with_updates(status_message="keine lange Chatnachricht im aktiven Kanal"))
+            return
+
+        game["chat_long_message_markdown"] = markdown_for_message(message)
+        game["chat_long_message_id"] = str(message.get("id") or "")
+        game["chat_long_message_channel"] = active_ch_id
+        game["visual_viewport_enabled"] = True
+        game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
+        game["markdown_mermaid_config"] = {
+            "markdown_mode": "ansi",
+            "mermaid_mode": "auto",
+            "mermaid_renderers": ["mermaid_cli", "playwright", "fallback_codeblock"],
+        }
+        game["visual_state_version"] = f"chat-long-message:{message.get('id') or time.monotonic()}"
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                focus=FocusPane.CONTENT,
+                status_message="lange Chatnachricht im Markdown/Mermaid-Bereich",
+            )
+        )
+
     def _normal_or_text(self, text: str, normal_action) -> None:
         if self._snake_message_mode_active():
             self._snake_message_append(text)
@@ -1789,6 +1830,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         views.register_factory("artifact_preview", lambda: ArtifactPreviewView())
         views.register_factory("strategy_map_preview", lambda: StrategyMapPreviewView())
         views.register_factory("renderer_diagnostics", lambda: RendererDiagnosticsView())
+        views.register_factory("markdown_mermaid_document", lambda: MarkdownMermaidDocumentView())
 
         renderers = RendererRegistry()
         renderers.register_factory("ansi_blocks", lambda: AnsiBlocksRenderer())
@@ -1884,6 +1926,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "selected_heuristic": game.get("selected_heuristic_id"),
             "heuristic_confidence": game.get("heuristic_confidence"),
             "visual_state_version": str(game.get("visual_state_version") or int(time.monotonic())),
+            "markdown_text": str(game.get("chat_long_message_markdown") or ""),
+            "markdown_mermaid_config": dict(game.get("markdown_mermaid_config") or {}),
             "theme_version": "default",
         }
         frame = runtime.render_frame(region=region, now=time.monotonic(), state=state_map, force=False)

@@ -8,6 +8,7 @@
     { "action": "copy_chat_panel", "key": "c-c", "display": "Ctrl+C", "label": "Chat kopieren", "areas": ["shortcuts", "chat-panel"] },
     { "action": "copy_ai_status", "key": "c-i", "display": "Ctrl+I", "label": "AI-Status kopieren", "areas": ["shortcuts", "ai-panel"] },
     { "action": "clear_chat_input", "key": "c-l", "display": "Ctrl+L", "label": "Input leeren", "areas": ["footer-chat", "shortcuts", "chat-panel"] },
+    { "action": "open_long_chat_message", "key": "c-space", "display": "Ctrl+Space", "label": "Lange Chatnachricht anzeigen", "areas": ["footer-chat", "footer-normal", "shortcuts", "chat-panel"] },
     { "action": "cycle_focus_or_channel", "key": "c-w", "display": "Ctrl+W", "label": "Fokus/Kanal", "areas": ["footer-normal", "footer-chat", "shortcuts", "chat-panel"] },
     { "action": "toggle_tutorial_ai", "key": "c-u", "display": "Ctrl+U", "label": "Auto-Heuristik", "areas": ["footer-snake", "shortcuts", "ai-panel"] },
     { "action": "toggle_mouse_follow", "key": "c-o", "display": "Ctrl+O", "label": "MouseFollow", "areas": ["footer-snake", "shortcuts"] },
