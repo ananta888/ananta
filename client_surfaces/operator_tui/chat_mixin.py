@@ -86,7 +86,11 @@ class ChatMixin:
             game["tutor_ask_question"] = buf
             game["tutor_ask_at"] = time.monotonic()
             game["tutor_ask_answered"] = False
+            game["_ask_submitted"] = False
             game["paused"] = True
+            game["active"] = True
+            game["alive"] = True
+            game["tutorial_mode"] = True
             chat["ai_typing"] = True
             chat["ai_pending_msg_channel"] = ch_id
             set_chat_state(game, chat)

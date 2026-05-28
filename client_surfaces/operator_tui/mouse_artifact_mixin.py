@@ -90,11 +90,21 @@ class MouseArtifactMixin:
         )
         self._apply_artifact_intent(game, intent=intent, now=ts, width=width, height=height)
 
-        # Left-click: select item + AI snake jumps there + open chat + trigger explanation
-        if event_type == "down" and buttons == 1 and target is not None:
+        mouse_selection_handled = self._handle_mouse_selection_event(
+            game,
+            x=self._mouse_state.x,
+            y=self._mouse_state.y,
+            event_type=event_type,
+            buttons=buttons,
+        )
+
+        # Left-click: select item + AI snake jumps there + open chat + trigger explanation.
+        # Drag is handled as visual multi-select and does not repeatedly open targets.
+        if not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
             self._handle_left_click(game, target=target, now=ts, width=width, height=height)
 
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"mouse {self._mouse_state.x},{self._mouse_state.y}"))
+        status = str(game.pop("_copy_status_message", "") or f"mouse {self._mouse_state.x},{self._mouse_state.y}")
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
 
     def _parse_sgr_mouse_event(self, raw: str) -> tuple[int, int, str, int, int] | None:
         # Typical xterm SGR mouse: ESC [ < Cb ; Cx ; Cy M|m
@@ -116,10 +126,69 @@ class MouseArtifactMixin:
             event_type = "up"
         elif cb & 32:
             event_type = "move"
+            button_code = cb & 3
+            buttons = {0: 1, 1: 2, 2: 3}.get(button_code, 0)
         else:
             event_type = "down"
-            buttons = 1
+            button_code = cb & 3
+            buttons = {0: 1, 1: 2, 2: 3}.get(button_code, 0)
         return cx, cy, event_type, buttons, scroll_delta
+
+    def _handle_mouse_selection_event(
+        self,
+        game: dict[str, object],
+        *,
+        x: int,
+        y: int,
+        event_type: str,
+        buttons: int,
+    ) -> bool:
+        if not self._snake_mode_active(game):
+            return False
+        if event_type == "down" and buttons == 3:
+            self._snake_copy_selection_to_game(game)
+            return True
+        if event_type == "down" and buttons == 1:
+            game["mouse_selection_active"] = True
+            game["mouse_selection_anchor"] = (int(x), int(y))
+            game["mouse_selection_dragged"] = False
+            self._set_mouse_selection_rect(game, anchor=(int(x), int(y)), current=(int(x), int(y)), additive=False)
+            return False
+        if event_type == "move" and buttons == 1 and bool(game.get("mouse_selection_active")):
+            anchor_raw = game.get("mouse_selection_anchor")
+            if isinstance(anchor_raw, (list, tuple)) and len(anchor_raw) == 2:
+                anchor = (int(anchor_raw[0]), int(anchor_raw[1]))
+                game["mouse_selection_dragged"] = True
+                self._set_mouse_selection_rect(game, anchor=anchor, current=(int(x), int(y)), additive=True)
+                return True
+        if event_type == "up" and bool(game.get("mouse_selection_active")):
+            game["mouse_selection_active"] = False
+            return bool(game.get("mouse_selection_dragged"))
+        return False
+
+    def _set_mouse_selection_rect(
+        self,
+        game: dict[str, object],
+        *,
+        anchor: tuple[int, int],
+        current: tuple[int, int],
+        additive: bool,
+    ) -> None:
+        ax, ay = anchor
+        cx, cy = current
+        min_x, max_x = sorted((int(ax), int(cx)))
+        min_y, max_y = sorted((int(ay), int(cy)))
+        rect = [(x, y) for y in range(min_y, max_y + 1) for x in range(min_x, max_x + 1)]
+        existing_raw = game.get("selection_cells") or []
+        existing = {
+            (int(item[0]), int(item[1]))
+            for item in existing_raw
+            if isinstance(item, (list, tuple)) and len(item) == 2
+        } if additive else set()
+        existing.update(rect)
+        game["selection_cells"] = sorted(existing)
+        game["selection_anchor"] = anchor
+        game["selection_regions"] = [(min_x, min_y, max_x, max_y)]
 
     def _apply_artifact_intent(
         self,
@@ -398,5 +467,3 @@ class MouseArtifactMixin:
             new_selected = self.state.selected_index
         next_state = self.state.with_updates(focus=new_focus, selected_index=new_selected)
         self._set_state(next_state)
-
-
