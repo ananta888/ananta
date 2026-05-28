@@ -1291,6 +1291,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["chat_long_message_channel"] = active_ch_id
         game["visual_viewport_enabled"] = True
         game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
+        game["visual_viewport_force_render"] = True
         game["markdown_mermaid_config"] = {
             "markdown_mode": "ansi",
             "mermaid_mode": "auto",
@@ -1885,10 +1886,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         runtime = self._ensure_visual_runtime()
         requested_view = str(game.get("visual_viewport_active_view_request") or "").strip()
+        force_render = False
         if requested_view:
             if runtime.switch_view(requested_view):
                 game["visual_viewport_active_view"] = requested_view
             game.pop("visual_viewport_active_view_request", None)
+            force_render = True
 
         left_width = 22
         detail_width = 34
@@ -1930,8 +1933,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "markdown_mermaid_config": dict(game.get("markdown_mermaid_config") or {}),
             "theme_version": "default",
         }
-        frame = runtime.render_frame(region=region, now=time.monotonic(), state=state_map, force=False)
-        frame_lines: list[str] = []
+        previous_frame_lines = [
+            str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)
+        ]
+        force_render = force_render or bool(game.pop("visual_viewport_force_render", False)) or not previous_frame_lines
+        frame = runtime.render_frame(region=region, now=time.monotonic(), state=state_map, force=force_render)
+        frame_lines: list[str] = list(previous_frame_lines)
         if frame is not None and frame.frame_type == "ansi" and isinstance(frame.payload, list):
             frame_lines = [str(row) for row in frame.payload[:body_height]]
         elif frame is not None:
