@@ -159,3 +159,5 @@ scripts/dyndns.conf
 /rag-helper/out/
 /artifacts/
 /.claude/
+/.junie/
+/.opencode/

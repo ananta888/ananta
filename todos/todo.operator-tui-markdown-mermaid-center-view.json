@@ -75,7 +75,7 @@
     {
       "id": "M1",
       "title": "Markdown/Mermaid view contract and safe configuration",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "MDM-001",
         "MDM-002",
@@ -85,7 +85,7 @@
     {
       "id": "M2",
       "title": "Markdown parsing and ANSI rendering",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "MDM-004",
         "MDM-005",
@@ -95,7 +95,7 @@
     {
       "id": "M3",
       "title": "Mermaid extraction, rendering and cache",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "MDM-007",
         "MDM-008",
@@ -106,7 +106,7 @@
     {
       "id": "M4",
       "title": "Center viewport integration and view switcher capability reporting",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "MDM-011",
         "MDM-012",
@@ -116,7 +116,7 @@
     {
       "id": "M5",
       "title": "Tests, smoke tooling and documentation",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "MDM-014",
         "MDM-015",
@@ -130,7 +130,7 @@
       "id": "MDM-001",
       "title": "Define markdown_mermaid_document view contract",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "target_files": [
@@ -148,7 +148,7 @@
       "id": "MDM-002",
       "title": "Add Markdown/Mermaid config model",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -168,7 +168,7 @@
       "id": "MDM-003",
       "title": "Add safe document source descriptor",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -186,7 +186,7 @@
       "id": "MDM-004",
       "title": "Implement Markdown block parser",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -204,7 +204,7 @@
       "id": "MDM-005",
       "title": "Implement Markdown ANSI renderer",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -223,7 +223,7 @@
       "id": "MDM-006",
       "title": "Add syntax-highlight placeholder strategy",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "target_files": [
@@ -241,7 +241,7 @@
       "id": "MDM-007",
       "title": "Implement Mermaid block extractor",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -259,7 +259,7 @@
       "id": "MDM-008",
       "title": "Implement Mermaid renderer backend abstraction",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -278,7 +278,7 @@
       "id": "MDM-009",
       "title": "Implement Mermaid render cache",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -296,7 +296,7 @@
       "id": "MDM-010",
       "title": "Implement Mermaid fallback code block rendering",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "target_files": [
@@ -315,7 +315,7 @@
       "id": "MDM-011",
       "title": "Implement markdown_mermaid_document_view",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -334,7 +334,7 @@
       "id": "MDM-012",
       "title": "Register Markdown/Mermaid view in VisualViewport registry",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -353,7 +353,7 @@
       "id": "MDM-013",
       "title": "Integrate Markdown/Mermaid capability reporting with view switcher overlay",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -372,7 +372,7 @@
       "id": "MDM-014",
       "title": "Add unit tests for Markdown parsing and ANSI rendering",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -391,7 +391,7 @@
       "id": "MDM-015",
       "title": "Add unit tests for Mermaid extraction, rendering availability and fallback",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -411,7 +411,7 @@
       "id": "MDM-016",
       "title": "Add manual smoke command for Markdown/Mermaid center rendering",
       "type": "tooling",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "target_files": [
@@ -429,7 +429,7 @@
       "id": "MDM-017",
       "title": "Document usage examples and failure modes",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "target_files": [
@@ -462,13 +462,13 @@
   "tasks_status_summary": {
     "total": 17,
     "by_status": {
-      "todo": 17,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 17
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "critical": 12,
       "high": 4,
@@ -483,15 +483,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 0,
-      "remaining": 12
+      "done": 12,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -499,83 +499,83 @@
     "by_type": {
       "docs": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "implementation": {
         "total": 10,
-        "done": 0,
+        "done": 10,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 10,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 10
         }
       },
       "integration": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "test": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "tooling": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "ready_for_implementation",
-    "todo_remaining": 17,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 17
   },
   "summary_notes": [
     "Markdown should be usable immediately through ANSI/text fallback once the view exists.",
