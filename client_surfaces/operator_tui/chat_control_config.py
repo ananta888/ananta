@@ -16,10 +16,21 @@ _DEFAULT_E2E_ALLOWLIST: tuple[str, ...] = (
     "overlay.views.toggle",
     "focus.chat",
     "focus.artifacts",
+    "focus.main",
+    "focus.diagnostics",
+    "focus.center",
+    "focus.logs",
+    "focus.nav",
     "snake.pause",
     "snake.resume",
     "snake.follow.on",
     "snake.follow.off",
+    "scroll.page_up",
+    "scroll.page_down",
+    "scroll.line_up",
+    "scroll.line_down",
+    "scroll.home",
+    "scroll.end",
 )
 
 

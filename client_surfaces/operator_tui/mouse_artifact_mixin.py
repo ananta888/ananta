@@ -91,6 +91,10 @@ class MouseArtifactMixin:
         )
         self._apply_artifact_intent(game, intent=intent, now=ts, width=width, height=height)
 
+        # Mouse wheel: route to focused/hovered panel scroll context
+        if scroll_delta != 0 and event_type in ("scroll_up", "scroll_down"):
+            self._route_wheel_scroll(game, x=self._mouse_state.x, y=self._mouse_state.y, delta=scroll_delta)
+
         mouse_selection_handled = self._handle_mouse_selection_event(
             game,
             x=self._mouse_state.x,
@@ -190,6 +194,32 @@ class MouseArtifactMixin:
         game["selection_cells"] = sorted(existing)
         game["selection_anchor"] = anchor
         game["selection_regions"] = [(min_x, min_y, max_x, max_y)]
+
+    def _route_wheel_scroll(self, game: dict, *, x: int, y: int, delta: int) -> None:
+        """Route mouse wheel events to the appropriate ScrollContext via MouseRouter."""
+        try:
+            from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
+            from client_surfaces.operator_tui.focus.focus_manager import FocusManager
+            fm: FocusManager = self._get_focus_manager()
+            mr = getattr(self, "_mouse_router_instance", None)
+            if mr is None:
+                self._mouse_router_instance = MouseRouter()
+                mr = self._mouse_router_instance
+            ctx_id = mr.route_wheel_event(x, y, delta, fm)
+            if ctx_id == "chat_panel" or (ctx_id is None and self._chat_focus_active()):
+                self._chat_scroll(delta * 2)
+                return
+            if ctx_id is not None:
+                sm = self._get_scroll_manager()
+                ctx = sm.get(ctx_id)
+                if ctx:
+                    if delta < 0:
+                        ctx.scroll_line_up(abs(delta) * 2)
+                    else:
+                        ctx.scroll_line_down(delta * 2)
+                    game[f"scroll_offset_{ctx_id}"] = ctx.offset
+        except Exception:
+            pass
 
     def _apply_artifact_intent(
         self,

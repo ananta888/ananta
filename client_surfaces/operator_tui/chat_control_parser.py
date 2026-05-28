@@ -69,6 +69,8 @@ def parse_chat_command(text: str, *, nl_mode_enabled: bool = False) -> ParsedCom
         return _parse_open(text, rest)
     if cmd == "snake":
         return _parse_snake(text, rest)
+    if cmd == "scroll":
+        return _parse_scroll(text, rest)
     if cmd == "help":
         return _parse_help(text, rest)
 
@@ -128,18 +130,21 @@ def _parse_overlay(raw: str, args: list[str]) -> ParsedCommand:
 def _parse_focus(raw: str, args: list[str]) -> ParsedCommand:
     if not args:
         return ParsedCommand(raw_text=raw, command="focus", subcommand="", args=(),
-                             error="/focus requires: chat, artifacts, main, diagnostics", action_id="")
+                             error="/focus requires: chat, artifacts, main, diagnostics, center, logs, nav", action_id="")
     target = args[0].lower()
     mapping = {
         "chat": "focus.chat",
         "artifacts": "focus.artifacts",
         "main": "focus.main",
         "diagnostics": "focus.diagnostics",
+        "center": "focus.center",
+        "logs": "focus.logs",
+        "nav": "focus.nav",
     }
     action_id = mapping.get(target)
     if not action_id:
         return ParsedCommand(raw_text=raw, command="focus", subcommand=target, args=(),
-                             error=f"unknown focus target {target!r}; use chat, artifacts, main or diagnostics", action_id="")
+                             error=f"unknown focus target {target!r}; use chat, artifacts, main, diagnostics, center, logs, nav", action_id="")
     return ParsedCommand(raw_text=raw, command="focus", subcommand=target, args=(), error="", action_id=action_id)
 
 
@@ -173,6 +178,28 @@ def _parse_snake(raw: str, args: list[str]) -> ParsedCommand:
                              error="/snake follow requires on or off", action_id="")
     return ParsedCommand(raw_text=raw, command="snake", subcommand=sub, args=(),
                          error=f"unknown snake subcommand {sub!r}; use pause, resume, follow on/off", action_id="")
+
+
+def _parse_scroll(raw: str, args: list[str]) -> ParsedCommand:
+    if not args:
+        return ParsedCommand(raw_text=raw, command="scroll", subcommand="", args=(),
+                             error="/scroll requires: up, down, pageup, pagedown, top, bottom", action_id="")
+    sub = args[0].lower()
+    mapping = {
+        "up": "scroll.line_up",
+        "down": "scroll.line_down",
+        "pageup": "scroll.page_up",
+        "pagedown": "scroll.page_down",
+        "top": "scroll.home",
+        "home": "scroll.home",
+        "bottom": "scroll.end",
+        "end": "scroll.end",
+    }
+    action_id = mapping.get(sub)
+    if not action_id:
+        return ParsedCommand(raw_text=raw, command="scroll", subcommand=sub, args=(),
+                             error=f"unknown scroll direction {sub!r}; use up, down, pageup, pagedown, top, bottom", action_id="")
+    return ParsedCommand(raw_text=raw, command="scroll", subcommand=sub, args=(), error="", action_id=action_id)
 
 
 def _parse_help(raw: str, args: list[str]) -> ParsedCommand:

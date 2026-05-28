@@ -1,0 +1,53 @@
+{
+  "version": "snake_chat_e2e_fixture.v1",
+  "description": "Autonomous E2E: focus and scroll control via chat commands",
+  "mode": "autonomous_e2e",
+  "initial_state": {
+    "active_view": "renderer_diagnostics",
+    "available_views": ["logo_animation", "renderer_diagnostics", "markdown_mermaid_document"],
+    "visual_view_switcher_overlay_visible": false,
+    "scroll_offset_chat_panel": 0,
+    "scroll_offset_center_viewport": 0
+  },
+  "steps": [
+    {
+      "id": "s1_focus_chat",
+      "command": "/focus chat",
+      "expected_marker": { "status": "ok", "action_id": "focus.chat" },
+      "expected_state_change": { "focus_target_request": "chat" },
+      "timeout_ms": 200
+    },
+    {
+      "id": "s2_scroll_down",
+      "command": "/scroll pagedown",
+      "expected_marker": { "status": "ok", "action_id": "scroll.page_down" },
+      "expected_state_change": { "scroll_command_request": "page_down" },
+      "timeout_ms": 200
+    },
+    {
+      "id": "s3_scroll_up",
+      "command": "/scroll pageup",
+      "expected_marker": { "status": "ok", "action_id": "scroll.page_up" },
+      "timeout_ms": 200
+    },
+    {
+      "id": "s4_focus_center",
+      "command": "/focus center",
+      "expected_marker": { "status": "ok", "action_id": "focus.center" },
+      "expected_state_change": { "focus_target_request": "center" },
+      "timeout_ms": 200
+    },
+    {
+      "id": "s5_scroll_top",
+      "command": "/scroll top",
+      "expected_marker": { "status": "ok", "action_id": "scroll.home" },
+      "timeout_ms": 200
+    },
+    {
+      "id": "s6_nonscrollable_area_denied",
+      "command": "/scroll sideways",
+      "expect_denied": true,
+      "timeout_ms": 200
+    }
+  ]
+}
