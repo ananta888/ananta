@@ -54,6 +54,23 @@ class ChatMixin:
         buf = sanitize_text(str(chat.get("chat_input_buffer") or ""))
         if not buf:
             return
+
+        if buf.startswith("//"):
+            chat["chat_input_buffer"] = ""
+            chat["chat_input_cursor"] = 0
+            chat["chat_input_history_index"] = None
+            chat["chat_input_saved_draft"] = ""
+            game["shortcut_help_middle_open"] = not bool(game.get("shortcut_help_middle_open"))
+            game["shortcut_help_open"] = False
+            set_chat_state(game, chat)
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    status_message="shortcuts mitte: an" if bool(game.get("shortcut_help_middle_open")) else "shortcuts mitte: aus",
+                )
+            )
+            return
+
         chat["chat_input_buffer"] = ""
         chat["chat_input_cursor"] = 0
         history = [str(item) for item in (chat.get("chat_input_history") or []) if str(item).strip()]
