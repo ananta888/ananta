@@ -154,3 +154,22 @@ def test_hash_stable_across_instances():
     )
     hashes = [DecisionContext(**kwargs).context_hash for _ in range(5)]
     assert len(set(hashes)) == 1, "Hash muss deterministisch sein"
+
+
+def test_hash_changes_on_snake_head_change():
+    ctx1 = DecisionContext(source_surface="tui_snake", snake_head_x=10, snake_head_y=5)
+    ctx2 = DecisionContext(source_surface="tui_snake", snake_head_x=11, snake_head_y=5)
+    assert ctx1.context_hash != ctx2.context_hash
+
+
+def test_build_from_tui_state_extracts_snake_head_from_header_logo_game():
+    ctx = build_from_tui_state(
+        tui_state={
+            "header_logo_game": {
+                "local_snake_id": "s1",
+                "snakes": {"s1": {"snake": [[42, 17], [41, 17]]}},
+            }
+        }
+    )
+    assert ctx.snake_head_x == 42
+    assert ctx.snake_head_y == 17

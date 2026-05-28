@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "owner": "Krusty",
+  "track": "tui-markable-right-panels-and-snake-visibility",
+  "created_at": "2026-05-28",
+  "status": "todo",
+  "purpose": "Rechte UI-Bereiche (Tutor-AI/Chat) muessen fokussier- bzw. markierbar sein, ohne die Snake zu verdecken.",
+  "goal": "Korrekte Layering-, Hitbox- und Focus-Logik fuer rechte Panels herstellen.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Interaktive rechte Panels ohne Snake-Overlay-Probleme",
+      "status": "todo",
+      "task_ids": ["T01.01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Tutor-AI und Chat rechts markierbar machen und Snake-Sichtbarkeit sichern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ui_bugfix",
+      "depends_on": [],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/semantic_overlay.py",
+        "client_surfaces/operator_tui/snapshot.py",
+        "tests/operator_tui/"
+      ],
+      "acceptance_criteria": [
+        "Rechts oben (Tutor-AI) und rechts unten (Chat) sind im UI eindeutig markierbar/fokussierbar.",
+        "Snake wird durch diese Panels nicht mehr ungewollt verdeckt.",
+        "Z-Order und Zeichenreihenfolge sind fuer alle betroffenen Zustandsmodi konsistent.",
+        "Snapshot/Overlay-Daten enthalten korrekte Bounds fuer beide Panels.",
+        "UI-Tests decken den Fokus- und Overlay-Fall ab."
+      ],
+      "notes": "Vom User gemeldet: Panels rechts sind nicht markierbar und Snake verschwindet dahinter."
+    }
+  ],
+  "critical_path_tasks": ["T01.01"],
+  "tasks_status_summary": {
+    "total": 1,
+    "by_status": { "todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0 },
+    "progress_percent_done": 0,
+    "by_priority": { "P1": 1, "P2": 0, "P3": 0 },
+    "by_risk": { "high": 1, "medium": 0, "low": 0 },
+    "critical_path": { "total": 1, "done": 0, "remaining": 1 },
+    "milestones": { "total": 1, "todo": 1, "in_progress": 0, "blocked": 0, "done": 0 }
+  },
+  "tasks_type_summary": {
+    "total": 1,
+    "by_type": { "ui_bugfix": 1 }
+  },
+  "progress_summary": {
+    "state": "planning",
+    "todo_remaining": 1,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  }
+}

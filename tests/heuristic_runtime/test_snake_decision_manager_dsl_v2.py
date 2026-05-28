@@ -158,3 +158,55 @@ class TestSnakeDecisionManagerDslV2:
             assert mgr._dsl_validator is not None
             assert mgr._dsl_evaluator is not None
             assert mgr._motion_planner is not None
+
+    def test_dsl_motion_planner_uses_context_snake_head(self):
+        mgr = self._make_manager_with_dsl()
+        lease = _make_lease()
+        ctx = DecisionContext(source_surface="tui_snake", ai_status="offline", snake_head_x=9, snake_head_y=4)
+
+        from agent.services.heuristic_runtime.dsl.evaluator import EvalResult
+        from agent.services.heuristic_runtime.dsl.validator import ValidationResult
+        mgr._dsl_loader = MagicMock()
+        mgr._dsl_loader.load_from_definition.return_value = {"dsl_version": "2.0"}
+        mgr._dsl_validator = MagicMock()
+        mgr._dsl_validator.validate.return_value = ValidationResult(passed=True)
+        mgr._dsl_evaluator = MagicMock()
+        mgr._dsl_evaluator.evaluate.return_value = EvalResult(
+            matched=True,
+            score=0.8,
+            action={"kind": "follow_artifact", "target_cell": {"x": 15, "y": 7}},
+        )
+        mgr._dsl_evaluator.to_decision_result.return_value = DecisionResult(
+            action_kind="follow", confidence=0.8, source="heuristic"
+        )
+        plan = MagicMock(dx=1, dy=0)
+        mgr._motion_planner = MagicMock()
+        mgr._motion_planner.plan.return_value = plan
+
+        result = mgr._try_dsl_decide(ctx, lease)
+        assert isinstance(result, DecisionResult)
+        mgr._motion_planner.plan.assert_called_once_with({"kind": "follow_artifact", "target_cell": {"x": 15, "y": 7}}, (9, 4))
+
+    def test_dsl_motion_planner_runs_for_target_bbox(self):
+        mgr = self._make_manager_with_dsl()
+        lease = _make_lease()
+        ctx = DecisionContext(source_surface="tui_snake", ai_status="offline", snake_head_x=2, snake_head_y=3)
+
+        from agent.services.heuristic_runtime.dsl.evaluator import EvalResult
+        from agent.services.heuristic_runtime.dsl.validator import ValidationResult
+        mgr._dsl_loader = MagicMock()
+        mgr._dsl_loader.load_from_definition.return_value = {"dsl_version": "2.0"}
+        mgr._dsl_validator = MagicMock()
+        mgr._dsl_validator.validate.return_value = ValidationResult(passed=True)
+        action = {"kind": "follow_artifact", "target_bbox": {"x": 20, "y": 10, "w": 8, "h": 6}}
+        mgr._dsl_evaluator = MagicMock()
+        mgr._dsl_evaluator.evaluate.return_value = EvalResult(matched=True, score=0.8, action=action)
+        mgr._dsl_evaluator.to_decision_result.return_value = DecisionResult(
+            action_kind="follow", confidence=0.8, source="heuristic"
+        )
+        mgr._motion_planner = MagicMock()
+        mgr._motion_planner.plan.return_value = MagicMock(dx=1, dy=0)
+
+        result = mgr._try_dsl_decide(ctx, lease)
+        assert isinstance(result, DecisionResult)
+        mgr._motion_planner.plan.assert_called_once_with(action, (2, 3))

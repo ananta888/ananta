@@ -267,8 +267,14 @@ class SnakeDecisionManager:
                 return None
             decision = self._dsl_evaluator.to_decision_result(eval_result, strategy_id=getattr(heuristic, "heuristic_id", None))
             # Motion Planner wenn target_cell/bbox vorhanden
-            if self._motion_planner and eval_result.action.get("target_cell"):
-                plan = self._motion_planner.plan(eval_result.action, (0, 0))
+            target_cell = eval_result.action.get("target_cell")
+            target_bbox = eval_result.action.get("target_bbox")
+            if self._motion_planner and (target_cell or target_bbox):
+                snake_head = (
+                    int(getattr(ctx, "snake_head_x", 0) or 0),
+                    int(getattr(ctx, "snake_head_y", 0) or 0),
+                )
+                plan = self._motion_planner.plan(eval_result.action, snake_head)
                 from agent.services.heuristic_runtime.decision_result import SuggestedMotion
                 decision.suggested_motion = SuggestedMotion(dx=plan.dx, dy=plan.dy)
             return decision

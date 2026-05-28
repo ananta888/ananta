@@ -135,6 +135,7 @@ class LeaseReevaluationService:
                 domain=domain,
                 context_hash="experimental_live",
                 selected_by="experiment_runner",
+                ttl_seconds=effective_ttl,
                 reason_codes=["experimental_live", f"ttl={effective_ttl}s"],
             )
             return lease

@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "owner": "Krusty",
+  "track": "cleanup-tracked-claude-local-settings",
+  "created_at": "2026-05-28",
+  "status": "todo",
+  "purpose": "Lokale Maschinenkonfigurationen sollen nicht versioniert bleiben.",
+  "goal": "Bereits getrackte .claude/local Dateien aus dem Index entfernen und Repo sauber halten.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Lokale Claude-Settings aus VCS entfernen",
+      "status": "todo",
+      "task_ids": ["T01.01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Getrackte .claude/settings.local.json enttracken und Ignore wirksam machen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "hardening",
+      "depends_on": [],
+      "target_files": [
+        ".gitignore",
+        ".claude/settings.local.json",
+        "docs/"
+      ],
+      "acceptance_criteria": [
+        ".claude/settings.local.json ist nicht mehr getrackt.",
+        "/.claude/ Ignore-Regel bleibt erhalten und wirksam.",
+        "Kein Produktiv- oder Team-Shared-Setting geht dabei verloren.",
+        "Repository-Status zeigt keine erneute Aufnahme lokaler .claude-Dateien.",
+        "Falls noetig existiert eine explizite shared Beispielkonfiguration ohne lokale Berechtigungen."
+      ],
+      "notes": "Issue aus Commit-Review: Datei ist trotz Ignore-Regel weiterhin im Index."
+    }
+  ],
+  "critical_path_tasks": ["T01.01"],
+  "tasks_status_summary": {
+    "total": 1,
+    "by_status": { "todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0 },
+    "progress_percent_done": 0,
+    "by_priority": { "P1": 0, "P2": 1, "P3": 0 },
+    "by_risk": { "high": 0, "medium": 1, "low": 0 },
+    "critical_path": { "total": 1, "done": 0, "remaining": 1 },
+    "milestones": { "total": 1, "todo": 1, "in_progress": 0, "blocked": 0, "done": 0 }
+  },
+  "tasks_type_summary": {
+    "total": 1,
+    "by_type": { "hardening": 1 }
+  },
+  "progress_summary": {
+    "state": "planning",
+    "todo_remaining": 1,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  }
+}

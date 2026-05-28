@@ -4,6 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+_RIGHT_PANEL_MIN_WIDTH = 40
+_RIGHT_PANEL_MAX_WIDTH = 52
+
 
 @dataclass
 class PanelBBox:
@@ -54,7 +57,8 @@ class SemanticOverlay:
         return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
     def panel_at(self, x: int, y: int) -> PanelBBox | None:
-        for p in self.panels:
+        # Prefer most specific / topmost panel definitions appended later.
+        for p in reversed(self.panels):
             if p.contains(x, y):
                 return p
         return None
@@ -89,8 +93,50 @@ def build_from_operator_state(
     panels.append(PanelBBox("HEADER", "header", 0, 0, width, header_h, is_active=(active_panel == "HEADER")))
     panels.append(PanelBBox("BODY", "body", 0, body_start, width, body_h, is_active=(active_panel == "BODY")))
 
+    game = state.get("header_logo_game")
+    if isinstance(game, dict) and bool(game.get("active")) and bool(game.get("free_mode")) and width >= 100 and body_h > 0:
+        panel_w = _right_panel_width(width)
+        split_col = max(0, width - panel_w - 2)
+        chat_enabled = body_h >= 10
+        ai_h = body_h
+        if chat_enabled:
+            chat_rows = max(10, min(body_h - 6, int(body_h * 0.45)))
+            ai_h = max(6, body_h - chat_rows)
+
+        inferred_active = active_panel
+        chat_raw = game.get("chat_state")
+        if isinstance(chat_raw, dict):
+            chat_focus = bool(chat_raw.get("chat_focus"))
+            if inferred_active is None:
+                inferred_active = "CHAT" if chat_focus else "TUTOR_AI"
+
+        panels.append(
+            PanelBBox(
+                "TUTOR_AI",
+                "tutor_ai",
+                split_col + 2,
+                body_start,
+                panel_w,
+                ai_h,
+                is_active=(inferred_active == "TUTOR_AI"),
+            )
+        )
+        if chat_enabled:
+            panels.append(
+                PanelBBox(
+                    "CHAT",
+                    "chat",
+                    split_col + 2,
+                    body_start + ai_h,
+                    panel_w,
+                    max(0, body_h - ai_h),
+                    is_active=(inferred_active == "CHAT"),
+                )
+            )
+        active_panel = inferred_active
+
     # Snake-Positionen aus game-state
-    game = dict(state.get("header_logo_game") or {})
+    game = dict(game or {})
     snakes = game.get("snakes") or []
     for snake_idx, snake in enumerate(snakes):
         body = snake.get("body") or []
@@ -118,3 +164,7 @@ def build_from_operator_state(
         screen_hash=screen_hash,
     )
     return overlay
+
+
+def _right_panel_width(width: int) -> int:
+    return max(_RIGHT_PANEL_MIN_WIDTH, min(_RIGHT_PANEL_MAX_WIDTH, max(34, width // 3)))
