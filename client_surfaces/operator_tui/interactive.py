@@ -326,23 +326,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("escape")
         def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self._ai_snake_config_combo_active(game):
-                self._ai_snake_config_combo_close(status="ai config: auswahl geschlossen")
-                return
-            if self._snake_message_mode_active():
-                self._snake_cancel_message()
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_focus_leave(clear=False)
-                return
-            if self._chat_focus_active():
-                self._chat_focus_leave()
-                return
-            if self._snake_mode_active():
-                return
-            self._command_reset()
-            self._run_command(":cancel")
+            self._escape_to_start_state()
 
         @bindings.add("backspace")
         @bindings.add("c-h")
@@ -495,10 +479,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             if self.state.mode is OperatorMode.COMMAND:
                 return
-            if self._snake_mode_active():
-                self._chat_focus_enter()
-                return
-            self._artifact_chat_focus_enter()
+            self._toggle_chat_focus()
 
         @bindings.add(key_for_action("toggle_chat_panel", "c-g"))
         def _(event) -> None:
@@ -887,6 +868,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         chat["chat_input_saved_draft"] = ""
         set_chat_state(game, chat)
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: game focus"))
+
+    def _toggle_chat_focus(self) -> None:
+        if self._chat_focus_active():
+            self._chat_focus_leave()
+            return
+        if self._artifact_chat_focus_active():
+            self._artifact_chat_focus_leave(clear=False)
+            return
+        if self._snake_mode_active():
+            self._chat_focus_enter()
+            return
+        self._artifact_chat_focus_enter()
 
     def _chat_append(self, ch: str) -> None:
         game = dict(self.state.header_logo_game or {})
@@ -1550,6 +1543,46 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["movement_mode"] = "mouse_follow" if not enabled else "keyboard"
         status = "an" if not enabled else "aus"
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake mouse-follow: {status}"))
+
+    def _escape_to_start_state(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
+        chat = get_chat_state(game)
+        chat["chat_focus"] = False
+        chat["chat_input_buffer"] = ""
+        chat["chat_input_cursor"] = 0
+        chat["chat_input_history_index"] = None
+        chat["chat_input_saved_draft"] = ""
+        set_chat_state(game, chat)
+
+        game["artifact_chat_focus"] = False
+        game["ai_snake_config_open"] = False
+        game["ai_snake_config_combo"] = {"open": False}
+        game["snake_message_mode"] = False
+        game["snake_message_input"] = ""
+        game["snake_message_cursor"] = 0
+        game["shortcut_help_middle_open"] = False
+        game["active"] = False
+        game["ui_steering"] = False
+        game["free_mode"] = False
+        game["paused"] = False
+
+        self._command_buffer = ""
+        self._command_cursor = 0
+        self._command_history_index = None
+        self._command_saved_draft = ""
+        nav_index = next((idx for idx, section in enumerate(SECTIONS) if section.id == self.state.section_id), 0)
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                focus=FocusPane.NAVIGATION,
+                selected_index=nav_index,
+                command_line="",
+                status_message="zustand: start",
+            )
+        )
 
     def _visual_capabilities(self) -> TerminalVisualCapabilities:
         term = dict(os.environ)

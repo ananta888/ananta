@@ -2468,6 +2468,64 @@ def test_terminal_context_shortcut_prepares_ai_chat_context() -> None:
     assert chat.get("chat_input_buffer") == "?"
 
 
+def test_escape_resets_to_start_state_from_input_modes() -> None:
+    game = {
+        "active": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "chat_panel_open": True,
+        "artifact_chat_focus": True,
+        "ai_snake_config_open": True,
+        "ai_snake_config_combo": {"open": True, "key": "chat_backend"},
+        "chat_state": {
+            "chat_focus": True,
+            "chat_input_buffer": "hello",
+            "chat_input_cursor": 5,
+        },
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="tasks",
+        focus=FocusPane.DETAIL,
+        mode=OperatorMode.COMMAND,
+        command_line=":help",
+        header_logo_game=game,
+    )
+    tui = InteractiveOperatorTui(state)
+    tui._command_buffer = ":help"
+    tui._command_cursor = len(tui._command_buffer)
+
+    tui._escape_to_start_state()
+
+    updated = tui.state.header_logo_game or {}
+    chat = dict(updated.get("chat_state") or {})
+    assert tui.state.mode is OperatorMode.NORMAL
+    assert tui.state.focus is FocusPane.NAVIGATION
+    assert tui.state.section_id == "tasks"
+    assert tui.state.selected_index >= 0
+    assert tui.state.command_line == ""
+    assert updated.get("active") is False
+    assert updated.get("ui_steering") is False
+    assert updated.get("free_mode") is False
+    assert updated.get("artifact_chat_focus") is False
+    assert updated.get("ai_snake_config_open") is False
+    assert bool(dict(updated.get("ai_snake_config_combo") or {}).get("open")) is False
+    assert chat.get("chat_focus") is False
+    assert chat.get("chat_input_buffer") == ""
+
+
+def test_chat_focus_toggle_uses_same_shortcut_for_enter_and_exit() -> None:
+    game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+
+    tui._toggle_chat_focus()
+    assert tui._chat_focus_active() is True
+
+    tui._toggle_chat_focus()
+    assert tui._chat_focus_active() is False
+
+
 def test_context_help_explains_terminal_context_shortcut() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
