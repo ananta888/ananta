@@ -18,7 +18,7 @@
     { "action": "snake_clear_marks", "key": "c-z", "display": "Ctrl+Z", "label": "Clear", "areas": ["footer-snake", "shortcuts"] },
     { "action": "send_terminal_context", "key": "c-t", "display": "Ctrl+T", "label": "Terminal→AI-Kontext", "areas": ["shortcuts"] },
     { "action": "toggle_shortcut_help", "key": "c-]", "display": "Ctrl+]", "label": "Shortcut-Hilfe", "areas": ["footer-normal", "shortcuts"] },
-    { "action": "toggle_ai_snake_config", "key": "f6", "display": "F6", "label": "AI-Snake Config", "areas": ["footer-normal", "footer-snake", "shortcuts"] },
+    { "action": "toggle_ai_snake_config", "key": "f6", "display": "F6", "label": "AI-Snake Config", "areas": ["footer-normal", "footer-snake", "footer-chat", "ai-panel", "chat-panel", "shortcuts"] },
     { "action": "selection_down", "key": "c-j", "display": "Ctrl+J", "label": "Selection runter", "areas": ["footer-normal", "shortcuts"] },
     { "action": "selection_up", "key": "c-k", "display": "Ctrl+K", "label": "Selection hoch", "areas": ["footer-normal", "shortcuts"] },
     { "action": "focus_left", "key": "c-a", "display": "Ctrl+A", "label": "Fokus links", "areas": ["footer-normal", "shortcuts"] },

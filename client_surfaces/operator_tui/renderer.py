@@ -1695,13 +1695,18 @@ def _hints_line(state: OperatorState, width: int) -> str:
             hints = (
                 f"[Esc] game  [Enter] send  "
                 f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] channel  "
-                f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear  [{active_ch}]"
+                f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear  "
+                f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
+                "[:config]  "
+                f"[{active_ch}]"
             )
         elif bool(game.get("artifact_chat_focus")):
             hints = (
                 f"[Esc] close  [Enter] send  "
                 f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] channel  "
-                f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear"
+                f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear  "
+                f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
+                "[:config]"
             )
         elif game.get("paused"):
             hints = (
@@ -1720,7 +1725,9 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('toggle_chat_panel', 'Ctrl+G')}] Chat  "
                 f"[{display_for_action('chat_focus', 'Ctrl+E')}] Input  "
                 f"[{display_for_action('snake_pause', 'Ctrl+P')}] Pause  "
-                f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI"
+                f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI  "
+                f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
+                "[:config]"
             )
     return _clip(hints, width)
 

@@ -339,12 +339,14 @@ def test_header_focus_hints_show_snake_controls() -> None:
         header_logo_game=game,
     )
 
-    output = render_operator_shell(state, width=100, height=24)
+    output = render_operator_shell(state, width=140, height=24)
 
     assert "Snake-Modus aktiv  running" in output
     assert "[SNAKE]" in output
     assert "Ctrl+X=Markieren" in output
     assert "[Ctrl+S] Snake" in output
+    assert "AI-Config" in output
+    assert ":config" in output
 
 
 def test_header_lists_snakes_with_oidc_pseudonym_color_and_message() -> None:
@@ -2165,6 +2167,19 @@ def test_ai_snake_config_selected_can_disable_visual_ai() -> None:
     updated = tui.state.header_logo_game or {}
     assert updated.get("tutorial_mode") is False
     assert "s-ai" not in dict(updated.get("snakes") or {})
+
+
+def test_config_command_toggles_ai_snake_config_panel() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"chat_panel_open": True})
+    opened = execute_command(":config", state).state
+    game_open = dict(opened.header_logo_game or {})
+    assert bool(game_open.get("ai_snake_config_open")) is True
+    assert opened.focus is FocusPane.CONTENT
+    assert opened.mode is OperatorMode.NORMAL
+
+    closed = execute_command(":config", opened).state
+    game_closed = dict(closed.header_logo_game or {})
+    assert bool(game_closed.get("ai_snake_config_open")) is False
 
 
 def test_ai_snake_config_open_resets_chat_focus_and_command_mode() -> None:
