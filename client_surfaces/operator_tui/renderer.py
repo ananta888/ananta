@@ -74,6 +74,7 @@ def render_operator_shell(
     detail_lines = _detail_lines(state, detail_width)
     body_height = height - 5 - body_offset
     body_height = max(3, body_height)
+    body_start = len(lines)
     for index in range(body_height):
         lines.append(
             " ".join(
@@ -86,6 +87,7 @@ def render_operator_shell(
                 )
             )
         )
+    body_end = len(lines)
 
     lines.append(_rule(width))
     lines.append(_status_line(state, width, splash_state=splash_state))
@@ -93,7 +95,7 @@ def render_operator_shell(
     lines.append(_hints_line(state, width))
     if state.show_help or section.id == "help":
         lines.extend(_help_overlay(state, width))
-    lines = _overlay_fullscreen_snake(lines, state, width=width)
+    lines = _overlay_fullscreen_snake(lines, state, width=width, body_start=body_start, body_end=body_end)
     return "\n".join(_clip(line, width) for line in lines)
 
 
@@ -781,7 +783,8 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
     ch = channels.get(active_ch_id) if isinstance(channels, dict) else {}
     if not isinstance(ch, dict):
         ch = {}
-    ch_type = str(ch.get("channel_type") or "room")
+    ch_type_raw = ch.get("channel_type") or "room"
+    ch_type = str(getattr(ch_type_raw, "value", ch_type_raw))
     chat_focus = bool(chat.get("chat_focus")) or bool(game.get("artifact_chat_focus"))
     active_label = _chat_channel_label(active_ch_id)
     unread_total = 0
@@ -1606,7 +1609,14 @@ def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
     return [top, title, *rows, top]
 
 
-def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: int) -> list[str]:
+def _overlay_fullscreen_snake(
+    lines: list[str],
+    state: OperatorState,
+    *,
+    width: int,
+    body_start: int = 0,
+    body_end: int | None = None,
+) -> list[str]:
     game = state.header_logo_game or {}
     if not game.get("active") or not game.get("free_mode"):
         return lines
@@ -1614,15 +1624,21 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     if not isinstance(local_snake, list) or not local_snake:
         return lines
 
+    shell = list(lines)
+    start = max(0, min(len(shell), int(body_start)))
+    end = len(shell) if body_end is None else max(start, min(len(shell), int(body_end)))
+    out = list(shell[start:end])
+    if not out:
+        return shell
+
     # Split-view: if wide enough, reserve right portion for AI+Chat panels (T01.01)
     ai_panel_width = 34
     split_col = width - ai_panel_width - 2  # 2 for divider; panel text starts at the DETAIL column
     split_view = width >= 100
     play_width = width
-    # Chat panel: bottom portion of the right column (requires width>=120, height>=32)
-    chat_panel_enabled = width >= 120 and len(lines) >= 32
+    # Chat panel: bottom portion of the right detail column inside the middle body only.
+    chat_panel_enabled = width >= 100 and len(out) >= 10
 
-    out = list(lines)
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
     local_snapshot = snakes.get(local_id, {}) if isinstance(snakes.get(local_id), dict) else {}
@@ -1716,7 +1732,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     ai_panel_height = len(out)
     if split_view and chat_panel_enabled:
         # Reserve bottom portion for chat panel
-        ai_panel_height = max(8, len(out) - 10)
+        ai_panel_height = max(5, len(out) - min(8, max(4, len(out) // 3)))
     if split_view:
         out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=ai_panel_height)
 
@@ -1733,7 +1749,8 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         warn = "Terminal zu klein für Snake"
         out[0] = _overlay_text(out[:1], x=2, y=0, text=warn, color=(255, 80, 80))[0] if out else out[0]
 
-    return out
+    shell[start:end] = out
+    return shell
 
 
 def _reserve_snake_right_dock(lines: list[str], *, split_col: int, width: int) -> list[str]:
@@ -2011,7 +2028,8 @@ def _overlay_snake_chat_panel(
     active_ch_id = str(chat.get("active_channel") or "room:main")
     channels = chat.get("channels") or {}
     ch = channels.get(active_ch_id) or {}
-    ch_type = str(ch.get("channel_type") or "room")
+    ch_type_raw = ch.get("channel_type") or "room"
+    ch_type = str(getattr(ch_type_raw, "value", ch_type_raw))
     display_name = str(ch.get("display_name") or active_ch_id)
     unread_total = sum(int(c.get("unread") or 0) for c in channels.values())
     chat_focus = bool(chat.get("chat_focus"))

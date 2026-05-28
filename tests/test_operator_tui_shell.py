@@ -1537,6 +1537,25 @@ def test_split_snake_chat_panel_does_not_blank_snake_under_empty_rows() -> None:
     assert plain[118] == "●"
 
 
+def test_fullscreen_snake_overlay_preserves_header_and_footer_rows() -> None:
+    game = {
+        "active": True,
+        "free_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(118, 0), (117, 0), (116, 0)],
+        "trail_path": [(118, 0), (117, 0), (116, 0)],
+        "chat_panel_open": True,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    output = render_operator_shell(state, width=120, height=32)
+    plain_lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in output.splitlines()]
+
+    assert "focus=" in plain_lines[-3]
+    assert plain_lines[-1].startswith("[Tab/")
+    assert "ACTIVE:" not in "\n".join(plain_lines[:8])
+
+
 def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -> None:
     game = {
         "active": True,
@@ -1817,6 +1836,102 @@ def test_chat_channel_cycle_preserves_input_buffer() -> None:
     chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
     assert chat.get("active_channel") == "ai:tutor"
     assert chat.get("chat_input_buffer") == "abc"
+
+
+def test_ai_chat_send_does_not_pause_snake() -> None:
+    game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui._chat_focus_enter()
+    tui._chat_cycle_channel()
+    tui._chat_append("hi")
+
+    tui._chat_send_message()
+
+    updated = tui.state.header_logo_game or {}
+    assert updated.get("paused") is not True
+    assert updated.get("tutor_ask_question") == "hi"
+    assert updated.get("_ask_submitted") is False
+
+
+def test_llm_ask_uses_lmstudio_defaults_without_explicit_env(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+    for key in (
+        "ANANTA_TUI_SNAKE_AI_MODEL",
+        "ANANTA_TUI_SNAKE_AI_API_BASE_URL",
+        "ANANTA_TUI_SNAKE_AI_API_TOKEN",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_BASE",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("ANANTA_TUI_CHAT_STREAMING", "0")
+    captured: dict[str, object] = {}
+
+    class _FakeResp:
+        headers: dict[str, str] = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
+
+    def _fake_urlopen(req, timeout=0):
+        captured["url"] = req.full_url
+        captured["body"] = json.loads(req.data.decode())
+        return _FakeResp()
+
+    monkeypatch.setattr("client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", _fake_urlopen)
+
+    answer = tui._tutorial_ai_llm_ask(question="hi", context_text="", depth="overview", prior_messages=[])
+
+    assert answer == "ok"
+    assert captured["url"] == "http://192.168.178.100:1234/v1/chat/completions"
+    assert captured["body"]["model"] == "google/gemma-4-e4b"
+
+
+def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://192.168.178.100:1234/v1")
+    tui = InteractiveOperatorTui(state)
+    calls: list[str] = []
+
+    def _fake_urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        class _Resp:
+            headers: dict[str, str] = {}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
+
+        return _Resp()
+
+    monkeypatch.setenv("ANANTA_TUI_CHAT_STREAMING", "0")
+    monkeypatch.setattr("client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", _fake_urlopen)
+    monkeypatch.setattr(tui, "_rag_context_for_question", lambda *args, **kwargs: [])
+    monkeypatch.setattr(tui, "_build_active_target_excerpt", lambda: "")
+
+    answer = tui._resolve_ask_question(
+        "hi",
+        depth="overview",
+        hints=[],
+        rag_context=[],
+        question_tokens=[],
+        prior_messages=[],
+    )
+
+    assert answer == "ok"
+    assert calls == ["http://192.168.178.100:1234/v1/chat/completions"]
 
 
 def test_terminal_context_shortcut_prepares_ai_chat_context() -> None:
