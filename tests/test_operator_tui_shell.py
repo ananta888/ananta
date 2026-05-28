@@ -1707,6 +1707,48 @@ def test_snake_replace_selection_only_in_command_line(monkeypatch) -> None:
     assert tui.state.command_line == "aZZdef"
 
 
+def test_command_backspace_updates_command_line() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        mode=OperatorMode.COMMAND,
+        command_line="abcd",
+    )
+    tui = InteractiveOperatorTui(state)
+    tui._command_buffer = "abcd"
+
+    tui._command_backspace()
+
+    assert tui.state.command_line == "abc"
+    assert tui._command_buffer == "abc"
+
+
+def test_handle_quit_key_exits_in_command_mode() -> None:
+    class _FakeApp:
+        def __init__(self) -> None:
+            self.exited = False
+
+        def exit(self) -> None:
+            self.exited = True
+
+    class _FakeEvent:
+        def __init__(self, app) -> None:
+            self.app = app
+
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        mode=OperatorMode.COMMAND,
+        command_line=":chat backend status",
+    )
+    tui = InteractiveOperatorTui(state)
+    tui._command_buffer = ":chat backend status"
+    app = _FakeApp()
+
+    tui._handle_quit_key(_FakeEvent(app))
+
+    assert app.exited is True
+    assert tui._command_buffer == ":chat backend status"
+
+
 def test_snake_immediate_brake_sets_velocity_zero() -> None:
     game = {
         "active": True,

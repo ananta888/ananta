@@ -216,18 +216,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("quit", "c-q"))
         def _(event) -> None:
-            if self._snake_message_mode_active():
-                self._snake_message_append("q")
-                return
-            if self._chat_focus_active():
-                self._chat_append("q")
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("q")
-                return
-            if self._snake_mode_active():
-                return
-            event.app.exit()
+            self._handle_quit_key(event)
 
         @bindings.add(":")
         def _(event) -> None:
@@ -331,8 +320,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._snake_mode_active():
                 return
             if self.state.mode is OperatorMode.COMMAND:
-                self._command_buffer = self._command_buffer[:-1]
-                self._set_state(self.state.with_updates(command_line=self._command_buffer))
+                self._command_backspace()
 
         @bindings.add("delete")
         def _(event) -> None:
@@ -402,8 +390,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._chat_backspace()
                 return
             if self.state.mode is OperatorMode.COMMAND:
-                self._command_buffer = self._command_buffer[:-1]
-                self._set_state(self.state.with_updates(command_line=self._command_buffer))
+                self._command_backspace()
                 return
             self._toggle_context_help()
 
@@ -635,6 +622,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self.state.mode is OperatorMode.COMMAND:
                 data = event.key_sequence[0].data
+                if data in {"\b", "\x7f"}:
+                    self._command_backspace()
+                    return
                 if data and data.isprintable():
                     self._append_command(data)
 
@@ -1152,6 +1142,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _append_command(self, text: str) -> None:
         self._command_buffer += text
         self._set_state(self.state.with_updates(command_line=self._command_buffer))
+
+    def _command_backspace(self) -> None:
+        self._command_buffer = self._command_buffer[:-1]
+        self._set_state(self.state.with_updates(command_line=self._command_buffer))
+
+    def _handle_quit_key(self, event) -> None:
+        event.app.exit()
 
     def _toggle_snake_mouse_follow(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
