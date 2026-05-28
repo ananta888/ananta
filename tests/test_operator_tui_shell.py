@@ -1483,6 +1483,7 @@ def test_split_snake_dock_does_not_remap_snake_into_left_play_area() -> None:
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[4])
 
     assert plain[41] == " "
+    assert plain[118] in {"●", "◉", "·"}
 
 
 def test_split_snake_chat_panel_stays_in_right_detail_slice() -> None:

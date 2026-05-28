@@ -24,7 +24,7 @@ def test_split_panel_width_is_wider_than_legacy_default() -> None:
     assert _snake_right_panel_width(120) >= 40
 
 
-def test_fullscreen_overlay_keeps_snake_out_of_right_panel_area() -> None:
+def test_fullscreen_overlay_allows_snake_in_right_panel_area() -> None:
     lines = [" " * 120 for _ in range(24)]
     game = {
         "active": True,
@@ -38,8 +38,7 @@ def test_fullscreen_overlay_keeps_snake_out_of_right_panel_area() -> None:
     state = OperatorState(endpoint="http://localhost", header_logo_game=game)
     out = _overlay_fullscreen_snake(lines, state, width=120, body_start=0, body_end=24)
     row = _strip_ansi(out[10])
-    assert row[118] not in {"●", "◉", "·"}
-    assert not any(ch in row for ch in ("●", "◉", "·"))
+    assert row[118] in {"●", "◉", "·"}
 
 
 def test_chat_panel_renders_timestamps_and_ai_snake_sender() -> None:
@@ -114,12 +113,17 @@ def test_ai_panel_shows_toggle_configuration_and_keys() -> None:
         "score": 3,
         "speed_level": 2,
         "llm_status": {"reachable": False},
+        "ai_snake_mode": "lurking_follow",
+        "ai_snake_runtime_status": "running",
+        "ai_snake_monitor_log": [{"event": "tutorial_toggled", "label": "Tutorial-AI umgeschaltet", "created_at": 1735682400.0}],
     }
-    out = _overlay_snake_ai_panel(lines, game, split_col=78, panel_width=40, height=10, row_start=0, chat_enabled=False)
+    out = _overlay_snake_ai_panel(lines, game, split_col=78, panel_width=40, height=16, row_start=0, chat_enabled=False)
     rendered = "\n".join(_strip_ansi(line) for line in out)
     assert "Auto-Heuristik [U]: AN" in rendered
     assert "AI-Chat [Ctrl+G]: AUS" in rendered
     assert "Chat-Fokus [c], Eingabe [Ctrl+E]" in rendered
+    assert "Steuerung: mode=lurking_follow runtime=running" in rendered
+    assert "AI-Snake Verlauf:" in rendered
 
 
 def test_chat_panel_shows_disabled_state_when_chat_is_off() -> None:
