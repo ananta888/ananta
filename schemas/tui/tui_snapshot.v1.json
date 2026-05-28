@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tui_snapshot.v1",
+  "title": "TuiSnapshot",
+  "type": "object",
+  "required": ["frame_id", "timestamp", "width", "height", "screen_hash"],
+  "properties": {
+    "frame_id": {"type": "string"},
+    "timestamp": {"type": "number"},
+    "width": {"type": "integer", "minimum": 0},
+    "height": {"type": "integer", "minimum": 0},
+    "screen_hash": {"type": "string"},
+    "cells": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["x", "y", "char"],
+          "properties": {
+            "x": {"type": "integer"},
+            "y": {"type": "integer"},
+            "char": {"type": "string"},
+            "fg": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3},
+            "bg": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3},
+            "bold": {"type": "boolean"},
+            "inverse": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "style_hints": {"type": "object"}
+  }
+}

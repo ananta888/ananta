@@ -2,6 +2,7 @@
 
 Nutzt ai_snake_context.py und ai_snake_observation.py als Basis.
 Schema: schemas/heuristic/decision_context.v1.json
+Schema v2: schemas/heuristic/decision_context.v2.json
 """
 from __future__ import annotations
 
@@ -24,6 +25,11 @@ class DecisionContext:
     allowed_source_scopes: list[str] = field(default_factory=list)
     policy_state: str | None = None
     query: str | None = None
+    # v2: TUI snapshot references (optional, rückwärtskompatibel)
+    tui_snapshot_ref: str | None = None   # screen_hash des aktuellen Snapshots
+    tui_delta_ref: str | None = None      # "prev_hash:curr_hash" kompakt
+    semantic_hash: str | None = None      # Hash des SemanticOverlay
+    semantic_panel: str | None = None     # aktives Panel aus SemanticOverlay
 
     @property
     def context_hash(self) -> str:
@@ -36,6 +42,9 @@ class DecisionContext:
             "scopes": sorted(self.allowed_source_scopes),
             "ai_status": self.ai_status,
             "query": self.query,
+            # v2: include snapshot/semantic references in hash (not volatile timestamps)
+            "tui_snapshot_ref": self.tui_snapshot_ref,
+            "semantic_hash": self.semantic_hash,
         }
         payload = json.dumps(relevant, sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
@@ -53,6 +62,11 @@ class DecisionContext:
             "policy_state": self.policy_state,
             "query": self.query,
             "context_hash": self.context_hash,
+            # v2 fields
+            "tui_snapshot_ref": self.tui_snapshot_ref,
+            "tui_delta_ref": self.tui_delta_ref,
+            "semantic_hash": self.semantic_hash,
+            "semantic_panel": self.semantic_panel,
         }
 
 
@@ -61,6 +75,10 @@ def build_from_tui_state(
     tui_state: dict[str, Any] | None = None,
     observation_buffer: Any = None,
     ai_status: str = "available",
+    snapshot_ref: str | None = None,
+    delta_ref: str | None = None,
+    semantic_hash: str | None = None,
+    semantic_panel: str | None = None,
 ) -> DecisionContext:
     """Erstellt DecisionContext aus TUI-Zustand.
 
@@ -106,6 +124,10 @@ def build_from_tui_state(
         recent_events=recent_events,
         allowed_source_scopes=allowed_scopes,
         policy_state=policy_state,
+        tui_snapshot_ref=snapshot_ref,
+        tui_delta_ref=delta_ref,
+        semantic_hash=semantic_hash,
+        semantic_panel=semantic_panel,
     )
 
 

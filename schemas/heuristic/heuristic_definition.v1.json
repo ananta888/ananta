@@ -31,7 +31,8 @@
         "rejected",
         "quarantined",
         "deprecated",
-        "archived"
+        "archived",
+        "experimental_live"
       ],
       "default": "candidate"
     },
@@ -112,9 +113,10 @@
           "enum": [
             "declarative_rules",
             "python_strategy",
-            "composite_chain"
+            "composite_chain",
+            "dsl_v2"
           ],
-          "description": "declarative_rules: pure JSON DSL; python_strategy: allowed Python class; composite_chain: ordered list of sub-heuristics"
+          "description": "declarative_rules: pure JSON DSL; python_strategy: allowed Python class; composite_chain: ordered list of sub-heuristics; dsl_v2: expression-based DSL v2"
         },
         "python_strategy": {
           "type": "object",
@@ -163,6 +165,13 @@
               },
               "description": "Ordered list of heuristic_ids in the chain"
             }
+          }
+        },
+        "dsl_v2": {
+          "type": "object",
+          "description": "Only present when mode=dsl_v2",
+          "properties": {
+            "dsl": {"$ref": "heuristic_dsl.v2.json"}
           }
         },
         "triggers": {

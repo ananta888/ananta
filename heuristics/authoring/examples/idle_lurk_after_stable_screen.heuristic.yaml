@@ -1,0 +1,33 @@
+heuristic_id: idle_lurk_after_stable_screen
+version: "0.1.0"
+domain: tui_snake
+deterministic: true
+safety_class: ui_motion_only
+capabilities: []
+description: "Snake lurkt in der Nähe wenn der Screen stabil ist (keine Änderungen)"
+runtime:
+  mode: dsl_v2
+  dsl_v2:
+    dsl:
+      dsl_version: "2.0"
+      observe:
+        sources: ["tui.snapshot", "tui.delta"]
+        window:
+          last_n_snapshots: 5
+          last_n_deltas: 20
+      match:
+        all:
+          - {eq: ["tui.focus", "BODY"]}
+          - {lt: ["tui.delta.changed_cell_count", 5]}
+      action:
+        kind: lurk_near
+        confidence: 0.6
+        min_distance: 3
+      lease:
+        ttl_seconds: 8.0
+        refresh_on: ["screen_hash_changed"]
+      safety:
+        safety_class: ui_motion_only
+      provenance:
+        created_by: "example"
+        rationale: "Bei stabilem Screen in ruhiger Nähe verweilen, kein aktives Folgen nötig"

@@ -2211,6 +2211,18 @@ def _overlay_snake_score_header(lines: list[str], game: dict[str, object], *, wi
     new_high = score > 0 and score >= high
     col = (255, 200, 80) if new_high else (120, 150, 120)
     label = f"score: {score}  best: {max(score, high)}  speed: {speed_level}/5"
+
+    # Compact heuristic mode badge (T07.05) — shown only if heuristic_mode is set
+    heuristic_mode = game.get("heuristic_mode")
+    if heuristic_mode:
+        _MODE_BADGE = {
+            "shadow": "[DSL: shadow]",
+            "experimental": "[DSL: exp]",
+            "active": "[DSL: active]",
+        }
+        badge = _MODE_BADGE.get(str(heuristic_mode), f"[DSL: {heuristic_mode}]")
+        label = badge + "  " + label
+
     x = max(0, width - len(label) - 2)
     target_row = max(0, min(row, len(out) - 1))
     if len(out) > 0:

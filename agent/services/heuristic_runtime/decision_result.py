@@ -111,6 +111,33 @@ class DecisionResult:
         )
 
 
+    @staticmethod
+    def from_dsl_action(action: dict, *, strategy_id: str | None = None) -> "DecisionResult":
+        """Erzeugt DecisionResult aus DSL v2 action dict."""
+        kind = action.get("kind", "no_action")
+        confidence = float(action.get("confidence", 0.8))
+        reason_codes = list(action.get("reason_codes") or [])
+
+        if kind in ("suggest_target", "fast_target", "smooth_follow", "follow_artifact"):
+            motion = None
+            target_cell = action.get("target_cell")
+            if target_cell:
+                motion = SuggestedMotion(dx=int(target_cell.get("x", 0)), dy=int(target_cell.get("y", 0)))
+            return DecisionResult(
+                action_kind="follow", confidence=confidence, source="heuristic",
+                suggested_motion=motion, reason_codes=reason_codes, strategy_id=strategy_id,
+            )
+        if kind == "lurk_near":
+            return DecisionResult.heuristic_lurk(strategy_id=strategy_id)
+        if kind == "explain_target":
+            return DecisionResult(
+                action_kind="follow", confidence=confidence, source="heuristic",
+                reason_codes=["explain_target"] + reason_codes, strategy_id=strategy_id,
+            )
+        # no_action
+        return DecisionResult.no_good_match()
+
+
 def from_ai_snake_policy_decision(pd: Any) -> DecisionResult:
     """Adapter: konvertiert ai_snake_policy.PolicyDecision zu DecisionResult."""
     allowed = bool(getattr(pd, "allowed", True))

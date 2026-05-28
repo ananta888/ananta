@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "heuristic_dsl.v2",
+  "title": "HeuristicDslV2",
+  "description": "DSL v2 für TUI-Snake-Heuristiken. LLMs dürfen nur DSL-Kandidaten erzeugen, keine direkten Snake-Koordinaten.",
+  "type": "object",
+  "required": ["dsl_version", "observe", "action", "safety", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "dsl_version": {"type": "string", "enum": ["2.0"]},
+    "observe": {
+      "type": "object",
+      "required": ["sources"],
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["tui.snapshot", "tui.delta", "tui.semantic", "tui.mouse", "tui.focus", "tui.history"]
+          }
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "last_n_snapshots": {"type": "integer", "minimum": 1, "maximum": 20},
+            "last_n_deltas": {"type": "integer", "minimum": 1, "maximum": 100}
+          }
+        }
+      }
+    },
+    "match": {
+      "description": "Ausdruck der matched wenn diese Heuristik anwendbar ist",
+      "$ref": "#/definitions/expression"
+    },
+    "score": {
+      "type": "object",
+      "properties": {
+        "base": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "expression": {"$ref": "#/definitions/expression"}
+      }
+    },
+    "select": {
+      "type": "object",
+      "properties": {
+        "target": {"type": "string"},
+        "artifact_id": {"type": "string"},
+        "bbox": {"$ref": "#/definitions/bbox"}
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["suggest_target", "follow_artifact", "lurk_near", "smooth_follow", "fast_target", "explain_target", "no_action"]
+        },
+        "target_cell": {"$ref": "#/definitions/cell_ref"},
+        "target_artifact_id": {"type": "string"},
+        "target_bbox": {"$ref": "#/definitions/bbox"},
+        "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "reason_codes": {"type": "array", "items": {"type": "string"}},
+        "max_step": {"type": "integer", "minimum": 1, "maximum": 10},
+        "min_distance": {"type": "integer", "minimum": 0},
+        "acceleration_limit": {"type": "number", "minimum": 0.0}
+      }
+    },
+    "lease": {
+      "type": "object",
+      "properties": {
+        "ttl_seconds": {"type": "number", "minimum": 0.1, "maximum": 120.0},
+        "min_ttl_seconds": {"type": "number", "minimum": 0.1},
+        "max_ttl_seconds": {"type": "number", "maximum": 120.0},
+        "refresh_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["screen_hash_changed", "semantic_target_changed", "mouse_direction_changed", "focus_changed", "artifact_visibility_changed"]
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["safety_class"],
+      "properties": {
+        "safety_class": {"type": "string", "enum": ["ui_motion_only", "readonly"]},
+        "allowed_capabilities": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["read_local_context", "read_artifact_refs", "read_active_task"]},
+          "uniqueItems": true
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": ["inline_code", "shell_command", "network_access", "secret_access", "file_write"]
+        }
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "properties": {
+        "mode": {"type": "string", "enum": ["shadow", "experimental_live", "active"]},
+        "max_ttl_seconds": {"type": "number", "minimum": 1.0, "maximum": 20.0}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["created_by", "rationale"],
+      "properties": {
+        "created_by": {"type": "string"},
+        "rationale": {"type": "string"},
+        "source_snapshot_hashes": {"type": "array", "items": {"type": "string"}},
+        "model": {"type": "string"},
+        "created_at": {"type": "string"}
+      }
+    }
+  },
+  "definitions": {
+    "expression": {
+      "oneOf": [
+        {"type": "object", "required": ["all"], "properties": {"all": {"type": "array", "items": {"$ref": "#/definitions/expression"}}}},
+        {"type": "object", "required": ["any"], "properties": {"any": {"type": "array", "items": {"$ref": "#/definitions/expression"}}}},
+        {"type": "object", "required": ["not"], "properties": {"not": {"$ref": "#/definitions/expression"}}},
+        {"type": "object", "required": ["eq"], "properties": {"eq": {"type": "array", "minItems": 2, "maxItems": 2}}},
+        {"type": "object", "required": ["gt"], "properties": {"gt": {"type": "array", "minItems": 2, "maxItems": 2}}},
+        {"type": "object", "required": ["lt"], "properties": {"lt": {"type": "array", "minItems": 2, "maxItems": 2}}},
+        {"type": "object", "required": ["contains"], "properties": {"contains": {"type": "array", "minItems": 2, "maxItems": 2}}},
+        {"type": "object", "required": ["changed_recently"], "properties": {"changed_recently": {"type": "object", "properties": {"path": {"type": "string"}, "within_seconds": {"type": "number"}}}}},
+        {"type": "object", "required": ["direction_towards"], "properties": {"direction_towards": {"type": "object"}}},
+        {"type": "object", "required": ["distance"], "properties": {"distance": {"type": "object"}}},
+        {"type": "object", "required": ["intersects"], "properties": {"intersects": {"type": "object"}}}
+      ]
+    },
+    "cell_ref": {
+      "type": "object",
+      "properties": {
+        "x": {"type": "integer"},
+        "y": {"type": "integer"}
+      }
+    },
+    "bbox": {
+      "type": "object",
+      "properties": {
+        "x": {"type": "integer"}, "y": {"type": "integer"},
+        "w": {"type": "integer"}, "h": {"type": "integer"}
+      }
+    }
+  }
+}

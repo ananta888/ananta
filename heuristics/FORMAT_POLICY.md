@@ -61,6 +61,35 @@ The activation gate requires:
 2. Simulation passed
 3. Human approval registered in audit log
 
+## Experimental Live Mode
+
+`experimental_live` ist ein gesonderter Status zwischen `candidate` und `active`:
+
+| Status | Bedeutung |
+|--------|-----------|
+| `candidate` | LLM-Vorschlag, noch nicht validiert oder simuliert |
+| `experimental_live` | Validiert + simuliert, zeitlich begrenzt aktiv (TTL 5–20 Sekunden) |
+| `active` | Manuell von Mensch genehmigt, stabil aktiv |
+
+### Regeln für experimental_live
+
+1. `experimental_live` darf nur nach bestandener Validation UND Simulation gesetzt werden.
+2. `experimental_live` hat ein hartes TTL-Limit: Standard 10 Sekunden, Maximum 20 Sekunden.
+3. `experimental_live` läuft automatisch ab — es wird **nicht** automatisch zu `active`.
+4. `stable active` erfordert weiterhin Human Approval via `HeuristicActivationGate.activate()`.
+5. Im Standard-Modus läuft `experimental_live` im **Shadow Mode** (keine sichtbare Snake-Beeinflussung).
+6. Nur wenn `auto_experiment_mode=True` (explizit konfiguriert) werden experimentelle Leases vergeben.
+
+### Konfiguration
+
+```python
+# In LabConfig (background_heuristic_lab.py)
+config = LabConfig(
+    enabled=True,
+    auto_experiment_mode=False,  # Default: shadow-only
+)
+```
+
 ## OpenCode Flow for Python Strategies
 
 When OpenCode proposes a new Python strategy or modifies an existing one, the following flow applies:
@@ -102,3 +131,13 @@ result = guard.check(proposal_dict)
 if not result.passed:
     raise ValueError(result.rejection_reasons)
 ```
+
+## Glossar
+
+| Begriff | Definition |
+|---------|-----------|
+| snapshot | Vollständige CellGrid-Aufnahme des sichtbaren TUI-Screens zu einem Zeitpunkt |
+| delta | Zelluläre Änderung zwischen zwei aufeinanderfolgenden Snapshots |
+| semantic_overlay | Logische Panels, Artifacts, Mouse und Snake-Positionen, extrahiert aus OperatorState |
+| heuristic_candidate | LLM-generierter DSL-Vorschlag, der noch nicht aktiviert ist |
+| experimental_live | Zeitlich begrenzter Test einer neuen Heuristik mit hartem TTL-Limit |

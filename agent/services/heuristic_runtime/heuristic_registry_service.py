@@ -13,7 +13,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-_VALID_STATUSES = frozenset({"active", "candidate", "rejected", "quarantined", "deprecated", "archived"})
+_VALID_STATUSES = frozenset({"active", "experimental_live", "candidate", "rejected", "quarantined", "deprecated", "archived"})
 
 # Capabilities die für snake domains verboten sind
 _SNAKE_FORBIDDEN_CAPS = frozenset({"file_write", "network_access", "secret_access", "send_to_worker", "request_context_extension"})
@@ -44,7 +44,7 @@ class HeuristicDefinition:
 
     @staticmethod
     def from_dict(data: dict[str, Any], *, status: str = "active") -> "HeuristicDefinition":
-        return HeuristicDefinition(
+        h = HeuristicDefinition(
             heuristic_id=str(data["heuristic_id"]).strip(),
             version=str(data["version"]).strip(),
             domain=str(data["domain"]).strip(),
@@ -58,6 +58,9 @@ class HeuristicDefinition:
             parameters=dict(data.get("parameters") or {}),
             status=status,
         )
+        # Attach raw definition for DSL Loader access (frozen=True workaround)
+        object.__setattr__(h, "_raw_def", dict(data))
+        return h
 
     def has_capability_violation(self) -> list[str]:
         violations: list[str] = []
@@ -161,10 +164,22 @@ class HeuristicRegistry:
         self._ensure_loaded()
         return list(self._all)
 
-    def list_by_status(self, status: str) -> list[HeuristicDefinition]:
+    def list_by_status(self, status: str, domain: str | None = None) -> list[HeuristicDefinition]:
+        """Listet Heuristiken nach Status (inkl. 'experimental_live')."""
         self._ensure_loaded()
         s = str(status).strip().lower()
-        return [h for h in self._all if h.status == s]
+        result = []
+        for h in self._all:
+            if h.status != s:
+                continue
+            if domain and h.domain != domain:
+                continue
+            result.append(h)
+        return result
+
+    def list_experimental_live(self, domain: str = "tui_snake") -> list[HeuristicDefinition]:
+        """Gibt alle experimental_live Heuristiken für eine Domain zurück."""
+        return self.list_by_status("experimental_live", domain=domain)
 
     def register_in_memory(self, hdef: HeuristicDefinition) -> None:
         """Fügt eine Heuristik zur In-Memory-Registry hinzu (nur für Tests)."""
