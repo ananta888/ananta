@@ -1125,7 +1125,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 ts = time.strftime("%H:%M", time.localtime(float(created_at)))
             else:
                 ts = "--:--"
-            text = sanitize_text(str(msg.get("text") or ""))
+            text = sanitize_text(str(msg.get("text") or ""), max_len=6000)
             if text:
                 lines.append(f"[{ts}] {sender}: {text}")
         copied = "\n".join(lines).strip()

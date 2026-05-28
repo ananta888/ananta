@@ -326,12 +326,15 @@ def append_message(chat: dict[str, Any], msg: dict[str, Any]) -> None:
         ch["unread"] = int(ch.get("unread") or 0) + 1
 
 
-def sanitize_text(text: str) -> str:
+def sanitize_text(text: str, *, max_len: int | None = 500) -> str:
     """Strip ANSI and control chars from user-supplied message text."""
     import re
     text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
-    return text.strip()[:500]
+    cleaned = text.strip()
+    if isinstance(max_len, int) and max_len >= 0:
+        return cleaned[:max_len]
+    return cleaned
 
 
 def unread_total(chat: dict[str, Any]) -> int:

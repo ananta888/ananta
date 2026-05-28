@@ -64,8 +64,8 @@ def test_ai_snake_config_combobox_option_rows_are_clickable() -> None:
             },
         },
     )
-    # body_start=9; options begin at row index 8 + len(items=15) => y=32 for first option.
-    hit = build_region_index(state, width=120, height=40).get_target_at(28, 32)
+    # body_start=9; options begin at row index 8 + len(items=16) => y=33 for first option.
+    hit = build_region_index(state, width=120, height=40).get_target_at(28, 33)
     assert hit is not None
     assert hit.pane == "content"
     assert str(hit.payload.get("ai_snake_combo_option_value") or "") in {"AN", "AUS"}

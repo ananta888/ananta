@@ -27,6 +27,7 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_context_chars",
     "chat_max_tokens",
     "chat_rag_top_k",
+    "chat_answer_chars",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -217,6 +218,12 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     except (TypeError, ValueError):
         chat_rag_top_k = 24
     chat_rag_top_k = max(8, min(120, chat_rag_top_k))
+    answer_chars_raw = game.get("chat_answer_chars")
+    try:
+        chat_answer_chars = int(answer_chars_raw) if answer_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", "6000"))
+    except (TypeError, ValueError):
+        chat_answer_chars = 6000
+    chat_answer_chars = max(600, min(12000, chat_answer_chars))
     return [
         {"key": "visual_enabled", "label": "Visual AI-Snake", "type": "bool", "value": visual_on},
         {"key": "chat_panel_open", "label": "AI-Chat Panel", "type": "bool", "value": chat_open},
@@ -280,6 +287,13 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(chat_rag_top_k),
             "options": ["12", "24", "32", "48", "64", "96", "120"],
+        },
+        {
+            "key": "chat_answer_chars",
+            "label": "Chat Answer Chars",
+            "type": "choice",
+            "value": str(chat_answer_chars),
+            "options": ["600", "1200", "2400", "4000", "6000", "8000", "12000"],
         },
     ]
 
@@ -552,6 +566,15 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             return f"ai config: {label} erwartet zahl"
         value_int = max(8, min(120, value_int))
         game["chat_rag_top_k"] = value_int
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {value_int}"
+    if key == "chat_answer_chars":
+        try:
+            value_int = int(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        value_int = max(600, min(12000, value_int))
+        game["chat_answer_chars"] = value_int
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"
     return "ai config: keine änderung"
