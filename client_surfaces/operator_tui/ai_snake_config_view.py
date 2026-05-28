@@ -26,6 +26,13 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     chat_open = bool(game.get("chat_panel_open"))
     visual_on = bool(game.get("tutorial_mode"))
     codecompass_on = bool(game.get("ai_visual_use_codecompass"))
+    timeout_value_raw = game.get("chat_ask_timeout_s")
+    try:
+        timeout_value = float(timeout_value_raw) if timeout_value_raw is not None else 45.0
+    except (TypeError, ValueError):
+        timeout_value = 45.0
+    timeout_value = max(3.0, min(180.0, timeout_value))
+    timeout_options = ["20", "30", "45", "60", "90", "120", "180"]
     return [
         {"key": "visual_enabled", "label": "Visual AI-Snake", "type": "bool", "value": visual_on},
         {"key": "chat_panel_open", "label": "AI-Chat Panel", "type": "bool", "value": chat_open},
@@ -44,6 +51,13 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(game.get("chat_backend_model") or "-"),
             "options": chat_models,
+        },
+        {
+            "key": "chat_ask_timeout_s",
+            "label": "Chat Ask Timeout (s)",
+            "type": "choice",
+            "value": f"{timeout_value:g}",
+            "options": timeout_options,
         },
     ]
 
@@ -122,6 +136,14 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             models.append(raw_value)
         game["chat_backend_models"] = [m for m in models if m][-40:]
         return f"ai config: {label} -> {raw_value}"
+    if key == "chat_ask_timeout_s":
+        try:
+            timeout_s = float(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet sekunden"
+        timeout_s = max(3.0, min(180.0, timeout_s))
+        game["chat_ask_timeout_s"] = timeout_s
+        return f"ai config: {label} -> {timeout_s:g}s"
     return "ai config: keine änderung"
 
 

@@ -40,16 +40,25 @@ class ChatMixin:
     """Mixin providing chat, notes, and ask-question functionality."""
 
     def _chat_ask_timeout_seconds(self) -> float:
+        game = dict(self.state.header_logo_game or {})
+        configured = game.get("chat_ask_timeout_s")
+        if isinstance(configured, (int, float)):
+            return max(3.0, min(180.0, float(configured)))
+        if isinstance(configured, str) and configured.strip():
+            try:
+                return max(3.0, min(180.0, float(configured.strip())))
+            except ValueError:
+                pass
         raw = str(
             os.environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT")
             or os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT")
-            or "20"
+            or "45"
         ).strip()
         try:
             value = float(raw)
         except ValueError:
-            value = 20.0
-        return max(3.0, min(120.0, value))
+            value = 45.0
+        return max(3.0, min(180.0, value))
 
     # ── E03: Chat send ────────────────────────────────────────────────────────
 

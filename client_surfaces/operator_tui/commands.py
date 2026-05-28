@@ -221,6 +221,23 @@ def _state_with_diff3_payload(state: OperatorState, *, game: dict, diff3_state: 
     )
 
 
+def _resolve_chat_ask_timeout_seconds(game: dict[str, object]) -> float:
+    configured = game.get("chat_ask_timeout_s")
+    if isinstance(configured, (int, float)):
+        return max(3.0, min(180.0, float(configured)))
+    if isinstance(configured, str) and configured.strip():
+        try:
+            return max(3.0, min(180.0, float(configured.strip())))
+        except ValueError:
+            pass
+    timeout_raw = str(__import__("os").environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT") or __import__("os").environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT") or "45").strip()
+    try:
+        timeout_s = float(timeout_raw)
+    except ValueError:
+        timeout_s = 45.0
+    return max(3.0, min(180.0, timeout_s))
+
+
 def _build_mock_planning_track_payload(goal_id: str) -> dict[str, object]:
     tasks = [
         {
@@ -3332,12 +3349,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         game = dict(state.header_logo_game or {})
         game["tutor_ask_question"] = question
         game["tutor_ask_at"] = __import__("time").monotonic()
-        timeout_raw = str(__import__("os").environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT") or __import__("os").environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT") or "20").strip()
-        try:
-            timeout_s = float(timeout_raw)
-        except ValueError:
-            timeout_s = 20.0
-        timeout_s = max(3.0, min(120.0, timeout_s))
+        timeout_s = _resolve_chat_ask_timeout_seconds(game)
         game["tutor_ask_timeout_s"] = timeout_s
         game["tutor_ask_deadline_at"] = float(game["tutor_ask_at"]) + timeout_s
         game["tutor_ask_answered"] = False
