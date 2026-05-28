@@ -512,7 +512,13 @@ class ChatMixin:
         question_tokens: list[str] | None = None,
         prior_messages: list[dict] | None = None,
     ) -> str:
-        chat_top_k = max(12, int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24")))
+        game = dict(self.state.header_logo_game or {})
+        chat_top_k_raw = game.get("chat_rag_top_k")
+        try:
+            chat_top_k = int(chat_top_k_raw) if chat_top_k_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24"))
+        except (TypeError, ValueError):
+            chat_top_k = 24
+        chat_top_k = max(8, min(120, chat_top_k))
 
         # R01: question-based RAG retrieval (runs in background thread — blocking OK)
         question_rag = self._rag_context_for_question(question, question_tokens=question_tokens, top_k=chat_top_k)
@@ -532,7 +538,6 @@ class ChatMixin:
         context_parts = ([active_excerpt] if active_excerpt else []) + codecompass_refs[:8] + merged[:chat_top_k] + hints[:10]
         context_text = "\n".join(context_parts)
 
-        game = dict(self.state.header_logo_game or {})
         backend = str(
             game.get("chat_backend")
             or os.environ.get("ANANTA_TUI_CHAT_BACKEND")
@@ -649,15 +654,27 @@ class ChatMixin:
         return _load_rag_context_from_dir(out_dir, tokens, top_k, max_recs, scope_filter="full")
 
     def _chat_codecompass_context_for_question(self, *, question: str) -> list[str]:
-        enabled = str(os.environ.get("ANANTA_TUI_CHAT_USE_CODECOMPASS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+        game = dict(self.state.header_logo_game or {})
+        enabled_raw = game.get("chat_use_codecompass")
+        if isinstance(enabled_raw, bool):
+            enabled = enabled_raw
+        else:
+            enabled = str(os.environ.get("ANANTA_TUI_CHAT_USE_CODECOMPASS", "1")).strip().lower() not in {"0", "false", "no", "off"}
         if not enabled:
             return []
-        game = dict(self.state.header_logo_game or {})
         source_pack_id = str(game.get("chat_source_pack_id") or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK") or "ananta-dev-default").strip()
         if not source_pack_id:
             return []
-        include_wikipedia = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", "0")).strip().lower() in {"1", "true", "yes", "on"}
-        include_local_project = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", "1")).strip().lower() not in {"0", "false", "no", "off"}
+        include_wikipedia_raw = game.get("chat_include_wikipedia")
+        if isinstance(include_wikipedia_raw, bool):
+            include_wikipedia = include_wikipedia_raw
+        else:
+            include_wikipedia = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", "0")).strip().lower() in {"1", "true", "yes", "on"}
+        include_local_project_raw = game.get("chat_include_local_project")
+        if isinstance(include_local_project_raw, bool):
+            include_local_project = include_local_project_raw
+        else:
+            include_local_project = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", "1")).strip().lower() not in {"0", "false", "no", "off"}
         try:
             from agent.sources.source_pack_service import SourcePackService
             from agent.sources.source_registry import SourceRegistry
@@ -706,8 +723,19 @@ class ChatMixin:
             return self._local_knowledge_answer(question)
 
         # R02: configurable context window and max_tokens
-        context_chars = max(0, int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000")))
-        max_tokens = max(400, int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400")))
+        game = dict(self.state.header_logo_game or {})
+        context_chars_raw = game.get("chat_context_chars")
+        max_tokens_raw = game.get("chat_max_tokens")
+        try:
+            context_chars = int(context_chars_raw) if context_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000"))
+        except (TypeError, ValueError):
+            context_chars = 3000
+        context_chars = max(500, min(20000, context_chars))
+        try:
+            max_tokens = int(max_tokens_raw) if max_tokens_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400"))
+        except (TypeError, ValueError):
+            max_tokens = 400
+        max_tokens = max(100, min(8000, max_tokens))
         timeout = max(1.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0"))))
 
         depth_instruction = {

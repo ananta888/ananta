@@ -31,6 +31,15 @@ def _default_models_for_backend(backend: str, game: dict[str, object]) -> list[s
     return defaults
 
 
+def _resolve_bool_pref(game: dict[str, object], key: str, env_key: str, default: bool) -> bool:
+    value = game.get(key)
+    if isinstance(value, bool):
+        return value
+    token = str(os.environ.get(env_key, "1" if default else "0")).strip().lower()
+    enabled = token not in {"0", "false", "no", "off"}
+    return enabled if default else token in {"1", "true", "yes", "on"}
+
+
 def _lmstudio_base_candidates() -> list[str]:
     values: list[str] = []
     for candidate in (
@@ -138,6 +147,14 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     chat_open = bool(game.get("chat_panel_open"))
     visual_on = bool(game.get("tutorial_mode"))
     codecompass_on = bool(game.get("ai_visual_use_codecompass"))
+    chat_use_codecompass = _resolve_bool_pref(game, "chat_use_codecompass", "ANANTA_TUI_CHAT_USE_CODECOMPASS", True)
+    chat_include_local_project = _resolve_bool_pref(game, "chat_include_local_project", "ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", True)
+    chat_include_wikipedia = _resolve_bool_pref(game, "chat_include_wikipedia", "ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", False)
+    chat_source_pack_id = str(
+        game.get("chat_source_pack_id")
+        or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK")
+        or "ananta-dev-default"
+    ).strip()
     timeout_value_raw = game.get("chat_ask_timeout_s")
     try:
         timeout_value = float(timeout_value_raw) if timeout_value_raw is not None else 45.0
@@ -153,6 +170,24 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     ]
     if chat_api_base and chat_api_base not in chat_api_base_options:
         chat_api_base_options.insert(0, chat_api_base)
+    context_chars_raw = game.get("chat_context_chars")
+    try:
+        context_chars = int(context_chars_raw) if context_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000"))
+    except (TypeError, ValueError):
+        context_chars = 3000
+    context_chars = max(500, min(20000, context_chars))
+    max_tokens_raw = game.get("chat_max_tokens")
+    try:
+        max_tokens = int(max_tokens_raw) if max_tokens_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400"))
+    except (TypeError, ValueError):
+        max_tokens = 400
+    max_tokens = max(100, min(8000, max_tokens))
+    top_k_raw = game.get("chat_rag_top_k")
+    try:
+        chat_rag_top_k = int(top_k_raw) if top_k_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24"))
+    except (TypeError, ValueError):
+        chat_rag_top_k = 24
+    chat_rag_top_k = max(8, min(120, chat_rag_top_k))
     return [
         {"key": "visual_enabled", "label": "Visual AI-Snake", "type": "bool", "value": visual_on},
         {"key": "chat_panel_open", "label": "AI-Chat Panel", "type": "bool", "value": chat_open},
@@ -185,6 +220,37 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": f"{timeout_value:g}",
             "options": timeout_options,
+        },
+        {"key": "chat_use_codecompass", "label": "Chat CodeCompass", "type": "bool", "value": chat_use_codecompass},
+        {"key": "chat_include_local_project", "label": "Chat Local Project", "type": "bool", "value": chat_include_local_project},
+        {"key": "chat_include_wikipedia", "label": "Chat Wikipedia", "type": "bool", "value": chat_include_wikipedia},
+        {
+            "key": "chat_source_pack_id",
+            "label": "Chat Source Pack",
+            "type": "choice",
+            "value": chat_source_pack_id or "ananta-dev-default",
+            "options": ["ananta-dev-default", "ananta-default", "ananta-local-only"],
+        },
+        {
+            "key": "chat_context_chars",
+            "label": "Chat Context Chars",
+            "type": "choice",
+            "value": str(context_chars),
+            "options": ["1000", "2000", "3000", "5000", "8000", "12000"],
+        },
+        {
+            "key": "chat_max_tokens",
+            "label": "Chat Max Tokens",
+            "type": "choice",
+            "value": str(max_tokens),
+            "options": ["400", "800", "1200", "2000", "4000", "8000"],
+        },
+        {
+            "key": "chat_rag_top_k",
+            "label": "Chat RAG Top-K",
+            "type": "choice",
+            "value": str(chat_rag_top_k),
+            "options": ["12", "24", "32", "48", "64", "96", "120"],
         },
     ]
 
@@ -378,6 +444,12 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             game["chat_panel_open"] = parsed
         elif key == "visual_codecompass":
             game["ai_visual_use_codecompass"] = parsed
+        elif key == "chat_use_codecompass":
+            game["chat_use_codecompass"] = parsed
+        elif key == "chat_include_local_project":
+            game["chat_include_local_project"] = parsed
+        elif key == "chat_include_wikipedia":
+            game["chat_include_wikipedia"] = parsed
         return f"ai config: {label} {'AN' if parsed else 'AUS'}"
 
     if key == "visual_provider":
@@ -415,6 +487,33 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         timeout_s = max(3.0, min(180.0, timeout_s))
         game["chat_ask_timeout_s"] = timeout_s
         return f"ai config: {label} -> {timeout_s:g}s"
+    if key == "chat_source_pack_id":
+        game["chat_source_pack_id"] = raw_value
+        return f"ai config: {label} -> {raw_value}"
+    if key == "chat_context_chars":
+        try:
+            value_int = int(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        value_int = max(500, min(20000, value_int))
+        game["chat_context_chars"] = value_int
+        return f"ai config: {label} -> {value_int}"
+    if key == "chat_max_tokens":
+        try:
+            value_int = int(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        value_int = max(100, min(8000, value_int))
+        game["chat_max_tokens"] = value_int
+        return f"ai config: {label} -> {value_int}"
+    if key == "chat_rag_top_k":
+        try:
+            value_int = int(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        value_int = max(8, min(120, value_int))
+        game["chat_rag_top_k"] = value_int
+        return f"ai config: {label} -> {value_int}"
     return "ai config: keine änderung"
 
 
