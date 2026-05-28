@@ -2059,6 +2059,58 @@ def test_artifact_chat_input_supports_cursor_delete_and_history() -> None:
     assert (tui.state.header_logo_game or {}).get("artifact_chat_input") == "draft-art"
 
 
+def test_copy_chat_panel_snapshot_writes_clipboard(monkeypatch) -> None:
+    from client_surfaces.operator_tui.chat_state import default_chat_state, append_message, make_message
+
+    chat = default_chat_state("s1")
+    chat["active_channel"] = "ai:tutor"
+    append_message(
+        chat,
+        make_message(
+            channel_id="ai:tutor",
+            channel_type="ai",
+            sender_id="s-ai",
+            sender_kind="ai",
+            text="copy me",
+            delivery_state="received",
+        ),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"chat_state": chat, "active": True})
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_copy_to_system_clipboard", lambda text: True)
+
+    tui._copy_chat_panel_snapshot()
+
+    game = tui.state.header_logo_game or {}
+    copied = str(game.get("clipboard") or "")
+    assert "CHAT" in copied
+    assert "copy me" in copied
+    assert "AI-snake" in copied
+
+
+def test_copy_ai_status_snapshot_writes_clipboard(monkeypatch) -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={
+            "tutorial_mode": True,
+            "chat_panel_open": True,
+            "ai_snake_mode": "lurking_follow",
+            "ai_snake_runtime_status": "running",
+            "ai_snake_monitor_log": [{"event": "food_eaten", "label": "Food aufgenommen", "created_at": time.time()}],
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_copy_to_system_clipboard", lambda text: True)
+
+    tui._copy_ai_status_snapshot()
+
+    game = tui.state.header_logo_game or {}
+    copied = str(game.get("clipboard") or "")
+    assert "AI-SNAKE STATUS" in copied
+    assert "ai_snake_mode=lurking_follow" in copied
+    assert "events:" in copied
+
+
 def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
     from client_surfaces.operator_tui.chat_state import default_chat_state, make_message, append_message
 
