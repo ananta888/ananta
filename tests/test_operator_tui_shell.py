@@ -1722,6 +1722,24 @@ def test_command_backspace_updates_command_line() -> None:
     assert tui._command_buffer == "abc"
 
 
+def test_command_backspace_on_empty_exits_command_mode() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        mode=OperatorMode.COMMAND,
+        command_line="",
+        header_logo_game={},
+    )
+    tui = InteractiveOperatorTui(state)
+    tui._command_buffer = ""
+    tui._command_cursor = 0
+
+    tui._command_backspace()
+
+    assert tui.state.mode is OperatorMode.NORMAL
+    assert tui.state.command_line == ""
+    assert "command: beendet" in str(tui.state.status_message or "")
+
+
 def test_command_input_supports_cursor_delete_and_history() -> None:
     state = OperatorState(endpoint="http://localhost:5000", mode=OperatorMode.COMMAND, command_line="")
     tui = InteractiveOperatorTui(state)

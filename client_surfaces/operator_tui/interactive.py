@@ -1163,6 +1163,21 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._sync_command_line_state()
 
     def _command_backspace(self) -> None:
+        if not self._command_buffer:
+            game = dict(self.state.header_logo_game or {})
+            game["command_input_cursor"] = 0
+            self._command_cursor = 0
+            self._command_history_index = None
+            self._command_saved_draft = ""
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    status_message="command: beendet",
+                )
+            )
+            return
         cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
         if cursor <= 0:
             self._sync_command_line_state()
