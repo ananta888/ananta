@@ -20,6 +20,7 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from client_surfaces.operator_tui.chat_long_message import configure_middle_view_for_message
 from client_surfaces.operator_tui.keybindings_config import display_for_action
 
 _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
@@ -425,6 +426,7 @@ class ChatMixin:
                 delivery_state="received",
             )
             append_message(chat, ai_msg)
+            configure_middle_view_for_message(game, ai_msg | {"text": answer}, channel_id=channel_id, streaming=False)
             chat.pop("ai_pending_msg_channel", None)
             set_chat_state(game, chat)
             game.pop("tutor_ask_deadline_at", None)
@@ -438,6 +440,14 @@ class ChatMixin:
         partial = str(getattr(self, "_llm_streaming_partial", "") or "")
         if partial:
             game["llm_streaming_partial"] = partial
+            chat_state = game.get("chat_state") if isinstance(game.get("chat_state"), dict) else {}
+            channel_id = str(chat_state.get("ai_pending_msg_channel") or "ai:tutor")
+            configure_middle_view_for_message(
+                game,
+                {"id": "streaming", "sender_id": "s-ai", "sender_kind": "ai", "text": partial},
+                channel_id=channel_id,
+                streaming=True,
+            )
         if not question or bool(game.get("tutor_ask_answered")):
             return
         timeout_s = self._chat_ask_timeout_seconds()
@@ -1098,7 +1108,7 @@ class ChatMixin:
                         piece = str(message.get("content") or "")
                 if piece:
                     chunks.append(piece)
-                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-600:])
+                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-20000:])
         except Exception:
             return "".join(chunks)
         finally:
@@ -1129,7 +1139,7 @@ class ChatMixin:
                 piece = str(delta.get("content") or "") if isinstance(delta, dict) else ""
                 if piece:
                     chunks.append(piece)
-                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-600:])
+                    setattr(self, "_llm_streaming_partial", "".join(chunks)[-20000:])
         except Exception:
             if chunks:
                 chunks.append("\n⚠ Streaming-Fehler")
