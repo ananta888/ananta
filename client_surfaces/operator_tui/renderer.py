@@ -640,6 +640,9 @@ def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> 
 def _detail_lines(state: OperatorState, width: int) -> list[str]:
     section = get_section(state.section_id)
     lines = [_pane_title("DETAIL", state.focus == FocusPane.DETAIL)]
+    runtime_lines = _runtime_detail_lines(state, width)
+    if runtime_lines:
+        lines.extend(runtime_lines)
 
     if state.mode.value == "inspect":
         lines.append("")
@@ -724,6 +727,37 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :mail snake-explain")
 
     return [_clip(line, width) for line in lines]
+
+
+def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    if not game:
+        return []
+    lines = ["", "  Runtime:"]
+    llm = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
+    if llm:
+        lm_label = str(llm.get("model") or "LM") if llm.get("reachable") else "local/offline"
+        lines.append(f"    LLM: {lm_label[:max(8, width - 10)]}")
+    cc_status = str(game.get("codecompass_build_status") or "").strip()
+    if cc_status:
+        lines.append(f"    CodeCompass: {cc_status}")
+    if bool(game.get("chat_panel_open")):
+        lines.append("    Chat: panel open")
+    try:
+        from client_surfaces.operator_tui.chat_state import get_chat_state, unread_total
+        unread = unread_total(get_chat_state(dict(game)))
+    except Exception:
+        unread = 0
+    if unread > 0:
+        lines.append(f"    Chat unread: {unread}")
+    artifact_chat = game.get("artifact_chat_state") if isinstance(game.get("artifact_chat_state"), dict) else {}
+    target = artifact_chat.get("active_target") if isinstance(artifact_chat, dict) else None
+    if isinstance(target, dict):
+        label = str(target.get("label") or target.get("path") or target.get("id") or "artifact")
+        lines.append(f"    Active: {label[:max(8, width - 12)]}")
+    if len(lines) == 2:
+        return []
+    return lines
 
 
 def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
@@ -1263,55 +1297,20 @@ def _cell(lines: list[str], index: int, width: int) -> str:
 
 def _status_line(state: OperatorState, width: int, splash_state: str = "") -> str:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
-    mouse_caps = (state.terminal_graphics or {}).get("mouse_support")
-    mouse_state = game.get("mouse_state") if isinstance(game.get("mouse_state"), dict) else {}
     parts = [
-        f"endpoint={state.endpoint}",
-        f"auth={state.auth_state}",
         f"focus={state.focus.value}",
         f"mode={state.mode.value}",
-        f"status={state.status_message}",
+        str(state.status_message or "ready")[:48],
     ]
-    if isinstance(mouse_caps, dict):
-        parts.append(f"mouse_support={'enabled' if mouse_caps.get('enabled') else 'disabled'}")
-        parts.append(f"term={mouse_caps.get('term')}")
-    if isinstance(mouse_state, dict) and mouse_state.get("active"):
-        parts.append(f"mouse={int(mouse_state.get('x', 0))},{int(mouse_state.get('y', 0))}")
     active_goal_id = str(game.get("active_goal_id") or "").strip()
     if active_goal_id:
         parts.append(f"goal={active_goal_id}")
-        goal_filters = dict(game.get("goal_artifact_filters") or {})
-        if goal_filters:
-            compact_filters = ",".join(f"{k}:{v}" for k, v in goal_filters.items())
-            parts.append(f"goal_filters={compact_filters}")
-    ai_mode = str(game.get("ai_snake_mode") or "").strip()
-    if ai_mode:
-        runtime = str(game.get("ai_snake_runtime_status") or "idle")
-        parts.append(f"ai={ai_mode}/{runtime}")
-        prediction = game.get("ai_snake_prediction")
-        if isinstance(prediction, dict):
-            pred_intent = str(prediction.get("predicted_intent") or "unknown")
-            pred_conf = float(prediction.get("confidence") or 0.0)
-            parts.append(f"pred={pred_intent}:{pred_conf:.2f}")
-        debug = game.get("ai_snake_debug")
-        if isinstance(debug, dict):
-            reason = str(debug.get("gate_reason") or "")
-            if reason:
-                parts.append(f"gate={reason}")
-            active_refs = debug.get("active_pattern_refs")
-            if isinstance(active_refs, list):
-                parts.append(f"patterns={len(active_refs)}")
-                if active_refs and isinstance(active_refs[0], dict):
-                    parts.append(f"last_pattern={str(active_refs[0].get('pattern_id') or '-')}")
-                parts.append("learned=yes" if active_refs else "learned=no")
-                if not active_refs:
-                    parts.append("no_learned_profile_yet")
-            source = str(debug.get("prediction_source") or "")
-            if source:
-                parts.append(f"src={source}")
-        envelope = game.get("ai_snake_context_envelope")
-        if isinstance(envelope, dict):
-            parts.append(f"ctx={str(envelope.get('context_hash') or 'missing')}")
+    llm = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
+    if llm:
+        parts.append("LLM:on" if llm.get("reachable") else "LLM:local")
+    cc_status = str(game.get("codecompass_build_status") or "").strip()
+    if cc_status:
+        parts.append(f"CC:{cc_status}")
     if os.environ.get("ANANTA_TUI_GFX_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}:
         try:
             from client_surfaces.operator_tui.logo_renderer.animated_header import get_last_render_metrics
@@ -1431,10 +1430,13 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     ai_panel_width = 40
     split_col = width - ai_panel_width - 2  # 2 for divider
     split_view = width >= 100
+    play_width = max(1, split_col - 1) if split_view else width
     # Chat panel: bottom portion of the right column (requires width>=120, height>=32)
     chat_panel_enabled = width >= 120 and len(lines) >= 32
 
     out = list(lines)
+    if split_view:
+        out = _reserve_snake_right_dock(out, split_col=split_col, width=width)
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
     local_snapshot = snakes.get(local_id, {}) if isinstance(snakes.get(local_id), dict) else {}
@@ -1449,7 +1451,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         for item in mark_cells:
             if not isinstance(item, (list, tuple)) or len(item) < 2:
                 continue
-            x = int(item[0]) % max(1, width)
+            x = int(item[0]) % max(1, play_width)
             y = int(item[1]) % max(1, len(out))
             base = _visible_char_at(out[y], x)
             if base == " ":
@@ -1462,7 +1464,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         for item in selection:
             if not isinstance(item, (list, tuple)) or len(item) != 2:
                 continue
-            x = int(item[0]) % max(1, width)
+            x = int(item[0]) % max(1, play_width)
             y = int(item[1]) % max(1, len(out))
             base = _visible_char_at(out[y], x)
             if base == " ":
@@ -1473,7 +1475,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
 
     anchor = game.get("selection_anchor")
     if isinstance(anchor, (list, tuple)) and len(anchor) == 2:
-        x = int(anchor[0]) % max(1, width)
+        x = int(anchor[0]) % max(1, play_width)
         y = int(anchor[1]) % max(1, len(out))
         acol = local_pal["label"]
         repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
@@ -1485,7 +1487,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         if isinstance(frame_anchor, (list, tuple)) and len(frame_anchor) == 2 and isinstance(local_head, (list, tuple)) and len(local_head) == 2:
             ax, ay = int(frame_anchor[0]), int(frame_anchor[1])
             hx, hy = int(local_head[0]), int(local_head[1])
-            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=width, color=local_pal["label"])
+            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=play_width, color=local_pal["label"])
 
     for sid, snapshot in snakes.items():
         snake = snapshot.get("snake") if isinstance(snapshot.get("snake"), list) else []
@@ -1495,7 +1497,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         for idx, pos in enumerate(snake):
             if not isinstance(pos, (list, tuple)) or len(pos) != 2:
                 continue
-            x = int(pos[0]) % max(1, width)
+            x = int(pos[0]) % max(1, play_width)
             y = int(pos[1]) % max(1, len(out))
             ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
             col = pal["head"] if idx == 0 else pal["body"]
@@ -1513,7 +1515,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
                 snake=snake,
                 trail=trail,
                 message=message,
-                width=width,
+                width=play_width,
                 mode=style,
                 color=pal["label"],
                 trail_window=trail_window,
@@ -1540,13 +1542,25 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         out = _overlay_snake_chat_unread(out, game, split_col=split_col, panel_width=ai_panel_width, height=len(out))
 
     # Score / highscore header (T01.05)
-    out = _overlay_snake_score_header(out, game, width=width)
+    if not split_view:
+        out = _overlay_snake_score_header(out, game, width=width)
 
     # Min-size warning (T01.03)
     if width < 40 or len(out) < 18:
         warn = "Terminal zu klein für Snake"
         out[0] = _overlay_text(out[:1], x=2, y=0, text=warn, color=(255, 80, 80))[0] if out else out[0]
 
+    return out
+
+
+def _reserve_snake_right_dock(lines: list[str], *, split_col: int, width: int) -> list[str]:
+    out = list(lines)
+    dock_width = max(0, width - split_col)
+    if dock_width <= 0:
+        return out
+    blank = " " * dock_width
+    for idx, line in enumerate(out):
+        out[idx] = _overlay_at_visible_col(line, split_col, blank)
     return out
 
 
@@ -1732,7 +1746,11 @@ def _overlay_snake_ai_panel(
     pal = _snake_palette(ai_color)
     hcol = pal["head"]
 
-    status_parts = [f"tutor-ai [{ai_color}]", depth]
+    score = int(game.get("score") or 0)
+    scores_raw = game.get("_scores_cache")
+    high = int(scores_raw.get("high") or 0) if isinstance(scores_raw, dict) else 0
+    speed_level = int(game.get("speed_level") or 3)
+    status_parts = [f"tutor-ai", depth, f"score:{score}", f"best:{max(score, high)}", f"spd:{speed_level}/5"]
     llm_status = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
     if llm_status.get("reachable"):
         status_parts.append(f"● {str(llm_status.get('model') or 'LM')[:16]}")
@@ -1751,165 +1769,32 @@ def _overlay_snake_ai_panel(
     header_text = " · ".join(status_parts)
     panel_lines.append(f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m{header_text[:panel_width]}\x1b[0m")
     panel_lines.append("─" * panel_width)
-
-    # Tutorial step header (T04.01)
-    ts_raw = game.get("tutorial_state")
-    if isinstance(ts_raw, dict) and ts_raw.get("active"):
-        try:
-            from client_surfaces.operator_tui.snake_tutorial import format_step_header, get_current_step
-            step_header = format_step_header(ts_raw)
-            step = get_current_step(ts_raw)
-            if step_header:
-                panel_lines.append(step_header[:panel_width])
-            if step:
-                panel_lines.append(f"▶ {step['title'][:panel_width - 2]}")
-                task_text = step.get("task") or ""
-                # wrap task text
-                words = task_text.split()
-                row = ""
-                for word in words:
-                    if len(row) + len(word) + 1 > panel_width - 2:
-                        panel_lines.append(f"  {row}")
-                        row = word
-                    else:
-                        row = (row + " " + word).strip()
-                if row:
-                    panel_lines.append(f"  {row}")
-                hint = step.get("hint") or ""
-                if hint:
-                    panel_lines.append(f"\x1b[38;2;120;120;120m  ↳ {hint[:panel_width - 5]}\x1b[0m")
-            panel_lines.append("─" * panel_width)
-        except Exception:
-            pass
-
-    # Current AI tip
-    tip = str(ai_snap.get("message") or "")
-    if not tip:
-        history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
-        if history:
-            last = history[-1]
-            tip = str(last.get("text") or "") if isinstance(last, dict) else ""
-    if tip:
-        panel_lines.append("\x1b[38;2;255;205;130mAktuell:\x1b[0m")
-        # word-wrap
-        words = tip.split()
-        row = ""
-        for word in words:
-            if len(row) + len(word) + 1 > panel_width - 1:
-                panel_lines.append(f" {row}")
-                row = word
-            else:
-                row = (row + " " + word).strip()
-        if row:
-            panel_lines.append(f" {row}")
-
-    # Artifact chat: show when something was clicked/marked and AI is explaining it
-    artifact_chat = game.get("artifact_chat_state")
-    if isinstance(artifact_chat, dict) and isinstance(artifact_chat.get("active_target"), dict):
-        a_target = artifact_chat["active_target"]
-        a_label = str(a_target.get("label") or a_target.get("path") or "Artefakt")[:panel_width - 8]
-        a_msgs = [m for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
-        if a_msgs:
-            panel_lines.append("─" * panel_width)
-            panel_lines.append(f"\x1b[38;2;255;180;80m◎ {a_label}\x1b[0m")
-            for amsg in a_msgs[-3:]:
-                src = str(amsg.get("source") or "?")
-                txt = str(amsg.get("text") or "").strip()
-                if not txt:
-                    continue
-                acol = "\x1b[38;2;255;220;140m" if src == "ai" else "\x1b[38;2;100;100;100m"
-                words = txt.split()
-                row = ""
-                for word in words:
-                    if len(row) + len(word) + 1 > panel_width - 1:
-                        panel_lines.append(f"{acol} {row}\x1b[0m")
-                        row = word
-                    else:
-                        row = (row + " " + word).strip()
-                if row:
-                    panel_lines.append(f"{acol} {row}\x1b[0m")
-
-    # Ask Q&A state
-    question = str(game.get("tutor_ask_question") or "")
-    if question and not bool(game.get("tutor_ask_answered")):
-        panel_lines.append("─" * panel_width)
-        panel_lines.append(f"\x1b[38;2;180;220;255m? {question[:panel_width - 2]}\x1b[0m")
-        panel_lines.append("\x1b[38;2;120;120;120m  (lädt...)\x1b[0m")
-    elif question and bool(game.get("tutor_ask_answered")):
-        answer = str(game.get("tutor_ask_answer") or "")
-        if answer:
-            panel_lines.append("─" * panel_width)
-            panel_lines.append(f"\x1b[38;2;180;220;255m? {question[:panel_width - 2]}\x1b[0m")
-            words = answer.split()
-            row = ""
-            for word in words:
-                if len(row) + len(word) + 1 > panel_width - 1:
-                    panel_lines.append(f" {row}")
-                    row = word
-                else:
-                    row = (row + " " + word).strip()
-            if row:
-                panel_lines.append(f" {row}")
-
-    # Recent history (last 2 proposals)
-    history_raw = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
-    if len(history_raw) > 1:
-        panel_lines.append("─" * panel_width)
-        panel_lines.append("\x1b[38;2;120;120;120mVerlauf:\x1b[0m")
-        for entry in history_raw[-2:]:
-            if not isinstance(entry, dict):
-                continue
-            txt = str(entry.get("text") or "").strip()
-            src = str(entry.get("source") or "?")
-            if txt:
-                panel_lines.append(f"\x1b[38;2;100;100;100m[{src}] {txt[:panel_width - len(src) - 4]}\x1b[0m")
-
-    # Snakes peer list (T03.05)
-    snakes_dict = dict(snakes_raw) if isinstance(snakes_raw, dict) else {}
-    online = [sid for sid, s in snakes_dict.items() if isinstance(s, dict) and s.get("active")]
-    if len(online) > 1:
-        panel_lines.append("─" * panel_width)
-        panel_lines.append(f"\x1b[38;2;120;120;120mSnakes online: {len(online)}\x1b[0m")
-        local_id = str(game.get("local_snake_id") or "s1")
-        for sid in sorted(online)[:4]:
-            snap = snakes_dict.get(sid) or {}
-            if not isinstance(snap, dict):
-                continue
-            pseudo = str(snap.get("pseudonym") or sid)
-            color_name = str(snap.get("snake_color") or "mint")
-            role = str(snap.get("role") or ("player" if snap.get("local") else "tutor"))
-            col = _snake_palette(color_name)["head"]
-            marker = "●" if sid == local_id else "·"
-            panel_lines.append(
-                f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{marker} {pseudo[:12]} [{color_name}/{role}]\x1b[0m"
-            )
-
-    # Speed indicator
-    speed_level = int(game.get("speed_level") or 3)
+    artifact_chat_status = game.get("artifact_chat_state") if isinstance(game.get("artifact_chat_state"), dict) else {}
+    active_target = artifact_chat_status.get("active_target") if isinstance(artifact_chat_status, dict) else None
+    if isinstance(active_target, dict):
+        target_label = str(active_target.get("label") or active_target.get("path") or active_target.get("id") or "artifact")
+        panel_lines.append(f"\x1b[38;2;120;120;120mtarget: {target_label[:panel_width - 8]}\x1b[0m")
+    question_status = str(game.get("tutor_ask_question") or "")
+    if question_status and not bool(game.get("tutor_ask_answered")):
+        panel_lines.append(f"\x1b[38;2;180;220;255mask: loading {question_status[:panel_width - 13]}\x1b[0m")
+    elif question_status:
+        panel_lines.append(f"\x1b[38;2;180;220;255mask: ready {question_status[:panel_width - 11]}\x1b[0m")
+    if paused:
+        panel_lines.append("\x1b[38;2;255;200;80mpaused\x1b[0m")
     panel_lines.append("─" * panel_width)
-    tps = game.get("tps_override") or 18
-    panel_lines.append(f"\x1b[38;2;120;120;120mSpeed: {speed_level}/5 · {tps}tps\x1b[0m")
+    panel_lines.append("\x1b[38;2;90;90;90mDetails bleiben in NAV | CONTENT | DETAIL\x1b[0m")
 
-    # Render panel lines into the right side of each output row
     divider_col = split_col
     for row_idx in range(min(height, len(out))):
-        # vertical divider
         if row_idx < len(out):
             out[row_idx] = _overlay_at_visible_col(out[row_idx], divider_col, "\x1b[38;2;60;60;80m│\x1b[0m")
-        # panel content
         if row_idx < len(panel_lines):
             pcol = divider_col + 2
             raw = _ANSI_STRIP.sub("", panel_lines[row_idx])
-            visible = panel_lines[row_idx]
-            total_width = split_col + panel_width + 4
-            if pcol < total_width and raw:
-                # pad to panel width
+            if raw:
                 pad = max(0, panel_width - len(raw))
-                padded = visible + (" " * pad)
-                out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, padded)
-
+                out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, panel_lines[row_idx] + (" " * pad))
     return out
-
 
 def _overlay_snake_chat_panel(
     lines: list[str],
