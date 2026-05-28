@@ -1754,6 +1754,8 @@ def _overlay_fullscreen_snake(
         chat_rows = max(10, min(body_h - 6, int(body_h * 0.45)))
         ai_panel_height = max(6, body_h - chat_rows)
     if split_view:
+        # Snake split mode: right column is a dedicated static dock (no content overlay bleed-through).
+        out[body_s:body_e] = _reserve_snake_right_dock(out[body_s:body_e], split_col=split_col, width=width)
         out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=ai_panel_height, row_start=body_s)
 
     # Chat panel (E01) — starts after AI panel, ends at body_e
