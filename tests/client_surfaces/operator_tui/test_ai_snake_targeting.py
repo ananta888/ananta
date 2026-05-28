@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from client_surfaces.operator_tui.ai_snake_follow import make_follow_state, step_follow_state
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 
@@ -60,3 +61,20 @@ def test_ai_snake_enters_explain_mode_on_arrival() -> None:
     snakes: dict[str, dict[str, object]] = {}
     tui._update_tutorial_ai_snake(game, snakes, now=2.0, board_w=120, board_h=32, enabled=True)
     assert game.get("tutorial_ai_target_mode") in {"fast_target", "explain_target"}
+
+
+def test_ai_snake_steps_across_wrapped_edge_without_wall() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=_base_game())
+    tui = InteractiveOperatorTui(state)
+
+    next_pos = tui._step_toward_cell(current=(118, 8), target=(2, 8), board_w=120, board_h=32)
+
+    assert next_pos == (119, 8)
+
+
+def test_ai_follow_state_uses_wrapped_shortest_path() -> None:
+    follow = make_follow_state(ai_position=(118, 8), mode="follow", follow_distance=1, linger_distance=2)
+
+    updated = step_follow_state(follow, user_position=(2, 8), board_w=120, board_h=32)
+
+    assert updated["ai_position"] == (119, 8)

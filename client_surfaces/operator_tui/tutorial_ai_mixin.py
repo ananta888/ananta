@@ -582,15 +582,23 @@ class TutorialAiMixin:
     ) -> tuple[int, int]:
         cx, cy = int(current[0]), int(current[1])
         tx, ty = int(target[0]), int(target[1])
-        dx = tx - cx
-        dy = ty - cy
+        bw = max(1, int(board_w))
+        bh = max(1, int(board_h))
+        raw_dx = (tx % bw) - (cx % bw)
+        raw_dy = (ty % bh) - (cy % bh)
+        dx = raw_dx
+        dy = raw_dy
+        if abs(raw_dx) > bw / 2:
+            dx = raw_dx - bw if raw_dx > 0 else raw_dx + bw
+        if abs(raw_dy) > bh / 2:
+            dy = raw_dy - bh if raw_dy > 0 else raw_dy + bh
         if abs(dx) >= abs(dy) and dx != 0:
             step_x = 1 if dx > 0 else -1
-            return ((cx + step_x) % max(1, board_w), cy % max(1, board_h))
+            return ((cx + step_x) % bw, cy % bh)
         if dy != 0:
             step_y = 1 if dy > 0 else -1
-            return (cx % max(1, board_w), (cy + step_y) % max(1, board_h))
-        return (cx % max(1, board_w), cy % max(1, board_h))
+            return (cx % bw, (cy + step_y) % bh)
+        return (cx % bw, cy % bh)
 
     def _tutorial_ai_tip(self, *, now: float) -> str:
         status = self._tutorial_status_delta_summary()

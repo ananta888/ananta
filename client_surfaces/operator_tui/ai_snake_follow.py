@@ -36,8 +36,16 @@ def step_follow_state(
     linger_distance = int(state.get("linger_distance") or 6)
     ai_x, ai_y = _xy(state.get("ai_position"))
     user_x, user_y = int(user_position[0]), int(user_position[1])
-    dx = user_x - ai_x
-    dy = user_y - ai_y
+    bw = max(1, int(board_w))
+    bh = max(1, int(board_h))
+    raw_dx = (user_x % bw) - (ai_x % bw)
+    raw_dy = (user_y % bh) - (ai_y % bh)
+    dx = raw_dx
+    dy = raw_dy
+    if abs(raw_dx) > bw / 2:
+        dx = raw_dx - bw if raw_dx > 0 else raw_dx + bw
+    if abs(raw_dy) > bh / 2:
+        dy = raw_dy - bh if raw_dy > 0 else raw_dy + bh
     manhattan = abs(dx) + abs(dy)
 
     mode = str(state.get("mode") or "lurking_follow")
@@ -51,12 +59,12 @@ def step_follow_state(
     next_pos = (ai_x, ai_y)
     if mode == "follow":
         if abs(dx) >= abs(dy) and dx != 0:
-            next_pos = ((ai_x + (1 if dx > 0 else -1)) % max(1, board_w), ai_y % max(1, board_h))
+            next_pos = ((ai_x + (1 if dx > 0 else -1)) % bw, ai_y % bh)
         elif dy != 0:
-            next_pos = (ai_x % max(1, board_w), (ai_y + (1 if dy > 0 else -1)) % max(1, board_h))
+            next_pos = (ai_x % bw, (ai_y + (1 if dy > 0 else -1)) % bh)
 
     history = list(state.get("last_user_positions") or [])
-    history.append((user_x % max(1, board_w), user_y % max(1, board_h)))
+    history.append((user_x % bw, user_y % bh))
     history = history[-20:]
     return {
         **state,
