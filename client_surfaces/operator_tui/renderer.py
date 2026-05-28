@@ -1615,8 +1615,8 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         return lines
 
     # Split-view: if wide enough, reserve right portion for AI+Chat panels (T01.01)
-    ai_panel_width = 40
-    split_col = width - ai_panel_width - 2  # 2 for divider
+    ai_panel_width = 34
+    split_col = width - ai_panel_width - 2  # 2 for divider; panel text starts at the DETAIL column
     split_view = width >= 100
     play_width = width
     # Chat panel: bottom portion of the right column (requires width>=120, height>=32)
@@ -1711,9 +1711,6 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     # Pause overlay (T01.02)
     if bool(game.get("paused")):
         out = _overlay_snake_paused(out, width=width, height=len(out))
-
-    if split_view:
-        out = _reserve_snake_right_dock(out, split_col=split_col, width=width)
 
     # Split-view AI panel (T01.01)
     ai_panel_height = len(out)
@@ -2109,10 +2106,6 @@ def _overlay_snake_chat_panel(
         start = max(0, total - available_rows)
     visible_msgs = rendered[start:start + available_rows]
     panel_lines.extend(visible_msgs)
-
-    # Pad to fill panel
-    while len(panel_lines) < height - ai_rows - 2:
-        panel_lines.append("")
 
     # Input line
     if chat_focus:

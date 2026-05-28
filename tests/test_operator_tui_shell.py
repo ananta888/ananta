@@ -1484,6 +1484,59 @@ def test_split_snake_dock_does_not_remap_snake_into_left_play_area() -> None:
     assert plain[41] == " "
 
 
+def test_split_snake_chat_panel_stays_in_right_detail_slice() -> None:
+    from client_surfaces.operator_tui.chat_state import append_message, default_chat_state, make_message
+
+    lines = [" " * 120 for _ in range(32)]
+    chat = default_chat_state("s1")
+    chat["active_channel"] = "ai:tutor"
+    append_message(
+        chat,
+        make_message(
+            channel_id="ai:tutor",
+            channel_type="ai",
+            sender_id="s-ai",
+            sender_kind="ai",
+            text="Antwort",
+            delivery_state="received",
+        ),
+    )
+    game = {
+        "active": True,
+        "free_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(1, 1)],
+        "trail_path": [(1, 1)],
+        "chat_panel_open": True,
+        "chat_state": chat,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    out = _overlay_fullscreen_snake(lines, state, width=120)
+    plain_lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in out]
+    active_row = next(line for line in plain_lines if "ACTIVE: AI" in line)
+
+    assert active_row.index("ACTIVE: AI") >= 86
+
+
+def test_split_snake_chat_panel_does_not_blank_snake_under_empty_rows() -> None:
+    lines = [" " * 120 for _ in range(32)]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(118, 20), (117, 20), (116, 20)],
+        "trail_path": [(118, 20), (117, 20), (116, 20)],
+        "chat_panel_open": True,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    out = _overlay_fullscreen_snake(lines, state, width=120)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[20])
+
+    assert plain[118] == "●"
+
+
 def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -> None:
     game = {
         "active": True,
