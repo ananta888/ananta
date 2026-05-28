@@ -472,10 +472,35 @@ class ChatMixin:
         context_parts = ([active_excerpt] if active_excerpt else []) + merged[:chat_top_k] + hints[:10]
         context_text = "\n".join(context_parts)
 
+        game = dict(self.state.header_logo_game or {})
+        backend = str(
+            game.get("chat_backend")
+            or os.environ.get("ANANTA_TUI_CHAT_BACKEND")
+            or "ananta-worker"
+        ).strip().lower()
+
+        if backend in {"lmstudio", "local", "openai"}:
+            return self._tutorial_ai_llm_ask(
+                question=question,
+                context_text=context_text,
+                depth=depth,
+                prior_messages=prior_messages or [],
+            )
+
+        if backend in {"opencode", "hermes"}:
+            worker_answer = self._tutorial_ai_worker_chat_ask(
+                question=question,
+                context_text=context_text,
+                depth=depth,
+                provider=backend,
+            )
+            if worker_answer:
+                return worker_answer
+
         try:
             endpoint = str(self.state.endpoint or "http://localhost:5000")
             endpoint_norm = endpoint.rstrip("/")
-            if not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
+            if backend in {"ananta-worker", "worker", "hub", "default", "auto"} and not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
                 payload = _json_mod.dumps({"question": question, "context": context_text, "depth": depth}).encode()
                 req = urllib.request.Request(
                     f"{endpoint_norm}/snake/ask",
@@ -496,6 +521,52 @@ class ChatMixin:
             depth=depth,
             prior_messages=prior_messages or [],
         )
+
+    def _tutorial_ai_worker_chat_ask(
+        self,
+        *,
+        question: str,
+        context_text: str,
+        depth: str,
+        provider: str,
+    ) -> str:
+        base_url = str(self.state.endpoint or os.environ.get("ANANTA_BASE_URL") or "http://localhost:5000").strip()
+        if not base_url:
+            return ""
+        timeout_seconds = max(0.8, min(14.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "3.0"))))
+        game = dict(self.state.header_logo_game or {})
+        model = str(game.get("chat_backend_model") or os.environ.get("ANANTA_TUI_CHAT_MODEL") or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "").strip()
+        prompt = (
+            f"Depth: {depth}\n"
+            "You are AI-snake chat assistant for Ananta.\n"
+            "Answer the user directly in max 5 short sentences.\n"
+            f"Context:\n{context_text[:3500]}\n"
+            f"User question:\n{question}\n"
+        )
+        payload: dict[str, object] = {"prompt": prompt, "temperature": 0.3, "provider": provider}
+        if model:
+            payload["model"] = model
+        headers = {"Content-Type": "application/json"}
+        token = str(os.environ.get("ANANTA_TUI_SNAKE_AI_WORKER_TOKEN", "")).strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        request = urllib.request.Request(
+            url=base_url.rstrip("/") + "/step/propose",
+            data=_json_mod.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                raw = response.read().decode("utf-8", errors="replace")
+            parsed = _json_mod.loads(raw)
+        except (urllib.error.URLError, TimeoutError, OSError, _json_mod.JSONDecodeError):
+            return ""
+        data = parsed.get("data") if isinstance(parsed, dict) and isinstance(parsed.get("data"), dict) else parsed
+        if not isinstance(data, dict):
+            return ""
+        text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
+        return " ".join(text.split())[:600]
 
     def _rag_context_for_question(
         self,

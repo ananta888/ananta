@@ -80,6 +80,18 @@ class HeaderSnakeMixin:
             "ai_snake_runtime_status": "idle",
             "ai_training_context_released": False,
             "ai_snake_follow_state": make_follow_state(ai_position=(3, 3), mode="lurking_follow"),
+            "chat_backend": os.environ.get("ANANTA_TUI_CHAT_BACKEND", "ananta-worker"),
+            "chat_backend_model": os.environ.get("ANANTA_TUI_CHAT_MODEL", os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "google/gemma-4-e4b")),
+            "chat_backend_api_base": os.environ.get(
+                "ANANTA_TUI_CHAT_API_BASE_URL",
+                os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://192.168.178.100:1234/v1"),
+            ),
+            "chat_backends_available": [
+                item.strip()
+                for item in str(os.environ.get("ANANTA_TUI_CHAT_BACKENDS", "ananta-worker,opencode,lmstudio,hermes")).split(",")
+                if item.strip()
+            ],
+            "chat_backend_models": [],
             "artifact_target_cell": None,
             "tutorial_ai_target_mode": "follow_user",
             "tutorial_ai_target_hint": "follow",
@@ -173,5 +185,3 @@ class HeaderSnakeMixin:
         game["next_direction"] = direction
         self._set_state(self.state.with_updates(header_logo_game=game))
         return True
-
-

@@ -2154,8 +2154,11 @@ def _overlay_snake_ai_panel(
     runtime_status = str(game.get("ai_snake_runtime_status") or "idle")
     provider = str(game.get("ai_snake_provider_preference") or "lmstudio")
     model = str(game.get("ai_snake_provider_model") or "ananta-smoke")
+    chat_backend = str(game.get("chat_backend") or "ananta-worker")
+    chat_model = str(game.get("chat_backend_model") or "-")
     panel_lines.append(f"\x1b[38;2;180;220;255mSteuerung: mode={ai_mode} runtime={runtime_status}\x1b[0m")
     panel_lines.append(f"\x1b[38;2;120;120;120mProvider: {provider}/{model[:max(6, panel_width - 14)]}\x1b[0m")
+    panel_lines.append(f"\x1b[38;2;120;120;120mChat: {chat_backend}/{chat_model[:max(6, panel_width - 10)]}\x1b[0m")
     panel_lines.append("─" * panel_width)
     panel_lines.append("\x1b[38;2;255;205;130mAI-Snake Verlauf:\x1b[0m")
     monitor_log = game.get("ai_snake_monitor_log")
@@ -2239,9 +2242,14 @@ def _overlay_snake_chat_panel(
     panel_lines.append(f"\x1b[1;38;2;100;180;255m{focus_marker}ACTIVE: {active_label}{focus_note}\x1b[0m")
     panel_lines.append("CHAT User↔Snake " + " ".join(channel_labels))
     panel_lines.append(
+        f"\x1b[38;2;90;90;90mbackend={str(game.get('chat_backend') or 'ananta-worker')} "
+        f"model={str(game.get('chat_backend_model') or '-')[:max(4, panel_width - 22)]}\x1b[0m"
+    )
+    panel_lines.append(
         f"\x1b[38;2;90;90;90m{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}=Kanal "
         f"{display_for_action('chat_focus', 'Ctrl+E')}=Eingabe PgUp/Dn=Scroll Esc=raus\x1b[0m"
     )
+    panel_lines.append("\x1b[38;2;90;90;90m:chat backend list|use <id>  :chat model list|use <id>\x1b[0m")
     panel_lines.append(
         f"\x1b[38;2;90;90;90mCopy Chat [{display_for_action('copy_chat_panel', 'Ctrl+C')}]\x1b[0m"
     )
