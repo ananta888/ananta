@@ -33,7 +33,7 @@ def test_operator_tui_renders_first_paint_shell() -> None:
 
     assert "ananta" in output
     assert "Dashboard" in output
-    assert "endpoint=http://localhost:5000" in output
+    assert "focus=" in output
     assert "Commands:" in output
     assert ":refresh" in output
 
@@ -818,7 +818,7 @@ def test_dashboard_shows_tutorial_ai_propose_history_in_snake_mode() -> None:
     assert "+-" in plain
     assert "worker-propose->header" in plain
     assert "openai-compatible->nav" in plain
-    assert plain.index("Tutorial-AI propose flow") < plain.index("endpoint=")
+    assert plain.index("Tutorial-AI propose flow") < plain.index("focus=")
 
 
 def test_dashboard_shows_tutorial_ai_propose_history_when_snake_inactive() -> None:
