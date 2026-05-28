@@ -2526,6 +2526,24 @@ def test_chat_focus_toggle_uses_same_shortcut_for_enter_and_exit() -> None:
     assert tui._chat_focus_active() is False
 
 
+def test_enter_handles_config_even_when_focus_is_not_content() -> None:
+    game = {
+        "ai_snake_config_open": True,
+        "chat_backends_available": ["ananta-worker", "opencode", "lmstudio"],
+        "chat_backend": "ananta-worker",
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.DETAIL, selected_index=4, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.DETAIL, selected_index=4)
+
+    tui._handle_enter_key()
+
+    updated = tui.state.header_logo_game or {}
+    combo = dict(updated.get("ai_snake_config_combo") or {})
+    assert tui.state.focus is FocusPane.CONTENT
+    assert bool(combo.get("open")) is True
+
+
 def test_context_help_explains_terminal_context_shortcut() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
