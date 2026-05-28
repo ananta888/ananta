@@ -205,6 +205,12 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
     if key == "chat_backend":
         game["chat_backend"] = raw_value
         game["chat_backend_models_last_refresh_at"] = 0.0
+        if raw_value.strip().lower() in {"lmstudio", "local", "openai"}:
+            models, fetch_error = refresh_chat_backend_models(game, force=True)
+            if models:
+                return f"ai config: {label} -> {raw_value} ({len(models)} modelle)"
+            if fetch_error:
+                return f"ai config: {label} -> {raw_value} ({fetch_error})"
         return f"ai config: {label} -> {raw_value}"
     if key == "chat_model":
         game["chat_backend_model"] = raw_value

@@ -2206,6 +2206,14 @@ def test_config_command_toggles_ai_snake_config_panel() -> None:
     assert bool(game_closed.get("ai_snake_config_open")) is False
 
 
+def test_execute_command_strips_multiple_prefix_chars() -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    result = execute_command("::config", state)
+    game = dict(result.state.header_logo_game or {})
+    assert bool(game.get("ai_snake_config_open")) is True
+    assert result.handled is True
+
+
 def test_visual_command_toggles_and_requests_view() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
 
@@ -2643,6 +2651,34 @@ def test_ai_snake_config_applies_chat_ask_timeout_value() -> None:
     status = apply_ai_snake_config_value(game, key="chat_ask_timeout_s", value="90")
     assert game.get("chat_ask_timeout_s") == 90.0
     assert "90" in status
+
+
+def test_ai_snake_config_backend_switch_fetches_lmstudio_models(monkeypatch) -> None:
+    game: dict[str, object] = {
+        "chat_backend_api_base": "http://lmstudio.test/v1",
+        "chat_backend_models": [],
+    }
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"data": [{"id": "meta-llama/llama-3.2-1b-instruct"}]}).encode("utf-8")
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        lambda req, timeout=0: _FakeResp(),
+    )
+
+    status = apply_ai_snake_config_value(game, key="chat_backend", value="lmstudio")
+    models = [str(item) for item in (game.get("chat_backend_models") or [])]
+
+    assert "meta-llama/llama-3.2-1b-instruct" in models
+    assert "modelle" in status
 
 
 def test_chat_ask_uses_timeout_from_ai_snake_config() -> None:
