@@ -30,6 +30,8 @@ class DecisionContext:
     tui_delta_ref: str | None = None      # "prev_hash:curr_hash" kompakt
     semantic_hash: str | None = None      # Hash des SemanticOverlay
     semantic_panel: str | None = None     # aktives Panel aus SemanticOverlay
+    snake_head_x: int | None = None       # aktuelle Snake-Head X Position (optional, v2+)
+    snake_head_y: int | None = None       # aktuelle Snake-Head Y Position (optional, v2+)
 
     @property
     def context_hash(self) -> str:
@@ -45,6 +47,8 @@ class DecisionContext:
             # v2: include snapshot/semantic references in hash (not volatile timestamps)
             "tui_snapshot_ref": self.tui_snapshot_ref,
             "semantic_hash": self.semantic_hash,
+            "snake_head_x": self.snake_head_x,
+            "snake_head_y": self.snake_head_y,
         }
         payload = json.dumps(relevant, sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
@@ -67,6 +71,8 @@ class DecisionContext:
             "tui_delta_ref": self.tui_delta_ref,
             "semantic_hash": self.semantic_hash,
             "semantic_panel": self.semantic_panel,
+            "snake_head_x": self.snake_head_x,
+            "snake_head_y": self.snake_head_y,
         }
 
 
@@ -113,6 +119,7 @@ def build_from_tui_state(
             })
 
     policy_state = str(state.get("policy_state") or "").strip() or None
+    snake_head_x, snake_head_y = _extract_snake_head(state)
 
     return DecisionContext(
         source_surface="tui_snake",
@@ -128,6 +135,8 @@ def build_from_tui_state(
         tui_delta_ref=delta_ref,
         semantic_hash=semantic_hash,
         semantic_panel=semantic_panel,
+        snake_head_x=snake_head_x,
+        snake_head_y=snake_head_y,
     )
 
 
@@ -157,3 +166,36 @@ def build_from_chat_state(
         policy_state=str(state.get("policy_state") or "").strip() or None,
         query=str(state.get("query") or "").strip() or None,
     )
+
+
+def _extract_snake_head(state: dict[str, Any]) -> tuple[int | None, int | None]:
+    """Best-effort extraction of the local snake head from TUI state."""
+    direct_head = state.get("snake_head")
+    if isinstance(direct_head, (list, tuple)) and len(direct_head) >= 2:
+        return int(direct_head[0]), int(direct_head[1])
+
+    snake = state.get("snake")
+    if isinstance(snake, list) and snake:
+        first = snake[0]
+        if isinstance(first, (list, tuple)) and len(first) >= 2:
+            return int(first[0]), int(first[1])
+
+    game = state.get("header_logo_game")
+    if isinstance(game, dict):
+        local_id = str(game.get("local_snake_id") or "s1")
+        snakes_raw = game.get("snakes")
+        if isinstance(snakes_raw, dict):
+            local = snakes_raw.get(local_id)
+            if isinstance(local, dict):
+                local_snake = local.get("snake")
+                if isinstance(local_snake, list) and local_snake:
+                    first = local_snake[0]
+                    if isinstance(first, (list, tuple)) and len(first) >= 2:
+                        return int(first[0]), int(first[1])
+        game_snake = game.get("snake")
+        if isinstance(game_snake, list) and game_snake:
+            first = game_snake[0]
+            if isinstance(first, (list, tuple)) and len(first) >= 2:
+                return int(first[0]), int(first[1])
+
+    return None, None

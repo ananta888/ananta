@@ -102,6 +102,8 @@ def render_operator_shell(
 _LOGO_COLS = 50
 _LOGO_COLS_MAX = 72
 _LOGO_SEP = " │ "
+_RIGHT_PANEL_MIN_WIDTH = 40
+_RIGHT_PANEL_MAX_WIDTH = 52
 
 
 def _trim_visible_leading_spaces(line: str, spaces: int) -> str:
@@ -143,6 +145,10 @@ def _left_align_logo_lines(lines: list[str]) -> list[str]:
 def _logo_cols_for_width(width: int) -> int:
     # Keep a readable right panel while maximizing logo fidelity on wide terminals.
     return max(_LOGO_COLS, min(_LOGO_COLS_MAX, width - 28 - len(_LOGO_SEP)))
+
+
+def _snake_right_panel_width(width: int) -> int:
+    return max(_RIGHT_PANEL_MIN_WIDTH, min(_RIGHT_PANEL_MAX_WIDTH, max(34, width // 3)))
 
 
 def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | None = None) -> list[str]:
@@ -893,6 +899,16 @@ def _wrap_plain(text: str, width: int) -> list[str]:
     return rows
 
 
+def _chat_msg_timestamp(msg: dict[str, object]) -> str:
+    created_at = msg.get("created_at")
+    if not isinstance(created_at, (int, float)):
+        return "--:--"
+    try:
+        return time.strftime("%H:%M", time.localtime(float(created_at)))
+    except (OverflowError, OSError, ValueError):
+        return "--:--"
+
+
 def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     if not game:
@@ -1636,10 +1652,10 @@ def _overlay_fullscreen_snake(
     body_h = body_e - body_s
 
     # Split-view: if wide enough, reserve right portion for AI+Chat panels (T01.01)
-    ai_panel_width = 34
+    ai_panel_width = _snake_right_panel_width(width)
     split_col = width - ai_panel_width - 2  # 2 for divider; panel text starts at the DETAIL column
     split_view = width >= 100
-    play_width = width
+    play_width = max(1, split_col - 1) if split_view else width
     chat_panel_enabled = width >= 100 and body_h >= 10
 
     local_id = str(game.get("local_snake_id") or "s1")
@@ -1735,7 +1751,8 @@ def _overlay_fullscreen_snake(
     # Split-view AI panel (T01.01) — anchored to body area so it doesn't overwrite the header
     ai_panel_height = body_h
     if split_view and chat_panel_enabled:
-        ai_panel_height = max(5, body_h - min(8, max(4, body_h // 3)))
+        chat_rows = max(10, min(body_h - 6, int(body_h * 0.45)))
+        ai_panel_height = max(6, body_h - chat_rows)
     if split_view:
         out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=ai_panel_height, row_start=body_s)
 
@@ -1977,7 +1994,10 @@ def _overlay_snake_ai_panel(
     scores_raw = game.get("_scores_cache")
     high = int(scores_raw.get("high") or 0) if isinstance(scores_raw, dict) else 0
     speed_level = int(game.get("speed_level") or 3)
-    status_parts = [f"tutor-ai", depth, f"score:{score}", f"best:{max(score, high)}", f"spd:{speed_level}/5"]
+    chat_raw = game.get("chat_state")
+    chat_focus = isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus"))
+    active_marker = "◉" if not chat_focus else "○"
+    status_parts = [f"{active_marker} tutor-ai", depth, f"score:{score}", f"best:{max(score, high)}", f"spd:{speed_level}/5"]
     llm_status = game.get("llm_status") if isinstance(game.get("llm_status"), dict) else {}
     if llm_status.get("reachable"):
         status_parts.append(f"● {str(llm_status.get('model') or 'LM')[:16]}")
@@ -2057,7 +2077,7 @@ def _overlay_snake_chat_panel(
     panel_lines.append("═" * panel_width)
 
     # Header: all channels, active channel and unread badges.
-    focus_marker = "▶" if chat_focus else " "
+    focus_marker = "◉" if chat_focus else "○"
     compact = panel_width < 34
     channel_labels: list[str] = []
     for cid, short in [("room:main", "#"), ("ai:tutor", "AI"), ("notes:self", "N")]:
@@ -2100,15 +2120,16 @@ def _overlay_snake_chat_panel(
         text = sanitize_text(str(msg.get("text") or ""))
         delivery = str(msg.get("delivery_state") or "")
 
+        ts = _chat_msg_timestamp(msg)
         # Color by sender kind
         line_col = _participant_color(game, sender_id=sender, sender_kind=sender_kind)
         if sender_kind == "system":
-            prefix = "* "
+            prefix = f"{ts} * "
         elif sender_kind == "ai":
-            prefix = f"[{_participant_label(game, sender, fallback='AI')}] "
+            prefix = f"{ts} [{_participant_label(game, sender, fallback='AI')}] "
         else:
             state_mark = "" if delivery in {"sent", "received", ""} else f"[{delivery}]"
-            prefix = f"{_participant_label(game, sender, fallback=sender[:8])}{state_mark}: "
+            prefix = f"{ts} {_participant_label(game, sender, fallback=sender[:8])}{state_mark}: "
 
         col_str = f"\x1b[38;2;{line_col[0]};{line_col[1]};{line_col[2]}m"
         # First line has prefix; continuation lines indent

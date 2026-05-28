@@ -123,6 +123,12 @@ class DecisionResult:
             target_cell = action.get("target_cell")
             if target_cell:
                 motion = SuggestedMotion(dx=int(target_cell.get("x", 0)), dy=int(target_cell.get("y", 0)))
+            else:
+                target_bbox = action.get("target_bbox")
+                if target_bbox:
+                    cx = int(target_bbox.get("x", 0)) + int(target_bbox.get("w", 0)) // 2
+                    cy = int(target_bbox.get("y", 0)) + int(target_bbox.get("h", 0)) // 2
+                    motion = SuggestedMotion(dx=cx, dy=cy)
             return DecisionResult(
                 action_kind="follow", confidence=confidence, source="heuristic",
                 suggested_motion=motion, reason_codes=reason_codes, strategy_id=strategy_id,

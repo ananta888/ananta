@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "owner": "Krusty",
+  "track": "tui-increase-chat-height-and-show-conversation-timeline",
+  "created_at": "2026-05-28",
+  "status": "todo",
+  "purpose": "Das Chatfenster unten rechts soll hoeher werden und einen klaren Verlauf von Nutzer- und AI-Snake-Nachrichten zeigen.",
+  "goal": "Chat-Panel-Hoehe erhoehen und Message-Rendering mit Rollen/Absendern konsistent sichtbar machen.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Chatverlauf lesbar und vollwertig darstellen",
+      "status": "todo",
+      "task_ids": ["T01.01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Chatpanel vergroessern und Timeline mit Sprecherkennung (User/AI-Snake) rendern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ui_feature",
+      "depends_on": [],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/semantic_overlay.py",
+        "agent/services/heuristic_runtime/snake_decision_manager.py",
+        "tests/operator_tui/"
+      ],
+      "acceptance_criteria": [
+        "Chatfenster rechts unten ist deutlich hoeher als bisher.",
+        "Chatverlauf zeigt mehrere Eintraege hintereinander statt nur Mini-Ausschnitt.",
+        "Jede Nachricht ist mit Absender markiert (mindestens User und AI-Snake).",
+        "Antworten der AI-Snake werden im Verlauf sichtbar und zeitlich korrekt eingeordnet.",
+        "Rendering bleibt performant und bricht bei langen Nachrichten nicht."
+      ],
+      "notes": "Vom User gemeldet: Chatfenster unten rechts zu klein; normaler Verlauf inkl. AI-Snake-Antworten fehlt."
+    }
+  ],
+  "critical_path_tasks": ["T01.01"],
+  "tasks_status_summary": {
+    "total": 1,
+    "by_status": { "todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0 },
+    "progress_percent_done": 0,
+    "by_priority": { "P1": 1, "P2": 0, "P3": 0 },
+    "by_risk": { "high": 1, "medium": 0, "low": 0 },
+    "critical_path": { "total": 1, "done": 0, "remaining": 1 },
+    "milestones": { "total": 1, "todo": 1, "in_progress": 0, "blocked": 0, "done": 0 }
+  },
+  "tasks_type_summary": {
+    "total": 1,
+    "by_type": { "ui_feature": 1 }
+  },
+  "progress_summary": {
+    "state": "planning",
+    "todo_remaining": 1,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  }
+}

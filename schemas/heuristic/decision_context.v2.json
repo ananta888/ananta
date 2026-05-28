@@ -58,6 +58,14 @@
     "semantic_panel": {
       "type": ["string", "null"],
       "description": "Aktives Panel aus SemanticOverlay"
+    },
+    "snake_head_x": {
+      "type": ["integer", "null"],
+      "description": "Aktuelle X-Position des lokalen Snake-Head (optional)"
+    },
+    "snake_head_y": {
+      "type": ["integer", "null"],
+      "description": "Aktuelle Y-Position des lokalen Snake-Head (optional)"
     }
   },
   "additionalProperties": false

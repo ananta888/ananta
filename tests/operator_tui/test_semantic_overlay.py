@@ -154,3 +154,43 @@ class TestBuildFromOperatorState:
         ids = {e.semantic_id for e in overlay.entities}
         assert "snake_0_seg_0" in ids
         assert "snake_1_seg_0" in ids
+
+    def test_free_mode_adds_tutor_and_chat_panels(self) -> None:
+        state = {
+            "header_logo_game": {
+                "active": True,
+                "free_mode": True,
+                "chat_state": {"chat_focus": False},
+            }
+        }
+        overlay = build_from_operator_state(state, width=120, body_start=8, body_end=30)
+        panel_ids = {p.section_id for p in overlay.panels}
+        assert "TUTOR_AI" in panel_ids
+        assert "CHAT" in panel_ids
+
+    def test_chat_focus_marks_chat_panel_active(self) -> None:
+        state = {
+            "header_logo_game": {
+                "active": True,
+                "free_mode": True,
+                "chat_state": {"chat_focus": True},
+            }
+        }
+        overlay = build_from_operator_state(state, width=120, body_start=8, body_end=30)
+        chat_panel = next(p for p in overlay.panels if p.section_id == "CHAT")
+        tutor_panel = next(p for p in overlay.panels if p.section_id == "TUTOR_AI")
+        assert chat_panel.is_active is True
+        assert tutor_panel.is_active is False
+
+    def test_panel_at_prefers_chat_over_body_in_split_view(self) -> None:
+        state = {
+            "header_logo_game": {
+                "active": True,
+                "free_mode": True,
+                "chat_state": {"chat_focus": True},
+            }
+        }
+        overlay = build_from_operator_state(state, width=120, body_start=8, body_end=30)
+        hit = overlay.panel_at(90, 25)
+        assert hit is not None
+        assert hit.section_id == "CHAT"

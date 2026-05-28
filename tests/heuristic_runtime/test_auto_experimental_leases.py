@@ -72,6 +72,7 @@ def test_grant_experimental_lease_ttl_capped_at_max():
 
     # Die reason_codes sollten ttl= mit maximal 20s enthalten
     call_kwargs = repo.acquire.call_args.kwargs
+    assert call_kwargs["ttl_seconds"] == _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS
     reason_codes = call_kwargs["reason_codes"]
     ttl_code = next((r for r in reason_codes if r.startswith("ttl=")), None)
     assert ttl_code is not None
@@ -92,6 +93,7 @@ def test_grant_experimental_lease_default_ttl_used_when_none():
     )
 
     call_kwargs = repo.acquire.call_args.kwargs
+    assert call_kwargs["ttl_seconds"] == _EXPERIMENTAL_LIVE_DEFAULT_TTL_SECONDS
     reason_codes = call_kwargs["reason_codes"]
     ttl_code = next((r for r in reason_codes if r.startswith("ttl=")), None)
     assert ttl_code is not None

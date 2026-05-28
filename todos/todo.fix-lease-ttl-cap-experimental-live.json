@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "owner": "Krusty",
+  "track": "fix-lease-ttl-cap-experimental-live",
+  "created_at": "2026-05-28",
+  "status": "todo",
+  "purpose": "Sicherstellen, dass der TTL-Cap fuer experimental_live Leases technisch wirksam ist.",
+  "goal": "effective_ttl muss beim Lease-Acquire wirklich gesetzt werden, damit das Safety-Gate immer greift.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "TTL-Cap korrekt anwenden",
+      "status": "todo",
+      "task_ids": ["T01.01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Experimental-Live Lease-Acquire mit capped TTL aufrufen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "bugfix",
+      "depends_on": [],
+      "target_files": [
+        "agent/services/heuristic_runtime/lease_reevaluation_service.py",
+        "agent/repositories/heuristic_lease_repo.py",
+        "tests/heuristic_runtime/"
+      ],
+      "acceptance_criteria": [
+        "grant_experimental_lease uebergibt ttl_seconds=effective_ttl an self._repo.acquire.",
+        "Lease-Objekt hat ttl_seconds <= _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS.",
+        "deadline_at entspricht acquired_at + effective_ttl.",
+        "Bestehende Lease- und Runtime-Tests bleiben gruen.",
+        "Keine Aenderung schwacht Shadow/Experimental Safety-Regeln."
+      ],
+      "notes": "Issue aus Commit-Review: berechneter effective_ttl wurde nicht angewendet."
+    }
+  ],
+  "critical_path_tasks": ["T01.01"],
+  "tasks_status_summary": {
+    "total": 1,
+    "by_status": { "todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0 },
+    "progress_percent_done": 0,
+    "by_priority": { "P1": 1, "P2": 0, "P3": 0 },
+    "by_risk": { "high": 1, "medium": 0, "low": 0 },
+    "critical_path": { "total": 1, "done": 0, "remaining": 1 },
+    "milestones": { "total": 1, "todo": 1, "in_progress": 0, "blocked": 0, "done": 0 }
+  },
+  "tasks_type_summary": {
+    "total": 1,
+    "by_type": { "bugfix": 1 }
+  },
+  "progress_summary": {
+    "state": "planning",
+    "todo_remaining": 1,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  }
+}
