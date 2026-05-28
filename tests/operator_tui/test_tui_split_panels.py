@@ -8,6 +8,7 @@ from client_surfaces.operator_tui.renderer import (
     _overlay_fullscreen_snake,
     _overlay_snake_chat_panel,
     _snake_right_panel_width,
+    _visible_char_at,
 )
 
 
@@ -75,3 +76,30 @@ def test_chat_panel_renders_timestamps_and_ai_snake_sender() -> None:
     assert "AI-snake" in rendered
     assert "Hallo aus der" in rendered
     assert "AI-Snake" in rendered
+
+
+def test_split_panel_is_dedicated_right_column_without_base_overlay_bleed() -> None:
+    width = 120
+    lines = ["X" * width for _ in range(24)]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "snake": [[10, 10], [9, 10]],
+        "local_snake_id": "s1",
+        "snakes": {"s1": {"snake": [[10, 10], [9, 10]], "snake_color": "mint"}},
+        "chat_state": {
+            "active_channel": "room:main",
+            "chat_focus": False,
+            "channels": {
+                "room:main": {"display_name": "#room", "messages": [], "unread": 0},
+                "ai:tutor": {"display_name": "AI tutor-ai", "messages": [], "unread": 0},
+                "notes:self": {"display_name": "notes local-only", "messages": [], "unread": 0},
+            },
+        },
+    }
+    state = OperatorState(endpoint="http://localhost", header_logo_game=game)
+    out = _overlay_fullscreen_snake(lines, state, width=width, body_start=0, body_end=24)
+    split_col = width - _snake_right_panel_width(width) - 2
+    for row in out:
+        assert _visible_char_at(row, split_col + 6) != "X"
+        assert _visible_char_at(row, width - 2) != "X"
