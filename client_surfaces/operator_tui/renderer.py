@@ -842,6 +842,50 @@ def _standard_detail_lines(state: OperatorState, width: int) -> list[str]:
     if section.id in {"goals", "tasks"}:
         lines.append("    :inspect        show selected")
         lines.append("    :action <n> <r> dispatch action")
+    if section.id == "artifacts":
+        payload = (state.section_payloads or {}).get(section.id, {})
+        if bool(payload.get("diff3_mode")):
+            lines.append("    :diff3")
+            lines.append("    :diff3 panel <A|B|C> current [--mode <mode>]")
+            lines.append("    :diff3 panel <A|B|C> output <output-id>")
+            lines.append("    :diff3 panel <A|B|C> ai <review|explain|risk|tests|patch|chat>")
+            lines.append("    :diff3 panel <A|B|C> mode <render-mode>")
+            lines.append("    :diff3 panel <A|B|C> filter key=value ...")
+            lines.append("    :diff3 focus <A|B|C> | :diff3 scroll ...")
+            lines.append("    :diff3 sync on|off | :diff3 ai <mode> | :diff3 ai run [mode]")
+        if bool(payload.get("goal_artifacts_mode")):
+            lines.append("    :goal artifacts [filter ...|clear-filter]")
+            lines.append("    :goal sources candidates")
+            lines.append("    :goal source grant/revoke/detail ...")
+            lines.append("    :artifact provenance <output-id>")
+            lines.append("    :artifact prompt <output-id>")
+            lines.append("    :artifact config <output-id>")
+        if bool(payload.get("planning_track_mode")):
+            lines.append("    :plan track [--from-goal <goal-id>]")
+            lines.append("    :plan track filter status=... priority=... risk=... type=...")
+            lines.append("    :plan track clear-filter")
+            lines.append("    :plan track adopt <output-id> | reject <output-id>")
+            lines.append("    :plan track execute-next | sync-status <plan-task-id> <status>")
+            lines.append("    :plan track diff <left-output-id> <right-output-id>")
+            lines.append("    :plan summary doctor <file> | fix <file> | recompute")
+        if bool(payload.get("helpcenter_mode")):
+            lines.append("    :helpcenter")
+            lines.append("    :helpcenter ingest github-failures [--repo owner/repo] [--limit N] [--dry-run]")
+            lines.append("    :helpcenter open <analysis-id>")
+            lines.append("    :helpcenter suggest-followup [analysis-id]")
+        if bool(payload.get("mail_mode")):
+            lines.append("    :mail")
+            lines.append("    :mail account list|status|create|use|disable|delete")
+            lines.append("    :mail mailbox <name> | :mail open <message-id|uid> | :mail load-body [id]")
+            lines.append("    :mail search from:... to:... subject:... mailbox:... date:YYYY..YYYY unread:true")
+            lines.append("    :mail filter key=value ... | :mail scroll <delta>")
+            lines.append("    :mail note add <text> | :mail link-current-to-goal <goal-id>")
+            lines.append("    :mail artifact register-current [--scope metadata_only|excerpt|full_body]")
+            lines.append("    :mail attachment list|download <filename>|register <filename>")
+            lines.append("    :mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]")
+            lines.append("    :mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body]")
+            lines.append("    :mail revoke-grant <goal-id> <grant-id> | :mail context-envelope <goal-id> [--target ...]")
+            lines.append("    :mail snake-explain")
     return [_clip(line, width) for line in lines]
 
 
