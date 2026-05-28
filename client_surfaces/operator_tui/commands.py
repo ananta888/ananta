@@ -24,6 +24,7 @@ from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, event_for_prediction_feedback
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
+from client_surfaces.operator_tui.ai_snake_config_view import refresh_chat_backend_models
 from client_surfaces.operator_tui.goal_artifact_filters import (
     filter_goal_artifact_view,
     normalize_goal_artifact_filters,
@@ -3545,22 +3546,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 models = []
             backend = str(game.get("chat_backend") or "ananta-worker").strip().lower()
             if action == "list" and backend in {"lmstudio", "local", "openai"}:
-                llm_url = str(game.get("chat_backend_api_base") or "http://192.168.178.100:1234/v1").strip().rstrip("/")
-                try:
-                    req = urllib.request.Request(f"{llm_url}/models", method="GET")
-                    with urllib.request.urlopen(req, timeout=1.8) as resp:
-                        data = json.loads(resp.read().decode("utf-8", errors="replace"))
-                    model_rows = data.get("data") if isinstance(data, dict) else []
-                    if isinstance(model_rows, list):
-                        for row in model_rows:
-                            if not isinstance(row, dict):
-                                continue
-                            model_id = str(row.get("id") or "").strip()
-                            if model_id and model_id not in models:
-                                models.append(model_id)
-                except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
-                    pass
-                game["chat_backend_models"] = models[-40:]
+                models, _ = refresh_chat_backend_models(game, force=True)
             current_model = str(game.get("chat_backend_model") or "").strip()
             if current_model and current_model not in models:
                 models.insert(0, current_model)

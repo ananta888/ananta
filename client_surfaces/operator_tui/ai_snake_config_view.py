@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import urllib.error
@@ -82,27 +83,59 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
     if not force and (now - last_refresh) < 15.0:
         return models[-40:], str(game.get("chat_backend_models_error") or "")
 
-    llm_url = str(game.get("chat_backend_api_base") or "http://192.168.178.100:1234/v1").strip().rstrip("/")
+    configured_base = str(game.get("chat_backend_api_base") or "").strip()
+    env_base = str(
+        os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL")
+        or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
+        or ""
+    ).strip()
+    base_candidates: list[str] = []
+    for base in (
+        configured_base,
+        env_base,
+        "http://localhost:1234/v1",
+        "http://127.0.0.1:1234/v1",
+        "http://localhost:1234",
+        "http://127.0.0.1:1234",
+    ):
+        normalized = str(base or "").strip().rstrip("/")
+        if normalized and normalized not in base_candidates:
+            base_candidates.append(normalized)
     error = ""
-    try:
-        req = urllib.request.Request(f"{llm_url}/models", method="GET")
-        with urllib.request.urlopen(req, timeout=2.5) as resp:
-            data = json.loads(resp.read().decode("utf-8", errors="replace"))
-        model_rows = data.get("data") if isinstance(data, dict) else []
-        if isinstance(model_rows, list):
-            for row in model_rows:
-                if not isinstance(row, dict):
-                    continue
-                model_id = str(row.get("id") or "").strip()
-                if model_id and model_id not in models:
-                    models.append(model_id)
-    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-        error = f"model-fetch fehlgeschlagen: {exc}"
+    resolved_base = ""
+    for base in base_candidates:
+        endpoints = [f"{base}/models"]
+        if not base.endswith("/v1"):
+            endpoints.append(f"{base}/v1/models")
+        for endpoint in endpoints:
+            try:
+                req = urllib.request.Request(endpoint, method="GET")
+                with urllib.request.urlopen(req, timeout=2.5) as resp:
+                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                model_rows = data.get("data") if isinstance(data, dict) else []
+                if isinstance(model_rows, list):
+                    for row in model_rows:
+                        if not isinstance(row, dict):
+                            continue
+                        model_id = str(row.get("id") or "").strip()
+                        if model_id and model_id not in models:
+                            models.append(model_id)
+                resolved_base = base if base.endswith("/v1") else f"{base}/v1"
+                break
+            except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+                error = f"model-fetch fehlgeschlagen: {exc}"
+        if resolved_base:
+            break
 
     models = models[-40:]
     game["chat_backend_models"] = models
     game["chat_backend_models_last_refresh_at"] = now
-    game["chat_backend_models_error"] = error
+    if resolved_base:
+        game["chat_backend_api_base"] = resolved_base
+        game["chat_backend_models_error"] = ""
+        error = ""
+    else:
+        game["chat_backend_models_error"] = error
     return models, error
 
 
