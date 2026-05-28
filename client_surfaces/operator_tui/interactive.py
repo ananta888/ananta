@@ -444,12 +444,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._exit_command_mode_for_global_shortcut()
             self._copy_ai_status_snapshot()
 
-        @bindings.add(key_for_action("copy_tui_snapshot", "f11"))
+        @bindings.add(key_for_action("copy_tui_snapshot", "c-\\"))
         def _(event) -> None:
             self._exit_command_mode_for_global_shortcut()
             self._copy_tui_snapshot()
 
-        @bindings.add(key_for_action("save_tui_snapshot", "f12"))
+        @bindings.add(key_for_action("save_tui_snapshot", "c-_"))
         def _(event) -> None:
             self._exit_command_mode_for_global_shortcut()
             self._save_tui_snapshot()
