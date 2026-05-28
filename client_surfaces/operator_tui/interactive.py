@@ -360,6 +360,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             self._toggle_context_help()
 
+        @bindings.add("c-k")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._send_terminal_context_to_ai()
+
         @bindings.add("tab")
         def _(event) -> None:
             if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
@@ -723,7 +729,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _chat_focus_active(self) -> bool:
         game = self.state.header_logo_game or {}
         chat_raw = game.get("chat_state")
-        return isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus")) and self._snake_mode_active()
+        return isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus")) and (
+            self._snake_mode_active() or bool(game.get("chat_panel_open"))
+        )
 
     def _chat_panel_available(self) -> bool:
         game = self.state.header_logo_game or {}
@@ -755,6 +763,41 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self.state.with_updates(
                 header_logo_game=game,
                 status_message="shortcuts: an" if game["shortcut_help_open"] else "shortcuts: aus",
+            )
+        )
+
+    def _send_terminal_context_to_ai(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(self._rendered_text or ""))
+        snapshot = "\n".join(plain.splitlines()[-120:])[:8000]
+        if not snapshot.strip():
+            self._set_state(self.state.with_updates(status_message="AI-Kontext: kein Terminalinhalt"))
+            return
+        game["ai_terminal_context"] = snapshot
+        artifact_chat = dict(game.get("artifact_chat_state") or {})
+        artifact_chat["active_target"] = {
+            "kind": "terminal_snapshot",
+            "label": "Terminal Snapshot",
+            "path": "",
+            "id": "terminal-current",
+            "section_id": str(self.state.section_id or ""),
+        }
+        messages = [dict(m) for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
+        messages.append({"at": time.time(), "source": "system", "text": "Terminalinhalt als AI-Kontext übernommen."})
+        artifact_chat["messages"] = messages[-12:]
+        game["artifact_chat_state"] = artifact_chat
+        game["chat_panel_open"] = True
+        game["artifact_chat_focus"] = False
+
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+        chat = get_chat_state(game)
+        switch_channel(chat, "ai:tutor", preserve_input=True)
+        chat["chat_focus"] = True
+        set_chat_state(game, chat)
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message="AI-Kontext: Terminalinhalt bereit; Frage im AI-Chat eingeben",
             )
         )
 

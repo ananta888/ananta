@@ -814,11 +814,10 @@ def test_dashboard_shows_tutorial_ai_propose_history_in_snake_mode() -> None:
     output = render_operator_shell(state, width=118, height=34)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
 
-    assert "Tutorial-AI propose flow" in plain
-    assert "+-" in plain
+    assert "AI Flow:" in plain
     assert "worker-propose->header" in plain
     assert "openai-compatible->nav" in plain
-    assert plain.index("Tutorial-AI propose flow") < plain.index("focus=")
+    assert plain.index("AI Flow:") < plain.index("focus=")
 
 
 def test_dashboard_shows_tutorial_ai_propose_history_when_snake_inactive() -> None:
@@ -840,7 +839,7 @@ def test_dashboard_shows_tutorial_ai_propose_history_when_snake_inactive() -> No
     output = render_operator_shell(state, width=118, height=34)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
 
-    assert "Tutorial-AI propose flow" in plain
+    assert "AI Flow:" in plain
     assert "worker-propose->content" in plain
 
 
@@ -1719,6 +1718,42 @@ def test_chat_channel_cycle_preserves_input_buffer() -> None:
     assert chat.get("chat_input_buffer") == "abc"
 
 
+def test_terminal_context_shortcut_prepares_ai_chat_context() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", section_id="tasks")
+    tui = InteractiveOperatorTui(state)
+    tui._rendered_text = "\x1b[31mNAV\x1b[0m\nCONTENT\nCtrl+H hide help\nCtrl+K Terminal als AI-Kontext"
+
+    tui._send_terminal_context_to_ai()
+
+    game = tui.state.header_logo_game or {}
+    chat = game.get("chat_state") or {}
+    artifact_chat = game.get("artifact_chat_state") or {}
+    active_target = artifact_chat.get("active_target") or {}
+
+    assert "CONTENT" in str(game.get("ai_terminal_context") or "")
+    assert active_target.get("kind") == "terminal_snapshot"
+    assert chat.get("active_channel") == "ai:tutor"
+    assert chat.get("chat_focus") is True
+    assert tui._chat_focus_active() is True
+    assert game.get("tutor_ask_question") is None
+    assert "Frage im AI-Chat" in tui.state.status_message
+
+    tui._chat_append("?")
+    chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
+    assert chat.get("chat_input_buffer") == "?"
+
+
+def test_context_help_explains_terminal_context_shortcut() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={"shortcut_help_open": True},
+    )
+
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", render_operator_shell(state, width=100, height=24))
+
+    assert "Ctrl+K Terminal als AI-Kontext" in plain
+
+
 def test_compact_artifact_chat_input_sends_ai_question() -> None:
     game = {
         "artifact_chat_state": {
@@ -1770,4 +1805,52 @@ def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
 
     assert "CHAT" in plain
     assert "ACTIVE: AI" in plain
-    assert "Kurze Antwort im rechten Hauptbereich" in plain
+    assert "Kurze Antwort im" in plain
+    assert "rechten Hauptbereich" in plain
+    assert "Tutorial-AI propose flow" not in plain
+
+
+def test_chat_messages_use_participant_colors_and_labels() -> None:
+    from client_surfaces.operator_tui.chat_state import default_chat_state, make_message, append_message
+
+    chat = default_chat_state("s1")
+    chat["active_channel"] = "room:main"
+    append_message(
+        chat,
+        make_message(
+            channel_id="room:main",
+            channel_type="room",
+            sender_id="s1",
+            sender_kind="user",
+            text="Hallo",
+            delivery_state="received",
+        ),
+    )
+    append_message(
+        chat,
+        make_message(
+            channel_id="room:main",
+            channel_type="room",
+            sender_id="s-ai",
+            sender_kind="ai",
+            text="Bereit",
+            delivery_state="received",
+        ),
+    )
+    game = {
+        "chat_panel_open": True,
+        "local_snake_id": "s1",
+        "snake_color": "mint",
+        "pseudonym": "alice",
+        "snakes": {
+            "s1": {"id": "s1", "pseudonym": "alice", "snake_color": "mint"},
+            "s-ai": {"id": "s-ai", "pseudonym": "tutor-ai", "snake_color": "amber"},
+        },
+        "chat_state": chat,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    output = render_operator_shell(state, width=100, height=24)
+
+    assert "\x1b[38;2;170;255;210malice: Hallo\x1b[0m" in output
+    assert "\x1b[38;2;255;205;130mAI-snake: Bereit\x1b[0m" in output
