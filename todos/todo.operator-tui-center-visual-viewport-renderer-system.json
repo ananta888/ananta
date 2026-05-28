@@ -101,7 +101,7 @@
     {
       "id": "M1",
       "title": "Architecture contract and center viewport ownership",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VVP-001",
         "VVP-002",
@@ -112,7 +112,7 @@
     {
       "id": "M2",
       "title": "Registries, configuration and fallback chain",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VVP-005",
         "VVP-006",
@@ -123,7 +123,7 @@
     {
       "id": "M3",
       "title": "Core frame model, scheduler and safe redraw behavior",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VVP-009",
         "VVP-010",
@@ -134,7 +134,7 @@
     {
       "id": "M4",
       "title": "Initial views for logo, snake, artifacts and diagnostics",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VVP-013",
         "VVP-014",
@@ -146,7 +146,7 @@
     {
       "id": "M5",
       "title": "Renderer implementations",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "VVP-018",
         "VVP-019",
@@ -179,7 +179,7 @@
     {
       "id": "M8",
       "title": "Tests, documentation and runtime diagnostics",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "VVP-030",
         "VVP-031",
@@ -194,7 +194,7 @@
       "id": "VVP-001",
       "title": "Define VisualViewport architecture document",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "target_files": [
@@ -212,7 +212,7 @@
       "id": "VVP-002",
       "title": "Create VisualViewport package skeleton",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "target_files": [
@@ -235,7 +235,7 @@
       "id": "VVP-003",
       "title": "Implement ViewportRegion and pixel geometry model",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -254,7 +254,7 @@
       "id": "VVP-004",
       "title": "Implement CenterViewport boundary contract",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -272,7 +272,7 @@
       "id": "VVP-005",
       "title": "Define VisualView, Renderer and OutputAdapter interfaces",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -292,7 +292,7 @@
       "id": "VVP-006",
       "title": "Implement registries for views, renderers and adapters",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -310,7 +310,7 @@
       "id": "VVP-007",
       "title": "Add visual viewport configuration model",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -328,7 +328,7 @@
       "id": "VVP-008",
       "title": "Implement automatic fallback-chain resolver",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -346,7 +346,7 @@
       "id": "VVP-009",
       "title": "Implement RenderScene and RenderFrame models",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -364,7 +364,7 @@
       "id": "VVP-010",
       "title": "Implement FrameScheduler with FPS limiting and dirty-frame mode",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -383,7 +383,7 @@
       "id": "VVP-011",
       "title": "Implement frame cache and backpressure behavior",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "target_files": [
@@ -401,7 +401,7 @@
       "id": "VVP-012",
       "title": "Implement VisualRuntime orchestration",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -419,7 +419,7 @@
       "id": "VVP-013",
       "title": "Implement logo_animation view",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -437,7 +437,7 @@
       "id": "VVP-014",
       "title": "Implement snake_debug_view",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -455,7 +455,7 @@
       "id": "VVP-015",
       "title": "Implement artifact_preview view",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "target_files": [
@@ -473,7 +473,7 @@
       "id": "VVP-016",
       "title": "Implement strategy_map_preview view",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "target_files": [
@@ -491,7 +491,7 @@
       "id": "VVP-017",
       "title": "Implement renderer_diagnostics view",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "target_files": [
@@ -509,7 +509,7 @@
       "id": "VVP-018",
       "title": "Implement ansi_blocks renderer",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -527,7 +527,7 @@
       "id": "VVP-019",
       "title": "Implement cpu_raster renderer",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -545,7 +545,7 @@
       "id": "VVP-020",
       "title": "Add optional SVG rasterization path",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "target_files": [
@@ -730,7 +730,7 @@
       "id": "VVP-030",
       "title": "Add unit tests for viewport, config and fallback resolver",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -750,7 +750,7 @@
       "id": "VVP-031",
       "title": "Add unit tests for registries and runtime switching",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -839,13 +839,13 @@
   "tasks_status_summary": {
     "total": 34,
     "by_status": {
-      "todo": 34,
+      "todo": 12,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 22
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 65,
     "by_priority": {
       "critical": 12,
       "high": 12,
@@ -860,15 +860,16 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 12,
+      "remaining": 2
     },
     "milestones": {
       "total": 8,
-      "todo": 8,
+      "todo": 2,
       "in_progress": 0,
+      "partial": 2,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -876,30 +877,30 @@
     "by_type": {
       "docs": {
         "total": 2,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 50,
         "by_status": {
-          "todo": 2,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "implementation": {
         "total": 23,
-        "done": 0,
+        "done": 19,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 83,
         "by_status": {
-          "todo": 23,
+          "todo": 4,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 19
         }
       },
       "integration": {
@@ -918,16 +919,16 @@
       },
       "test": {
         "total": 3,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 67,
         "by_status": {
-          "todo": 3,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "tooling": {
@@ -947,12 +948,12 @@
     }
   },
   "progress_summary": {
-    "state": "ready_for_implementation",
-    "todo_remaining": 34,
+    "state": "in_progress",
+    "todo_remaining": 12,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 22
   },
   "summary_notes": [
     "This track intentionally replaces a one-off terminal image hack with a reusable center viewport rendering subsystem.",
