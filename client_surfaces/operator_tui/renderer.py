@@ -1862,7 +1862,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('snake_toggle_selection', 'Ctrl+X')}/"
                 f"{display_for_action('snake_replace_selection', 'Ctrl+V')}] Select  "
                 f"[{display_for_action('snake_clear_marks', 'Ctrl+Z')}] Clear  "
-                f"[{display_for_action('copy_tui_snapshot', 'F11')}/{display_for_action('save_tui_snapshot', 'F12')}] Snapshot"
+                f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot"
             )
         else:
             hints = (
@@ -1872,7 +1872,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('snake_pause', 'Ctrl+P')}] Pause  "
                 f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI  "
                 f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
-                f"[{display_for_action('copy_tui_snapshot', 'F11')}/{display_for_action('save_tui_snapshot', 'F12')}] Snapshot  "
+                f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot  "
                 "[:config]"
             )
     return _clip(hints, width)
