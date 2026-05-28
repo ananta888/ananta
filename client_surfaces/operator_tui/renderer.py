@@ -1625,19 +1625,22 @@ def _overlay_fullscreen_snake(
         return lines
 
     shell = list(lines)
-    start = max(0, min(len(shell), int(body_start)))
-    end = len(shell) if body_end is None else max(start, min(len(shell), int(body_end)))
-    out = list(shell[start:end])
+    # Snake bodies are foreground — they render on ALL rows of the terminal.
+    out = list(shell)
     if not out:
         return shell
+
+    # Body bounds used only for AI/chat panel placement (panels stay in the body area).
+    body_s = max(0, min(len(shell), int(body_start)))
+    body_e = len(shell) if body_end is None else max(body_s, min(len(shell), int(body_end)))
+    body_h = body_e - body_s
 
     # Split-view: if wide enough, reserve right portion for AI+Chat panels (T01.01)
     ai_panel_width = 34
     split_col = width - ai_panel_width - 2  # 2 for divider; panel text starts at the DETAIL column
     split_view = width >= 100
     play_width = width
-    # Chat panel: bottom portion of the right detail column inside the middle body only.
-    chat_panel_enabled = width >= 100 and len(out) >= 10
+    chat_panel_enabled = width >= 100 and body_h >= 10
 
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
@@ -1724,33 +1727,33 @@ def _overlay_fullscreen_snake(
                 trail_speed=trail_speed,
             )
 
-    # Pause overlay (T01.02)
+    # Pause overlay (T01.02) — centered in the body area
     if bool(game.get("paused")):
-        out = _overlay_snake_paused(out, width=width, height=len(out))
+        pause_cy = body_s + max(0, body_h // 2 - 1)
+        out = _overlay_snake_paused_at(out, width=width, center_y=pause_cy)
 
-    # Split-view AI panel (T01.01)
-    ai_panel_height = len(out)
+    # Split-view AI panel (T01.01) — anchored to body area so it doesn't overwrite the header
+    ai_panel_height = body_h
     if split_view and chat_panel_enabled:
-        # Reserve bottom portion for chat panel
-        ai_panel_height = max(5, len(out) - min(8, max(4, len(out) // 3)))
+        ai_panel_height = max(5, body_h - min(8, max(4, body_h // 3)))
     if split_view:
-        out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=ai_panel_height)
+        out = _overlay_snake_ai_panel(out, game, split_col=split_col, panel_width=ai_panel_width, height=ai_panel_height, row_start=body_s)
 
-    # Chat panel (E01)
+    # Chat panel (E01) — starts after AI panel, ends at body_e
     if split_view and chat_panel_enabled:
-        out = _overlay_snake_chat_panel(out, game, split_col=split_col, panel_width=ai_panel_width, ai_rows=ai_panel_height, height=len(out))
+        out = _overlay_snake_chat_panel(out, game, split_col=split_col, panel_width=ai_panel_width, ai_rows=body_s + ai_panel_height, height=body_e)
 
-    # Score / highscore header (T01.05)
-    if not split_view:
-        out = _overlay_snake_score_header(out, game, width=width)
+    # Score / highscore header (T01.05) — in top row of body area
+    if not split_view and body_h > 0:
+        out = _overlay_snake_score_header(out, game, width=width, row=body_s)
 
     # Min-size warning (T01.03)
-    if width < 40 or len(out) < 18:
+    if width < 40 or body_h < 18:
         warn = "Terminal zu klein für Snake"
-        out[0] = _overlay_text(out[:1], x=2, y=0, text=warn, color=(255, 80, 80))[0] if out else out[0]
+        if body_s < len(out):
+            out[body_s] = _overlay_text(out[body_s:body_s + 1], x=2, y=0, text=warn, color=(255, 80, 80))[0]
 
-    shell[start:end] = out
-    return shell
+    return out
 
 
 def _reserve_snake_right_dock(lines: list[str], *, split_col: int, width: int) -> list[str]:
@@ -1921,12 +1924,23 @@ def _overlay_snake_paused(lines: list[str], *, width: int, height: int) -> list[
     label = " [ PAUSED ] "
     cy = max(0, height // 2 - 1)
     cx = max(0, (width // 2) - len(label) // 2)
-    # PAUSED label in amber
     _overlay_text(out, x=cx, y=cy, text=label, color=(255, 200, 80))
-    # hint line below
     hint = "Space zum Fortsetzen"
     hx = max(0, (width // 2) - len(hint) // 2)
     _overlay_text(out, x=hx, y=min(cy + 1, height - 1), text=hint, color=(160, 160, 160))
+    return out
+
+
+def _overlay_snake_paused_at(lines: list[str], *, width: int, center_y: int) -> list[str]:
+    """Render PAUSED overlay at an explicit center row (for body-relative positioning)."""
+    out = list(lines)
+    label = " [ PAUSED ] "
+    cy = max(0, min(center_y, len(out) - 2))
+    cx = max(0, (width // 2) - len(label) // 2)
+    _overlay_text(out, x=cx, y=cy, text=label, color=(255, 200, 80))
+    hint = "Space zum Fortsetzen"
+    hx = max(0, (width // 2) - len(hint) // 2)
+    _overlay_text(out, x=hx, y=min(cy + 1, len(out) - 1), text=hint, color=(160, 160, 160))
     return out
 
 
@@ -1937,6 +1951,7 @@ def _overlay_snake_ai_panel(
     split_col: int,
     panel_width: int,
     height: int,
+    row_start: int = 0,
 ) -> list[str]:
     """Render the AI explanation panel on the right side (T01.01)."""
     out = list(lines)
@@ -1997,15 +2012,16 @@ def _overlay_snake_ai_panel(
     panel_lines.append("\x1b[38;2;90;90;90mDetails bleiben in NAV | CONTENT | DETAIL\x1b[0m")
 
     divider_col = split_col
-    for row_idx in range(min(height, len(out))):
+    for i in range(min(height, len(out) - row_start)):
+        row_idx = row_start + i
         if row_idx < len(out):
             out[row_idx] = _overlay_at_visible_col(out[row_idx], divider_col, "\x1b[38;2;60;60;80m│\x1b[0m")
-        if row_idx < len(panel_lines):
+        if i < len(panel_lines):
             pcol = divider_col + 2
-            raw = _ANSI_STRIP.sub("", panel_lines[row_idx])
+            raw = _ANSI_STRIP.sub("", panel_lines[i])
             if raw:
                 pad = max(0, panel_width - len(raw))
-                out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, panel_lines[row_idx] + (" " * pad))
+                out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, panel_lines[i] + (" " * pad))
     return out
 
 def _overlay_snake_chat_panel(
@@ -2183,7 +2199,7 @@ def _overlay_snake_chat_unread(
     return out
 
 
-def _overlay_snake_score_header(lines: list[str], game: dict[str, object], *, width: int) -> list[str]:
+def _overlay_snake_score_header(lines: list[str], game: dict[str, object], *, width: int, row: int = 0) -> list[str]:
     """Overlay score and highscore in the top-right area (T01.05)."""
     out = list(lines)
     if not out:
@@ -2196,8 +2212,9 @@ def _overlay_snake_score_header(lines: list[str], game: dict[str, object], *, wi
     col = (255, 200, 80) if new_high else (120, 150, 120)
     label = f"score: {score}  best: {max(score, high)}  speed: {speed_level}/5"
     x = max(0, width - len(label) - 2)
+    target_row = max(0, min(row, len(out) - 1))
     if len(out) > 0:
-        out = _overlay_text(out, x=x, y=0, text=label, color=col)
+        out = _overlay_text(out, x=x, y=target_row, text=label, color=col)
     return out
 
 
