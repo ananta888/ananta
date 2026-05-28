@@ -35,6 +35,15 @@ from agent.services.heuristic_runtime.lease_reevaluation_service import LeaseRee
 from agent.services.heuristic_runtime.snake_rules import build_snake_rule_chain
 from agent.services.heuristic_runtime.state_machine import SnakeStateMachine, FallbackActiveState
 
+try:
+    from agent.services.heuristic_runtime.dsl.loader import DslLoader, DslLoadError
+    from agent.services.heuristic_runtime.dsl.validator import DslValidator
+    from agent.services.heuristic_runtime.dsl.evaluator import DslEvaluator
+    from agent.services.heuristic_runtime.motion_planner import MotionPlanner
+    _DSL_RUNTIME_AVAILABLE = True
+except ImportError:
+    _DSL_RUNTIME_AVAILABLE = False
+
 _AI_TIMEOUT_SECONDS = 2.5
 _LURK_IDLE_SECONDS = 3.0        # cursor stable for this long → enter lurk
 _LURK_UPDATE_INTERVAL_MS = 500  # max 1 position update per this interval in lurk mode
@@ -132,6 +141,10 @@ class SnakeDecisionManager:
         self._metrics = DecisionMetricsAccumulator()
         self._last_ai_request_at: float | None = None
         self._lurk = LurkStateManager()
+        self._dsl_loader = DslLoader() if _DSL_RUNTIME_AVAILABLE else None
+        self._dsl_validator = DslValidator() if _DSL_RUNTIME_AVAILABLE else None
+        self._dsl_evaluator = DslEvaluator() if _DSL_RUNTIME_AVAILABLE else None
+        self._motion_planner = MotionPlanner() if _DSL_RUNTIME_AVAILABLE else None
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -160,6 +173,13 @@ class SnakeDecisionManager:
             return result
 
         lease = reeval.lease
+
+        # DSL v2 Runtime: prüfe ob aktive Heuristik dsl_v2 mode hat
+        if _DSL_RUNTIME_AVAILABLE and lease:
+            dsl_result = self._try_dsl_decide(ctx, lease)
+            if dsl_result is not None:
+                self._finalize_trace(trace, dsl_result, lease_id=lease.id if lease else None)
+                return dsl_result
 
         # Run rule chain with current context
         result = self._chain.run(ctx)
@@ -223,6 +243,37 @@ class SnakeDecisionManager:
         return {s: m.to_dict() for s, m in self._metrics.all().items()}
 
     # ── Internal ──────────────────────────────────────────────────────────────
+
+    def _try_dsl_decide(self, ctx: DecisionContext, lease: Any) -> DecisionResult | None:
+        """Versucht DSL v2 Entscheidung. Gibt None zurück wenn nicht applicable → RuleChain fallback."""
+        if not _DSL_RUNTIME_AVAILABLE:
+            return None
+        try:
+            # Hole Heuristik-Definition aus Registry
+            heuristic = self._registry.get_by_id(getattr(lease, "heuristic_id", None) or "")
+            if heuristic is None:
+                return None
+            # Lade DSL wenn mode=dsl_v2
+            raw_def = getattr(heuristic, "_raw_def", None) or {}
+            runtime_mode = (raw_def.get("runtime") or {}).get("mode")
+            if runtime_mode != "dsl_v2":
+                return None
+            dsl = self._dsl_loader.load_from_definition(raw_def)
+            val_result = self._dsl_validator.validate(dsl)
+            if not val_result.passed:
+                return None
+            eval_result = self._dsl_evaluator.evaluate(dsl, ctx)
+            if not eval_result.matched:
+                return None
+            decision = self._dsl_evaluator.to_decision_result(eval_result, strategy_id=getattr(heuristic, "heuristic_id", None))
+            # Motion Planner wenn target_cell/bbox vorhanden
+            if self._motion_planner and eval_result.action.get("target_cell"):
+                plan = self._motion_planner.plan(eval_result.action, (0, 0))
+                from agent.services.heuristic_runtime.decision_result import SuggestedMotion
+                decision.suggested_motion = SuggestedMotion(dx=plan.dx, dy=plan.dy)
+            return decision
+        except Exception:
+            return None  # DSL-Fehler dürfen Fast Path nie blockieren
 
     def _tick_ai_timeout(self, ctx: DecisionContext) -> None:
         if (

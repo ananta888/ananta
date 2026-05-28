@@ -27,6 +27,11 @@ class DecisionTrace:
     started_at: float = field(default_factory=time.time)
     resolved_at: float | None = None
     reason_codes: list[str] = field(default_factory=list)
+    # v2: snapshot/semantic references (best-effort, blockiert keine UI-Entscheidung)
+    snapshot_hash: str | None = None
+    delta_hash: str | None = None
+    semantic_hash: str | None = None
+    heuristic_experiment_id: str | None = None
 
     @property
     def duration_ms(self) -> float | None:
@@ -55,6 +60,11 @@ class DecisionTrace:
             "resolved_at": self.resolved_at,
             "duration_ms": self.duration_ms,
             "reason_codes": list(self.reason_codes),
+            # v2 fields
+            "snapshot_hash": self.snapshot_hash,
+            "delta_hash": self.delta_hash,
+            "semantic_hash": self.semantic_hash,
+            "heuristic_experiment_id": self.heuristic_experiment_id,
         }
 
     @staticmethod

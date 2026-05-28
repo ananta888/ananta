@@ -1,0 +1,24 @@
+Analysiere die folgenden TUI-Snapshots und erzeuge eine DSL v2 Heuristik für tui_snake.
+
+## Snapshot-Summary
+{% for snap in recent_snapshots %}
+- frame_id={{ snap.frame_id }}, hash={{ snap.screen_hash }}, size={{ snap.width }}x{{ snap.height }}
+{% endfor %}
+
+## Deltas (letzte {{ recent_deltas|length }})
+{% for delta in recent_deltas %}
+- {{ delta.previous_hash }} → {{ delta.current_hash }}, changed_cells={{ delta.changed_cell_count }}
+{% endfor %}
+
+## Anforderungen
+- Antworte NUR mit validem JSON (kein Markdown, keine Fences)
+- dsl_version: "2.0"
+- observe.sources: erlaubt sind tui.snapshot, tui.delta, tui.semantic, tui.mouse, tui.focus, tui.history
+- action.kind: suggest_target | follow_artifact | lurk_near | smooth_follow | fast_target | explain_target | no_action
+- safety.safety_class: ui_motion_only oder readonly
+- provenance.created_by: {{ created_by }}
+- provenance.rationale: Kurze Begründung
+- VERBOTEN: inline_code, shell_command, network_access, secret_access, file_write, eval, exec
+
+## Beispiel-Struktur
+{"dsl_version":"2.0","observe":{"sources":["tui.semantic"]},"action":{"kind":"follow_artifact","confidence":0.7},"safety":{"safety_class":"ui_motion_only"},"provenance":{"created_by":"{{ created_by }}","rationale":"..."}}

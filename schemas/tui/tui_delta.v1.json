@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tui_delta.v1",
+  "title": "TuiDelta",
+  "type": "object",
+  "required": ["previous_hash", "current_hash", "changed_cell_count", "changed_lines", "dirty_regions", "changed_cells", "line_hashes"],
+  "properties": {
+    "previous_hash": {"type": "string"},
+    "current_hash": {"type": "string"},
+    "changed_cell_count": {"type": "integer", "minimum": 0},
+    "changed_lines": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "dirty_regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["x", "y", "w", "h"],
+        "properties": {
+          "x": {"type": "integer", "minimum": 0},
+          "y": {"type": "integer", "minimum": 0},
+          "w": {"type": "integer", "minimum": 0},
+          "h": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "changed_cells": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["x", "y", "char"],
+        "properties": {
+          "x": {"type": "integer"},
+          "y": {"type": "integer"},
+          "char": {"type": "string"},
+          "fg": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3},
+          "bg": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3},
+          "bold": {"type": "boolean"},
+          "inverse": {"type": "boolean"}
+        }
+      }
+    },
+    "line_hashes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

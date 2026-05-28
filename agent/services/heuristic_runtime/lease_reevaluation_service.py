@@ -24,6 +24,10 @@ from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicRegistry, get_heuristic_registry
 
 
+_EXPERIMENTAL_LIVE_MAX_TTL_SECONDS = 20.0
+_EXPERIMENTAL_LIVE_DEFAULT_TTL_SECONDS = 10.0
+
+
 class ReevalOutcome(str, Enum):
     NO_CHANGE = "no_change"
     EXTEND = "extend"
@@ -96,6 +100,57 @@ class LeaseReevaluationService:
     def handle_expiry(self, *, now_ts: float | None = None) -> int:
         """Sweep expired leases. Returns count marked."""
         return self._repo.mark_expired_batch(now_ts=now_ts)
+
+    def grant_experimental_lease(
+        self,
+        heuristic_id: str,
+        domain: str,
+        *,
+        ttl_seconds: float | None = None,
+        auto_experiment_mode: bool = False,
+        now_ts: float | None = None,
+    ) -> "HeuristicDecisionLeaseDB | None":
+        """Gibt eine experimental_live Lease für max _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS.
+
+        Darf NUR aufgerufen werden wenn auto_experiment_mode=True explizit konfiguriert ist.
+        Im Standard-Modus (auto_experiment_mode=False) läuft experimental_live im Shadow Mode.
+
+        Returns:
+            Lease wenn auto_experiment_mode=True, sonst None.
+        """
+        if not auto_experiment_mode:
+            return None
+
+        effective_ttl = min(
+            float(ttl_seconds) if ttl_seconds is not None else _EXPERIMENTAL_LIVE_DEFAULT_TTL_SECONDS,
+            _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS,
+        )
+
+        now = float(now_ts or time.time())
+
+        try:
+            lease = self._repo.acquire(
+                heuristic_id=heuristic_id,
+                version="experimental",
+                domain=domain,
+                context_hash="experimental_live",
+                selected_by="experiment_runner",
+                reason_codes=["experimental_live", f"ttl={effective_ttl}s"],
+            )
+            return lease
+        except Exception:
+            return None
+
+    def is_experimental_lease_expired(
+        self,
+        lease: "HeuristicDecisionLeaseDB",
+        *,
+        now_ts: float | None = None,
+    ) -> bool:
+        """Prüft ob eine experimental_live Lease abgelaufen ist."""
+        now = float(now_ts or time.time())
+        deadline = getattr(lease, "deadline_at", 0.0) or 0.0
+        return now >= deadline
 
     # ── internal ─────────────────────────────────────────────────────────────
 

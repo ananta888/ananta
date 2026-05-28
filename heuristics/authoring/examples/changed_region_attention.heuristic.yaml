@@ -1,0 +1,38 @@
+heuristic_id: changed_region_attention
+version: "0.1.0"
+domain: tui_snake
+deterministic: true
+safety_class: ui_motion_only
+capabilities: []
+description: "Snake richtet Aufmerksamkeit auf Region die sich kürzlich geändert hat"
+runtime:
+  mode: dsl_v2
+  dsl_v2:
+    dsl:
+      dsl_version: "2.0"
+      observe:
+        sources: ["tui.snapshot", "tui.delta", "tui.semantic"]
+        window:
+          last_n_snapshots: 3
+          last_n_deltas: 10
+      match:
+        all:
+          - {eq: ["tui.focus", "BODY"]}
+          - {gt: ["tui.delta.changed_cell_count", 10]}
+          - {changed_recently: {path: "tui.snapshot.screen_hash", within_seconds: 3.0}}
+      score:
+        base: 0.75
+      action:
+        kind: smooth_follow
+        confidence: 0.75
+        max_step: 3
+        acceleration_limit: 1.5
+      lease:
+        ttl_seconds: 4.0
+        refresh_on: ["screen_hash_changed", "semantic_target_changed"]
+      safety:
+        safety_class: ui_motion_only
+        allowed_capabilities: ["read_local_context"]
+      provenance:
+        created_by: "example"
+        rationale: "Aktive UI-Änderungen signalisieren Nutzerinteraktion — Snake folgt sanft der veränderten Region"

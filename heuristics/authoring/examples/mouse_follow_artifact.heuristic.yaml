@@ -1,0 +1,30 @@
+heuristic_id: mouse_follow_artifact
+version: "0.1.0"
+domain: tui_snake
+deterministic: true
+safety_class: ui_motion_only
+capabilities: []
+description: "Snake folgt dem Artifact das der Maus am nächsten ist"
+runtime:
+  mode: dsl_v2
+  dsl_v2:
+    dsl:
+      dsl_version: "2.0"
+      observe:
+        sources: ["tui.semantic", "tui.mouse"]
+      match:
+        all:
+          - {eq: ["tui.focus", "BODY"]}
+          - {gt: ["tui.semantic.entity_count", 0]}
+      action:
+        kind: follow_artifact
+        confidence: 0.7
+        max_step: 2
+      lease:
+        ttl_seconds: 5.0
+        refresh_on: ["mouse_direction_changed"]
+      safety:
+        safety_class: ui_motion_only
+      provenance:
+        created_by: "example"
+        rationale: "Folgt dem Artifact nahe dem Mauszeiger für Interaktivität"
