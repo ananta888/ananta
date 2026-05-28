@@ -1655,22 +1655,45 @@ def _overlay_fullscreen_snake(
     ai_panel_width = _snake_right_panel_width(width)
     split_col = width - ai_panel_width - 2  # 2 for divider; panel text starts at the DETAIL column
     split_view = width >= 100
-    play_width = max(1, split_col - 1) if split_view else width
+    play_width = max(1, width)
     chat_panel_enabled = width >= 100 and body_h >= 10
     chat_enabled_by_setting = bool(game.get("chat_panel_open", True))
 
-    def _project_x(raw_x: int) -> int | None:
-        x_val = int(raw_x)
-        if split_view:
-            if 0 <= x_val < play_width:
-                return x_val
-            return None
-        return x_val % max(1, play_width)
+    def _project_x(raw_x: int) -> int:
+        return int(raw_x) % play_width
 
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
     local_snapshot = snakes.get(local_id, {}) if isinstance(snakes.get(local_id), dict) else {}
     local_pal = _snake_palette(str(local_snapshot.get("snake_color") or game.get("snake_color") or "mint"))
+
+    # Split-view right column is rendered first; snake rendering stays on top so
+    # selections/segments can traverse and mark panel content as requested.
+    ai_panel_height = body_h
+    if split_view and chat_panel_enabled:
+        chat_rows = max(10, min(body_h - 6, int(body_h * 0.45)))
+        ai_panel_height = max(6, body_h - chat_rows)
+    if split_view:
+        out[body_s:body_e] = _reserve_snake_right_dock(out[body_s:body_e], split_col=split_col, width=width)
+        out = _overlay_snake_ai_panel(
+            out,
+            game,
+            split_col=split_col,
+            panel_width=ai_panel_width,
+            height=ai_panel_height,
+            row_start=body_s,
+            chat_enabled=chat_enabled_by_setting,
+        )
+    if split_view and chat_panel_enabled:
+        out = _overlay_snake_chat_panel(
+            out,
+            game,
+            split_col=split_col,
+            panel_width=ai_panel_width,
+            ai_rows=body_s + ai_panel_height,
+            height=body_e,
+            enabled=chat_enabled_by_setting,
+        )
 
     # Markings and selections are rendered in each snake's own color.
     for sid, snapshot in snakes.items():
@@ -1681,10 +1704,7 @@ def _overlay_fullscreen_snake(
         for item in mark_cells:
             if not isinstance(item, (list, tuple)) or len(item) < 2:
                 continue
-            px = _project_x(int(item[0]))
-            if px is None:
-                continue
-            x = px
+            x = _project_x(int(item[0]))
             y = int(item[1]) % max(1, len(out))
             base = _visible_char_at(out[y], x)
             if base == " ":
@@ -1697,10 +1717,7 @@ def _overlay_fullscreen_snake(
         for item in selection:
             if not isinstance(item, (list, tuple)) or len(item) != 2:
                 continue
-            px = _project_x(int(item[0]))
-            if px is None:
-                continue
-            x = px
+            x = _project_x(int(item[0]))
             y = int(item[1]) % max(1, len(out))
             base = _visible_char_at(out[y], x)
             if base == " ":
@@ -1711,13 +1728,11 @@ def _overlay_fullscreen_snake(
 
     anchor = game.get("selection_anchor")
     if isinstance(anchor, (list, tuple)) and len(anchor) == 2:
-        px = _project_x(int(anchor[0]))
-        if px is not None:
-            x = px
-            y = int(anchor[1]) % max(1, len(out))
-            acol = local_pal["label"]
-            repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
-            out[y] = _overlay_at_visible_col(out[y], x, repl)
+        x = _project_x(int(anchor[0]))
+        y = int(anchor[1]) % max(1, len(out))
+        acol = local_pal["label"]
+        repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
+        out[y] = _overlay_at_visible_col(out[y], x, repl)
 
     if bool(game.get("selection_frame_mode")):
         frame_anchor = game.get("selection_frame_anchor")
@@ -1725,7 +1740,7 @@ def _overlay_fullscreen_snake(
         if isinstance(frame_anchor, (list, tuple)) and len(frame_anchor) == 2 and isinstance(local_head, (list, tuple)) and len(local_head) == 2:
             ax, ay = int(frame_anchor[0]), int(frame_anchor[1])
             hx, hy = int(local_head[0]), int(local_head[1])
-            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=play_width, color=local_pal["label"])
+            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=width, color=local_pal["label"])
 
     for sid, snapshot in snakes.items():
         snake = snapshot.get("snake") if isinstance(snapshot.get("snake"), list) else []
@@ -1735,10 +1750,7 @@ def _overlay_fullscreen_snake(
         for idx, pos in enumerate(snake):
             if not isinstance(pos, (list, tuple)) or len(pos) != 2:
                 continue
-            px = _project_x(int(pos[0]))
-            if px is None:
-                continue
-            x = px
+            x = _project_x(int(pos[0]))
             y = int(pos[1]) % max(1, len(out))
             ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
             col = pal["head"] if idx == 0 else pal["body"]
@@ -1756,7 +1768,7 @@ def _overlay_fullscreen_snake(
                 snake=snake,
                 trail=trail,
                 message=message,
-                width=play_width,
+                width=width,
                 mode=style,
                 color=pal["label"],
                 trail_window=trail_window,
@@ -1767,36 +1779,6 @@ def _overlay_fullscreen_snake(
     if bool(game.get("paused")):
         pause_cy = body_s + max(0, body_h // 2 - 1)
         out = _overlay_snake_paused_at(out, width=width, center_y=pause_cy)
-
-    # Split-view AI panel (T01.01) — anchored to body area so it doesn't overwrite the header
-    ai_panel_height = body_h
-    if split_view and chat_panel_enabled:
-        chat_rows = max(10, min(body_h - 6, int(body_h * 0.45)))
-        ai_panel_height = max(6, body_h - chat_rows)
-    if split_view:
-        # Snake split mode: right column is a dedicated static dock (no content overlay bleed-through).
-        out[body_s:body_e] = _reserve_snake_right_dock(out[body_s:body_e], split_col=split_col, width=width)
-        out = _overlay_snake_ai_panel(
-            out,
-            game,
-            split_col=split_col,
-            panel_width=ai_panel_width,
-            height=ai_panel_height,
-            row_start=body_s,
-            chat_enabled=chat_enabled_by_setting,
-        )
-
-    # Chat panel (E01) — starts after AI panel, ends at body_e
-    if split_view and chat_panel_enabled:
-        out = _overlay_snake_chat_panel(
-            out,
-            game,
-            split_col=split_col,
-            panel_width=ai_panel_width,
-            ai_rows=body_s + ai_panel_height,
-            height=body_e,
-            enabled=chat_enabled_by_setting,
-        )
 
     # Score / highscore header (T01.05) — in top row of body area
     if not split_view and body_h > 0:
@@ -2075,7 +2057,27 @@ def _overlay_snake_ai_panel(
     panel_lines.append(f"\x1b[38;2;120;180;255mAI-Chat [Ctrl+G]: {chat_state}\x1b[0m")
     panel_lines.append(f"\x1b[38;2;90;90;90mChat-Fokus [c], Eingabe [Ctrl+E]\x1b[0m")
     panel_lines.append("─" * panel_width)
-    panel_lines.append("\x1b[38;2;90;90;90mDetails bleiben in NAV | CONTENT | DETAIL\x1b[0m")
+    ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
+    runtime_status = str(game.get("ai_snake_runtime_status") or "idle")
+    provider = str(game.get("ai_snake_provider_preference") or "lmstudio")
+    model = str(game.get("ai_snake_provider_model") or "ananta-smoke")
+    panel_lines.append(f"\x1b[38;2;180;220;255mSteuerung: mode={ai_mode} runtime={runtime_status}\x1b[0m")
+    panel_lines.append(f"\x1b[38;2;120;120;120mProvider: {provider}/{model[:max(6, panel_width - 14)]}\x1b[0m")
+    panel_lines.append("─" * panel_width)
+    panel_lines.append("\x1b[38;2;255;205;130mAI-Snake Verlauf:\x1b[0m")
+    monitor_log = game.get("ai_snake_monitor_log")
+    if isinstance(monitor_log, list) and monitor_log:
+        for item in monitor_log[-3:]:
+            if not isinstance(item, dict):
+                continue
+            created_at = item.get("created_at")
+            ts = "--:--"
+            if isinstance(created_at, (int, float)):
+                ts = time.strftime("%H:%M", time.localtime(float(created_at)))
+            label = str(item.get("label") or item.get("event") or "event")
+            panel_lines.append(f"\x1b[38;2;160;190;230m{ts} {label[:max(4, panel_width - 6)]}\x1b[0m")
+    else:
+        panel_lines.append("\x1b[38;2;120;120;120m--:-- warte auf Heuristik-Events\x1b[0m")
 
     divider_col = split_col
     for i in range(min(height, len(out) - row_start)):
@@ -2142,7 +2144,7 @@ def _overlay_snake_chat_panel(
     active_label = _chat_channel_label(active_ch_id)
     focus_note = " INPUT" if chat_focus else ""
     panel_lines.append(f"\x1b[1;38;2;100;180;255m{focus_marker}ACTIVE: {active_label}{focus_note}\x1b[0m")
-    panel_lines.append("CHAT " + " ".join(channel_labels))
+    panel_lines.append("CHAT User↔Snake " + " ".join(channel_labels))
     panel_lines.append(f"\x1b[38;2;90;90;90mTab=Kanal c=Eingabe PgUp/Dn=Scroll Esc=raus\x1b[0m")
     if ai_typing:
         panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")

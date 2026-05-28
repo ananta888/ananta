@@ -747,6 +747,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _toggle_chat_panel_open(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
         game["chat_panel_open"] = not bool(game.get("chat_panel_open"))
+        self._append_ai_monitor_log(
+            game,
+            event="chat_panel_toggled",
+            label="AI-Chat aktiviert" if bool(game["chat_panel_open"]) else "AI-Chat deaktiviert",
+        )
         if not game["chat_panel_open"]:
             game["artifact_chat_focus"] = False
         self._set_state(

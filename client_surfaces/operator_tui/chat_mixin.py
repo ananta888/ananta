@@ -708,6 +708,31 @@ class ChatMixin:
     def _fire_tutorial_event(self, game: dict[str, object], event: str) -> None:
         self._snake_last_event_fired = event
         self._snake_idle_since = 0.0
+        event_labels = {
+            "tutorial_toggled": "Tutorial-AI umgeschaltet",
+            "snake_paused": "Snake pausiert",
+            "any_key": "Snake fortgesetzt",
+            "food_eaten": "Food aufgenommen",
+            "collision_wall": "Kollision mit Wand",
+            "collision_self": "Selbstkollision",
+            "section_visited": "Bereich besucht",
+            "ask_command_used": "Ask-Command verwendet",
+        }
+        self._append_ai_monitor_log(game, event=event, label=event_labels.get(event, event))
+
+    def _append_ai_monitor_log(self, game: dict[str, object], *, event: str, label: str) -> None:
+        rows_raw = game.get("ai_snake_monitor_log")
+        rows: list[dict[str, object]] = [dict(item) for item in rows_raw if isinstance(item, dict)] if isinstance(rows_raw, list) else []
+        now = time.time()
+        normalized = str(label or event or "").strip()
+        if rows:
+            prev = rows[-1]
+            prev_label = str(prev.get("label") or prev.get("event") or "").strip()
+            prev_ts = prev.get("created_at")
+            if prev_label == normalized and isinstance(prev_ts, (int, float)) and (now - float(prev_ts)) < 1.0:
+                return
+        rows.append({"event": str(event), "label": normalized, "created_at": now})
+        game["ai_snake_monitor_log"] = rows[-40:]
 
     def _process_tutorial_event(self, game: dict[str, object], event: str) -> None:
         if not event:
