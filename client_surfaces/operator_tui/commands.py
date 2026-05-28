@@ -24,7 +24,7 @@ from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, event_for_prediction_feedback
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
-from client_surfaces.operator_tui.ai_snake_config_view import refresh_chat_backend_models
+from client_surfaces.operator_tui.ai_snake_config_view import chat_model_option_label, refresh_chat_backend_models
 from client_surfaces.operator_tui.goal_artifact_filters import (
     filter_goal_artifact_view,
     normalize_goal_artifact_filters,
@@ -3558,7 +3558,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 if not models:
                     msg = "chat models: keine geladen (nutze :chat model use <id> oder setze ANANTA_TUI_CHAT_MODEL)"
                 else:
-                    msg = "chat models: " + ", ".join(models)
+                    msg = "chat models: " + ", ".join(chat_model_option_label(game, model) for model in models)
                 return CommandResult(state.with_updates(header_logo_game=game, status_message=msg), "chat models listed")
             if action == "use":
                 target_model = " ".join(args[2:]).strip() if len(args) > 2 else ""
