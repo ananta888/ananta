@@ -66,6 +66,7 @@ from client_surfaces.operator_tui.mouse import (
 )
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.keybindings_config import key_for_action
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items, apply_ai_snake_config_change
 from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
 from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
@@ -277,6 +278,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_commit_history()
                 self._run_command(self._command_buffer)
+                return
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
+                self._toggle_ai_snake_config_selected()
                 return
             if self.state.focus is FocusPane.HEADER:
                 from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, cycle_value
@@ -530,6 +535,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add(key_for_action("toggle_tutorial_ai", "c-u"))
         def _(event) -> None:
             self._toggle_tutorial_ai_mode()
+
+        @bindings.add(key_for_action("toggle_ai_snake_config", "f6"))
+        def _(event) -> None:
+            self._toggle_ai_snake_config_panel()
 
         @bindings.add(key_for_action("toggle_mouse_follow", "c-o"))
         def _(event) -> None:
@@ -1231,6 +1240,37 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game = dict(self.state.header_logo_game or {})
         game["command_input_cursor"] = max(0, min(len(self._command_buffer), int(self._command_cursor)))
         self._set_state(self.state.with_updates(header_logo_game=game, command_line=self._command_buffer))
+
+    def _toggle_ai_snake_config_panel(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        opened = not bool(game.get("ai_snake_config_open"))
+        game["ai_snake_config_open"] = opened
+        if opened:
+            self._set_state(self.state.with_updates(
+                header_logo_game=game,
+                focus=FocusPane.CONTENT,
+                selected_index=0,
+                status_message="ai config: offen",
+            ))
+            return
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="ai config: geschlossen"))
+
+    def _toggle_ai_snake_config_selected(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        items = ai_snake_config_items(game)
+        if not items:
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="ai config: keine felder"))
+            return
+        idx = max(0, min(len(items) - 1, int(self.state.selected_index)))
+        key = str(items[idx].get("key") or "")
+        status = apply_ai_snake_config_change(game, key=key)
+        # Ensure visual AI-snake stops immediately when disabled from config.
+        if key == "visual_enabled" and not bool(game.get("tutorial_mode")):
+            self._disable_visual_ai_snake_runtime(game)
+            game["ai_snake_config_open"] = True
+            self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
+            return
+        self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
 
     def _handle_quit_key(self, event) -> None:
         event.app.exit()

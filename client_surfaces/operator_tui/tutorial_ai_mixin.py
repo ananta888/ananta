@@ -606,9 +606,12 @@ class TutorialAiMixin:
 
     def _tutorial_ai_tip(self, *, now: float) -> str:
         status = self._tutorial_status_delta_summary()
+        game = self.state.header_logo_game if isinstance(getattr(self.state, "header_logo_game", None), dict) else {}
+        cfg_override = game.get("ai_visual_use_codecompass")
         include_external_context = (
-            str(os.environ.get("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "0")).strip().lower()
-            in {"1", "true", "yes", "on"}
+            bool(cfg_override)
+            if isinstance(cfg_override, bool)
+            else str(os.environ.get("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "0")).strip().lower() in {"1", "true", "yes", "on"}
         )
         hints = self._load_codecompass_hints(now=now) if include_external_context else []
         rag_context = self._load_rag_helper_context(now=now) if include_external_context else []

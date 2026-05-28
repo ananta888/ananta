@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 
 
@@ -98,7 +99,14 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
             )
         )
 
-    items = payload.get("items") if isinstance(payload, dict) else []
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    if bool(game.get("ai_snake_config_open")):
+        items = [
+            {"id": str(item.get("key") or f"cfg-{idx}"), "title": str(item.get("label") or ""), "ai_snake_config_key": str(item.get("key") or ""), "index": idx}
+            for idx, item in enumerate(ai_snake_config_items(dict(game)))
+        ]
+    else:
+        items = payload.get("items") if isinstance(payload, dict) else []
     if isinstance(items, list):
         for idx, item in enumerate(items[:20]):
             if not isinstance(item, dict):
@@ -126,6 +134,7 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                             "id": artifact_id,
                             "path": artifact_path,
                             "title": str(item.get("title") or ""),
+                            "ai_snake_config_key": str(item.get("ai_snake_config_key") or ""),
                         },
                     ),
                 )
