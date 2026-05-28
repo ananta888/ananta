@@ -39,6 +39,18 @@ _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
 class ChatMixin:
     """Mixin providing chat, notes, and ask-question functionality."""
 
+    def _chat_ask_timeout_seconds(self) -> float:
+        raw = str(
+            os.environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT")
+            or os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT")
+            or "20"
+        ).strip()
+        try:
+            value = float(raw)
+        except ValueError:
+            value = 20.0
+        return max(3.0, min(120.0, value))
+
     # ── E03: Chat send ────────────────────────────────────────────────────────
 
     def _chat_send_message(self) -> None:
@@ -114,6 +126,9 @@ class ChatMixin:
             append_message(chat, msg)
             game["tutor_ask_question"] = buf
             game["tutor_ask_at"] = time.monotonic()
+            timeout_s = self._chat_ask_timeout_seconds()
+            game["tutor_ask_timeout_s"] = timeout_s
+            game["tutor_ask_deadline_at"] = float(game["tutor_ask_at"]) + timeout_s
             game["tutor_ask_answered"] = False
             game["_ask_submitted"] = False
             game["active"] = True
@@ -326,6 +341,7 @@ class ChatMixin:
             append_message(chat, ai_msg)
             chat.pop("ai_pending_msg_channel", None)
             set_chat_state(game, chat)
+            game.pop("tutor_ask_deadline_at", None)
         except Exception:
             pass
 
@@ -337,6 +353,24 @@ class ChatMixin:
         if partial:
             game["llm_streaming_partial"] = partial
         if not question or bool(game.get("tutor_ask_answered")):
+            return
+        timeout_s = self._chat_ask_timeout_seconds()
+        if not isinstance(game.get("tutor_ask_timeout_s"), (int, float)):
+            game["tutor_ask_timeout_s"] = timeout_s
+        ask_started_at = float(game.get("tutor_ask_at") or time.monotonic())
+        deadline = float(game.get("tutor_ask_deadline_at") or (ask_started_at + float(game.get("tutor_ask_timeout_s") or timeout_s)))
+        if self._tutor_ask_future is not None and not self._tutor_ask_future.done() and time.monotonic() >= deadline:
+            try:
+                self._tutor_ask_future.cancel()
+            except Exception:
+                pass
+            self._tutor_ask_future = None
+            game.pop("llm_streaming_partial", None)
+            setattr(self, "_llm_streaming_partial", "")
+            game["tutor_ask_answered"] = True
+            game["tutor_ask_answer"] = "⚠ Anfrage-Timeout erreicht (keine Antwort innerhalb der Maximaldauer)."
+            game["_chat_ai_answer_posted"] = False
+            game["_ask_submitted"] = False
             return
         if self._tutor_ask_future is None or self._tutor_ask_future.done():
             if not bool(game.get("_ask_submitted")):
