@@ -125,3 +125,30 @@ def test_visual_runtime_falls_back_when_renderer_fails() -> None:
     status = runtime.status()
     assert status.active_renderer == "ansi_blocks"
     assert any("render failed" in row for row in status.runtime_errors)
+
+
+def test_visual_runtime_returns_diagnostic_frame_when_last_renderer_fails() -> None:
+    views = ViewRegistry()
+    renderers = RendererRegistry()
+    adapters = OutputAdapterRegistry()
+    views.register_factory("logo_animation", lambda: _SimpleView("logo_animation"))
+    renderers.register_factory("ansi_blocks", lambda: _RendererBroken("ansi_blocks"))
+    adapters.register_factory("ansi", lambda: _AdapterOk("ansi"))
+    runtime = VisualRuntime(
+        config=VisualViewportConfig(
+            default_view="logo_animation",
+            default_renderer="ansi_blocks",
+            default_output_adapter="ansi",
+        ),
+        view_registry=views,
+        renderer_registry=renderers,
+        adapter_registry=adapters,
+        capabilities=TerminalVisualCapabilities(ansi=True),
+    )
+
+    frame = runtime.render_frame(region=_region(), now=1.0, state={}, force=True)
+
+    assert frame is not None
+    assert frame.frame_type == "ansi"
+    assert frame.metadata["renderer"] == "plain_diagnostics"
+    assert any("fallback failed" in row for row in runtime.status().runtime_errors)

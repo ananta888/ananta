@@ -80,6 +80,25 @@ class MarkdownMermaidDocumentView:
             scroll_offset=scroll_offset,
             mermaid_fallbacks=mermaid_fallbacks,
         )
+        nodes: list[dict[str, Any]] = [
+            {"kind": "label", "text": line, "x": 0, "y": y}
+            for y, line in enumerate(lines)
+        ]
+        mermaid_ok = len(mermaid_fallbacks) == 0 and self._config.mermaid_mode != "disabled"
+        return RenderScene(
+            scene_type="markdown_mermaid_document",
+            nodes=nodes,
+            metadata={
+                "animated": False,
+                "cache_hint": "state_versioned",
+                "scroll_offset": scroll_offset,
+                "mermaid_fallback_count": len(mermaid_fallbacks),
+                "view_requirements": {
+                    "markdown_ansi": "available",
+                    "mermaid_image": "available" if mermaid_ok else "degraded",
+                },
+            },
+        )
 
     def _streaming_plain_scene(self, context: ViewContext) -> RenderScene:
         text = str(context.state.get("markdown_plain_text") or context.state.get("markdown_text") or "")
@@ -118,26 +137,6 @@ class MarkdownMermaidDocumentView:
                 "view_requirements": {
                     "markdown_ansi": "available",
                     "mermaid_image": "deferred",
-                },
-            },
-        )
-
-        nodes: list[dict[str, Any]] = [
-            {"kind": "label", "text": line, "x": 0, "y": y}
-            for y, line in enumerate(lines)
-        ]
-        mermaid_ok = len(mermaid_fallbacks) == 0 and self._config.mermaid_mode != "disabled"
-        return RenderScene(
-            scene_type="markdown_mermaid_document",
-            nodes=nodes,
-            metadata={
-                "animated": False,
-                "cache_hint": "state_versioned",
-                "scroll_offset": scroll_offset,
-                "mermaid_fallback_count": len(mermaid_fallbacks),
-                "view_requirements": {
-                    "markdown_ansi": "available",
-                    "mermaid_image": "available" if mermaid_ok else "degraded",
                 },
             },
         )
