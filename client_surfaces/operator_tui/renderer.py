@@ -1631,8 +1631,13 @@ def _chat_channel_label(channel_id: str) -> str:
 
 
 def _command_line(state: OperatorState, width: int) -> str:
-    prefix = ":" if state.mode.value == "command" else " "
-    return _clip(f"{prefix}{state.command_line}", width)
+    if state.mode.value != "command":
+        return _clip(f" {state.command_line}", width)
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    buf = str(state.command_line or "")
+    cursor = int(game.get("command_input_cursor") or len(buf))
+    visible = _inline_input_with_cursor(buf, cursor, max(1, width - 1))
+    return _clip(f":{visible}", width)
 
 
 def _hints_line(state: OperatorState, width: int) -> str:

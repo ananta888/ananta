@@ -1722,6 +1722,51 @@ def test_command_backspace_updates_command_line() -> None:
     assert tui._command_buffer == "abc"
 
 
+def test_command_input_supports_cursor_delete_and_history() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", mode=OperatorMode.COMMAND, command_line="")
+    tui = InteractiveOperatorTui(state)
+    tui._command_buffer = "abcde"
+    tui._command_cursor = 5
+    tui._sync_command_line_state()
+
+    tui._command_move_cursor(-2)
+    tui._command_backspace()
+    tui._command_delete()
+
+    assert tui.state.command_line == "abe"
+    game = tui.state.header_logo_game if isinstance(tui.state.header_logo_game, dict) else {}
+    assert int(game.get("command_input_cursor") or 0) == 2
+
+    tui._command_buffer = "draft"
+    tui._command_cursor = 5
+    tui._command_history = ["eins", "zwei"]
+    tui._command_history_index = None
+    tui._command_saved_draft = ""
+    tui._sync_command_line_state()
+
+    tui._command_history_move(-1)
+    assert tui.state.command_line == "zwei"
+    tui._command_history_move(-1)
+    assert tui.state.command_line == "eins"
+    tui._command_history_move(1)
+    assert tui.state.command_line == "zwei"
+    tui._command_history_move(1)
+    assert tui.state.command_line == "draft"
+
+
+def test_command_line_renders_cursor_marker() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        mode=OperatorMode.COMMAND,
+        command_line="abcd",
+        header_logo_game={"command_input_cursor": 2},
+    )
+
+    output = render_operator_shell(state, width=96, height=20)
+
+    assert ":ab_cd" in output
+
+
 def test_handle_quit_key_exits_in_command_mode() -> None:
     class _FakeApp:
         def __init__(self) -> None:
@@ -1939,7 +1984,7 @@ def test_ai_chat_send_does_not_pause_snake() -> None:
     assert updated.get("tutorial_mode") is False
 
 
-def test_command_from_chat_restores_chat_focus_after_run() -> None:
+def test_command_from_chat_does_not_force_chat_focus_after_run() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
     tui = InteractiveOperatorTui(state)
@@ -1951,7 +1996,6 @@ def test_command_from_chat_restores_chat_focus_after_run() -> None:
     chat = get_chat_state(game2)
     chat["chat_focus"] = False
     set_chat_state(game2, chat)
-    game2["command_return_chat_focus"] = True
     tui.state = tui.state.with_updates(header_logo_game=game2, mode=OperatorMode.COMMAND, command_line="/cancel")
     tui._command_buffer = "/cancel"
 
@@ -1959,8 +2003,7 @@ def test_command_from_chat_restores_chat_focus_after_run() -> None:
 
     updated = tui.state.header_logo_game or {}
     chat_after = get_chat_state(updated)
-    assert chat_after.get("chat_focus") is True
-    assert updated.get("command_return_chat_focus") is None
+    assert chat_after.get("chat_focus") is False
     assert tui.state.mode is OperatorMode.NORMAL
 
 
