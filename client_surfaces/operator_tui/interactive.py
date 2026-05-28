@@ -284,45 +284,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("enter")
         def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                if self._ai_snake_config_combo_active(game):
-                    self._ai_snake_config_combo_commit()
-                else:
-                    self._toggle_ai_snake_config_selected()
-                return
-            if self._snake_message_mode_active():
-                self._snake_commit_message()
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_send_message()
-                return
-            if self._chat_focus_active():
-                self._chat_send_message()
-                return
-            if self._snake_mode_active():
-                # T04.04: Enter advances guided tour immediately
-                game = self.state.header_logo_game or {}
-                ts_raw = game.get("tutorial_state")
-                if isinstance(ts_raw, dict) and ts_raw.get("guided"):
-                    self._advance_guided_tour_now()
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_commit_history()
-                self._run_command(self._command_buffer)
-                return
-            if self.state.focus is FocusPane.HEADER:
-                from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, cycle_value
-                if 0 <= self.state.selected_index < len(CONFIG_ITEMS):
-                    self._set_state(cycle_value(self.state, CONFIG_ITEMS[self.state.selected_index]))
-                return
-            if self.state.focus is FocusPane.NAVIGATION:
-                if 0 <= self.state.selected_index < len(SECTIONS):
-                    section = SECTIONS[self.state.selected_index]
-                    self._run_command(f":section {section.id}")
-                    self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, selected_index=0))
-                return
-            self._run_command(":inspect")
+            self._handle_enter_key()
 
         @bindings.add("escape")
         def _(event) -> None:
@@ -1237,6 +1199,51 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if self._snake_mode_active():
             return
         normal_action()
+
+    def _handle_enter_key(self) -> None:
+        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        if bool(game.get("ai_snake_config_open")):
+            if self.state.focus is not FocusPane.CONTENT:
+                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))
+                game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._ai_snake_config_combo_active(game):
+                self._ai_snake_config_combo_commit()
+            else:
+                self._toggle_ai_snake_config_selected()
+            return
+        if self._snake_message_mode_active():
+            self._snake_commit_message()
+            return
+        if self._artifact_chat_focus_active():
+            self._artifact_chat_send_message()
+            return
+        if self._chat_focus_active():
+            self._chat_send_message()
+            return
+        if self._snake_mode_active():
+            # T04.04: Enter advances guided tour immediately
+            game = self.state.header_logo_game or {}
+            ts_raw = game.get("tutorial_state")
+            if isinstance(ts_raw, dict) and ts_raw.get("guided"):
+                self._advance_guided_tour_now()
+            return
+        if self.state.mode is OperatorMode.COMMAND:
+            self._command_commit_history()
+            self._run_command(self._command_buffer)
+            return
+        if self.state.focus is FocusPane.HEADER:
+            from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, cycle_value
+
+            if 0 <= self.state.selected_index < len(CONFIG_ITEMS):
+                self._set_state(cycle_value(self.state, CONFIG_ITEMS[self.state.selected_index]))
+            return
+        if self.state.focus is FocusPane.NAVIGATION:
+            if 0 <= self.state.selected_index < len(SECTIONS):
+                section = SECTIONS[self.state.selected_index]
+                self._run_command(f":section {section.id}")
+                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, selected_index=0))
+            return
+        self._run_command(":inspect")
 
     def _cancel_active_input_mode(self) -> bool:
         game = dict(self.state.header_logo_game or self._default_header_snake())
