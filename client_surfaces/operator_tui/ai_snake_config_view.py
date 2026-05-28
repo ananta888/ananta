@@ -28,6 +28,17 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_max_tokens",
     "chat_rag_top_k",
     "chat_answer_chars",
+    # Memory settings (CMW-012)
+    "chat_use_history",
+    "chat_history_turns",
+    "chat_history_chars",
+    "chat_use_summary",
+    "chat_summary_chars",
+    "chat_summary_update_every_turns",
+    "chat_pass_memory_to_worker",
+    "chat_worker_mode",
+    "chat_backend_fallback",
+    "chat_include_runtime_status",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -295,6 +306,64 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "value": str(chat_answer_chars),
             "options": ["600", "1200", "2400", "4000", "6000", "8000", "12000"],
         },
+        # ── Chat Context/Memory (CMW-012) ─────────────────────────────────────
+        {"key": "chat_use_history", "label": "Chat Verlauf nutzen", "type": "bool",
+         "value": _resolve_bool_pref(game, "chat_use_history", "", True), "group": "Chat Memory"},
+        {
+            "key": "chat_history_turns",
+            "label": "Chat History Turns",
+            "type": "choice",
+            "value": str(max(1, min(30, int(game.get("chat_history_turns") or 6)))),
+            "options": ["3", "6", "10", "15", "20", "30"],
+            "group": "Chat Memory",
+        },
+        {
+            "key": "chat_history_chars",
+            "label": "Chat History Chars",
+            "type": "choice",
+            "value": str(max(100, min(10000, int(game.get("chat_history_chars") or 1800)))),
+            "options": ["600", "1200", "1800", "3000", "5000"],
+            "group": "Chat Memory",
+        },
+        {"key": "chat_use_summary", "label": "Chat Zusammenfassung", "type": "bool",
+         "value": _resolve_bool_pref(game, "chat_use_summary", "", True), "group": "Chat Memory"},
+        {
+            "key": "chat_summary_chars",
+            "label": "Chat Summary Chars",
+            "type": "choice",
+            "value": str(max(100, min(5000, int(game.get("chat_summary_chars") or 1500)))),
+            "options": ["500", "1000", "1500", "2500", "4000"],
+            "group": "Chat Memory",
+        },
+        {
+            "key": "chat_summary_update_every_turns",
+            "label": "Summary Update (Turns)",
+            "type": "choice",
+            "value": str(max(1, min(20, int(game.get("chat_summary_update_every_turns") or 3)))),
+            "options": ["1", "2", "3", "5", "10"],
+            "group": "Chat Memory",
+        },
+        # ── Worker/Backend (CMW-010) ──────────────────────────────────────────
+        {"key": "chat_pass_memory_to_worker", "label": "Memory an Worker", "type": "bool",
+         "value": _resolve_bool_pref(game, "chat_pass_memory_to_worker", "", True), "group": "Chat Backend"},
+        {
+            "key": "chat_worker_mode",
+            "label": "Worker Modus",
+            "type": "choice",
+            "value": str(game.get("chat_worker_mode") or "snake_ask"),
+            "options": ["snake_ask", "propose", "auto"],
+            "group": "Chat Backend",
+        },
+        {
+            "key": "chat_backend_fallback",
+            "label": "Chat Fallback",
+            "type": "choice",
+            "value": str(game.get("chat_backend_fallback") or "lmstudio"),
+            "options": ["none", "lmstudio", "local_knowledge"],
+            "group": "Chat Backend",
+        },
+        {"key": "chat_include_runtime_status", "label": "TUI-Status in Prompt", "type": "bool",
+         "value": _resolve_bool_pref(game, "chat_include_runtime_status", "", False), "group": "Chat Memory"},
     ]
 
 
@@ -493,7 +562,13 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             game["chat_include_local_project"] = parsed
         elif key == "chat_include_wikipedia":
             game["chat_include_wikipedia"] = parsed
-        if key in {"visual_enabled", "chat_panel_open", "visual_codecompass", "chat_use_codecompass", "chat_include_local_project", "chat_include_wikipedia"}:
+        elif key in {"chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status"}:
+            game[key] = parsed
+        if key in {
+            "visual_enabled", "chat_panel_open", "visual_codecompass", "chat_use_codecompass",
+            "chat_include_local_project", "chat_include_wikipedia",
+            "chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status",
+        }:
             _persist_tui_chat_settings(game)
         return f"ai config: {label} {'AN' if parsed else 'AUS'}"
 
@@ -577,6 +652,57 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         game["chat_answer_chars"] = value_int
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"
+
+    if key == "chat_history_turns":
+        try:
+            value_int = max(1, min(30, int(raw_value)))
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        game[key] = value_int
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {value_int}"
+
+    if key == "chat_history_chars":
+        try:
+            value_int = max(100, min(10000, int(raw_value)))
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        game[key] = value_int
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {value_int}"
+
+    if key == "chat_summary_chars":
+        try:
+            value_int = max(100, min(5000, int(raw_value)))
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        game[key] = value_int
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {value_int}"
+
+    if key == "chat_summary_update_every_turns":
+        try:
+            value_int = max(1, min(20, int(raw_value)))
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        game[key] = value_int
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {value_int}"
+
+    if key == "chat_worker_mode":
+        if raw_value not in {"snake_ask", "propose", "auto"}:
+            return f"ai config: {label} erwartet snake_ask/propose/auto"
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value}"
+
+    if key == "chat_backend_fallback":
+        if raw_value not in {"none", "lmstudio", "local_knowledge"}:
+            return f"ai config: {label} erwartet none/lmstudio/local_knowledge"
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value}"
+
     return "ai config: keine änderung"
 
 

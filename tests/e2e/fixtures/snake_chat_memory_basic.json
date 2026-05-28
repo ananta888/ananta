@@ -1,0 +1,37 @@
+{
+  "version": "snake_chat_e2e_fixture.v1",
+  "description": "Chat memory E2E: second question can see previous context via recent_turns.",
+  "mode": "autonomous_e2e",
+  "memory_settings": {
+    "chat_use_history": true,
+    "chat_history_turns": 6,
+    "chat_history_chars": 1800,
+    "chat_use_summary": true,
+    "chat_summary_chars": 1500,
+    "chat_pass_memory_to_worker": true
+  },
+  "mock_turns": [
+    {"role": "user", "content": "Das Projekt heißt Marvin."},
+    {"role": "assistant", "content": "Verstanden. Das Projekt Marvin ist registriert."}
+  ],
+  "steps": [
+    {
+      "id": "s1_view_list",
+      "command": "/view list",
+      "expected_marker": {"status": "ok", "action_id": "view.list"},
+      "timeout_ms": 300
+    },
+    {
+      "id": "s2_focus_chat",
+      "command": "/focus chat",
+      "expected_marker": {"status": "ok", "action_id": "focus.chat"},
+      "timeout_ms": 200
+    },
+    {
+      "id": "s3_history_used",
+      "description": "Verify that recent_turns contain the mock fact 'Marvin'",
+      "assert_memory_contains": "Marvin",
+      "assert_memory_field": "recent_turns"
+    }
+  ]
+}

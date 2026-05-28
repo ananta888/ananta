@@ -49,6 +49,28 @@ class RendererDiagnosticsView:
             },
             {"kind": "label", "text": f"fallback={fallback}", "x": 0, "y": 6},
         ]
+
+        # CMW-014: chat memory/prompt debug when enabled
+        mem_status = context.state.get("last_chat_memory_status")
+        chat_debug = bool(context.state.get("chat_memory_debug"))
+        if chat_debug and isinstance(mem_status, dict):
+            y = 8
+            nodes.append({"kind": "label", "text": "── chat memory ──", "x": 0, "y": y}); y += 1
+            nodes.append({"kind": "label", "text": f"history={mem_status.get('history_used')}", "x": 0, "y": y}); y += 1
+            nodes.append({"kind": "label", "text": f"summary={mem_status.get('summary_used')}", "x": 0, "y": y}); y += 1
+            nodes.append({"kind": "label", "text": f"codecompass={mem_status.get('codecompass_used')}", "x": 0, "y": y}); y += 1
+            nodes.append({"kind": "label", "text": f"rag_count={mem_status.get('rag_count', 0)}", "x": 0, "y": y}); y += 1
+            backend = str(context.state.get("last_chat_backend_path") or "-")
+            latency = str(context.state.get("last_chat_latency_ms") or "-")
+            nodes.append({"kind": "label", "text": f"backend={backend} ({latency}ms)", "x": 0, "y": y}); y += 1
+            fb_reason = str(context.state.get("last_chat_fallback_reason") or "")
+            if fb_reason:
+                nodes.append({"kind": "label", "text": f"fallback_reason={fb_reason[:40]}", "x": 0, "y": y})
+        elif isinstance(mem_status, dict):
+            backend = str(context.state.get("last_chat_backend_path") or "-")
+            latency = str(context.state.get("last_chat_latency_ms") or "-")
+            nodes.append({"kind": "label", "text": f"chat_backend={backend} {latency}ms", "x": 0, "y": 8})
+
         return RenderScene(
             scene_type="renderer_diagnostics",
             nodes=nodes,
