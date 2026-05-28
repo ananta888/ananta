@@ -529,17 +529,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("toggle_tutorial_ai", "c-u"))
         def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("u")
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_append("u")
-                return
-            if not self._snake_mode_active():
-                return
-            if self._chat_focus_active():
-                self._chat_append("u")
-                return
             self._toggle_tutorial_ai_mode()
 
         @bindings.add(key_for_action("toggle_mouse_follow", "c-o"))
