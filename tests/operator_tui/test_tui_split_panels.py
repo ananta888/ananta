@@ -24,7 +24,7 @@ def test_split_panel_width_is_wider_than_legacy_default() -> None:
     assert _snake_right_panel_width(120) >= 40
 
 
-def test_fullscreen_overlay_allows_snake_in_right_panel_area() -> None:
+def test_fullscreen_overlay_keeps_snake_out_of_right_detail_area() -> None:
     lines = [" " * 120 for _ in range(24)]
     game = {
         "active": True,
@@ -38,7 +38,8 @@ def test_fullscreen_overlay_allows_snake_in_right_panel_area() -> None:
     state = OperatorState(endpoint="http://localhost", header_logo_game=game)
     out = _overlay_fullscreen_snake(lines, state, width=120, body_start=0, body_end=24)
     row = _strip_ansi(out[10])
-    assert row[118] in {"●", "◉", "·"}
+    assert row[118] == " "
+    assert row[32] in {"●", "◉", "·"}
 
 
 def test_chat_panel_renders_timestamps_and_ai_snake_sender() -> None:
@@ -78,7 +79,7 @@ def test_chat_panel_renders_timestamps_and_ai_snake_sender() -> None:
     assert "AI-Snake" in rendered
 
 
-def test_split_panel_is_dedicated_right_column_without_base_overlay_bleed() -> None:
+def test_split_panel_no_longer_blanks_right_column_in_snake_overlay() -> None:
     width = 120
     lines = ["X" * width for _ in range(24)]
     game = {
@@ -99,10 +100,8 @@ def test_split_panel_is_dedicated_right_column_without_base_overlay_bleed() -> N
     }
     state = OperatorState(endpoint="http://localhost", header_logo_game=game)
     out = _overlay_fullscreen_snake(lines, state, width=width, body_start=0, body_end=24)
-    split_col = width - _snake_right_panel_width(width) - 2
     for row in out:
-        assert _visible_char_at(row, split_col + 6) != "X"
-        assert _visible_char_at(row, width - 2) != "X"
+        assert _visible_char_at(row, width - 2) == "X"
 
 
 def test_ai_panel_shows_toggle_configuration_and_keys() -> None:

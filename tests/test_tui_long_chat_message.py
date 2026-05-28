@@ -82,4 +82,4 @@ def test_chat_renderer_shows_hint_after_100_chars() -> None:
     rendered = _ANSI_RE.sub("", render_operator_shell(state, width=120, height=32))
 
     assert "Ctrl+Space" in rendered
-    assert "mittleren" in rendered
+    assert "fortgesetzt" in rendered
