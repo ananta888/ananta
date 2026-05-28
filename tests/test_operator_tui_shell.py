@@ -2111,6 +2111,35 @@ def test_copy_ai_status_snapshot_writes_clipboard(monkeypatch) -> None:
     assert "events:" in copied
 
 
+def test_prediction_comments_are_routed_to_ai_monitor_not_chat() -> None:
+    from client_surfaces.operator_tui.chat_state import default_chat_state
+
+    game = {
+        "chat_state": default_chat_state("s1"),
+        "ai_snake_monitor_log": [],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    prediction = {"predicted_intent": "artifact_explain", "target_ref": "DETAIL", "confidence": 0.78}
+
+    changed = tui._route_prediction_comment_to_monitor(
+        game,
+        prediction=prediction,
+        now=100.0,
+        quiet=False,
+        forced=False,
+        cooldown_seconds=20,
+    )
+
+    assert changed is True
+    chat = game.get("chat_state") or {}
+    ai_msgs = (((chat.get("channels") or {}).get("ai:tutor") or {}).get("messages") or [])
+    assert ai_msgs == []
+    monitor = game.get("ai_snake_monitor_log") or []
+    assert monitor
+    assert "Ich glaube, du willst zu DETAIL" in str(monitor[-1].get("label") or "")
+
+
 def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
     from client_surfaces.operator_tui.chat_state import default_chat_state, make_message, append_message
 
