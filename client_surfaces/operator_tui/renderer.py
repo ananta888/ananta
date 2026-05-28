@@ -72,8 +72,7 @@ def render_operator_shell(
     nav_lines = _navigation_lines(state)
     content_lines = _content_lines(state, middle_width)
     detail_lines = _detail_lines(state, detail_width)
-    propose_dock_lines = _tutorial_propose_dock_lines(state, width)
-    body_height = height - 5 - body_offset - len(propose_dock_lines)
+    body_height = height - 5 - body_offset
     body_height = max(3, body_height)
     for index in range(body_height):
         lines.append(
@@ -88,7 +87,6 @@ def render_operator_shell(
             )
         )
 
-    lines.extend(propose_dock_lines)
     lines.append(_rule(width))
     lines.append(_status_line(state, width, splash_state=splash_state))
     lines.append(_command_line(state, width))
@@ -740,6 +738,7 @@ def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
     lines.append("  Tab focus/channel")
     lines.append("  Ctrl+G chat panel")
     lines.append("  Ctrl+E/c chat input")
+    lines.append("  Ctrl+K Terminal als AI-Kontext")
     lines.append("  Ctrl+S snake mode")
     if bool(game.get("free_mode")) or bool(game.get("ui_steering")):
         lines.append("")
@@ -811,14 +810,15 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
         sender_kind = str(msg.get("sender_kind") or "user")
         sender = str(msg.get("sender_id") or "?")
         text = sanitize_text(str(msg.get("text") or ""))
+        line_col = _participant_color(game, sender_id=sender, sender_kind=sender_kind)
         if sender_kind == "system":
             prefix = "* "
         elif sender_kind == "ai":
-            prefix = "AI: "
+            prefix = _participant_label(game, sender, fallback="AI") + ": "
         else:
-            prefix = "Du: " if active_ch_id == "ai:tutor" else f"{sender[:8]}: "
+            prefix = _participant_label(game, sender, fallback="Du" if active_ch_id == "ai:tutor" else sender[:8]) + ": "
         for row in _wrap_plain(prefix + text, max(8, width - 2)):
-            lines.append("  " + row)
+            lines.append("  " + _ansi_color(row, line_col))
 
     lines.append("  " + "-" * max(8, width - 4))
     if chat_focus:
@@ -832,6 +832,38 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
     else:
         lines.append("  Ctrl+E/c Eingabe  Tab Kanal")
     return [_clip(line, width) for line in lines]
+
+
+def _participant_color(game: dict[str, object], *, sender_id: str, sender_kind: str) -> tuple[int, int, int]:
+    if sender_kind == "system":
+        return (120, 120, 120)
+    if sender_kind == "ai" or sender_id == "s-ai":
+        return _snake_palette("amber")["head"]
+    snakes = game.get("snakes") if isinstance(game.get("snakes"), dict) else {}
+    snap = snakes.get(sender_id) if isinstance(snakes, dict) else None
+    if isinstance(snap, dict):
+        return _snake_palette(str(snap.get("snake_color") or "mint"))["head"]
+    local_id = str(game.get("local_snake_id") or "s1")
+    if sender_id == local_id:
+        return _snake_palette(str(game.get("snake_color") or "mint"))["head"]
+    return _snake_palette("cyan")["head"]
+
+
+def _participant_label(game: dict[str, object], sender_id: str, *, fallback: str) -> str:
+    if sender_id == "s-ai":
+        return "AI-snake"
+    snakes = game.get("snakes") if isinstance(game.get("snakes"), dict) else {}
+    snap = snakes.get(sender_id) if isinstance(snakes, dict) else None
+    if isinstance(snap, dict):
+        return str(snap.get("pseudonym") or fallback)
+    local_id = str(game.get("local_snake_id") or "s1")
+    if sender_id == local_id:
+        return str(game.get("pseudonym") or fallback)
+    return fallback
+
+
+def _ansi_color(text: str, color: tuple[int, int, int]) -> str:
+    return f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{text}\x1b[0m"
 
 
 def _plain_channel_selector(active_ch_id: str) -> str:
@@ -884,6 +916,17 @@ def _runtime_detail_lines(state: OperatorState, width: int) -> list[str]:
     if isinstance(target, dict):
         label = str(target.get("label") or target.get("path") or target.get("id") or "artifact")
         lines.append(f"    Active: {label[:max(8, width - 12)]}")
+    history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
+    if history:
+        lines.append("    AI Flow:")
+        for entry in history[-2:]:
+            if not isinstance(entry, dict):
+                continue
+            source = str(entry.get("source") or "unknown")
+            target_name = str(entry.get("target") or "content")
+            text = str(entry.get("text") or "").strip()
+            label = f"{source}->{target_name}: {text}" if text else f"{source}->{target_name}"
+            lines.append(f"      {label[:max(8, width - 8)]}")
     if len(lines) == 2:
         return []
     return lines
@@ -2017,7 +2060,6 @@ def _overlay_snake_chat_panel(
 
     # Build rendered message lines (with word-wrap)
     rendered: list[str] = []
-    snakes_raw = game.get("snakes") or {}
     for msg in msgs:
         if not isinstance(msg, dict):
             continue
@@ -2027,21 +2069,14 @@ def _overlay_snake_chat_panel(
         delivery = str(msg.get("delivery_state") or "")
 
         # Color by sender kind
+        line_col = _participant_color(game, sender_id=sender, sender_kind=sender_kind)
         if sender_kind == "system":
-            line_col = (100, 100, 100)
             prefix = "* "
         elif sender_kind == "ai":
-            line_col = (255, 205, 130)
-            prefix = f"[ai] "
+            prefix = f"[{_participant_label(game, sender, fallback='AI')}] "
         else:
-            # Try to match snake color
-            snap = snakes_raw.get(sender) if isinstance(snakes_raw, dict) else None
-            color_name = str(snap.get("snake_color") or "mint") if isinstance(snap, dict) else "mint"
-            pal = _snake_palette(color_name)
-            line_col = pal["head"]
-            short_sender = sender[:8]
             state_mark = "" if delivery in {"sent", "received", ""} else f"[{delivery}]"
-            prefix = f"{short_sender}{state_mark}: "
+            prefix = f"{_participant_label(game, sender, fallback=sender[:8])}{state_mark}: "
 
         col_str = f"\x1b[38;2;{line_col[0]};{line_col[1]};{line_col[2]}m"
         # First line has prefix; continuation lines indent

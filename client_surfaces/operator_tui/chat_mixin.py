@@ -380,6 +380,10 @@ class ChatMixin:
             label = str(active.get("label") or "")
             path_str = str(active.get("path") or "").strip()
             kind = str(active.get("kind") or "")
+            if kind == "terminal_snapshot":
+                content = str(game.get("ai_terminal_context") or "").strip()
+                if content:
+                    return f"Terminal-Kontext ({label or 'aktuelle Ansicht'}):\n{content[:4000]}"
             if kind == "goal":
                 goal_id = str(active.get("id") or active.get("goal_id") or "").strip()
                 goal = self._lookup_active_goal_payload(goal_id=goal_id, label=label)
