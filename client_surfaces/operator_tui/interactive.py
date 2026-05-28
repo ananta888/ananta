@@ -154,7 +154,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._tutor_depth_mode = get_tutor_mode()
         except Exception:
             pass
-        self._command_buffer = ""
+        self._command_buffer = str(self.state.command_line or "") if self.state.mode is OperatorMode.COMMAND else ""
+        self._command_cursor = len(self._command_buffer)
+        self._command_history: list[str] = []
+        self._command_history_index: int | None = None
+        self._command_saved_draft = ""
         # E03: Chat transport (initialized lazily when snake registers with Hub)
         self._chat_transport: Any = None
         # Heuristic selection state
@@ -231,8 +235,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command(":")
                 return
-            self._command_buffer = ""
-            self._set_state(self.state.with_updates(mode=OperatorMode.COMMAND, command_line=""))
+            self._open_command_mode()
 
         @bindings.add("/")
         def _(event) -> None:
@@ -241,15 +244,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._chat_focus_active():
                 self._chat_focus_leave()
-                game = dict(self.state.header_logo_game or {})
-                game["command_return_chat_focus"] = True
-                self._command_buffer = "/"
-                self._set_state(self.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line="/"))
+                self._open_command_mode()
                 return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_focus_leave(clear=False)
-                self._command_buffer = ""
-                self._set_state(self.state.with_updates(mode=OperatorMode.COMMAND, command_line=""))
+                self._open_command_mode()
                 return
             if self._snake_mode_active():
                 return
@@ -276,6 +275,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                     self._advance_guided_tour_now()
                 return
             if self.state.mode is OperatorMode.COMMAND:
+                self._command_commit_history()
                 self._run_command(self._command_buffer)
                 return
             if self.state.focus is FocusPane.HEADER:
@@ -304,12 +304,15 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._snake_mode_active():
                 return
-            self._command_buffer = ""
+            self._command_reset()
             self._run_command(":cancel")
 
         @bindings.add("backspace")
         @bindings.add("c-h")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_backspace()
+                return
             if self._snake_message_mode_active():
                 self._snake_message_backspace()
                 return
@@ -321,11 +324,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._snake_mode_active():
                 return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_backspace()
 
         @bindings.add("delete")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_delete()
+                return
             if self._snake_message_mode_active():
                 return
             if self._artifact_chat_focus_active():
@@ -334,7 +338,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._chat_focus_active():
                 self._chat_delete()
                 return
-            if self._snake_mode_active() or self.state.mode is OperatorMode.COMMAND:
+            if self._snake_mode_active():
                 return
 
         @bindings.add(key_for_action("selection_down", "c-j"))
@@ -555,6 +559,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("left")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_move_cursor(-1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_move_cursor(-1)
                 return
@@ -567,6 +574,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("right")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_move_cursor(1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_move_cursor(1)
                 return
@@ -579,6 +589,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("up")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_history_move(-1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_history_move(-1)
                 return
@@ -591,6 +604,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("down")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_history_move(1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_history_move(1)
                 return
@@ -607,6 +623,14 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("<any>")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                data = event.key_sequence[0].data
+                if data in {"\b", "\x7f"}:
+                    self._command_backspace()
+                    return
+                if data and data.isprintable():
+                    self._append_command(data)
+                return
             if self._snake_message_mode_active():
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
@@ -622,13 +646,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 if data and data.isprintable():
                     self._chat_append(data)
                 return
-            if self.state.mode is OperatorMode.COMMAND:
-                data = event.key_sequence[0].data
-                if data in {"\b", "\x7f"}:
-                    self._command_backspace()
-                    return
-                if data and data.isprintable():
-                    self._append_command(data)
 
         @bindings.add("pageup")
         def _(event) -> None:
@@ -1141,12 +1158,90 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         normal_action()
 
     def _append_command(self, text: str) -> None:
-        self._command_buffer += text
-        self._set_state(self.state.with_updates(command_line=self._command_buffer))
+        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
+        self._command_buffer = self._command_buffer[:cursor] + text + self._command_buffer[cursor:]
+        self._command_cursor = min(len(self._command_buffer), cursor + len(text))
+        self._command_history_index = None
+        self._sync_command_line_state()
 
     def _command_backspace(self) -> None:
-        self._command_buffer = self._command_buffer[:-1]
-        self._set_state(self.state.with_updates(command_line=self._command_buffer))
+        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
+        if cursor <= 0:
+            self._sync_command_line_state()
+            return
+        self._command_buffer = self._command_buffer[:cursor - 1] + self._command_buffer[cursor:]
+        self._command_cursor = max(0, cursor - 1)
+        self._command_history_index = None
+        self._sync_command_line_state()
+
+    def _command_delete(self) -> None:
+        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
+        if cursor >= len(self._command_buffer):
+            self._sync_command_line_state()
+            return
+        self._command_buffer = self._command_buffer[:cursor] + self._command_buffer[cursor + 1:]
+        self._command_history_index = None
+        self._sync_command_line_state()
+
+    def _command_move_cursor(self, delta: int) -> None:
+        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
+        self._command_cursor = max(0, min(len(self._command_buffer), cursor + int(delta)))
+        self._sync_command_line_state()
+
+    def _command_history_move(self, delta: int) -> None:
+        history = [str(item) for item in self._command_history if str(item).strip()]
+        if not history:
+            return
+        idx_raw = self._command_history_index
+        if idx_raw is None:
+            self._command_saved_draft = self._command_buffer
+            idx = len(history)
+        else:
+            idx = max(0, min(len(history), int(idx_raw)))
+        next_idx = idx + int(delta)
+        if next_idx < 0:
+            next_idx = 0
+        if next_idx >= len(history):
+            self._command_history_index = None
+            self._command_buffer = self._command_saved_draft
+            self._command_cursor = len(self._command_buffer)
+            self._sync_command_line_state()
+            return
+        self._command_history_index = next_idx
+        self._command_buffer = history[next_idx]
+        self._command_cursor = len(self._command_buffer)
+        self._sync_command_line_state()
+
+    def _command_commit_history(self) -> None:
+        text = str(self._command_buffer).strip()
+        if not text:
+            return
+        if not self._command_history or self._command_history[-1] != text:
+            self._command_history.append(text)
+        self._command_history = self._command_history[-80:]
+        self._command_history_index = None
+        self._command_saved_draft = ""
+
+    def _command_reset(self) -> None:
+        self._command_buffer = ""
+        self._command_cursor = 0
+        self._command_history_index = None
+        self._command_saved_draft = ""
+        self._sync_command_line_state()
+
+    def _open_command_mode(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        self._command_buffer = ""
+        self._command_cursor = 0
+        self._command_history_index = None
+        self._command_saved_draft = ""
+        game["command_input_cursor"] = self._command_cursor
+        self._set_state(self.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line=self._command_buffer))
+
+    def _sync_command_line_state(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        game["command_input_cursor"] = max(0, min(len(self._command_buffer), int(self._command_cursor)))
+        self._set_state(self.state.with_updates(header_logo_game=game, command_line=self._command_buffer))
 
     def _handle_quit_key(self, event) -> None:
         event.app.exit()

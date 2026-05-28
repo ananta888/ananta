@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, cast
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, IntentConfidence
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.mouse import (
     MouseEventType as NormalizedMouseEventType,
@@ -436,24 +435,20 @@ class MouseArtifactMixin:
         self._set_state(next_state)
 
     def _run_command(self, command: str) -> None:
-        prior_game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-        return_to_chat_focus = bool(prior_game.get("command_return_chat_focus"))
         result = execute_command(command, self.state)
         state = result.state.with_updates(status_message=str(result.state.status_message or result.message))
         if state.section_id != self.state.section_id or command.strip().lower() in {":refresh", "refresh", "r", ":next", ":prev"}:
             state = load_active_section(state, self._registry)
-        if return_to_chat_focus and state.mode is not OperatorMode.COMMAND:
-            game = dict(state.header_logo_game or {})
-            game.pop("command_return_chat_focus", None)
-            chat = get_chat_state(game)
-            chat["chat_focus"] = True
-            chat["chat_input_cursor"] = len(str(chat.get("chat_input_buffer") or ""))
-            chat["chat_input_history_index"] = None
-            game["chat_panel_open"] = True
-            set_chat_state(game, chat)
-            state = state.with_updates(header_logo_game=game)
         self._command_buffer = ""
-        self._set_state(state.with_updates(command_line=""))
+        if hasattr(self, "_command_cursor"):
+            self._command_cursor = 0
+        if hasattr(self, "_command_history_index"):
+            self._command_history_index = None
+        if hasattr(self, "_command_saved_draft"):
+            self._command_saved_draft = ""
+        game = dict(state.header_logo_game or {})
+        game["command_input_cursor"] = 0
+        self._set_state(state.with_updates(header_logo_game=game, command_line=""))
 
     def _clamp_down(self) -> int:
         cur = self.state.selected_index
