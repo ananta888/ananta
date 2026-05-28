@@ -11,6 +11,7 @@ from pathlib import Path
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import build_initial_state, load_active_section
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items, apply_ai_snake_config_value
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
@@ -2542,6 +2543,29 @@ def test_enter_handles_config_even_when_focus_is_not_content() -> None:
     combo = dict(updated.get("ai_snake_config_combo") or {})
     assert tui.state.focus is FocusPane.CONTENT
     assert bool(combo.get("open")) is True
+
+
+def test_ai_snake_config_includes_chat_ask_timeout_field() -> None:
+    items = ai_snake_config_items({})
+    keys = [str(item.get("key") or "") for item in items]
+    assert "chat_ask_timeout_s" in keys
+
+
+def test_ai_snake_config_applies_chat_ask_timeout_value() -> None:
+    game: dict[str, object] = {}
+    status = apply_ai_snake_config_value(game, key="chat_ask_timeout_s", value="90")
+    assert game.get("chat_ask_timeout_s") == 90.0
+    assert "90" in status
+
+
+def test_chat_ask_uses_timeout_from_ai_snake_config() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={"chat_ask_timeout_s": 75.0},
+    )
+    result = execute_command(":ask timeout test", state)
+    game = dict(result.state.header_logo_game or {})
+    assert float(game.get("tutor_ask_timeout_s") or 0.0) == 75.0
 
 
 def test_context_help_explains_terminal_context_shortcut() -> None:
