@@ -1666,7 +1666,17 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._ai_snake_config_combo_apply(game, value=value)
 
     def _handle_quit_key(self, event) -> None:
+        self._flush_config_on_exit()
         event.app.exit()
+
+    def _flush_config_on_exit(self) -> None:
+        """Flush all AI-Snake config to user.json and global ~/.anana/user.json on Ctrl-Q."""
+        try:
+            from client_surfaces.operator_tui.config.user_config_manager import flush_user_config
+            game = dict(self.state.header_logo_game or {})
+            flush_user_config(game)
+        except Exception:
+            pass
 
     def _toggle_snake_mouse_follow(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())

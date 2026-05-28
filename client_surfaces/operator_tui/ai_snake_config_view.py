@@ -163,6 +163,13 @@ def _persist_tui_chat_settings(game: dict[str, object]) -> None:
         value = game.get(key)
         if isinstance(value, (str, int, float, bool)):
             payload[key] = value
+    # Primary: atomic write via UserConfigManager (project-scoped user.json)
+    try:
+        from client_surfaces.operator_tui.config.user_config_manager import get_manager
+        get_manager().save(payload)
+    except Exception:
+        pass
+    # Fallback: legacy tui_chat_settings.json for backward compatibility
     save_tui_chat_settings(payload)
 
 

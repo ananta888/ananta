@@ -30,24 +30,188 @@
       "docs": "docs/operator-tui/ai-snake-config-user-json-persistence.md"
     }
   },
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
-    {"id": "M1", "title": "Design UserConfigManager and JSON schema", "status": "todo", "task_ids": ["UC-001", "UC-002"]},
-    {"id": "M2", "title": "Immediate save on change", "status": "todo", "task_ids": ["UC-003", "UC-004"]},
-    {"id": "M3", "title": "Flush on exit (Ctrl-Q)", "status": "todo", "task_ids": ["UC-005", "UC-006"]},
-    {"id": "M4", "title": "Tests and documentation", "status": "todo", "task_ids": ["UC-007", "UC-008", "UC-009"]}
+    {
+      "id": "M1",
+      "title": "Design UserConfigManager and JSON schema",
+      "status": "done",
+      "task_ids": [
+        "UC-001",
+        "UC-002"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Immediate save on change",
+      "status": "done",
+      "task_ids": [
+        "UC-003",
+        "UC-004"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Flush on exit (Ctrl-Q)",
+      "status": "done",
+      "task_ids": [
+        "UC-005",
+        "UC-006"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Tests and documentation",
+      "status": "done",
+      "task_ids": [
+        "UC-007",
+        "UC-008",
+        "UC-009"
+      ]
+    }
   ],
   "tasks": [
-    {"id": "UC-001", "title": "Define JSON schema for per-user/project AI-Snake config", "type": "implementation", "status": "todo", "priority": "critical", "risk": "medium", "acceptance_criteria": ["Schema includes visual AI-Snake settings, chat backend, CodeCompass, recent chat history, rolling summary configs.", "Schema works for per-user and per-project files.", "Schema is validated before write."]},
-    {"id": "UC-002", "title": "Implement UserConfigManager read/write API", "type": "implementation", "status": "todo", "priority": "critical", "risk": "high", "acceptance_criteria": ["Read merges defaults, user.json, and project.json correctly.", "Write serializes to JSON safely.", "Handle errors, logs, and fallback to safe location."]},
-    {"id": "UC-003", "title": "Hook immediate write on any AI-Snake config change", "type": "integration", "status": "todo", "priority": "critical", "risk": "high", "acceptance_criteria": ["Any change in ai_snake_config_view.py triggers UserConfigManager write.", "Partial changes in batch do not corrupt JSON.", "Changes are immediately visible on reload."]},
-    {"id": "UC-004", "title": "Merge visual and chat settings into user.json correctly", "type": "integration", "status": "todo", "priority": "high", "risk": "medium", "acceptance_criteria": ["Visual AI-Snake settings and chat backend settings are persisted together.", "Overrides per project respected.", "No data loss for previous settings."]},
-    {"id": "UC-005", "title": "Flush all pending settings on Ctrl-Q exit", "type": "implementation", "status": "todo", "priority": "critical", "risk": "high", "acceptance_criteria": ["Ctrl-Q triggers UserConfigManager flush.", "All unsaved changes written to JSON.", "Exit sequence does not block longer than reasonable timeout."]},
-    {"id": "UC-006", "title": "Integrate flush into TUI exit handler", "type": "integration", "status": "todo", "priority": "high", "risk": "medium", "acceptance_criteria": ["interactive.py Ctrl-Q handler calls flush.", "No exceptions if user.json or project.json missing or unwritable.", "Exit sequence completes cleanly."]},
-    {"id": "UC-007", "title": "Unit tests for UserConfigManager read/write", "type": "test", "status": "todo", "priority": "critical", "risk": "medium", "acceptance_criteria": ["Read/write round-trips work for user.json and project.json.", "Simulate concurrent write and check atomicity.", "Handle missing or corrupted JSON gracefully."]},
-    {"id": "UC-008", "title": "Integration tests for config changes", "type": "test", "status": "todo", "priority": "critical", "risk": "medium", "acceptance_criteria": ["Changing any AI-Snake visual or chat setting triggers immediate JSON write.", "Reload TUI restores settings correctly."]},
-    {"id": "UC-009", "title": "Document user.json persistence behavior", "type": "docs", "status": "todo", "priority": "high", "risk": "low", "acceptance_criteria": ["Docs describe per-user and per-project paths.", "Docs explain immediate write on change and flush on Ctrl-Q.", "Docs describe schema and settings included."]}
-  ]
+    {
+      "id": "UC-001",
+      "title": "Define JSON schema for per-user/project AI-Snake config",
+      "type": "implementation",
+      "status": "done",
+      "priority": "critical",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Schema includes visual AI-Snake settings, chat backend, CodeCompass, recent chat history, rolling summary configs.",
+        "Schema works for per-user and per-project files.",
+        "Schema is validated before write."
+      ]
+    },
+    {
+      "id": "UC-002",
+      "title": "Implement UserConfigManager read/write API",
+      "type": "implementation",
+      "status": "done",
+      "priority": "critical",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Read merges defaults, user.json, and project.json correctly.",
+        "Write serializes to JSON safely.",
+        "Handle errors, logs, and fallback to safe location."
+      ]
+    },
+    {
+      "id": "UC-003",
+      "title": "Hook immediate write on any AI-Snake config change",
+      "type": "integration",
+      "status": "done",
+      "priority": "critical",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Any change in ai_snake_config_view.py triggers UserConfigManager write.",
+        "Partial changes in batch do not corrupt JSON.",
+        "Changes are immediately visible on reload."
+      ]
+    },
+    {
+      "id": "UC-004",
+      "title": "Merge visual and chat settings into user.json correctly",
+      "type": "integration",
+      "status": "done",
+      "priority": "high",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Visual AI-Snake settings and chat backend settings are persisted together.",
+        "Overrides per project respected.",
+        "No data loss for previous settings."
+      ]
+    },
+    {
+      "id": "UC-005",
+      "title": "Flush all pending settings on Ctrl-Q exit",
+      "type": "implementation",
+      "status": "done",
+      "priority": "critical",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Ctrl-Q triggers UserConfigManager flush.",
+        "All unsaved changes written to JSON.",
+        "Exit sequence does not block longer than reasonable timeout."
+      ]
+    },
+    {
+      "id": "UC-006",
+      "title": "Integrate flush into TUI exit handler",
+      "type": "integration",
+      "status": "done",
+      "priority": "high",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "interactive.py Ctrl-Q handler calls flush.",
+        "No exceptions if user.json or project.json missing or unwritable.",
+        "Exit sequence completes cleanly."
+      ]
+    },
+    {
+      "id": "UC-007",
+      "title": "Unit tests for UserConfigManager read/write",
+      "type": "test",
+      "status": "done",
+      "priority": "critical",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Read/write round-trips work for user.json and project.json.",
+        "Simulate concurrent write and check atomicity.",
+        "Handle missing or corrupted JSON gracefully."
+      ]
+    },
+    {
+      "id": "UC-008",
+      "title": "Integration tests for config changes",
+      "type": "test",
+      "status": "done",
+      "priority": "critical",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Changing any AI-Snake visual or chat setting triggers immediate JSON write.",
+        "Reload TUI restores settings correctly."
+      ]
+    },
+    {
+      "id": "UC-009",
+      "title": "Document user.json persistence behavior",
+      "type": "docs",
+      "status": "done",
+      "priority": "high",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Docs describe per-user and per-project paths.",
+        "Docs explain immediate write on change and flush on Ctrl-Q.",
+        "Docs describe schema and settings included."
+      ]
+    }
+  ],
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 9
+  }
 }
