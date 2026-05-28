@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from client_surfaces.operator_tui.models import KeyBinding, OperatorMode
+from client_surfaces.operator_tui.keybindings_config import display_for_action
 
 
 KEYBINDINGS: tuple[KeyBinding, ...] = (
@@ -19,9 +20,23 @@ KEYBINDINGS: tuple[KeyBinding, ...] = (
     KeyBinding("q", "quit", "Quit operator TUI", (OperatorMode.NORMAL,)),
 )
 
-_NORMAL_HINTS = "[Tab/←→] Focus  [j/k/↑↓] Move  [r] Refresh  [n/p] Section  [Enter] Inspect  [e] Inline Vim  [o] MouseFollow  [:] Command  [?] Help  [q] Quit"
+_NORMAL_HINTS = (
+    f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] Focus/Kanal  "
+    f"[{display_for_action('selection_down', 'Ctrl+J')}/{display_for_action('selection_up', 'Ctrl+K')}] Move  "
+    f"[{display_for_action('refresh', 'Ctrl+R')}] Refresh  "
+    f"[{display_for_action('next_section', 'Ctrl+N')}] Section  "
+    f"[{display_for_action('inspect', 'Ctrl+F')}] Inspect  "
+    "[:] Command  "
+    f"[{display_for_action('help', 'Ctrl+Y')}] Help  "
+    f"[{display_for_action('quit', 'Ctrl+Q')}] Quit"
+)
 _COMMAND_HINTS = "[Enter] Execute  [Esc] Cancel  — commands: :section <id>  :refresh  :focus <pane>  :mouse <on|off|toggle>  :help  :action <name> <risk>"
-_INSPECT_HINTS = "[j/k/↑↓] Move  [Esc] Normal  [?] Help  [q] Quit  — confirm actions with :confirm"
+_INSPECT_HINTS = (
+    f"[{display_for_action('selection_down', 'Ctrl+J')}/"
+    f"{display_for_action('selection_up', 'Ctrl+K')}] Move  "
+    f"[Esc] Normal  [{display_for_action('help', 'Ctrl+Y')}] Help  "
+    f"[{display_for_action('quit', 'Ctrl+Q')}] Quit  — confirm actions with :confirm"
+)
 
 
 def bindings_for_mode(mode: OperatorMode) -> tuple[KeyBinding, ...]:

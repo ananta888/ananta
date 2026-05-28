@@ -11,6 +11,7 @@ _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
 from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
+from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -330,14 +331,49 @@ def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
     lines = [_pane_title("SNAKE", state.focus == FocusPane.HEADER)]
     if active:
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Modus aktiv ({status}).", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} X markiert Start/Ende (Multi-Select).", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} C kopiert Auswahl; U oeffnet Tutorial-Chat.", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} O mouse-follow; Klick bestaetigt Ziel, Scroll waermt Intent.", width))
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} {display_for_action('snake_toggle_selection', 'Ctrl+X')} markiert Start/Ende.",
+                width,
+            )
+        )
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} {display_for_action('chat_focus', 'Ctrl+E')} Chat-Fokus; "
+                f"{display_for_action('toggle_tutorial_ai', 'Ctrl+U')} Auto-Heuristik.",
+                width,
+            )
+        )
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} {display_for_action('toggle_mouse_follow', 'Ctrl+O')} mouse-follow; "
+                "Klick bestaetigt Ziel, Scroll waermt Intent.",
+                width,
+            )
+        )
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Freigaben: :snake-access <id> cancel|view|full", width))
     else:
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ctrl+S startet Snake-Modus (lokal/KI/remote).", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Im Modus: X markieren, C kopieren, V replace, U Chat.", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Maus: O follow; Klick + Hover aktiviert Kontext-Chat.", width))
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} {display_for_action('toggle_snake_mode', 'Ctrl+S')} startet Snake-Modus.",
+                width,
+            )
+        )
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} Im Modus: {display_for_action('snake_toggle_selection', 'Ctrl+X')} markieren, "
+                f"{display_for_action('snake_replace_selection', 'Ctrl+V')} replace, "
+                f"{display_for_action('chat_focus', 'Ctrl+E')} Chat.",
+                width,
+            )
+        )
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} Maus: {display_for_action('toggle_mouse_follow', 'Ctrl+O')} follow; "
+                "Klick + Hover aktiviert Kontext-Chat.",
+                width,
+            )
+        )
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Freigaben: :snake-access <id> cancel|view|full", width))
 
     for sid, snap in ordered:
@@ -365,8 +401,21 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         peer_count = len([k for k in snakes.keys() if str(k) != str(game.get("local_snake_id") or "s1")]) if snakes else 0
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Modus aktiv  {status}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-ID: {game.get('local_snake_id', 's1')} · Peers: {peer_count}", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} X=Markieren/Multi, C=Copy, V=Replace, U=Chat", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} O=MouseFollow, Klick=Intent+Chat, Scroll=Intent-Hinweis", width))
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} {display_for_action('snake_toggle_selection', 'Ctrl+X')}=Markieren, "
+                f"{display_for_action('snake_replace_selection', 'Ctrl+V')}=Replace, "
+                f"{display_for_action('chat_focus', 'Ctrl+E')}=Chat",
+                width,
+            )
+        )
+        lines.append(
+            _clip(
+                f"{DEFAULT_THEME.muted_prefix} {display_for_action('toggle_mouse_follow', 'Ctrl+O')}=MouseFollow, "
+                "Klick=Intent+Chat, Scroll=Intent-Hinweis",
+                width,
+            )
+        )
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snakes (OIDC / Farbe / Nachricht):", width))
         if snakes:
             ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == str(game.get("local_snake_id") or "s1") else 1, str(kv[0])))
@@ -742,31 +791,26 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
 def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     lines = [_pane_title("SHORTCUTS", state.focus == FocusPane.DETAIL)]
-    lines.append("  Ctrl+H hide help")
-    lines.append("  Tab focus/channel")
-    lines.append("  Ctrl+G chat panel")
-    lines.append("  Ctrl+E/c chat input")
-    lines.append("  Ctrl+K Terminal als AI-Kontext")
-    lines.append("  Ctrl+S snake mode")
+    for combo, label in shortcut_tokens_for_area("shortcuts"):
+        lines.append(f"  {combo} {label}")
+    lines.append("  : Command-Modus (vim-ähnlich)")
     if bool(game.get("free_mode")) or bool(game.get("ui_steering")):
         lines.append("")
         lines.append("  Snake:")
         lines.append("    Left drag: mark area")
         lines.append("    Left click: select/explain")
         lines.append("    Right click: copy mark")
-        lines.append("    X: select/frame")
-        lines.append("    C: copy mark")
-        lines.append("    V: replace command text")
-        lines.append("    Z: clear marks")
-        lines.append("    O: mouse follow")
+        lines.append(f"    {display_for_action('snake_toggle_selection', 'Ctrl+X')}: select/frame")
+        lines.append(f"    {display_for_action('snake_replace_selection', 'Ctrl+V')}: replace command text")
+        lines.append(f"    {display_for_action('snake_clear_marks', 'Ctrl+Z')}: clear marks")
+        lines.append(f"    {display_for_action('toggle_mouse_follow', 'Ctrl+O')}: mouse follow")
     if bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")):
         lines.append("")
         lines.append("  Chat:")
-        lines.append("    Tab: channel")
+        lines.append(f"    {display_for_action('cycle_focus_or_channel', 'Ctrl+W')}: channel")
         lines.append("    Enter: send")
         lines.append("    Esc: leave input")
-        lines.append("    Ctrl+L: clear input")
-        lines.append("    Alt+1/2/3: room/AI/notes")
+        lines.append(f"    {display_for_action('clear_chat_input', 'Ctrl+L')}: clear input")
     lines.append("")
     lines.append("  Commands:")
     lines.append("    :help full help")
@@ -839,7 +883,10 @@ def _chat_detail_lines(state: OperatorState, width: int) -> list[str]:
         prompt = prompt_map.get(ch_type, ">")
         lines.append(f"  {prompt} {buf}_")
     else:
-        lines.append("  Ctrl+E/c Eingabe  Tab Kanal")
+        lines.append(
+            f"  {display_for_action('chat_focus', 'Ctrl+E')} Eingabe  "
+            f"{display_for_action('cycle_focus_or_channel', 'Ctrl+W')} Kanal"
+        )
     return [_clip(line, width) for line in lines]
 
 
@@ -1568,13 +1615,36 @@ def _hints_line(state: OperatorState, width: int) -> str:
             active_ch = ""
             if isinstance(chat_raw, dict):
                 active_ch = str(chat_raw.get("active_channel") or "room:main")
-            hints = f"[Esc] game  [Enter] send  [Tab] channel  [Ctrl+L] clear  [{active_ch}]"
+            hints = (
+                f"[Esc] game  [Enter] send  "
+                f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] channel  "
+                f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear  [{active_ch}]"
+            )
         elif bool(game.get("artifact_chat_focus")):
-            hints = "[Esc] close  [Enter] send  [Tab] channel  [Ctrl+L] clear"
+            hints = (
+                f"[Esc] close  [Enter] send  "
+                f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] channel  "
+                f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear"
+            )
         elif game.get("paused"):
-            hints = "[Space] Resume  [c] chat  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select  [Z] Clear"
+            hints = (
+                f"[{display_for_action('snake_pause', 'Ctrl+P')}] Resume  "
+                f"[{display_for_action('chat_focus', 'Ctrl+E')}] chat  "
+                f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI  "
+                f"[{display_for_action('toggle_mouse_follow', 'Ctrl+O')}] MouseFollow  "
+                f"[{display_for_action('snake_toggle_frame', 'Ctrl+B')}] Frame  "
+                f"[{display_for_action('snake_toggle_selection', 'Ctrl+X')}/"
+                f"{display_for_action('snake_replace_selection', 'Ctrl+V')}] Select  "
+                f"[{display_for_action('snake_clear_marks', 'Ctrl+Z')}] Clear"
+            )
         else:
-            hints = "[Ctrl+S] Snake  [Ctrl+G] Chat  [Ctrl+E/c] Input  [Space] Pause  [U] Tutorial-AI"
+            hints = (
+                f"[{display_for_action('toggle_snake_mode', 'Ctrl+S')}] Snake  "
+                f"[{display_for_action('toggle_chat_panel', 'Ctrl+G')}] Chat  "
+                f"[{display_for_action('chat_focus', 'Ctrl+E')}] Input  "
+                f"[{display_for_action('snake_pause', 'Ctrl+P')}] Pause  "
+                f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI"
+            )
     return _clip(hints, width)
 
 
@@ -2053,9 +2123,15 @@ def _overlay_snake_ai_panel(
     panel_lines.append("─" * panel_width)
     heur_state = "AN" if tutorial_enabled else "AUS"
     chat_state = "AN" if chat_enabled else "AUS"
-    panel_lines.append(f"\x1b[38;2;120;180;255mAuto-Heuristik [U]: {heur_state}\x1b[0m")
-    panel_lines.append(f"\x1b[38;2;120;180;255mAI-Chat [Ctrl+G]: {chat_state}\x1b[0m")
-    panel_lines.append(f"\x1b[38;2;90;90;90mChat-Fokus [c], Eingabe [Ctrl+E]\x1b[0m")
+    panel_lines.append(
+        f"\x1b[38;2;120;180;255mAuto-Heuristik [{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}]: {heur_state}\x1b[0m"
+    )
+    panel_lines.append(
+        f"\x1b[38;2;120;180;255mAI-Chat [{display_for_action('toggle_chat_panel', 'Ctrl+G')}]: {chat_state}\x1b[0m"
+    )
+    panel_lines.append(
+        f"\x1b[38;2;90;90;90mChat-Fokus [{display_for_action('chat_focus', 'Ctrl+E')}]\x1b[0m"
+    )
     panel_lines.append("─" * panel_width)
     ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
     runtime_status = str(game.get("ai_snake_runtime_status") or "idle")
@@ -2145,7 +2221,10 @@ def _overlay_snake_chat_panel(
     focus_note = " INPUT" if chat_focus else ""
     panel_lines.append(f"\x1b[1;38;2;100;180;255m{focus_marker}ACTIVE: {active_label}{focus_note}\x1b[0m")
     panel_lines.append("CHAT User↔Snake " + " ".join(channel_labels))
-    panel_lines.append(f"\x1b[38;2;90;90;90mTab=Kanal c=Eingabe PgUp/Dn=Scroll Esc=raus\x1b[0m")
+    panel_lines.append(
+        f"\x1b[38;2;90;90;90m{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}=Kanal "
+        f"{display_for_action('chat_focus', 'Ctrl+E')}=Eingabe PgUp/Dn=Scroll Esc=raus\x1b[0m"
+    )
     if ai_typing:
         panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")
 
@@ -2153,9 +2232,13 @@ def _overlay_snake_chat_panel(
 
     if not enabled:
         panel_lines.append("\x1b[38;2;120;120;120mAI-Chat ist deaktiviert.\x1b[0m")
-        panel_lines.append("\x1b[38;2;120;120;120mMit Ctrl+G wieder aktivieren.\x1b[0m")
+        panel_lines.append(
+            f"\x1b[38;2;120;120;120mMit {display_for_action('toggle_chat_panel', 'Ctrl+G')} wieder aktivieren.\x1b[0m"
+        )
         panel_lines.append("─" * panel_width)
-        panel_lines.append(f"\x1b[38;2;80;80;80m[c] chat focus\x1b[0m")
+        panel_lines.append(
+            f"\x1b[38;2;80;80;80m[{display_for_action('chat_focus', 'Ctrl+E')}] chat focus\x1b[0m"
+        )
         divider_col = split_col
         for row_idx_offset, pline in enumerate(panel_lines):
             row_idx = ai_rows + row_idx_offset
@@ -2239,7 +2322,9 @@ def _overlay_snake_chat_panel(
         input_line = f"\x1b[38;2;200;200;80m{prompt}\x1b[0m {buf[:panel_width - len(prompt) - 2]}_"
         panel_lines.append(input_line)
     else:
-        panel_lines.append(f"\x1b[38;2;80;80;80m[c] chat focus\x1b[0m")
+        panel_lines.append(
+            f"\x1b[38;2;80;80;80m[{display_for_action('chat_focus', 'Ctrl+E')}] chat focus\x1b[0m"
+        )
 
     # Render panel lines into right column starting at ai_rows
     divider_col = split_col

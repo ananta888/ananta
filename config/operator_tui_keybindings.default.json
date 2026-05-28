@@ -1,0 +1,29 @@
+{
+  "schema_version": "operator_tui_keybindings.v1",
+  "bindings": [
+    { "action": "command_mode", "key": ":", "display": ":", "label": "Command", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "toggle_snake_mode", "key": "c-s", "display": "Ctrl+S", "label": "Snake", "areas": ["footer-normal", "footer-snake", "shortcuts", "ai-panel"] },
+    { "action": "toggle_chat_panel", "key": "c-g", "display": "Ctrl+G", "label": "AI-Chat", "areas": ["footer-normal", "footer-snake", "shortcuts", "ai-panel", "chat-panel"] },
+    { "action": "chat_focus", "key": "c-e", "display": "Ctrl+E", "label": "Chat-Fokus", "areas": ["footer-normal", "footer-snake", "shortcuts", "ai-panel", "chat-panel"] },
+    { "action": "clear_chat_input", "key": "c-l", "display": "Ctrl+L", "label": "Input leeren", "areas": ["footer-chat", "shortcuts", "chat-panel"] },
+    { "action": "cycle_focus_or_channel", "key": "c-w", "display": "Ctrl+W", "label": "Fokus/Kanal", "areas": ["footer-normal", "footer-chat", "shortcuts", "chat-panel"] },
+    { "action": "toggle_tutorial_ai", "key": "c-u", "display": "Ctrl+U", "label": "Auto-Heuristik", "areas": ["footer-snake", "shortcuts", "ai-panel"] },
+    { "action": "toggle_mouse_follow", "key": "c-o", "display": "Ctrl+O", "label": "MouseFollow", "areas": ["footer-snake", "shortcuts"] },
+    { "action": "snake_pause", "key": "c-p", "display": "Ctrl+P", "label": "Pause/Resume", "areas": ["footer-snake", "shortcuts"] },
+    { "action": "snake_toggle_selection", "key": "c-x", "display": "Ctrl+X", "label": "Select/Mark", "areas": ["footer-snake", "shortcuts"] },
+    { "action": "snake_toggle_frame", "key": "c-b", "display": "Ctrl+B", "label": "Frame", "areas": ["footer-snake", "shortcuts"] },
+    { "action": "snake_replace_selection", "key": "c-v", "display": "Ctrl+V", "label": "Replace", "areas": ["footer-snake", "shortcuts"] },
+    { "action": "snake_clear_marks", "key": "c-z", "display": "Ctrl+Z", "label": "Clear", "areas": ["footer-snake", "shortcuts"] },
+    { "action": "send_terminal_context", "key": "c-t", "display": "Ctrl+T", "label": "Terminal→AI-Kontext", "areas": ["shortcuts"] },
+    { "action": "toggle_shortcut_help", "key": "c-h", "display": "Ctrl+H", "label": "Shortcut-Hilfe", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "selection_down", "key": "c-j", "display": "Ctrl+J", "label": "Selection runter", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "selection_up", "key": "c-k", "display": "Ctrl+K", "label": "Selection hoch", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "focus_left", "key": "c-a", "display": "Ctrl+A", "label": "Fokus links", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "focus_right", "key": "c-d", "display": "Ctrl+D", "label": "Fokus rechts", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "refresh", "key": "c-r", "display": "Ctrl+R", "label": "Refresh", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "help", "key": "c-y", "display": "Ctrl+Y", "label": "Help", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "inspect", "key": "c-f", "display": "Ctrl+F", "label": "Inspect/Open", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "next_section", "key": "c-n", "display": "Ctrl+N", "label": "Nächste Section", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "quit", "key": "c-q", "display": "Ctrl+Q", "label": "Quit", "areas": ["footer-normal", "shortcuts"] }
+  ]
+}

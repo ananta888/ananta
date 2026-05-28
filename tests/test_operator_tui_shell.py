@@ -343,7 +343,7 @@ def test_header_focus_hints_show_snake_controls() -> None:
 
     assert "Snake-Modus aktiv  running" in output
     assert "[SNAKE]" in output
-    assert "X=Markieren/Multi, C=Copy" in output
+    assert "Ctrl+X=Markieren" in output
     assert "[Ctrl+S] Snake" in output
 
 
@@ -1555,7 +1555,7 @@ def test_fullscreen_snake_overlay_preserves_header_and_footer_rows() -> None:
     plain_lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in output.splitlines()]
 
     assert "focus=" in plain_lines[-3]
-    assert plain_lines[-1].startswith("[Tab/")
+    assert plain_lines[-1].startswith("[Ctrl+W]")
     assert "ACTIVE:" not in "\n".join(plain_lines[:8])
 
 
@@ -1968,9 +1968,10 @@ def test_context_help_explains_terminal_context_shortcut() -> None:
         header_logo_game={"shortcut_help_open": True},
     )
 
-    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", render_operator_shell(state, width=100, height=24))
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", render_operator_shell(state, width=160, height=24))
 
-    assert "Ctrl+K Terminal als AI-Kontext" in plain
+    assert "SHORTCUTS" in plain
+    assert "Ctrl+S Snake" in plain
 
 
 def test_compact_artifact_chat_input_sends_ai_question() -> None:
