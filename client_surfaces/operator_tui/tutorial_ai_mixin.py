@@ -26,6 +26,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any
 
+from client_surfaces.operator_tui.keybindings_config import display_for_action
+
 def _score_rag_record(text: str, query_tokens: list[str]) -> float:
     haystack = str(text or "").lower()
     if not haystack:
@@ -343,7 +345,9 @@ def _name_lookup_from_details(
 
 
 _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
-    "TUI: Focus [Tab], Command [:], Snake [Ctrl+S], Hilfe [?].",
+    f"TUI: Focus [{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}], Command [:], "
+    f"Snake [{display_for_action('toggle_snake_mode', 'Ctrl+S')}], "
+    f"Hilfe [{display_for_action('help', 'Ctrl+Y')}].",
     "Snake: B frame-mode, X Rahmen, C copy, V replace (nur command line).",
     "Architektur: Hub orchestriert, Worker fuehren aus; keine worker-zu-worker orchestration.",
     "Taskfluss: User -> Hub -> Task Queue -> Worker; Hub bleibt Control Plane.",

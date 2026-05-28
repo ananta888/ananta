@@ -119,9 +119,9 @@ def test_ai_panel_shows_toggle_configuration_and_keys() -> None:
     }
     out = _overlay_snake_ai_panel(lines, game, split_col=78, panel_width=40, height=16, row_start=0, chat_enabled=False)
     rendered = "\n".join(_strip_ansi(line) for line in out)
-    assert "Auto-Heuristik [U]: AN" in rendered
+    assert "Auto-Heuristik [Ctrl+U]: AN" in rendered
     assert "AI-Chat [Ctrl+G]: AUS" in rendered
-    assert "Chat-Fokus [c], Eingabe [Ctrl+E]" in rendered
+    assert "Chat-Fokus [Ctrl+E]" in rendered
     assert "Steuerung: mode=lurking_follow runtime=running" in rendered
     assert "AI-Snake Verlauf:" in rendered
 

@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any
 from prompt_toolkit.formatted_text import ANSI
 
 from client_surfaces.operator_tui.app import load_active_section
+from client_surfaces.operator_tui.keybindings_config import display_for_action
 from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
@@ -201,7 +202,16 @@ class SnakeOpsMixin:
         game["selection_frame_mode"] = False
         game["selection_frame_anchor"] = None
         game["last_move"] = time.monotonic()
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an | U=Auto-Heuristik | Ctrl+G=AI-Chat"))
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=(
+                    "snake mode: an | "
+                    f"{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}=Auto-Heuristik | "
+                    f"{display_for_action('toggle_chat_panel', 'Ctrl+G')}=AI-Chat"
+                ),
+            )
+        )
 
     def _toggle_tutorial_ai_mode(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())

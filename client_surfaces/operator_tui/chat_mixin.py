@@ -20,8 +20,12 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from client_surfaces.operator_tui.keybindings_config import display_for_action
+
 _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
-    "TUI: Focus [Tab], Command [:], Snake [Ctrl+S], Hilfe [?].",
+    f"TUI: Focus [{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}], Command [:], "
+    f"Snake [{display_for_action('toggle_snake_mode', 'Ctrl+S')}], "
+    f"Hilfe [{display_for_action('help', 'Ctrl+Y')}].",
     "Snake: B frame-mode, X Rahmen, C copy, V replace (nur command line).",
     "Chat: E04 Notes-Kanal, AI-Kanal, :ask Frage stellt AI eine Frage.",
     "Goal: ananta goal create 'Aufgabe' startet autonomen Workflow.",
@@ -701,7 +705,11 @@ class ChatMixin:
         if best:
             combined = " — ".join(best)
             return combined[:300]
-        return scored[0][0] if scored else "TUI: [Tab] Focus, [:] Command, [Ctrl+S] Snake, [?] Hilfe."
+        return scored[0][0] if scored else (
+            f"TUI: [{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] Focus, [:] Command, "
+            f"[{display_for_action('toggle_snake_mode', 'Ctrl+S')}] Snake, "
+            f"[{display_for_action('help', 'Ctrl+Y')}] Hilfe."
+        )
 
     # ── E04.T04: tutorial event processing ───────────────────────────────────
 
