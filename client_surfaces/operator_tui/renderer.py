@@ -1335,6 +1335,13 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         parts.append(f"splash={splash_state}")
     if bool(game.get("chat_panel_open")):
         parts.append("[C]")
+    try:
+        from client_surfaces.operator_tui.chat_state import get_chat_state
+        active_chat = str(get_chat_state(dict(game)).get("active_channel") or "room:main")
+    except Exception:
+        active_chat = ""
+    if active_chat and (bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")) or bool(game.get("free_mode"))):
+        parts.append(f"chat={_chat_channel_label(active_chat)}")
     if not bool(game.get("free_mode")):
         try:
             from client_surfaces.operator_tui.chat_state import get_chat_state, unread_total
@@ -1344,6 +1351,15 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         if unread > 0:
             parts.append(f"[chat +{unread}]")
     return _clip(" ".join(parts), width)
+
+
+def _chat_channel_label(channel_id: str) -> str:
+    return {
+        "room:main": "#room",
+        "ai:tutor": "AI",
+        "notes:self": "notes",
+        "system": "system",
+    }.get(channel_id, channel_id.replace("direct:", "@"))
 
 
 def _command_line(state: OperatorState, width: int) -> str:
@@ -1644,16 +1660,13 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     panel.append(
         f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m AI · {label}{unread_label} · {llm_label}\x1b[0m"
     )
+    active_label = _chat_channel_label(active_ch_id)
+    active_col = "\x1b[1;38;2;100;180;255m"
+    focus_note = " INPUT" if focus_active else ""
+    panel.append(f"{active_col}ACTIVE: {active_label}{focus_note}\x1b[0m")
     panel.append("\x1b[38;2;60;60;80m" + "─" * panel_width + "\x1b[0m")
     if chat_panel_open and not ultra_compact:
-        channel_line = "#room  AI  notes"
-        if active_ch_id == "room:main":
-            channel_line = "[#room] AI notes"
-        elif active_ch_id == "ai:tutor":
-            channel_line = "#room [AI] notes"
-        elif active_ch_id == "notes:self":
-            channel_line = "#room AI [notes]"
-        panel.append(f"\x1b[38;2;120;120;120m{channel_line[:panel_width]}\x1b[0m")
+        panel.append(_compact_channel_selector(active_ch_id, panel_width))
 
     message_budget = max(1, max_rows - (5 if focus_active else 2))
     for msg in messages[-message_budget:]:
@@ -1701,6 +1714,19 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
         out[row_idx] = _overlay_at_visible_col(out[row_idx], split_col + 2, padded)
 
     return out
+
+
+def _compact_channel_selector(active_ch_id: str, width: int) -> str:
+    parts: list[str] = []
+    for cid, label in [("room:main", "#room"), ("ai:tutor", "AI"), ("notes:self", "notes")]:
+        if cid == active_ch_id:
+            parts.append(f"\x1b[1;38;2;100;180;255m[{label}]\x1b[0m")
+        else:
+            parts.append(f"\x1b[38;2;120;120;120m {label} \x1b[0m")
+    raw = " ".join(parts)
+    if len(_ANSI_STRIP.sub("", raw)) <= width:
+        return raw
+    return raw[:width]
 
 
 def _overlay_snake_paused(lines: list[str], *, width: int, height: int) -> list[str]:
@@ -1843,7 +1869,10 @@ def _overlay_snake_chat_panel(
             channel_labels.append(f"\x1b[38;2;255;170;80m{text}\x1b[0m")
         else:
             channel_labels.append(f"\x1b[38;2;120;120;120m{text}\x1b[0m")
-    panel_lines.append(focus_marker + "CHAT " + " ".join(channel_labels))
+    active_label = _chat_channel_label(active_ch_id)
+    focus_note = " INPUT" if chat_focus else ""
+    panel_lines.append(f"\x1b[1;38;2;100;180;255m{focus_marker}ACTIVE: {active_label}{focus_note}\x1b[0m")
+    panel_lines.append("CHAT " + " ".join(channel_labels))
     panel_lines.append(f"\x1b[38;2;90;90;90mTab=Kanal c=Eingabe PgUp/Dn=Scroll Esc=raus\x1b[0m")
     if ai_typing:
         panel_lines.append(f"\x1b[38;2;120;120;120m  (AI schreibt...)\x1b[0m")
