@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "tui-snapshot-delta-heuristic-dsl-v2-background-lab",
   "created_at": "2026-05-28",
-  "status": "todo",
+  "status": "done",
   "purpose": "Die AI-Snake soll nicht direkt durch LLM-Antworten gesteuert werden. Stattdessen läuft die TUI immer flüssig und deterministisch, während ein Hintergrundsystem vollständige TUI-Snapshots und Deltas analysiert, LLM-gestützt neue Heuristiken als mächtige DSL erzeugt, simuliert, bewertet und nur kontrolliert als experimentelle oder aktive Heuristiken in den Snake-Entscheidungspfad bringt.",
   "goal": "Render-/Input-Pfad und LLM-Pfad strikt entkoppeln. Der sichtbare TUI-Bereich wird ähnlich wie im asciinema cast als Zellen-/Semantik-Snapshot erfasst. Deltas werden effizient gespeichert. Eine neue heuristic_dsl.v2 beschreibt komplexe Beobachtungen, Pattern, Scoring, Zielwahl, Motion-Vorschläge, TTL/Lease-Regeln und Sicherheitsgrenzen. LLMs dürfen nur Heuristik-Kandidaten erzeugen oder verbessern; die Snake-Bewegung selbst bleibt zur Laufzeit deterministisch, schnell und capability-begrenzt.",
   "non_goals": [
@@ -63,7 +63,7 @@
     {
       "id": "M01",
       "title": "Ist-Zustand absichern und Regression-Baseline schaffen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T01.01",
         "T01.02",
@@ -73,7 +73,7 @@
     {
       "id": "M02",
       "title": "TUI Snapshot- und Delta-Pipeline einführen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T02.01",
         "T02.02",
@@ -86,7 +86,7 @@
     {
       "id": "M03",
       "title": "DecisionContext v2 für sichtbaren TUI-Bereich erweitern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T03.01",
         "T03.02",
@@ -97,7 +97,7 @@
     {
       "id": "M04",
       "title": "heuristic_dsl.v2 entwerfen und validieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T04.01",
         "T04.02",
@@ -110,7 +110,7 @@
     {
       "id": "M05",
       "title": "Deterministische DSL Runtime und Motion Planner bauen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T05.01",
         "T05.02",
@@ -122,7 +122,7 @@
     {
       "id": "M06",
       "title": "Background LLM Heuristic Lab implementieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T06.01",
         "T06.02",
@@ -135,7 +135,7 @@
     {
       "id": "M07",
       "title": "Experimental Live Modus mit Safety Gates einführen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T07.01",
         "T07.02",
@@ -147,7 +147,7 @@
     {
       "id": "M08",
       "title": "Cast-/Snapshot-E2E und Qualitätsmetriken",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T08.01",
         "T08.02",
@@ -159,7 +159,7 @@
     {
       "id": "M09",
       "title": "Dokumentation und Betriebsmodi",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "T09.01",
         "T09.02",
@@ -171,7 +171,7 @@
     {
       "id": "T01.01",
       "title": "Aktuellen AI-Snake/Heuristik-Ist-Zustand als Architektur-Notiz festhalten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
@@ -195,7 +195,7 @@
     {
       "id": "T01.02",
       "title": "Bestehende Tests für Cast, Heuristik-Registry und SnakeDecisionManager als Regression-Baseline markieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "testing",
@@ -218,7 +218,7 @@
     {
       "id": "T01.03",
       "title": "Technische Begriffe vereinheitlichen: snapshot, delta, semantic overlay, heuristic candidate, experimental_live",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "documentation",
@@ -242,7 +242,7 @@
     {
       "id": "T02.01",
       "title": "CellGrid-Modell für terminalweiten TUI-Snapshot einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "model",
@@ -267,7 +267,7 @@
     {
       "id": "T02.02",
       "title": "ANSI/PTTY-Ausgabe aus snake-mode-live-e2e in Snapshot-Frames rekonstruieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "capture",
@@ -292,7 +292,7 @@
     {
       "id": "T02.03",
       "title": "DeltaEncoder für Snapshot-Unterschiede implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "performance",
@@ -317,7 +317,7 @@
     {
       "id": "T02.04",
       "title": "Block-/Line-Hashing für effiziente Cast-Optimierung ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "performance",
@@ -341,7 +341,7 @@
     {
       "id": "T02.05",
       "title": "Parallele Snapshot-/Delta-Artefakte neben Cast schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "artifact",
@@ -367,7 +367,7 @@
     {
       "id": "T02.06",
       "title": "Semantic Overlay aus OperatorState erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "semantic-model",
@@ -392,7 +392,7 @@
     {
       "id": "T03.01",
       "title": "DecisionContext v2 um tui_snapshot_ref, tui_delta_ref und semantic_overlay erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "context",
@@ -418,7 +418,7 @@
     {
       "id": "T03.02",
       "title": "TuiObservationBuffer für letzte N Snapshots/Deltas einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "runtime",
@@ -442,7 +442,7 @@
     {
       "id": "T03.03",
       "title": "DecisionTrace um Snapshot-/Heuristik-Versuchs-Kontext erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "trace",
@@ -467,7 +467,7 @@
     {
       "id": "T03.04",
       "title": "Fast-Path-Konfiguration erzwingen: LLM-Aufrufe im TUI-Pfad verhindern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "safety",
@@ -492,7 +492,7 @@
     {
       "id": "T04.01",
       "title": "heuristic_dsl.v2 Schema entwerfen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
@@ -517,7 +517,7 @@
     {
       "id": "T04.02",
       "title": "DSL-Ausdruckssprache für Match/Score definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "dsl",
@@ -542,7 +542,7 @@
     {
       "id": "T04.03",
       "title": "DSL Action-Modell für Snake-Ziele und Motion-Vorschläge erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "dsl",
@@ -567,7 +567,7 @@
     {
       "id": "T04.04",
       "title": "TTL-/Lease-Semantik für DSL v2 definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "dsl",
@@ -592,7 +592,7 @@
     {
       "id": "T04.05",
       "title": "HeuristicDefinition v1 kompatibel um dsl_v2 Runtime Mode erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -617,7 +617,7 @@
     {
       "id": "T04.06",
       "title": "DSL-Beispiele für TUI-Snake-Heuristiken anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "examples",
@@ -641,7 +641,7 @@
     {
       "id": "T05.01",
       "title": "DSL v2 Loader und Validator implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "runtime",
@@ -666,7 +666,7 @@
     {
       "id": "T05.02",
       "title": "Deterministische DSL Evaluation Engine bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "runtime",
@@ -691,7 +691,7 @@
     {
       "id": "T05.03",
       "title": "Motion Planner für target_cell/target_bbox implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "motion",
@@ -716,7 +716,7 @@
     {
       "id": "T05.04",
       "title": "DSL Runtime in SnakeDecisionManager integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -742,7 +742,7 @@
     {
       "id": "T05.05",
       "title": "Capability-Grenzen für DSL Runtime erzwingen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -768,7 +768,7 @@
     {
       "id": "T06.01",
       "title": "Background Heuristic Lab Service einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "background-service",
@@ -794,7 +794,7 @@
     {
       "id": "T06.02",
       "title": "LLM Prompt Contract für Heuristik-Vorschläge definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "llm-contract",
@@ -820,7 +820,7 @@
     {
       "id": "T06.03",
       "title": "LLM Response Parser mit Reparatur-/Fallback-Stufen implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "parser",
@@ -844,7 +844,7 @@
     {
       "id": "T06.04",
       "title": "Heuristic Proposal Storage für Kandidaten und Experimente bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "storage",
@@ -870,7 +870,7 @@
     {
       "id": "T06.05",
       "title": "Simulation gegen aufgezeichnete Cast-/Snapshot-Artefakte implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "simulation",
@@ -897,7 +897,7 @@
     {
       "id": "T06.06",
       "title": "LLM Heuristic Lab als optionalen Worker/Job triggerbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "orchestration",
@@ -922,7 +922,7 @@
     {
       "id": "T07.01",
       "title": "experimental_live Status und Policy definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "policy",
@@ -947,7 +947,7 @@
     {
       "id": "T07.02",
       "title": "Registry-Unterstützung für experimental_live mit harten Grenzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "registry",
@@ -971,7 +971,7 @@
     {
       "id": "T07.03",
       "title": "Shadow Mode/A-B-Auswertung ohne UI-Einfluss implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "experiment",
@@ -996,7 +996,7 @@
     {
       "id": "T07.04",
       "title": "Auto-Experimental-Modus für begrenzte Heuristik-Leases implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "experiment",
@@ -1022,7 +1022,7 @@
     {
       "id": "T07.05",
       "title": "UI-/Statusanzeige für aktive und experimentelle Heuristik ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "medium",
       "type": "ui",
@@ -1047,7 +1047,7 @@
     {
       "id": "T08.01",
       "title": "E2E: echter PTY-Cast plus Snapshot-/Delta-Artefakte",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -1072,7 +1072,7 @@
     {
       "id": "T08.02",
       "title": "E2E: LLM erzeugt DSL-Kandidat, aber beeinflusst TUI nicht direkt",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -1097,7 +1097,7 @@
     {
       "id": "T08.03",
       "title": "E2E: Simulation bewertet DSL-Kandidat gegen Cast/Snapshots",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "e2e",
@@ -1120,7 +1120,7 @@
     {
       "id": "T08.04",
       "title": "E2E: experimental_live Rollback bei schlechter Heuristik",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -1143,7 +1143,7 @@
     {
       "id": "T08.05",
       "title": "Qualitätsmetriken für Snake-Flüssigkeit und Heuristik-Nutzen definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "metrics",
@@ -1168,7 +1168,7 @@
     {
       "id": "T09.01",
       "title": "Architektur-Dokument mit Mermaid-Diagrammen finalisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "documentation",
@@ -1193,7 +1193,7 @@
     {
       "id": "T09.02",
       "title": "README-/Developer-Hinweise für neue Artefakte ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "type": "documentation",
@@ -1218,7 +1218,7 @@
     {
       "id": "T09.03",
       "title": "Migration/Kompatibilität für bestehende Heuristiken dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "migration",
