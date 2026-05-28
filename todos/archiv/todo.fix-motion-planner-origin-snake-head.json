@@ -3,7 +3,7 @@
   "owner": "Krusty",
   "track": "fix-motion-planner-origin-snake-head",
   "created_at": "2026-05-28",
-  "status": "todo",
+  "status": "done",
   "purpose": "Falsche Bewegungsvektoren verhindern, wenn die Snake nicht bei (0,0) steht.",
   "goal": "Motion-Planung nutzt echte Head-Koordinaten aus Runtime/DecisionContext statt Hardcode.",
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
@@ -13,7 +13,7 @@
     {
       "id": "M01",
       "title": "Motion-Planer mit realer Snake-Position versorgen",
-      "status": "todo",
+      "status": "done",
       "task_ids": ["T01.01"]
     }
   ],
@@ -21,7 +21,7 @@
     {
       "id": "T01.01",
       "title": "SnakeDecisionManager uebergibt reale Head-Position an MotionPlanner",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "bugfix",
@@ -46,23 +46,23 @@
   "critical_path_tasks": ["T01.01"],
   "tasks_status_summary": {
     "total": 1,
-    "by_status": { "todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0 },
-    "progress_percent_done": 0,
+    "by_status": { "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1 },
+    "progress_percent_done": 100,
     "by_priority": { "P1": 1, "P2": 0, "P3": 0 },
     "by_risk": { "high": 1, "medium": 0, "low": 0 },
-    "critical_path": { "total": 1, "done": 0, "remaining": 1 },
-    "milestones": { "total": 1, "todo": 1, "in_progress": 0, "blocked": 0, "done": 0 }
+    "critical_path": { "total": 1, "done": 1, "remaining": 0 },
+    "milestones": { "total": 1, "todo": 0, "in_progress": 0, "blocked": 0, "done": 1 }
   },
   "tasks_type_summary": {
     "total": 1,
     "by_type": { "bugfix": 1 }
   },
   "progress_summary": {
-    "state": "planning",
-    "todo_remaining": 1,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 1
   }
 }
