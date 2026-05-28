@@ -221,9 +221,32 @@ class SnakeOpsMixin:
             # Re-enabling tutorial AI: also ensure the game is active
             game["active"] = True
             game["alive"] = True
-        label = "an" if not enabled else "aus"
+            label = "an"
+        else:
+            # Disable visual AI-snake immediately and stop pending visual-AI loops/caches.
+            snakes_raw = game.get("snakes")
+            if isinstance(snakes_raw, dict):
+                snakes = dict(snakes_raw)
+                snakes.pop("s-ai", None)
+                game["snakes"] = snakes
+            game["tutorial_ai_local_contact"] = False
+            game["tutorial_ai_contact_zone"] = ""
+            game["tutorial_ai_contact_at"] = 0.0
+            self._tutorial_async_next_refresh_at = 0.0
+            pending = getattr(self, "_tutorial_async_tip_future", None)
+            if pending is not None:
+                try:
+                    pending.cancel()
+                except Exception:
+                    pass
+            self._tutorial_async_tip_future = None
+            self._tutorial_worker_cache = (0.0, "")
+            self._tutorial_llm_cache = (0.0, "")
+            self._tutorial_worker_target_hint = ""
+            self._tutorial_last_tip_text = ""
+            label = "aus"
         self._fire_tutorial_event(game, "tutorial_toggled")
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake tutorial-ai: {label}"))
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"visual ai-snake: {label}"))
 
     # ── T01.02: pause/resume ──────────────────────────────────────────────────
 

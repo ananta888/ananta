@@ -1601,6 +1601,7 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
                 parts.append(f"gfx_frame={frame_w}x{frame_h}")
     if splash_state:
         parts.append(f"splash={splash_state}")
+    parts.append("VAI:on" if bool(game.get("tutorial_mode")) else "VAI:off")
     if bool(game.get("chat_panel_open")):
         parts.append("[C]")
     try:
