@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import textwrap
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -40,6 +41,9 @@ class MarkdownMermaidDocumentView:
                 pass
 
     def render(self, context: ViewContext) -> RenderScene:
+        if bool(context.state.get("markdown_stream_plain")):
+            return self._streaming_plain_scene(context)
+
         source = self._resolve_document_source(context.state)
         allowed_roots = tuple(str(r) for r in (context.state.get("allowed_roots") or []))
         artifacts = context.state.get("artifacts") if isinstance(context.state.get("artifacts"), dict) else {}
@@ -75,6 +79,47 @@ class MarkdownMermaidDocumentView:
             height=context.region.rows,
             scroll_offset=scroll_offset,
             mermaid_fallbacks=mermaid_fallbacks,
+        )
+
+    def _streaming_plain_scene(self, context: ViewContext) -> RenderScene:
+        text = str(context.state.get("markdown_plain_text") or context.state.get("markdown_text") or "")
+        width = max(1, context.region.columns)
+        body_width = max(1, width)
+        lines: list[str] = [
+            "# Chat-Nachricht",
+            "",
+            "> Antwortstream wird hier in der mittleren Ansicht fortgesetzt.",
+            "",
+        ]
+        for raw_line in text.splitlines() or [""]:
+            if not raw_line:
+                lines.append("")
+                continue
+            lines.extend(textwrap.wrap(raw_line, width=body_width) or [""])
+
+        scroll_offset = 0
+        if bool(context.state.get("markdown_auto_follow")):
+            scroll_offset = max(0, len(lines) - context.region.rows)
+        else:
+            scroll_offset = self._scroll_offset
+        visible = lines[scroll_offset : scroll_offset + context.region.rows]
+        while len(visible) < context.region.rows:
+            visible.append("")
+
+        nodes = [{"kind": "label", "text": line, "x": 0, "y": y} for y, line in enumerate(visible)]
+        return RenderScene(
+            scene_type="markdown_mermaid_document",
+            nodes=nodes,
+            metadata={
+                "animated": False,
+                "cache_hint": "state_versioned",
+                "scroll_offset": scroll_offset,
+                "streaming_plain": True,
+                "view_requirements": {
+                    "markdown_ansi": "available",
+                    "mermaid_image": "deferred",
+                },
+            },
         )
 
         nodes: list[dict[str, Any]] = [

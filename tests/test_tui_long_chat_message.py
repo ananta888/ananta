@@ -56,6 +56,8 @@ def test_configure_middle_view_for_streaming_answer() -> None:
     assert game["visual_viewport_active_view_request"] == "markdown_mermaid_document"
     assert game["visual_viewport_force_render"] is True
     assert game["markdown_auto_follow"] is True
+    assert game["markdown_stream_plain"] is True
+    assert game["chat_long_message_plain_text"] == "a" * 140
     assert "Antwortstream wird hier" in str(game["chat_long_message_markdown"])
 
 
