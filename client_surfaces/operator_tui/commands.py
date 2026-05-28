@@ -811,6 +811,13 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             chat = get_chat_state(game)
             chat["chat_focus"] = False
             set_chat_state(game, chat)
+            game["ai_snake_config_combo"] = {
+                "open": False,
+                "key": "",
+                "filter": "",
+                "filter_cursor": 0,
+                "selected_option": 0,
+            }
             return CommandResult(
                 state.with_updates(
                     header_logo_game=game,
@@ -822,6 +829,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 ),
                 "ai config opened",
             )
+        game["ai_snake_config_combo"] = {"open": False}
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,

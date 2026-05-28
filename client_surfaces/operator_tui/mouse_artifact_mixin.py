@@ -18,7 +18,7 @@ from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, IntentConfidence
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items, apply_ai_snake_config_change
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
 from client_surfaces.operator_tui.mouse import (
     MouseEventType as NormalizedMouseEventType,
     normalize_mouse_state,
@@ -363,6 +363,10 @@ class MouseArtifactMixin:
     ) -> None:
         """On left click: select the item, direct AI snake there, open chat, trigger explanation."""
         if bool(game.get("ai_snake_config_open")) and target.pane == "content":
+            combo_value = str(target.payload.get("ai_snake_combo_option_value") or "")
+            if combo_value:
+                self._ai_snake_config_combo_select_value(value=combo_value)
+                return
             cfg_key = str(target.payload.get("ai_snake_config_key") or "")
             idx = int(target.payload.get("selected_index") or 0)
             if not cfg_key:
@@ -371,10 +375,7 @@ class MouseArtifactMixin:
                     cfg_key = str(items[idx].get("key") or "")
             if cfg_key:
                 self.state = self.state.with_updates(selected_index=max(0, idx), focus=FocusPane.CONTENT)
-                status = apply_ai_snake_config_change(game, key=cfg_key)
-                if cfg_key == "visual_enabled" and not bool(game.get("tutorial_mode")):
-                    self._disable_visual_ai_snake_runtime(game)
-                self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+                self._open_ai_snake_config_combo(game, key=cfg_key, idx=max(0, idx))
                 return
 
         # 1. Select the clicked item in the UI (section switch, item index, focus)
