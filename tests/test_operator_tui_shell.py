@@ -2167,6 +2167,35 @@ def test_ai_snake_config_selected_can_disable_visual_ai() -> None:
     assert "s-ai" not in dict(updated.get("snakes") or {})
 
 
+def test_ai_snake_config_open_resets_chat_focus_and_command_mode() -> None:
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    game = {
+        "tutorial_mode": True,
+        "chat_panel_open": True,
+        "artifact_chat_focus": True,
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        focus=FocusPane.DETAIL,
+        mode=OperatorMode.COMMAND,
+        command_line="chat backend list",
+        header_logo_game=game,
+    )
+    tui = InteractiveOperatorTui(state)
+    tui._chat_focus_enter()
+
+    tui._toggle_ai_snake_config_panel()
+
+    updated = tui.state.header_logo_game or {}
+    chat = get_chat_state(updated)
+    assert tui.state.mode is OperatorMode.NORMAL
+    assert tui.state.command_line == ""
+    assert tui.state.focus is FocusPane.CONTENT
+    assert chat.get("chat_focus") is False
+    assert updated.get("artifact_chat_focus") is False
+
+
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)

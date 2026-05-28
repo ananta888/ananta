@@ -259,6 +259,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("enter")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
+                self._toggle_ai_snake_config_selected()
+                return
             if self._snake_message_mode_active():
                 self._snake_commit_message()
                 return
@@ -278,10 +282,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_commit_history()
                 self._run_command(self._command_buffer)
-                return
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                self._toggle_ai_snake_config_selected()
                 return
             if self.state.focus is FocusPane.HEADER:
                 from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, cycle_value
@@ -348,12 +348,20 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("selection_down", "c-j"))
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
+                self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+                return
             def _j():
                 self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
             self._normal_or_text("j", _j)
 
         @bindings.add(key_for_action("selection_up", "c-k"))
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
+                self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+                return
             self._normal_or_text("k", lambda: self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1))))
 
         @bindings.add(key_for_action("inspect", "c-f"))
@@ -587,6 +595,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("up")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
+                self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_history_move(-1)
                 return
@@ -602,6 +614,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add("down")
         def _(event) -> None:
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
+                self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_history_move(1)
                 return
@@ -1269,9 +1285,20 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         opened = not bool(game.get("ai_snake_config_open"))
         game["ai_snake_config_open"] = opened
         if opened:
+            game["artifact_chat_focus"] = False
+            from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+            chat = get_chat_state(game)
+            chat["chat_focus"] = False
+            set_chat_state(game, chat)
+            self._command_buffer = ""
+            self._command_cursor = 0
+            self._command_history_index = None
+            self._command_saved_draft = ""
             self._set_state(self.state.with_updates(
                 header_logo_game=game,
                 focus=FocusPane.CONTENT,
+                mode=OperatorMode.NORMAL,
+                command_line="",
                 selected_index=0,
                 status_message="ai config: offen",
             ))
