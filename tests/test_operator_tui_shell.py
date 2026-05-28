@@ -11,7 +11,12 @@ from pathlib import Path
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import build_initial_state, load_active_section
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items, apply_ai_snake_config_value, chat_model_option_label
+from client_surfaces.operator_tui.ai_snake_config_view import (
+    ai_snake_config_items,
+    apply_ai_snake_config_value,
+    chat_model_option_label,
+    refresh_chat_backend_models,
+)
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
@@ -2502,6 +2507,43 @@ def test_chat_model_option_label_marks_loaded_status() -> None:
     assert chat_model_option_label(game, "google/gemma-4-e4b").endswith("[geladen]")
     assert chat_model_option_label(game, "microsoft_-_phi-3.5-mini-instruct").endswith("[nicht geladen]")
     assert chat_model_option_label(game, "unknown/model").endswith("[status unbekannt]")
+
+
+def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatch) -> None:
+    game: dict[str, object] = {
+        "chat_backend": "ananta-worker",
+        "chat_backend_api_base": "http://localhost:1234/v1",
+        "chat_backend_models": [],
+        "chat_backend_models_last_refresh_at": 0.0,
+    }
+    calls: list[str] = []
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"data": [{"id": "microsoft_-_phi-3.5-mini-instruct"}]}).encode("utf-8")
+
+    def _fake_urlopen(req, timeout=0):
+        url = str(getattr(req, "full_url", ""))
+        calls.append(url)
+        if "192.168.178.100:1234" in url and url.endswith("/v1/models"):
+            return _FakeResp()
+        raise OSError("unreachable")
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        _fake_urlopen,
+    )
+
+    models, _ = refresh_chat_backend_models(game, force=True)
+
+    assert "microsoft_-_phi-3.5-mini-instruct" in models
+    assert any("192.168.178.100:1234" in call for call in calls)
 
 
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:

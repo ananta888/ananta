@@ -31,6 +31,25 @@ def _default_models_for_backend(backend: str, game: dict[str, object]) -> list[s
     return defaults
 
 
+def _lmstudio_base_candidates() -> list[str]:
+    values: list[str] = []
+    for candidate in (
+        os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL"),
+        os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL"),
+        os.environ.get("LMSTUDIO_URL"),
+        os.environ.get("E2E_LMSTUDIO_URL"),
+        "http://localhost:1234/v1",
+        "http://127.0.0.1:1234/v1",
+        "http://host.docker.internal:1234/v1",
+        "http://192.168.178.100:1234/v1",
+        "http://192.168.56.1:1234/v1",
+    ):
+        normalized = str(candidate or "").strip().rstrip("/")
+        if normalized and normalized not in values:
+            values.append(normalized)
+    return values
+
+
 def _model_id_from_row(row: dict[str, Any]) -> str:
     candidates = (
         row.get("id"),
@@ -203,12 +222,12 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
     ).strip()
     hub_base = str(os.environ.get("ANANTA_BASE_URL") or "").strip()
     base_candidates: list[str] = []
+    lmstudio_candidates = _lmstudio_base_candidates()
     if backend in local_backends:
         candidates = (
             configured_base,
             env_base,
-            "http://localhost:1234/v1",
-            "http://127.0.0.1:1234/v1",
+            *lmstudio_candidates,
             "http://localhost:1234",
             "http://127.0.0.1:1234",
         )
@@ -219,6 +238,7 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
             "http://localhost:5000",
             "http://127.0.0.1:5000",
             configured_base,
+            *lmstudio_candidates,
         )
     for base in candidates:
         normalized = str(base or "").strip().rstrip("/")
