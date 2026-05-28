@@ -2646,6 +2646,14 @@ def test_ai_snake_config_includes_chat_ask_timeout_field() -> None:
     assert "chat_ask_timeout_s" in keys
 
 
+def test_ai_snake_config_includes_chat_provider_and_api_base_fields() -> None:
+    items = ai_snake_config_items({})
+    by_key = {str(item.get("key") or ""): dict(item) for item in items}
+    assert "chat_backend" in by_key
+    assert str(by_key["chat_backend"].get("label") or "") == "Chat Provider"
+    assert "chat_api_base" in by_key
+
+
 def test_ai_snake_config_applies_chat_ask_timeout_value() -> None:
     game: dict[str, object] = {}
     status = apply_ai_snake_config_value(game, key="chat_ask_timeout_s", value="90")
@@ -2678,6 +2686,7 @@ def test_ai_snake_config_backend_switch_fetches_lmstudio_models(monkeypatch) -> 
     models = [str(item) for item in (game.get("chat_backend_models") or [])]
 
     assert "meta-llama/llama-3.2-1b-instruct" in models
+    assert game.get("chat_backend_model") == "meta-llama/llama-3.2-1b-instruct"
     assert "modelle" in status
 
 
