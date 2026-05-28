@@ -296,6 +296,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._run_command(":cancel")
 
         @bindings.add("backspace")
+        @bindings.add("c-h")
         def _(event) -> None:
             if self._snake_message_mode_active():
                 self._snake_message_backspace()
@@ -368,9 +369,20 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._normal_or_text("?", lambda: self._run_command(":help"))
 
-        @bindings.add(key_for_action("toggle_shortcut_help", "c-h"))
+        @bindings.add(key_for_action("toggle_shortcut_help", "c-]"))
         def _(event) -> None:
+            if self._snake_message_mode_active():
+                self._snake_message_backspace()
+                return
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_backspace()
+                return
+            if self._chat_focus_active():
+                self._chat_backspace()
+                return
             if self.state.mode is OperatorMode.COMMAND:
+                self._command_buffer = self._command_buffer[:-1]
+                self._set_state(self.state.with_updates(command_line=self._command_buffer))
                 return
             self._toggle_context_help()
 
