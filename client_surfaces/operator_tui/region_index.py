@@ -100,18 +100,22 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
         )
 
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
-    if bool(game.get("ai_snake_config_open")):
+    config_mode = bool(game.get("ai_snake_config_open"))
+    if config_mode:
         items = [
             {"id": str(item.get("key") or f"cfg-{idx}"), "title": str(item.get("label") or ""), "ai_snake_config_key": str(item.get("key") or ""), "index": idx}
             for idx, item in enumerate(ai_snake_config_items(dict(game)))
         ]
     else:
         items = payload.get("items") if isinstance(payload, dict) else []
+    # In AI config view, content rows start after:
+    # row 0 title + row 1/2 descriptions + row 3 empty spacer.
+    item_row_offset = 4 if config_mode else 1
     if isinstance(items, list):
         for idx, item in enumerate(items[:20]):
             if not isinstance(item, dict):
                 continue
-            row = body_y1 + 1 + idx
+            row = body_y1 + item_row_offset + idx
             if row > body_y2:
                 break
             artifact_id = str(item.get("id") or "")

@@ -25,8 +25,9 @@ _NORMAL_HINTS = (
     f"[{display_for_action('selection_down', 'Ctrl+J')}/{display_for_action('selection_up', 'Ctrl+K')}] Move  "
     f"[{display_for_action('refresh', 'Ctrl+R')}] Refresh  "
     f"[{display_for_action('next_section', 'Ctrl+N')}] Section  "
+    f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
     f"[{display_for_action('inspect', 'Ctrl+F')}] Inspect  "
-    "[:] Command  "
+    "[:config] Fallback  "
     f"[{display_for_action('help', 'Ctrl+Y')}] Help  "
     f"[{display_for_action('quit', 'Ctrl+Q')}] Quit"
 )

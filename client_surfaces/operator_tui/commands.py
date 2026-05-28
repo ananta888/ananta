@@ -801,6 +801,36 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 msg = "notes: :notes | :notes find <t> | :notes pin/unpin/delete <id> | LOCAL ONLY"
                 return CommandResult(state.with_updates(status_message=msg), "help notes")
         return CommandResult(state.with_updates(show_help=not state.show_help, status_message="help toggled"), "help toggled")
+    if command in {"config", "cfg", "ai-config", "snake-config"}:
+        game = dict(state.header_logo_game or {})
+        opened = not bool(game.get("ai_snake_config_open"))
+        game["ai_snake_config_open"] = opened
+        if opened:
+            game["artifact_chat_focus"] = False
+            from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+            chat = get_chat_state(game)
+            chat["chat_focus"] = False
+            set_chat_state(game, chat)
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    focus=FocusPane.CONTENT,
+                    selected_index=0,
+                    status_message="ai config: offen",
+                ),
+                "ai config opened",
+            )
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="ai config: geschlossen",
+            ),
+            "ai config closed",
+        )
     if command == "mouse":
         mode = (args[0].strip().lower() if args else "toggle")
         if mode not in {"on", "off", "toggle"}:
