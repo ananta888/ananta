@@ -1,0 +1,93 @@
+{
+  "proposal_id": "0c1106a4-6f6e-44a8-89ad-5a9b431d4305",
+  "proposed_by": "tui-heuristic-mixin",
+  "domain": "tui_snake",
+  "strategy_kind": "follow",
+  "description": "Improvement proposal for snake_tui_artifact_intent_default: Dominant fallback pattern: no_match.",
+  "capabilities": [
+    "read_local_context",
+    "read_active_task"
+  ],
+  "requested_ttl_seconds": 7.0,
+  "safety_class": "bounded",
+  "deterministic": true,
+  "base_heuristic_ref": "snake_tui_artifact_intent_default",
+  "simulation_result": null,
+  "human_approval_ref": null,
+  "version": "1.0.0",
+  "inputs": [],
+  "outputs": [],
+  "parameters": {
+    "rationale": "Dominant fallback pattern: no_match.",
+    "expected_improvement": "Reduce no_match events by ≥20% over next 50 decisions.",
+    "risks": [
+      "New heuristic may over-generalise for domain tui_snake.",
+      "Insufficient test coverage for edge cases."
+    ],
+    "required_tests": [
+      "test_snake_tui_artifact_intent_default_handles_no_match",
+      "test_snake_tui_artifact_intent_default_ttl_boundary",
+      "test_policy_violations_zero"
+    ],
+    "trace_evidence": [
+      "ce18e3eb-b2a5-42f8-8fb8-303f817d98d6",
+      "10f80a53-6a05-4c9a-9142-94df5c477a61",
+      "1fadcbd3-98d6-4b3f-8ac1-dc9d1e02f8e3",
+      "b389e746-6399-4325-8f63-ed7aab2341cb",
+      "91b0d632-b17e-4f15-bcc2-0e353e4549a5",
+      "70b4d910-307e-4a5a-9623-fc9a8c7ab7f5",
+      "ab276092-db47-479c-b27a-3e8b2f75c25c",
+      "cddb499e-ac04-4e6f-952b-56f1cf48f208",
+      "4cfefe89-f394-4fd6-82c8-341e80264c5b",
+      "80d57514-6c45-4222-9ba5-81763dbd7a77",
+      "685ab7dc-894a-40fc-93d3-3d8106edd94a",
+      "6880abcf-0f66-4554-83a1-5c2adfcff6ec",
+      "81340352-558d-40f0-a559-269208904da7",
+      "5f4e84b0-2363-4504-a0f8-ead74c6e1dd8",
+      "9ebc6b10-cf6d-40f9-9fed-8790423d9194",
+      "1fee1c2d-54d8-43e3-bedf-443adcb656c5",
+      "6843e3c4-6923-4f09-93f4-401d4ee599d7",
+      "9be7e2f6-5382-4028-b2b7-aa24ed41b5ec",
+      "a639d172-026f-4b2e-950f-9dedf432f9d5",
+      "57934dea-f9cd-47bc-b33c-2107f1d1a97d"
+    ],
+    "action_kind": "follow_with_distance"
+  },
+  "saved_at": 1779953049.7036312,
+  "expires_at": 1781162649.7036312,
+  "status": "candidate",
+  "fingerprint": "9c2414d200d16c5221c1db73f2236a855ff2c656226b3ff7e3e6288b6d831b5a",
+  "metrics": {
+    "trace_count": 25,
+    "evidence_count": 2,
+    "dominant_fallback_reason": "no_match",
+    "ai_timeout_count": 0,
+    "ttl_expired_count": 0,
+    "no_trigger_match_count": 0,
+    "average_decision_duration_ms": 0.0,
+    "user_positive_feedback_count": 0,
+    "user_negative_feedback_count": 0,
+    "provenance_trace_ids": [
+      "22681b85-c0b2-4ab6-ab1f-2d03d1ee66d0",
+      "7a9a8fe4-de9e-4505-8700-366ce8d508ed",
+      "73780894-d16d-4ee8-b182-067cfd545b8b",
+      "9a35b945-c510-4fa9-963b-2b9d9d7e81fe",
+      "6aa5364f-dc20-4b84-afab-b7e91ff4f6f9",
+      "f48501fd-e0c5-4963-a47c-67edc9d80ae8",
+      "032ad388-a443-4787-af6e-4ec4ac27044f",
+      "8ee6f28d-2239-4a7f-9319-9e49d58a5861",
+      "afcb8b35-db56-4455-a745-dc0b4a24c96b",
+      "28d06d28-e48f-427a-b8d9-552de24bc8d3",
+      "7973ec21-b48c-4bd2-ac86-3e8c992edc95",
+      "80112bb6-4233-49d0-bf99-96ec7b7d4e07",
+      "805cdc36-5274-4ca7-911b-3352d31aedf3",
+      "b5191e43-a053-4c16-a1f7-73d34eb7aee2",
+      "a6fc1edb-c72a-4d47-aeaa-dc0d199793b0",
+      "553fe454-87d2-40f7-a3e4-331a9c29311d",
+      "ed299d61-9b04-420b-bf32-a7b0143bf05e",
+      "ab045da3-69aa-4bb1-94c9-67d4e60fb198",
+      "45eae5e9-7448-4be7-8c10-0916c4993ca7",
+      "a6e01138-4f3f-48f7-87e7-882e9c22c2a2"
+    ]
+  }
+}
