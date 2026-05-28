@@ -25,6 +25,7 @@ from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feed
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
 from client_surfaces.operator_tui.ai_snake_config_view import chat_model_option_label, refresh_chat_backend_models
+from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
 from client_surfaces.operator_tui.goal_artifact_filters import (
     filter_goal_artifact_view,
     normalize_goal_artifact_filters,
@@ -3535,6 +3536,13 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 current_model = str(game.get("chat_backend_model") or "").strip()
                 if models and (not current_model or current_model == "-"):
                     game["chat_backend_model"] = models[0]
+                save_tui_chat_settings(
+                    {
+                        "chat_backend": str(game.get("chat_backend") or ""),
+                        "chat_backend_model": str(game.get("chat_backend_model") or ""),
+                        "chat_backend_api_base": str(game.get("chat_backend_api_base") or ""),
+                    }
+                )
                 message = f"chat backend aktiv: {chosen}"
                 return CommandResult(
                     state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=message),
@@ -3568,6 +3576,13 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 if target_model not in models:
                     models.append(target_model)
                     game["chat_backend_models"] = models[-20:]
+                save_tui_chat_settings(
+                    {
+                        "chat_backend": str(game.get("chat_backend") or ""),
+                        "chat_backend_model": str(game.get("chat_backend_model") or ""),
+                        "chat_backend_api_base": str(game.get("chat_backend_api_base") or ""),
+                    }
+                )
                 return CommandResult(
                     state.with_updates(
                         header_logo_game=game,

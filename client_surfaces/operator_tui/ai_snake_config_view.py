@@ -8,6 +8,26 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+
+
+_PERSISTENT_TUI_CONFIG_KEYS = {
+    "tutorial_mode",
+    "chat_panel_open",
+    "ai_snake_provider_preference",
+    "ai_visual_use_codecompass",
+    "chat_backend",
+    "chat_backend_model",
+    "chat_backend_api_base",
+    "chat_ask_timeout_s",
+    "chat_use_codecompass",
+    "chat_include_local_project",
+    "chat_include_wikipedia",
+    "chat_source_pack_id",
+    "chat_context_chars",
+    "chat_max_tokens",
+    "chat_rag_top_k",
+}
 
 def _append_unique(values: list[str], candidate: str) -> None:
     item = str(candidate or "").strip()
@@ -123,6 +143,15 @@ def chat_model_option_label(game: dict[str, object], option: str) -> str:
     if state == "not_loaded":
         return f"{model_id} [nicht geladen]"
     return f"{model_id} [status unbekannt]"
+
+
+def _persist_tui_chat_settings(game: dict[str, object]) -> None:
+    payload: dict[str, Any] = {}
+    for key in _PERSISTENT_TUI_CONFIG_KEYS:
+        value = game.get(key)
+        if isinstance(value, (str, int, float, bool)):
+            payload[key] = value
+    save_tui_chat_settings(payload)
 
 
 def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
@@ -450,10 +479,13 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             game["chat_include_local_project"] = parsed
         elif key == "chat_include_wikipedia":
             game["chat_include_wikipedia"] = parsed
+        if key in {"visual_enabled", "chat_panel_open", "visual_codecompass", "chat_use_codecompass", "chat_include_local_project", "chat_include_wikipedia"}:
+            _persist_tui_chat_settings(game)
         return f"ai config: {label} {'AN' if parsed else 'AUS'}"
 
     if key == "visual_provider":
         game["ai_snake_provider_preference"] = raw_value
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"
     if key == "chat_backend":
         game["chat_backend"] = raw_value
@@ -462,6 +494,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         current_model = str(game.get("chat_backend_model") or "").strip()
         if models and (not current_model or current_model == "-"):
             game["chat_backend_model"] = models[0]
+        _persist_tui_chat_settings(game)
         if models:
             return f"ai config: {label} -> {raw_value} ({len(models)} modelle)"
         if fetch_error:
@@ -474,10 +507,12 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         if raw_value not in models:
             models.append(raw_value)
         game["chat_backend_models"] = [m for m in models if m][-40:]
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"
     if key == "chat_api_base":
         game["chat_backend_api_base"] = raw_value.rstrip("/")
         game["chat_backend_models_last_refresh_at"] = 0.0
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {game['chat_backend_api_base']}"
     if key == "chat_ask_timeout_s":
         try:
@@ -486,9 +521,11 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             return f"ai config: {label} erwartet sekunden"
         timeout_s = max(3.0, min(180.0, timeout_s))
         game["chat_ask_timeout_s"] = timeout_s
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {timeout_s:g}s"
     if key == "chat_source_pack_id":
         game["chat_source_pack_id"] = raw_value
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"
     if key == "chat_context_chars":
         try:
@@ -497,6 +534,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             return f"ai config: {label} erwartet zahl"
         value_int = max(500, min(20000, value_int))
         game["chat_context_chars"] = value_int
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"
     if key == "chat_max_tokens":
         try:
@@ -505,6 +543,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             return f"ai config: {label} erwartet zahl"
         value_int = max(100, min(8000, value_int))
         game["chat_max_tokens"] = value_int
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"
     if key == "chat_rag_top_k":
         try:
@@ -513,6 +552,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             return f"ai config: {label} erwartet zahl"
         value_int = max(8, min(120, value_int))
         game["chat_rag_top_k"] = value_int
+        _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"
     return "ai config: keine änderung"
 

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from client_surfaces.operator_tui.ai_snake_follow import make_follow_state
 from client_surfaces.operator_tui.models import OperatorMode, OperatorState
+from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings
 
 _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT = (
     "You are tutorial-snake guidance.\n"
@@ -25,16 +26,35 @@ _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT = (
 class HeaderSnakeMixin:
     """Mixin providing header snake enable/disable and direction handling."""
 
+    _PERSISTED_TUI_KEYS = (
+        "tutorial_mode",
+        "chat_panel_open",
+        "ai_snake_provider_preference",
+        "ai_visual_use_codecompass",
+        "chat_backend",
+        "chat_backend_model",
+        "chat_backend_api_base",
+        "chat_ask_timeout_s",
+        "chat_use_codecompass",
+        "chat_include_local_project",
+        "chat_include_wikipedia",
+        "chat_source_pack_id",
+        "chat_context_chars",
+        "chat_max_tokens",
+        "chat_rag_top_k",
+    )
+
     def _header_snake_enabled(self) -> bool:
         return os.environ.get("ANANTA_TUI_HEADER_SNAKE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
     def _default_header_snake(self) -> dict[str, object]:
         cfg = self._load_snake_message_config()
+        persisted_cfg = load_tui_chat_settings()
         board_w, board_h = 18, 6
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
         _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {"0", "false", "no", "off"}
-        return {
+        game: dict[str, object] = {
             "active": _tutorial_on,  # auto-start when tutorial AI is enabled
             "alive": True,
             "ui_steering": False,
@@ -118,6 +138,11 @@ class HeaderSnakeMixin:
             "moves": 0,
             "last_move": time.monotonic(),
         }
+        for key in self._PERSISTED_TUI_KEYS:
+            value = persisted_cfg.get(key)
+            if isinstance(value, (str, int, float, bool)):
+                game[key] = value
+        return game
 
     def _activate_header_snake(self, state: OperatorState) -> OperatorState:
         if not self._header_snake_enabled():

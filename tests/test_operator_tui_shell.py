@@ -31,6 +31,7 @@ from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, ren
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
+from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
 from agent.cli.main import _run_tui
 
 
@@ -2507,6 +2508,19 @@ def test_chat_model_option_label_marks_loaded_status() -> None:
     assert chat_model_option_label(game, "google/gemma-4-e4b").endswith("[geladen]")
     assert chat_model_option_label(game, "microsoft_-_phi-3.5-mini-instruct").endswith("[nicht geladen]")
     assert chat_model_option_label(game, "unknown/model").endswith("[status unbekannt]")
+
+
+def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkeypatch) -> None:
+    import client_surfaces.operator_tui.snake_persistence as sp
+
+    monkeypatch.setattr(sp, "_config_dir", lambda: tmp_path / "ananta")
+    save_tui_chat_settings({"chat_backend": "lmstudio", "chat_context_chars": 5000}, cwd=Path.cwd())
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    game = tui._default_header_snake()
+
+    assert game.get("chat_backend") == "lmstudio"
+    assert game.get("chat_context_chars") == 5000
 
 
 def test_chat_codecompass_context_can_be_disabled_via_config() -> None:

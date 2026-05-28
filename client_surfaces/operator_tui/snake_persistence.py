@@ -147,3 +147,71 @@ def reset_tutorial_progress(tutorial_name: str) -> None:
     progress.pop(tutorial_name, None)
     cfg["tutorial_progress"] = progress
     save_tutor_config(cfg)
+
+
+# ── TUI chat/config settings (per cwd) ───────────────────────────────────────
+
+_TUI_SETTINGS_FILE = "tui_chat_settings.json"
+
+
+def _tui_settings_path() -> Path:
+    return _config_dir() / _TUI_SETTINGS_FILE
+
+
+def _cwd_key(cwd: str | Path | None = None) -> str:
+    path = Path(cwd) if cwd is not None else Path.cwd()
+    try:
+        return str(path.expanduser().resolve())
+    except OSError:
+        return str(path)
+
+
+def _load_tui_settings_store() -> dict[str, Any]:
+    path = _tui_settings_path()
+    if not path.exists():
+        return {"scopes": {}}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"scopes": {}}
+    if not isinstance(data, dict):
+        return {"scopes": {}}
+    scopes = data.get("scopes")
+    if not isinstance(scopes, dict):
+        data["scopes"] = {}
+    return data
+
+
+def _save_tui_settings_store(store: dict[str, Any]) -> None:
+    path = _tui_settings_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(store, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        return
+
+
+def load_tui_chat_settings(*, cwd: str | Path | None = None) -> dict[str, Any]:
+    store = _load_tui_settings_store()
+    scopes = store.get("scopes")
+    if not isinstance(scopes, dict):
+        return {}
+    data = scopes.get(_cwd_key(cwd))
+    return dict(data) if isinstance(data, dict) else {}
+
+
+def save_tui_chat_settings(settings: dict[str, Any], *, cwd: str | Path | None = None) -> None:
+    if not isinstance(settings, dict):
+        return
+    store = _load_tui_settings_store()
+    scopes = store.get("scopes")
+    if not isinstance(scopes, dict):
+        scopes = {}
+        store["scopes"] = scopes
+    clean: dict[str, Any] = {}
+    for key, value in settings.items():
+        if isinstance(value, (str, int, float, bool)) and str(key).strip():
+            clean[str(key)] = value
+    scopes[_cwd_key(cwd)] = clean
+    store["updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    _save_tui_settings_store(store)
