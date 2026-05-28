@@ -12,7 +12,7 @@ from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_
 from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
 from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -639,8 +639,11 @@ def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str
     for idx, item in enumerate(items):
         marker = DEFAULT_THEME.selected_prefix if idx == selected else " "
         label = str(item.get("label") or item.get("key") or f"item-{idx}")
+        key = str(item.get("key") or "")
         value = item.get("value")
         value_text = ("AN" if value else "AUS") if isinstance(value, bool) else str(value or "-")
+        if key == "chat_model":
+            value_text = chat_model_option_label(dict(game), value_text)
         lines.append(f"{marker} {label:<22} {value_text}")
     if combo_open:
         key = str(combo.get("key") or "")
@@ -661,7 +664,8 @@ def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str
         else:
             for idx, option in enumerate(filtered[:10]):
                 marker = ">" if idx == selected_option else " "
-                lines.append(f"  {marker} {option}")
+                option_text = chat_model_option_label(dict(game), option) if key == "chat_model" else option
+                lines.append(f"  {marker} {option_text}")
         lines.append("  Up/Down oder Click waehlt Option | Esc schliesst Auswahl")
     lines.append("")
     lines.append(f"  {display_for_action('toggle_ai_snake_config', 'F6')} Config ein/aus")

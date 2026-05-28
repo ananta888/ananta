@@ -11,7 +11,7 @@ from pathlib import Path
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import build_initial_state, load_active_section
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items, apply_ai_snake_config_value
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items, apply_ai_snake_config_value, chat_model_option_label
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
@@ -2434,6 +2434,74 @@ def test_ai_snake_config_chat_model_fetch_falls_back_to_localhost(monkeypatch) -
     assert "local/model-a" in models
     assert any("localhost:1234" in call for call in calls)
     assert str(updated.get("chat_backend_api_base") or "").startswith("http://localhost:1234")
+
+
+def test_ai_snake_config_chat_model_fetch_includes_unloaded_lmstudio_models(monkeypatch) -> None:
+    game = {
+        "ai_snake_config_open": True,
+        "chat_backend": "lmstudio",
+        "chat_backend_api_base": "http://localhost:1234/v1",
+        "chat_backend_models": [],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=5)
+
+    class _FakeResp:
+        def __init__(self, payload: dict[str, object] | list[object]) -> None:
+            self._payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps(self._payload).encode("utf-8")
+
+    def _fake_urlopen(req, timeout=0):
+        url = str(getattr(req, "full_url", ""))
+        if url.endswith("/v1/models"):
+            return _FakeResp({"data": [{"id": "google/gemma-4-e4b"}]})
+        if url.endswith("/api/v0/models"):
+            return _FakeResp(
+                {
+                    "data": [
+                        {"id": "google/gemma-4-e4b", "loaded": True},
+                        {"id": "microsoft_-_phi-3.5-mini-instruct", "loaded": False},
+                    ]
+                }
+            )
+        raise OSError("unexpected endpoint")
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        _fake_urlopen,
+    )
+
+    tui._toggle_ai_snake_config_selected()
+
+    updated = tui.state.header_logo_game or {}
+    models = [str(item) for item in (updated.get("chat_backend_models") or [])]
+    states = dict(updated.get("chat_backend_model_states") or {})
+    assert "google/gemma-4-e4b" in models
+    assert "microsoft_-_phi-3.5-mini-instruct" in models
+    assert states.get("google/gemma-4-e4b") == "loaded"
+    assert states.get("microsoft_-_phi-3.5-mini-instruct") == "not_loaded"
+
+
+def test_chat_model_option_label_marks_loaded_status() -> None:
+    game = {
+        "chat_backend_model_states": {
+            "google/gemma-4-e4b": "loaded",
+            "microsoft_-_phi-3.5-mini-instruct": "not_loaded",
+        }
+    }
+
+    assert chat_model_option_label(game, "google/gemma-4-e4b").endswith("[geladen]")
+    assert chat_model_option_label(game, "microsoft_-_phi-3.5-mini-instruct").endswith("[nicht geladen]")
+    assert chat_model_option_label(game, "unknown/model").endswith("[status unbekannt]")
 
 
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:

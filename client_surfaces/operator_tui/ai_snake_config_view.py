@@ -31,6 +31,72 @@ def _default_models_for_backend(backend: str, game: dict[str, object]) -> list[s
     return defaults
 
 
+def _model_id_from_row(row: dict[str, Any]) -> str:
+    candidates = (
+        row.get("id"),
+        row.get("model"),
+        row.get("model_id"),
+        row.get("modelId"),
+        row.get("model_key"),
+        row.get("modelKey"),
+        row.get("identifier"),
+        row.get("name"),
+    )
+    for candidate in candidates:
+        model_id = str(candidate or "").strip()
+        if model_id:
+            return model_id
+    return ""
+
+
+def _model_loaded_state_from_row(row: dict[str, Any]) -> bool | None:
+    direct = row.get("loaded")
+    if isinstance(direct, bool):
+        return direct
+    for key in ("is_loaded", "isLoaded"):
+        token = row.get(key)
+        if isinstance(token, bool):
+            return token
+    for key in ("state", "status"):
+        token = str(row.get(key) or "").strip().lower()
+        if token in {"loaded", "active", "ready", "running"}:
+            return True
+        if token in {"not_loaded", "not-loaded", "unloaded", "idle", "stopped"}:
+            return False
+    return None
+
+
+def _set_model_state(states: dict[str, str], model_id: str, loaded: bool | None) -> None:
+    key = str(model_id or "").strip()
+    if not key:
+        return
+    state = "unknown"
+    if loaded is True:
+        state = "loaded"
+    elif loaded is False:
+        state = "not_loaded"
+    current = str(states.get(key) or "")
+    if current == "loaded":
+        return
+    if current == "not_loaded" and state == "unknown":
+        return
+    states[key] = state
+
+
+def chat_model_option_label(game: dict[str, object], option: str) -> str:
+    model_id = str(option or "").strip()
+    if not model_id:
+        return "-"
+    states_raw = game.get("chat_backend_model_states")
+    states = dict(states_raw) if isinstance(states_raw, dict) else {}
+    state = str(states.get(model_id) or "unknown").strip().lower()
+    if state == "loaded":
+        return f"{model_id} [geladen]"
+    if state == "not_loaded":
+        return f"{model_id} [nicht geladen]"
+    return f"{model_id} [status unbekannt]"
+
+
 def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     backends_raw = game.get("chat_backends_available")
     chat_backends = [str(item).strip() for item in backends_raw] if isinstance(backends_raw, list) else []
@@ -109,8 +175,11 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
     models_raw = game.get("chat_backend_models")
     models = [str(item).strip() for item in models_raw] if isinstance(models_raw, list) else []
     models = [item for item in models if item and item != "-"]
+    states_raw = game.get("chat_backend_model_states")
+    model_states = dict(states_raw) if isinstance(states_raw, dict) else {}
     for model in _default_models_for_backend(backend, game):
         _append_unique(models, model)
+        _set_model_state(model_states, model, None)
 
     local_backends = {"lmstudio", "local", "openai"}
     worker_backends = {"ananta-worker", "worker", "hub", "default", "auto", "opencode", "hermes"}
@@ -171,9 +240,10 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
                     for row in model_rows:
                         if not isinstance(row, dict):
                             continue
-                        model_id = str(row.get("id") or "").strip()
-                        if model_id and model_id not in models:
-                            models.append(model_id)
+                        model_id = _model_id_from_row(row)
+                        if model_id:
+                            _append_unique(models, model_id)
+                            _set_model_state(model_states, model_id, True)
                 resolved_base = base if base.endswith("/v1") else f"{base}/v1"
                 break
             except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
@@ -181,8 +251,41 @@ def refresh_chat_backend_models(game: dict[str, object], *, force: bool = False)
         if resolved_base:
             break
 
+    if backend in {"lmstudio", "local", "openai"}:
+        lmstudio_extra_candidates: list[str] = []
+        for base in base_candidates:
+            host = base.removesuffix("/v1")
+            endpoint = f"{host}/api/v0/models"
+            if endpoint not in lmstudio_extra_candidates:
+                lmstudio_extra_candidates.append(endpoint)
+        for endpoint in lmstudio_extra_candidates:
+            try:
+                req = urllib.request.Request(endpoint, method="GET")
+                with urllib.request.urlopen(req, timeout=2.5) as resp:
+                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                model_rows: list[Any] = []
+                if isinstance(data, dict):
+                    if isinstance(data.get("data"), list):
+                        model_rows = list(data.get("data") or [])
+                    elif isinstance(data.get("models"), list):
+                        model_rows = list(data.get("models") or [])
+                elif isinstance(data, list):
+                    model_rows = data
+                for row in model_rows:
+                    if not isinstance(row, dict):
+                        continue
+                    model_id = _model_id_from_row(row)
+                    if not model_id:
+                        continue
+                    _append_unique(models, model_id)
+                    _set_model_state(model_states, model_id, _model_loaded_state_from_row(row))
+                break
+            except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
+                continue
+
     models = models[-40:]
     game["chat_backend_models"] = models
+    game["chat_backend_model_states"] = model_states
     game["chat_backend_models_last_refresh_at"] = now
     if resolved_base and backend in local_backends:
         game["chat_backend_api_base"] = resolved_base
@@ -206,7 +309,7 @@ def ai_snake_config_options(game: dict[str, object], *, key: str) -> list[str]:
     if typ == "bool":
         return ["AN", "AUS"]
     options = [str(item).strip() for item in (row.get("options") or []) if str(item).strip()]
-    value = str(row.get("value") or "").strip()
+    value = str(game.get("chat_backend_model") if key == "chat_model" else row.get("value") or "").strip()
     if value and value not in options:
         options.insert(0, value)
     return options
