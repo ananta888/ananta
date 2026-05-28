@@ -2384,6 +2384,50 @@ def test_ai_snake_config_chat_model_combo_loads_lmstudio_models(monkeypatch) -> 
     assert "google/gemma-3n-e4b" in models
 
 
+def test_ai_snake_config_chat_model_fetch_falls_back_to_localhost(monkeypatch) -> None:
+    game = {
+        "ai_snake_config_open": True,
+        "chat_backend": "lmstudio",
+        "chat_backend_api_base": "http://192.168.178.100:1234/v1",
+        "chat_backend_models": [],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=5)
+
+    calls: list[str] = []
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"data": [{"id": "local/model-a"}]}).encode("utf-8")
+
+    def _fake_urlopen(req, timeout=0):
+        url = str(getattr(req, "full_url", ""))
+        calls.append(url)
+        if "localhost:1234" in url:
+            return _FakeResp()
+        raise OSError("unreachable")
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.ai_snake_config_view.urllib.request.urlopen",
+        _fake_urlopen,
+    )
+
+    tui._toggle_ai_snake_config_selected()
+
+    updated = tui.state.header_logo_game or {}
+    models = [str(item) for item in (updated.get("chat_backend_models") or [])]
+    assert "local/model-a" in models
+    assert any("localhost:1234" in call for call in calls)
+    assert str(updated.get("chat_backend_api_base") or "").startswith("http://localhost:1234")
+
+
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)

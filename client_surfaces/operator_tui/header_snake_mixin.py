@@ -84,7 +84,7 @@ class HeaderSnakeMixin:
             "chat_backend_model": os.environ.get("ANANTA_TUI_CHAT_MODEL", os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "google/gemma-4-e4b")),
             "chat_backend_api_base": os.environ.get(
                 "ANANTA_TUI_CHAT_API_BASE_URL",
-                os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://192.168.178.100:1234/v1"),
+                os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://localhost:1234/v1"),
             ),
             "chat_backends_available": [
                 item.strip()
