@@ -468,12 +468,12 @@ class ChatMixin:
                 question_tokens = [
                     t for t in re.findall(r"[a-z0-9_./-]+", question.lower()) if len(t) >= 2
                 ][:32]
-                # A01: extract prior ai:tutor messages for multi-turn context
-                prior_messages = self._extract_prior_messages(game, current_question=question)
+                # Build configurable chat memory context
+                memory = self._build_chat_memory(game, current_question=question)
                 self._tutor_ask_future = self._tutor_ask_executor.submit(
                     self._resolve_ask_question, question,
                     depth=depth, hints=hints, rag_context=rag_context,
-                    question_tokens=question_tokens, prior_messages=prior_messages,
+                    question_tokens=question_tokens, memory=memory,
                 )
         if self._tutor_ask_future is not None and self._tutor_ask_future.done():
             try:
@@ -491,28 +491,59 @@ class ChatMixin:
             self._tutor_ask_future = None
             self._inject_tutor_tip(game, f"[ask] {answer}", source="ask")
             self._fire_tutorial_event(game, "ask_command_used")
+            # Non-blocking rolling summary update (CMW-004, CMW-015)
+            self._trigger_rolling_summary_update(game, question=question, answer=answer)
 
     def _extract_prior_messages(self, game: dict, *, current_question: str = "") -> list[dict]:
-        """A01: last 6 ai:tutor messages as prior conversation turns."""
+        """Kept for backward-compat; delegates to configurable extract_memory_context."""
+        mem = self._build_chat_memory(game, current_question=current_question)
+        return mem.to_prior_messages()
+
+    def _build_chat_memory(self, game: dict, *, current_question: str = "") -> "object":
+        """Build a ChatMemoryContext from game state and current memory settings."""
+        from client_surfaces.operator_tui.chat_memory import (
+            extract_memory_context,
+            resolve_memory_settings,
+            build_runtime_status,
+        )
+        settings = resolve_memory_settings(game)
+        ctx = extract_memory_context(
+            game,
+            current_question=current_question,
+            max_turns=settings["history_turns"] if settings["use_history"] else 0,
+            max_chars=settings["history_chars"] if settings["use_history"] else 0,
+        )
+        if not settings["use_summary"]:
+            ctx.rolling_summary = ""  # type: ignore[attr-defined]
+        if settings["include_runtime_status"]:
+            from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
+            ctx = ChatMemoryContext(
+                recent_turns=ctx.recent_turns,
+                rolling_summary=ctx.rolling_summary,
+                active_target_excerpt=ctx.active_target_excerpt,
+                codecompass_refs=ctx.codecompass_refs,
+                rag_snippets=ctx.rag_snippets,
+                runtime_status=build_runtime_status(game),
+                metadata=ctx.metadata,
+            )
+        return ctx
+
+    def _trigger_rolling_summary_update(self, game: dict, *, question: str, answer: str) -> None:
+        """Non-blocking: update rolling summary in game state after answer."""
+        from client_surfaces.operator_tui.chat_memory import update_rolling_summary, resolve_memory_settings
+        settings = resolve_memory_settings(game)
+        if not settings["use_summary"]:
+            return
         try:
-            from client_surfaces.operator_tui.chat_state import get_chat_state
-            chat = get_chat_state(game)
-            ai_ch = (chat.get("channels") or {}).get("ai:tutor") or {}
-            all_msgs = [m for m in (ai_ch.get("messages") or []) if isinstance(m, dict)]
-            result = []
-            current_norm = " ".join(str(current_question or "").split())
-            for m in all_msgs:
-                kind = str(m.get("sender_kind") or "")
-                text = str(m.get("text") or "").strip()
-                if kind == "user" and current_norm and " ".join(text.split()) == current_norm:
-                    continue
-                if kind == "ai":
-                    result.append({"role": "assistant", "content": text[:300]})
-                elif kind == "user":
-                    result.append({"role": "user", "content": text[:300]})
-            return result[-6:]
+            update_rolling_summary(
+                game,
+                last_question=question,
+                last_answer=answer,
+                max_chars=settings["summary_chars"],
+                update_every_turns=settings["summary_update_every_turns"],
+            )
         except Exception:
-            return []
+            pass
 
     def _build_active_target_excerpt(self) -> str:
         """A02: file excerpt or metadata for the currently selected artifact."""
@@ -588,8 +619,16 @@ class ChatMixin:
         rag_context: list[str],
         question_tokens: list[str] | None = None,
         prior_messages: list[dict] | None = None,
+        memory: "object | None" = None,
     ) -> str:
+        import time as _time_mod
+        from client_surfaces.operator_tui.chat_memory import resolve_memory_settings
+        from client_surfaces.operator_tui.chat_prompt_builder import ChatPromptBuilder
+
+        t_start = _time_mod.perf_counter()
         game = dict(self.state.header_logo_game or {})
+        mem_settings = resolve_memory_settings(game)
+
         chat_top_k_raw = game.get("chat_rag_top_k")
         try:
             chat_top_k = int(chat_top_k_raw) if chat_top_k_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24"))
@@ -597,11 +636,9 @@ class ChatMixin:
             chat_top_k = 24
         chat_top_k = max(8, min(120, chat_top_k))
 
-        # R01: question-based RAG retrieval (runs in background thread — blocking OK)
         question_rag = self._rag_context_for_question(question, question_tokens=question_tokens, top_k=chat_top_k)
         codecompass_refs = self._chat_codecompass_context_for_question(question=question)
 
-        # Merge question-RAG first (higher relevance), deduplicated with TUI-context rag
         seen: set[str] = set()
         merged: list[str] = []
         for item in question_rag + rag_context:
@@ -610,59 +647,167 @@ class ChatMixin:
                 seen.add(key)
                 merged.append(item)
 
-        # A02: prepend active artifact context
         active_excerpt = self._build_active_target_excerpt()
-        context_parts = ([active_excerpt] if active_excerpt else []) + codecompass_refs[:8] + merged[:chat_top_k] + hints[:10]
-        context_text = "\n".join(context_parts)
+
+        # Attach RAG/CodeCompass to the memory context
+        if memory is not None:
+            from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
+            mem_ctx = memory
+        else:
+            from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
+            mem_ctx = ChatMemoryContext(
+                recent_turns=[],
+                rolling_summary="",
+                active_target_excerpt=active_excerpt,
+                codecompass_refs=codecompass_refs[:8],
+                rag_snippets=(merged + hints)[:chat_top_k],
+            )
+
+        # Patch in RAG/CodeCompass even if memory context came from outside
+        if hasattr(mem_ctx, "codecompass_refs") and not mem_ctx.codecompass_refs:
+            object.__setattr__(mem_ctx, "codecompass_refs", codecompass_refs[:8]) if hasattr(mem_ctx, "__dataclass_fields__") else None
+        if not mem_ctx.active_target_excerpt and active_excerpt:
+            pass  # already set above
+
+        context_chars_raw = game.get("chat_context_chars")
+        try:
+            context_budget = int(context_chars_raw) if context_chars_raw is not None else 3000
+        except (TypeError, ValueError):
+            context_budget = 3000
+        context_budget = max(500, min(20000, context_budget))
+
+        builder = ChatPromptBuilder(
+            question=question,
+            depth=depth,
+            memory=mem_ctx,
+            context_budget=context_budget,
+            max_turns_chars=mem_settings["history_chars"],
+            system_template=str(os.environ.get("ANANTA_TUI_CHAT_SYSTEM_PROMPT") or ""),
+        )
+        build_result = builder.build()
 
         backend = str(
             game.get("chat_backend")
             or os.environ.get("ANANTA_TUI_CHAT_BACKEND")
             or "ananta-worker"
         ).strip().lower()
+        fallback_policy = mem_settings["backend_fallback"]
+        used_path = backend
+        fallback_reason = ""
+
+        def _record_diagnostics(path: str, latency_ms: float, fallback: str = "") -> None:
+            try:
+                g = dict(self.state.header_logo_game or {})
+                g["last_chat_backend_used"] = backend
+                g["last_chat_backend_path"] = path
+                g["last_chat_latency_ms"] = round(latency_ms, 1)
+                g["last_chat_fallback_reason"] = fallback
+                g["last_chat_memory_status"] = {
+                    "history_used": bool(mem_ctx.recent_turns),
+                    "summary_used": bool(mem_ctx.rolling_summary),
+                    "codecompass_used": bool(codecompass_refs),
+                    "rag_count": len(merged),
+                    "sections": build_result.included_sections,
+                }
+                self._set_state(self.state.with_updates(header_logo_game=g))
+            except Exception:
+                pass
 
         if backend in {"lmstudio", "local", "openai"}:
-            return self._tutorial_ai_llm_ask(
+            answer = self._tutorial_ai_llm_ask(
                 question=question,
-                context_text=context_text,
+                context_text="",
                 depth=depth,
-                prior_messages=prior_messages or [],
+                prior_messages=build_result.messages[1:-1],  # skip system + current question
+                _messages_override=build_result.messages,
             )
+            elapsed = (_time_mod.perf_counter() - t_start) * 1000
+            _record_diagnostics("llm_direct", elapsed)
+            return answer
 
         if backend in {"opencode", "hermes"}:
             worker_answer = self._tutorial_ai_worker_chat_ask(
                 question=question,
-                context_text=context_text,
+                context_text=build_result.prompt_text,
                 depth=depth,
                 provider=backend,
+                prior_messages=build_result.messages[1:-1],
             )
             if worker_answer:
+                elapsed = (_time_mod.perf_counter() - t_start) * 1000
+                _record_diagnostics(f"propose/{backend}", elapsed)
                 return worker_answer
+            used_path = f"propose/{backend}"
+            fallback_reason = f"{backend} empty response"
 
-        try:
-            endpoint = str(self.state.endpoint or "http://localhost:5000")
-            endpoint_norm = endpoint.rstrip("/")
-            if backend in {"ananta-worker", "worker", "hub", "default", "auto"} and not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
-                payload = _json_mod.dumps({"question": question, "context": context_text, "depth": depth}).encode()
-                req = urllib.request.Request(
-                    f"{endpoint_norm}/snake/ask",
-                    data=payload,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=3.0) as resp:
-                    data = _json_mod.loads(resp.read().decode())
-                    answer = str(data.get("answer") or data.get("text") or "")
-                    if answer:
-                        return answer[: self._chat_answer_char_limit()]
-        except Exception:
-            pass
-        return self._tutorial_ai_llm_ask(
+        if backend in {"ananta-worker", "worker", "hub", "default", "auto"} or (backend in {"opencode", "hermes"} and not fallback_reason):
+            endpoint_norm = str(self.state.endpoint or "http://localhost:5000").rstrip("/")
+            if not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
+                answered = False
+                # Try v2 payload first when memory propagation enabled
+                if mem_settings["pass_memory_to_worker"]:
+                    try:
+                        v2_payload = _json_mod.dumps(build_result.worker_v2_payload).encode()
+                        req = urllib.request.Request(
+                            f"{endpoint_norm}/snake/ask",
+                            data=v2_payload,
+                            headers={"Content-Type": "application/json"},
+                            method="POST",
+                        )
+                        with urllib.request.urlopen(req, timeout=3.0) as resp:
+                            data = _json_mod.loads(resp.read().decode())
+                            answer = str(data.get("answer") or data.get("text") or "")
+                            if answer:
+                                elapsed = (_time_mod.perf_counter() - t_start) * 1000
+                                _record_diagnostics("worker_v2", elapsed)
+                                return answer[: self._chat_answer_char_limit()]
+                            answered = True
+                    except urllib.error.HTTPError as exc:
+                        if exc.code == 400:
+                            fallback_reason = "worker rejected v2 payload"
+                        else:
+                            fallback_reason = f"worker HTTP {exc.code}"
+                    except Exception as exc:
+                        fallback_reason = str(exc)[:60]
+
+                # Fall back to v1 payload
+                if not answered:
+                    try:
+                        v1_payload = _json_mod.dumps({"question": question, "context": build_result.prompt_text[:3000], "depth": depth}).encode()
+                        req = urllib.request.Request(
+                            f"{endpoint_norm}/snake/ask",
+                            data=v1_payload,
+                            headers={"Content-Type": "application/json"},
+                            method="POST",
+                        )
+                        with urllib.request.urlopen(req, timeout=3.0) as resp:
+                            data = _json_mod.loads(resp.read().decode())
+                            answer = str(data.get("answer") or data.get("text") or "")
+                            if answer:
+                                elapsed = (_time_mod.perf_counter() - t_start) * 1000
+                                _record_diagnostics("worker_v1", elapsed, fallback_reason)
+                                return answer[: self._chat_answer_char_limit()]
+                    except Exception as exc2:
+                        fallback_reason = f"{fallback_reason}; v1: {str(exc2)[:40]}"
+
+        # Apply fallback policy
+        elapsed = (_time_mod.perf_counter() - t_start) * 1000
+        if fallback_policy == "none":
+            _record_diagnostics(used_path, elapsed, fallback_reason)
+            return f"[Chat nicht verfügbar: {fallback_reason or 'kein Backend'}]"
+        if fallback_policy == "local_knowledge":
+            _record_diagnostics("local_knowledge", elapsed, fallback_reason)
+            return self._local_knowledge_answer(question)
+        # Default: lmstudio fallback
+        answer = self._tutorial_ai_llm_ask(
             question=question,
-            context_text=context_text,
+            context_text="",
             depth=depth,
-            prior_messages=prior_messages or [],
+            prior_messages=[],
+            _messages_override=build_result.messages,
         )
+        _record_diagnostics("llm_fallback", elapsed, fallback_reason)
+        return answer
 
     def _tutorial_ai_worker_chat_ask(
         self,
@@ -671,6 +816,7 @@ class ChatMixin:
         context_text: str,
         depth: str,
         provider: str,
+        prior_messages: list[dict] | None = None,
     ) -> str:
         base_url = str(self.state.endpoint or os.environ.get("ANANTA_BASE_URL") or "http://localhost:5000").strip()
         if not base_url:
@@ -678,10 +824,20 @@ class ChatMixin:
         timeout_seconds = max(0.8, min(14.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "3.0"))))
         game = dict(self.state.header_logo_game or {})
         model = str(game.get("chat_backend_model") or os.environ.get("ANANTA_TUI_CHAT_MODEL") or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "").strip()
+        prior_section = ""
+        if prior_messages:
+            parts = []
+            for m in prior_messages[-6:]:
+                role = "User" if m.get("role") == "user" else "Assistant"
+                content = str(m.get("content") or "")[:300]
+                parts.append(f"{role}: {content}")
+            if parts:
+                prior_section = "[Letzte Nachrichten]\n" + "\n".join(parts) + "\n\n"
         prompt = (
             f"Depth: {depth}\n"
             "You are AI-snake chat assistant for Ananta.\n"
             "Answer the user directly in max 5 short sentences.\n"
+            f"{prior_section}"
             f"Context:\n{context_text[:3500]}\n"
             f"User question:\n{question}\n"
         )
@@ -793,6 +949,7 @@ class ChatMixin:
         context_text: str,
         depth: str,
         prior_messages: list[dict] | None = None,
+        _messages_override: list[dict] | None = None,
     ) -> str:
         # L04: unified config via _get_llm_api_config
         api_base, model, api_token = self._get_llm_api_config()
@@ -840,21 +997,23 @@ class ChatMixin:
             "{depth_instruction}", depth_instruction
         ).replace("{project_name}", project_name)
 
-        # A01: build message list with prior conversation turns
-        messages: list[dict] = [{"role": "system", "content": system_content}]
-        # Trim prior_messages so they don't exceed half the context budget
-        prior = list(prior_messages or [])
-        char_budget = context_chars // 2
-        used = 0
-        trimmed: list[dict] = []
-        for msg in reversed(prior):
-            chunk = str(msg.get("content") or "")
-            if used + len(chunk) > char_budget:
-                break
-            trimmed.insert(0, msg)
-            used += len(chunk)
-        messages.extend(trimmed)
-        messages.append({"role": "user", "content": question})
+        # Build message list: use pre-built messages from ChatPromptBuilder if available
+        if _messages_override:
+            messages = list(_messages_override)
+        else:
+            messages = [{"role": "system", "content": system_content}]
+            prior = list(prior_messages or [])
+            char_budget = context_chars // 2
+            used = 0
+            trimmed: list[dict] = []
+            for msg in reversed(prior):
+                chunk = str(msg.get("content") or "")
+                if used + len(chunk) > char_budget:
+                    break
+                trimmed.insert(0, msg)
+                used += len(chunk)
+            messages.extend(trimmed)
+            messages.append({"role": "user", "content": question})
 
         stream_enabled = str(os.environ.get("ANANTA_TUI_CHAT_STREAMING", "1")).strip().lower() not in {"0", "false", "no", "off"}
         try:

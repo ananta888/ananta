@@ -55,26 +55,101 @@
       "Do not require ananta-worker for chat to function; fallback backend remains necessary."
     ]
   },
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
-    {"id": "M1", "title": "Current behavior docs and memory contract", "status": "todo", "task_ids": ["CMW-001", "CMW-002", "CMW-003"]},
-    {"id": "M2", "title": "Prompt/context builder and rolling summary", "status": "todo", "task_ids": ["CMW-004", "CMW-005", "CMW-006", "CMW-007"]},
-    {"id": "M3", "title": "Worker/ananta-worker memory propagation", "status": "todo", "task_ids": ["CMW-008", "CMW-009", "CMW-010", "CMW-011"]},
-    {"id": "M4", "title": "AI-Snake visual/chat settings", "status": "todo", "task_ids": ["CMW-012", "CMW-013", "CMW-014"]},
-    {"id": "M5", "title": "Fluency, streaming and diagnostics", "status": "todo", "task_ids": ["CMW-015", "CMW-016", "CMW-017"]},
-    {"id": "M6", "title": "Tests and E2E coverage", "status": "todo", "task_ids": ["CMW-018", "CMW-019", "CMW-020", "CMW-021"]}
+    {
+      "id": "M1",
+      "title": "Current behavior docs and memory contract",
+      "status": "done",
+      "task_ids": [
+        "CMW-001",
+        "CMW-002",
+        "CMW-003"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Prompt/context builder and rolling summary",
+      "status": "done",
+      "task_ids": [
+        "CMW-004",
+        "CMW-005",
+        "CMW-006",
+        "CMW-007"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Worker/ananta-worker memory propagation",
+      "status": "done",
+      "task_ids": [
+        "CMW-008",
+        "CMW-009",
+        "CMW-010",
+        "CMW-011"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "AI-Snake visual/chat settings",
+      "status": "done",
+      "task_ids": [
+        "CMW-012",
+        "CMW-013",
+        "CMW-014"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Fluency, streaming and diagnostics",
+      "status": "done",
+      "task_ids": [
+        "CMW-015",
+        "CMW-016",
+        "CMW-017"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Tests and E2E coverage",
+      "status": "done",
+      "task_ids": [
+        "CMW-018",
+        "CMW-019",
+        "CMW-020",
+        "CMW-021"
+      ]
+    }
   ],
   "tasks": [
     {
       "id": "CMW-001",
       "title": "Document current Snake Chat context flow",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
-      "target_files": ["docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md"],
+      "target_files": [
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md"
+      ],
       "description": "Document the current flow from AI chat message to _resolve_ask_question, CodeCompass/RAG context, backend selection and response posting.",
       "acceptance_criteria": [
         "Docs include Mermaid sequence diagram for chat input -> history extraction -> CodeCompass/RAG -> backend -> chat response.",
@@ -87,10 +162,12 @@
       "id": "CMW-002",
       "title": "Define ChatMemoryContext contract",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_memory.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_memory.py"
+      ],
       "description": "Create a structured memory object containing recent turns, rolling summary, active target, CodeCompass references and RAG snippets.",
       "acceptance_criteria": [
         "ChatMemoryContext contains recent_turns, rolling_summary, active_target_excerpt, codecompass_refs, rag_snippets, runtime_status and metadata.",
@@ -103,10 +180,13 @@
       "id": "CMW-003",
       "title": "Replace ad-hoc prior message extraction with configurable recent-turn memory",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py", "client_surfaces/operator_tui/chat_memory.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/chat_memory.py"
+      ],
       "description": "Generalize _extract_prior_messages from fixed last 6 turns to configurable recent chat memory.",
       "acceptance_criteria": [
         "Settings chat_use_history, chat_history_turns and chat_history_chars control recent-turn inclusion.",
@@ -120,10 +200,13 @@
       "id": "CMW-004",
       "title": "Implement rolling chat summary state",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_memory.py", "client_surfaces/operator_tui/chat_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_memory.py",
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
       "description": "Maintain a compact summary of previous chat turns so the AI remembers beyond the recent-turn window.",
       "acceptance_criteria": [
         "Rolling summary is stored in chat_state or header_logo_game under a clear key such as chat_memory_summary.",
@@ -137,10 +220,13 @@
       "id": "CMW-005",
       "title": "Implement ChatPromptBuilder with explicit context budget policy",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_prompt_builder.py", "client_surfaces/operator_tui/chat_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
       "description": "Replace scattered prompt construction with one builder that orders and trims active target, summary, recent turns, CodeCompass and RAG context.",
       "acceptance_criteria": [
         "Builder supports budget policy active_target_then_summary_then_recent_then_codecompass_then_rag.",
@@ -154,10 +240,13 @@
       "id": "CMW-006",
       "title": "Make CodeCompass/RAG context fully configurable for chat",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py", "client_surfaces/operator_tui/ai_snake_config_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/ai_snake_config_view.py"
+      ],
       "description": "Keep existing chat CodeCompass settings but make their effective status and retrieval results transparent.",
       "acceptance_criteria": [
         "chat_use_codecompass disables CodeCompass references and source pack preview completely.",
@@ -171,10 +260,13 @@
       "id": "CMW-007",
       "title": "Add runtime status context as optional prompt section",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_memory.py", "client_surfaces/operator_tui/chat_prompt_builder.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_memory.py",
+        "client_surfaces/operator_tui/chat_prompt_builder.py"
+      ],
       "description": "Allow the AI-Snake chat to know current TUI mode, active center view, selected artifact and focus/scroll state when enabled.",
       "acceptance_criteria": [
         "Setting chat_include_runtime_status controls this section.",
@@ -187,10 +279,13 @@
       "id": "CMW-008",
       "title": "Extend /snake/ask worker payload to include memory context",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py", "agent/**/snake*ask*.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "agent/**/snake*ask*.py"
+      ],
       "description": "Send structured memory to ananta-worker/hub snake ask endpoint instead of only question/context/depth.",
       "acceptance_criteria": [
         "Client sends payload v2 with question, depth, context, recent_turns, rolling_summary, codecompass_refs, rag_snippets and metadata when chat_pass_memory_to_worker is enabled.",
@@ -203,10 +298,12 @@
       "id": "CMW-009",
       "title": "Include memory context in worker-propose prompt path",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
       "description": "Ensure opencode/hermes/worker-propose chat prompts include recent turns and rolling summary, not only depth/context/question.",
       "acceptance_criteria": [
         "_tutorial_ai_worker_chat_ask or replacement builder includes rolling summary and recent turns when enabled.",
@@ -219,10 +316,13 @@
       "id": "CMW-010",
       "title": "Make ananta-worker/propose chat mode selectable and explicit",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/ai_snake_config_view.py", "client_surfaces/operator_tui/chat_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/ai_snake_config_view.py",
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
       "description": "Expose whether chat uses /snake/ask, /step/propose, LMStudio, opencode or hermes paths.",
       "acceptance_criteria": [
         "Setting chat_worker_mode supports snake_ask, propose, auto and disabled for worker backends.",
@@ -235,10 +335,12 @@
       "id": "CMW-011",
       "title": "Add worker response metadata and latency diagnostics",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py"
+      ],
       "description": "Track whether answer came from worker, propose or local backend and how long it took.",
       "acceptance_criteria": [
         "Game/chat state records last_chat_backend_used, last_chat_backend_path, last_chat_latency_ms and last_chat_fallback_reason.",
@@ -251,10 +353,12 @@
       "id": "CMW-012",
       "title": "Extend AI-Snake config UI with memory settings",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/ai_snake_config_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/ai_snake_config_view.py"
+      ],
       "description": "Add user-visible settings for chat history, summary and worker memory propagation.",
       "acceptance_criteria": [
         "Persistent keys include chat_use_history, chat_history_turns, chat_history_chars, chat_use_summary, chat_summary_chars, chat_summary_update_every_turns and chat_pass_memory_to_worker.",
@@ -267,10 +371,13 @@
       "id": "CMW-013",
       "title": "Split visual AI-Snake and chat AI settings more clearly",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/ai_snake_config_view.py", "client_surfaces/operator_tui/renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/ai_snake_config_view.py",
+        "client_surfaces/operator_tui/renderer.py"
+      ],
       "description": "Make clear which settings affect visual snake behavior and which affect chat answer generation.",
       "acceptance_criteria": [
         "Config UI groups settings into Visual AI-Snake, Chat Backend, Chat Context/Memory and CodeCompass/RAG.",
@@ -283,10 +390,13 @@
       "id": "CMW-014",
       "title": "Add chat prompt preview/debug view",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py", "client_surfaces/operator_tui/chat_prompt_builder.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py",
+        "client_surfaces/operator_tui/chat_prompt_builder.py"
+      ],
       "description": "Allow debugging what context actually reaches the selected backend without exposing secrets by default.",
       "acceptance_criteria": [
         "Debug view can show included section names and char counts.",
@@ -299,10 +409,13 @@
       "id": "CMW-015",
       "title": "Improve chat fluency with partial responses and non-blocking summary updates",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py", "client_surfaces/operator_tui/chat_memory.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/chat_memory.py"
+      ],
       "description": "Keep the TUI responsive while chat responses and summaries are generated.",
       "acceptance_criteria": [
         "Main TUI event loop is not blocked by chat answer generation or summary generation.",
@@ -315,10 +428,13 @@
       "id": "CMW-016",
       "title": "Add backend fallback policy for chat answers",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/chat_mixin.py", "client_surfaces/operator_tui/ai_snake_config_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/ai_snake_config_view.py"
+      ],
       "description": "Make fallback from ananta-worker/propose to LMStudio/local explicit and configurable.",
       "acceptance_criteria": [
         "Setting chat_backend_fallback supports none, lmstudio and local_knowledge.",
@@ -331,10 +447,13 @@
       "id": "CMW-017",
       "title": "Add chat context health indicator",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
-      "target_files": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/ai_snake_config_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/ai_snake_config_view.py"
+      ],
       "description": "Expose whether the last chat answer used history, summary, CodeCompass, RAG and which backend.",
       "acceptance_criteria": [
         "Status/config panel shows compact indicators: history, summary, codecompass, rag, backend, latency.",
@@ -347,10 +466,13 @@
       "id": "CMW-018",
       "title": "Add unit tests for ChatMemoryContext and prompt builder",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/chat_memory/test_chat_memory_context.py", "tests/operator_tui/chat_memory/test_chat_prompt_builder.py"],
+      "target_files": [
+        "tests/operator_tui/chat_memory/test_chat_memory_context.py",
+        "tests/operator_tui/chat_memory/test_chat_prompt_builder.py"
+      ],
       "description": "Verify bounded memory construction and prompt section ordering.",
       "acceptance_criteria": [
         "Tests cover recent-turn trimming by turns and chars.",
@@ -363,10 +485,12 @@
       "id": "CMW-019",
       "title": "Add tests for ananta-worker memory payload",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["tests/operator_tui/chat_memory/test_worker_memory_payload.py"],
+      "target_files": [
+        "tests/operator_tui/chat_memory/test_worker_memory_payload.py"
+      ],
       "description": "Ensure worker-backed chat receives summary and prior turns when configured.",
       "acceptance_criteria": [
         "Test asserts /snake/ask v2 payload contains recent_turns and rolling_summary.",
@@ -379,10 +503,13 @@
       "id": "CMW-020",
       "title": "Add E2E chat memory scenario in autonomous mode",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["tests/e2e/fixtures/snake_chat_memory_basic.json", "tests/operator_tui/chat_memory/test_autonomous_chat_memory_e2e.py"],
+      "target_files": [
+        "tests/e2e/fixtures/snake_chat_memory_basic.json",
+        "tests/operator_tui/chat_memory/test_autonomous_chat_memory_e2e.py"
+      ],
       "description": "Use autonomous Snake Chat mode to verify the second question can see previous context.",
       "acceptance_criteria": [
         "Fixture sends a first AI chat message with a named fact.",
@@ -396,10 +523,12 @@
       "id": "CMW-021",
       "title": "Add tests for AI-Snake config persistence of memory settings",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["tests/operator_tui/chat_memory/test_ai_snake_memory_config.py"],
+      "target_files": [
+        "tests/operator_tui/chat_memory/test_ai_snake_memory_config.py"
+      ],
       "description": "Verify memory-related settings are visible, changeable and persisted.",
       "acceptance_criteria": [
         "Tests verify ai_snake_config_items includes history, summary and worker memory settings.",
@@ -409,26 +538,124 @@
       ]
     }
   ],
-  "critical_path_tasks": ["CMW-001", "CMW-002", "CMW-003", "CMW-004", "CMW-005", "CMW-008", "CMW-009", "CMW-012", "CMW-015", "CMW-018", "CMW-019", "CMW-020"],
+  "critical_path_tasks": [
+    "CMW-001",
+    "CMW-002",
+    "CMW-003",
+    "CMW-004",
+    "CMW-005",
+    "CMW-008",
+    "CMW-009",
+    "CMW-012",
+    "CMW-015",
+    "CMW-018",
+    "CMW-019",
+    "CMW-020"
+  ],
   "tasks_status_summary": {
     "total": 21,
-    "by_status": {"todo": 21, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"critical": 12, "high": 6, "medium": 3, "low": 0},
-    "by_risk": {"low": 4, "medium": 12, "high": 5, "critical": 0},
-    "critical_path": {"total": 12, "done": 0, "remaining": 12},
-    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 21
+    },
+    "progress_percent_done": 100,
+    "by_priority": {
+      "critical": 12,
+      "high": 6,
+      "medium": 3,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 12,
+      "high": 5,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 12,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 6
+    }
   },
   "tasks_type_summary": {
     "total": 21,
     "by_type": {
-      "docs": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "implementation": {"total": 11, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 11, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "integration": {"total": 5, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 5, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "test": {"total": 4, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 4, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+      "docs": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "implementation": {
+        "total": 11,
+        "done": 11,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 11
+        }
+      },
+      "integration": {
+        "total": 5,
+        "done": 5,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 5
+        }
+      },
+      "test": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      }
     }
   },
-  "progress_summary": {"state": "ready_for_implementation", "todo_remaining": 21, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 21
+  },
   "summary_notes": [
     "Current code already includes last AI chat turns for LMStudio/local chat completions, but worker/ananta-worker paths need explicit memory payload support.",
     "CodeCompass and RAG are already present, but need stronger diagnostics and UI visibility for effective included/disabled/failed states.",
