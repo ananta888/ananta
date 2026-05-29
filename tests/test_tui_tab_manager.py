@@ -217,3 +217,65 @@ def test_tab_positions_x_are_non_overlapping() -> None:
     positions = tab_positions_for_render(s, width=120)
     for i in range(1, len(positions)):
         assert positions[i].label_x1 > positions[i - 1].close_x
+
+
+# ── SeedTemplateCatalog ───────────────────────────────────────────────────────
+
+def test_seed_template_catalog_loads_all_templates() -> None:
+    from agent.services.seed_template_catalog import get_seed_template_catalog
+    cat = get_seed_template_catalog()
+    tpls = cat.get_all_templates()
+    assert len(tpls) == 27
+    names = {t["name"] for t in tpls}
+    assert "Scrum - Product Owner" in names
+    assert "TDD - Refactor Verifier" in names
+    assert "Research Evolution - Review Gate Owner" in names
+
+
+def test_seed_template_catalog_expands_appendixes() -> None:
+    from agent.services.seed_template_catalog import get_seed_template_catalog
+    cat = get_seed_template_catalog()
+    po = next(t for t in cat.get_templates_for_team_type("Scrum") if t["name"] == "Scrum - Product Owner")
+    assert "SOLID" in po["prompt_template"]
+    assert "{{appendix:" not in po["prompt_template"]
+
+
+def test_seed_template_catalog_opencode_has_both_appendixes() -> None:
+    from agent.services.seed_template_catalog import get_seed_template_catalog
+    cat = get_seed_template_catalog()
+    dev = next(t for t in cat.get_templates_for_team_type("Scrum") if t["name"] == "OpenCode Scrum - Developer")
+    assert "Execution cascade" in dev["prompt_template"]
+    assert "SOLID" in dev["prompt_template"]
+
+
+def test_seed_template_catalog_role_profile_defaults() -> None:
+    from agent.services.seed_template_catalog import get_seed_template_catalog
+    cat = get_seed_template_catalog()
+    d = cat.get_role_profile_defaults("TDD", "Test Driver")
+    assert d["risk_profile"] == "high"
+    assert "red_before_green_evidence" in d["verification_defaults"]["gates"]
+
+
+def test_seed_template_catalog_unknown_team_type_returns_empty() -> None:
+    from agent.services.seed_template_catalog import get_seed_template_catalog
+    cat = get_seed_template_catalog()
+    assert cat.get_templates_for_team_type("NonExistent") == []
+    assert cat.get_role_specs_for_team_type("NonExistent") == []
+    assert cat.get_role_profile_defaults("NonExistent", "Any") == {}
+
+
+def test_seed_template_catalog_all_team_types_covered() -> None:
+    from agent.services.seed_template_catalog import get_seed_template_catalog
+    cat = get_seed_template_catalog()
+    types = set(cat.known_team_types())
+    expected = {"Scrum", "Kanban", "Research", "Code-Repair", "TDD", "Security-Review", "Release-Prep", "Research-Evolution"}
+    assert expected == types
+
+
+def test_seed_template_catalog_schema_validates() -> None:
+    """Catalog file must pass JSON schema validation (uses jsonschema)."""
+    from agent.services.seed_template_catalog import SeedTemplateCatalog
+    cat = SeedTemplateCatalog()
+    # _load raises ValueError on schema violations
+    cat._load()
+    assert cat._catalog is not None

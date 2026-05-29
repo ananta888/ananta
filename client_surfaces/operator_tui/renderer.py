@@ -585,6 +585,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("  Timeline:")
             for entry in timeline[:3]:
                 lines.append(f"    {entry.get('id','?')}  {entry.get('summary','')}")
+    elif section.id == "templates":
+        lines.extend(_templates_content_lines(payload, state, width))
     elif section.id == "system":
         lines.extend(_system_content_lines(payload))
     elif section.id == "terminal":
@@ -654,6 +656,69 @@ def _render_hscrollbar_row(*, content_width: int, viewport_width: int, offset: i
         else:
             chars.append(f"{_dim}─{_r}")
     return f"{_dim}◄{_r}{''.join(chars)}{_dim}►{_r}"
+
+
+_TPL_THEME = {
+    "blueprint": ("\x1b[38;2;130;200;255m", "\x1b[0m"),
+    "template":  ("\x1b[38;2;180;230;150m", "\x1b[0m"),
+    "seed":      "\x1b[38;2;255;205;100m★\x1b[0m",
+    "header":    ("\x1b[38;2;100;120;150m", "\x1b[0m"),
+}
+
+
+def _templates_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
+    items: list[dict] = payload.get("items") or []
+    bp_count = int(payload.get("blueprints_count") or 0)
+    tpl_count = int(payload.get("templates_count") or 0)
+
+    lines: list[str] = []
+    lines.append(f"  {bp_count} blueprints · {tpl_count} templates")
+
+    sel = state.selected_index
+    item_idx = 0
+
+    bp_items  = [it for it in items if it.get("kind") == "blueprint"]
+    tpl_items = [it for it in items if it.get("kind") == "template"]
+
+    hc, hr = _TPL_THEME["header"]
+    bc, br = _TPL_THEME["blueprint"]
+    tc, tr = _TPL_THEME["template"]
+    seed_str = _TPL_THEME["seed"]
+
+    if bp_items:
+        lines.append(f"  {hc}── Blueprints {'─' * max(1, width - 18)}{hr}"[:width])
+        for bp in bp_items:
+            marker = DEFAULT_THEME.selected_prefix if item_idx == sel else " "
+            seed_pfx = seed_str if bp.get("is_seed") else "  "
+            roles    = int(bp.get("roles_count") or 0)
+            arts     = int(bp.get("artifacts_count") or 0)
+            title    = str(bp.get("title") or "")
+            base     = str(bp.get("base_team_type") or "")
+            role_str = f"{roles}r" + (f"+{arts}a" if arts else "")
+            base_str = f" [{base}]" if base else ""
+            suffix   = f" {bc}{role_str}{br}{base_str} {seed_pfx}"
+            avail    = max(4, width - 4 - len(_ANSI_STRIP.sub("", suffix)))
+            lines.append(f"{marker} {title[:avail]}{suffix}")
+            item_idx += 1
+
+    if tpl_items:
+        lines.append("")
+        lines.append(f"  {hc}── Prompt-Templates {'─' * max(1, width - 22)}{hr}"[:width])
+        for tpl in tpl_items:
+            marker  = DEFAULT_THEME.selected_prefix if item_idx == sel else " "
+            title   = str(tpl.get("title") or "")
+            preview = str(tpl.get("prompt_preview") or "")
+            avail   = max(4, width - 4 - 8)
+            prev_w  = max(0, width - 4 - len(title) - 2)
+            prev_sfx = f"  {tc}{preview[:prev_w]}{tr}" if preview and prev_w > 4 else ""
+            lines.append(f"{marker} {title[:avail]}{prev_sfx}")
+            item_idx += 1
+
+    if not items:
+        lines.append("  (keine Templates oder Blueprints)")
+        lines.append("  press r to refresh")
+
+    return lines
 
 
 def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str]:
@@ -989,6 +1054,11 @@ def _standard_detail_lines(state: OperatorState, width: int) -> list[str]:
     if section.id in {"goals", "tasks"}:
         lines.append("    :inspect        show selected")
         lines.append("    :action <n> <r> dispatch action")
+    if section.id == "templates":
+        lines.append("    :inspect        detail ansicht")
+        lines.append("    :tpl new        neues template")
+        lines.append("    :bp new         neues blueprint")
+        lines.append("    :bp instantiate team erstellen")
     if section.id == "artifacts":
         payload = (state.section_payloads or {}).get(section.id, {})
         if bool(payload.get("diff3_mode")):

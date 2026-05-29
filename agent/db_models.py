@@ -364,6 +364,7 @@ class TemplateDB(SQLModel, table=True):
     name: str
     description: Optional[str] = None
     prompt_template: str
+    is_seed: bool = Field(default=False, sa_column=sa.Column(sa.Boolean, nullable=False, server_default=sa.false()))
 
 
 class ScheduledTaskDB(SQLModel, table=True):

@@ -3836,3 +3836,93 @@ def test_tab_initial_on_startup(monkeypatch) -> None:
     tui = InteractiveOperatorTui(state)
     assert len(tui.state.open_tabs) >= 1
     assert tui.state.active_tab_id != ""
+
+
+# ── Templates Section ────────────────────────────────────────────────────────
+
+def test_templates_section_in_nav() -> None:
+    from client_surfaces.operator_tui.sections import SECTIONS, normalize_section_id
+    ids = [s.id for s in SECTIONS]
+    assert "templates" in ids
+    assert normalize_section_id("tpl") == "templates"
+    assert normalize_section_id("blueprint") == "templates"
+
+
+def test_templates_content_renders_groups() -> None:
+    from client_surfaces.operator_tui.renderer import _templates_content_lines
+    payload = {
+        "items": [
+            {"id": "bp:1", "kind": "blueprint", "title": "prod-team", "description": "",
+             "roles_count": 3, "artifacts_count": 1, "is_seed": True, "base_team_type": "standard", "raw_id": "1"},
+            {"id": "tpl:a", "kind": "template", "title": "agent_sys",
+             "prompt_preview": "Du bist ein Agent.", "raw_id": "a"},
+        ],
+        "blueprints_count": 1, "templates_count": 1,
+        "blueprints_raw": [], "templates_raw": [],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", selected_index=0)
+    lines = _templates_content_lines(payload, state, 80)
+    joined = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", l) for l in lines)
+    assert "1 blueprints" in joined
+    assert "prod-team" in joined
+    assert "agent_sys" in joined
+    assert "Blueprints" in joined
+    assert "Prompt-Templates" in joined
+
+
+def test_templates_content_selected_marker() -> None:
+    from client_surfaces.operator_tui.renderer import _templates_content_lines
+    payload = {
+        "items": [
+            {"id": "bp:1", "kind": "blueprint", "title": "my-bp", "description": "",
+             "roles_count": 1, "artifacts_count": 0, "is_seed": False, "base_team_type": "", "raw_id": "1"},
+            {"id": "tpl:a", "kind": "template", "title": "my-tpl", "prompt_preview": "", "raw_id": "a"},
+        ],
+        "blueprints_count": 1, "templates_count": 1,
+        "blueprints_raw": [], "templates_raw": [],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", selected_index=0)
+    lines = _templates_content_lines(payload, state, 80)
+    bp_line = next((l for l in lines if "my-bp" in re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", l)), "")
+    assert ">" in bp_line[:4]
+
+
+def test_templates_inspect_blueprint() -> None:
+    from client_surfaces.operator_tui.read_models import build_templates_inspect
+    payload = {
+        "items": [
+            {"id": "bp:1", "kind": "blueprint", "title": "test-bp", "description": "Beschreibung",
+             "roles_count": 1, "is_seed": False, "base_team_type": "", "raw_id": "bp-1"},
+        ],
+        "blueprints_raw": [{
+            "id": "bp-1", "name": "test-bp", "description": "Beschreibung", "is_seed": False,
+            "base_team_type_name": "",
+            "roles": [{"name": "agent", "is_required": True, "template_id": "tpl-x"}],
+            "artifacts": [],
+        }],
+        "templates_raw": [],
+    }
+    detail = build_templates_inspect(payload, 0)
+    joined = "\n".join(detail)
+    assert "test-bp" in joined
+    assert "agent" in joined
+    assert "tpl:tpl-x" in joined
+
+
+def test_templates_inspect_template() -> None:
+    from client_surfaces.operator_tui.read_models import build_templates_inspect
+    payload = {
+        "items": [
+            {"id": "tpl:a", "kind": "template", "title": "worker_v2",
+             "description": "Worker-Prompt", "prompt_preview": "Du bearbeitest...", "raw_id": "a"},
+        ],
+        "blueprints_raw": [],
+        "templates_raw": [{
+            "id": "a", "name": "worker_v2", "description": "Worker-Prompt",
+            "prompt_template": "Du bearbeitest die Aufgabe: {{ task }}",
+        }],
+    }
+    detail = build_templates_inspect(payload, 0)
+    joined = "\n".join(detail)
+    assert "worker_v2" in joined
+    assert "{{ task }}" in joined
