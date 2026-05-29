@@ -28,6 +28,20 @@ def _is_opengl_renderer(renderer: str) -> bool:
     return "opengl" in normalized
 
 
+def _image_capable_candidates(
+    capabilities: TerminalVisualCapabilities,
+) -> list[FallbackPair]:
+    """Preferred renderer/adapter pairs for Mermaid image mode (MIMG-009 / MDP-014)."""
+    pairs: list[FallbackPair] = []
+    if capabilities.kitty_graphics:
+        pairs.append(FallbackPair(renderer="cpu_raster", adapter="kitty"))
+        pairs.append(FallbackPair(renderer="svg_raster_optional", adapter="kitty"))
+    if capabilities.sixel:
+        pairs.append(FallbackPair(renderer="cpu_raster", adapter="sixel"))
+        pairs.append(FallbackPair(renderer="svg_raster_optional", adapter="sixel"))
+    return pairs
+
+
 def resolve_renderer_adapter_pair(
     *,
     config: VisualViewportConfig,
@@ -35,10 +49,23 @@ def resolve_renderer_adapter_pair(
     available_renderers: set[str],
     available_adapters: set[str],
     excluded_pairs: set[tuple[str, str]] | None = None,
+    prefer_image_mode: bool = False,
 ) -> FallbackResolution:
     diagnostics: list[str] = []
     blocked = set(excluded_pairs or set())
+
+    # When Mermaid image mode is preferred and image protocols are available,
+    # prepend image-capable pairs before the config chain (MDP-014 / MIMG-009).
+    preamble: list[FallbackPair] = []
+    if prefer_image_mode:
+        preamble = _image_capable_candidates(capabilities)
+        if preamble:
+            diagnostics.append("mermaid_image_mode: prepending image-capable candidates")
+        else:
+            diagnostics.append("mermaid_image_mode: no image protocol supported, using config chain")
+
     candidates: list[FallbackPair] = [
+        *preamble,
         FallbackPair(renderer=config.default_renderer, adapter=config.default_output_adapter),
         *list(config.fallback_chain),
     ]

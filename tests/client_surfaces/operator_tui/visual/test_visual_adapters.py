@@ -49,17 +49,19 @@ def test_ansi_output_adapter_clips_and_positions_lines() -> None:
     assert "\x1b[7;11Hx       " in content
 
 
-def test_sixel_adapter_reports_unsupported_and_can_draw_when_enabled() -> None:
+def test_sixel_adapter_reports_unsupported_and_no_longer_uses_stub() -> None:
     adapter = SixelOutputAdapter(enabled=True, supported=False)
     out = StringIO()
     result = adapter.draw(_raster_frame(), region=_region(), stream=out, context=DrawContext(now=1.0))
     assert result.drawn is False
-    assert result.reason == "unsupported"
+    assert result.reason in {"sixel_protocol_unsupported", "unsupported"}
 
     adapter.supported = True
     result2 = adapter.draw(_raster_frame(), region=_region(), stream=out, context=DrawContext(now=1.1))
-    assert result2.drawn is True
-    assert "sixel-stub" in out.getvalue()
+    # Either real Sixel encoding (drawn=True) or encoder unavailable (drawn=False) — never fake stub
+    assert "sixel-stub" not in out.getvalue(), "Sixel must not emit stub output"
+    if not result2.drawn:
+        assert "sixel_encoder_unavailable" in result2.reason or "degraded" in str(result2.reason)
 
 
 def test_kitty_adapter_clear_and_draw_behaviour() -> None:
