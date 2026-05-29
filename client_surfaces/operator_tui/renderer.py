@@ -17,6 +17,7 @@ from client_surfaces.operator_tui.chat_long_message import (
     compact_chat_message_text,
     get_render_mode,
     is_showing_chat_long_message,
+    long_message_history_rows,
     should_use_middle_view_for_message,
 )
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
@@ -507,6 +508,25 @@ def _navigation_lines(state: OperatorState) -> list[str]:
         if ptr_target == section.id and ptr_visible:
             pointer_suffix = " \x1b[38;2;255;205;130m←\x1b[0m"
         lines.append(f"{cursor}{state_prefix(panel_state)} {section.title}{pointer_suffix}")
+    history_rows = long_message_history_rows(game)
+    if history_rows:
+        lines.append("")
+        lines.append("  Chat History")
+        current_channel = ""
+        for offset, entry in enumerate(history_rows):
+            channel = str(entry.get("channel_id") or "room:main")
+            if channel != current_channel:
+                current_channel = channel
+                lines.append(f"  ▸ {channel}")
+            row_index = len(SECTIONS) + offset
+            if nav_focused and row_index == state.selected_index:
+                cursor = DEFAULT_THEME.selected_prefix
+            else:
+                cursor = DEFAULT_THEME.idle_prefix
+            sender = str(entry.get("sender_kind") or "message")
+            preview = str(entry.get("preview") or entry.get("text") or "").replace("\n", " ")
+            preview = shorten(preview, width=42, placeholder="...")
+            lines.append(f"{cursor}  └─ [{sender}] {preview}")
     return lines
 
 

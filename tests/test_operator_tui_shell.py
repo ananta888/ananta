@@ -30,7 +30,7 @@ from client_surfaces.operator_tui.read_models import build_goal_rows, build_task
 from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
 from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import move_section, normalize_section_id
+from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
 from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
 from client_surfaces.operator_tui.chat_state import sanitize_text
@@ -2963,6 +2963,37 @@ def test_enter_handles_config_even_when_focus_is_not_content() -> None:
     combo = dict(updated.get("ai_snake_config_combo") or {})
     assert tui.state.focus is FocusPane.CONTENT
     assert bool(combo.get("open")) is True
+
+
+def test_enter_on_navigation_history_opens_cached_original_output() -> None:
+    game = {
+        "chat_long_message_history": [
+            {
+                "id": "answer-1",
+                "channel_id": "ai:tutor",
+                "sender_kind": "ai",
+                "text": "Antwort " + ("lang " * 30),
+                "markdown": "# Chat-Nachricht\n\nAntwort " + ("lang " * 30),
+                "created_at": 10.0,
+            }
+        ]
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        focus=FocusPane.NAVIGATION,
+        selected_index=len(SECTIONS),
+        header_logo_game=game,
+    )
+    tui = InteractiveOperatorTui(state)
+
+    tui._handle_enter_key()
+
+    updated = tui.state.header_logo_game or {}
+    assert tui.state.focus is FocusPane.CONTENT
+    assert updated["chat_long_message_plain_text"].startswith("Antwort lang")
+    assert updated["markdown_stream_plain"] is True
+    assert updated["markdown_mermaid_render_requested"] is False
+    assert tui.state.status_message == "Chat-History: Originalausgabe"
 
 
 def test_enter_command_mode_from_anywhere_closes_chat_artifact_and_config() -> None:

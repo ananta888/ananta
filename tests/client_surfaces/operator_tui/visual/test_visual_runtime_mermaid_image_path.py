@@ -107,25 +107,26 @@ def _region() -> ViewportRegion:
     return ViewportRegion(x=0, y=0, columns=40, rows=10, pixel_width=64, pixel_height=32)
 
 
+def _rendered_state(version: str = "test") -> dict[str, object]:
+    return {
+        "markdown_text": _MERMAID_MD,
+        "markdown_stream_plain": False,
+        "markdown_mermaid_render_requested": True,
+        "visual_state_version": version,
+    }
+
+
 # ── Image-capable runtime (Kitty) ──────────────────────────────────────────────
 
 def test_kitty_runtime_renders_markdown_without_crash():
     runtime = _build_runtime(kitty=True, mermaid_success=True)
-    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state={
-        "markdown_text": _MERMAID_MD,
-        "markdown_stream_plain": False,
-        "visual_state_version": "test-1",
-    }, force=True)
+    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state=_rendered_state("test-1"), force=True)
     assert frame is not None
 
 
 def test_kitty_runtime_produces_raster_frame_for_mermaid():
     runtime = _build_runtime(kitty=True, mermaid_success=True)
-    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state={
-        "markdown_text": _MERMAID_MD,
-        "markdown_stream_plain": False,
-        "visual_state_version": "test-2",
-    }, force=True)
+    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state=_rendered_state("test-2"), force=True)
     if frame is not None:
         assert frame.frame_type in {"raster", "ansi"}
 
@@ -135,7 +136,7 @@ def test_kitty_runtime_scene_contains_diagram_image_node():
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=True)
     from client_surfaces.operator_tui.visual.views.base_view import ViewContext
-    ctx = ViewContext(state={"markdown_text": _MERMAID_MD, "markdown_stream_plain": False}, region=_region(), now=0.0)
+    ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
     scene = view.render(ctx)
     diagram_nodes = [n for n in scene.nodes if n.get("kind") == "diagram_image"]
     assert diagram_nodes, "Image-capable path must produce diagram_image nodes"
@@ -149,7 +150,7 @@ def test_kitty_adapter_receives_raster_frame_with_mermaid_payload():
 
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=True)
-    ctx = ViewContext(state={"markdown_text": _MERMAID_MD, "markdown_stream_plain": False}, region=_region(), now=0.0)
+    ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
     scene = view.render(ctx)
     assert scene.metadata.get("mermaid_visible_images", 0) >= 1
 
@@ -169,11 +170,7 @@ def test_kitty_adapter_receives_raster_frame_with_mermaid_payload():
 
 def test_ansi_only_runtime_renders_markdown_source_fallback():
     runtime = _build_runtime(kitty=False, mermaid_success=False)
-    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state={
-        "markdown_text": _MERMAID_MD,
-        "markdown_stream_plain": False,
-        "visual_state_version": "test-ansi-1",
-    }, force=True)
+    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state=_rendered_state("test-ansi-1"), force=True)
     assert frame is not None
     assert frame.frame_type == "ansi"
 
@@ -181,11 +178,7 @@ def test_ansi_only_runtime_renders_markdown_source_fallback():
 def test_ansi_only_runtime_no_crash_with_mermaid():
     """ANSI-only path must handle Mermaid without crashing."""
     runtime = _build_runtime(kitty=False, mermaid_success=True)
-    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state={
-        "markdown_text": _MERMAID_MD,
-        "markdown_stream_plain": False,
-        "visual_state_version": "test-ansi-2",
-    }, force=True)
+    frame = runtime.render_frame(region=_region(), now=time.monotonic(), state=_rendered_state("test-ansi-2"), force=True)
     assert frame is not None
 
 
@@ -196,7 +189,7 @@ def test_ansi_frame_contains_mermaid_source():
 
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=False)
-    ctx = ViewContext(state={"markdown_text": _MERMAID_MD, "markdown_stream_plain": False}, region=_region(), now=0.0)
+    ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
     scene = view.render(ctx)
     label_texts = " ".join(re.sub(r"\033\[[0-9;]*m", "", n.get("text", "")) for n in scene.nodes if n.get("kind") == "label")
     assert "A-->B" in label_texts or "mermaid" in label_texts.lower()
@@ -229,15 +222,29 @@ def test_scene_metadata_mermaid_visible_images_image_path():
     from client_surfaces.operator_tui.visual.views.base_view import ViewContext
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=True)
-    ctx = ViewContext(state={"markdown_text": _MERMAID_MD, "markdown_stream_plain": False}, region=_region(), now=0.0)
+    ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
     scene = view.render(ctx)
     assert scene.metadata.get("mermaid_visible_images") == 1
+
+
+def test_scene_does_not_render_mermaid_without_explicit_request():
+    from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+    view = MarkdownMermaidDocumentView()
+    view._mermaid_renderer = FakeMermaidRenderer(success=True)
+    ctx = ViewContext(
+        state={"markdown_text": _MERMAID_MD, "markdown_stream_plain": False},
+        region=_region(),
+        now=0.0,
+    )
+    scene = view.render(ctx)
+    assert scene.metadata.get("mermaid_visible_images") == 0
+    assert not [n for n in scene.nodes if n.get("kind") == "diagram_image"]
 
 
 def test_scene_metadata_mermaid_visible_images_ansi_path():
     from client_surfaces.operator_tui.visual.views.base_view import ViewContext
     view = MarkdownMermaidDocumentView()
     view._mermaid_renderer = FakeMermaidRenderer(success=False)
-    ctx = ViewContext(state={"markdown_text": _MERMAID_MD, "markdown_stream_plain": False}, region=_region(), now=0.0)
+    ctx = ViewContext(state=_rendered_state(), region=_region(), now=0.0)
     scene = view.render(ctx)
     assert scene.metadata.get("mermaid_visible_images") == 0
