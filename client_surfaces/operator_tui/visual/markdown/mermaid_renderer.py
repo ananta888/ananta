@@ -248,6 +248,8 @@ class MermaidRenderer:
         return result
 
     def render(self, source: str) -> MermaidRenderResult:
+        # Preserve the first real-backend failure reason for better diagnostics
+        real_backend_failure: str = ""
         for name in self.renderer_order:
             cls = _BACKEND_CLASSES.get(name)
             if cls is None:
@@ -262,13 +264,27 @@ class MermaidRenderer:
                 width=self.max_width,
                 height=self.max_height,
             )
-            if result.success or name == "fallback_codeblock":
+            if result.success:
+                return result
+            if name != "fallback_codeblock" and result.reason and not real_backend_failure:
+                real_backend_failure = f"{name}: {result.reason}"
+            if name == "fallback_codeblock":
+                # If a real backend tried and failed, surface that reason instead of the sentinel
+                if real_backend_failure:
+                    return MermaidRenderResult(
+                        success=False,
+                        image_data=None,
+                        image_format="",
+                        fallback_text=source,
+                        reason=real_backend_failure,
+                        duration_ms=result.duration_ms,
+                    )
                 return result
         return MermaidRenderResult(
             success=False,
             image_data=None,
             image_format="",
             fallback_text=source,
-            reason="no renderer available",
+            reason=real_backend_failure or "no renderer available",
             duration_ms=0.0,
         )

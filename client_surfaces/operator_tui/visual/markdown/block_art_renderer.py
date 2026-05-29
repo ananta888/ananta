@@ -113,31 +113,33 @@ def svg_to_block_art(
 ) -> list[str]:
     """Convert SVG bytes to block art via cairosvg → PNG → block art.
 
-    Renders at 2× terminal resolution (so each block-art character = 2 pixels)
-    and scales to fit max_cols × (max_rows*2) pixels.
+    Renders at native SVG resolution (or a scaled-up version for small SVGs),
+    then downscales to terminal block-art dimensions. This preserves sharpness
+    for wide diagrams instead of pre-scaling to a tiny pixel grid.
     """
     try:
         import cairosvg  # type: ignore
 
-        # Target pixel dimensions: 2px per terminal column, 2px per block-art row
-        target_px_w = max_cols * 2
-        target_px_h = max_rows * 2
-
-        # Get natural SVG size to choose scale
         natural = _svg_natural_size(svg_bytes)
         if natural:
             nat_w, nat_h = natural
-            scale = min(target_px_w / max(1, nat_w), target_px_h / max(1, nat_h))
-            out_w = max(4, int(nat_w * scale))
-            out_h = max(4, int(nat_h * scale))
+            # For very small SVGs, render at 2× to get crisper pixels
+            if nat_w < 200:
+                out_w = nat_w * 2
+                out_h = nat_h * 2
+            else:
+                # Render at native size; png_to_block_art will downscale
+                out_w = nat_w
+                out_h = nat_h
+            png_bytes = cairosvg.svg2png(
+                bytestring=svg_bytes,
+                output_width=max(4, out_w),
+                output_height=max(4, out_h),
+            )
         else:
-            out_w, out_h = target_px_w, target_px_h
+            # No size info: render at native
+            png_bytes = cairosvg.svg2png(bytestring=svg_bytes)
 
-        png_bytes = cairosvg.svg2png(
-            bytestring=svg_bytes,
-            output_width=out_w,
-            output_height=out_h,
-        )
         return png_to_block_art(png_bytes, max_cols=max_cols, max_rows=max_rows)
     except Exception:
         return []
