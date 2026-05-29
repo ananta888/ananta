@@ -81,13 +81,18 @@ def _render_block(
     elif isinstance(block, MermaidBlock):
         fallback = mermaid_fallbacks.get(block.source)
         if fallback is not None:
+            # A real image renderer attempted and failed — show reason + source
             lines.append(f"{_YELLOW}[Mermaid: {fallback.reason}]{_R}")
             lines.append(f"{_CYAN}```mermaid{_R}")
             for ml in block.source.splitlines():
                 lines.append(f"  {_DIM}{ml}{_R}")
             lines.append(f"{_CYAN}```{_R}")
         else:
-            lines.append(f"{_CYAN}[mermaid diagram]{_R}")
+            # Graceful degradation: no image renderer available, show source as code block
+            lines.append(f"{_CYAN}[mermaid]{_R}")
+            for ml in block.source.splitlines():
+                lines.append(f"  {_DIM}{ml}{_R}")
+            lines.append(f"{_CYAN}[/mermaid]{_R}")
         lines.append("")
 
     elif isinstance(block, TableBlock):
