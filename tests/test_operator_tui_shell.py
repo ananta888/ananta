@@ -3067,6 +3067,44 @@ def test_mouse_click_on_nav_section_loads_section_content(monkeypatch) -> None:
     assert "no goals" in rendered or "Goals" in rendered
 
 
+def test_nav_section_click_leaves_chat_input_focus_and_does_not_open_artifact_overlay(monkeypatch) -> None:
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state)
+
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+
+    game = tui.state.header_logo_game or {}
+    chat = get_chat_state(dict(game))
+    assert tui.state.section_id == "goals"
+    assert chat["chat_focus"] is False
+    assert game.get("artifact_chat_focus") is False
+    assert "artifact_chat_state" not in game or not dict(game.get("artifact_chat_state") or {}).get("active_target")
+
+
+def test_nav_shortcut_leaves_chat_input_focus(monkeypatch) -> None:
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state)
+
+    tui._set_selected_index(1)
+
+    game = tui.state.header_logo_game or {}
+    chat = get_chat_state(dict(game))
+    assert tui.state.section_id == "goals"
+    assert chat["chat_focus"] is False
+
+
 def test_mouse_click_on_visible_footer_shortcut_executes_action(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
