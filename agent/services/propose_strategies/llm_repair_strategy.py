@@ -47,28 +47,29 @@ class LLMRepairStrategy(ProposeStrategy):
         resolver = context.tool_definitions_resolver
         tools = resolver() if resolver is not None else []
 
-        repair_prompt = f"""You are a repair agent. Fix this LLM output to a valid ExecutableProposal.
-
-Previous output:
-{previous_raw}
-
-Validation errors:
-{validation_errors}
-
-Target format (JSON schema example):
-{schema_example}
-
-Allowed tools only:
-{tools}
-
-Rules:
-- Output ONLY valid JSON matching schema (command or tool_calls).
-- Do not invent new tools or commands.
-- Do not broaden permissions.
-- Respect shell policy: allow_shell_execution={getattr(getattr(context, "policy", None), "allow_shell_execution", False)}
-- No prose, no Markdown, no explanations.
-
-Respond with ONLY the fixed JSON."""
+        try:
+            from agent.services.system_prompt_catalog import get_system_prompt
+            _repair_tpl = get_system_prompt("system.llm_repair", "")
+        except Exception:
+            _repair_tpl = ""
+        if _repair_tpl:
+            repair_prompt = _repair_tpl.format(
+                previous_raw=previous_raw,
+                validation_errors=validation_errors,
+                schema_example=schema_example,
+                tools=tools,
+                allow_shell_execution=getattr(getattr(context, "policy", None), "allow_shell_execution", False),
+            )
+        else:
+            repair_prompt = (
+                f"You are a repair agent. Fix this LLM output to a valid ExecutableProposal.\n\n"
+                f"Previous output:\n{previous_raw}\n\nValidation errors:\n{validation_errors}\n\n"
+                f"Target format (JSON schema example):\n{schema_example}\n\nAllowed tools only:\n{tools}\n\n"
+                "Rules:\n- Output ONLY valid JSON matching schema (command or tool_calls).\n"
+                "- Do not invent new tools or commands.\n- Do not broaden permissions.\n"
+                f"- Respect shell policy: allow_shell_execution={getattr(getattr(context, 'policy', None), 'allow_shell_execution', False)}\n"
+                "- No prose, no Markdown, no explanations.\n\nRespond with ONLY the fixed JSON."
+            )
 
         try:
             repair_output = self.model_service.invoke(

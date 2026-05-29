@@ -51,6 +51,7 @@ from agent.services.blueprint_bundle_service import (
 from agent.services.repository_registry import get_repository_registry
 from agent.services.seed_blueprint_catalog import get_seed_blueprint_catalog
 from agent.services.seed_template_catalog import get_seed_template_catalog
+from agent.services.system_prompt_catalog import get_system_prompt_catalog
 from agent.services.team_blueprint_service import (
     RoleLinkSpec,
     TemplateBootstrapSpec,
@@ -59,6 +60,7 @@ from agent.services.team_blueprint_service import (
     persist_blueprint_children as persist_blueprint_children_service,
     reconcile_seed_blueprints as reconcile_seed_blueprints_service,
     reconcile_seed_templates as reconcile_seed_templates_service,
+    reconcile_system_prompts as reconcile_system_prompts_service,
     save_blueprint as save_blueprint_service,
 )
 from agent.services.team_definition_version_service import (
@@ -853,8 +855,14 @@ def _persist_blueprint_children(
 
 
 def ensure_seed_blueprints() -> None:
-    # Reconcile seed templates first so template_ids are available when blueprints
-    # reference template_name during role linking.
+    # 1. Reconcile system prompts (internal infra prompts, no blueprint deps)
+    for report in reconcile_system_prompts_service(get_system_prompt_catalog()):
+        if report.get("action") in {"created", "updated"}:
+            log_audit("seed_system_prompt_reconciled",
+                      {"name": report["name"], "action": report["action"],
+                       "fields": report.get("fields"), "source": "seed_sync"})
+
+    # 2. Reconcile role-prompt templates (must run before blueprint role-linking)
     tpl_reports = reconcile_seed_templates_service(get_seed_template_catalog())
     for report in tpl_reports:
         if report.get("action") in {"created", "updated"}:

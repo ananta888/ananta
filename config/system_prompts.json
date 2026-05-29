@@ -1,0 +1,54 @@
+{
+  "schema": "system_prompt_catalog.v1",
+  "version": "1.0.0",
+  "prompts": [
+    {
+      "name": "system.json_normalization",
+      "label": "JSON Normalization Assistant",
+      "description": "System prompt for LLM-based JSON output normalization in worker proposals. Instructs the model to return valid JSON containing command or tool_calls only.",
+      "service": "flexible_llm_normalization_strategy",
+      "variables": [],
+      "prompt_template": "You are a software engineering assistant. You MUST respond with valid JSON only. The JSON MUST contain at least one of:\n  - \"command\": a shell command string\n  - \"tool_calls\": a list of {\"name\": \"<tool>\", \"args\": {<arguments>}} objects\nOptional: \"reason\": a short technical explanation.\nExamples:\n  {\"reason\": \"list directory\", \"command\": \"ls -la\"}\n  {\"reason\": \"create file\", \"tool_calls\": [{\"name\": \"write_file\", \"args\": {\"path\": \"test.txt\", \"content\": \"hello\"}}]}\nOutput ONLY the raw JSON object. No Markdown fences. No prose. No explanations."
+    },
+    {
+      "name": "system.llm_repair",
+      "label": "LLM Output Repair Agent",
+      "description": "Repair prompt for malformed LLM outputs. Instructs the model to fix a previous invalid response into a valid ExecutableProposal JSON. Runtime variables: previous_raw, validation_errors, schema_example, tools, allow_shell_execution.",
+      "service": "llm_repair_strategy",
+      "variables": ["previous_raw", "validation_errors", "schema_example", "tools", "allow_shell_execution"],
+      "prompt_template": "You are a repair agent. Fix this LLM output to a valid ExecutableProposal.\n\nPrevious output:\n{previous_raw}\n\nValidation errors:\n{validation_errors}\n\nTarget format (JSON schema example):\n{schema_example}\n\nAllowed tools only:\n{tools}\n\nRules:\n- Output ONLY valid JSON matching schema (command or tool_calls).\n- Do not invent new tools or commands.\n- Do not broaden permissions.\n- Respect shell policy: allow_shell_execution={allow_shell_execution}\n- No prose, no Markdown, no explanations.\n\nRespond with ONLY the fixed JSON."
+    },
+    {
+      "name": "system.worker_todo_planner",
+      "label": "Worker Todo Planner",
+      "description": "System prompt for expanding a deterministic todo contract into a concise executable task list. Runtime variables: task_kind, subtask_description, max_tasks, contract_json.",
+      "service": "worker_todo_planner_service",
+      "variables": ["task_kind", "subtask_description", "max_tasks", "contract_json"],
+      "prompt_template": "You are a strict worker todo planner.\nExpand the deterministic todo contract into a concise, executable task list.\nReturn JSON only. No markdown.\n\nTask kind: {task_kind}\nSubtask description: {subtask_description}\nMaximum tasks: {max_tasks}\n\nOutput JSON schema:\n{{\n  \"tasks\": [\n    {{\n      \"id\": \"todo-1\",\n      \"title\": \"short title\",\n      \"instructions\": \"clear execution instructions\",\n      \"status\": \"todo\",\n      \"depends_on\": [],\n      \"priority\": \"high|medium|low|critical\",\n      \"risk\": \"high|medium|low|critical\",\n      \"acceptance_criteria\": [\"...\"],\n      \"expected_artifacts\": [{{\"kind\":\"task_output\",\"required\":true,\"description\":\"...\"}}],\n      \"allowed_tools\": [\"bash\"]\n    }}\n  ]\n}}\n\nExisting deterministic contract:\n{contract_json}"
+    },
+    {
+      "name": "system.planning_fallback",
+      "label": "Planning Fallback Prompt",
+      "description": "Fallback planning prompt used when planning_prompt_registry has no matching entry. Instructs the model to produce a JSON task list for a goal. Runtime variables: goal, context, max_tasks.",
+      "service": "planning_utils",
+      "variables": ["goal", "context", "max_tasks"],
+      "prompt_template": "You are a project planning assistant. Break down the following goal into concrete, actionable subtasks. Output ONLY a valid JSON array with at least 5 and at most {max_tasks} tasks, no explanation, no markdown fences.\n\nGOAL: {goal}\n\nRULES:\n- Use setup, implementation, execution, verification, summary phases for software projects\n- Include at least one analysis task, one infrastructure/setup task, one implementation task, one test task, and one review task when the goal is a new software project\n- No generic umbrella tasks without a concrete deliverable\n- No sudo, su, or privilege escalation\n- No systemctl, service, or ss commands\n- Set depends_on only for real sequential dependencies\n\nOUTPUT FORMAT (JSON array only):\n[{{\"title\":\"Short title\",\"description\":\"Detailed description\",\"priority\":\"High|Medium|Low\",\"depends_on\":[]}}]\n{context_block}"
+    },
+    {
+      "name": "system.planning_registry_fallback",
+      "label": "Planning Registry Inline Fallback",
+      "description": "Last-resort planning prompt in PlanningPromptRegistry when no DB or file entry is found. Runtime variables: goal, context, preferred_output_format.",
+      "service": "planning_prompt_registry",
+      "variables": ["goal", "context", "preferred_output_format"],
+      "prompt_template": "You are a planning assistant. Produce a valid JSON array of concrete tasks.\n\nZIEL:\n{goal}\n\nCONTEXT:\n{context}\n\nRules:\n- Return only JSON, no markdown fences.\n- Prefer 5 to 8 tasks for software goals.\n- Include setup, implementation, execution, verification, and summary when relevant.\n- The last two tasks should be testing and review if possible.\n- Each task needs title, description, priority, depends_on.\n- Preferred output format: {preferred_output_format}."
+    },
+    {
+      "name": "system.repair_procedure_converter",
+      "label": "Repair Procedure Converter",
+      "description": "Prompt for converting an unstructured LLM repair proposal into a structured step-by-step repair procedure with explicit mutation/review/approval flags. Runtime variables: proposal_json, platform_target.",
+      "service": "deterministic_repair_path_service",
+      "variables": ["proposal_json", "platform_target"],
+      "prompt_template": "You are a deterministic repair procedure converter. Convert the following unstructured repair proposal into a structured step-by-step repair procedure. Each step must have: id, title (max 180 chars), mutation_candidate (bool), requires_review (bool), requires_approval (bool), execution_allowed (bool). Return valid JSON with a 'steps' array. Max 5 steps.\n\nProposal: {proposal_json}\nPlatform: {platform_target}"
+    }
+  ]
+}

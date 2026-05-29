@@ -1777,15 +1777,26 @@ def convert_llm_proposal_to_reviewed_procedure(
 ) -> dict[str, Any]:
     try:
         if llm_generate_text is not None:
-            prompt = (
-                "You are a deterministic repair procedure converter. "
-                "Convert the following unstructured repair proposal into a structured step-by-step repair procedure. "
-                "Each step must have: id, title (max 180 chars), mutation_candidate (bool), "
-                "requires_review (bool), requires_approval (bool), execution_allowed (bool). "
-                "Return valid JSON with a 'steps' array. Max 5 steps.\n\n"
-                f"Proposal: {json.dumps(llm_proposal)}\n"
-                f"Platform: {environment_facts.get('platform_target')}\n"
-            )
+            try:
+                from agent.services.system_prompt_catalog import get_system_prompt
+                _tpl = get_system_prompt("system.repair_procedure_converter", "")
+            except Exception:
+                _tpl = ""
+            if _tpl:
+                prompt = _tpl.format(
+                    proposal_json=json.dumps(llm_proposal),
+                    platform_target=str(environment_facts.get("platform_target") or ""),
+                )
+            else:
+                prompt = (
+                    "You are a deterministic repair procedure converter. "
+                    "Convert the following unstructured repair proposal into a structured step-by-step repair procedure. "
+                    "Each step must have: id, title (max 180 chars), mutation_candidate (bool), "
+                    "requires_review (bool), requires_approval (bool), execution_allowed (bool). "
+                    "Return valid JSON with a 'steps' array. Max 5 steps.\n\n"
+                    f"Proposal: {json.dumps(llm_proposal)}\n"
+                    f"Platform: {environment_facts.get('platform_target')}\n"
+                )
             try:
                 llm_response = llm_generate_text(prompt=prompt)
                 if isinstance(llm_response, dict):

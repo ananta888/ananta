@@ -422,6 +422,18 @@ class WorkerTodoPlannerService:
         max_tasks: int,
     ) -> str:
         contract_json = json.dumps(todo_contract, ensure_ascii=False, indent=2)
+        try:
+            from agent.services.system_prompt_catalog import get_system_prompt
+            tpl = get_system_prompt("system.worker_todo_planner", "")
+        except Exception:
+            tpl = ""
+        if tpl:
+            return tpl.format(
+                task_kind=str(task_kind or "").strip().lower() or "general",
+                subtask_description=str(subtask_description or "").strip(),
+                max_tasks=max_tasks,
+                contract_json=contract_json,
+            )
         return (
             "You are a strict worker todo planner.\n"
             "Expand the deterministic todo contract into a concise, executable task list.\n"
@@ -429,23 +441,6 @@ class WorkerTodoPlannerService:
             f"Task kind: {str(task_kind or '').strip().lower() or 'general'}\n"
             f"Subtask description: {str(subtask_description or '').strip()}\n"
             f"Maximum tasks: {max_tasks}\n\n"
-            "Output JSON schema:\n"
-            "{\n"
-            '  "tasks": [\n'
-            "    {\n"
-            '      "id": "todo-1",\n'
-            '      "title": "short title",\n'
-            '      "instructions": "clear execution instructions",\n'
-            '      "status": "todo",\n'
-            '      "depends_on": [],\n'
-            '      "priority": "high|medium|low|critical",\n'
-            '      "risk": "high|medium|low|critical",\n'
-            '      "acceptance_criteria": ["..."],\n'
-            '      "expected_artifacts": [{"kind":"task_output","required":true,"description":"..."}],\n'
-            '      "allowed_tools": ["bash"]\n'
-            "    }\n"
-            "  ]\n"
-            "}\n\n"
             "Existing deterministic contract:\n"
             f"{contract_json}\n"
         )

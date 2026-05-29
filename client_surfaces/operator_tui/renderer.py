@@ -668,22 +668,29 @@ _TPL_THEME = {
 
 def _templates_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
     items: list[dict] = payload.get("items") or []
-    bp_count = int(payload.get("blueprints_count") or 0)
+    bp_count  = int(payload.get("blueprints_count") or 0)
     tpl_count = int(payload.get("templates_count") or 0)
+    sys_count = int(payload.get("system_prompts_count") or 0)
 
     lines: list[str] = []
-    lines.append(f"  {bp_count} blueprints · {tpl_count} templates")
+    summary = f"  {bp_count} blueprints · {tpl_count} templates"
+    if sys_count:
+        summary += f" · {sys_count} system"
+    lines.append(summary)
 
     sel = state.selected_index
     item_idx = 0
 
     bp_items  = [it for it in items if it.get("kind") == "blueprint"]
     tpl_items = [it for it in items if it.get("kind") == "template"]
+    sys_items = [it for it in items if it.get("kind") == "system_prompt"]
 
     hc, hr = _TPL_THEME["header"]
     bc, br = _TPL_THEME["blueprint"]
     tc, tr = _TPL_THEME["template"]
     seed_str = _TPL_THEME["seed"]
+    sc = "\x1b[38;2;200;160;255m"  # violet for system prompts
+    sr = "\x1b[0m"
 
     if bp_items:
         lines.append(f"  {hc}── Blueprints {'─' * max(1, width - 18)}{hr}"[:width])
@@ -714,8 +721,23 @@ def _templates_content_lines(payload: dict, state: OperatorState, width: int) ->
             lines.append(f"{marker} {title[:avail]}{prev_sfx}")
             item_idx += 1
 
+    if sys_items:
+        lines.append("")
+        lines.append(f"  {hc}── System-Prompts {'─' * max(1, width - 20)}{hr}"[:width])
+        for sp in sys_items:
+            marker  = DEFAULT_THEME.selected_prefix if item_idx == sel else " "
+            title   = str(sp.get("title") or "")
+            svc     = str(sp.get("service") or "")
+            preview = str(sp.get("prompt_preview") or "")
+            svc_sfx = f" {sc}[{svc}]{sr}" if svc else ""
+            avail   = max(4, width - 4 - len(_ANSI_STRIP.sub("", svc_sfx)) - 1)
+            prev_w  = max(0, width - 4 - len(title) - len(_ANSI_STRIP.sub("", svc_sfx)) - 2)
+            prev_sfx = f"  {sc}{preview[:prev_w]}{sr}" if preview and prev_w > 4 and not svc else ""
+            lines.append(f"{marker} {title[:avail]}{svc_sfx}{prev_sfx}")
+            item_idx += 1
+
     if not items:
-        lines.append("  (keine Templates oder Blueprints)")
+        lines.append("  (keine Templates, Blueprints oder System-Prompts)")
         lines.append("  press r to refresh")
 
     return lines

@@ -337,28 +337,37 @@ def _fetch_templates(base: str, token: str, timeout: float) -> SectionLoadResult
         for b in blueprints_raw
     ]
 
-    template_items = [
-        {
+    role_template_items = []
+    system_prompt_items = []
+    for t in templates_raw:
+        name = str(t.get("name") or t.get("id") or "")
+        is_system = name.startswith("system.")
+        entry = {
             "id": f"tpl:{str(t.get('id') or '')}",
-            "kind": "template",
-            "title": str(t.get("name") or t.get("id") or "")[:60],
+            "kind": "system_prompt" if is_system else "template",
+            "title": name[:60],
             "description": str(t.get("description") or "")[:100],
             "prompt_preview": str(t.get("prompt_template") or "")[:120].replace("\n", " "),
+            "service": str(t.get("service") or ""),
+            "is_seed": bool(t.get("is_seed", False)),
             "raw_id": str(t.get("id") or ""),
         }
-        for t in templates_raw
-    ]
+        if is_system:
+            system_prompt_items.append(entry)
+        else:
+            role_template_items.append(entry)
 
-    items = blueprint_items + template_items
+    items = blueprint_items + role_template_items + system_prompt_items
     payload: dict[str, Any] = {
         "items": items,
         "blueprints_count": len(blueprint_items),
-        "templates_count": len(template_items),
+        "templates_count": len(role_template_items),
+        "system_prompts_count": len(system_prompt_items),
         "blueprints_raw": blueprints_raw,
         "templates_raw": templates_raw,
     }
     panel_state = PanelState.HEALTHY if items else PanelState.EMPTY
     return SectionLoadResult(
         "templates", panel_state, payload,
-        f"hub: {len(blueprint_items)} blueprints · {len(template_items)} templates",
+        f"hub: {len(blueprint_items)} blueprints · {len(role_template_items)} templates · {len(system_prompt_items)} system",
     )
