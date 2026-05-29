@@ -4251,3 +4251,73 @@ def test_template_editor_resets_when_leaving_templates_section() -> None:
     assert tui.state.mode is OperatorMode.NORMAL
     assert "Tree:" in output
     assert "Template Editor" not in output
+
+
+def test_template_editor_left_right_updates_horizontal_view_offset(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((100, 33)),
+    )
+    long_prompt = "X" * 200
+    payload = {
+        "items": [{"id": "tpl:a", "kind": "template", "title": "wide", "prompt_preview": "wide", "raw_id": "a"}],
+        "templates_raw": [{"id": "a", "name": "wide", "prompt_template": long_prompt}],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+    tui._handle_enter_key()
+    editor = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    start_offset = int(editor.get("view_col_offset") or 0)
+    assert start_offset > 0
+
+    tui._template_editor_move_cursor(-80)
+    editor_after_left = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    left_offset = int(editor_after_left.get("view_col_offset") or 0)
+    assert left_offset < start_offset
+
+    tui._template_editor_move_cursor(80)
+    editor_after_right = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    right_offset = int(editor_after_right.get("view_col_offset") or 0)
+    assert right_offset >= left_offset
+
+
+def test_template_editor_mouse_wheel_scrolls_vertical_in_middle(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    multi = "\n".join(f"line {i:03d}" for i in range(80))
+    payload = {
+        "items": [{"id": "tpl:a", "kind": "template", "title": "scroll", "prompt_preview": "scroll", "raw_id": "a"}],
+        "templates_raw": [{"id": "a", "name": "scroll", "prompt_template": multi}],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+    tui._handle_enter_key()
+
+    # Middle pane starts around x=24, y=8 in current layout.
+    tui._ingest_mouse_event(x=24, y=12, event_type="scroll_down", scroll_delta=1, now=1.0)
+    editor_down = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    down_offset = int(editor_down.get("view_line_offset") or 0)
+    assert down_offset > 0
+
+    tui._ingest_mouse_event(x=24, y=12, event_type="scroll_up", scroll_delta=-1, now=2.0)
+    editor_up = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    up_offset = int(editor_up.get("view_line_offset") or 0)
+    assert up_offset < down_offset
