@@ -18,9 +18,12 @@ from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, IntentConfidence
 from client_surfaces.operator_tui.chat_long_message import (
     configure_middle_view_for_history_entry,
+    is_showing_chat_long_message,
     long_message_history_rows,
+    refresh_rendered_view,
 )
 from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.keybindings_config import display_for_action
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
 from client_surfaces.operator_tui.mouse import (
@@ -85,6 +88,12 @@ class MouseArtifactMixin:
         else:
             game["mouse_target"] = None
 
+        if event_type == "down" and buttons == 1:
+            shortcut_action = self._shortcut_action_at(self._mouse_state.x, self._mouse_state.y)
+            if shortcut_action:
+                self._trigger_shortcut_action(shortcut_action)
+                return
+
         scrollbar_handled = self._handle_visual_viewport_scrollbar_mouse(
             game,
             x=self._mouse_state.x,
@@ -124,6 +133,178 @@ class MouseArtifactMixin:
 
         status = str(game.pop("_copy_status_message", "") or f"mouse {self._mouse_state.x},{self._mouse_state.y}")
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+
+    def _shortcut_action_at(self, x: int, y: int) -> str | None:
+        rendered = str(getattr(self, "_rendered_text", "") or "")
+        if not rendered.strip():
+            try:
+                rendered = self._render()
+            except Exception:
+                rendered = ""
+        lines = rendered.splitlines()
+        if not (0 <= int(y) < len(lines)):
+            return None
+        line = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", lines[int(y)])
+        if not line:
+            return None
+        candidates = self._shortcut_action_display_map()
+        for match in re.finditer(r"\[([^\]]+)\]", line):
+            inner = match.group(1)
+            inner_start = match.start(1)
+            for token_match in re.finditer(r"[^/\s]+(?:\+[^/\s]+)*", inner):
+                token_start = inner_start + token_match.start()
+                token_end = inner_start + token_match.end() - 1
+                if token_start <= int(x) <= token_end:
+                    action = candidates.get(token_match.group(0))
+                    if action:
+                        return action
+        return None
+
+    def _shortcut_action_display_map(self) -> dict[str, str]:
+        actions = {
+            "cycle_focus_or_channel": "Ctrl+W",
+            "selection_down": "Ctrl+J",
+            "selection_up": "Ctrl+K",
+            "refresh": "Ctrl+R",
+            "next_section": "Ctrl+N",
+            "toggle_ai_snake_config": "F6",
+            "toggle_visual_view_switcher_overlay": "F8",
+            "copy_tui_snapshot": "Ctrl+\\",
+            "save_tui_snapshot": "Ctrl+_",
+            "open_long_chat_message": "Ctrl+Space",
+            "scroll_page_up": "PgUp",
+            "scroll_page_down": "PgDn",
+            "inspect": "Ctrl+F",
+            "help": "Ctrl+Y",
+            "quit": "Ctrl+Q",
+            "toggle_snake_mode": "Ctrl+S",
+            "toggle_chat_panel": "Ctrl+G",
+            "chat_focus": "Ctrl+E",
+            "snake_pause": "Ctrl+P",
+            "toggle_tutorial_ai": "Ctrl+U",
+            "toggle_mouse_follow": "Ctrl+O",
+            "snake_toggle_frame": "Ctrl+B",
+            "snake_toggle_selection": "Ctrl+X",
+            "snake_replace_selection": "Ctrl+V",
+            "snake_clear_marks": "Ctrl+Z",
+            "copy_chat_panel": "Ctrl+C",
+            "copy_ai_status": "Ctrl+I",
+            "clear_chat_input": "Ctrl+L",
+        }
+        result: dict[str, str] = {"Esc": "escape", "Enter": "enter"}
+        for action, default in actions.items():
+            result[display_for_action(action, default)] = action
+        return result
+
+    def _trigger_shortcut_action(self, action: str) -> None:
+        if action == "cycle_focus_or_channel":
+            if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
+                self._chat_cycle_channel()
+            else:
+                self._exit_command_mode_for_global_shortcut()
+                self._move_focus(1)
+            return
+        if action == "selection_down":
+            self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+            return
+        if action == "selection_up":
+            self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+            return
+        if action == "refresh":
+            game = dict(self.state.header_logo_game or {})
+            if is_showing_chat_long_message(game):
+                refresh_rendered_view(game)
+                self._set_state(self.state.with_updates(header_logo_game=game, status_message="Chat-Ansicht: Render aktualisiert"))
+            else:
+                self._run_command(":refresh")
+            return
+        if action == "next_section":
+            self._run_command(":next")
+            return
+        if action == "toggle_ai_snake_config":
+            self._toggle_ai_snake_config_panel()
+            return
+        if action == "toggle_visual_view_switcher_overlay":
+            self._toggle_visual_view_switcher_overlay()
+            return
+        if action == "copy_tui_snapshot":
+            self._exit_command_mode_for_global_shortcut()
+            self._copy_tui_snapshot()
+            return
+        if action == "save_tui_snapshot":
+            self._exit_command_mode_for_global_shortcut()
+            self._save_tui_snapshot()
+            return
+        if action == "open_long_chat_message":
+            self._exit_command_mode_for_global_shortcut()
+            self._open_latest_long_chat_message()
+            return
+        if action == "scroll_page_up":
+            self._scroll_active_panel(direction="page_up")
+            return
+        if action == "scroll_page_down":
+            self._scroll_active_panel(direction="page_down")
+            return
+        if action == "inspect":
+            if self._open_selected_item_inline():
+                return
+            self._run_command(":inspect")
+            return
+        if action == "help":
+            self._run_command(":help")
+            return
+        if action == "quit":
+            try:
+                self._flush_config_on_exit()
+                self._app.exit()
+            except Exception:
+                self._set_state(self.state.with_updates(status_message="quit"))
+            return
+        if action == "toggle_snake_mode":
+            self._exit_command_mode_for_global_shortcut()
+            self._toggle_snake_mode()
+            return
+        if action == "toggle_chat_panel":
+            self._exit_command_mode_for_global_shortcut()
+            self._toggle_chat_panel_open()
+            return
+        if action == "chat_focus":
+            self._exit_command_mode_for_global_shortcut()
+            self._toggle_chat_focus()
+            return
+        if action == "snake_pause":
+            self._toggle_snake_pause()
+            return
+        if action == "toggle_tutorial_ai":
+            self._toggle_tutorial_ai_mode()
+            return
+        if action == "toggle_mouse_follow":
+            self._toggle_snake_mouse_follow()
+            return
+        if action == "snake_toggle_frame":
+            self._snake_toggle_frame_mode()
+            return
+        if action == "snake_toggle_selection":
+            self._snake_toggle_selection()
+            return
+        if action == "snake_replace_selection":
+            self._snake_replace_selection()
+            return
+        if action == "snake_clear_marks":
+            self._snake_clear_visual_marks()
+            return
+        if action == "copy_chat_panel":
+            self._copy_chat_panel_snapshot()
+            return
+        if action == "copy_ai_status":
+            self._exit_command_mode_for_global_shortcut()
+            self._copy_ai_status_snapshot()
+            return
+        if action == "clear_chat_input":
+            if self._chat_focus_active():
+                self._chat_clear_input()
+            elif self._artifact_chat_focus_active():
+                self._artifact_chat_clear_input()
 
     def _parse_sgr_mouse_event(self, raw: str) -> tuple[int, int, str, int, int] | None:
         # Typical xterm SGR mouse: ESC [ < Cb ; Cx ; Cy M|m
