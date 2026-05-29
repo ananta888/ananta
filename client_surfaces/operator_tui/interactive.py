@@ -1636,6 +1636,47 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["template_editor"] = editor
         self._set_state(self.state.with_updates(header_logo_game=game))
 
+    def _template_editor_set_cursor_from_content_click(self, *, x: int, y: int, width: int, height: int) -> bool:
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        if not bool(editor.get("active")):
+            return False
+
+        left_width = 22
+        detail_width = 34
+        middle_width = max(18, int(width) - left_width - detail_width - 6)
+        body_start = 10 if len(self.state.open_tabs) >= 2 else 9
+        content_x1 = left_width + 2
+        content_x2 = content_x1 + middle_width - 1
+        body_y1 = body_start
+        body_height = max(3, int(height) - 5 - body_start)
+        body_y2 = body_y1 + body_height - 1
+        if not (content_x1 <= int(x) <= content_x2 and body_y1 <= int(y) <= body_y2):
+            return False
+
+        local_row = int(y) - body_y1
+        local_col = int(x) - content_x1
+        if local_row < 4:
+            self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))
+            return True
+
+        text = str(editor.get("text") or "")
+        lines = text.splitlines() or [""]
+        view_line_offset = max(0, int(editor.get("view_line_offset") or 0))
+        view_col_offset = max(0, int(editor.get("view_col_offset") or 0))
+        text_row = local_row - 4
+        target_line = max(0, min(len(lines) - 1, view_line_offset + text_row))
+        click_col = max(0, local_col - 6)
+        target_col = max(0, min(len(lines[target_line]), view_col_offset + click_col))
+        new_cursor = target_col
+        for idx in range(target_line):
+            new_cursor += len(lines[idx]) + 1
+        editor["cursor"] = max(0, min(len(text), int(new_cursor)))
+        editor = self._template_editor_ensure_cursor_visible(editor)
+        game["template_editor"] = editor
+        self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT))
+        return True
+
     def _open_template_editor_for_selected(self) -> bool:
         selected = self._selected_template_entry()
         if selected is None:

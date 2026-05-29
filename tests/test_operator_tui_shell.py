@@ -4321,3 +4321,36 @@ def test_template_editor_mouse_wheel_scrolls_vertical_in_middle(monkeypatch) -> 
     editor_up = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
     up_offset = int(editor_up.get("view_line_offset") or 0)
     assert up_offset < down_offset
+
+
+def test_template_editor_click_sets_cursor_position(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    payload = {
+        "items": [{"id": "tpl:a", "kind": "template", "title": "click", "prompt_preview": "click", "raw_id": "a"}],
+        "templates_raw": [{"id": "a", "name": "click", "prompt_template": "aaaaa\nbbbbbbbbbb\ncc"}],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+    tui._handle_enter_key()
+
+    # content_x1=24, body_y1=9 => 2nd text row is y=14, text starts after 6 prefix chars.
+    click_x = 24 + 6 + 3
+    click_y = 14
+    tui._ingest_mouse_event(x=click_x, y=click_y, event_type="down", buttons=1, now=1.0)
+
+    editor = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    # "aaaaa\\n" (6 chars) + 3 chars into second line
+    assert int(editor.get("cursor") or -1) == 9

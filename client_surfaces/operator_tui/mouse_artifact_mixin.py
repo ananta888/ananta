@@ -790,6 +790,20 @@ class MouseArtifactMixin:
             game["_copy_status_message"] = str(self.state.status_message or "template ausgewählt")
             return
 
+        if (
+            self.state.section_id == "templates"
+            and target.pane == "content"
+            and hasattr(self, "_template_editor_set_cursor_from_content_click")
+        ):
+            if self._template_editor_set_cursor_from_content_click(  # type: ignore[attr-defined]
+                x=int(self._mouse_state.x),
+                y=int(self._mouse_state.y),
+                width=int(width),
+                height=int(height),
+            ):
+                game["_copy_status_message"] = "template editor: cursor"
+                return
+
         if bool(game.get("ai_snake_config_open")) and target.pane == "content":
             combo_value = str(target.payload.get("ai_snake_combo_option_value") or "")
             if combo_value:
