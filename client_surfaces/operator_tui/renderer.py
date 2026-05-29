@@ -586,7 +586,11 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
             for entry in timeline[:3]:
                 lines.append(f"    {entry.get('id','?')}  {entry.get('summary','')}")
     elif section.id == "templates":
-        lines.extend(_templates_content_lines(payload, state, width))
+        editor = dict(game.get("template_editor") or {})
+        if state.mode is OperatorMode.EDIT and bool(editor.get("active")):
+            lines.extend(_templates_editor_content_lines(state, width))
+        else:
+            lines.extend(_templates_content_lines(payload, state, width))
     elif section.id == "system":
         lines.extend(_system_content_lines(payload))
     elif section.id == "terminal":
@@ -685,62 +689,85 @@ def _templates_content_lines(payload: dict, state: OperatorState, width: int) ->
     tpl_items = [it for it in items if it.get("kind") == "template"]
     sys_items = [it for it in items if it.get("kind") == "system_prompt"]
 
-    hc, hr = _TPL_THEME["header"]
-    bc, br = _TPL_THEME["blueprint"]
-    tc, tr = _TPL_THEME["template"]
-    seed_str = _TPL_THEME["seed"]
-    sc = "\x1b[38;2;200;160;255m"  # violet for system prompts
-    sr = "\x1b[0m"
-
+    tree_groups: list[tuple[str, list[dict]]] = []
     if bp_items:
-        lines.append(f"  {hc}── Blueprints {'─' * max(1, width - 18)}{hr}"[:width])
-        for bp in bp_items:
-            marker = DEFAULT_THEME.selected_prefix if item_idx == sel else " "
-            seed_pfx = seed_str if bp.get("is_seed") else "  "
-            roles    = int(bp.get("roles_count") or 0)
-            arts     = int(bp.get("artifacts_count") or 0)
-            title    = str(bp.get("title") or "")
-            base     = str(bp.get("base_team_type") or "")
-            role_str = f"{roles}r" + (f"+{arts}a" if arts else "")
-            base_str = f" [{base}]" if base else ""
-            suffix   = f" {bc}{role_str}{br}{base_str} {seed_pfx}"
-            avail    = max(4, width - 4 - len(_ANSI_STRIP.sub("", suffix)))
-            lines.append(f"{marker} {title[:avail]}{suffix}")
-            item_idx += 1
-
+        tree_groups.append(("Blueprints", bp_items))
     if tpl_items:
-        lines.append("")
-        lines.append(f"  {hc}── Prompt-Templates {'─' * max(1, width - 22)}{hr}"[:width])
-        for tpl in tpl_items:
-            marker  = DEFAULT_THEME.selected_prefix if item_idx == sel else " "
-            title   = str(tpl.get("title") or "")
-            preview = str(tpl.get("prompt_preview") or "")
-            avail   = max(4, width - 4 - 8)
-            prev_w  = max(0, width - 4 - len(title) - 2)
-            prev_sfx = f"  {tc}{preview[:prev_w]}{tr}" if preview and prev_w > 4 else ""
-            lines.append(f"{marker} {title[:avail]}{prev_sfx}")
-            item_idx += 1
-
+        tree_groups.append(("Prompt-Templates", tpl_items))
     if sys_items:
-        lines.append("")
-        lines.append(f"  {hc}── System-Prompts {'─' * max(1, width - 20)}{hr}"[:width])
-        for sp in sys_items:
-            marker  = DEFAULT_THEME.selected_prefix if item_idx == sel else " "
-            title   = str(sp.get("title") or "")
-            svc     = str(sp.get("service") or "")
-            preview = str(sp.get("prompt_preview") or "")
-            svc_sfx = f" {sc}[{svc}]{sr}" if svc else ""
-            avail   = max(4, width - 4 - len(_ANSI_STRIP.sub("", svc_sfx)) - 1)
-            prev_w  = max(0, width - 4 - len(title) - len(_ANSI_STRIP.sub("", svc_sfx)) - 2)
-            prev_sfx = f"  {sc}{preview[:prev_w]}{sr}" if preview and prev_w > 4 and not svc else ""
-            lines.append(f"{marker} {title[:avail]}{svc_sfx}{prev_sfx}")
+        tree_groups.append(("System-Prompts", sys_items))
+
+    if tree_groups:
+        lines.append("  Tree:")
+    for group_index, (group_name, group_items) in enumerate(tree_groups):
+        group_branch = "└" if group_index == len(tree_groups) - 1 else "├"
+        lines.append(f"  {group_branch}─ {group_name} ({len(group_items)})")
+        for leaf_index, item in enumerate(group_items):
+            marker = DEFAULT_THEME.selected_prefix if item_idx == sel else " "
+            leaf_branch = "└" if leaf_index == len(group_items) - 1 else "├"
+            child_prefix = "     " if group_index == len(tree_groups) - 1 else "  │  "
+            title = str(item.get("title") or "")
+            if str(item.get("kind") or "") == "blueprint":
+                roles = int(item.get("roles_count") or 0)
+                arts = int(item.get("artifacts_count") or 0)
+                base = str(item.get("base_team_type") or "")
+                meta_parts = [f"{roles}r"]
+                if arts:
+                    meta_parts.append(f"{arts}a")
+                if base:
+                    meta_parts.append(base)
+                if item.get("is_seed"):
+                    meta_parts.append("seed")
+                meta = f" [{', '.join(meta_parts)}]" if meta_parts else ""
+            elif str(item.get("kind") or "") == "system_prompt":
+                svc = str(item.get("service") or "")
+                meta = f" [{svc}]" if svc else ""
+            else:
+                preview = str(item.get("prompt_preview") or "").strip()
+                meta = f" :: {preview[: max(0, width // 3)]}" if preview else ""
+            lines.append(f"{marker}{child_prefix}{leaf_branch}─ {title}{meta}")
             item_idx += 1
 
     if not items:
         lines.append("  (keine Templates, Blueprints oder System-Prompts)")
         lines.append("  press r to refresh")
 
-    return lines
+    return [_clip(line, width) for line in lines]
+
+
+def _templates_editor_content_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    editor = dict(game.get("template_editor") or {})
+    title = str(editor.get("title") or "template")
+    kind = str(editor.get("kind") or "template")
+    text = str(editor.get("text") or "")
+    cursor = max(0, min(len(text), int(editor.get("cursor") or 0)))
+    dirty = bool(editor.get("dirty"))
+    lines = [
+        f"  Template Editor · {title} ({kind}){' *' if dirty else ''}",
+        "  Ctrl+S speichern · Esc schließen",
+        "",
+    ]
+
+    before = text[:cursor]
+    cursor_line = before.count("\n")
+    cursor_col = len(before.rsplit("\n", 1)[-1])
+    text_lines = text.splitlines() or [""]
+    start_line = max(0, cursor_line - 10)
+    end_line = min(len(text_lines), start_line + 20)
+    for row_index in range(start_line, end_line):
+        source_line = text_lines[row_index]
+        line_prefix = ">" if row_index == cursor_line else " "
+        if row_index == cursor_line:
+            left = source_line[:cursor_col]
+            right = source_line[cursor_col:]
+            rendered_line = f"{left}|{right}"
+        else:
+            rendered_line = source_line
+        lines.append(f"{line_prefix} {row_index + 1:>3} {rendered_line}")
+    if end_line < len(text_lines):
+        lines.append(f"  ... ({len(text_lines) - end_line} weitere Zeilen)")
+    return [_clip(line, width) for line in lines]
 
 
 def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str]:
