@@ -51,15 +51,34 @@ def _has_diagram_type(source: str) -> bool:
 
 def _auto_fix_source(source: str) -> str | None:
     """Try to auto-fix common Mermaid issues. Returns fixed source or None."""
-    if not _has_diagram_type(source):
-        # Missing diagram type — prepend flowchart TD as best guess
-        return "flowchart TD\n" + source
-    # Fix "flowchart direction LR" → "flowchart LR"
     import re
-    fixed = re.sub(r'^(flowchart)\s+direction\s+', r'\1 ', source, flags=re.MULTILINE | re.IGNORECASE)
-    if fixed != source:
-        return fixed
-    return None
+
+    fixed = source
+
+    # Fix "flowchart direction=TB" or "flowchart dir=LR" → "flowchart TB"
+    fixed = re.sub(
+        r'^(flowchart|graph)\s+(?:direction=|dir=)(\w+).*$',
+        lambda m: f"{m.group(1)} {m.group(2).upper()}",
+        fixed, flags=re.MULTILINE | re.IGNORECASE,
+    )
+    # Fix "flowchart direction LR" → "flowchart LR"
+    fixed = re.sub(r'^(flowchart|graph)\s+direction\s+(\w+)', r'\1 \2', fixed, flags=re.MULTILINE | re.IGNORECASE)
+    # Remove unsupported attributes like nameLabel="..." from first line
+    fixed = re.sub(r'^(flowchart|graph\s+\w+).*?(nameLabel|title|config)\s*=\s*"[^"]*".*$',
+                   r'\1', fixed, flags=re.MULTILINE | re.IGNORECASE)
+    # Fix invalid arrow syntax "-- Yes::>" → "-- Yes -->"
+    fixed = re.sub(r'--\s*(\w[^:>]*?)::>', r'-- \1 -->', fixed)
+    # Fix " : wenn yes" style labels (invalid) → strip them
+    fixed = re.sub(r'\s+:\s+\w.*$', '', fixed, flags=re.MULTILINE)
+    # Strip lines that are clearly non-Mermaid (HTML comments, XML tags)
+    lines_out = [l for l in fixed.splitlines() if not re.match(r'^\s*(<[^>]+>|<!--)', l)]
+    fixed = "\n".join(lines_out)
+
+    # If still no diagram type, prepend flowchart TD
+    if not _has_diagram_type(fixed):
+        fixed = "flowchart TD\n" + fixed
+
+    return fixed if fixed != source else None
 
 
 def _compact_error(reason: str, max_len: int = 80) -> str:
