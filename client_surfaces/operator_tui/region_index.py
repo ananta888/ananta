@@ -7,6 +7,7 @@ from client_surfaces.operator_tui.chat_long_message import long_message_history_
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
 from client_surfaces.operator_tui.tab_manager import tab_positions_for_render
 
 
@@ -88,16 +89,20 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
         ),
     ]
 
+    templates_payload = dict((state.section_payloads or {}).get("templates") or {})
+    template_groups = grouped_template_items(templates_payload) if state.section_id == "templates" else []
+    template_flat = template_nav_items(templates_payload) if state.section_id == "templates" else []
+    nav_row = body_y1 + 1
+    template_selection_index = len(SECTIONS)
     for idx, nav_section in enumerate(SECTIONS):
-        row = body_y1 + 1 + idx
-        if row > body_y2:
+        if nav_row > body_y2:
             break
         regions.append(
             RegionRect(
                 x1=nav_x1,
-                y1=row,
+                y1=nav_row,
                 x2=nav_x2,
-                y2=row,
+                y2=nav_row,
                 target=RegionTarget(
                     kind="section",
                     section_id=nav_section.id,
@@ -107,10 +112,51 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                 ),
             )
         )
+        nav_row += 1
+        if nav_section.id == "templates" and state.section_id == "templates":
+            for group_name, group_rows in template_groups:
+                if nav_row > body_y2:
+                    break
+                regions.append(
+                    RegionRect(
+                        x1=nav_x1,
+                        y1=nav_row,
+                        x2=nav_x2,
+                        y2=nav_row,
+                        target=RegionTarget(
+                            kind="template_nav_group",
+                            section_id="templates",
+                            pane="nav",
+                            label=group_name,
+                            payload={},
+                        ),
+                    )
+                )
+                nav_row += 1
+                for item_index, item in group_rows:
+                    if nav_row > body_y2:
+                        break
+                    regions.append(
+                        RegionRect(
+                            x1=nav_x1,
+                            y1=nav_row,
+                            x2=nav_x2,
+                            y2=nav_row,
+                            target=RegionTarget(
+                                kind="template_nav_item",
+                                section_id="templates",
+                                pane="nav",
+                                label=str(item.get("title") or item.get("id") or "Template"),
+                                payload={"selected_index": template_selection_index, "template_item_index": item_index},
+                            ),
+                        )
+                    )
+                    nav_row += 1
+                    template_selection_index += 1
 
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     history_rows = long_message_history_rows(game)
-    row = body_y1 + 1 + len(SECTIONS)
+    row = nav_row
     if history_rows:
         row += 3
         current_channel = ""
@@ -133,7 +179,7 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                         section_id=section.id,
                         pane="nav",
                         label=str(entry.get("preview") or entry.get("text") or "Chat History"),
-                        payload={"selected_index": len(SECTIONS) + idx, "history_index": idx},
+                        payload={"selected_index": len(SECTIONS) + len(template_flat) + idx, "history_index": idx},
                     ),
                 )
             )

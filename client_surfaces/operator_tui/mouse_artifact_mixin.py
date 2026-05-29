@@ -34,6 +34,7 @@ from client_surfaces.operator_tui.mouse import (
 from client_surfaces.operator_tui.plugins import resolve_item_reference
 from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.template_nav import template_nav_items
 
 
 class MouseArtifactMixin:
@@ -721,8 +722,34 @@ class MouseArtifactMixin:
                 game_out = dict(next_state.header_logo_game or game)
                 game_out["visual_viewport_enabled"] = True
                 game_out["visual_viewport"] = {"enabled": True}
-                game_out["_copy_status_message"] = "Chat-History: Originalausgabe"
+                game["_copy_status_message"] = "Chat-History: Originalausgabe"
                 self._set_state(next_state.with_updates(header_logo_game=game_out))
+            return
+
+        if target.kind == "template_nav_item":
+            item_index_raw = target.payload.get("template_item_index")
+            item_index = int(item_index_raw) if isinstance(item_index_raw, int) else -1
+            if item_index < 0:
+                return
+            self._clear_chat_input_focus(game)
+            next_state = self.state.with_updates(
+                header_logo_game=game,
+                section_id="templates",
+                focus=FocusPane.CONTENT,
+                selected_index=item_index,
+            )
+            if self.state.section_id != "templates":
+                next_state = load_active_section(next_state, self._registry)
+            self._set_state(next_state)
+            payload = dict((self.state.section_payloads or {}).get("templates") or {})
+            items = payload.get("items")
+            entry = items[item_index] if isinstance(items, list) and 0 <= item_index < len(items) else {}
+            kind = str(entry.get("kind") or "") if isinstance(entry, dict) else ""
+            if kind in {"template", "system_prompt"} and hasattr(self, "_open_template_editor_for_selected"):
+                self._open_template_editor_for_selected()  # type: ignore[attr-defined]
+            else:
+                self._run_command(":inspect")
+            game["_copy_status_message"] = str(self.state.status_message or "template ausgewählt")
             return
 
         if bool(game.get("ai_snake_config_open")) and target.pane == "content":
@@ -868,7 +895,8 @@ class MouseArtifactMixin:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
             history = game.get("chat_long_message_history")
             history_count = len(history) if isinstance(history, list) else 0
-            return min(cur + 1, max(0, len(SECTIONS) + history_count - 1))
+            template_count = self._template_nav_selectable_count()
+            return min(cur + 1, max(0, len(SECTIONS) + template_count + history_count - 1))
         if self.state.focus is FocusPane.HEADER:
             from client_surfaces.operator_tui.header_config import CONFIG_ITEMS
             return min(cur + 1, len(CONFIG_ITEMS) - 1)
@@ -881,6 +909,7 @@ class MouseArtifactMixin:
             self._clear_chat_input_focus(game)
         next_state = self.state.with_updates(header_logo_game=game, selected_index=new_index)
         if self.state.focus is FocusPane.NAVIGATION:
+            template_count = self._template_nav_selectable_count()
             if 0 <= new_index < len(SECTIONS):
                 section = SECTIONS[new_index]
                 next_state = next_state.with_updates(section_id=section.id)
@@ -891,10 +920,12 @@ class MouseArtifactMixin:
                     next_state, section_id=section.id, kind="section",
                     label=tab_label_for_section(section.id),
                 )
+            elif template_count > 0 and len(SECTIONS) <= new_index < len(SECTIONS) + template_count:
+                next_state = next_state.with_updates(section_id="templates")
             else:
                 game = dict(self.state.header_logo_game or self._default_header_snake())
                 rows = long_message_history_rows(game)
-                history_idx = new_index - len(SECTIONS)
+                history_idx = new_index - len(SECTIONS) - template_count
                 if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
                     next_state = next_state.with_updates(
                         header_logo_game=game,
@@ -903,6 +934,22 @@ class MouseArtifactMixin:
                         status_message="Chat-History: Originalausgabe",
                     )
         self._set_state(next_state)
+
+    def _template_nav_selectable_count(self) -> int:
+        if self.state.section_id != "templates":
+            return 0
+        payload = dict((self.state.section_payloads or {}).get("templates") or {})
+        return len(template_nav_items(payload))
+
+    def _template_nav_item_for_nav_index(self, nav_index: int) -> tuple[int, dict[str, Any]] | None:
+        if self.state.section_id != "templates":
+            return None
+        payload = dict((self.state.section_payloads or {}).get("templates") or {})
+        items = template_nav_items(payload)
+        item_pos = int(nav_index) - len(SECTIONS)
+        if 0 <= item_pos < len(items):
+            return items[item_pos]
+        return None
 
     def _clear_chat_input_focus(self, game: dict[str, object]) -> None:
         chat = get_chat_state(game)

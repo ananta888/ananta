@@ -24,6 +24,7 @@ from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
 from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
 from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
 
@@ -496,6 +497,11 @@ def _navigation_lines(state: OperatorState) -> list[str]:
     ptr_target = str(ptr.get("target") or "") if ptr else ""
     ptr_blink = int(ptr.get("blink_frame", 0)) if ptr else 0
     ptr_visible = ptr_blink % 2 == 0  # blink: visible on even frames
+    template_payload = dict((state.section_payloads or {}).get("templates") or {})
+    template_groups = grouped_template_items(template_payload) if state.section_id == "templates" else []
+    template_flat = template_nav_items(template_payload) if state.section_id == "templates" else []
+    template_base_index = len(SECTIONS)
+    template_row_index = template_base_index
     for i, section in enumerate(SECTIONS):
         panel_state = (state.panel_states or {}).get(section.id)
         if nav_focused:
@@ -512,6 +518,20 @@ def _navigation_lines(state: OperatorState) -> list[str]:
         if ptr_target == section.id and ptr_visible:
             pointer_suffix = " \x1b[38;2;255;205;130m←\x1b[0m"
         lines.append(f"{cursor}{state_prefix(panel_state)} {section.title}{pointer_suffix}")
+        if section.id == "templates" and template_groups:
+            for group_idx, (group_name, group_rows) in enumerate(template_groups):
+                group_branch = "└" if group_idx == len(template_groups) - 1 else "├"
+                lines.append(f"   {group_branch}─ {group_name} ({len(group_rows)})")
+                for leaf_idx, (_, item) in enumerate(group_rows):
+                    leaf_branch = "└" if leaf_idx == len(group_rows) - 1 else "├"
+                    child_prefix = "      " if group_idx == len(template_groups) - 1 else "   │  "
+                    if nav_focused and template_row_index == state.selected_index:
+                        leaf_cursor = DEFAULT_THEME.selected_prefix
+                    else:
+                        leaf_cursor = DEFAULT_THEME.idle_prefix
+                    title = str(item.get("title") or item.get("id") or "?")
+                    lines.append(f"{leaf_cursor}{child_prefix}{leaf_branch}─ {title}")
+                    template_row_index += 1
     history_rows = long_message_history_rows(game)
     if history_rows:
         lines.append("")
@@ -522,7 +542,7 @@ def _navigation_lines(state: OperatorState) -> list[str]:
             if channel != current_channel:
                 current_channel = channel
                 lines.append(f"  ▸ {channel}")
-            row_index = len(SECTIONS) + offset
+            row_index = len(SECTIONS) + len(template_flat) + offset
             if nav_focused and row_index == state.selected_index:
                 cursor = DEFAULT_THEME.selected_prefix
             else:

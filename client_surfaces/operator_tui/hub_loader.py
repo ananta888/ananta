@@ -15,6 +15,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 from client_surfaces.operator_tui.models import PanelState, SectionLoadResult
@@ -322,6 +323,18 @@ def _fetch_templates(base: str, token: str, timeout: float) -> SectionLoadResult
     except Exception:
         pass
 
+    fallback_used = False
+    if not blueprints_raw:
+        fallback_blueprints = _load_local_blueprint_fallback()
+        if fallback_blueprints:
+            blueprints_raw = fallback_blueprints
+            fallback_used = True
+    if not templates_raw:
+        fallback_templates = _load_local_templates_fallback()
+        if fallback_templates:
+            templates_raw = fallback_templates
+            fallback_used = True
+
     blueprint_items = [
         {
             "id": f"bp:{str(b.get('id') or '')}",
@@ -367,7 +380,82 @@ def _fetch_templates(base: str, token: str, timeout: float) -> SectionLoadResult
         "templates_raw": templates_raw,
     }
     panel_state = PanelState.HEALTHY if items else PanelState.EMPTY
+    source = "hub+local" if fallback_used else "hub"
     return SectionLoadResult(
         "templates", panel_state, payload,
-        f"hub: {len(blueprint_items)} blueprints · {len(role_template_items)} templates · {len(system_prompt_items)} system",
+        f"{source}: {len(blueprint_items)} blueprints · {len(role_template_items)} templates · {len(system_prompt_items)} system",
     )
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _read_json_file(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _load_local_blueprint_fallback() -> list[dict[str, Any]]:
+    data = _read_json_file(_repo_root() / "config" / "blueprints" / "standard" / "templates.json")
+    team_types = data.get("team_types") if isinstance(data, dict) else {}
+    if not isinstance(team_types, dict):
+        return []
+    items: list[dict[str, Any]] = []
+    for team_type, spec in team_types.items():
+        if not isinstance(spec, dict):
+            continue
+        roles = spec.get("roles")
+        items.append(
+            {
+                "id": f"seed-bp:{team_type}",
+                "name": str(team_type),
+                "description": str(spec.get("description") or ""),
+                "roles_count": len(roles) if isinstance(roles, list) else 0,
+                "artifacts_count": 0,
+                "is_seed": True,
+                "base_team_type_name": str(team_type),
+            }
+        )
+    return items
+
+
+def _load_local_templates_fallback() -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seed_data = _read_json_file(_repo_root() / "config" / "blueprints" / "standard" / "templates.json")
+    seed_templates = seed_data.get("templates") if isinstance(seed_data, dict) else []
+    if isinstance(seed_templates, list):
+        for idx, raw in enumerate(seed_templates):
+            if not isinstance(raw, dict):
+                continue
+            name = str(raw.get("name") or f"seed.template.{idx}")
+            out.append(
+                {
+                    "id": f"seed-tpl:{name}",
+                    "name": name,
+                    "description": str(raw.get("description") or ""),
+                    "prompt_template": str(raw.get("prompt_template") or ""),
+                    "service": "",
+                    "is_seed": True,
+                }
+            )
+    sys_data = _read_json_file(_repo_root() / "config" / "system_prompts.json")
+    prompts = sys_data.get("prompts") if isinstance(sys_data, dict) else []
+    if isinstance(prompts, list):
+        for idx, raw in enumerate(prompts):
+            if not isinstance(raw, dict):
+                continue
+            name = str(raw.get("name") or f"system.prompt.{idx}")
+            out.append(
+                {
+                    "id": f"seed-sys:{name}",
+                    "name": name,
+                    "description": str(raw.get("description") or raw.get("label") or ""),
+                    "prompt_template": str(raw.get("prompt_template") or ""),
+                    "service": str(raw.get("service") or ""),
+                    "is_seed": True,
+                }
+            )
+    return out
