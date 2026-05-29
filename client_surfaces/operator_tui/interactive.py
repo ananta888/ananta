@@ -1756,6 +1756,35 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if self._snake_message_mode_active():
             self._snake_commit_message()
             return
+        if self.state.focus is FocusPane.NAVIGATION:
+            if 0 <= self.state.selected_index < len(SECTIONS):
+                section = SECTIONS[self.state.selected_index]
+                self._run_command(f":section {section.id}")
+                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, selected_index=0))
+                return
+            template_selection = self._template_nav_item_for_nav_index(self.state.selected_index)
+            if template_selection is not None:
+                item_index, item = template_selection
+                next_state = self.state.with_updates(focus=FocusPane.CONTENT, selected_index=item_index, section_id="templates")
+                self._set_state(next_state)
+                if str(item.get("kind") or "") in {"template", "system_prompt"}:
+                    self._open_template_editor_for_selected()
+                else:
+                    self._run_command(":inspect")
+                return
+            history_idx = self.state.selected_index - len(SECTIONS) - self._template_nav_selectable_count()
+            game = dict(self.state.header_logo_game or self._default_header_snake())
+            rows = long_message_history_rows(game)
+            if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
+                self._set_state(
+                    self.state.with_updates(
+                        header_logo_game=game,
+                        focus=FocusPane.CONTENT,
+                        selected_index=0,
+                        status_message="Chat-History: Originalausgabe",
+                    )
+                )
+            return
         if self.state.focus is FocusPane.CONTENT and self.state.section_id == "templates":
             if self._open_template_editor_for_selected():
                 return
@@ -1781,25 +1810,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
             if 0 <= self.state.selected_index < len(CONFIG_ITEMS):
                 self._set_state(cycle_value(self.state, CONFIG_ITEMS[self.state.selected_index]))
-            return
-        if self.state.focus is FocusPane.NAVIGATION:
-            if 0 <= self.state.selected_index < len(SECTIONS):
-                section = SECTIONS[self.state.selected_index]
-                self._run_command(f":section {section.id}")
-                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, selected_index=0))
-                return
-            history_idx = self.state.selected_index - len(SECTIONS)
-            game = dict(self.state.header_logo_game or self._default_header_snake())
-            rows = long_message_history_rows(game)
-            if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
-                self._set_state(
-                    self.state.with_updates(
-                        header_logo_game=game,
-                        focus=FocusPane.CONTENT,
-                        selected_index=0,
-                        status_message="Chat-History: Originalausgabe",
-                    )
-                )
             return
         self._run_command(":inspect")
 

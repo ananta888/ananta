@@ -3067,6 +3067,45 @@ def test_mouse_click_on_nav_section_loads_section_content(monkeypatch) -> None:
     assert "no goals" in rendered or "Goals" in rendered
 
 
+def test_mouse_click_on_template_nav_item_opens_editor(monkeypatch) -> None:
+    from client_surfaces.operator_tui.region_index import build_region_index
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((180, 33)),
+    )
+    payload = {
+        "items": [
+            {"id": "tpl:a", "kind": "template", "title": "worker_v2", "prompt_preview": "Du bearbeitest...", "raw_id": "a"},
+        ],
+        "templates_raw": [
+            {"id": "a", "name": "worker_v2", "prompt_template": "Du bearbeitest die Aufgabe: {{ task }}"},
+        ],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+    region_index = build_region_index(tui.state, width=180, height=32)
+    template_item_row_y = -1
+    for y in range(9, 32):
+        target = region_index.get_target_at(2, y)
+        if target is not None and target.kind == "template_nav_item":
+            template_item_row_y = y
+            break
+    assert template_item_row_y > 0
+
+    tui._ingest_mouse_event(x=2, y=template_item_row_y, event_type="down", buttons=1, now=1.0)
+
+    assert tui.state.focus is FocusPane.CONTENT
+    assert tui.state.mode is OperatorMode.EDIT
+    assert "template editor" in tui.state.status_message
+
+
 def test_nav_section_click_leaves_chat_input_focus_and_does_not_open_artifact_overlay(monkeypatch) -> None:
     from client_surfaces.operator_tui.chat_state import get_chat_state
 
@@ -3968,5 +4007,68 @@ def test_templates_enter_opens_middle_editor() -> None:
 
     assert tui.state.mode is OperatorMode.EDIT
     assert "template editor" in tui.state.status_message
+    assert "Template Editor" in output
+    assert "{{ task }}" in output
+
+
+def test_templates_navigation_expands_tree_under_templates() -> None:
+    from client_surfaces.operator_tui.renderer import _navigation_lines
+
+    payload = {
+        "items": [
+            {"id": "tpl:a", "kind": "template", "title": "worker_v2", "raw_id": "a"},
+            {"id": "sys:b", "kind": "system_prompt", "title": "agent_sys", "raw_id": "b"},
+        ],
+        "templates_raw": [],
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="templates",
+        focus=FocusPane.NAVIGATION,
+        selected_index=len(SECTIONS),
+        section_payloads={"templates": payload},
+    )
+
+    lines = _navigation_lines(state)
+    joined = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in lines)
+    assert "Templates" in joined
+    assert "Prompt-Templates (1)" in joined
+    assert "System-Prompts (1)" in joined
+    assert "worker_v2" in joined
+    assert "agent_sys" in joined
+
+
+def test_templates_navigation_item_enter_opens_editor_in_middle() -> None:
+    payload = {
+        "items": [
+            {"id": "tpl:a", "kind": "template", "title": "worker_v2", "prompt_preview": "Du bearbeitest...", "raw_id": "a"},
+        ],
+        "blueprints_count": 0,
+        "templates_count": 1,
+        "system_prompts_count": 0,
+        "blueprints_raw": [],
+        "templates_raw": [
+            {"id": "a", "name": "worker_v2", "description": "Worker-Prompt", "prompt_template": "Du bearbeitest die Aufgabe: {{ task }}"}
+        ],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="templates",
+        focus=FocusPane.NAVIGATION,
+        selected_index=len(SECTIONS),
+    )
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=110, height=36)
+
+    assert tui.state.focus is FocusPane.CONTENT
+    assert tui.state.mode is OperatorMode.EDIT
     assert "Template Editor" in output
     assert "{{ task }}" in output
