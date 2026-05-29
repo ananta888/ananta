@@ -16,6 +16,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, IntentConfidence
+from client_surfaces.operator_tui.chat_long_message import (
+    configure_middle_view_for_history_entry,
+    long_message_history_rows,
+)
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
@@ -468,6 +472,22 @@ class MouseArtifactMixin:
         height: int,
     ) -> None:
         """On left click: select the item, direct AI snake there, open chat, trigger explanation."""
+        if target.kind == "chat_history":
+            rows = long_message_history_rows(game)
+            idx_raw = target.payload.get("history_index")
+            idx = int(idx_raw) if isinstance(idx_raw, int) else -1
+            if 0 <= idx < len(rows) and configure_middle_view_for_history_entry(game, rows[idx]):
+                game["_copy_status_message"] = "Chat-History: Originalausgabe"
+                self._set_state(
+                    self.state.with_updates(
+                        header_logo_game=game,
+                        focus=FocusPane.CONTENT,
+                        selected_index=0,
+                        status_message="Chat-History: Originalausgabe",
+                    )
+                )
+            return
+
         if bool(game.get("ai_snake_config_open")) and target.pane == "content":
             combo_value = str(target.payload.get("ai_snake_combo_option_value") or "")
             if combo_value:
@@ -526,12 +546,19 @@ class MouseArtifactMixin:
         from client_surfaces.operator_tui.sections import SECTIONS
 
         new_section = str(target.section_id or self.state.section_id or "dashboard")
-        new_focus = FocusPane.NAVIGATION if target.pane == "nav" else (
-            FocusPane.DETAIL if target.pane == "detail" else FocusPane.CONTENT
-        )
+        if target.pane == "header":
+            new_focus = FocusPane.HEADER
+        elif target.pane == "nav":
+            new_focus = FocusPane.NAVIGATION
+        elif target.pane == "detail":
+            new_focus = FocusPane.DETAIL
+        else:
+            new_focus = FocusPane.CONTENT
         new_selected = self.state.selected_index
 
-        if target.pane == "nav":
+        if isinstance(target.payload.get("selected_index"), int):
+            new_selected = max(0, int(target.payload["selected_index"]))
+        elif target.pane == "nav":
             section_ids = [s.id for s in SECTIONS]
             try:
                 new_selected = section_ids.index(new_section)

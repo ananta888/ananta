@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from client_surfaces.operator_tui.chat_long_message import long_message_history_rows
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
@@ -57,6 +58,13 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
 
     regions: list[RegionRect] = [
         RegionRect(
+            x1=0,
+            y1=0,
+            x2=w - 1,
+            y2=max(0, body_start - 2),
+            target=RegionTarget(kind="pane", section_id=section.id, pane="header", label="HEADER", payload={"focus": FocusPane.HEADER.value}),
+        ),
+        RegionRect(
             x1=nav_x1,
             y1=body_y1,
             x2=nav_x2,
@@ -100,6 +108,36 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
         )
 
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    history_rows = long_message_history_rows(game)
+    row = body_y1 + 1 + len(SECTIONS)
+    if history_rows:
+        row += 3
+        current_channel = ""
+        for idx, entry in enumerate(history_rows):
+            channel = str(entry.get("channel_id") or "room:main")
+            if channel != current_channel:
+                current_channel = channel
+                if idx > 0:
+                    row += 1
+            if row > body_y2:
+                break
+            regions.append(
+                RegionRect(
+                    x1=nav_x1,
+                    y1=row,
+                    x2=nav_x2,
+                    y2=row,
+                    target=RegionTarget(
+                        kind="chat_history",
+                        section_id=section.id,
+                        pane="nav",
+                        label=str(entry.get("preview") or entry.get("text") or "Chat History"),
+                        payload={"selected_index": len(SECTIONS) + idx, "history_index": idx},
+                    ),
+                )
+            )
+            row += 1
+
     config_mode = bool(game.get("ai_snake_config_open"))
     combo = dict(game.get("ai_snake_config_combo") or {})
     combo_open = config_mode and bool(combo.get("open"))
