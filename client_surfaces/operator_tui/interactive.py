@@ -2269,6 +2269,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             ctx = self._splash.context
             if ctx.state in (SplashState.FULLSCREEN, SplashState.TRANSITION):
                 self._splash.transition_to(SplashState.COMPACT_HEADER)
+        if state.section_id != self.state.section_id:
+            game = dict(state.header_logo_game or {})
+            game["visual_viewport_enabled"] = False
+            game["visual_viewport"] = {"enabled": False}
+            state = state.with_updates(header_logo_game=game)
         self.state = state
         self._rendered_text = self._render()
         self._app.invalidate()

@@ -130,7 +130,16 @@ class MouseArtifactMixin:
         # Left-click: select item + AI snake jumps there + open chat + trigger explanation.
         # Drag is handled as visual multi-select and does not repeatedly open targets.
         if not scrollbar_handled and not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
+            _section_before_click = self.state.section_id
             self._handle_left_click(game, target=target, now=ts, width=width, height=height)
+            if self.state.section_id != _section_before_click:
+                # _handle_left_click → _select_region_target already called _set_state and
+                # changed self.state.section_id. The final _set_state below will use the
+                # already-updated self.state as base, so section equality would be True and
+                # _set_state's own viewport-clear guard would not fire again. Mirror the
+                # clear here so the local game dict doesn't re-enable the viewport.
+                game["visual_viewport_enabled"] = False
+                game["visual_viewport"] = {"enabled": False}
 
         status = str(game.pop("_copy_status_message", "") or f"mouse {self._mouse_state.x},{self._mouse_state.y}")
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
