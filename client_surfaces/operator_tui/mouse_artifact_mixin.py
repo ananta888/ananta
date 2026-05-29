@@ -131,15 +131,16 @@ class MouseArtifactMixin:
         # Drag is handled as visual multi-select and does not repeatedly open targets.
         if not scrollbar_handled and not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
             _section_before_click = self.state.section_id
+            _tab_before_click = self.state.active_tab_id
             self._handle_left_click(game, target=target, now=ts, width=width, height=height)
             if self.state.section_id != _section_before_click:
-                # _handle_left_click → _select_region_target already called _set_state and
-                # changed self.state.section_id. The final _set_state below will use the
-                # already-updated self.state as base, so section equality would be True and
-                # _set_state's own viewport-clear guard would not fire again. Mirror the
-                # clear here so the local game dict doesn't re-enable the viewport.
                 game["visual_viewport_enabled"] = False
                 game["visual_viewport"] = {"enabled": False}
+            if self.state.active_tab_id != _tab_before_click:
+                # Tab changed inside _handle_left_click; sync viewport state into local game dict
+                # so the final _set_state below doesn't undo it.
+                game["visual_viewport_enabled"] = bool((dict(self.state.header_logo_game or {})).get("visual_viewport_enabled", False))
+                game["visual_viewport"] = dict((dict(self.state.header_logo_game or {})).get("visual_viewport") or {"enabled": False})
 
         status = str(game.pop("_copy_status_message", "") or f"mouse {self._mouse_state.x},{self._mouse_state.y}")
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
@@ -402,6 +403,13 @@ class MouseArtifactMixin:
 
     def _route_wheel_scroll(self, game: dict, *, x: int, y: int, delta: int) -> None:
         """Route mouse wheel events to the appropriate ScrollContext via MouseRouter."""
+        tab_y = 10 if self.state.open_tabs else 9
+        if self.state.open_tabs and int(y) == tab_y - 1:
+            max_offset = max(0, len(self.state.open_tabs) - 1)
+            new_offset = max(0, min(max_offset, self.state.tab_scroll_offset + (1 if delta > 0 else -1)))
+            if new_offset != self.state.tab_scroll_offset:
+                self._set_state(self.state.with_updates(tab_scroll_offset=new_offset))
+            return
         try:
             from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
             from client_surfaces.operator_tui.focus.focus_manager import FocusManager
@@ -663,20 +671,58 @@ class MouseArtifactMixin:
         height: int,
     ) -> None:
         """On left click: select the item, direct AI snake there, open chat, trigger explanation."""
+        if target.kind == "tab":
+            from client_surfaces.operator_tui.tab_manager import activate_tab
+            tab_id = str(target.payload.get("tab_id") or "")
+            if tab_id:
+                new_state, new_game = activate_tab(self.state, tab_id, game=dict(self.state.header_logo_game or {}))
+                self._set_state(new_state.with_updates(header_logo_game=new_game))
+            return
+
+        if target.kind == "tab_close":
+            from client_surfaces.operator_tui.tab_manager import close_tab
+            tab_id = str(target.payload.get("tab_id") or "")
+            if tab_id:
+                new_state = close_tab(self.state, tab_id)
+                game_out = dict(new_state.header_logo_game or {})
+                game_out["visual_viewport_enabled"] = False
+                game_out["visual_viewport"] = {"enabled": False}
+                self._set_state(new_state.with_updates(header_logo_game=game_out))
+            return
+
+        if target.kind == "tab_scroll_left":
+            new_offset = max(0, self.state.tab_scroll_offset - 1)
+            self._set_state(self.state.with_updates(tab_scroll_offset=new_offset))
+            return
+
+        if target.kind == "tab_scroll_right":
+            max_offset = max(0, len(self.state.open_tabs) - 1)
+            new_offset = min(max_offset, self.state.tab_scroll_offset + 1)
+            self._set_state(self.state.with_updates(tab_scroll_offset=new_offset))
+            return
+
         if target.kind == "chat_history":
             rows = long_message_history_rows(game)
             idx_raw = target.payload.get("history_index")
             idx = int(idx_raw) if isinstance(idx_raw, int) else -1
             if 0 <= idx < len(rows) and configure_middle_view_for_history_entry(game, rows[idx]):
-                game["_copy_status_message"] = "Chat-History: Originalausgabe"
-                self._set_state(
-                    self.state.with_updates(
-                        header_logo_game=game,
-                        focus=FocusPane.CONTENT,
-                        selected_index=0,
-                        status_message="Chat-History: Originalausgabe",
-                    )
+                from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_chat_preview
+                entry = rows[idx]
+                preview = str(entry.get("preview") or entry.get("text") or "Chat")
+                label = tab_label_for_chat_preview(preview)
+                vp_state = {"scroll_offset": 0, "preview": preview[:80]}
+                next_state = open_or_activate_tab(
+                    self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=0),
+                    section_id=self.state.section_id,
+                    kind="chat_viewport",
+                    label=label,
+                    viewport_state=vp_state,
                 )
+                game_out = dict(next_state.header_logo_game or game)
+                game_out["visual_viewport_enabled"] = True
+                game_out["visual_viewport"] = {"enabled": True}
+                game_out["_copy_status_message"] = "Chat-History: Originalausgabe"
+                self._set_state(next_state.with_updates(header_logo_game=game_out))
             return
 
         if bool(game.get("ai_snake_config_open")) and target.pane == "content":
@@ -783,6 +829,12 @@ class MouseArtifactMixin:
         )
         if new_section != self.state.section_id:
             next_state = load_active_section(next_state, self._registry)
+        if target.pane == "nav" and target.kind in {"section", "pane"}:
+            from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+            next_state = open_or_activate_tab(
+                next_state, section_id=new_section, kind="section",
+                label=tab_label_for_section(new_section),
+            )
         self._set_state(next_state)
 
     def _run_command(self, command: str) -> None:
@@ -801,7 +853,14 @@ class MouseArtifactMixin:
             self._command_saved_draft = ""
         game = dict(state.header_logo_game or {})
         game["command_input_cursor"] = 0
-        self._set_state(state.with_updates(header_logo_game=game, command_line=""))
+        state = state.with_updates(header_logo_game=game, command_line="")
+        if state.section_id != self.state.section_id:
+            from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+            state = open_or_activate_tab(
+                state, section_id=state.section_id, kind="section",
+                label=tab_label_for_section(state.section_id),
+            )
+        self._set_state(state)
 
     def _clamp_down(self) -> int:
         cur = self.state.selected_index
@@ -827,6 +886,11 @@ class MouseArtifactMixin:
                 next_state = next_state.with_updates(section_id=section.id)
                 if section.id != self.state.section_id:
                     next_state = load_active_section(next_state, self._registry)
+                from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+                next_state = open_or_activate_tab(
+                    next_state, section_id=section.id, kind="section",
+                    label=tab_label_for_section(section.id),
+                )
             else:
                 game = dict(self.state.header_logo_game or self._default_header_snake())
                 rows = long_message_history_rows(game)

@@ -3645,3 +3645,194 @@ def test_keyboard_nav_while_visual_viewport_active_closes_viewport(monkeypatch) 
     assert tui.state.section_id == "goals"
     assert result_game.get("visual_viewport_enabled") is False
     assert dict(result_game.get("visual_viewport") or {}).get("enabled") is False
+
+
+# ── T17: Tab-Bar Renderer ────────────────────────────────────────────────────
+
+def test_tab_bar_line_empty_state_returns_empty() -> None:
+    from client_surfaces.operator_tui.renderer import _tab_bar_line
+    state = OperatorState(endpoint="http://localhost:5000")
+    assert _tab_bar_line(state, 80) == ""
+
+
+def test_tab_bar_line_single_tab_hidden() -> None:
+    from client_surfaces.operator_tui.renderer import _tab_bar_line
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+    state = OperatorState(endpoint="http://localhost:5000")
+    state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
+    # Tab bar only shown with ≥2 tabs
+    assert _tab_bar_line(state, 80) == ""
+
+
+def test_tab_bar_line_two_tabs_shows_bar() -> None:
+    from client_surfaces.operator_tui.renderer import _tab_bar_line
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+    state = OperatorState(endpoint="http://localhost:5000")
+    state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
+    state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
+    line = _tab_bar_line(state, 80)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line)
+    assert "Goals" in plain
+    assert "×" in plain
+    assert len(plain) == 80
+
+
+def test_tab_bar_line_active_tab_has_invert_escape() -> None:
+    from client_surfaces.operator_tui.renderer import _tab_bar_line
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+    state = OperatorState(endpoint="http://localhost:5000")
+    state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
+    state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
+    line = _tab_bar_line(state, 120)
+    # Active (Goals) should have invert escape \x1b[7m
+    assert "\x1b[7m" in line
+
+
+def test_tab_bar_line_two_tabs_separated() -> None:
+    from client_surfaces.operator_tui.renderer import _tab_bar_line
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+    state = OperatorState(endpoint="http://localhost:5000")
+    state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
+    state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
+    line = _tab_bar_line(state, 80)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line)
+    assert "Dashboard" in plain
+    assert "Goals" in plain
+    assert "│" in plain
+
+
+def test_tab_bar_overflow_shows_arrow() -> None:
+    from client_surfaces.operator_tui.renderer import _tab_bar_line
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+    from client_surfaces.operator_tui.sections import SECTIONS
+    state = OperatorState(endpoint="http://localhost:5000")
+    for sec in SECTIONS:
+        state = open_or_activate_tab(state, section_id=sec.id, kind="section", label=sec.title)
+    line = _tab_bar_line(state, 40)  # narrow screen forces overflow
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line)
+    assert "›" in plain
+
+
+# ── T18: RegionIndex Tab-Regionen ────────────────────────────────────────────
+
+def test_region_index_tab_click_returns_tab_kind() -> None:
+    from client_surfaces.operator_tui.region_index import build_region_index
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+    state = OperatorState(endpoint="http://localhost:5000")
+    state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
+    state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
+    ri = build_region_index(state, width=120, height=32)
+    # Tab bar at y=9 (body_start-1 = 10-1) when ≥2 tabs
+    target = ri.get_target_at(2, 9)
+    assert target is not None
+    assert target.kind in {"tab", "tab_close"}
+
+
+def test_region_index_body_shifts_with_two_tabs() -> None:
+    from client_surfaces.operator_tui.region_index import build_region_index
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+    state_no_tabs = OperatorState(endpoint="http://localhost:5000")
+    # 1 tab: no tab bar, body_start=9
+    state_one_tab = open_or_activate_tab(state_no_tabs, section_id="dashboard", kind="section", label="Dashboard")
+    # 2 tabs: tab bar visible, body_start=10
+    state_two_tabs = open_or_activate_tab(state_one_tab, section_id="goals", kind="section", label="Goals")
+
+    ri_one = build_region_index(state_one_tab, width=120, height=32)
+    ri_two = build_region_index(state_two_tabs, width=120, height=32)
+
+    # With 1 tab: y=9 is nav body (no tab bar)
+    t_no = ri_one.get_target_at(2, 9)
+    assert t_no is not None and t_no.pane in {"nav", "header"}
+
+    # With 2 tabs: y=9 is tab bar, y=10 is nav body
+    t_tab = ri_two.get_target_at(2, 9)
+    assert t_tab is not None and t_tab.kind in {"tab", "tab_close", "tab_scroll_left", "tab_scroll_right"}
+
+    t_nav = ri_two.get_target_at(2, 10)
+    assert t_nav is not None and t_nav.pane in {"nav", "header"}
+
+
+def test_region_index_tab_close_target() -> None:
+    from client_surfaces.operator_tui.region_index import build_region_index
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_positions_for_render
+    state = OperatorState(endpoint="http://localhost:5000")
+    state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
+    state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
+    positions = tab_positions_for_render(state, width=120, y=9)
+    assert positions, "should have at least one tab position"
+    tp = positions[0]
+    ri = build_region_index(state, width=120, height=32)
+    close_target = ri.get_target_at(tp.close_x, 9)
+    assert close_target is not None
+    assert close_target.kind == "tab_close"
+    assert close_target.payload.get("tab_id") == tp.tab_id
+
+
+# ── T19: Integration Keyboard/Mouse ─────────────────────────────────────────
+
+def test_nav_click_creates_tab(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state)
+
+    # Dashboard tab already open from __init__; click on Goals (y=11)
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+
+    assert tui.state.section_id == "goals"
+    tab_ids = [t.id for t in tui.state.open_tabs]
+    assert "section:goals" in tab_ids
+
+
+def test_nav_click_twice_no_duplicate_tab(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state)
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    count_before = len(tui.state.open_tabs)
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=2.0)
+    assert len(tui.state.open_tabs) == count_before
+
+
+def test_tab_cycle_keyboard(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state)
+    # Add goals tab
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    initial_tab = tui.state.active_tab_id
+    tui._tab_cycle(1)
+    assert tui.state.active_tab_id != initial_tab or len(tui.state.open_tabs) == 1
+
+
+def test_tab_close_keyboard(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state)
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    assert len(tui.state.open_tabs) >= 2
+    active_before = tui.state.active_tab_id
+    tui._tab_close_active()
+    assert tui.state.active_tab_id != active_before
+
+
+def test_tab_initial_on_startup(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+    assert len(tui.state.open_tabs) >= 1
+    assert tui.state.active_tab_id != ""

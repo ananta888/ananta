@@ -140,6 +140,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self.state = self.state.with_updates(terminal_graphics=term_graphics)
         if self._header_snake_enabled() and not self.state.header_logo_game:
             self.state = self.state.with_updates(header_logo_game=self._default_header_snake())
+        if not self.state.open_tabs:
+            from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+            self.state = open_or_activate_tab(
+                self.state, section_id=self.state.section_id, kind="section",
+                label=tab_label_for_section(self.state.section_id),
+            )
         self._keybinding_conflicts = keybinding_conflicts()
         if self._keybinding_conflicts:
             game = dict(self.state.header_logo_game or {})
@@ -426,8 +432,23 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
                 self._chat_cycle_channel()
                 return
+            if self.state.open_tabs and self.state.mode is OperatorMode.NORMAL:
+                self._tab_close_active()
+                return
             self._exit_command_mode_for_global_shortcut()
             self._move_focus(1)
+
+        @bindings.add(key_for_action("tab_next", "c-right"))
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._tab_cycle(1)
+
+        @bindings.add(key_for_action("tab_prev", "c-left"))
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._tab_cycle(-1)
 
         @bindings.add(key_for_action("snake_pause", "c-p"))
         def _(event) -> None:
@@ -1457,13 +1478,24 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return
 
         configure_middle_view_for_message(game, message, channel_id=active_ch_id, streaming=False)
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                focus=FocusPane.CONTENT,
-                status_message="lange Chatnachricht: Originalausgabe",
-            )
+        from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_chat_preview
+        preview = str(message.get("text") or message.get("preview") or "Chat")
+        label = tab_label_for_chat_preview(preview)
+        vp_state = {"scroll_offset": 0, "preview": preview[:80]}
+        next_state = open_or_activate_tab(
+            self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT),
+            section_id=self.state.section_id,
+            kind="chat_viewport",
+            label=label,
+            viewport_state=vp_state,
         )
+        game_out = dict(next_state.header_logo_game or game)
+        game_out["visual_viewport_enabled"] = True
+        game_out["visual_viewport"] = {"enabled": True}
+        self._set_state(next_state.with_updates(
+            header_logo_game=game_out,
+            status_message="lange Chatnachricht: Originalausgabe",
+        ))
 
     def _normal_or_text(self, text: str, normal_action) -> None:
         if self._snake_message_mode_active():
@@ -2261,7 +2293,36 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["visual_viewport_active_view"] = status.active_view
         game["visual_viewport_active_renderer"] = status.active_renderer
         game["visual_viewport_active_adapter"] = status.active_adapter
-        self.state = self.state.with_updates(header_logo_game=game)
+        new_state = self.state.with_updates(header_logo_game=game)
+        scroll_now = int(game.get("scroll_offset_center_viewport") or 0)
+        from client_surfaces.operator_tui.tab_manager import save_scroll_to_active_tab
+        self.state = save_scroll_to_active_tab(new_state, scroll_now)
+
+    def _tab_close_active(self) -> None:
+        if not self.state.active_tab_id:
+            return
+        from client_surfaces.operator_tui.tab_manager import close_tab
+        new_state = close_tab(self.state, self.state.active_tab_id)
+        game = dict(new_state.header_logo_game or {})
+        game["visual_viewport_enabled"] = False
+        game["visual_viewport"] = {"enabled": False}
+        self._set_state(new_state.with_updates(header_logo_game=game))
+
+    def _tab_cycle(self, delta: int) -> None:
+        tabs = self.state.open_tabs
+        if not tabs:
+            return
+        from client_surfaces.operator_tui.tab_manager import activate_tab
+        cur_idx = next((i for i, t in enumerate(tabs) if t.id == self.state.active_tab_id), 0)
+        new_idx = (cur_idx + delta) % len(tabs)
+        new_state, new_game = activate_tab(
+            self.state, tabs[new_idx].id,
+            game=dict(self.state.header_logo_game or {}),
+        )
+        if new_state.section_id != self.state.section_id:
+            from client_surfaces.operator_tui.app import load_active_section
+            new_state = load_active_section(new_state, self._registry)
+        self._set_state(new_state.with_updates(header_logo_game=new_game))
 
     def _set_state(self, state: OperatorState) -> None:
         if self._splash is not None:
