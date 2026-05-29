@@ -65,24 +65,26 @@ class HeaderSnakeMixin:
         persisted_cfg = load_tui_chat_settings()
         # Overlay with UserConfigManager (project user.json → ~/.anana/user.json)
         try:
-            from client_surfaces.operator_tui.config.user_config_manager import load_user_config
+            from client_surfaces.operator_tui.config.user_config_manager import _DEFAULTS, load_user_config
             user_cfg = load_user_config()
-            # user_cfg merges defaults→global→project; only override persisted_cfg keys
+            # user_cfg merges defaults→global→project; ignore bare defaults when legacy
+            # settings already carry an explicit value.
             for k, v in user_cfg.items():
                 if isinstance(v, (str, int, float, bool)):
-                    persisted_cfg.setdefault(k, v)
-                    persisted_cfg[k] = v  # project wins
+                    if k not in persisted_cfg or v != _DEFAULTS.get(k):
+                        persisted_cfg[k] = v
         except Exception:
             pass
         board_w, board_h = 18, 6
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
-        _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {"0", "false", "no", "off"}
+        _snake_mode_on = os.environ.get("ANANTA_TUI_SNAKE_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+        _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() not in {"0", "false", "no", "off"}
         game: dict[str, object] = {
-            "active": _tutorial_on,  # auto-start when tutorial AI is enabled
+            "active": _snake_mode_on,
             "alive": True,
-            "ui_steering": False,
-            "free_mode": False,
+            "ui_steering": _snake_mode_on,
+            "free_mode": _snake_mode_on,
             "local_snake_id": "s1",
             "pseudonym": os.environ.get("ANANTA_TUI_SNAKE_PSEUDONYM", "local-snake"),
             "oidc_provider": os.environ.get("ANANTA_TUI_SNAKE_OIDC_PROVIDER", "local"),
@@ -114,7 +116,7 @@ class HeaderSnakeMixin:
             "artifact_intent_score": 0.0,
             "artifact_intent_reason": "",
             "artifact_intent_target": None,
-            "ai_snake_mode": "lurking_follow",
+            "ai_snake_mode": "off",
             "ai_snake_provider_preference": os.environ.get("ANANTA_TUI_AI_SNAKE_PROVIDER", "lmstudio"),
             "ai_snake_provider_model": os.environ.get("ANANTA_TUI_AI_SNAKE_MODEL", "ananta-smoke"),
             "ai_snake_provider_cloud_allowed": os.environ.get("ANANTA_TUI_AI_SNAKE_CLOUD_ALLOWED", "0").strip().lower() in {"1", "true", "yes", "on"},
@@ -123,7 +125,8 @@ class HeaderSnakeMixin:
             "ai_snake_debug": {},
             "ai_snake_runtime_status": "idle",
             "ai_training_context_released": False,
-            "ai_snake_follow_state": make_follow_state(ai_position=(3, 3), mode="lurking_follow"),
+            "ai_snake_follow_state": make_follow_state(ai_position=(3, 3), mode="off"),
+            "chat_panel_open": True,
             "chat_backend": os.environ.get("ANANTA_TUI_CHAT_BACKEND", "ananta-worker"),
             "chat_backend_model": os.environ.get("ANANTA_TUI_CHAT_MODEL", os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "google/gemma-4-e4b")),
             "chat_backend_api_base": os.environ.get(
@@ -166,6 +169,18 @@ class HeaderSnakeMixin:
             value = persisted_cfg.get(key)
             if isinstance(value, (str, int, float, bool)):
                 game[key] = value
+        if bool(game.get("active")) and bool(game.get("ui_steering")) and bool(game.get("chat_panel_open", True)):
+            try:
+                from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+                chat = get_chat_state(game)
+                switch_channel(chat, "ai:tutor", preserve_input=True)
+                chat["chat_focus"] = True
+                chat["chat_input_buffer"] = str(chat.get("chat_input_buffer") or "")
+                chat["chat_input_cursor"] = len(str(chat.get("chat_input_buffer") or ""))
+                chat["chat_input_history_index"] = None
+                set_chat_state(game, chat)
+            except Exception:
+                pass
         # Inject persisted chat input history into game state
         try:
             if hasattr(self, "_apply_input_history_to_game"):

@@ -2524,6 +2524,32 @@ def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkey
     assert game.get("chat_context_chars") == 5000
 
 
+def test_default_header_snake_starts_in_snake_chat_mode(monkeypatch) -> None:
+    import client_surfaces.operator_tui.config.user_config_manager as ucm
+    import client_surfaces.operator_tui.header_snake_mixin as hsm
+    import client_surfaces.operator_tui.snake_persistence as sp
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    monkeypatch.setattr(ucm, "load_user_config", lambda: {})
+    monkeypatch.setattr(sp, "load_tui_chat_settings", lambda *args, **kwargs: {})
+    monkeypatch.setattr(hsm, "load_tui_chat_settings", lambda *args, **kwargs: {})
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_MODE", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_TUTORIAL_AI", raising=False)
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    game = tui._default_header_snake()
+    chat = get_chat_state(game)
+
+    assert game.get("active") is True
+    assert game.get("ui_steering") is True
+    assert game.get("free_mode") is True
+    assert game.get("tutorial_mode") is False
+    assert game.get("ai_snake_mode") == "off"
+    assert game.get("chat_panel_open") is True
+    assert chat.get("active_channel") == "ai:tutor"
+    assert chat.get("chat_focus") is True
+
+
 def test_toggle_chat_panel_persists_setting(tmp_path, monkeypatch) -> None:
     import client_surfaces.operator_tui.snake_persistence as sp
 
