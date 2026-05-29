@@ -65,13 +65,20 @@ class HeaderSnakeMixin:
         persisted_cfg = load_tui_chat_settings()
         # Overlay with UserConfigManager (project user.json → ~/.anana/user.json)
         try:
-            from client_surfaces.operator_tui.config.user_config_manager import _DEFAULTS, load_user_config
+            from client_surfaces.operator_tui.config.user_config_manager import (
+                _DEFAULTS,
+                _read_json,
+                global_config_path,
+                load_user_config,
+                project_config_path,
+            )
             user_cfg = load_user_config()
+            explicit_user_keys = set(_read_json(global_config_path())) | set(_read_json(project_config_path()))
             # user_cfg merges defaults→global→project; ignore bare defaults when legacy
             # settings already carry an explicit value.
             for k, v in user_cfg.items():
                 if isinstance(v, (str, int, float, bool)):
-                    if k not in persisted_cfg or v != _DEFAULTS.get(k):
+                    if k in explicit_user_keys or k not in persisted_cfg or v != _DEFAULTS.get(k):
                         persisted_cfg[k] = v
         except Exception:
             pass
