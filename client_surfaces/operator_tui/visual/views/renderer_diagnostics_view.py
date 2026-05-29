@@ -6,6 +6,15 @@ from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
 from client_surfaces.operator_tui.visual.views.base_view import ViewContext, ViewRequirements
 
 
+def _ok(v: bool) -> str:
+    return "✓" if v else "✗"
+
+
+def _cap_line(label: str, available: bool, reason: str = "") -> str:
+    status = "✓ ok" if available else f"✗ {reason}" if reason else "✗"
+    return f"  {label:<22} {status}"
+
+
 @dataclass
 class RendererDiagnosticsView:
     view_id: str = "renderer_diagnostics"
@@ -30,47 +39,86 @@ class RendererDiagnosticsView:
         view = str(runtime.get("active_view") or context.state.get("active_view") or self.view_id)
         fps = str(runtime.get("fps") or context.state.get("fps") or "-")
         fallback = str(runtime.get("fallback_reason") or context.state.get("fallback_reason") or "-")
-        nodes: list[dict[str, object]] = [
-            {"kind": "label", "text": f"view={view}", "x": 0, "y": 0},
-            {"kind": "label", "text": f"renderer={renderer}", "x": 0, "y": 1},
-            {"kind": "label", "text": f"adapter={adapter}", "x": 0, "y": 2},
-            {"kind": "label", "text": f"fps={fps}", "x": 0, "y": 3},
-            {
-                "kind": "label",
-                "text": f"viewport={context.region.columns}x{context.region.rows}",
-                "x": 0,
-                "y": 4,
-            },
-            {
-                "kind": "label",
-                "text": f"pixels={context.region.pixel_width}x{context.region.pixel_height}",
-                "x": 0,
-                "y": 5,
-            },
-            {"kind": "label", "text": f"fallback={fallback}", "x": 0, "y": 6},
+
+        lines: list[str] = [
+            "── Renderer Selection ──────────────────────",
+            f"  view:             {view}",
+            f"  renderer:         {renderer}",
+            f"  adapter:          {adapter}",
+            f"  viewport:         {context.region.columns}×{context.region.rows} ({context.region.pixel_width}×{context.region.pixel_height}px)",
+            f"  fps:              {fps}",
+            f"  fallback reason:  {fallback}",
+            "",
         ]
 
-        # CMW-014: chat memory/prompt debug when enabled
+        # Image output capabilities (TGFX-004)
+        try:
+            from client_surfaces.operator_tui.visual.capabilities.terminal_detector import detect_image_output_capabilities
+            caps = detect_image_output_capabilities()
+            lines += [
+                "── Image Output Capabilities ───────────────",
+                _cap_line("mmdc (mermaid-cli)", caps.mermaid_renderer.mmdc_available,
+                          "install: npm install -g @mermaid-js/mermaid-cli" if not caps.mermaid_renderer.mmdc_available else ""),
+                _cap_line("playwright", caps.mermaid_renderer.playwright_available,
+                          "pip install playwright" if not caps.mermaid_renderer.playwright_available else ""),
+                _cap_line("Pillow (raster)", caps.raster_renderer.pillow_available,
+                          "pip install Pillow" if not caps.raster_renderer.pillow_available else ""),
+                _cap_line("cairosvg (SVG→PNG)", caps.raster_renderer.cairosvg_available,
+                          "pip install cairosvg" if not caps.raster_renderer.cairosvg_available else ""),
+                _cap_line("Kitty protocol", caps.kitty_supported,
+                          "use Kitty/WezTerm or ANANTA_FORCE_KITTY=1" if not caps.kitty_supported else ""),
+                _cap_line("Sixel protocol", caps.sixel_supported,
+                          "SIXEL_SUPPORTED=1 or ANANTA_FORCE_SIXEL=1" if not caps.sixel_supported else ""),
+                "",
+                f"  can_show_mermaid_image: {_ok(caps.can_show_mermaid_image())}",
+            ]
+            degraded = caps.degraded_reasons()
+            if degraded:
+                lines.append("  degraded:")
+                for r in degraded[:4]:
+                    lines.append(f"    · {r[:60]}")
+        except Exception as e:
+            lines.append(f"  capabilities: error ({e})")
+
+        lines.append("")
+
+        # Fallback diagnostics chain
+        fallback_diags = context.state.get("fallback_diagnostics")
+        if isinstance(fallback_diags, (list, tuple)) and fallback_diags:
+            lines += ["── Resolver Diagnostics ────────────────────"]
+            for d in list(fallback_diags)[-6:]:
+                lines.append(f"  {str(d)[:64]}")
+            lines.append("")
+
+        # Runtime errors
+        rt_errors = context.state.get("runtime_errors")
+        if isinstance(rt_errors, (list, tuple)) and rt_errors:
+            lines += ["── Runtime Errors ──────────────────────────"]
+            for e in list(rt_errors)[-4:]:
+                lines.append(f"  {str(e)[:64]}")
+            lines.append("")
+
+        # Chat backend info
         mem_status = context.state.get("last_chat_memory_status")
         chat_debug = bool(context.state.get("chat_memory_debug"))
         if chat_debug and isinstance(mem_status, dict):
-            y = 8
-            nodes.append({"kind": "label", "text": "── chat memory ──", "x": 0, "y": y}); y += 1
-            nodes.append({"kind": "label", "text": f"history={mem_status.get('history_used')}", "x": 0, "y": y}); y += 1
-            nodes.append({"kind": "label", "text": f"summary={mem_status.get('summary_used')}", "x": 0, "y": y}); y += 1
-            nodes.append({"kind": "label", "text": f"codecompass={mem_status.get('codecompass_used')}", "x": 0, "y": y}); y += 1
-            nodes.append({"kind": "label", "text": f"rag_count={mem_status.get('rag_count', 0)}", "x": 0, "y": y}); y += 1
+            lines += ["── Chat Memory ─────────────────────────────"]
+            lines.append(f"  history={mem_status.get('history_used')}")
+            lines.append(f"  summary={mem_status.get('summary_used')}")
+            lines.append(f"  codecompass={mem_status.get('codecompass_used')}")
+            lines.append(f"  rag_count={mem_status.get('rag_count', 0)}")
             backend = str(context.state.get("last_chat_backend_path") or "-")
             latency = str(context.state.get("last_chat_latency_ms") or "-")
-            nodes.append({"kind": "label", "text": f"backend={backend} ({latency}ms)", "x": 0, "y": y}); y += 1
-            fb_reason = str(context.state.get("last_chat_fallback_reason") or "")
-            if fb_reason:
-                nodes.append({"kind": "label", "text": f"fallback_reason={fb_reason[:40]}", "x": 0, "y": y})
+            lines.append(f"  backend={backend} ({latency}ms)")
         elif isinstance(mem_status, dict):
             backend = str(context.state.get("last_chat_backend_path") or "-")
             latency = str(context.state.get("last_chat_latency_ms") or "-")
-            nodes.append({"kind": "label", "text": f"chat_backend={backend} {latency}ms", "x": 0, "y": 8})
+            lines.append(f"  chat_backend={backend} {latency}ms")
 
+        nodes: list[dict[str, object]] = [
+            {"kind": "label", "text": line, "x": 0, "y": y}
+            for y, line in enumerate(lines)
+        ]
         return RenderScene(
             scene_type="renderer_diagnostics",
             nodes=nodes,

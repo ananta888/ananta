@@ -114,16 +114,49 @@ def detect_raster_renderer() -> RasterRendererCapabilities:
 
 
 def detect_terminal_image_protocols() -> tuple[bool, bool]:
-    """Returns (kitty_supported, sixel_supported)."""
+    """Returns (kitty_supported, sixel_supported).
+
+    Detection is env-only (non-blocking). Manual overrides via:
+      ANANTA_FORCE_KITTY=1  / ANANTA_FORCE_KITTY=0
+      ANANTA_FORCE_SIXEL=1  / ANANTA_FORCE_SIXEL=0
+      SIXEL_SUPPORTED=1
+    """
     term = os.environ.get("TERM", "").lower()
     term_prog = os.environ.get("TERM_PROGRAM", "").lower()
-    colorterm = os.environ.get("COLORTERM", "").lower()
-    kitty = (
-        "kitty" in term
-        or "kitty" in term_prog
-        or os.environ.get("KITTY_WINDOW_ID") is not None
-    )
-    sixel = os.environ.get("SIXEL_SUPPORTED", "").lower() in {"1", "true", "yes"}
+    wt_session = os.environ.get("WT_SESSION", "")  # Windows Terminal (WSL2)
+
+    # Manual overrides take precedence
+    force_kitty = os.environ.get("ANANTA_FORCE_KITTY", "").lower()
+    if force_kitty in {"1", "true", "yes"}:
+        kitty = True
+    elif force_kitty in {"0", "false", "no"}:
+        kitty = False
+    else:
+        kitty = (
+            "kitty" in term
+            or "kitty" in term_prog
+            or "ghostty" in term_prog
+            or "wezterm" in term_prog
+            or bool(os.environ.get("KITTY_WINDOW_ID"))
+        )
+
+    force_sixel = os.environ.get("ANANTA_FORCE_SIXEL", "").lower()
+    if force_sixel in {"1", "true", "yes"}:
+        sixel = True
+    elif force_sixel in {"0", "false", "no"}:
+        sixel = False
+    else:
+        sixel = (
+            os.environ.get("SIXEL_SUPPORTED", "").lower() in {"1", "true", "yes"}
+            or "mlterm" in term
+            or "xterm" in term and "256" not in term  # some xterm variants support Sixel
+        )
+
+    # Windows Terminal (WT_SESSION set) in WSL2: no reliable image protocol unless forced
+    if wt_session and not force_kitty and not force_sixel:
+        kitty = False  # WT does not support Kitty graphics protocol
+        # Sixel may be supported in WT >= 1.22 but we can't detect version; require explicit override
+
     return kitty, sixel
 
 

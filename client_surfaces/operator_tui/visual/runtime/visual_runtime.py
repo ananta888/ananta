@@ -24,6 +24,13 @@ from client_surfaces.operator_tui.visual.runtime.registry import (
 from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
 from client_surfaces.operator_tui.visual.views.base_view import ViewContext
 
+# Image-capable renderers that should trigger prefer_image_mode selection
+_IMAGE_RENDERERS = frozenset({"cpu_raster", "svg_raster_optional"})
+# Image-capable adapters
+_IMAGE_ADAPTERS = frozenset({"kitty", "sixel"})
+# Views that benefit from image mode (have diagram_image nodes)
+_IMAGE_CAPABLE_VIEWS = frozenset({"markdown_mermaid_document"})
+
 
 @dataclass(frozen=True)
 class VisualRuntimeStatus:
@@ -66,6 +73,7 @@ class VisualRuntime:
         self._active_view_id = config.default_view
         self._active_renderer_id = config.default_renderer
         self._active_adapter_id = config.default_output_adapter
+        self._last_adapter_fail_reason: str = ""
         self._select_renderer_adapter()
         if not self._views.has(self._active_view_id):
             names = self._views.names()
@@ -73,13 +81,25 @@ class VisualRuntime:
                 raise RuntimeError("visual runtime requires at least one registered view")
             self._active_view_id = names[0]
 
-    def _select_renderer_adapter(self) -> None:
+    def _prefer_image_mode(self, scene: RenderScene | None = None) -> bool:
+        """Return True when the active view or scene benefits from image-capable renderer/adapter (TGFX-002)."""
+        if self._active_view_id in _IMAGE_CAPABLE_VIEWS:
+            return True
+        if scene is not None and any(
+            isinstance(n, dict) and n.get("kind") == "diagram_image"
+            for n in (scene.nodes or [])
+        ):
+            return True
+        return False
+
+    def _select_renderer_adapter(self, *, prefer_image: bool = False) -> None:
         resolution = resolve_renderer_adapter_pair(
             config=self._config,
             capabilities=self._capabilities,
             available_renderers=set(self._renderers.names()),
             available_adapters=set(self._adapters.names()),
             excluded_pairs=self._excluded_pairs,
+            prefer_image_mode=prefer_image,
         )
         self._active_renderer_id = resolution.renderer
         self._active_adapter_id = resolution.adapter
@@ -110,9 +130,23 @@ class VisualRuntime:
         target = str(view_id or "").strip()
         if not target or not self._views.has(target):
             return False
+        # Clear stale image output when switching views (TGFX-005)
+        self._clear_image_adapter()
         self._active_view_id = target
         self._scheduler.mark_dirty()
+        # Re-select renderer/adapter for the new view
+        self._select_renderer_adapter(prefer_image=target in _IMAGE_CAPABLE_VIEWS)
         return True
+
+    def _clear_image_adapter(self) -> None:
+        """Tell Kitty/Sixel adapters to clear stale images (TGFX-005)."""
+        try:
+            adapter = self._adapter()
+            if hasattr(adapter, "clear"):
+                import sys
+                adapter.clear(sys.stdout)
+        except Exception:
+            pass
 
     def _scene_to_diagnostic_frame(self, *, region: ViewportRegion, now: float, message: str) -> RenderFrame:
         scene = RenderScene(
@@ -158,6 +192,12 @@ class VisualRuntime:
             return None
 
         state_map = dict(state or {})
+
+        # Select image-capable renderer/adapter for image-capable views (TGFX-002)
+        prefer_image = self._active_view_id in _IMAGE_CAPABLE_VIEWS
+        if prefer_image and self._active_adapter_id not in _IMAGE_ADAPTERS:
+            self._select_renderer_adapter(prefer_image=True)
+
         cache_key = FrameCacheKey(
             view_id=self._active_view_id,
             renderer_id=self._active_renderer_id,
@@ -236,6 +276,33 @@ class VisualRuntime:
             stream=stream,
             context=DrawContext(now=t_now, metadata={"view": self._active_view_id}),
         )
+
+        # TGFX-008: If image adapter fails at runtime, retry with next fallback
+        if not draw_result.drawn:
+            reason = str(draw_result.reason or "")
+            # Adapter genuinely failed (not just busy/scheduler skip)
+            if reason not in {"scheduler_skip", "busy", "disabled"}:
+                pair = (self._active_renderer_id, self._active_adapter_id)
+                if pair not in self._excluded_pairs:
+                    self._excluded_pairs.add(pair)
+                    self._last_adapter_fail_reason = f"{self._active_adapter_id}: {reason}"
+                    self._fallback_diagnostics.append(
+                        f"adapter draw failed ({reason}), retrying with next fallback"
+                    )
+                    try:
+                        self._select_renderer_adapter()
+                        # Re-render with new renderer/adapter
+                        frame2 = self.render_frame(region=region, now=t_now, state=state, force=True)
+                        if frame2 is not None:
+                            adapter2 = self._adapter()
+                            draw_result = adapter2.draw(
+                                frame2, region=region, stream=stream,
+                                context=DrawContext(now=t_now, metadata={"retry": True}),
+                            )
+                    except Exception as retry_exc:
+                        self._runtime_errors.append(f"retry failed: {retry_exc}")
+                        self._runtime_errors = self._runtime_errors[-20:]
+
         if not draw_result.drawn and str(draw_result.reason or "").lower() == "busy":
             is_animation = bool(frame.metadata.get("animated"))
             self._backpressure.offer(frame, is_animation=is_animation)

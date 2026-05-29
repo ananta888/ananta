@@ -17,6 +17,10 @@ class VisualViewportConfig:
     default_view: str = "renderer_diagnostics"
     default_renderer: str = "cpu_raster"
     default_output_adapter: str = "kitty"
+    # TGFX-011: ANSI theme — "auto" | "dark" | "light" | "no_color"
+    ansi_theme: str = "auto"
+    # TGFX-007: Sixel encoder mode — "auto" | "internal" | "disabled"
+    sixel_encoder_mode: str = "auto"
     target_fps: int = 10
     animation_fps: int = 15
     max_fps: int = 30
@@ -33,6 +37,10 @@ class VisualViewportConfig:
     )
 
     def __post_init__(self) -> None:
+        if self.ansi_theme not in {"auto", "dark", "light", "no_color"}:
+            raise ValueError(f"ansi_theme must be auto/dark/light/no_color, got {self.ansi_theme!r}")
+        if self.sixel_encoder_mode not in {"auto", "internal", "disabled"}:
+            raise ValueError(f"sixel_encoder_mode must be auto/internal/disabled, got {self.sixel_encoder_mode!r}")
         if self.target_fps <= 0 or self.animation_fps <= 0 or self.max_fps <= 0:
             raise ValueError("fps values must be positive")
         if self.target_fps > self.max_fps or self.animation_fps > self.max_fps:
@@ -75,6 +83,8 @@ class VisualViewportConfig:
             "default_view": str(raw.get("default_view") or "renderer_diagnostics"),
             "default_renderer": str(raw.get("default_renderer") or "cpu_raster"),
             "default_output_adapter": str(raw.get("default_output_adapter") or "kitty"),
+            "ansi_theme": str(raw.get("ansi_theme") or "auto"),
+            "sixel_encoder_mode": str(raw.get("sixel_encoder_mode") or "auto"),
             "target_fps": int(raw.get("target_fps", 10)),
             "animation_fps": int(raw.get("animation_fps", 15)),
             "max_fps": int(raw.get("max_fps", 30)),

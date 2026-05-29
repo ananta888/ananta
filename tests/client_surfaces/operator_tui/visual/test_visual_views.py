@@ -88,4 +88,4 @@ def test_renderer_diagnostics_view_emits_runtime_status_lines() -> None:
     )
     assert scene.scene_type == "renderer_diagnostics"
     labels = [str(node.get("text") or "") for node in scene.nodes if isinstance(node, dict)]
-    assert any("renderer=cpu_raster" in row for row in labels)
+    assert any("cpu_raster" in row for row in labels)
