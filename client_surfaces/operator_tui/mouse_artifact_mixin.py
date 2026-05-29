@@ -22,6 +22,7 @@ from client_surfaces.operator_tui.chat_long_message import (
     long_message_history_rows,
     refresh_rendered_view,
 )
+from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.keybindings_config import display_for_action
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode
@@ -686,6 +687,11 @@ class MouseArtifactMixin:
                 return
 
         # 1. Select the clicked item in the UI (section switch, item index, focus)
+        if target.kind in {"pane", "section"}:
+            self._clear_chat_input_focus(game)
+            self._select_region_target(target)
+            return
+
         self._select_region_target(target)
 
         # 2. Direct AI snake to the exact click position
@@ -726,6 +732,10 @@ class MouseArtifactMixin:
         """Switch the TUI to the section/item the user clicked."""
         from client_surfaces.operator_tui.sections import SECTIONS
 
+        game = dict(self.state.header_logo_game or {})
+        if target.pane in {"header", "nav", "content", "detail"}:
+            self._clear_chat_input_focus(game)
+
         new_section = str(target.section_id or self.state.section_id or "dashboard")
         if target.pane == "header":
             new_focus = FocusPane.HEADER
@@ -757,6 +767,7 @@ class MouseArtifactMixin:
             return
 
         next_state = self.state.with_updates(
+            header_logo_game=game,
             focus=new_focus,
             section_id=new_section,
             selected_index=new_selected,
@@ -797,7 +808,10 @@ class MouseArtifactMixin:
 
     def _set_selected_index(self, index: int) -> None:
         new_index = max(0, int(index))
-        next_state = self.state.with_updates(selected_index=new_index)
+        game = dict(self.state.header_logo_game or {})
+        if self.state.focus is FocusPane.NAVIGATION:
+            self._clear_chat_input_focus(game)
+        next_state = self.state.with_updates(header_logo_game=game, selected_index=new_index)
         if self.state.focus is FocusPane.NAVIGATION:
             if 0 <= new_index < len(SECTIONS):
                 section = SECTIONS[new_index]
@@ -816,6 +830,13 @@ class MouseArtifactMixin:
                         status_message="Chat-History: Originalausgabe",
                     )
         self._set_state(next_state)
+
+    def _clear_chat_input_focus(self, game: dict[str, object]) -> None:
+        chat = get_chat_state(game)
+        chat["chat_focus"] = False
+        chat["chat_input_history_index"] = None
+        set_chat_state(game, chat)
+        game["artifact_chat_focus"] = False
 
     def _move_focus(self, delta: int) -> None:
         panes = (FocusPane.HEADER, FocusPane.NAVIGATION, FocusPane.CONTENT, FocusPane.DETAIL)
