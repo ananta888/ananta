@@ -39,6 +39,10 @@
     { "action": "scroll_line_up", "key": "s-up", "display": "Shift+Up", "label": "Zeile hoch", "areas": ["shortcuts"] },
     { "action": "scroll_line_down", "key": "s-down", "display": "Shift+Down", "label": "Zeile runter", "areas": ["shortcuts"] },
     { "action": "scroll_home", "key": "s-home", "display": "Shift+Home", "label": "Scroll Anfang", "areas": ["shortcuts"] },
-    { "action": "scroll_end", "key": "s-end", "display": "Shift+End", "label": "Scroll Ende", "areas": ["shortcuts"] }
+    { "action": "scroll_end", "key": "s-end", "display": "Shift+End", "label": "Scroll Ende", "areas": ["shortcuts"] },
+    { "action": "scroll_left", "key": "s-left", "display": "Shift+←", "label": "Scroll links", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "scroll_right", "key": "s-right", "display": "Shift+→", "label": "Scroll rechts", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "scroll_left_page", "key": "s-pageup", "display": "Shift+PgUp", "label": "Scroll links (Seite)", "areas": ["shortcuts"] },
+    { "action": "scroll_right_page", "key": "s-pagedown", "display": "Shift+PgDn", "label": "Scroll rechts (Seite)", "areas": ["shortcuts"] }
   ]
 }
