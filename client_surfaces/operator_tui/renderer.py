@@ -777,19 +777,26 @@ def _templates_editor_content_lines(state: OperatorState, width: int, *, viewpor
     pane_title_rows = 1  # added by _content_lines
     editor_header_rows = 3
     visible_rows = max(1, int(viewport_height or 24) - pane_title_rows - editor_header_rows)
-    start_line = max(0, cursor_line - max(0, visible_rows // 2))
+    start_line = max(0, int(editor.get("view_line_offset") or 0))
     if start_line + visible_rows > len(text_lines):
         start_line = max(0, len(text_lines) - visible_rows)
     end_line = min(len(text_lines), start_line + visible_rows)
+    visible_cols = max(8, width - 6)
+    max_line_width = max((len(line) for line in text_lines), default=0)
+    col_offset = max(0, int(editor.get("view_col_offset") or 0))
+    max_col_offset = max(0, max_line_width - visible_cols)
+    col_offset = min(col_offset, max_col_offset)
     for row_index in range(start_line, end_line):
         source_line = text_lines[row_index]
         line_prefix = ">" if row_index == cursor_line else " "
+        line_view = source_line[col_offset : col_offset + visible_cols]
         if row_index == cursor_line:
-            left = source_line[:cursor_col]
-            right = source_line[cursor_col:]
+            local_col = max(0, min(visible_cols, cursor_col - col_offset))
+            left = line_view[:local_col]
+            right = line_view[local_col:]
             rendered_line = f"{left}|{right}"
         else:
-            rendered_line = source_line
+            rendered_line = line_view
         lines.append(f"{line_prefix} {row_index + 1:>3} {rendered_line}")
     if end_line < len(text_lines):
         lines.append(f"  ... ({len(text_lines) - end_line} weitere Zeilen)")

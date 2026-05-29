@@ -1576,6 +1576,66 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return json.dumps(raw, indent=2, ensure_ascii=False)
         return str(raw.get("prompt_template") or item.get("prompt_preview") or "")
 
+    def _template_editor_viewport_metrics(self) -> tuple[int, int]:
+        size = shutil.get_terminal_size((120, 32))
+        width = max(72, int(size.columns))
+        height = max(18, int(size.lines - 1))
+        left_width = 22
+        detail_width = 34
+        middle_width = max(18, width - left_width - detail_width - 6)
+        body_height = max(3, height - 5 - 8)
+        pane_title_rows = 1
+        editor_header_rows = 3
+        visible_rows = max(1, body_height - pane_title_rows - editor_header_rows)
+        text_prefix_width = 6  # f"{line_prefix} {row:>3} "
+        visible_cols = max(8, middle_width - text_prefix_width)
+        return visible_rows, visible_cols
+
+    def _template_editor_ensure_cursor_visible(self, editor: dict[str, Any]) -> dict[str, Any]:
+        source = str(editor.get("text") or "")
+        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
+        before = source[:cursor]
+        cursor_line = before.count("\n")
+        cursor_col = len(before.rsplit("\n", 1)[-1])
+        lines = source.splitlines() or [""]
+        max_line = max(0, len(lines) - 1)
+        visible_rows, visible_cols = self._template_editor_viewport_metrics()
+
+        line_offset = max(0, int(editor.get("view_line_offset") or 0))
+        max_line_offset = max(0, len(lines) - visible_rows)
+        line_offset = min(line_offset, max_line_offset)
+        if cursor_line < line_offset:
+            line_offset = cursor_line
+        elif cursor_line >= line_offset + visible_rows:
+            line_offset = max(0, cursor_line - visible_rows + 1)
+
+        col_offset = max(0, int(editor.get("view_col_offset") or 0))
+        max_col = max(0, len(lines[min(cursor_line, max_line)]) - 1)
+        max_col_offset = max(0, max_col - visible_cols + 1)
+        col_offset = min(col_offset, max_col_offset)
+        if cursor_col < col_offset:
+            col_offset = cursor_col
+        elif cursor_col >= col_offset + visible_cols:
+            col_offset = max(0, cursor_col - visible_cols + 1)
+
+        editor["view_line_offset"] = max(0, line_offset)
+        editor["view_col_offset"] = max(0, col_offset)
+        return editor
+
+    def _template_editor_scroll_vertical(self, delta_lines: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        if not bool(editor.get("active")):
+            return
+        source = str(editor.get("text") or "")
+        lines = source.splitlines() or [""]
+        visible_rows, _ = self._template_editor_viewport_metrics()
+        max_offset = max(0, len(lines) - visible_rows)
+        current = max(0, int(editor.get("view_line_offset") or 0))
+        editor["view_line_offset"] = max(0, min(max_offset, current + int(delta_lines)))
+        game["template_editor"] = editor
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
     def _open_template_editor_for_selected(self) -> bool:
         selected = self._selected_template_entry()
         if selected is None:
@@ -1591,8 +1651,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "title": str(item.get("title") or ""),
             "text": text,
             "cursor": len(text),
+            "view_line_offset": 0,
+            "view_col_offset": 0,
             "dirty": False,
         }
+        game["template_editor"] = self._template_editor_ensure_cursor_visible(dict(game["template_editor"]))
         self._set_state(
             self.state.with_updates(
                 mode=OperatorMode.EDIT,
@@ -1616,6 +1679,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         editor["text"] = source[:cursor] + text + source[cursor:]
         editor["cursor"] = cursor + len(text)
         editor["dirty"] = True
+        editor = self._template_editor_ensure_cursor_visible(editor)
         game["template_editor"] = editor
         self._set_state(self.state.with_updates(header_logo_game=game))
 
@@ -1631,6 +1695,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         editor["text"] = source[: cursor - 1] + source[cursor:]
         editor["cursor"] = cursor - 1
         editor["dirty"] = True
+        editor = self._template_editor_ensure_cursor_visible(editor)
         game["template_editor"] = editor
         self._set_state(self.state.with_updates(header_logo_game=game))
 
@@ -1646,6 +1711,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         editor["text"] = source[:cursor] + source[cursor + 1 :]
         editor["cursor"] = cursor
         editor["dirty"] = True
+        editor = self._template_editor_ensure_cursor_visible(editor)
         game["template_editor"] = editor
         self._set_state(self.state.with_updates(header_logo_game=game))
 
@@ -1657,6 +1723,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         source = str(editor.get("text") or "")
         cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
         editor["cursor"] = max(0, min(len(source), cursor + int(delta)))
+        editor = self._template_editor_ensure_cursor_visible(editor)
         game["template_editor"] = editor
         self._set_state(self.state.with_updates(header_logo_game=game))
 
@@ -1678,6 +1745,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             new_cursor += len(lines[idx]) + 1
         new_cursor += target_col
         editor["cursor"] = max(0, min(len(source), new_cursor))
+        editor = self._template_editor_ensure_cursor_visible(editor)
         game["template_editor"] = editor
         self._set_state(self.state.with_updates(header_logo_game=game))
 

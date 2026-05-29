@@ -428,6 +428,29 @@ class MouseArtifactMixin:
                 self._set_state(self.state.with_updates(tab_scroll_offset=new_offset))
             return
         try:
+            if (
+                self.state.section_id == "templates"
+                and hasattr(self, "_template_editor_active")
+                and self._template_editor_active()  # type: ignore[attr-defined]
+            ):
+                size = shutil.get_terminal_size((120, 32))
+                width = max(72, int(size.columns))
+                height = max(18, int(size.lines - 1))
+                left_width = 22
+                detail_width = 34
+                middle_width = max(18, width - left_width - detail_width - 6)
+                body_height = max(3, height - 5 - 8)
+                content_x1 = left_width + 2
+                content_x2 = content_x1 + middle_width - 1
+                body_y1 = 8
+                body_y2 = body_y1 + body_height - 1
+                if content_x1 <= int(x) <= content_x2 and body_y1 <= int(y) <= body_y2:
+                    scroll_delta = 2 if delta > 0 else -2
+                    if hasattr(self, "_template_editor_scroll_vertical"):
+                        self._template_editor_scroll_vertical(scroll_delta)  # type: ignore[attr-defined]
+                        game.update(dict(self.state.header_logo_game or {}))
+                        game["_copy_status_message"] = "template editor: scroll"
+                        return
             from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
             from client_surfaces.operator_tui.focus.focus_manager import FocusManager
             fm: FocusManager = self._get_focus_manager()
