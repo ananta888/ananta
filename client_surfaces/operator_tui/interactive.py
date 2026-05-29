@@ -58,7 +58,12 @@ from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerCli
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.chat_long_message import configure_middle_view_for_message, latest_long_message_for_channel
+from client_surfaces.operator_tui.chat_long_message import (
+    configure_middle_view_for_message,
+    is_showing_chat_long_message,
+    latest_long_message_for_channel,
+    toggle_render_mode,
+)
 from client_surfaces.operator_tui.mouse import (
     MouseEventType as NormalizedMouseEventType,
     MouseState,
@@ -1313,8 +1318,20 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _open_latest_long_chat_message(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
-        from client_surfaces.operator_tui.chat_state import get_chat_state
 
+        # If center view is already showing a long chat message, toggle render mode
+        if is_showing_chat_long_message(game):
+            new_mode = toggle_render_mode(game)
+            mode_label = "Plain-Text" if new_mode == "plain" else "Markdown/Mermaid gerendert"
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    status_message=f"Chat-Ansicht: {mode_label}",
+                )
+            )
+            return
+
+        from client_surfaces.operator_tui.chat_state import get_chat_state
         chat = get_chat_state(game)
         channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
         active_ch_id = str(chat.get("active_channel") or "room:main")
