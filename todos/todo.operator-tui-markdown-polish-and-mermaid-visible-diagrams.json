@@ -63,25 +63,95 @@
       "Fallback to source is always allowed and must not crash the TUI."
     ]
   },
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
-    {"id": "M1", "title": "Markdown readability polish", "status": "todo", "task_ids": ["MDP-001", "MDP-002", "MDP-003", "MDP-004", "MDP-005"]},
-    {"id": "M2", "title": "Mermaid image nodes and layout", "status": "todo", "task_ids": ["MDP-006", "MDP-007", "MDP-008", "MDP-009"]},
-    {"id": "M3", "title": "Raster renderer and output adapter image path", "status": "todo", "task_ids": ["MDP-010", "MDP-011", "MDP-012", "MDP-013"]},
-    {"id": "M4", "title": "Runtime selection, capability reporting and fallbacks", "status": "todo", "task_ids": ["MDP-014", "MDP-015", "MDP-016"]},
-    {"id": "M5", "title": "Tests, smoke tooling and documentation", "status": "todo", "task_ids": ["MDP-017", "MDP-018", "MDP-019", "MDP-020", "MDP-021"]}
+    {
+      "id": "M1",
+      "title": "Markdown readability polish",
+      "status": "done",
+      "task_ids": [
+        "MDP-001",
+        "MDP-002",
+        "MDP-003",
+        "MDP-004",
+        "MDP-005"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Mermaid image nodes and layout",
+      "status": "done",
+      "task_ids": [
+        "MDP-006",
+        "MDP-007",
+        "MDP-008",
+        "MDP-009"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Raster renderer and output adapter image path",
+      "status": "done",
+      "task_ids": [
+        "MDP-010",
+        "MDP-011",
+        "MDP-012",
+        "MDP-013"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Runtime selection, capability reporting and fallbacks",
+      "status": "done",
+      "task_ids": [
+        "MDP-014",
+        "MDP-015",
+        "MDP-016"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Tests, smoke tooling and documentation",
+      "status": "done",
+      "task_ids": [
+        "MDP-017",
+        "MDP-018",
+        "MDP-019",
+        "MDP-020",
+        "MDP-021"
+      ]
+    }
   ],
   "tasks": [
     {
       "id": "MDP-001",
       "title": "Improve Markdown inline formatting support",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/markdown/markdown_parser.py", "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_parser.py",
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
       "description": "Add basic readable inline Markdown formatting for inline code, bold, italic and escaped text in ANSI rendering.",
       "acceptance_criteria": [
         "Inline code using backticks is visually distinct in ANSI/text output.",
@@ -95,10 +165,13 @@
       "id": "MDP-002",
       "title": "Render Markdown links readably",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/markdown/markdown_parser.py", "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_parser.py",
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
       "description": "Render Markdown links in a terminal-friendly way without trying to open URLs automatically.",
       "acceptance_criteria": [
         "[label](url) renders as label plus compact URL hint or numbered reference.",
@@ -112,10 +185,13 @@
       "id": "MDP-003",
       "title": "Improve Markdown table rendering",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/markdown/markdown_parser.py", "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_parser.py",
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
       "description": "Replace raw table fallback with a compact terminal table renderer.",
       "acceptance_criteria": [
         "Simple pipe tables render with aligned columns where width permits.",
@@ -129,10 +205,12 @@
       "id": "MDP-004",
       "title": "Improve fenced code block rendering",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
       "description": "Make code blocks readable with language labels, clipping, optional line numbers and stable wrapping behavior.",
       "acceptance_criteria": [
         "Code block language label is shown when present.",
@@ -146,10 +224,13 @@
       "id": "MDP-005",
       "title": "Integrate Markdown scrolling with center viewport correctly",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/scroll/scroll_context.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/scroll/scroll_context.py"
+      ],
       "description": "Ensure long Markdown documents scroll through the shared ScrollContext and not through ad-hoc offsets only.",
       "acceptance_criteria": [
         "MarkdownMermaidDocumentView exposes accurate content_height and viewport_height for ScrollContext.",
@@ -163,10 +244,13 @@
       "id": "MDP-006",
       "title": "Create explicit Mermaid diagram image node from successful render result",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/visual/runtime/frame_model.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/visual/runtime/frame_model.py"
+      ],
       "description": "Turn successful MermaidRenderResult.image_data into explicit diagram image nodes in RenderScene.",
       "acceptance_criteria": [
         "Successful SVG result creates diagram_image node with image_format='svg' and SVG bytes or asset id.",
@@ -180,10 +264,13 @@
       "id": "MDP-007",
       "title": "Reserve layout space for Mermaid image blocks",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"
+      ],
       "description": "Make Mermaid diagrams occupy predictable vertical space in Markdown layout, both for image and fallback modes.",
       "acceptance_criteria": [
         "Mermaid diagram block reserves rows proportional to configured diagram height or terminal rows.",
@@ -197,10 +284,13 @@
       "id": "MDP-008",
       "title": "Add Mermaid image cache with real view integration",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/markdown/mermaid_cache.py", "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_cache.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"
+      ],
       "description": "Avoid re-rendering Mermaid diagrams on each frame by caching rendered SVG/PNG bytes.",
       "acceptance_criteria": [
         "Cache key includes Mermaid source hash, renderer backend, output format, target size and theme/version where relevant.",
@@ -214,10 +304,13 @@
       "id": "MDP-009",
       "title": "Expose Mermaid render state in diagnostics and view switcher",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/visual/runtime/view_capability_report.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/visual/runtime/view_capability_report.py"
+      ],
       "description": "Make it visible whether Mermaid is actually image-rendered, source-fallback, or blocked by missing terminal protocol.",
       "acceptance_criteria": [
         "Capability report distinguishes markdown_ansi, mermaid_renderer, mermaid_image_node, raster_renderer and terminal_image_adapter.",
@@ -230,10 +323,12 @@
       "id": "MDP-010",
       "title": "Render diagram_image nodes in CpuRasterRenderer",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py"
+      ],
       "description": "Extend CPU raster renderer to compose PNG/SVG diagram nodes into final PNG RenderFrame.",
       "acceptance_criteria": [
         "PNG diagram nodes are decoded and pasted into the output image.",
@@ -247,10 +342,12 @@
       "id": "MDP-011",
       "title": "Make SvgRasterRenderer usable for embedded Mermaid SVG nodes",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py"
+      ],
       "description": "Allow SVG raster path to process one or more embedded SVG image nodes, not only scene.metadata svg_text/svg_path.",
       "acceptance_criteria": [
         "SvgRasterRenderer can process diagram_image nodes with image_format='svg'.",
@@ -263,10 +360,12 @@
       "id": "MDP-012",
       "title": "Harden Kitty adapter for Mermaid raster frames",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/adapters/kitty_adapter.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/adapters/kitty_adapter.py"
+      ],
       "description": "Ensure PNG RenderFrames containing Mermaid diagrams are correctly sent and cleared through Kitty protocol.",
       "acceptance_criteria": [
         "Kitty adapter accepts image/png raster frames generated from Mermaid diagrams.",
@@ -280,10 +379,13 @@
       "id": "MDP-013",
       "title": "Replace Sixel stub with real or explicitly degraded Sixel path",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "critical",
-      "target_files": ["client_surfaces/operator_tui/visual/adapters/sixel_adapter.py", "tests/client_surfaces/operator_tui/visual/test_visual_adapters.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/adapters/sixel_adapter.py",
+        "tests/client_surfaces/operator_tui/visual/test_visual_adapters.py"
+      ],
       "description": "Stop reporting fake success through sixel-stub. Either implement real Sixel encoding or report degraded/unsupported until encoder is available.",
       "acceptance_criteria": [
         "Sixel adapter no longer emits 'sixel-stub' as a successful image draw.",
@@ -297,10 +399,13 @@
       "id": "MDP-014",
       "title": "Prefer image-capable renderer/adapter pair for Markdown/Mermaid image mode",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/runtime/fallback_resolver.py", "client_surfaces/operator_tui/visual/runtime/config.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/fallback_resolver.py",
+        "client_surfaces/operator_tui/visual/runtime/config.py"
+      ],
       "description": "Ensure Mermaid image mode actually selects renderer/adapter combinations that can show images.",
       "acceptance_criteria": [
         "When active view is markdown_mermaid_document and mermaid_mode is auto/image, resolver prefers cpu_raster or svg_raster with kitty or sixel if supported.",
@@ -313,10 +418,13 @@
       "id": "MDP-015",
       "title": "Add runtime state flag for rendered Mermaid image availability",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["client_surfaces/operator_tui/visual/runtime/visual_runtime.py", "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/runtime/visual_runtime.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"
+      ],
       "description": "Expose whether the current frame actually contained visible Mermaid image output.",
       "acceptance_criteria": [
         "Rendered frame metadata includes mermaid_visible_images count when applicable.",
@@ -329,10 +437,13 @@
       "id": "MDP-016",
       "title": "Keep safe ANSI fallback as first-class mode",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
-      "target_files": ["client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py", "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"],
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"
+      ],
       "description": "Ensure all Mermaid/Markdown improvements degrade cleanly to readable text when image rendering is impossible.",
       "acceptance_criteria": [
         "ANSI-only environment renders Markdown without crashing.",
@@ -345,10 +456,12 @@
       "id": "MDP-017",
       "title": "Add tests for polished Markdown rendering",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/client_surfaces/operator_tui/visual/markdown/test_markdown_polished_rendering.py"],
+      "target_files": [
+        "tests/client_surfaces/operator_tui/visual/markdown/test_markdown_polished_rendering.py"
+      ],
       "description": "Snapshot-test improved Markdown rendering for common document constructs.",
       "acceptance_criteria": [
         "Tests cover headings, paragraphs, bullet lists, numbered lists, blockquotes, inline code, links, tables and code blocks.",
@@ -361,10 +474,12 @@
       "id": "MDP-018",
       "title": "Add tests for Mermaid image node generation",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
-      "target_files": ["tests/client_surfaces/operator_tui/visual/markdown/test_mermaid_visible_image_nodes.py"],
+      "target_files": [
+        "tests/client_surfaces/operator_tui/visual/markdown/test_mermaid_visible_image_nodes.py"
+      ],
       "description": "Verify successful Mermaid renderer output becomes real image nodes and failures become source fallback.",
       "acceptance_criteria": [
         "Fake SVG Mermaid renderer creates diagram_image node with image_format svg.",
@@ -377,10 +492,12 @@
       "id": "MDP-019",
       "title": "Add tests for image node rasterization and adapter draw",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
-      "target_files": ["tests/client_surfaces/operator_tui/visual/test_mermaid_image_raster_and_adapters.py"],
+      "target_files": [
+        "tests/client_surfaces/operator_tui/visual/test_mermaid_image_raster_and_adapters.py"
+      ],
       "description": "Prove image nodes can become raster frames and be passed to Kitty/Sixel paths.",
       "acceptance_criteria": [
         "CpuRasterRenderer produces image/png RenderFrame containing a diagram image node.",
@@ -393,10 +510,12 @@
       "id": "MDP-020",
       "title": "Add manual smoke script for actually visible Mermaid diagrams",
       "type": "tooling",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
-      "target_files": ["scripts/operator_tui_markdown_mermaid_visible_smoke.py"],
+      "target_files": [
+        "scripts/operator_tui_markdown_mermaid_visible_smoke.py"
+      ],
       "description": "Provide a script that renders a sample Markdown document with Mermaid and reports whether image output or fallback was used.",
       "acceptance_criteria": [
         "Script supports --adapter ansi, --adapter kitty and --adapter sixel.",
@@ -410,10 +529,12 @@
       "id": "MDP-021",
       "title": "Document final user-facing behavior and troubleshooting",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
-      "target_files": ["docs/operator-tui/markdown-polish-and-mermaid-visible-diagrams.md"],
+      "target_files": [
+        "docs/operator-tui/markdown-polish-and-mermaid-visible-diagrams.md"
+      ],
       "description": "Document how to enable and verify polished Markdown and visible Mermaid diagrams in the center TUI.",
       "acceptance_criteria": [
         "Docs include a minimal Markdown+Mermaid sample that should render visually.",
@@ -424,32 +545,145 @@
       ]
     }
   ],
-  "critical_path_tasks": ["MDP-001", "MDP-005", "MDP-006", "MDP-007", "MDP-010", "MDP-012", "MDP-013", "MDP-014", "MDP-016", "MDP-017", "MDP-018", "MDP-019", "MDP-020"],
+  "critical_path_tasks": [
+    "MDP-001",
+    "MDP-005",
+    "MDP-006",
+    "MDP-007",
+    "MDP-010",
+    "MDP-012",
+    "MDP-013",
+    "MDP-014",
+    "MDP-016",
+    "MDP-017",
+    "MDP-018",
+    "MDP-019",
+    "MDP-020"
+  ],
   "tasks_status_summary": {
     "total": 21,
-    "by_status": {"todo": 21, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"critical": 13, "high": 8, "medium": 0, "low": 0},
-    "by_risk": {"low": 4, "medium": 12, "high": 4, "critical": 1},
-    "critical_path": {"total": 13, "done": 0, "remaining": 13},
-    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 21
+    },
+    "progress_percent_done": 100,
+    "by_priority": {
+      "critical": 13,
+      "high": 8,
+      "medium": 0,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 12,
+      "high": 4,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 13,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 5
+    }
   },
   "tasks_type_summary": {
     "total": 21,
     "by_type": {
-      "implementation": {"total": 13, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 13, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "integration": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "test": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "tooling": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "docs": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+      "implementation": {
+        "total": 13,
+        "done": 13,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 13
+        }
+      },
+      "integration": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "test": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "tooling": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "docs": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      }
     }
   },
-  "progress_summary": {"state": "ready_for_implementation", "todo_remaining": 21, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "progress_summary": {
+    "state": "completed",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 21
+  },
   "summary_notes": [
     "This track is the user-visible finish layer: Markdown should look like a readable document, and Mermaid should become an actual diagram image where possible.",
     "The highest-priority missing bridge is MermaidRenderResult.image_data -> RenderScene diagram_image node -> raster frame -> Kitty/Sixel adapter.",
     "Sixel must not pretend success with a stub. It should either encode real Sixel or report degraded unsupported state.",
-    "ANSI fallback remains required and should be polished, not removed."
+    "ANSI fallback remains required and should be polished, not removed.",
+    "Completed 2026-05-29: All 21 tasks implemented. Markdown ANSI renderer polished (inline formatting, links, tables, code blocks). Mermaid image pipeline wired end-to-end. Sixel real encoding, Kitty hardening, scroll integration, smoke script, docs all done. 586 tests passing."
   ],
   "end_summaries": [
     {

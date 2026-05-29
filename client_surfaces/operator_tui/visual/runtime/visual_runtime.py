@@ -102,6 +102,10 @@ class VisualRuntime:
     def available_views(self) -> tuple[str, ...]:
         return self._views.names()
 
+    def get_view_instance(self, view_id: str) -> object | None:
+        """Return the cached view instance for view_id, or None if not yet created."""
+        return self._view_instances.get(str(view_id))
+
     def switch_view(self, view_id: str) -> bool:
         target = str(view_id or "").strip()
         if not target or not self._views.has(target):

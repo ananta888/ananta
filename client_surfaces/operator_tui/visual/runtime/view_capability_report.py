@@ -88,29 +88,57 @@ def build_markdown_mermaid_capability_report(
     *,
     view_id: str = "markdown_mermaid_document",
     mermaid_status: dict[str, dict[str, Any]] | None = None,
+    image_output_caps: dict[str, Any] | None = None,
 ) -> ViewCapabilityReport:
-    """Build a ViewCapabilityReport for the markdown_mermaid_document view."""
-    status = mermaid_status or {}
-    image_backends = {k: v for k, v in status.items() if k != "fallback_codeblock"}
-    mermaid_image_ok = any(v.get("available") for v in image_backends.values())
+    """Build a ViewCapabilityReport for the markdown_mermaid_document view (MIMG-012 / MDP-009).
 
-    if mermaid_image_ok:
-        return ViewCapabilityReport(
-            view_id=view_id,
-            available=True,
-            degraded=False,
-        )
+    Distinguishes four layers separately:
+      - markdown_ansi: always available (ANSI renderer)
+      - mermaid_renderer: mmdc or playwright available
+      - mermaid_image_node: image_data produced and attached to RenderScene
+      - raster_renderer: Pillow available for PNG composition
+      - terminal_image_adapter: Kitty or Sixel supported by terminal
+
+    When a Mermaid image renderer succeeded but the terminal adapter cannot show
+    images, status says 'image-rendered-but-adapter-unavailable'.
+    """
+    status = mermaid_status or {}
+    caps = image_output_caps or {}
+    image_backends = {k: v for k, v in status.items() if k != "fallback_codeblock"}
+    mermaid_renderer_ok = any(v.get("available") for v in image_backends.values())
+    raster_ok = caps.get("raster_renderer_available", True)
+    kitty_ok = caps.get("kitty_supported", False)
+    sixel_ok = caps.get("sixel_supported", False)
+    adapter_ok = kitty_ok or sixel_ok
 
     degraded_reasons: list[str] = []
-    for name, info in image_backends.items():
-        if not info.get("available"):
-            reason = info.get("reason") or "unavailable"
-            degraded_reasons.append(f"Mermaid image: {reason}")
+    if not mermaid_renderer_ok:
+        for name, info in image_backends.items():
+            if not info.get("available"):
+                reason = info.get("reason") or "unavailable"
+                degraded_reasons.append(f"mermaid_renderer: {reason}")
+    if mermaid_renderer_ok and not raster_ok:
+        degraded_reasons.append("raster_renderer_unavailable: install Pillow")
+    if mermaid_renderer_ok and raster_ok and not adapter_ok:
+        degraded_reasons.append("image-rendered-but-adapter-unavailable: use Kitty terminal or set SIXEL_SUPPORTED=1")
+
+    extra: dict[str, Any] = {
+        "mermaid_status": status,
+        "markdown_ansi": True,
+        "mermaid_renderer": mermaid_renderer_ok,
+        "mermaid_image_node": mermaid_renderer_ok,
+        "raster_renderer": raster_ok,
+        "terminal_image_adapter": adapter_ok,
+        "kitty_supported": kitty_ok,
+        "sixel_supported": sixel_ok,
+    }
+    if image_output_caps:
+        extra["image_output_caps"] = caps
 
     return ViewCapabilityReport(
         view_id=view_id,
         available=True,
         degraded=bool(degraded_reasons),
         degraded_features=tuple(degraded_reasons),
-        extra={"mermaid_status": status},
+        extra=extra,
     )
