@@ -1560,10 +1560,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if not isinstance(item, dict):
             return None
         kind = str(item.get("kind") or "")
-        if kind not in {"template", "system_prompt"}:
+        if kind not in {"template", "system_prompt", "blueprint"}:
             return None
         raw_id = str(item.get("raw_id") or "")
-        raw_list = payload.get("templates_raw")
+        raw_list = payload.get("blueprints_raw") if kind == "blueprint" else payload.get("templates_raw")
         if not isinstance(raw_list, list):
             return None
         raw = next((entry for entry in raw_list if isinstance(entry, dict) and str(entry.get("id") or "") == raw_id), {})
@@ -1571,17 +1571,23 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return None
         return payload, item, raw
 
+    def _template_editor_text_for_item(self, *, kind: str, item: dict[str, Any], raw: dict[str, Any]) -> str:
+        if kind == "blueprint":
+            return json.dumps(raw, indent=2, ensure_ascii=False)
+        return str(raw.get("prompt_template") or item.get("prompt_preview") or "")
+
     def _open_template_editor_for_selected(self) -> bool:
         selected = self._selected_template_entry()
         if selected is None:
             return False
         _, item, raw = selected
-        text = str(raw.get("prompt_template") or item.get("prompt_preview") or "")
+        kind = str(item.get("kind") or "template")
+        text = self._template_editor_text_for_item(kind=kind, item=item, raw=raw)
         game = dict(self.state.header_logo_game or {})
         game["template_editor"] = {
             "active": True,
             "template_id": str(raw.get("id") or item.get("raw_id") or ""),
-            "kind": str(item.get("kind") or "template"),
+            "kind": kind,
             "title": str(item.get("title") or ""),
             "text": text,
             "cursor": len(text),
@@ -1679,6 +1685,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game = dict(self.state.header_logo_game or {})
         editor = dict(game.get("template_editor") or {})
         template_id = str(editor.get("template_id") or "").strip()
+        editor_kind = str(editor.get("kind") or "template")
         if not template_id:
             self._set_state(self.state.with_updates(status_message="template editor: template_id fehlt"))
             return
@@ -1686,8 +1693,22 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if not token:
             self._set_state(self.state.with_updates(status_message="template editor: auth token fehlt"))
             return
-        endpoint = f"{str(self.state.endpoint).rstrip('/')}/templates/{template_id}"
-        request_data = json.dumps({"prompt_template": str(editor.get("text") or "")}).encode("utf-8")
+        if editor_kind == "blueprint":
+            try:
+                blueprint_payload = json.loads(str(editor.get("text") or "{}"))
+            except json.JSONDecodeError:
+                self._set_state(self.state.with_updates(status_message="blueprint save failed: invalid JSON"))
+                return
+            if not isinstance(blueprint_payload, dict):
+                self._set_state(self.state.with_updates(status_message="blueprint save failed: expected JSON object"))
+                return
+            endpoint = f"{str(self.state.endpoint).rstrip('/')}/teams/blueprints/{template_id}"
+            allowed_keys = {"name", "description", "base_team_type_name", "roles", "artifacts"}
+            request_payload = {key: blueprint_payload[key] for key in allowed_keys if key in blueprint_payload}
+        else:
+            endpoint = f"{str(self.state.endpoint).rstrip('/')}/templates/{template_id}"
+            request_payload = {"prompt_template": str(editor.get("text") or "")}
+        request_data = json.dumps(request_payload).encode("utf-8")
         req = urllib.request.Request(endpoint, data=request_data, method="PATCH")
         req.add_header("Authorization", f"Bearer {token}")
         req.add_header("Content-Type", "application/json")
@@ -1708,21 +1729,40 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         section_payloads = dict(self.state.section_payloads or {})
         templates_payload = dict(section_payloads.get("templates") or {})
-        templates_raw = [
-            dict(item) if isinstance(item, dict) else item
-            for item in list(templates_payload.get("templates_raw") or [])
-        ]
-        for entry in templates_raw:
-            if isinstance(entry, dict) and str(entry.get("id") or "") == template_id:
-                entry["prompt_template"] = str(editor.get("text") or "")
-        items = [
-            dict(item) if isinstance(item, dict) else item
-            for item in list(templates_payload.get("items") or [])
-        ]
-        for item in items:
-            if isinstance(item, dict) and str(item.get("raw_id") or "") == template_id:
-                item["prompt_preview"] = str(editor.get("text") or "")[:120].replace("\n", " ")
-        templates_payload["templates_raw"] = templates_raw
+        items = [dict(item) if isinstance(item, dict) else item for item in list(templates_payload.get("items") or [])]
+        if editor_kind == "blueprint":
+            blueprints_raw = [
+                dict(item) if isinstance(item, dict) else item
+                for item in list(templates_payload.get("blueprints_raw") or [])
+            ]
+            response_data = payload.get("data") if isinstance(payload, dict) else None
+            for idx, entry in enumerate(blueprints_raw):
+                if isinstance(entry, dict) and str(entry.get("id") or "") == template_id:
+                    if isinstance(response_data, dict):
+                        blueprints_raw[idx] = dict(response_data)
+                    else:
+                        blueprints_raw[idx] = {**entry, **request_payload}
+            for item in items:
+                if isinstance(item, dict) and str(item.get("raw_id") or "") == template_id:
+                    item["title"] = str(request_payload.get("name") or item.get("title") or "")
+                    item["description"] = str(request_payload.get("description") or item.get("description") or "")[:100]
+                    if isinstance(request_payload.get("roles"), list):
+                        item["roles_count"] = len(request_payload["roles"])
+                    if isinstance(request_payload.get("artifacts"), list):
+                        item["artifacts_count"] = len(request_payload["artifacts"])
+            templates_payload["blueprints_raw"] = blueprints_raw
+        else:
+            templates_raw = [
+                dict(item) if isinstance(item, dict) else item
+                for item in list(templates_payload.get("templates_raw") or [])
+            ]
+            for entry in templates_raw:
+                if isinstance(entry, dict) and str(entry.get("id") or "") == template_id:
+                    entry["prompt_template"] = str(editor.get("text") or "")
+            for item in items:
+                if isinstance(item, dict) and str(item.get("raw_id") or "") == template_id:
+                    item["prompt_preview"] = str(editor.get("text") or "")[:120].replace("\n", " ")
+            templates_payload["templates_raw"] = templates_raw
         templates_payload["items"] = items
         section_payloads["templates"] = templates_payload
         editor["dirty"] = False
@@ -1735,7 +1775,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self.state.with_updates(
                 header_logo_game=game,
                 section_payloads=section_payloads,
-                status_message=f"template gespeichert{warnings}",
+                status_message=("blueprint gespeichert" if editor_kind == "blueprint" else f"template gespeichert{warnings}"),
             )
         )
 
@@ -1767,9 +1807,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 item_index, item = template_selection
                 next_state = self.state.with_updates(focus=FocusPane.CONTENT, selected_index=item_index, section_id="templates")
                 self._set_state(next_state)
-                if str(item.get("kind") or "") in {"template", "system_prompt"}:
-                    self._open_template_editor_for_selected()
-                else:
+                if not self._open_template_editor_for_selected():
                     self._run_command(":inspect")
                 return
             history_idx = self.state.selected_index - len(SECTIONS) - self._template_nav_selectable_count()
