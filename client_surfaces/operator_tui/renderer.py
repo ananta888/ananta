@@ -652,17 +652,17 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
     h_offset = int(vp_meta.get("h_offset") or 0)
     n_frame = len(frame_lines)
 
-    # Scrollbar visibility: content must exceed viewport by at least 1
+    # V-scrollbar: content must exceed viewport
     needs_v = content_lines > n_frame and n_frame > 0
-    v_bar_width = 1 if needs_v else 0
-    body_width = max(1, width - v_bar_width)
+    # H-scrollbar: content wider than full panel (frame renders at region.columns ≈ width)
+    # Use a tolerance of 2 to avoid triggering due to v-scrollbar char
+    needs_h = max_line_width > width + 2 and n_frame > 0
 
-    needs_h = max_line_width > body_width and n_frame > 0
-    # Reserve last frame line for h-scrollbar (and/or mode hint)
+    # H-scrollbar occupies the last frame line
     h_bar_rows = 1 if needs_h else 0
     body_rows = max(0, n_frame - h_bar_rows)
 
-    # Build vertical scrollbar chars
+    # Build vertical scrollbar chars for body rows
     v_bar: list[str] = []
     if needs_v:
         v_bar = render_scrollbar_column(
@@ -675,44 +675,45 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
     # Compose output lines
     lines: list[str] = [title]
 
-    # Body lines with v-scrollbar overlaid on right edge
+    # Body lines: v-scrollbar overlaid as LAST character of each line (no width change)
     for i in range(body_rows):
         raw = frame_lines[i] if i < len(frame_lines) else ""
-        clipped = _clip(raw, body_width)
         if needs_v:
             bar_ch = v_bar[i] if i < len(v_bar) else " "
-            lines.append(clipped + _render_vscrollbar_char(bar_ch))
+            sb = _render_vscrollbar_char(bar_ch)
+            # Clip to width-1, then append scrollbar char → total = width chars
+            lines.append(_clip(raw, width - 1) + sb)
         else:
-            lines.append(clipped)
+            lines.append(_clip(raw, width))
 
-    # Last row: h-scrollbar or the remaining frame line
+    # Last row: h-scrollbar or remaining frame line
     if needs_h:
+        track_w = max(4, width - 4)
         h_row = _render_hscrollbar_row(
             content_width=max_line_width,
-            viewport_width=body_width,
+            viewport_width=width,
             offset=h_offset,
-            track_width=body_width - 2,
+            track_width=track_w,
         )
-        if needs_v:
-            h_row = _clip(h_row, body_width) + _render_vscrollbar_char("░")
-        lines.append(h_row)
+        lines.append(_clip(h_row, width))
     elif n_frame > body_rows:
         raw = frame_lines[body_rows] if body_rows < len(frame_lines) else ""
-        clipped = _clip(raw, body_width)
         if needs_v and len(v_bar) > body_rows:
-            lines.append(clipped + _render_vscrollbar_char(v_bar[body_rows]))
+            sb = _render_vscrollbar_char(v_bar[body_rows])
+            lines.append(_clip(raw, width - 1) + sb)
         else:
-            lines.append(clipped)
+            lines.append(_clip(raw, width))
 
-    # Mode hint (Ctrl+Space toggle) replaces the very last content line
-    if is_showing_chat_long_message(game) and len(lines) > 1:
+    # Mode hint (Ctrl+Space toggle): replace last body line, not touching the h-scrollbar
+    if is_showing_chat_long_message(game) and body_rows > 0 and len(lines) >= body_rows + 1:
         mode = get_render_mode(game)
         other = "Plain-Text" if mode == "rendered" else "Markdown/Mermaid"
         shortcut = display_for_action("open_long_chat_message", "Ctrl+Space")
         hint_col = "\x1b[38;2;80;120;80m" if mode == "rendered" else "\x1b[38;2;100;100;140m"
         mode_label = "Markdown/Mermaid" if mode == "rendered" else "Plain-Text"
         hint = f"{hint_col}  ▸ {mode_label}  {shortcut}→{other}\x1b[0m"
-        lines[-1] = _clip(hint, width)
+        # Replace the last body line (index: title=0, body=1..body_rows)
+        lines[body_rows] = _clip(hint, width)
 
     # Status footer
     view = str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "-")

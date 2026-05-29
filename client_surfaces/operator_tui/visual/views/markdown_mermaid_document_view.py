@@ -37,7 +37,8 @@ def _h_clip(line: str, *, h_offset: int, width: int) -> str:
 
     Preserves ANSI color codes while operating on visible character positions.
     """
-    if h_offset <= 0 and width >= 10000:
+    # Fast path: no horizontal offset → return as-is (view already renders at correct width)
+    if h_offset <= 0:
         return line
     # Decompose into segments: (ansi_prefix, visible_char)
     segments: list[tuple[str, str]] = []
@@ -117,6 +118,7 @@ class MarkdownMermaidDocumentView:
     _h_offset: int = 0             # horizontal: columns scrolled from left
     _last_content_lines: int = 0
     _last_max_line_width: int = 0  # widest rendered line (for h-scrollbar)
+    _last_doc_fingerprint: str = ""  # reset counters when document changes
 
     def update(self, dt: float, state: dict[str, Any]) -> None:
         _ = dt
@@ -144,6 +146,13 @@ class MarkdownMermaidDocumentView:
         text, error = resolve_source(source, allowed_roots=allowed_roots, artifacts=artifacts)
         if error:
             return self._error_scene(f"Document unavailable: {error}")
+
+        # Reset accumulated counters when document changes
+        doc_fp = _source_hash(text)
+        if doc_fp != self._last_doc_fingerprint:
+            self._last_content_lines = 0
+            self._last_max_line_width = 0
+            self._last_doc_fingerprint = doc_fp
 
         blocks = parse_markdown(text)
         mermaid_fallbacks: dict[str, MermaidFallbackInfo] = {}
@@ -244,12 +253,14 @@ class MarkdownMermaidDocumentView:
             self._last_content_lines = max(self._last_content_lines, len(rendered_lines))
 
         # Track max visible line width (plain chars only, for h-scrollbar)
+        # Use current render's actual max — reset per document (not cumulative across docs)
         import re as _re
         _ansi_strip = _re.compile(r'\x1b\[[0-9;]*m')
         max_w = 0
         for rl in rendered_lines:
             max_w = max(max_w, len(_ansi_strip.sub("", rl)))
-        self._last_max_line_width = max(self._last_max_line_width, max_w)
+        # Only keep the max within the current document (reset on doc change above)
+        self._last_max_line_width = max(max_w, self._last_max_line_width)
 
         # Apply vertical scroll and horizontal clip
         v_start = max(0, scroll_offset)
