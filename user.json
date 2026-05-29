@@ -1,39 +1,8 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-05-29T12:49:42Z",
+  "updated": "2026-05-29T12:51:57Z",
   "settings": {
-    "chat_context_chars": 12000,
-    "chat_backend_model": "microsoft_-_phi-3.5-mini-instruct",
-    "chat_history_chars": 5000,
-    "input_history_max_entries": 100,
-    "chat_history_turns": 6,
-    "chat_backend_fallback": "lmstudio",
-    "input_history_chat_enabled": true,
-    "chat_include_wikipedia": false,
-    "chat_use_history": true,
-    "chat_include_runtime_status": false,
-    "input_history_command_enabled": true,
-    "chat_include_local_project": true,
-    "chat_ask_timeout_s": 180.0,
-    "chat_use_codecompass": true,
-    "ai_snake_provider_preference": "lmstudio",
-    "chat_backend_api_base": "http://localhost:1234/v1",
-    "tutorial_mode": false,
-    "chat_max_tokens": 8000,
-    "chat_source_pack_id": "ananta-dev-default",
-    "chat_answer_chars": 12000,
-    "chat_worker_mode": "snake_ask",
-    "chat_input_history": [
-      "bitte zeige mir ein umfangreiches mermaid diagramm"
-    ],
-    "command_input_history": [],
-    "ai_visual_use_codecompass": false,
     "chat_panel_open": true,
-    "chat_backend": "ananta-worker",
-    "chat_pass_memory_to_worker": true,
-    "chat_summary_chars": 4000,
-    "chat_summary_update_every_turns": 3,
-    "chat_use_summary": true,
-    "chat_rag_top_k": 120
+    "tutorial_mode": false
   }
 }

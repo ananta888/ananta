@@ -135,6 +135,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         term_graphics = dict(self.state.terminal_graphics or {})
         term_graphics["mouse_support"] = dict(self._mouse_capabilities)
         self.state = self.state.with_updates(terminal_graphics=term_graphics)
+        if self._header_snake_enabled() and not self.state.header_logo_game:
+            self.state = self.state.with_updates(header_logo_game=self._default_header_snake())
         self._keybinding_conflicts = keybinding_conflicts()
         if self._keybinding_conflicts:
             game = dict(self.state.header_logo_game or {})
