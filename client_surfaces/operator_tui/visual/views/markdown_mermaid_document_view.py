@@ -166,7 +166,8 @@ class MarkdownMermaidDocumentView:
         cache_hits = 0
         cache_misses = 0
 
-        if self._config.mermaid_mode != "disabled":
+        mermaid_render_requested = bool(context.state.get("markdown_mermaid_render_requested"))
+        if mermaid_render_requested and self._config.mermaid_mode != "disabled":
             mermaid_block_list = extract_mermaid_blocks(blocks)
             mermaid_blocks_total = len(mermaid_block_list)
             diagram_w = max(64, context.region.columns)

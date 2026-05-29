@@ -6,12 +6,16 @@ from client_surfaces.operator_tui.chat_long_message import (
     LONG_CHAT_MESSAGE_THRESHOLD,
     compact_chat_message_text,
     configure_middle_view_for_message,
+    configure_middle_view_for_history_entry,
     latest_long_message_for_channel,
+    long_message_history_rows,
     markdown_for_message,
+    refresh_rendered_view,
     should_use_middle_view_for_message,
+    toggle_render_mode,
 )
 from client_surfaces.operator_tui.chat_state import append_message, default_chat_state, make_message
-from client_surfaces.operator_tui.models import OperatorState
+from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
 
 
@@ -61,6 +65,78 @@ def test_configure_middle_view_for_streaming_answer() -> None:
     assert "Antwortstream wird hier" in str(game["chat_long_message_markdown"])
 
 
+def test_configure_middle_view_starts_as_cached_original_output() -> None:
+    game: dict[str, object] = {}
+    msg = {"id": "answer-1", "sender_id": "s-ai", "sender_kind": "ai", "text": "a" * 140}
+
+    changed = configure_middle_view_for_message(game, msg, channel_id="ai:tutor", streaming=False)
+
+    assert changed is True
+    assert game["markdown_stream_plain"] is True
+    assert game["markdown_mermaid_render_requested"] is False
+    assert game["markdown_mermaid_config"]["mermaid_mode"] == "disabled"  # type: ignore[index]
+    assert game["chat_long_message_plain_text"] == "a" * 140
+    rows = long_message_history_rows(game)
+    assert len(rows) == 1
+    assert rows[0]["id"] == "answer-1"
+    assert rows[0]["text"] == "a" * 140
+
+
+def test_toggle_render_mode_preserves_original_output() -> None:
+    game: dict[str, object] = {}
+    msg = {"id": "answer-1", "sender_id": "s-ai", "sender_kind": "ai", "text": "a" * 140}
+    configure_middle_view_for_message(game, msg, channel_id="ai:tutor", streaming=False)
+
+    rendered_mode = toggle_render_mode(game)
+
+    assert rendered_mode == "rendered"
+    assert game["markdown_stream_plain"] is False
+    assert game["markdown_mermaid_render_requested"] is True
+    assert game["markdown_mermaid_config"]["mermaid_mode"] == "auto"  # type: ignore[index]
+    assert game["chat_long_message_plain_text"] == "a" * 140
+
+    plain_mode = toggle_render_mode(game)
+
+    assert plain_mode == "plain"
+    assert game["markdown_stream_plain"] is True
+    assert game["markdown_mermaid_render_requested"] is False
+    assert game["markdown_mermaid_config"]["mermaid_mode"] == "disabled"  # type: ignore[index]
+    assert game["chat_long_message_plain_text"] == "a" * 140
+
+
+def test_refresh_rendered_view_keeps_cached_original_output() -> None:
+    game: dict[str, object] = {"visual_viewport_frame_lines": ["stale"]}
+    msg = {"id": "answer-1", "sender_id": "s-ai", "sender_kind": "ai", "text": "a" * 140}
+    configure_middle_view_for_message(game, msg, channel_id="ai:tutor", streaming=False)
+
+    refresh_rendered_view(game)
+
+    assert game["markdown_stream_plain"] is False
+    assert game["markdown_mermaid_render_requested"] is True
+    assert game["markdown_mermaid_config"]["mermaid_mode"] == "auto"  # type: ignore[index]
+    assert game["visual_viewport_frame_lines"] == []
+    assert game["chat_long_message_plain_text"] == "a" * 140
+
+
+def test_configure_middle_view_for_history_entry_shows_plain_original() -> None:
+    game: dict[str, object] = {}
+    entry = {
+        "id": "answer-1",
+        "channel_id": "ai:tutor",
+        "sender_id": "s-ai",
+        "sender_kind": "ai",
+        "text": "a" * 140,
+        "markdown": "# Chat-Nachricht\n\n" + "a" * 140,
+    }
+
+    changed = configure_middle_view_for_history_entry(game, entry)
+
+    assert changed is True
+    assert game["chat_long_message_plain_text"] == "a" * 140
+    assert game["markdown_stream_plain"] is True
+    assert game["markdown_mermaid_render_requested"] is False
+
+
 def test_chat_renderer_shows_hint_after_100_chars() -> None:
     chat = default_chat_state()
     append_message(
@@ -83,3 +159,30 @@ def test_chat_renderer_shows_hint_after_100_chars() -> None:
 
     assert "Ctrl+Space" in rendered
     assert "fortgesetzt" in rendered
+
+
+def test_navigation_renders_long_message_history_tree() -> None:
+    game = {
+        "chat_long_message_history": [
+            {
+                "id": "answer-1",
+                "channel_id": "ai:tutor",
+                "sender_kind": "ai",
+                "text": "Antwort mit Mermaid und weiterem Kontext",
+                "preview": "Antwort mit Mermaid und weiterem Kontext",
+                "created_at": 10.0,
+            }
+        ]
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        focus=FocusPane.NAVIGATION,
+        selected_index=6,
+        header_logo_game=game,
+    )
+
+    rendered = _ANSI_RE.sub("", render_operator_shell(state, width=120, height=32))
+
+    assert "Chat History" in rendered
+    assert "ai:tutor" in rendered
+    assert "[ai] Antwort" in rendered

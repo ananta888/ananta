@@ -17,7 +17,11 @@ def _region(cols: int = 80, rows: int = 24) -> ViewportRegion:
 
 
 def _ctx(text: str, *, plain: bool = False) -> ViewContext:
-    state: dict = {"markdown_text": text, "markdown_stream_plain": plain}
+    state: dict = {
+        "markdown_text": text,
+        "markdown_stream_plain": plain,
+        "markdown_mermaid_render_requested": not plain,
+    }
     return ViewContext(state=state, region=_region(), now=0.0)
 
 
