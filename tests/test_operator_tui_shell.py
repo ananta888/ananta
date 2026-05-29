@@ -2996,6 +2996,59 @@ def test_enter_on_navigation_history_opens_cached_original_output() -> None:
     assert tui.state.status_message == "Chat-History: Originalausgabe"
 
 
+def test_mouse_click_on_navigation_history_opens_cached_original_output(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    game = {
+        "active": False,
+        "chat_long_message_history": [
+            {
+                "id": "answer-1",
+                "channel_id": "ai:tutor",
+                "sender_kind": "ai",
+                "text": "Antwort " + ("lang " * 30),
+                "markdown": "# Chat-Nachricht\n\nAntwort " + ("lang " * 30),
+                "created_at": 10.0,
+            }
+        ],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    history_row_y = 9 + 1 + len(SECTIONS) + 3
+
+    tui._ingest_mouse_event(x=2, y=history_row_y, event_type="down", buttons=1, now=1.0)
+
+    updated = tui.state.header_logo_game or {}
+    assert tui.state.focus is FocusPane.CONTENT
+    assert updated["chat_long_message_plain_text"].startswith("Antwort lang")
+    assert updated["markdown_stream_plain"] is True
+    assert updated["markdown_mermaid_render_requested"] is False
+    assert tui.state.status_message == "Chat-History: Originalausgabe"
+
+
+def test_mouse_click_sets_focus_for_visible_panes(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    tui = InteractiveOperatorTui(state)
+
+    tui._ingest_mouse_event(x=4, y=1, event_type="down", buttons=1, now=1.0)
+    assert tui.state.focus is FocusPane.HEADER
+
+    tui._ingest_mouse_event(x=28, y=10, event_type="down", buttons=1, now=2.0)
+    assert tui.state.focus is FocusPane.CONTENT
+
+    tui._ingest_mouse_event(x=88, y=10, event_type="down", buttons=1, now=3.0)
+    assert tui.state.focus is FocusPane.DETAIL
+
+    tui._ingest_mouse_event(x=2, y=10, event_type="down", buttons=1, now=4.0)
+    assert tui.state.focus is FocusPane.NAVIGATION
+
+
 def test_enter_command_mode_from_anywhere_closes_chat_artifact_and_config() -> None:
     game = {
         "ai_snake_config_open": True,
