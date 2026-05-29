@@ -87,7 +87,7 @@ def render_operator_shell(
         body_height -= 1
     body_height = max(3, body_height)
     nav_lines = _navigation_lines(state)
-    content_lines = _content_lines(state, middle_width)
+    content_lines = _content_lines(state, middle_width, height=body_height)
     detail_lines = _detail_lines(state, detail_width, height=body_height)
     body_start = len(lines)
     for index in range(body_height):
@@ -554,7 +554,7 @@ def _navigation_lines(state: OperatorState) -> list[str]:
     return lines
 
 
-def _content_lines(state: OperatorState, width: int) -> list[str]:
+def _content_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
     section = get_section(state.section_id)
     panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
     payload = (state.section_payloads or {}).get(section.id, {})
@@ -608,7 +608,7 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     elif section.id == "templates":
         editor = dict(game.get("template_editor") or {})
         if state.mode is OperatorMode.EDIT and bool(editor.get("active")):
-            lines.extend(_templates_editor_content_lines(state, width))
+            lines.extend(_templates_editor_content_lines(state, width, viewport_height=height))
         else:
             lines.extend(_templates_content_lines(payload, state, width))
     elif section.id == "system":
@@ -755,7 +755,7 @@ def _templates_content_lines(payload: dict, state: OperatorState, width: int) ->
     return [_clip(line, width) for line in lines]
 
 
-def _templates_editor_content_lines(state: OperatorState, width: int) -> list[str]:
+def _templates_editor_content_lines(state: OperatorState, width: int, *, viewport_height: int | None = None) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     editor = dict(game.get("template_editor") or {})
     title = str(editor.get("title") or "template")
@@ -773,8 +773,14 @@ def _templates_editor_content_lines(state: OperatorState, width: int) -> list[st
     cursor_line = before.count("\n")
     cursor_col = len(before.rsplit("\n", 1)[-1])
     text_lines = text.splitlines() or [""]
-    start_line = max(0, cursor_line - 10)
-    end_line = min(len(text_lines), start_line + 20)
+    # Use the full visible middle-pane height instead of a fixed 20-line window.
+    pane_title_rows = 1  # added by _content_lines
+    editor_header_rows = 3
+    visible_rows = max(1, int(viewport_height or 24) - pane_title_rows - editor_header_rows)
+    start_line = max(0, cursor_line - max(0, visible_rows // 2))
+    if start_line + visible_rows > len(text_lines):
+        start_line = max(0, len(text_lines) - visible_rows)
+    end_line = min(len(text_lines), start_line + visible_rows)
     for row_index in range(start_line, end_line):
         source_line = text_lines[row_index]
         line_prefix = ">" if row_index == cursor_line else " "
