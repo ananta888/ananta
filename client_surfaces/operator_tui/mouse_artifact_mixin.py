@@ -134,6 +134,9 @@ class MouseArtifactMixin:
             _section_before_click = self.state.section_id
             _tab_before_click = self.state.active_tab_id
             self._handle_left_click(game, target=target, now=ts, width=width, height=height)
+            latest_game = dict(self.state.header_logo_game or {})
+            latest_game.update(game)
+            game = latest_game
             if self.state.section_id != _section_before_click:
                 game["visual_viewport_enabled"] = False
                 game["visual_viewport"] = {"enabled": False}
