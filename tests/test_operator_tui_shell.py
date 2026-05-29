@@ -4354,3 +4354,46 @@ def test_template_editor_click_sets_cursor_position(monkeypatch) -> None:
     editor = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
     # "aaaaa\\n" (6 chars) + 3 chars into second line
     assert int(editor.get("cursor") or -1) == 9
+
+
+def test_template_editor_highlights_template_variables(monkeypatch) -> None:
+    payload = {
+        "items": [{"id": "tpl:a", "kind": "template", "title": "vars", "prompt_preview": "vars", "raw_id": "a"}],
+        "templates_raw": [{"id": "a", "name": "vars", "prompt_template": "Hello {{ task }} and {{worker_id}}"}],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=110, height=36)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+    assert "\x1b[38;2;130;210;255m{{ task }}\x1b[0m" in output
+    assert "\x1b[38;2;130;210;255m{{worker_id}}\x1b[0m" in output
+    assert "Lint: ok" in plain
+
+
+def test_template_editor_marks_lint_problems(monkeypatch) -> None:
+    payload = {
+        "items": [{"id": "tpl:a", "kind": "template", "title": "lint", "prompt_preview": "lint", "raw_id": "a"}],
+        "templates_raw": [{"id": "a", "name": "lint", "prompt_template": "valid {{ task }}\ninvalid {{ broken"}],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=110, height=36)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+    assert "Lint: 1" in plain
+    assert "\x1b[38;2;255;120;120m" in output

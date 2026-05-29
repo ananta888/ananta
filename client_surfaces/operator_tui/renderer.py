@@ -688,6 +688,11 @@ _TPL_THEME = {
     "seed":      "\x1b[38;2;255;205;100m★\x1b[0m",
     "header":    ("\x1b[38;2;100;120;150m", "\x1b[0m"),
 }
+_TPL_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_\.\[\]-]*$")
+_TPL_VAR_COLOR = "\x1b[38;2;130;210;255m"
+_TPL_WARN_COLOR = "\x1b[38;2;255;195;90m"
+_TPL_ERR_COLOR = "\x1b[38;2;255;120;120m"
+_TPL_RESET = "\x1b[0m"
 
 
 def _templates_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
@@ -755,6 +760,39 @@ def _templates_content_lines(payload: dict, state: OperatorState, width: int) ->
     return [_clip(line, width) for line in lines]
 
 
+def _highlight_template_line(line: str) -> tuple[str, int]:
+    if not line:
+        return "", 0
+    out: list[str] = []
+    issues = 0
+    i = 0
+    n = len(line)
+    while i < n:
+        if line.startswith("{{", i):
+            end = line.find("}}", i + 2)
+            if end < 0:
+                issues += 1
+                out.append(f"{_TPL_ERR_COLOR}{line[i:]}{_TPL_RESET}")
+                break
+            token = line[i : end + 2]
+            expr = line[i + 2 : end].strip()
+            if expr and _TPL_VAR_NAME_RE.match(expr):
+                out.append(f"{_TPL_VAR_COLOR}{token}{_TPL_RESET}")
+            else:
+                issues += 1
+                out.append(f"{_TPL_WARN_COLOR}{token}{_TPL_RESET}")
+            i = end + 2
+            continue
+        if line.startswith("}}", i):
+            issues += 1
+            out.append(f"{_TPL_ERR_COLOR}}}}}{_TPL_RESET}")
+            i += 2
+            continue
+        out.append(line[i])
+        i += 1
+    return "".join(out), issues
+
+
 def _templates_editor_content_lines(state: OperatorState, width: int, *, viewport_height: int | None = None) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     editor = dict(game.get("template_editor") or {})
@@ -763,16 +801,30 @@ def _templates_editor_content_lines(state: OperatorState, width: int, *, viewpor
     text = str(editor.get("text") or "")
     cursor = max(0, min(len(text), int(editor.get("cursor") or 0)))
     dirty = bool(editor.get("dirty"))
+    text_lines = text.splitlines() or [""]
+    lint_total = 0
+    lint_by_line: dict[int, int] = {}
+    for idx, source in enumerate(text_lines):
+        _, issues = _highlight_template_line(source)
+        if issues > 0:
+            lint_by_line[idx] = issues
+            lint_total += issues
     lines = [
         f"  Template Editor · {title} ({kind}){' *' if dirty else ''}",
-        "  Ctrl+S speichern · Esc schließen",
+        (
+            "  Ctrl+S speichern · Esc schließen · "
+            + (
+                f"{_TPL_ERR_COLOR}Lint: {lint_total} issue(s){_TPL_RESET}"
+                if lint_total
+                else "Lint: ok"
+            )
+        ),
         "",
     ]
 
     before = text[:cursor]
     cursor_line = before.count("\n")
     cursor_col = len(before.rsplit("\n", 1)[-1])
-    text_lines = text.splitlines() or [""]
     # Use the full visible middle-pane height instead of a fixed 20-line window.
     pane_title_rows = 1  # added by _content_lines
     editor_header_rows = 3
@@ -788,15 +840,22 @@ def _templates_editor_content_lines(state: OperatorState, width: int, *, viewpor
     col_offset = min(col_offset, max_col_offset)
     for row_index in range(start_line, end_line):
         source_line = text_lines[row_index]
-        line_prefix = ">" if row_index == cursor_line else " "
+        issues_on_line = int(lint_by_line.get(row_index) or 0)
+        if row_index == cursor_line:
+            line_prefix = ">"
+        elif issues_on_line > 0:
+            line_prefix = f"{_TPL_ERR_COLOR}!{_TPL_RESET}"
+        else:
+            line_prefix = " "
         line_view = source_line[col_offset : col_offset + visible_cols]
+        rendered_line, _ = _highlight_template_line(line_view)
         if row_index == cursor_line:
             local_col = max(0, min(visible_cols, cursor_col - col_offset))
-            left = line_view[:local_col]
-            right = line_view[local_col:]
-            rendered_line = f"{left}|{right}"
-        else:
-            rendered_line = line_view
+            rendered_line = _overlay_at_visible_col(
+                rendered_line,
+                local_col,
+                f"{_TPL_WARN_COLOR}|{_TPL_RESET}",
+            )
         lines.append(f"{line_prefix} {row_index + 1:>3} {rendered_line}")
     if end_line < len(text_lines):
         lines.append(f"  ... ({len(text_lines) - end_line} weitere Zeilen)")
