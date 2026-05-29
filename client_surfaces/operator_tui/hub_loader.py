@@ -148,6 +148,8 @@ def fetch_hub_section(
         return _fetch_dashboard(base, jwt, t)
     if section_id == "system":
         return _fetch_system(base, jwt, t)
+    if section_id == "templates":
+        return _fetch_templates(base, jwt, t)
     return None
 
 
@@ -301,3 +303,62 @@ def _fetch_system(base: str, token: str, timeout: float) -> SectionLoadResult:
         "contracts": contracts,
     }
     return SectionLoadResult("system", PanelState.HEALTHY, payload, "hub: system")
+
+
+def _fetch_templates(base: str, token: str, timeout: float) -> SectionLoadResult:
+    per = max(0.5, timeout / 2)
+
+    blueprints_raw: list[dict] = []
+    try:
+        data = _checked_get(base, "/teams/blueprints", token, per)
+        blueprints_raw = data if isinstance(data, list) else []
+    except Exception:
+        pass
+
+    templates_raw: list[dict] = []
+    try:
+        data = _checked_get(base, "/templates", token, per)
+        templates_raw = data if isinstance(data, list) else []
+    except Exception:
+        pass
+
+    blueprint_items = [
+        {
+            "id": f"bp:{str(b.get('id') or '')}",
+            "kind": "blueprint",
+            "title": str(b.get("name") or b.get("id") or "")[:60],
+            "description": str(b.get("description") or "")[:100],
+            "roles_count": int(b.get("roles_count") or len(b.get("roles") or [])),
+            "artifacts_count": int(b.get("artifacts_count") or len(b.get("artifacts") or [])),
+            "is_seed": bool(b.get("is_seed", False)),
+            "base_team_type": str(b.get("base_team_type_name") or ""),
+            "raw_id": str(b.get("id") or ""),
+        }
+        for b in blueprints_raw
+    ]
+
+    template_items = [
+        {
+            "id": f"tpl:{str(t.get('id') or '')}",
+            "kind": "template",
+            "title": str(t.get("name") or t.get("id") or "")[:60],
+            "description": str(t.get("description") or "")[:100],
+            "prompt_preview": str(t.get("prompt_template") or "")[:120].replace("\n", " "),
+            "raw_id": str(t.get("id") or ""),
+        }
+        for t in templates_raw
+    ]
+
+    items = blueprint_items + template_items
+    payload: dict[str, Any] = {
+        "items": items,
+        "blueprints_count": len(blueprint_items),
+        "templates_count": len(template_items),
+        "blueprints_raw": blueprints_raw,
+        "templates_raw": templates_raw,
+    }
+    panel_state = PanelState.HEALTHY if items else PanelState.EMPTY
+    return SectionLoadResult(
+        "templates", panel_state, payload,
+        f"hub: {len(blueprint_items)} blueprints · {len(template_items)} templates",
+    )

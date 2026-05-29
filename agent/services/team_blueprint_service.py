@@ -91,14 +91,22 @@ def _ensure_default_templates_once(team_type_name: str, *, team_type_description
         for spec in template_specs:
             template = templates_by_name.get(spec.name)
             if template is None:
-                template = TemplateDB(name=spec.name, description=spec.description, prompt_template=spec.prompt_template)
+                template = TemplateDB(
+                    name=spec.name, description=spec.description,
+                    prompt_template=spec.prompt_template, is_seed=True,
+                )
                 session.add(template)
                 session.flush()
                 templates_by_name[spec.name] = template
                 continue
-            if template.description != spec.description or template.prompt_template != spec.prompt_template:
+            # Only overwrite seed templates; user-created templates (is_seed=False) are preserved.
+            if not getattr(template, "is_seed", True):
+                continue
+            changed = (template.description != spec.description or template.prompt_template != spec.prompt_template)
+            if changed or not getattr(template, "is_seed", True):
                 template.description = spec.description
                 template.prompt_template = spec.prompt_template
+                template.is_seed = True
                 session.add(template)
 
         roles_by_name = {role.name: role for role in session.exec(select(RoleDB)).all()}
@@ -621,3 +629,71 @@ def _serialize_blueprint_snapshot(
     payload["roles"] = [role.model_dump() for role in roles]
     payload["artifacts"] = [artifact.model_dump() for artifact in artifacts]
     return enrich_blueprint_payload(payload, blueprint, roles, artifacts)
+
+
+def reconcile_seed_templates(catalog) -> list[dict]:
+    """Sync seed templates from the catalog file into the DB.
+
+    - Creates templates that are in the catalog but not in the DB.
+    - Updates seed templates (is_seed=True) when prompt_template or description changed.
+    - Never modifies templates where is_seed=False (user-created).
+    Returns a list of change reports.
+    """
+    for attempt in range(2):
+        try:
+            return _reconcile_seed_templates_once(catalog)
+        except IntegrityError:
+            if attempt >= 1:
+                raise
+            time.sleep(0.05)
+    return []
+
+
+def _reconcile_seed_templates_once(catalog) -> list[dict]:
+    all_templates = catalog.get_all_templates()
+    if not all_templates:
+        return []
+
+    reports: list[dict] = []
+    with Session(engine) as session:
+        existing: dict[str, TemplateDB] = {
+            t.name: t for t in session.exec(select(TemplateDB)).all()
+        }
+        for tpl in all_templates:
+            name = tpl["name"]
+            description = tpl["description"]
+            prompt_template = tpl["prompt_template"]
+            existing_tpl = existing.get(name)
+
+            if existing_tpl is None:
+                new_tpl = TemplateDB(
+                    name=name, description=description,
+                    prompt_template=prompt_template, is_seed=True,
+                )
+                session.add(new_tpl)
+                reports.append({"name": name, "action": "created"})
+                continue
+
+            # Preserve user-created templates (is_seed=False)
+            if not getattr(existing_tpl, "is_seed", True):
+                reports.append({"name": name, "action": "skipped_user_template"})
+                continue
+
+            changes: list[str] = []
+            if existing_tpl.prompt_template != prompt_template:
+                existing_tpl.prompt_template = prompt_template
+                changes.append("prompt_template")
+            if existing_tpl.description != description:
+                existing_tpl.description = description
+                changes.append("description")
+            if not getattr(existing_tpl, "is_seed", True):
+                existing_tpl.is_seed = True
+                changes.append("is_seed")
+            if changes:
+                session.add(existing_tpl)
+                reports.append({"name": name, "action": "updated", "fields": changes})
+            else:
+                reports.append({"name": name, "action": "unchanged"})
+
+        session.commit()
+    return reports

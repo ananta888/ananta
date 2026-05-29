@@ -50,6 +50,7 @@ from agent.services.blueprint_bundle_service import (
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.seed_blueprint_catalog import get_seed_blueprint_catalog
+from agent.services.seed_template_catalog import get_seed_template_catalog
 from agent.services.team_blueprint_service import (
     RoleLinkSpec,
     TemplateBootstrapSpec,
@@ -57,6 +58,7 @@ from agent.services.team_blueprint_service import (
     instantiate_blueprint as instantiate_blueprint_service,
     persist_blueprint_children as persist_blueprint_children_service,
     reconcile_seed_blueprints as reconcile_seed_blueprints_service,
+    reconcile_seed_templates as reconcile_seed_templates_service,
     save_blueprint as save_blueprint_service,
 )
 from agent.services.team_definition_version_service import (
@@ -312,49 +314,9 @@ def _apply_team_blueprint_bundle_import(plan, bundle) -> tuple | dict:
 
 
 
-SCRUM_SOLID_TEMPLATE_APPENDIX = """
-
-Engineering guardrails for every proposal, change, refactoring, and implementation:
-
-- Act as a senior software engineer and architect.
-- Apply SOLID strictly and actively:
-  - SRP: keep each class, module, and function focused on one responsibility.
-  - OCP: prefer extension through interfaces, composition, strategies, policies, adapters, or new implementations.
-  - LSP: keep contracts substitutable without hidden side effects or stronger preconditions.
-  - ISP: prefer small, focused interfaces.
-  - DIP: depend on abstractions, not concrete implementations.
-- Also enforce:
-  - clean separation of business logic, infrastructure, persistence, API, and configuration
-  - composition over inheritance
-  - low coupling, minimal global state, and testable seams
-  - precise naming, small understandable functions, and maintainable structure
-- Before finalizing a change, explicitly check for:
-  - SRP violations
-  - overly strong coupling
-  - missing abstractions
-  - interfaces that are too broad
-  - poor substitutability
-  - hidden side effects
-  - structures that are hard to test
-- If one of these issues exists:
-  1. name the problem
-  2. name the affected SOLID principle
-  3. propose a better structure
-  4. only then provide the final code
-- Do not deliver merely working code. Deliver robust, modular, extensible, testable, and maintainable solutions.
-""".strip()
-
-SCRUM_OPENCODE_WORKFLOW_APPENDIX = """
-
-Execution cascade:
-
-1. Prefer OpenCode for multi-step coding, repository-aware edits, iterative debugging, and any task that benefits from a stateful worker session.
-2. Prefer ShellGPT/SGPT for concise synthesis, backlog refinement, drafting acceptance criteria, and short analytical turns that do not require a persistent coding session.
-3. Prefer direct terminal commands for deterministic, auditable operations such as ls/find/rg, tests, builds, formatting, git status, and exact environment checks.
-4. When switching backend, say why briefly and keep the change intentional instead of mixing tools arbitrarily.
-5. Use the worker workspace, artifact directory, and rag_helper context as the source of truth for exchanged files; return concrete changed-file and artifact outcomes to the hub.
-6. Surface blockers, assumptions, missing context, and verification gaps explicitly instead of hiding them in vague summaries.
-""".strip()
+# Template prompt strings and role-profile defaults are now defined in
+# config/blueprints/standard/templates.json and loaded via SeedTemplateCatalog.
+# See agent/services/seed_template_catalog.py.
 
 
 def normalize_team_type_name(team_type_name: str) -> str:
@@ -380,129 +342,6 @@ def normalize_team_type_name(team_type_name: str) -> str:
         "deerflow evolver": "Research-Evolution",
     }
     return mapping.get(normalized.lower(), normalized)
-
-
-ROLE_PROFILE_DEFAULTS = {
-    "Scrum": {
-        "Product Owner": {
-            "capability_defaults": ["planning", "analysis", "backlog"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["acceptance_criteria_defined"]},
-        },
-        "Scrum Master": {
-            "capability_defaults": ["coordination", "analysis", "verification"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["blockers_reviewed"]},
-        },
-        "Developer": {
-            "capability_defaults": ["coding", "testing", "verification"],
-            "risk_profile": "high",
-            "verification_defaults": {"required": True, "gates": ["implementation_verified"]},
-        },
-    },
-    "Research": {
-        "Research Lead": {
-            "capability_defaults": ["research", "analysis", "synthesis"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["evidence_quality", "source_coverage"]},
-        },
-        "Source Analyst": {
-            "capability_defaults": ["research", "repo_research"],
-            "risk_profile": "low",
-            "verification_defaults": {"required": True, "gates": ["source_traceability"]},
-        },
-        "Reviewer": {
-            "capability_defaults": ["review", "analysis"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["independent_review"]},
-        },
-    },
-    "Code-Repair": {
-        "Repair Lead": {
-            "capability_defaults": ["planning", "analysis", "repair"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["impact_assessment"]},
-        },
-        "Fix Engineer": {
-            "capability_defaults": ["coding", "repair", "testing"],
-            "risk_profile": "high",
-            "verification_defaults": {"required": True, "gates": ["regression_tests"]},
-        },
-        "QA Verifier": {
-            "capability_defaults": ["verification", "testing"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["quality_gate_pass"]},
-        },
-    },
-    "TDD": {
-        "Behavior Analyst": {
-            "capability_defaults": ["worker.patch.propose", "worker.verify.result"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["behavior_statement_defined"]},
-        },
-        "Test Driver": {
-            "capability_defaults": ["worker.test.run", "worker.verify.result"],
-            "risk_profile": "high",
-            "verification_defaults": {"required": True, "gates": ["red_before_green_evidence"]},
-        },
-        "Refactor Verifier": {
-            "capability_defaults": ["worker.patch.propose", "worker.patch.apply.approval_gated", "worker.verify.result"],
-            "risk_profile": "high",
-            "verification_defaults": {"required": True, "gates": ["approval_before_apply", "regression_checks_pass"]},
-        },
-    },
-    "Security-Review": {
-        "Security Lead": {
-            "capability_defaults": ["security", "review", "governance"],
-            "risk_profile": "strict",
-            "verification_defaults": {"required": True, "gates": ["severity_signoff"]},
-        },
-        "Security Analyst": {
-            "capability_defaults": ["security", "analysis"],
-            "risk_profile": "strict",
-            "verification_defaults": {"required": True, "gates": ["control_validation"]},
-        },
-        "Compliance Reviewer": {
-            "capability_defaults": ["compliance", "review"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["policy_alignment"]},
-        },
-    },
-    "Release-Prep": {
-        "Release Manager": {
-            "capability_defaults": ["planning", "ops", "governance"],
-            "risk_profile": "strict",
-            "verification_defaults": {"required": True, "gates": ["release_approval"]},
-        },
-        "Verification Engineer": {
-            "capability_defaults": ["verification", "testing"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["preflight_checks"]},
-        },
-        "Operations Liaison": {
-            "capability_defaults": ["ops", "rollback"],
-            "risk_profile": "high",
-            "verification_defaults": {"required": True, "gates": ["rollback_readiness"]},
-        },
-    },
-    "Research-Evolution": {
-        "Research Lead": {
-            "capability_defaults": ["research", "deerflow", "source_synthesis"],
-            "risk_profile": "balanced",
-            "verification_defaults": {"required": True, "gates": ["source_traceability", "research_report_reviewed"]},
-        },
-        "Evolution Strategist": {
-            "capability_defaults": ["evolution", "proposal", "risk_scoring"],
-            "risk_profile": "high",
-            "verification_defaults": {"required": True, "gates": ["proposal_linked_to_research", "validation_plan_defined"]},
-        },
-        "Review Gate Owner": {
-            "capability_defaults": ["review", "governance", "verification"],
-            "risk_profile": "strict",
-            "verification_defaults": {"required": True, "gates": ["human_review", "apply_blocked_by_default"]},
-        },
-    },
-}
 
 
 def _load_seed_blueprints() -> dict[str, dict]:
@@ -538,7 +377,7 @@ def _scrum_initial_tasks_from_catalog() -> list[dict]:
 
 def _with_role_profile_defaults(base_team_type_name: str, role_name: str, config: dict | None) -> dict:
     merged = dict(config or {})
-    defaults = dict((ROLE_PROFILE_DEFAULTS.get(base_team_type_name) or {}).get(role_name) or {})
+    defaults = get_seed_template_catalog().get_role_profile_defaults(base_team_type_name, role_name)
     for key, value in defaults.items():
         merged.setdefault(key, value)
     return merged
@@ -564,249 +403,30 @@ def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
 
 
 def ensure_default_templates(team_type_name: str):
-    """Stellt sicher, dass Standard-Rollen und Templates fuer einen Team-Typ existieren."""
+    """Ensures default roles and templates for a team type exist.
+
+    Template prompt text and role-profile defaults are loaded from
+    config/blueprints/standard/templates.json via SeedTemplateCatalog.
+    """
     team_type_name = normalize_team_type_name(team_type_name)
     if not team_type_name:
         return
-    template_specs: list[TemplateBootstrapSpec] = []
-    role_specs: list[RoleLinkSpec] = []
-    if team_type_name == "Scrum":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec(
-                    "Scrum - Product Owner",
-                    "Prompt template for Scrum Product Owner.",
-                    (
-                        "You are the Product Owner in a Scrum team. Align backlog, priorities, "
-                        "and acceptance criteria with {{team_goal}}.\n\n"
-                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-                    ),
-                ),
-                TemplateBootstrapSpec(
-                    "Scrum - Scrum Master",
-                    "Prompt template for Scrum Master.",
-                    (
-                        "You are the Scrum Master for a Scrum team. Facilitate events, "
-                        "remove blockers, and improve flow toward {{team_goal}}.\n\n"
-                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-                    ),
-                ),
-                TemplateBootstrapSpec(
-                    "Scrum - Developer",
-                    "Prompt template for Scrum Developer.",
-                    (
-                        "You are a Developer in a Scrum team. Implement backlog items, "
-                        "review work, and deliver increments for {{team_goal}}.\n\n"
-                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-                    ),
-                ),
-                TemplateBootstrapSpec(
-                    "OpenCode Scrum - Product Owner",
-                    "Prompt template for an OpenCode-adapted Scrum Product Owner.",
-                    (
-                        "You are the Product Owner in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
-                        "Your focus:\n"
-                        "- keep backlog items decision-ready\n"
-                        "- define acceptance criteria and artifact expectations\n"
-                        "- clarify what must be returned to the hub after worker execution\n\n"
-                        "Backend emphasis:\n"
-                        "- prefer SGPT for story slicing, prioritization, and concise synthesis\n"
-                        "- use OpenCode when repository-aware investigation or artifact-producing analysis is needed\n"
-                        "- use the terminal only for exact evidence gathering and deterministic checks\n\n"
-                        f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
-                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-                    ),
-                ),
-                TemplateBootstrapSpec(
-                    "OpenCode Scrum - Scrum Master",
-                    "Prompt template for an OpenCode-adapted Scrum Master.",
-                    (
-                        "You are the Scrum Master in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
-                        "Your focus:\n"
-                        "- remove blockers and keep work flowing through the hub-worker model\n"
-                        "- make handoffs explicit between planning, execution, review, and follow-up\n"
-                        "- ensure Definition of Done includes verification and artifact return paths\n\n"
-                        "Backend emphasis:\n"
-                        "- prefer SGPT for coordination, summarization, and decision framing\n"
-                        "- use the terminal for environment diagnostics or exact verification commands\n"
-                        "- use OpenCode when you need a stateful investigation across multiple related files or steps\n\n"
-                        f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
-                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-                    ),
-                ),
-                TemplateBootstrapSpec(
-                    "OpenCode Scrum - Developer",
-                    "Prompt template for an OpenCode-adapted Scrum Developer.",
-                    (
-                        "You are a Developer in an OpenCode-adapted Scrum team delivering {{team_goal}}.\n\n"
-                        "Your focus:\n"
-                        "- implement working increments with minimal blast radius\n"
-                        "- keep changed files, artifact outputs, and verification evidence synchronized back to the hub\n"
-                        "- make follow-up work explicit when a slice cannot be completed in one pass\n\n"
-                        "Backend emphasis:\n"
-                        "- prefer OpenCode for implementation, repair loops, code review passes, and stateful coding sessions\n"
-                        "- use the terminal for deterministic commands, builds, tests, formatters, and exact repo inspection\n"
-                        "- use SGPT for short explanations, tradeoff summaries, or draft reasoning when no persistent coding loop is required\n\n"
-                        f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
-                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-                    ),
-                ),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Product Owner", "Owns the backlog and prioritization.", "Scrum - Product Owner"),
-                RoleLinkSpec("Scrum Master", "Facilitates the Scrum process.", "Scrum - Scrum Master"),
-                RoleLinkSpec("Developer", "Builds and delivers backlog items.", "Scrum - Developer"),
-            ]
-        )
 
-    if team_type_name == "Kanban":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec(
-                    "Kanban - Service Delivery Manager",
-                    "Prompt template for Kanban Service Delivery Manager.",
-                    "You are the Service Delivery Manager in a Kanban team. Monitor flow metrics and service delivery toward {{team_goal}}.",
-                ),
-                TemplateBootstrapSpec(
-                    "Kanban - Flow Manager",
-                    "Prompt template for Kanban Flow Manager.",
-                    "You are the Flow Manager in a Kanban team. Optimize WIP, policies, and flow to achieve {{team_goal}}.",
-                ),
-                TemplateBootstrapSpec(
-                    "Kanban - Developer",
-                    "Prompt template for Kanban Developer.",
-                    "You are a Developer in a Kanban team. Deliver work items, limit WIP, and maintain quality for {{team_goal}}.",
-                ),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Service Delivery Manager", "Oversees service delivery and flow metrics.", "Kanban - Service Delivery Manager"),
-                RoleLinkSpec("Flow Manager", "Optimizes WIP limits and flow.", "Kanban - Flow Manager"),
-                RoleLinkSpec("Developer", "Delivers work items and maintains quality.", "Kanban - Developer"),
-            ]
-        )
+    catalog = get_seed_template_catalog()
+    raw_templates = catalog.get_templates_for_team_type(team_type_name)
+    raw_roles = catalog.get_role_specs_for_team_type(team_type_name)
 
-    if team_type_name == "Research":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec("Research - Lead", "Prompt template for Research Lead.", "You are the Research Lead. Define scope, synthesis, and decision-ready outcomes for {{team_goal}}."),
-                TemplateBootstrapSpec("Research - Source Analyst", "Prompt template for Source Analyst.", "You are the Source Analyst. Collect, validate, and summarize reliable sources for {{team_goal}}."),
-                TemplateBootstrapSpec("Research - Reviewer", "Prompt template for Research Reviewer.", "You are the Research Reviewer. Challenge assumptions and verify evidence quality for {{team_goal}}."),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Research Lead", "Owns research scope and synthesis quality.", "Research - Lead"),
-                RoleLinkSpec("Source Analyst", "Collects and validates sources.", "Research - Source Analyst"),
-                RoleLinkSpec("Reviewer", "Checks assumptions and evidence quality.", "Research - Reviewer"),
-            ]
-        )
+    if not raw_templates:
+        return
 
-    if team_type_name == "Code-Repair":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec("Code Repair - Lead", "Prompt template for Repair Lead.", "You are the Repair Lead. Triage incidents and guide minimal-risk remediation for {{team_goal}}."),
-                TemplateBootstrapSpec("Code Repair - Engineer", "Prompt template for Fix Engineer.", "You are the Fix Engineer. Implement and validate targeted fixes for {{team_goal}}."),
-                TemplateBootstrapSpec("Code Repair - QA", "Prompt template for QA Verifier.", "You are the QA Verifier. Confirm regressions are prevented and quality criteria are met for {{team_goal}}."),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Repair Lead", "Owns incident diagnosis and repair planning.", "Code Repair - Lead"),
-                RoleLinkSpec("Fix Engineer", "Implements targeted fixes.", "Code Repair - Engineer"),
-                RoleLinkSpec("QA Verifier", "Validates regressions and completion.", "Code Repair - QA"),
-            ]
-        )
-
-    if team_type_name == "TDD":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec(
-                    "TDD - Behavior Analyst",
-                    "Prompt template for TDD behavior analyst.",
-                    "You are the Behavior Analyst. Define expected behavior, boundaries, and acceptance checks before implementation for {{team_goal}}.",
-                ),
-                TemplateBootstrapSpec(
-                    "TDD - Test Driver",
-                    "Prompt template for TDD test driver.",
-                    "You are the Test Driver. Add/adjust tests first, capture expected red evidence, and confirm green status after minimal patch for {{team_goal}}.",
-                ),
-                TemplateBootstrapSpec(
-                    "TDD - Refactor Verifier",
-                    "Prompt template for TDD refactor verifier.",
-                    "You are the Refactor Verifier. Keep changes minimal, ensure approval gates for apply paths, and verify final quality for {{team_goal}}.",
-                ),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Behavior Analyst", "Defines testable behavior scope before coding.", "TDD - Behavior Analyst"),
-                RoleLinkSpec("Test Driver", "Owns red/green test execution evidence.", "TDD - Test Driver"),
-                RoleLinkSpec("Refactor Verifier", "Validates refactor and verification evidence.", "TDD - Refactor Verifier"),
-            ]
-        )
-
-    if team_type_name == "Security-Review":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec("Security Review - Lead", "Prompt template for Security Lead.", "You are the Security Lead. Define security review scope and sign-off for {{team_goal}}."),
-                TemplateBootstrapSpec("Security Review - Analyst", "Prompt template for Security Analyst.", "You are the Security Analyst. Assess vulnerabilities and control coverage for {{team_goal}}."),
-                TemplateBootstrapSpec("Security Review - Compliance", "Prompt template for Compliance Reviewer.", "You are the Compliance Reviewer. Validate policy and compliance obligations for {{team_goal}}."),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Security Lead", "Owns review scope and severity model.", "Security Review - Lead"),
-                RoleLinkSpec("Security Analyst", "Performs technical security analysis.", "Security Review - Analyst"),
-                RoleLinkSpec("Compliance Reviewer", "Validates compliance obligations.", "Security Review - Compliance"),
-            ]
-        )
-
-    if team_type_name == "Release-Prep":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec("Release Prep - Manager", "Prompt template for Release Manager.", "You are the Release Manager. Coordinate readiness and go/no-go decisions for {{team_goal}}."),
-                TemplateBootstrapSpec("Release Prep - Verification", "Prompt template for Verification Engineer.", "You are the Verification Engineer. Execute release validation and preflight checks for {{team_goal}}."),
-                TemplateBootstrapSpec("Release Prep - Operations", "Prompt template for Operations Liaison.", "You are the Operations Liaison. Prepare rollout and rollback operations for {{team_goal}}."),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Release Manager", "Coordinates release scope and timeline.", "Release Prep - Manager"),
-                RoleLinkSpec("Verification Engineer", "Runs verification and release checks.", "Release Prep - Verification"),
-                RoleLinkSpec("Operations Liaison", "Prepares deployment and rollback operations.", "Release Prep - Operations"),
-            ]
-        )
-    if team_type_name == "Research-Evolution":
-        template_specs.extend(
-            [
-                TemplateBootstrapSpec(
-                    "Research Evolution - Research Lead",
-                    "Prompt template for DeerFlow-backed research lead.",
-                    "You are the Research Lead. Use DeerFlow-style research to produce sources, context, and a decision-ready report for {{team_goal}}.",
-                ),
-                TemplateBootstrapSpec(
-                    "Research Evolution - Evolution Strategist",
-                    "Prompt template for Evolver-backed proposal strategist.",
-                    "You are the Evolution Strategist. Use approved research context to prepare reviewable Evolver proposals for {{team_goal}} without applying changes.",
-                ),
-                TemplateBootstrapSpec(
-                    "Research Evolution - Review Gate Owner",
-                    "Prompt template for review gate owner.",
-                    "You are the Review Gate Owner. Verify research evidence, proposal risk, validation needs, and human approval gates for {{team_goal}}.",
-                ),
-            ]
-        )
-        role_specs.extend(
-            [
-                RoleLinkSpec("Research Lead", "Owns DeerFlow research scope and synthesis.", "Research Evolution - Research Lead"),
-                RoleLinkSpec("Evolution Strategist", "Owns Evolver proposal preparation.", "Research Evolution - Evolution Strategist"),
-                RoleLinkSpec("Review Gate Owner", "Owns review gates and validation decisions.", "Research Evolution - Review Gate Owner"),
-            ]
-        )
+    template_specs = [
+        TemplateBootstrapSpec(t["name"], t["description"], t["prompt_template"])
+        for t in raw_templates
+    ]
+    role_specs = [
+        RoleLinkSpec(r["name"], r["description"], r["template_name"])
+        for r in raw_roles
+    ]
     ensure_default_templates_service(
         team_type_name,
         team_type_description=f"Standard {team_type_name} Team",
@@ -1233,6 +853,17 @@ def _persist_blueprint_children(
 
 
 def ensure_seed_blueprints() -> None:
+    # Reconcile seed templates first so template_ids are available when blueprints
+    # reference template_name during role linking.
+    tpl_reports = reconcile_seed_templates_service(get_seed_template_catalog())
+    for report in tpl_reports:
+        if report.get("action") in {"created", "updated"}:
+            log_audit(
+                "seed_template_reconciled",
+                {"name": report["name"], "action": report["action"],
+                 "fields": report.get("fields"), "source": "seed_sync"},
+            )
+
     seed_blueprints = _load_seed_blueprints()
     reconcile_reports = reconcile_seed_blueprints_service(
         seed_blueprints,
