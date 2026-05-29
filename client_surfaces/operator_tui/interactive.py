@@ -696,10 +696,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._scroll_active_panel(direction="page_down")
 
         @bindings.add(key_for_action("scroll_line_up", "s-up"))
+        @bindings.add("c-up")
         def _(event) -> None:
             self._scroll_active_panel(direction="line_up")
 
         @bindings.add(key_for_action("scroll_line_down", "s-down"))
+        @bindings.add("c-down")
         def _(event) -> None:
             self._scroll_active_panel(direction="line_down")
 
@@ -712,18 +714,22 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._scroll_active_panel(direction="end")
 
         @bindings.add(key_for_action("scroll_left", "s-left"))
+        @bindings.add("c-left")
         def _(event) -> None:
             self._h_scroll_center(delta=-4)
 
         @bindings.add(key_for_action("scroll_right", "s-right"))
+        @bindings.add("c-right")
         def _(event) -> None:
             self._h_scroll_center(delta=4)
 
         @bindings.add(key_for_action("scroll_left_page", "s-pageup"))
+        @bindings.add("c-pageup")
         def _(event) -> None:
             self._h_scroll_center(delta=-20)
 
         @bindings.add(key_for_action("scroll_right_page", "s-pagedown"))
+        @bindings.add("c-pagedown")
         def _(event) -> None:
             self._h_scroll_center(delta=20)
 
@@ -765,12 +771,17 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _get_scroll_manager(self):
         from client_surfaces.operator_tui.scroll.scroll_manager import ScrollManager
+        from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
         if not hasattr(self, "_scroll_manager_instance"):
             self._scroll_manager_instance = ScrollManager()
             self._scroll_manager_instance.register(
-                __import__("client_surfaces.operator_tui.scroll.scroll_context", fromlist=["ScrollContext"]).ScrollContext(
-                    id="chat_panel", label="Chat", content_height=100, viewport_height=20
-                )
+                ScrollContext(id="chat_panel", label="Chat", content_height=100, viewport_height=20)
+            )
+            self._scroll_manager_instance.register(
+                ScrollContext(id="main_content", label="Content", content_height=100, viewport_height=20)
+            )
+            self._scroll_manager_instance.register(
+                ScrollContext(id="center_viewport", label="Visual Viewport", content_height=1, viewport_height=1)
             )
         return self._scroll_manager_instance
 
@@ -783,6 +794,55 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._focus_manager_instance.register_scroll_context("artifact_panel", "artifact_panel")
             self._focus_manager_instance.register_scroll_context("center_viewport", "center_viewport")
         return self._focus_manager_instance
+
+    def _sync_scroll_focus_and_mouse_regions(
+        self,
+        *,
+        width: int,
+        height: int,
+        content_width: int,
+        body_start: int,
+        body_height: int,
+    ) -> None:
+        """Keep keyboard and mouse scroll routing aligned with the visible panes."""
+        sm = self._get_scroll_manager()
+        fm = self._get_focus_manager()
+        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+
+        active_focus = {
+            FocusPane.NAVIGATION: "nav_panel",
+            FocusPane.CONTENT: "center_viewport" if bool(game.get("visual_viewport_enabled")) else "main_content",
+            FocusPane.DETAIL: "detail_panel",
+            FocusPane.HEADER: "main_content",
+        }.get(self.state.focus, "main_content")
+        if self._chat_focus_active():
+            active_focus = "chat_panel"
+        fm.set_active(active_focus)
+
+        meta = dict(game.get("visual_viewport_scene_meta") or {})
+        content_lines = max(1, int(meta.get("content_lines") or body_height))
+        sm.update("center_viewport", content_height=content_lines, viewport_height=max(1, body_height))
+
+        try:
+            from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
+            mr = getattr(self, "_mouse_router_instance", None)
+            if mr is None:
+                self._mouse_router_instance = MouseRouter()
+                mr = self._mouse_router_instance
+            mr.clear_panels()
+            left_width = 22
+            detail_width = 34
+            content_x1 = left_width + 2
+            content_x2 = min(max(0, int(width) - detail_width - 5), content_x1 + max(1, content_width) - 1)
+            detail_x1 = content_x2 + 3
+            detail_x2 = min(max(0, int(width) - 1), detail_x1 + detail_width - 1)
+            body_y1 = max(0, int(body_start))
+            body_y2 = min(max(0, int(height) - 4), body_y1 + max(1, body_height) - 1)
+            mr.register_panel(PanelRect(0, body_y1, left_width - 1, body_y2, "nav_panel", "main_content"))
+            mr.register_panel(PanelRect(content_x1, body_y1, content_x2, body_y2, "center_viewport", "center_viewport"))
+            mr.register_panel(PanelRect(detail_x1, body_y1, detail_x2, body_y2, "detail_panel", "chat_panel"))
+        except Exception:
+            pass
 
     def _scroll_active_panel(self, direction: str) -> None:
         if self._chat_focus_active():
@@ -814,13 +874,21 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if moved:
             game = dict(self.state.header_logo_game or self._default_header_snake())
             game[f"scroll_offset_{ctx_id}"] = ctx.offset
-            self._set_state(self.state.with_updates(header_logo_game=game))
+            if ctx_id == "center_viewport":
+                game["visual_viewport_force_render"] = True
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"scroll: {ctx.label} {ctx.offset}/{ctx.max_scroll}"))
 
     def _h_scroll_center(self, delta: int) -> None:
         """Horizontal scroll for the center viewport (Markdown/Mermaid view)."""
         game = dict(self.state.header_logo_game or self._default_header_snake())
+        meta = dict(game.get("visual_viewport_scene_meta") or {})
+        max_line_width = int(meta.get("max_line_width") or 0)
+        viewport_width = int(meta.get("viewport_width") or 0)
+        if viewport_width <= 0:
+            viewport_width = max(1, shutil.get_terminal_size((120, 32)).columns - 22 - 34 - 6)
+        max_offset = max(0, max_line_width - viewport_width)
         current = int(game.get("center_h_scroll_offset") or 0)
-        new_offset = max(0, current + delta)
+        new_offset = max(0, min(max_offset, current + int(delta)))
         game["center_h_scroll_offset"] = new_offset
         game["visual_viewport_force_render"] = True
         # Propagate to view instance if available
@@ -831,7 +899,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 view.apply_h_scroll_offset(new_offset)
         except Exception:
             pass
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"h-scroll: {new_offset}/{max_offset}"))
 
     def _toggle_visual_view_switcher_overlay(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
@@ -2058,6 +2126,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         middle_width = max(18, int(width) - left_width - detail_width - 6)
         body_height = max(3, int(height) - 5 - 8)
         body_start = 8
+        self._sync_scroll_focus_and_mouse_regions(
+            width=width,
+            height=height,
+            content_width=middle_width,
+            body_start=body_start,
+            body_height=body_height,
+        )
         px_w, px_h = derive_pixel_size(
             columns=middle_width,
             rows=body_height,
@@ -2128,6 +2203,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                     for k in ("content_lines", "max_line_width", "scroll_offset", "h_offset")
                     if frame.metadata.get(k) is not None
                 }
+                game["visual_viewport_scene_meta"]["viewport_width"] = middle_width
+                game["visual_viewport_scene_meta"]["viewport_height"] = body_height
+                try:
+                    sm = self._get_scroll_manager()
+                    sc = sm.get("center_viewport")
+                    if sc is not None:
+                        sc.update_dimensions(
+                            content_height=max(1, int(game["visual_viewport_scene_meta"].get("content_lines") or body_height)),
+                            viewport_height=max(1, body_height),
+                        )
+                except Exception:
+                    pass
         elif frame is not None:
             frame_lines = [f"[{frame.frame_type}] {frame.mime_or_format} {frame.width}x{frame.height}"]
 
