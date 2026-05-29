@@ -4013,6 +4013,44 @@ def test_templates_enter_opens_middle_editor() -> None:
     assert "{{ task }}" in output
 
 
+def test_templates_enter_opens_blueprint_editor() -> None:
+    payload = {
+        "items": [
+            {"id": "bp:1", "kind": "blueprint", "title": "ops-team", "description": "Ops Team", "raw_id": "bp-1"},
+        ],
+        "blueprints_count": 1,
+        "templates_count": 0,
+        "system_prompts_count": 0,
+        "blueprints_raw": [
+            {
+                "id": "bp-1",
+                "name": "ops-team",
+                "description": "Ops Team",
+                "roles": [{"name": "operator", "template_id": "tpl-op", "sort_order": 0, "is_required": True, "config": {}}],
+                "artifacts": [],
+            }
+        ],
+        "templates_raw": [],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=110, height=36)
+    editor = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+
+    assert tui.state.mode is OperatorMode.EDIT
+    assert "template editor" in tui.state.status_message
+    assert "Template Editor" in output
+    assert "\"name\": \"ops-team\"" in str(editor.get("text") or "")
+
+
 def test_templates_navigation_expands_tree_under_templates() -> None:
     from client_surfaces.operator_tui.renderer import _navigation_lines
 
@@ -4074,3 +4112,74 @@ def test_templates_navigation_item_enter_opens_editor_in_middle() -> None:
     assert tui.state.mode is OperatorMode.EDIT
     assert "Template Editor" in output
     assert "{{ task }}" in output
+
+
+def test_templates_navigation_blueprint_item_enter_opens_editor_in_middle() -> None:
+    payload = {
+        "items": [
+            {"id": "bp:1", "kind": "blueprint", "title": "ops-team", "description": "Ops Team", "raw_id": "bp-1"},
+        ],
+        "blueprints_count": 1,
+        "templates_count": 0,
+        "system_prompts_count": 0,
+        "blueprints_raw": [
+            {"id": "bp-1", "name": "ops-team", "description": "Ops Team", "roles": [], "artifacts": []}
+        ],
+        "templates_raw": [],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.NAVIGATION, selected_index=len(SECTIONS))
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=110, height=36)
+    editor = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+
+    assert tui.state.focus is FocusPane.CONTENT
+    assert tui.state.mode is OperatorMode.EDIT
+    assert "Template Editor" in output
+    assert "\"name\": \"ops-team\"" in str(editor.get("text") or "")
+
+
+def test_template_editor_resets_when_leaving_templates_section() -> None:
+    templates_payload = {
+        "items": [
+            {"id": "bp:1", "kind": "blueprint", "title": "ops-team", "description": "Ops Team", "raw_id": "bp-1"},
+        ],
+        "blueprints_count": 1,
+        "templates_count": 0,
+        "system_prompts_count": 0,
+        "blueprints_raw": [{"id": "bp-1", "name": "ops-team", "description": "Ops Team", "roles": [], "artifacts": []}],
+        "templates_raw": [],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=templates_payload, message="loaded templates")
+        if section_id == "goals":
+            return SectionLoadResult(section_id="goals", state=PanelState.EMPTY, payload={"items": []}, message="empty goals")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    assert tui.state.mode is OperatorMode.EDIT
+    assert bool(dict((tui.state.header_logo_game or {}).get("template_editor") or {}).get("active"))
+
+    tui._run_command(":section goals")
+    assert tui.state.section_id == "goals"
+    assert tui.state.mode is OperatorMode.NORMAL
+    assert not bool(dict((tui.state.header_logo_game or {}).get("template_editor") or {}).get("active"))
+
+    tui._run_command(":section templates")
+    output = render_operator_shell(tui.state, width=110, height=36)
+    assert tui.state.section_id == "templates"
+    assert tui.state.mode is OperatorMode.NORMAL
+    assert "Tree:" in output
+    assert "Template Editor" not in output
