@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext, DrawResult
 from client_surfaces.operator_tui.visual.runtime.frame_model import RenderFrame
 from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
+
+_ANSI_STRIP = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _clip_line(text: str, width: int) -> str:
@@ -16,8 +19,48 @@ def _clip_line(text: str, width: int) -> str:
 
 
 def _cursor_move(x: int, y: int) -> str:
-    # Terminal coordinates are 1-based.
     return f"\x1b[{max(1, y + 1)};{max(1, x + 1)}H"
+
+
+def _raster_fallback_lines(frame: RenderFrame, *, columns: int, rows: int) -> list[str]:
+    """Build a human-readable ANSI fallback for raster frames (TGFX-010)."""
+    dim = "\x1b[2m"
+    yellow = "\x1b[33m"
+    cyan = "\x1b[36m"
+    reset = "\x1b[0m"
+    lines: list[str] = []
+
+    scene = str(frame.metadata.get("scene_type") or "raster")
+    renderer = str(frame.metadata.get("renderer") or "?")
+    w, h = frame.width, frame.height
+    reason = str(frame.metadata.get("degraded_reason") or "")
+
+    lines.append(f"{yellow}╔{'═' * max(2, columns - 2)}╗{reset}")
+    lines.append(f"{yellow}║{reset} {cyan}Grafik-Ausgabe nicht verfügbar{reset}".ljust(columns))
+    lines.append(f"{yellow}║{reset} {dim}Scene: {scene}  Renderer: {renderer}  Size: {w}×{h}{reset}")
+    if reason:
+        lines.append(f"{yellow}║{reset} {dim}Grund: {reason[:columns - 12]}{reset}")
+
+    # Show alt_text or fallback_text from frame metadata
+    alt = str(frame.metadata.get("alt_text") or frame.metadata.get("fallback_text") or "")
+    if alt:
+        lines.append(f"{yellow}║{reset} {dim}{alt[:columns - 4]}{reset}")
+
+    # Diagram ids
+    diag_ids = frame.metadata.get("diagram_ids")
+    if diag_ids:
+        ids_str = ", ".join(str(d) for d in diag_ids[:3])
+        lines.append(f"{yellow}║{reset} {dim}Diagramme: {ids_str[:columns - 14]}{reset}")
+
+    lines.append(f"{yellow}║{reset}")
+    hint = "→ Kitty/Sixel-Terminal oder ANSI-Quellmodus aktivieren"
+    lines.append(f"{yellow}║{reset} {dim}{hint[:columns - 4]}{reset}")
+    lines.append(f"{yellow}╚{'═' * max(2, columns - 2)}╝{reset}")
+
+    # Pad or truncate to rows
+    while len(lines) < rows:
+        lines.append("")
+    return lines[:rows]
 
 
 @dataclass
@@ -33,7 +76,9 @@ class AnsiOutputAdapter:
         if frame.frame_type == "ansi" and isinstance(frame.payload, list):
             lines = [str(row) for row in frame.payload]
         else:
-            lines = [f"[degraded:{frame.frame_type}] {frame.mime_or_format} {frame.width}x{frame.height}"]
+            # Raster/unknown frame → rich fallback panel (TGFX-010)
+            lines = _raster_fallback_lines(frame, columns=region.columns, rows=region.rows)
+
         out: list[str] = []
         for row_idx in range(region.rows):
             line = lines[row_idx] if row_idx < len(lines) else ""
@@ -49,4 +94,3 @@ class AnsiOutputAdapter:
 
     def last_frame_metadata(self) -> dict[str, Any]:
         return dict(self._last_frame_metadata)
-

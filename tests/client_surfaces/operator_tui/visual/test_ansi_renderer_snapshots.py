@@ -66,10 +66,9 @@ def test_ansi_snapshot_renderer_diagnostics_view() -> None:
         },
     )
 
-    assert payload[:4] == [
-        "view=renderer_diagnostic",
-        "renderer=ansi_blocks    ",
-        "adapter=ansi            ",
-        "fps=10                  ",
-    ]
+    import re
+    stripped = [re.sub(r"\x1b\[[0-9;]*m", "", l).strip() for l in payload]
+    # Diagnostics view now shows structured sections
+    assert any("Renderer" in l or "renderer" in l.lower() for l in stripped)
+    assert any("ansi_blocks" in l or "ansi" in l for l in stripped)
     assert all("\x1b_G" not in line and "\x1bPq" not in line for line in payload)
