@@ -157,7 +157,8 @@ def _render_block(
     *,
     width: int,
     mermaid_fallbacks: dict[str, MermaidFallbackInfo],
-    diagram_height: int = 6,
+    diagram_images: dict[str, tuple[str, bytes]] | None = None,
+    diagram_height: int = 20,
 ) -> list[str]:
     w = max(1, width)
     lines: list[str] = []
@@ -215,6 +216,26 @@ def _render_block(
 
     elif isinstance(block, MermaidBlock):
         fallback = mermaid_fallbacks.get(block.source)
+        # Try block-art rendering when image data is available
+        diagram_entry = (diagram_images or {}).get(block.source)
+        if diagram_entry is not None:
+            fmt, img_bytes = diagram_entry
+            try:
+                from client_surfaces.operator_tui.visual.markdown.block_art_renderer import (
+                    png_to_block_art, svg_to_block_art,
+                )
+                if fmt in {"svg", "svg+xml"}:
+                    art = svg_to_block_art(img_bytes, max_cols=w, max_rows=diagram_height)
+                else:
+                    art = png_to_block_art(img_bytes, max_cols=w, max_rows=diagram_height)
+            except Exception:
+                art = []
+            if art:
+                lines.extend(art)
+                lines.append("")
+                return lines
+            # Fall through to source display if block art failed
+
         if fallback is not None:
             # A real image renderer attempted and failed — show reason + source
             lines.append(f"{_YELLOW}[Mermaid: {fallback.reason}]{_R}")
@@ -254,9 +275,11 @@ def render_markdown_ansi(
     height: int,
     scroll_offset: int = 0,
     mermaid_fallbacks: dict[str, MermaidFallbackInfo] | None = None,
+    diagram_images: dict[str, tuple[str, bytes]] | None = None,
 ) -> list[str]:
-    all_lines = render_markdown_ansi_lines(blocks, width=width, mermaid_fallbacks=mermaid_fallbacks)
-
+    all_lines = render_markdown_ansi_lines(
+        blocks, width=width, mermaid_fallbacks=mermaid_fallbacks, diagram_images=diagram_images
+    )
     start = max(0, scroll_offset)
     visible = all_lines[start : start + height]
     while len(visible) < height:
@@ -269,12 +292,20 @@ def render_markdown_ansi_lines(
     *,
     width: int,
     mermaid_fallbacks: dict[str, MermaidFallbackInfo] | None = None,
+    diagram_images: dict[str, tuple[str, bytes]] | None = None,
 ) -> list[str]:
+    """Render all blocks to ANSI lines.
+
+    diagram_images: maps Mermaid source → (image_format, image_bytes).
+    When provided, Mermaid blocks with successful renders are shown as
+    Unicode block-art instead of source code.
+    """
     fallbacks = mermaid_fallbacks or {}
     all_lines: list[str] = []
     for block in blocks:
-        all_lines.extend(_render_block(block, width=width, mermaid_fallbacks=fallbacks))
-
+        all_lines.extend(_render_block(
+            block, width=width, mermaid_fallbacks=fallbacks, diagram_images=diagram_images
+        ))
     if not all_lines:
         return ["(empty document)"]
     return all_lines

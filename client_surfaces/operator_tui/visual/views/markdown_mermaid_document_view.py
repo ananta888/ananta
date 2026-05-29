@@ -164,6 +164,16 @@ class MarkdownMermaidDocumentView:
                         reason=result.reason or "render failed",
                     )
 
+        # Build diagram_images map for block-art rendering in ANSI mode
+        # Maps Mermaid source → (image_format, image_bytes)
+        diagram_images: dict[str, tuple[str, bytes]] = {}
+        for node in diagram_nodes:
+            src = str(node.get("fallback_text") or "")
+            fmt = str(node.get("image_format") or "png")
+            data = node.get("image_data")
+            if src and isinstance(data, (bytes, bytearray)):
+                diagram_images[src] = (fmt, bytes(data))
+
         # Compute scroll offset
         scroll_offset = self._scroll_offset
         if bool(context.state.get("markdown_auto_follow")):
@@ -171,6 +181,7 @@ class MarkdownMermaidDocumentView:
                 blocks,
                 width=context.region.columns,
                 mermaid_fallbacks=mermaid_fallbacks,
+                diagram_images=diagram_images,
             )
             scroll_offset = max(0, len(rendered_lines) - context.region.rows)
             self._last_content_lines = len(rendered_lines)
@@ -181,6 +192,7 @@ class MarkdownMermaidDocumentView:
             height=context.region.rows,
             scroll_offset=scroll_offset,
             mermaid_fallbacks=mermaid_fallbacks,
+            diagram_images=diagram_images,
         )
         if not bool(context.state.get("markdown_auto_follow")):
             self._last_content_lines = max(self._last_content_lines, len(lines) + scroll_offset)
