@@ -1,0 +1,380 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-mermaid-image-center-viewport-wiring",
+  "title": "Wire Mermaid SVG/PNG rendering into CenterViewport image output",
+  "purpose": "Finish the missing bridge from MermaidRenderResult.image_data to visible SVG/PNG output in the center VisualViewport. The current code can parse Markdown, detect Mermaid blocks and render Mermaid via mmdc/Playwright, but successful image data is not converted into visible image nodes/frames in the Markdown/Mermaid view, and Sixel output is currently only a stub.",
+  "goal": "Mermaid diagrams embedded in Markdown must be displayed as actual rendered SVG/PNG images in the center TUI viewport when the active renderer/adapter supports raster/image output. If image output is unavailable, the existing ANSI fallback must continue to show Mermaid source with a clear reason.",
+  "context": {
+    "user_goal": "Die beiden Punkte 'Mermaid wirklich als SVG/PNG im CenterViewport anzeigen' und 'Sixel/Kitty-Bildausgabe für Mermaid' sollen mit dem Code abgeglichen und als TODO festgehalten werden.",
+    "code_findings": [
+      "client_surfaces/operator_tui/visual/markdown/markdown_parser.py already parses fenced mermaid blocks into MermaidBlock objects.",
+      "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py renders MermaidBlock either as fallback source or as the text placeholder '[mermaid diagram]'.",
+      "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py already has MermaidCliBackend, PlaywrightBackend and FallbackCodeblockBackend. mmdc can produce SVG and Playwright can produce PNG screenshots.",
+      "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py calls MermaidRenderer.render() for each Mermaid block, but successful result.image_data is not attached to the RenderScene. Only failure creates MermaidFallbackInfo for ANSI fallback.",
+      "client_surfaces/operator_tui/visual/runtime/frame_model.py already has generic RenderScene nodes and RenderFrame payloads, so image nodes can be represented without changing the whole runtime model.",
+      "client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py can rasterize scene.metadata['svg_text'] or scene.metadata['svg_path'] into PNG, but Markdown/Mermaid view does not currently pass Mermaid SVG into scene.metadata in a usable way.",
+      "client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py currently draws text nodes into a PNG but does not handle explicit image nodes or Mermaid image payloads.",
+      "client_surfaces/operator_tui/visual/adapters/kitty_adapter.py can send raster frames with Kitty graphics protocol when supported=true.",
+      "client_surfaces/operator_tui/visual/adapters/sixel_adapter.py accepts raster frames but currently emits a 'sixel-stub' payload, not real Sixel image encoding.",
+      "tests/client_surfaces/operator_tui/visual/test_visual_adapters.py explicitly asserts that Sixel output contains 'sixel-stub', confirming it is not a real image path yet."
+    ],
+    "target_pipeline": [
+      "MarkdownMermaidDocumentView parses Markdown and extracts Mermaid blocks.",
+      "MermaidRenderer renders each Mermaid block to SVG or PNG bytes.",
+      "Successful Mermaid image results are represented as explicit image nodes or attached diagram assets in RenderScene metadata.",
+      "A Mermaid-aware renderer produces a raster RenderFrame containing the diagram image scaled/clipped for the center viewport.",
+      "KittyOutputAdapter sends the resulting PNG bytes with Kitty protocol.",
+      "SixelOutputAdapter sends the resulting PNG/RGBA data through a real Sixel encoder where supported.",
+      "ANSI fallback continues to show source code and reason when image path is unavailable."
+    ],
+    "design_decision": "Do not replace the Markdown ANSI fallback. Add an image-capable path beside it. The Markdown/Mermaid view should emit explicit diagram assets/nodes; renderers decide whether to draw raster images or fallback text. Sixel must be upgraded from stub to real encoding or use a configured external encoder with safe timeout.",
+    "suggested_paths": {
+      "markdown_view": "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+      "mermaid_renderer": "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py",
+      "markdown_ansi_renderer": "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py",
+      "frame_model": "client_surfaces/operator_tui/visual/runtime/frame_model.py",
+      "cpu_raster_renderer": "client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py",
+      "svg_raster_renderer": "client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py",
+      "kitty_adapter": "client_surfaces/operator_tui/visual/adapters/kitty_adapter.py",
+      "sixel_adapter": "client_surfaces/operator_tui/visual/adapters/sixel_adapter.py",
+      "visual_runtime": "client_surfaces/operator_tui/visual/runtime/visual_runtime.py",
+      "tests": "tests/client_surfaces/operator_tui/visual/markdown/",
+      "docs": "docs/operator-tui/mermaid-image-center-viewport-wiring.md"
+    },
+    "non_goals": [
+      "Do not remove ANSI/source fallback for Mermaid.",
+      "Do not require mmdc, Playwright, Kitty or Sixel for the TUI to start.",
+      "Do not execute arbitrary renderer commands from document content.",
+      "Do not render remote resources by default."
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {"id": "M1", "title": "Image node contract and diagnostics", "status": "todo", "task_ids": ["MIMG-001", "MIMG-002", "MIMG-003"]},
+    {"id": "M2", "title": "Markdown/Mermaid view image emission", "status": "todo", "task_ids": ["MIMG-004", "MIMG-005", "MIMG-006"]},
+    {"id": "M3", "title": "Renderer support for Mermaid image nodes", "status": "todo", "task_ids": ["MIMG-007", "MIMG-008", "MIMG-009"]},
+    {"id": "M4", "title": "Kitty and Sixel real image output", "status": "todo", "task_ids": ["MIMG-010", "MIMG-011", "MIMG-012"]},
+    {"id": "M5", "title": "Tests, smoke tooling and docs", "status": "todo", "task_ids": ["MIMG-013", "MIMG-014", "MIMG-015", "MIMG-016", "MIMG-017"]}
+  ],
+  "tasks": [
+    {
+      "id": "MIMG-001",
+      "title": "Document current Mermaid image wiring gap",
+      "type": "docs",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": ["docs/operator-tui/mermaid-image-center-viewport-wiring.md"],
+      "description": "Document the exact gap between MermaidRenderer.render() returning image_data and the center viewport only showing placeholder/fallback text.",
+      "acceptance_criteria": [
+        "Docs include current pipeline diagram showing MermaidRenderResult.image_data currently stops inside markdown_mermaid_document_view.py.",
+        "Docs include target pipeline diagram from Mermaid source to SVG/PNG RenderFrame to Kitty/Sixel adapter.",
+        "Docs explicitly distinguish ANSI fallback, Kitty image output and Sixel image output.",
+        "Docs list runtime dependencies: mmdc, Playwright, cairosvg/Pillow, terminal Kitty/Sixel support."
+      ]
+    },
+    {
+      "id": "MIMG-002",
+      "title": "Define RenderScene image node contract",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/runtime/frame_model.py"],
+      "description": "Define a stable node schema for embedded images/diagrams inside a RenderScene.",
+      "acceptance_criteria": [
+        "Image nodes use kind='image' or kind='diagram_image' consistently.",
+        "Image node schema includes image_format, image_data or asset_id, x, y, width, height, alt_text and fallback_text.",
+        "Schema supports SVG and PNG payloads without requiring raw terminal escape sequences in views.",
+        "Frame/model docs or comments state that views may emit image nodes but adapters alone emit terminal protocol escapes."
+      ]
+    },
+    {
+      "id": "MIMG-003",
+      "title": "Add Mermaid image diagnostics metadata",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"],
+      "description": "Make each Mermaid block report image/fallback status in RenderScene metadata for debugging and view switcher status.",
+      "acceptance_criteria": [
+        "Scene metadata includes mermaid_blocks_total, mermaid_images_rendered, mermaid_fallback_count and mermaid_renderer_used where known.",
+        "Each failed block includes concise reason in diagnostics.",
+        "Diagnostics distinguish image rendered but adapter unsupported from renderer failed.",
+        "Metadata is covered by unit tests."
+      ]
+    },
+    {
+      "id": "MIMG-004",
+      "title": "Attach successful MermaidRenderResult.image_data to RenderScene",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"],
+      "description": "Change the Markdown/Mermaid view so successful Mermaid image results become image/diagram nodes instead of disappearing into a text placeholder.",
+      "acceptance_criteria": [
+        "For each successful MermaidRenderResult, the scene contains a diagram image node with SVG or PNG bytes reachable by renderer.",
+        "For failed MermaidRenderResult, existing MermaidFallbackInfo path remains active and source code is shown with reason.",
+        "Multiple Mermaid diagrams in one Markdown document are represented independently.",
+        "Image node creation respects configured max_diagram_width and max_diagram_height.",
+        "No terminal escape sequences are written by the view."
+      ]
+    },
+    {
+      "id": "MIMG-005",
+      "title": "Preserve Markdown text layout around Mermaid images",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"],
+      "description": "Ensure rendered diagrams occupy stable rows/space in the center viewport and text before/after diagrams remains readable.",
+      "acceptance_criteria": [
+        "Mermaid image blocks reserve a deterministic vertical area in the rendered document.",
+        "ANSI fallback still shows source text in the same block position.",
+        "Scroll offset/paging accounts for image block height.",
+        "Long documents with text before and after diagrams render predictably."
+      ]
+    },
+    {
+      "id": "MIMG-006",
+      "title": "Add Mermaid image cache integration to view path",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/markdown/mermaid_cache.py", "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"],
+      "description": "Avoid re-running mmdc/Playwright on every frame by caching rendered diagrams by source/config/size.",
+      "acceptance_criteria": [
+        "Cache key includes Mermaid source hash, backend, output format and diagram size.",
+        "Repeated render_frame calls for unchanged Markdown do not re-run external Mermaid renderer.",
+        "Cache can be disabled by config.",
+        "Cache hit/miss counters appear in diagnostics."
+      ]
+    },
+    {
+      "id": "MIMG-007",
+      "title": "Teach CpuRasterRenderer to draw image nodes",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py"],
+      "description": "Extend CPU raster rendering so RenderScene image nodes are pasted/scaled into the output PNG frame.",
+      "acceptance_criteria": [
+        "Renderer recognizes image/diagram_image nodes with PNG payload and pastes them into the output image.",
+        "Renderer recognizes SVG payload and converts it through cairosvg or a safe fallback when available.",
+        "Renderer scales diagram images to fit requested node width/height while preserving aspect ratio where possible.",
+        "Renderer draws alt/fallback text when image payload cannot be decoded.",
+        "Existing text-node rendering continues to work."
+      ]
+    },
+    {
+      "id": "MIMG-008",
+      "title": "Connect SvgRasterRenderer with Mermaid SVG scene metadata or image nodes",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py"],
+      "description": "Allow Mermaid SVG image nodes to use the existing SVG rasterizer path without abusing global scene.metadata for a single SVG only.",
+      "acceptance_criteria": [
+        "SvgRasterRenderer can rasterize an SVG image node payload, not only scene.metadata['svg_text'].",
+        "Multiple SVG diagram nodes are supported or explicitly handled through CPU raster composition.",
+        "Missing cairosvg creates placeholder/fallback instead of crashing.",
+        "Tests cover SVG node to PNG RenderFrame."
+      ]
+    },
+    {
+      "id": "MIMG-009",
+      "title": "Add renderer selection rules for Markdown/Mermaid image mode",
+      "type": "integration",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/runtime/fallback_resolver.py", "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"],
+      "description": "Ensure Mermaid image mode selects image-capable renderer/adapter pairs and falls back to ANSI text when image output is unavailable.",
+      "acceptance_criteria": [
+        "When mermaid_mode=image/auto and image protocols are available, resolver prefers cpu_raster/svg_raster + kitty/sixel.",
+        "When only ANSI is available, resolver keeps markdown_mermaid_document usable in degraded/source mode.",
+        "View capability report shows Mermaid image available/degraded based on renderer and adapter, not only mmdc/Playwright availability.",
+        "Tests cover image-capable and ANSI-only environments."
+      ]
+    },
+    {
+      "id": "MIMG-010",
+      "title": "Verify and harden Kitty PNG output for Mermaid diagrams",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/visual/adapters/kitty_adapter.py"],
+      "description": "Ensure Kitty adapter can display Mermaid PNG frames correctly in the center viewport and clear stale diagram images.",
+      "acceptance_criteria": [
+        "Kitty adapter accepts image/png raster RenderFrames from Mermaid path.",
+        "Adapter positions image at region top-left and respects viewport columns/rows.",
+        "Adapter clear() is called when switching away from image views or resizing viewport.",
+        "Adapter metadata records image_id, payload size and draw result.",
+        "Tests assert Kitty escape sequence includes PNG transfer parameters and placement."
+      ]
+    },
+    {
+      "id": "MIMG-011",
+      "title": "Replace Sixel stub with real Sixel image encoding",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "critical",
+      "target_files": ["client_surfaces/operator_tui/visual/adapters/sixel_adapter.py"],
+      "description": "Implement actual Sixel output for raster frames instead of the current base64 'sixel-stub' placeholder.",
+      "acceptance_criteria": [
+        "Sixel adapter no longer emits 'sixel-stub' for successful draws.",
+        "Adapter can encode PNG/RGBA raster frames to real Sixel using a safe internal encoder or configured trusted external encoder.",
+        "External encoder path, if used, is configured/trusted and has timeout/size limits.",
+        "Adapter reports unsupported/degraded when no encoder is available.",
+        "Tests validate real Sixel introducer/terminator and absence of stub marker using a small generated image."
+      ]
+    },
+    {
+      "id": "MIMG-012",
+      "title": "Add terminal capability checks for Mermaid image output",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/capabilities/terminal_detector.py", "client_surfaces/operator_tui/visual/runtime/fallback_resolver.py"],
+      "description": "Make capability detection distinguish Mermaid renderer availability from terminal image-output availability.",
+      "acceptance_criteria": [
+        "Capability report includes mermaid_renderer_available, raster_renderer_available, kitty_supported and sixel_supported separately.",
+        "View switcher diagnostics can explain whether Mermaid image failed due to mmdc/Playwright, raster renderer, Kitty/Sixel, or terminal support.",
+        "Unsupported image protocol falls back to ANSI source, not a silent placeholder.",
+        "Tests cover at least four states: all available, renderer missing, terminal protocol missing, ANSI-only."
+      ]
+    },
+    {
+      "id": "MIMG-013",
+      "title": "Add unit tests for Mermaid image nodes from Markdown view",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["tests/client_surfaces/operator_tui/visual/markdown/test_markdown_mermaid_image_nodes.py"],
+      "description": "Verify successful Mermaid rendering becomes RenderScene image nodes.",
+      "acceptance_criteria": [
+        "Fake MermaidRenderer returning SVG creates diagram_image node.",
+        "Fake MermaidRenderer returning PNG creates diagram_image node.",
+        "Fake failure creates ANSI fallback info and no image node.",
+        "Multiple Mermaid blocks produce multiple diagram nodes with stable ids."
+      ]
+    },
+    {
+      "id": "MIMG-014",
+      "title": "Add renderer tests for image node raster composition",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["tests/client_surfaces/operator_tui/visual/test_cpu_raster_image_nodes.py", "tests/client_surfaces/operator_tui/visual/test_svg_raster_image_nodes.py"],
+      "description": "Verify image nodes actually appear in raster RenderFrame payloads.",
+      "acceptance_criteria": [
+        "PNG image node is pasted into CPU raster output.",
+        "SVG image node is converted or produces safe placeholder when cairosvg missing.",
+        "Alt/fallback text appears when image data invalid.",
+        "Tests do not require mmdc or Playwright."
+      ]
+    },
+    {
+      "id": "MIMG-015",
+      "title": "Update adapter tests for real Sixel and Kitty Mermaid frames",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["tests/client_surfaces/operator_tui/visual/test_visual_adapters.py"],
+      "description": "Update tests currently accepting 'sixel-stub' so they assert real image-output behavior or explicit degraded unsupported behavior.",
+      "acceptance_criteria": [
+        "Existing assertion for 'sixel-stub' is removed or changed to a degraded-only test.",
+        "Kitty adapter test uses a realistic PNG RenderFrame and verifies image transfer escape.",
+        "Sixel adapter test verifies real Sixel output when encoder available and clear unsupported reason when unavailable.",
+        "Tests remain deterministic in CI without requiring terminal support."
+      ]
+    },
+    {
+      "id": "MIMG-016",
+      "title": "Add smoke script for Markdown Mermaid image rendering",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["scripts/operator_tui_markdown_mermaid_image_smoke.py"],
+      "description": "Provide a manual smoke command that renders a small Mermaid diagram through Markdown view and selected output adapter.",
+      "acceptance_criteria": [
+        "Script can run with --adapter ansi, --adapter kitty and --adapter sixel.",
+        "Script prints Mermaid renderer capability status.",
+        "Script shows whether output was image, degraded source fallback or unsupported protocol.",
+        "Script does not require full Operator TUI startup."
+      ]
+    },
+    {
+      "id": "MIMG-017",
+      "title": "Add end-to-end visual runtime test for Mermaid image path",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["tests/client_surfaces/operator_tui/visual/test_visual_runtime_mermaid_image_path.py"],
+      "description": "Test the full path from markdown_mermaid_document view to raster frame to image-capable adapter using fake renderer/capabilities.",
+      "acceptance_criteria": [
+        "VisualRuntime renders markdown_mermaid_document with Mermaid block into raster RenderFrame when image-capable path selected.",
+        "Adapter receives raster frame containing Mermaid image payload metadata.",
+        "ANSI-only runtime produces source fallback and no crash.",
+        "Test avoids real terminal, mmdc and Playwright by using fake Mermaid renderer or monkeypatch."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["MIMG-001", "MIMG-002", "MIMG-004", "MIMG-007", "MIMG-009", "MIMG-010", "MIMG-011", "MIMG-013", "MIMG-014", "MIMG-015", "MIMG-017"],
+  "tasks_status_summary": {
+    "total": 17,
+    "by_status": {"todo": 17, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"critical": 11, "high": 6, "medium": 0, "low": 0},
+    "by_risk": {"low": 3, "medium": 10, "high": 3, "critical": 1},
+    "critical_path": {"total": 11, "done": 0, "remaining": 11},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 17,
+    "by_type": {
+      "docs": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "implementation": {"total": 11, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 11, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "integration": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "test": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "tooling": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+    }
+  },
+  "progress_summary": {"state": "ready_for_implementation", "todo_remaining": 17, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "summary_notes": [
+    "Mermaid parsing and backend rendering already exist, but successful SVG/PNG bytes are not yet displayed as diagram images in the center viewport.",
+    "Kitty adapter has a plausible raster-frame path, but the Markdown/Mermaid view must produce image-capable frames for it.",
+    "Sixel adapter is currently a stub and must be replaced or marked degraded until a real encoder exists.",
+    "ANSI Mermaid source fallback must remain the safe baseline."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "expected_result",
+      "title": "Expected result after completion",
+      "items": [
+        "Markdown documents with Mermaid blocks display actual rendered diagrams in the center VisualViewport when image output is supported.",
+        "Kitty terminals receive PNG raster frames for Mermaid diagrams through the Kitty graphics protocol.",
+        "Sixel-capable terminals receive real Sixel image output instead of the current stub.",
+        "ANSI-only environments still show Mermaid source blocks with clear degradation reasons.",
+        "Tests cover the full path from Mermaid source to RenderScene image node to RenderFrame to output adapter."
+      ]
+    }
+  ]
+}
