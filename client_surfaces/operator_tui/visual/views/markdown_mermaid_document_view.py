@@ -58,10 +58,13 @@ class MarkdownMermaidDocumentView:
         if self._config.mermaid_mode != "disabled":
             for mb in extract_mermaid_blocks(blocks):
                 result = self._mermaid_renderer.render(mb.source)
-                if not result.success:
+                # Only record as error fallback when a real image renderer attempted but failed.
+                # FallbackCodeblockBackend produces success=False with this sentinel reason;
+                # in that case we let the renderer show the source as a plain code block instead.
+                if not result.success and result.reason != "Mermaid image renderer unavailable":
                     mermaid_fallbacks[mb.source] = MermaidFallbackInfo(
                         source=mb.source,
-                        reason=result.reason or "Mermaid image renderer unavailable",
+                        reason=result.reason or "render failed",
                     )
 
         scroll_offset = self._scroll_offset
