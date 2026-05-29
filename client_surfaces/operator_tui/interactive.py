@@ -1960,6 +1960,21 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             pixel_width=px_w,
             pixel_height=px_h,
         )
+        # Propagate scroll offset from shared ScrollManager to markdown view (MDP-005)
+        scroll_offset_for_view = 0
+        try:
+            sm = self._get_scroll_manager()
+            sc = sm.get("center_viewport")
+            if sc is not None:
+                scroll_offset_for_view = sc.offset
+                active_view_id = str(game.get("visual_viewport_active_view") or "")
+                if active_view_id == "markdown_mermaid_document":
+                    view_instance = runtime.get_view_instance("markdown_mermaid_document") if hasattr(runtime, "get_view_instance") else None
+                    if view_instance is not None and hasattr(view_instance, "apply_scroll_offset"):
+                        view_instance.apply_scroll_offset(scroll_offset_for_view)
+        except Exception:
+            pass
+
         state_map = {
             "runtime_status": dict(game.get("visual_runtime_status") or {}),
             "active_view": str(game.get("visual_viewport_active_view") or ""),
@@ -1980,6 +1995,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "markdown_auto_follow": bool(game.get("markdown_auto_follow")),
             "markdown_stream_plain": bool(game.get("markdown_stream_plain")),
             "markdown_mermaid_config": dict(game.get("markdown_mermaid_config") or {}),
+            "scroll_offset": scroll_offset_for_view,
             "theme_version": "default",
         }
         previous_frame_lines = [

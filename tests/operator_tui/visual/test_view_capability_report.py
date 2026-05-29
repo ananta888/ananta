@@ -82,17 +82,21 @@ def test_markdown_mermaid_available_when_no_image_renderer():
     )
     assert report.available is True
     assert report.degraded is True
-    assert any("Mermaid image" in f for f in report.degraded_features)
+    # degraded_features now uses "mermaid_renderer:" prefix
+    assert any("mermaid_renderer" in f or "Mermaid" in f for f in report.degraded_features)
 
 
 def test_markdown_mermaid_ok_when_image_renderer_available():
+    # When image renderer is available but no terminal image protocol, it's still degraded
+    # (image-rendered-but-adapter-unavailable) unless kitty/sixel caps are passed.
     report = build_markdown_mermaid_capability_report(
-        mermaid_status={
-            "mermaid_cli": {"available": True, "reason": ""},
-        }
+        mermaid_status={"mermaid_cli": {"available": True, "reason": ""}},
+        image_output_caps={"raster_renderer_available": True, "kitty_supported": True, "sixel_supported": False},
     )
     assert report.available is True
     assert report.degraded is False
+    assert report.extra.get("mermaid_renderer") is True
+    assert report.extra.get("kitty_supported") is True
 
 
 def test_unavailable_skipped_by_bundle_cycling():
