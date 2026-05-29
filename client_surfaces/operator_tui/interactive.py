@@ -1633,7 +1633,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if cfg.get("input_history_chat_enabled", True):
                 saved = cfg.get("chat_input_history", [])
                 if isinstance(saved, list) and saved:
-                    from client_surfaces.operator_tui.chat_state import get_chat_state
+                    from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
                     chat = get_chat_state(game)
                     existing = list(chat.get("chat_input_history") or [])
                     # Prepend persisted entries (avoid duplicates)
@@ -1642,6 +1642,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                             existing.insert(0, entry)
                     max_entries = int(cfg.get("input_history_max_entries", 100))
                     chat["chat_input_history"] = existing[-max_entries:]
+                    set_chat_state(game, chat)
         except Exception:
             pass
 

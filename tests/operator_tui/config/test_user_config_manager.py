@@ -144,6 +144,12 @@ def test_validated_strips_non_primitive_values():
     assert "chat_history_turns" not in result
 
 
+def test_validated_allows_input_history_lists():
+    result = _validated({"chat_input_history": ["eins", "zwei"], "command_input_history": [":help"]})
+    assert result["chat_input_history"] == ["eins", "zwei"]
+    assert result["command_input_history"] == [":help"]
+
+
 def test_schema_keys_match_persistent_keys():
     from client_surfaces.operator_tui.ai_snake_config_view import _PERSISTENT_TUI_CONFIG_KEYS
     missing_from_schema = _PERSISTENT_TUI_CONFIG_KEYS - _SCHEMA_KEYS
@@ -165,6 +171,20 @@ def test_save_from_game_extracts_persistent_keys(tmp_path):
     assert data["settings"]["chat_backend"] == "lmstudio"
     assert data["settings"]["chat_history_turns"] == 12
     assert "non_persistent_key" not in data["settings"]
+
+
+def test_save_from_game_extracts_nested_chat_input_history(tmp_path):
+    game = {
+        "chat_state": {
+            "chat_input_history": ["frage eins", "frage zwei"],
+        },
+    }
+    mgr = UserConfigManager(cwd=tmp_path)
+
+    mgr.save_from_game(game)
+
+    data = json.loads((tmp_path / "user.json").read_text())
+    assert data["settings"]["chat_input_history"] == ["frage eins", "frage zwei"]
 
 
 # ── flush ─────────────────────────────────────────────────────────────────────
@@ -194,6 +214,30 @@ def test_flush_user_config_helper(tmp_path):
     game = {"chat_backend": "lmstudio", "chat_history_turns": 8}
     p_ok, g_ok = flush_user_config(game, cwd=tmp_path)
     assert p_ok is True
+
+
+def test_flush_preserves_previously_saved_input_histories(tmp_path):
+    mgr = UserConfigManager(cwd=tmp_path)
+    mgr.save({"chat_input_history": ["alte frage"], "command_input_history": [":tasks"]})
+
+    p_ok, g_ok = mgr.flush({"chat_backend": "hermes"})
+
+    assert p_ok is True
+    assert g_ok is True
+    loaded = json.loads((tmp_path / "user.json").read_text())["settings"]
+    assert loaded["chat_input_history"] == ["alte frage"]
+    assert loaded["command_input_history"] == [":tasks"]
+    assert loaded["chat_backend"] == "hermes"
+
+
+def test_flush_updates_input_history_from_runtime_chat_state(tmp_path):
+    mgr = UserConfigManager(cwd=tmp_path)
+
+    p_ok, _ = mgr.flush({"chat_state": {"chat_input_history": ["neue frage"]}})
+
+    assert p_ok is True
+    loaded = json.loads((tmp_path / "user.json").read_text())["settings"]
+    assert loaded["chat_input_history"] == ["neue frage"]
 
 
 # ── apply_to_game ─────────────────────────────────────────────────────────────
