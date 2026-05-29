@@ -9,18 +9,23 @@ from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
 from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 
-_JSON_SYSTEM_PROMPT = (
+_JSON_SYSTEM_PROMPT_FALLBACK = (
     "You are a software engineering assistant. "
     "You MUST respond with valid JSON only. "
     "The JSON MUST contain at least one of:\n"
     '  - "command": a shell command string\n'
     '  - "tool_calls": a list of {"name": "<tool>", "args": {<arguments>}} objects\n'
     'Optional: "reason": a short technical explanation.\n'
-    "Examples:\n"
-    '  {"reason": "list directory", "command": "ls -la"}\n'
-    '  {"reason": "create file", "tool_calls": [{"name": "write_file", "args": {"path": "test.txt", "content": "hello"}}]}\n'
     "Output ONLY the raw JSON object. No Markdown fences. No prose. No explanations."
 )
+
+
+def _get_json_system_prompt() -> str:
+    try:
+        from agent.services.system_prompt_catalog import get_system_prompt
+        return get_system_prompt("system.json_normalization", _JSON_SYSTEM_PROMPT_FALLBACK)
+    except Exception:
+        return _JSON_SYSTEM_PROMPT_FALLBACK
 
 
 class FlexibleLLMNormalizationStrategy(ProposeStrategy):
@@ -72,7 +77,7 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
             )
             llm_result = ModelInvocationService.invoke_result(
                 prompt=context.base_prompt,
-                system_prompt=_JSON_SYSTEM_PROMPT,
+                system_prompt=_get_json_system_prompt(),
                 timeout=timeout_seconds,
             )
             raw = str(llm_result.get("content") or "")

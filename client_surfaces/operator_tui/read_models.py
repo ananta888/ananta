@@ -93,4 +93,27 @@ def build_templates_inspect(payload: dict[str, Any], selected_index: int) -> lis
             if len(prompt) > 400:
                 lines.append("    …")
 
+    elif kind == "system_prompt":
+        raw_id = str(item.get("raw_id") or "")
+        raw_list = payload.get("templates_raw") or []
+        raw = next((t for t in raw_list if str(t.get("id") or "") == raw_id), {})
+        lines.append(f"System-Prompt: {item.get('title','')}")
+        if item.get("description"):
+            for desc_line in str(item["description"]).splitlines():
+                lines.append(f"  {desc_line}")
+        svc = str(item.get("service") or raw.get("service") or "")
+        if svc:
+            lines.append(f"  Service: {svc}")
+        prompt = str(raw.get("prompt_template") or item.get("prompt_preview") or "")
+        if prompt:
+            lines.append("")
+            lines.append("  Prompt-Template (Vorschau):")
+            for ln in prompt[:500].splitlines()[:10]:
+                lines.append(f"    {ln[:62]}")
+            if len(prompt) > 500:
+                lines.append("    …")
+        lines.append("")
+        lines.append("  Hinweis: Datei editieren:")
+        lines.append("    config/system_prompts.json")
+
     return lines or ["kein Detail verfügbar"]

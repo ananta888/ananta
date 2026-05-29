@@ -108,19 +108,20 @@ class PlanningPromptRegistry:
                         selected = item
                         break
         if selected is None:
-            # absolute fallback to in-memory template
-            template = (
-                "You are a planning assistant. Produce a valid JSON array of concrete tasks.\n\n"
-                "ZIEL:\n{goal}\n\n"
-                "CONTEXT:\n{context}\n\n"
-                "Rules:\n"
-                "- Return only JSON, no markdown fences.\n"
-                "- Prefer 5 to 8 tasks for software goals.\n"
-                "- Include setup, implementation, execution, verification, and summary when relevant.\n"
-                "- The last two tasks should be testing and review if possible.\n"
-                "- Each task needs title, description, priority, depends_on.\n"
-                "- Preferred output format: {preferred_output_format}.\n"
-            )
+            try:
+                from agent.services.system_prompt_catalog import get_system_prompt
+                template = get_system_prompt("system.planning_registry_fallback", "")
+            except Exception:
+                template = ""
+            if not template:
+                template = (
+                    "You are a planning assistant. Produce a valid JSON array of concrete tasks.\n\n"
+                    "ZIEL:\n{goal}\n\nCONTEXT:\n{context}\n\nRules:\n"
+                    "- Return only JSON, no markdown fences.\n"
+                    "- Prefer 5 to 8 tasks for software goals.\n"
+                    "- Each task needs title, description, priority, depends_on.\n"
+                    "- Preferred output format: {preferred_output_format}.\n"
+                )
             rendered = template.format(
                 goal=goal,
                 context=context or "",

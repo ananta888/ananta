@@ -693,6 +693,15 @@ def build_planning_prompt_en(goal: str, context: Optional[str] = None, max_tasks
             return str(resolved.prompt)
     except Exception:
         pass
+    try:
+        from agent.services.system_prompt_catalog import get_system_prompt
+        tpl = get_system_prompt("system.planning_fallback", "")
+    except Exception:
+        tpl = ""
+    context_block = f"\nCONTEXT:\n{str(context).strip()}\n" if context else ""
+    if tpl:
+        return tpl.format(goal=goal, context=str(context or "").strip(),
+                          max_tasks=max_tasks, context_block=context_block)
     prompt = (
         "You are a project planning assistant. Break down the following goal into concrete, "
         f"actionable subtasks. Output ONLY a valid JSON array with at least 5 and at most {max_tasks} tasks, "
@@ -700,19 +709,15 @@ def build_planning_prompt_en(goal: str, context: Optional[str] = None, max_tasks
         f"GOAL: {goal}\n\n"
         "RULES:\n"
         "- Use setup, implementation, execution, verification, summary phases for software projects\n"
-        "- Include at least one analysis task, one infrastructure/setup task, one implementation task, one test task, and one review task when the goal is a new software project\n"
         "- No generic umbrella tasks without a concrete deliverable\n"
         "- No sudo, su, or privilege escalation\n"
-        "- No systemctl, service, or ss commands\n"
         "- Set depends_on only for real sequential dependencies\n\n"
         "OUTPUT FORMAT (JSON array only):\n"
         '[{"title":"Short title","description":"Detailed description",'
         '"priority":"High|Medium|Low","depends_on":[]}]\n'
     )
     if context:
-        # Include a short summary of context only
-        ctx_summary = str(context).strip()
-        prompt = f"{prompt}\nCONTEXT:\n{ctx_summary}\n"
+        prompt = f"{prompt}\nCONTEXT:\n{str(context).strip()}\n"
     return prompt
 
 
