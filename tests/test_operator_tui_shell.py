@@ -3108,6 +3108,74 @@ def test_mouse_click_on_template_nav_item_opens_editor(monkeypatch) -> None:
     assert "Template Editor" in rendered
 
 
+def test_mouse_click_on_second_template_nav_item_switches_editor(monkeypatch) -> None:
+    from client_surfaces.operator_tui.region_index import RegionTarget
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((180, 33)),
+    )
+    payload = {
+        "items": [
+            {"id": "tpl:a", "kind": "template", "title": "worker_v2", "prompt_preview": "A...", "raw_id": "a"},
+            {"id": "tpl:b", "kind": "template", "title": "reviewer_v2", "prompt_preview": "B...", "raw_id": "b"},
+        ],
+        "templates_raw": [
+            {"id": "a", "name": "worker_v2", "prompt_template": "Du bearbeitest die Aufgabe: {{ task }}"},
+            {"id": "b", "name": "reviewer_v2", "prompt_template": "Du reviewst den Patch: {{ diff }}"},
+        ],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="templates",
+        focus=FocusPane.NAVIGATION,
+        section_payloads={"templates": payload},
+    )
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    class _FakeRegionIndex:
+        def get_target_at(self, x: int, y: int):
+            if x != 2:
+                return None
+            if y == 10:
+                return RegionTarget(
+                    kind="template_nav_item",
+                    section_id="templates",
+                    pane="nav",
+                    label="worker_v2",
+                    payload={"template_item_index": 0, "selected_index": len(SECTIONS)},
+                )
+            if y == 11:
+                return RegionTarget(
+                    kind="template_nav_item",
+                    section_id="templates",
+                    pane="nav",
+                    label="reviewer_v2",
+                    payload={"template_item_index": 1, "selected_index": len(SECTIONS) + 1},
+                )
+            return RegionTarget(kind="pane", section_id="templates", pane="nav", label="NAV", payload={"focus": "navigation"})
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.build_region_index",
+        lambda state, width, height: _FakeRegionIndex(),
+    )
+
+    tui._ingest_mouse_event(x=2, y=10, event_type="down", buttons=1, now=1.0)
+    editor_first = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    assert "{{ task }}" in str(editor_first.get("text") or "")
+
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=2.0)
+    editor_second = dict((tui.state.header_logo_game or {}).get("template_editor") or {})
+    assert "{{ diff }}" in str(editor_second.get("text") or "")
+    assert str(editor_second.get("text") or "") != str(editor_first.get("text") or "")
+
+
 def test_nav_section_click_leaves_chat_input_focus_and_does_not_open_artifact_overlay(monkeypatch) -> None:
     from client_surfaces.operator_tui.chat_state import get_chat_state
 
