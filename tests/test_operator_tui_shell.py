@@ -3104,6 +3104,8 @@ def test_mouse_click_on_template_nav_item_opens_editor(monkeypatch) -> None:
     assert tui.state.focus is FocusPane.CONTENT
     assert tui.state.mode is OperatorMode.EDIT
     assert "template editor" in tui.state.status_message
+    rendered = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", render_operator_shell(tui.state, width=180, height=32))
+    assert "Template Editor" in rendered
 
 
 def test_nav_section_click_leaves_chat_input_focus_and_does_not_open_artifact_overlay(monkeypatch) -> None:
