@@ -39,6 +39,10 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_worker_mode",
     "chat_backend_fallback",
     "chat_include_runtime_status",
+    # Input history
+    "input_history_chat_enabled",
+    "input_history_command_enabled",
+    "input_history_max_entries",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -380,6 +384,19 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
         },
         {"key": "chat_include_runtime_status", "label": "TUI-Status in Prompt", "type": "bool",
          "value": _resolve_bool_pref(game, "chat_include_runtime_status", "", False), "group": "Chat Memory"},
+        # ── Input History Persistence ─────────────────────────────────────────
+        {"key": "input_history_chat_enabled", "label": "Chat-Eingaben speichern", "type": "bool",
+         "value": _resolve_bool_pref(game, "input_history_chat_enabled", "", True), "group": "Input-Verlauf"},
+        {"key": "input_history_command_enabled", "label": "Befehle speichern", "type": "bool",
+         "value": _resolve_bool_pref(game, "input_history_command_enabled", "", True), "group": "Input-Verlauf"},
+        {
+            "key": "input_history_max_entries",
+            "label": "Max. Verlauf-Einträge",
+            "type": "choice",
+            "value": str(max(10, min(500, int(game.get("input_history_max_entries") or 100)))),
+            "options": ["20", "50", "100", "200", "500"],
+            "group": "Input-Verlauf",
+        },
     ]
 
 

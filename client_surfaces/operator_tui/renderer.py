@@ -1106,8 +1106,11 @@ def _chat_detail_lines(
             cursor = int(chat.get("chat_input_cursor") or len(buf))
         prompt_map = {"room": "#room>", "direct": "@>", "ai": "AI>", "notes": "notes>", "system": ">"}
         prompt = prompt_map.get(ch_type, ">")
-        visible = _inline_input_with_cursor(buf, cursor, max(1, width - len(prompt) - 3))
-        footer_lines.append(f"  {prompt} {visible}")
+        # History indicator: show ▲N if history available (↑/↓ to navigate)
+        history = [str(h) for h in (chat.get("chat_input_history") or []) if str(h).strip()]
+        hist_note = f" \x1b[2m▲{len(history)}\x1b[0m" if history else ""
+        visible = _inline_input_with_cursor(buf, cursor, max(1, width - len(prompt) - 3 - len(hist_note.replace("\x1b[2m","").replace("\x1b[0m",""))))
+        footer_lines.append(f"  {prompt}{hist_note} {visible}")
     else:
         footer_lines.append(
             f"  {display_for_action('chat_focus', 'Ctrl+E')} Eingabe  "
@@ -1933,8 +1936,12 @@ def _command_line(state: OperatorState, width: int) -> str:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     buf = str(state.command_line or "")
     cursor = int(game.get("command_input_cursor") or len(buf))
-    visible = _inline_input_with_cursor(buf, cursor, max(1, width - 1))
-    return _clip(f":{visible}", width)
+    # History indicator: show ▲N if command history available (↑/↓ to navigate)
+    cmd_history = game.get("_command_history_count")
+    hist_sfx = f" \x1b[2m▲{cmd_history}\x1b[0m" if cmd_history else ""
+    hist_len = len(str(cmd_history or "")) + 2 if cmd_history else 0
+    visible = _inline_input_with_cursor(buf, cursor, max(1, width - 1 - hist_len))
+    return _clip(f":{visible}{hist_sfx}", width)
 
 
 def _hints_line(state: OperatorState, width: int) -> str:

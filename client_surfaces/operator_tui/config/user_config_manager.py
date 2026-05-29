@@ -54,6 +54,12 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_worker_mode",
     "chat_backend_fallback",
     "chat_include_runtime_status",
+    # Input history persistence
+    "input_history_chat_enabled",
+    "input_history_command_enabled",
+    "input_history_max_entries",
+    "chat_input_history",     # list[str]
+    "command_input_history",  # list[str]
 })
 
 _DEFAULTS: dict[str, Any] = {
@@ -83,6 +89,12 @@ _DEFAULTS: dict[str, Any] = {
     "chat_worker_mode": "snake_ask",
     "chat_backend_fallback": "lmstudio",
     "chat_include_runtime_status": False,
+    # Input history persistence
+    "input_history_chat_enabled": True,
+    "input_history_command_enabled": True,
+    "input_history_max_entries": 100,
+    "chat_input_history": [],
+    "command_input_history": [],
 }
 
 
@@ -132,8 +144,15 @@ def _write_atomic(path: Path, settings: dict[str, Any]) -> bool:
         return False
 
 
+# Schema keys that store list[str] values
+_LIST_SCHEMA_KEYS: frozenset[str] = frozenset({
+    "chat_input_history",
+    "command_input_history",
+})
+
+
 def _validated(settings: dict[str, Any]) -> dict[str, Any]:
-    """Strip unknown keys and coerce types to JSON-safe primitives."""
+    """Strip unknown keys and coerce types to JSON-safe primitives or list[str]."""
     out: dict[str, Any] = {}
     for key in _SCHEMA_KEYS:
         if key not in settings:
@@ -141,6 +160,10 @@ def _validated(settings: dict[str, Any]) -> dict[str, Any]:
         value = settings[key]
         if isinstance(value, (str, int, float, bool)):
             out[key] = value
+        elif isinstance(value, list) and key in _LIST_SCHEMA_KEYS:
+            # Allow list[str] only for designated history keys
+            str_list = [str(item) for item in value if isinstance(item, (str, int, float))]
+            out[key] = str_list
     return out
 
 
