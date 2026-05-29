@@ -578,7 +578,10 @@ class MouseArtifactMixin:
     def _clamp_down(self) -> int:
         cur = self.state.selected_index
         if self.state.focus is FocusPane.NAVIGATION:
-            return min(cur + 1, len(SECTIONS) - 1)
+            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            history = game.get("chat_long_message_history")
+            history_count = len(history) if isinstance(history, list) else 0
+            return min(cur + 1, max(0, len(SECTIONS) + history_count - 1))
         if self.state.focus is FocusPane.HEADER:
             from client_surfaces.operator_tui.header_config import CONFIG_ITEMS
             return min(cur + 1, len(CONFIG_ITEMS) - 1)

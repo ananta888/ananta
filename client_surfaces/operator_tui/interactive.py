@@ -60,8 +60,11 @@ from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.chat_long_message import (
     configure_middle_view_for_message,
+    configure_middle_view_for_history_entry,
     is_showing_chat_long_message,
     latest_long_message_for_channel,
+    long_message_history_rows,
+    refresh_rendered_view,
     toggle_render_mode,
 )
 from client_surfaces.operator_tui.mouse import (
@@ -398,6 +401,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("refresh", "c-r"))
         def _(event) -> None:
+            game = dict(self.state.header_logo_game or {})
+            if is_showing_chat_long_message(game):
+                refresh_rendered_view(game)
+                self._set_state(self.state.with_updates(header_logo_game=game, status_message="Chat-Ansicht: Render aktualisiert"))
+                return
             self._normal_or_text("r", lambda: self._run_command(":refresh"))
 
         @bindings.add(key_for_action("help", "c-y"))
@@ -1453,7 +1461,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self.state.with_updates(
                 header_logo_game=game,
                 focus=FocusPane.CONTENT,
-                status_message="lange Chatnachricht im Markdown/Mermaid-Bereich",
+                status_message="lange Chatnachricht: Originalausgabe",
             )
         )
 
@@ -1516,6 +1524,19 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 section = SECTIONS[self.state.selected_index]
                 self._run_command(f":section {section.id}")
                 self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, selected_index=0))
+                return
+            history_idx = self.state.selected_index - len(SECTIONS)
+            game = dict(self.state.header_logo_game or self._default_header_snake())
+            rows = long_message_history_rows(game)
+            if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
+                self._set_state(
+                    self.state.with_updates(
+                        header_logo_game=game,
+                        focus=FocusPane.CONTENT,
+                        selected_index=0,
+                        status_message="Chat-History: Originalausgabe",
+                    )
+                )
             return
         self._run_command(":inspect")
 
@@ -2186,6 +2207,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "markdown_plain_text": str(game.get("chat_long_message_plain_text") or ""),
             "markdown_auto_follow": bool(game.get("markdown_auto_follow")),
             "markdown_stream_plain": bool(game.get("markdown_stream_plain")),
+            "markdown_mermaid_render_requested": bool(game.get("markdown_mermaid_render_requested")),
             "markdown_mermaid_config": dict(game.get("markdown_mermaid_config") or {}),
             "scroll_offset": scroll_offset_for_view,
             "h_scroll_offset": int(game.get("center_h_scroll_offset") or 0),
