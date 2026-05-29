@@ -606,21 +606,91 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
     runtime = dict(game.get("visual_runtime_status") or {})
     lines = [_pane_title("VISUAL VIEWPORT", state.focus == FocusPane.CONTENT)]
     frame_lines = [str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)]
+
+    # Scrollbar data from scene metadata (set by MarkdownMermaidDocumentView)
+    vp_meta = dict(game.get("visual_viewport_scene_meta") or {})
+    content_lines = int(vp_meta.get("content_lines") or 0)
+    max_line_width = int(vp_meta.get("max_line_width") or 0)
+    v_offset = int(vp_meta.get("scroll_offset") or 0)
+    h_offset = int(vp_meta.get("h_offset") or 0)
+    viewport_rows = max(1, len(frame_lines))
+    viewport_cols = max(1, width - 3)  # -1 for v-scrollbar, -2 padding
+
+    # Determine if scrollbars are needed
+    needs_v = content_lines > viewport_rows
+    needs_h = max_line_width > viewport_cols
+
     if frame_lines:
         # Reserve last frame line for mode hint when showing chat long message
-        if is_showing_chat_long_message(game) and len(frame_lines) > 1:
+        has_hint = is_showing_chat_long_message(game) and len(frame_lines) > 1
+        if has_hint:
             mode = get_render_mode(game)
             other = "Plain-Text" if mode == "rendered" else "Markdown/Mermaid"
             shortcut = display_for_action("open_long_chat_message", "Ctrl+Space")
             hint_col = "\x1b[38;2;80;120;80m" if mode == "rendered" else "\x1b[38;2;100;100;140m"
             mode_label = "Markdown/Mermaid" if mode == "rendered" else "Plain-Text"
             hint = f"{hint_col}  ▸ Modus: {mode_label}  |  {shortcut} → {other}\x1b[0m"
-            lines.extend(frame_lines[:-1])
-            lines.append(hint)
+            body = frame_lines[:-1]
+            hint_line = hint
         else:
-            lines.extend(frame_lines)
+            body = frame_lines[:-1] if needs_h else frame_lines
+            hint_line = None
+
+        # Build vertical scrollbar column
+        if needs_v:
+            v_bar = render_scrollbar_column(
+                content_height=content_lines,
+                viewport_height=viewport_rows,
+                offset=v_offset,
+                height=len(body),
+            )
+        else:
+            v_bar = ["  "] * len(body)
+
+        # Overlay v-scrollbar on the right edge of each body line
+        sb_col_dim = "\x1b[38;2;60;70;90m"
+        sb_col_thumb = "\x1b[38;2;120;160;200m"
+        _sb_r = "\x1b[0m"
+        for i, bline in enumerate(body):
+            bar_char = v_bar[i] if i < len(v_bar) else " "
+            if bar_char in ("█", "|"):
+                bar_render = f"{sb_col_thumb}{bar_char}{_sb_r}"
+            elif bar_char == " ":
+                bar_render = " "
+            else:
+                bar_render = f"{sb_col_dim}{bar_char}{_sb_r}"
+            lines.append(_clip(bline, width - 1) + bar_render)
+
+        # Horizontal scrollbar row
+        if needs_h:
+            h_track_w = max(4, viewport_cols - 2)
+            max_h_scroll = max(1, max_line_width - viewport_cols)
+            thumb_w = max(1, round(h_track_w * viewport_cols / max(1, max_line_width)))
+            thumb_w = min(thumb_w, h_track_w)
+            thumb_p = round((h_track_w - thumb_w) * min(h_offset, max_h_scroll) / max_h_scroll)
+            h_bar_chars = []
+            for p in range(h_track_w):
+                if thumb_p <= p < thumb_p + thumb_w:
+                    h_bar_chars.append(f"{sb_col_thumb}▬{_sb_r}")
+                else:
+                    h_bar_chars.append(f"{sb_col_dim}─{_sb_r}")
+            h_info = f" ◄{''.join(h_bar_chars)}►"
+            lines.append(_clip(h_info, width))
+        elif hint_line:
+            lines.append(_clip(hint_line, width))
+        else:
+            if has_hint and hint_line:
+                lines.append(_clip(hint_line, width))
+            elif frame_lines:
+                lines.append(_clip(frame_lines[-1], width - 1) + " ")
+
+        # Mode hint line (if h-scrollbar already used the last slot)
+        if needs_h and has_hint:
+            lines.append(_clip(hint_line, width))
+
     else:
         lines.append("  visual runtime aktiv, warte auf frame ...")
+
     view = str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "-")
     renderer_name = str(runtime.get("active_renderer") or "-")
     adapter = str(runtime.get("active_adapter") or "-")

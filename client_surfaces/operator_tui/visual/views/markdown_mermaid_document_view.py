@@ -29,6 +29,48 @@ _DIAGRAM_RESERVED_ROWS = 10
 # Sentinel reason emitted by FallbackCodeblockBackend — not a real render failure
 _GRACEFUL_FALLBACK_REASON = "Mermaid image renderer unavailable"
 
+_ANSI_RE = __import__("re").compile(r"\x1b\[[0-9;]*m")
+
+
+def _h_clip(line: str, *, h_offset: int, width: int) -> str:
+    """Clip a line horizontally: skip h_offset visible chars, keep width visible chars.
+
+    Preserves ANSI color codes while operating on visible character positions.
+    """
+    if h_offset <= 0 and width >= 10000:
+        return line
+    # Decompose into segments: (ansi_prefix, visible_char)
+    segments: list[tuple[str, str]] = []
+    ansi_buf = ""
+    i = 0
+    while i < len(line):
+        m = _ANSI_RE.match(line, i)
+        if m:
+            ansi_buf += m.group()
+            i = m.end()
+        else:
+            segments.append((ansi_buf, line[i]))
+            ansi_buf = ""
+            i += 1
+    trailing_ansi = ansi_buf
+
+    # Select the visible range [h_offset, h_offset+width)
+    result_parts: list[str] = []
+    vis_pos = 0
+    for ansi_prefix, char in segments:
+        if vis_pos >= h_offset and vis_pos < h_offset + width:
+            result_parts.append(ansi_prefix + char)
+        elif vis_pos >= h_offset + width:
+            break
+        else:
+            # Before h_offset: still emit ANSI resets to avoid color bleed
+            if "\x1b[0m" in ansi_prefix:
+                result_parts.append("\x1b[0m")
+        vis_pos += 1
+
+    result_parts.append(trailing_ansi)
+    return "".join(result_parts)
+
 
 def _source_hash(source: str) -> str:
     return hashlib.sha256(source.encode()).hexdigest()[:16]
@@ -71,13 +113,17 @@ class MarkdownMermaidDocumentView:
     _config: MarkdownMermaidConfig = field(default_factory=MarkdownMermaidConfig)
     _mermaid_renderer: MermaidRenderer = field(default_factory=MermaidRenderer)
     _mermaid_cache: MermaidCache = field(default_factory=MermaidCache)
-    _scroll_offset: int = 0
+    _scroll_offset: int = 0        # vertical: lines scrolled from top
+    _h_offset: int = 0             # horizontal: columns scrolled from left
     _last_content_lines: int = 0
+    _last_max_line_width: int = 0  # widest rendered line (for h-scrollbar)
 
     def update(self, dt: float, state: dict[str, Any]) -> None:
         _ = dt
         if "scroll_offset" in state:
             self._scroll_offset = max(0, int(state["scroll_offset"]))
+        if "h_scroll_offset" in state:
+            self._h_offset = max(0, int(state["h_scroll_offset"]))
         raw_cfg = state.get("markdown_mermaid_config")
         if isinstance(raw_cfg, dict):
             try:
@@ -174,28 +220,47 @@ class MarkdownMermaidDocumentView:
             if src and isinstance(data, (bytes, bytearray)):
                 diagram_images[src] = (fmt, bytes(data))
 
-        # Compute scroll offset
+        # Compute scroll offsets
         scroll_offset = self._scroll_offset
+        h_offset = self._h_offset
+        # Render at unlimited width to know true line widths (needed for h-scrollbar)
+        render_width = context.region.columns + h_offset
         if bool(context.state.get("markdown_auto_follow")):
             rendered_lines = render_markdown_ansi_lines(
                 blocks,
-                width=context.region.columns,
+                width=render_width,
                 mermaid_fallbacks=mermaid_fallbacks,
                 diagram_images=diagram_images,
             )
             scroll_offset = max(0, len(rendered_lines) - context.region.rows)
             self._last_content_lines = len(rendered_lines)
+        else:
+            rendered_lines = render_markdown_ansi_lines(
+                blocks,
+                width=render_width,
+                mermaid_fallbacks=mermaid_fallbacks,
+                diagram_images=diagram_images,
+            )
+            self._last_content_lines = max(self._last_content_lines, len(rendered_lines))
 
-        lines = render_markdown_ansi(
-            blocks,
-            width=context.region.columns,
-            height=context.region.rows,
-            scroll_offset=scroll_offset,
-            mermaid_fallbacks=mermaid_fallbacks,
-            diagram_images=diagram_images,
-        )
-        if not bool(context.state.get("markdown_auto_follow")):
-            self._last_content_lines = max(self._last_content_lines, len(lines) + scroll_offset)
+        # Track max visible line width (plain chars only, for h-scrollbar)
+        import re as _re
+        _ansi_strip = _re.compile(r'\x1b\[[0-9;]*m')
+        max_w = 0
+        for rl in rendered_lines:
+            max_w = max(max_w, len(_ansi_strip.sub("", rl)))
+        self._last_max_line_width = max(self._last_max_line_width, max_w)
+
+        # Apply vertical scroll and horizontal clip
+        v_start = max(0, scroll_offset)
+        visible_raw = rendered_lines[v_start : v_start + context.region.rows]
+        while len(visible_raw) < context.region.rows:
+            visible_raw.append("")
+
+        # Horizontal clip: skip h_offset visible chars, keep region.columns
+        lines: list[str] = []
+        for raw in visible_raw:
+            lines.append(_h_clip(raw, h_offset=h_offset, width=context.region.columns))
 
         # Build label nodes from ANSI lines
         nodes: list[dict[str, Any]] = [
@@ -215,7 +280,9 @@ class MarkdownMermaidDocumentView:
                 "animated": False,
                 "cache_hint": "state_versioned",
                 "scroll_offset": scroll_offset,
+                "h_offset": h_offset,
                 "content_lines": self._last_content_lines,
+                "max_line_width": self._last_max_line_width,
                 # Mermaid diagnostics (MIMG-003 / MDP-009)
                 "mermaid_blocks_total": mermaid_blocks_total,
                 "mermaid_images_rendered": mermaid_images_rendered,
@@ -303,7 +370,7 @@ class MarkdownMermaidDocumentView:
             "cache_diagnostics": self._mermaid_cache.diagnostics(),
         }
 
-    def scroll_context(self, *, content_lines: int = 0) -> "object":
+    def scroll_context(self, *, content_lines: int = 0, viewport_rows: int = 24) -> "object":
         """Return accurate ScrollContext for shared ScrollManager (MDP-005)."""
         from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
         effective_content = max(content_lines, self._last_content_lines, self._scroll_offset + 1)
@@ -311,13 +378,29 @@ class MarkdownMermaidDocumentView:
             id="center_viewport",
             label="Center Viewport",
             content_height=effective_content,
-            viewport_height=max(1, 24),
+            viewport_height=max(1, viewport_rows),
             offset=self._scroll_offset,
         )
 
+    def h_scroll_context(self, *, viewport_cols: int = 80) -> "object":
+        """Return ScrollContext for horizontal scrolling."""
+        from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
+        content_w = max(self._last_max_line_width, self._h_offset + viewport_cols)
+        return ScrollContext(
+            id="center_viewport_h",
+            label="Center Viewport H",
+            content_height=content_w,
+            viewport_height=max(1, viewport_cols),
+            offset=self._h_offset,
+        )
+
     def apply_scroll_offset(self, offset: int) -> None:
-        """Called by ScrollManager to update this view's scroll position (MDP-005)."""
+        """Called by ScrollManager to update vertical scroll position (MDP-005)."""
         self._scroll_offset = max(0, offset)
+
+    def apply_h_scroll_offset(self, offset: int) -> None:
+        """Called by scroll handlers to update horizontal scroll position."""
+        self._h_offset = max(0, offset)
 
     def _resolve_document_source(self, state: dict[str, Any]) -> DocumentSource:
         src = state.get("document_source")

@@ -709,6 +709,22 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._scroll_active_panel(direction="end")
 
+        @bindings.add(key_for_action("scroll_left", "s-left"))
+        def _(event) -> None:
+            self._h_scroll_center(delta=-4)
+
+        @bindings.add(key_for_action("scroll_right", "s-right"))
+        def _(event) -> None:
+            self._h_scroll_center(delta=4)
+
+        @bindings.add(key_for_action("scroll_left_page", "s-pageup"))
+        def _(event) -> None:
+            self._h_scroll_center(delta=-20)
+
+        @bindings.add(key_for_action("scroll_right_page", "s-pagedown"))
+        def _(event) -> None:
+            self._h_scroll_center(delta=20)
+
         @bindings.add(Keys.Vt100MouseEvent)
         def _(event) -> None:
             data = event.key_sequence[0].data or ""
@@ -797,6 +813,23 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             game = dict(self.state.header_logo_game or self._default_header_snake())
             game[f"scroll_offset_{ctx_id}"] = ctx.offset
             self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _h_scroll_center(self, delta: int) -> None:
+        """Horizontal scroll for the center viewport (Markdown/Mermaid view)."""
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        current = int(game.get("center_h_scroll_offset") or 0)
+        new_offset = max(0, current + delta)
+        game["center_h_scroll_offset"] = new_offset
+        game["visual_viewport_force_render"] = True
+        # Propagate to view instance if available
+        try:
+            runtime = self._ensure_visual_runtime()
+            view = runtime.get_view_instance("markdown_mermaid_document")
+            if view is not None and hasattr(view, "apply_h_scroll_offset"):
+                view.apply_h_scroll_offset(new_offset)
+        except Exception:
+            pass
+        self._set_state(self.state.with_updates(header_logo_game=game))
 
     def _toggle_visual_view_switcher_overlay(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
@@ -1996,6 +2029,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "markdown_stream_plain": bool(game.get("markdown_stream_plain")),
             "markdown_mermaid_config": dict(game.get("markdown_mermaid_config") or {}),
             "scroll_offset": scroll_offset_for_view,
+            "h_scroll_offset": int(game.get("center_h_scroll_offset") or 0),
             "theme_version": "default",
         }
         previous_frame_lines = [
@@ -2006,6 +2040,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         frame_lines: list[str] = list(previous_frame_lines)
         if frame is not None and frame.frame_type == "ansi" and isinstance(frame.payload, list):
             frame_lines = [str(row) for row in frame.payload[:body_height]]
+            # Extract scene metadata from frame for scrollbar rendering
+            if frame.metadata:
+                game["visual_viewport_scene_meta"] = {
+                    k: frame.metadata.get(k)
+                    for k in ("content_lines", "max_line_width", "scroll_offset", "h_offset")
+                    if frame.metadata.get(k) is not None
+                }
         elif frame is not None:
             frame_lines = [f"[{frame.frame_type}] {frame.mime_or_format} {frame.width}x{frame.height}"]
 

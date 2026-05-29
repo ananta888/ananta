@@ -30,6 +30,47 @@ def _check_playwright() -> bool:
         return False
 
 
+_KNOWN_DIAGRAM_TYPES = frozenset({
+    "flowchart", "graph", "sequencediagram", "classdiagram", "statediagram",
+    "erdiagram", "journey", "gantt", "pie", "requirementdiagram",
+    "gitgraph", "mindmap", "timeline", "quadrantchart", "xychart-beta",
+    "sankey-beta", "block-beta", "architecture-beta",
+})
+
+
+def _has_diagram_type(source: str) -> bool:
+    """Return True if the first non-empty line declares a known diagram type."""
+    for line in source.splitlines():
+        stripped = line.strip().lower()
+        if not stripped or stripped.startswith("%%"):
+            continue
+        first_word = stripped.split()[0]
+        return first_word in _KNOWN_DIAGRAM_TYPES
+    return False
+
+
+def _auto_fix_source(source: str) -> str | None:
+    """Try to auto-fix common Mermaid issues. Returns fixed source or None."""
+    if not _has_diagram_type(source):
+        # Missing diagram type — prepend flowchart TD as best guess
+        return "flowchart TD\n" + source
+    # Fix "flowchart direction LR" → "flowchart LR"
+    import re
+    fixed = re.sub(r'^(flowchart)\s+direction\s+', r'\1 ', source, flags=re.MULTILINE | re.IGNORECASE)
+    if fixed != source:
+        return fixed
+    return None
+
+
+def _compact_error(reason: str, max_len: int = 80) -> str:
+    """Extract the first meaningful line of an mmdc error, truncated."""
+    for line in reason.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("at ") and "node_modules" not in stripped:
+            return stripped[:max_len] + ("…" if len(stripped) > max_len else "")
+    return reason[:max_len]
+
+
 class MermaidCliBackend:
     name = "mermaid_cli"
 
@@ -37,25 +78,17 @@ class MermaidCliBackend:
         path = _check_mmdc()
         return (True, "") if path else (False, "mmdc not found in PATH")
 
-    def render(
+    def _run_mmdc(
         self,
         source: str,
+        mmdc: str,
         *,
-        timeout_seconds: float = 15.0,
-        width: int = 1280,
-        height: int = 720,
+        timeout_seconds: float,
+        width: int,
+        height: int,
     ) -> MermaidRenderResult:
+        """Run mmdc for a single source string. Returns result (success or failure)."""
         start = time.perf_counter()
-        mmdc = _check_mmdc()
-        if not mmdc:
-            return MermaidRenderResult(
-                success=False,
-                image_data=None,
-                image_format="",
-                fallback_text=source,
-                reason="mmdc not found in PATH",
-                duration_ms=0.0,
-            )
         with tempfile.TemporaryDirectory() as tmpdir:
             in_file = Path(tmpdir) / "diagram.mmd"
             out_file = Path(tmpdir) / "diagram.svg"
@@ -76,35 +109,58 @@ class MermaidCliBackend:
                         reason="",
                         duration_ms=round(elapsed_ms, 2),
                     )
-                reason = proc.stderr.decode(errors="replace").strip() or "mmdc exited non-zero"
+                raw_err = proc.stderr.decode(errors="replace").strip() or "mmdc exited non-zero"
                 return MermaidRenderResult(
-                    success=False,
-                    image_data=None,
-                    image_format="",
+                    success=False, image_data=None, image_format="",
                     fallback_text=source,
-                    reason=reason,
+                    reason=_compact_error(raw_err),
                     duration_ms=round(elapsed_ms, 2),
                 )
             except subprocess.TimeoutExpired:
                 elapsed_ms = (time.perf_counter() - start) * 1000.0
                 return MermaidRenderResult(
-                    success=False,
-                    image_data=None,
-                    image_format="",
+                    success=False, image_data=None, image_format="",
                     fallback_text=source,
-                    reason=f"timeout after {timeout_seconds}s",
+                    reason=f"timeout nach {timeout_seconds:.0f}s",
                     duration_ms=round(elapsed_ms, 2),
                 )
             except Exception as exc:
                 elapsed_ms = (time.perf_counter() - start) * 1000.0
                 return MermaidRenderResult(
-                    success=False,
-                    image_data=None,
-                    image_format="",
+                    success=False, image_data=None, image_format="",
                     fallback_text=source,
-                    reason=str(exc),
+                    reason=_compact_error(str(exc)),
                     duration_ms=round(elapsed_ms, 2),
                 )
+
+    def render(
+        self,
+        source: str,
+        *,
+        timeout_seconds: float = 15.0,
+        width: int = 1280,
+        height: int = 720,
+    ) -> MermaidRenderResult:
+        start = time.perf_counter()
+        mmdc = _check_mmdc()
+        if not mmdc:
+            return MermaidRenderResult(
+                success=False, image_data=None, image_format="",
+                fallback_text=source, reason="mmdc nicht im PATH", duration_ms=0.0,
+            )
+        # First attempt with original source
+        result = self._run_mmdc(source, mmdc, timeout_seconds=timeout_seconds, width=width, height=height)
+        if result.success:
+            return result
+
+        # Auto-fix: try common corrections (missing diagram type, wrong syntax)
+        fixed = _auto_fix_source(source)
+        if fixed and fixed != source:
+            fixed_result = self._run_mmdc(fixed, mmdc, timeout_seconds=timeout_seconds, width=width, height=height)
+            if fixed_result.success:
+                return fixed_result
+
+        return result
 
 
 class PlaywrightBackend:
