@@ -3587,3 +3587,61 @@ def test_chat_messages_use_participant_colors_and_labels() -> None:
 
     assert "\x1b[38;2;170;255;210malice: Hallo\x1b[0m" in output
     assert "\x1b[38;2;255;205;130mAI-snake: Bereit\x1b[0m" in output
+
+
+def test_nav_click_while_visual_viewport_active_closes_viewport(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="dashboard",
+        focus=FocusPane.NAVIGATION,
+    )
+    tui = InteractiveOperatorTui(state)
+    # Overlay viewport state onto the existing game dict (which has active=True from
+    # _default_header_snake). Setting active=False would switch the renderer to
+    # _load_logo_lines which tries to load an SVG not available in CI.
+    game = dict(tui.state.header_logo_game or {})
+    game["visual_viewport_enabled"] = True
+    game["visual_viewport"] = {"enabled": True}
+    game["visual_viewport_frame_lines"] = ["line1", "line2"]
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    # Click on "Goals" row in nav (body_start=9, title row +1, Goals is index 1 → y=11)
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+
+    result_game = tui.state.header_logo_game or {}
+    assert tui.state.section_id == "goals"
+    assert result_game.get("visual_viewport_enabled") is False
+    assert dict(result_game.get("visual_viewport") or {}).get("enabled") is False
+    # _sync_visual_viewport_state pops frame_lines when disabled — this is intentional
+    assert "visual_viewport_frame_lines" not in result_game
+
+
+def test_keyboard_nav_while_visual_viewport_active_closes_viewport(monkeypatch) -> None:
+    """Regression: Ctrl+J (selection_down) in nav pane must also close the visual viewport."""
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="dashboard",
+        focus=FocusPane.NAVIGATION,
+        selected_index=0,
+    )
+    tui = InteractiveOperatorTui(state)
+    game = dict(tui.state.header_logo_game or {})
+    game["visual_viewport_enabled"] = True
+    game["visual_viewport"] = {"enabled": True}
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    # Simulate Ctrl+J (selection_down) which calls _set_selected_index(1) → Goals
+    tui._set_selected_index(1)
+
+    result_game = tui.state.header_logo_game or {}
+    assert tui.state.section_id == "goals"
+    assert result_game.get("visual_viewport_enabled") is False
+    assert dict(result_game.get("visual_viewport") or {}).get("enabled") is False
