@@ -1,0 +1,446 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-terminal-graphics-plus-ansi-fallback-hardening",
+  "title": "Operator TUI real terminal graphics with robust ANSI fallback",
+  "purpose": "Harden the visual rendering stack so the Operator TUI can show real graphics directly in the terminal when possible, while always retaining a high-quality ANSI/Unicode fallback. This specifically targets Windows 11 + WSL2 + Ubuntu setups where terminal image protocol support may vary between Windows Terminal, WezTerm, Ghostty, Kitty-like terminals and plain ANSI terminals.",
+  "goal": "Make the center VisualViewport choose the best available path at runtime: Kitty graphics, real Sixel, raster PNG frames, SVG rasterization, or ANSI/Unicode fallback. Mermaid diagrams and other image-capable views should render as actual terminal graphics when possible. If not possible, the fallback should still be visually useful with colored ANSI, box drawing and readable source/status output.",
+  "context": {
+    "user_goal": "ANSI-Fallback soll bleiben, aber echte Grafik direkt im Terminal soll so gut wie möglich funktionieren. Der bestehende Code soll abgeglichen und eine TODO geschrieben werden.",
+    "code_findings": [
+      "AnsiOutputAdapter already exists and can draw ANSI/text frames into a bounded ViewportRegion using cursor positioning.",
+      "TerminalVisualCapabilities currently tracks ansi, sixel, kitty_graphics and opengl_offscreen.",
+      "terminal_detector.py already has ImageOutputCapabilities for Mermaid renderer, raster renderer, Kitty support and Sixel support. It detects mmdc, Playwright, Pillow, cairosvg, KITTY_WINDOW_ID/TERM and SIXEL_SUPPORTED env flag.",
+      "fallback_resolver.py already supports prefer_image_mode and prepends image-capable pairs cpu_raster/svg_raster_optional + kitty/sixel when capabilities allow it.",
+      "VisualRuntime currently calls resolve_renderer_adapter_pair without passing prefer_image_mode, so Mermaid/image-capable views may not actually trigger image-preferred selection yet.",
+      "KittyOutputAdapter exists and sends raster frame payloads through Kitty graphics protocol when supported=true.",
+      "SixelOutputAdapter exists but currently emits a base64 'sixel-stub' marker instead of real Sixel encoding.",
+      "CpuRasterRenderer can create image/png raster frames but currently needs further support for embedded diagram/image nodes.",
+      "SvgRasterRenderer can rasterize SVG via cairosvg from scene metadata, but embedded image nodes and multiple diagrams require hardening.",
+      "ANSI fallback path is real but basic; it should be improved for colored/structured diagrams and Markdown fallback."
+    ],
+    "target_modes": [
+      {
+        "id": "kitty_graphics",
+        "description": "Best direct terminal-image path when Kitty protocol is supported by the terminal emulator. Uses raster PNG frames."
+      },
+      {
+        "id": "sixel_real",
+        "description": "Direct image path for Sixel-capable terminals. Requires real Sixel encoding instead of current stub."
+      },
+      {
+        "id": "ansi_rich_fallback",
+        "description": "Always available colored ANSI/Unicode fallback using text, box drawing, block elements and readable Mermaid source/status."
+      },
+      {
+        "id": "external_preview_optional",
+        "description": "Optional debug/manual fallback to write SVG/PNG artifact and open it externally. Not the primary goal, but useful when terminal graphics are unavailable."
+      }
+    ],
+    "recommended_runtime_order": [
+      "1. Detect terminal image capabilities and renderer dependencies.",
+      "2. If current view has image nodes or mermaid_image requirement, call resolver with prefer_image_mode=true.",
+      "3. Prefer cpu_raster+kitty or svg_raster_optional+kitty.",
+      "4. Else prefer cpu_raster+sixel or svg_raster_optional+sixel if real Sixel encoder is available.",
+      "5. Else use ansi_blocks+ansi with rich ANSI/Unicode fallback.",
+      "6. Expose reasons in status/diagnostics so the user knows why graphics are degraded."
+    ],
+    "suggested_paths": {
+      "capabilities": "client_surfaces/operator_tui/visual/capabilities/terminal_detector.py",
+      "capability_models": "client_surfaces/operator_tui/visual/capabilities/models.py",
+      "fallback_resolver": "client_surfaces/operator_tui/visual/runtime/fallback_resolver.py",
+      "visual_runtime": "client_surfaces/operator_tui/visual/runtime/visual_runtime.py",
+      "runtime_config": "client_surfaces/operator_tui/visual/runtime/config.py",
+      "ansi_adapter": "client_surfaces/operator_tui/visual/adapters/ansi_adapter.py",
+      "sixel_adapter": "client_surfaces/operator_tui/visual/adapters/sixel_adapter.py",
+      "kitty_adapter": "client_surfaces/operator_tui/visual/adapters/kitty_adapter.py",
+      "ansi_renderer": "client_surfaces/operator_tui/visual/renderers/ansi_renderer.py",
+      "cpu_raster_renderer": "client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py",
+      "svg_raster_renderer": "client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py",
+      "markdown_view": "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+      "diagnostics_view": "client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py",
+      "smoke_script": "scripts/operator_tui_terminal_graphics_smoke.py",
+      "tests": "tests/client_surfaces/operator_tui/visual/",
+      "docs": "docs/operator-tui/terminal-graphics-plus-ansi-fallback.md"
+    },
+    "non_goals": [
+      "Do not require Kitty/Sixel for the TUI to start.",
+      "Do not remove ANSI fallback.",
+      "Do not claim Sixel works when only stub output exists.",
+      "Do not execute arbitrary external commands from document content.",
+      "Do not rely on OCR or screenshots for tests."
+    ],
+    "security_rules": [
+      "External encoders/renderers must be configured/trusted and timeout-limited.",
+      "Terminal escape output must be restricted to output adapters.",
+      "Views and renderers must not write directly to terminal streams.",
+      "Fallback path must be safe and bounded to the assigned ViewportRegion."
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {"id": "M1", "title": "Capability detection and runtime selection", "status": "todo", "task_ids": ["TGFX-001", "TGFX-002", "TGFX-003", "TGFX-004"]},
+    {"id": "M2", "title": "Real Kitty/Sixel terminal graphics", "status": "todo", "task_ids": ["TGFX-005", "TGFX-006", "TGFX-007", "TGFX-008"]},
+    {"id": "M3", "title": "Rich ANSI/Unicode fallback", "status": "todo", "task_ids": ["TGFX-009", "TGFX-010", "TGFX-011"]},
+    {"id": "M4", "title": "Mermaid/Markdown integration", "status": "todo", "task_ids": ["TGFX-012", "TGFX-013", "TGFX-014"]},
+    {"id": "M5", "title": "Tests, smoke tooling and documentation", "status": "todo", "task_ids": ["TGFX-015", "TGFX-016", "TGFX-017", "TGFX-018", "TGFX-019"]}
+  ],
+  "tasks": [
+    {
+      "id": "TGFX-001",
+      "title": "Document current terminal graphics capability chain",
+      "type": "docs",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "target_files": ["docs/operator-tui/terminal-graphics-plus-ansi-fallback.md"],
+      "description": "Document the current code path from capability detection to fallback resolver, renderer and adapter selection.",
+      "acceptance_criteria": [
+        "Docs include Mermaid diagram showing capability detection -> resolver -> renderer -> adapter -> terminal output.",
+        "Docs explicitly state that Kitty is closer to usable than Sixel because Sixel is currently stubbed.",
+        "Docs explain WSL2/Windows terminal caveats without assuming one terminal emulator.",
+        "Docs list required dependencies for mmdc, Playwright, Pillow, cairosvg, Kitty and Sixel."
+      ]
+    },
+    {
+      "id": "TGFX-002",
+      "title": "Pass prefer_image_mode into fallback resolver from VisualRuntime",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/visual/runtime/visual_runtime.py", "client_surfaces/operator_tui/visual/runtime/fallback_resolver.py"],
+      "description": "Use existing prefer_image_mode resolver support when the active view or current scene needs image output.",
+      "acceptance_criteria": [
+        "VisualRuntime can determine prefer_image_mode from active view requirements, config, or previous scene metadata.",
+        "markdown_mermaid_document with Mermaid image mode triggers prefer_image_mode=true.",
+        "Resolver then prepends cpu_raster/svg_raster_optional + kitty/sixel candidate pairs.",
+        "ANSI fallback remains appended as final safety candidate.",
+        "Tests verify image-capable environments select raster+kitty/sixel before ansi."
+      ]
+    },
+    {
+      "id": "TGFX-003",
+      "title": "Extend terminal capability detection beyond env-only flags",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/visual/capabilities/terminal_detector.py"],
+      "description": "Improve detection/diagnostics for terminal image protocol support while keeping safe manual overrides.",
+      "acceptance_criteria": [
+        "Capability detection reports env-derived signals: TERM, TERM_PROGRAM, COLORTERM, KITTY_WINDOW_ID, WT_SESSION and SIXEL_SUPPORTED.",
+        "Manual overrides exist for forcing kitty/sixel on/off for debugging.",
+        "Windows Terminal/WSL2 sessions produce clear diagnostics rather than a false claim of unsupported graphics when unknown.",
+        "Detection remains non-blocking and does not require active terminal query response unless explicitly enabled.",
+        "Tests cover Kitty, Sixel override, Windows Terminal unknown, and plain ANSI cases."
+      ]
+    },
+    {
+      "id": "TGFX-004",
+      "title": "Expose image-output capability report in diagnostics view and status",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/views/renderer_diagnostics_view.py", "client_surfaces/operator_tui/visual/runtime/visual_runtime.py"],
+      "description": "Make it visible why the TUI selected Kitty, Sixel, or ANSI fallback.",
+      "acceptance_criteria": [
+        "Diagnostics show ansi, kitty_graphics, sixel, mmdc, playwright, pillow and cairosvg status.",
+        "Diagnostics show selected renderer+adapter and skipped candidates with reasons.",
+        "Diagnostics distinguish terminal image protocol missing from Mermaid renderer missing.",
+        "Status is concise in normal UI and detailed in diagnostics view."
+      ]
+    },
+    {
+      "id": "TGFX-005",
+      "title": "Harden KittyOutputAdapter for real center-viewport graphics",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/adapters/kitty_adapter.py"],
+      "description": "Make Kitty output robust for PNG raster frames and viewport redraws.",
+      "acceptance_criteria": [
+        "Adapter draws image/png raster frames at ViewportRegion x/y.",
+        "Adapter records payload size, image id, draw time and region metadata.",
+        "Adapter clears stale images on view switch, resize or explicit clear request.",
+        "Adapter rejects non-PNG/non-raster frames with clear degraded reason.",
+        "Tests verify placement escape, image transfer escape and clear escape."
+      ]
+    },
+    {
+      "id": "TGFX-006",
+      "title": "Replace Sixel stub with real encoder or explicit unsupported state",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "critical",
+      "target_files": ["client_surfaces/operator_tui/visual/adapters/sixel_adapter.py", "tests/client_surfaces/operator_tui/visual/test_visual_adapters.py"],
+      "description": "Stop pretending that Sixel image output works when the adapter only emits the current stub marker.",
+      "acceptance_criteria": [
+        "Successful Sixel draws no longer contain 'sixel-stub'.",
+        "If a real encoder is available, adapter emits valid Sixel DCS output for small PNG/RGBA frames.",
+        "If no encoder is available, adapter returns drawn=false with reason='sixel_encoder_unavailable' or equivalent.",
+        "External encoder path, if used, is configured/trusted and timeout-limited.",
+        "Tests are updated so stub success is not accepted."
+      ]
+    },
+    {
+      "id": "TGFX-007",
+      "title": "Add optional trusted external Sixel encoder support",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/visual/adapters/sixel_adapter.py", "client_surfaces/operator_tui/visual/runtime/config.py"],
+      "description": "Allow real Sixel output through a configured external tool when no pure-Python encoder is present.",
+      "acceptance_criteria": [
+        "Config supports sixel_encoder_mode values disabled, auto, external and internal if implemented.",
+        "Config supports trusted external encoder command/path with timeout and max bytes.",
+        "External encoder never receives shell=True with untrusted document-derived strings.",
+        "Failure returns degraded reason and falls back to ANSI path.",
+        "Tests mock external encoder success/failure without requiring real binary."
+      ]
+    },
+    {
+      "id": "TGFX-008",
+      "title": "Add image-output adapter fallback retry logic",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/runtime/visual_runtime.py"],
+      "description": "If Kitty/Sixel draw fails at runtime, automatically retry with next viable renderer/adapter pair instead of showing nothing.",
+      "acceptance_criteria": [
+        "Failed image adapter draw excludes that pair and selects next fallback.",
+        "Final fallback is ansi_blocks+ansi.",
+        "Runtime records fallback reason in diagnostics.",
+        "Repeated failures do not spin endlessly each frame.",
+        "Tests simulate adapter failure and verify ANSI fallback frame is drawn."
+      ]
+    },
+    {
+      "id": "TGFX-009",
+      "title": "Improve ANSI/Unicode diagram fallback renderer",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/renderers/ansi_renderer.py"],
+      "description": "Make ANSI fallback visually useful for diagrams and structured scenes, not just text placeholders.",
+      "acceptance_criteria": [
+        "ANSI renderer supports box drawing, arrows, labels and simple node/edge diagrams where scene nodes provide graph data.",
+        "Mermaid fallback can optionally show a simplified extracted graph when available, or source code when not.",
+        "Renderer uses color only through safe ANSI sequences and can disable color by config.",
+        "Output remains clipped to ViewportRegion dimensions.",
+        "Snapshot tests cover simple flowchart-like graph."
+      ]
+    },
+    {
+      "id": "TGFX-010",
+      "title": "Improve ANSI fallback for raster/image frames",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/adapters/ansi_adapter.py", "client_surfaces/operator_tui/visual/renderers/ansi_renderer.py"],
+      "description": "When image output cannot be used, show a meaningful fallback panel instead of only '[degraded:raster]'.",
+      "acceptance_criteria": [
+        "ANSI adapter fallback for raster frames displays frame type, size, renderer, scene type and degradation reason.",
+        "If frame metadata contains alt_text or fallback_text, it is displayed.",
+        "Fallback includes concise hint such as 'enable Kitty/Sixel or use ANSI source mode'.",
+        "Fallback is bounded to viewport rows/columns.",
+        "Tests cover raster-frame-to-ANSI fallback."
+      ]
+    },
+    {
+      "id": "TGFX-011",
+      "title": "Add high-contrast ANSI theme for fallback diagrams",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "target_files": ["client_surfaces/operator_tui/visual/renderers/ansi_renderer.py", "client_surfaces/operator_tui/visual/runtime/config.py"],
+      "description": "Make fallback diagrams readable on dark and light terminals through configurable ANSI theme choices.",
+      "acceptance_criteria": [
+        "Config supports ansi_theme values auto, dark, light and no_color.",
+        "Renderer uses theme consistently for headings, errors, graph nodes and fallback text.",
+        "No-color mode produces readable output without escape colors.",
+        "Tests cover no_color mode."
+      ]
+    },
+    {
+      "id": "TGFX-012",
+      "title": "Connect Mermaid image nodes to terminal graphics path",
+      "type": "integration",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/visual/renderers/cpu_raster_renderer.py", "client_surfaces/operator_tui/visual/renderers/svg_raster_renderer.py"],
+      "description": "Ensure Mermaid diagrams become image-capable RenderScene nodes and then raster frames for Kitty/Sixel.",
+      "acceptance_criteria": [
+        "Successful Mermaid SVG/PNG render result creates diagram_image node.",
+        "CpuRasterRenderer can compose PNG/SVG diagram nodes into final PNG frame.",
+        "SvgRasterRenderer can handle embedded SVG diagram nodes or delegate safely.",
+        "ANSI fallback still shows source and reason when image path unavailable.",
+        "Tests prove image node -> raster frame path without real terminal."
+      ]
+    },
+    {
+      "id": "TGFX-013",
+      "title": "Ensure Markdown polished fallback and graphics mode share layout",
+      "type": "integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py", "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py"],
+      "description": "Text and image modes should reserve similar space for Mermaid blocks so scrolling and document layout stay stable.",
+      "acceptance_criteria": [
+        "Mermaid image blocks reserve deterministic rows/height.",
+        "ANSI source fallback appears in equivalent document position.",
+        "Scroll offset works consistently across graphics and ANSI modes.",
+        "Switching between graphics/ANSI mode does not jump to unrelated document region."
+      ]
+    },
+    {
+      "id": "TGFX-014",
+      "title": "Add external preview as optional manual fallback",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": ["scripts/operator_tui_terminal_graphics_smoke.py"],
+      "description": "When terminal graphics are unavailable, allow a manual smoke/debug path to emit/open SVG/PNG while keeping TUI ANSI fallback.",
+      "acceptance_criteria": [
+        "Smoke script can write rendered Mermaid SVG/PNG to a temp/artifacts directory.",
+        "Optional --open-external uses configured safe opener such as wslview, never from document content.",
+        "This path is clearly marked debug/manual, not the default TUI rendering path.",
+        "Script prints where the artifact was written."
+      ]
+    },
+    {
+      "id": "TGFX-015",
+      "title": "Add unit tests for capability detection and resolver selection",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": ["tests/client_surfaces/operator_tui/visual/test_terminal_graphics_capabilities.py", "tests/client_surfaces/operator_tui/visual/test_fallback_resolver_image_mode.py"],
+      "description": "Verify terminal graphics detection and image-mode fallback selection.",
+      "acceptance_criteria": [
+        "Tests cover Kitty env, Sixel override, both unavailable and manual disable.",
+        "Tests cover prefer_image_mode selecting cpu_raster+kitty when available.",
+        "Tests cover Sixel unavailable falling back to ANSI.",
+        "Tests cover diagnostic reasons for skipped candidates."
+      ]
+    },
+    {
+      "id": "TGFX-016",
+      "title": "Add unit tests for real/degraded Sixel behavior",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["tests/client_surfaces/operator_tui/visual/test_visual_adapters.py"],
+      "description": "Make Sixel behavior explicit: real encoder or clear degraded state, never stub success.",
+      "acceptance_criteria": [
+        "Tests fail if output contains 'sixel-stub' as successful draw.",
+        "Tests verify unsupported/degraded result when encoder missing.",
+        "Tests verify real Sixel DCS framing when fake/internal encoder is injected.",
+        "Tests do not require a real Sixel-capable terminal."
+      ]
+    },
+    {
+      "id": "TGFX-017",
+      "title": "Add end-to-end test for Mermaid graphics with ANSI fallback",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": ["tests/client_surfaces/operator_tui/visual/test_mermaid_terminal_graphics_e2e.py"],
+      "description": "Prove the full path works in both image-capable and ANSI-only fake environments.",
+      "acceptance_criteria": [
+        "Fake image-capable environment produces raster frame and image adapter draw attempt.",
+        "ANSI-only environment produces readable fallback with Mermaid source/reason.",
+        "Test uses fake Mermaid renderer result, not real mmdc/Playwright.",
+        "Frame metadata indicates whether Mermaid was visible image or fallback."
+      ]
+    },
+    {
+      "id": "TGFX-018",
+      "title": "Add terminal graphics smoke command",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": ["scripts/operator_tui_terminal_graphics_smoke.py"],
+      "description": "Provide a manual script to test ANSI, Kitty and Sixel output from WSL2/Windows terminals.",
+      "acceptance_criteria": [
+        "Script prints detected terminal/image capabilities.",
+        "Script can render a sample colored ANSI diagram.",
+        "Script can render a sample PNG through Kitty path when supported/forced.",
+        "Script can attempt Sixel and clearly report real output vs encoder unavailable.",
+        "Script includes --require-image to fail when only ANSI fallback is possible."
+      ]
+    },
+    {
+      "id": "TGFX-019",
+      "title": "Document WSL2/Windows terminal recommendations and troubleshooting",
+      "type": "docs",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": ["docs/operator-tui/terminal-graphics-plus-ansi-fallback.md"],
+      "description": "Give practical instructions for getting the best graphics possible under Windows 11 + WSL2 + Ubuntu.",
+      "acceptance_criteria": [
+        "Docs explain recommended path: ANSI always, Kitty/WezTerm/Ghostty-like graphics when supported, Sixel when real encoder and terminal support exist.",
+        "Docs explain how to force/test SIXEL_SUPPORTED and Kitty detection safely.",
+        "Docs explain why Windows Terminal/WSL2 may still fall back to ANSI depending on protocol support.",
+        "Docs include troubleshooting for blank images, stub Sixel, unsupported protocol, missing Pillow/cairosvg and missing mmdc/playwright.",
+        "Docs include sample commands for the smoke script."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["TGFX-001", "TGFX-002", "TGFX-003", "TGFX-005", "TGFX-006", "TGFX-008", "TGFX-009", "TGFX-010", "TGFX-012", "TGFX-015", "TGFX-016", "TGFX-017", "TGFX-018"],
+  "tasks_status_summary": {
+    "total": 19,
+    "by_status": {"todo": 19, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"critical": 11, "high": 6, "medium": 2, "low": 0},
+    "by_risk": {"low": 4, "medium": 10, "high": 4, "critical": 1},
+    "critical_path": {"total": 13, "done": 0, "remaining": 13},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 19,
+    "by_type": {
+      "docs": {"total": 2, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 2, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "implementation": {"total": 11, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 11, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "integration": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "test": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+    }
+  },
+  "progress_summary": {"state": "ready_for_implementation", "todo_remaining": 19, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "summary_notes": [
+    "The project already has real structure for ANSI, Kitty, Sixel, capability detection and image-mode fallback selection.",
+    "The main runtime gap is that VisualRuntime does not yet consistently request prefer_image_mode for image-capable views.",
+    "Kitty path is close because it can send raster frames; Sixel path is not real yet because it emits a stub marker.",
+    "ANSI fallback should be improved, not treated as a failure path; it is the stable universal baseline."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "expected_result",
+      "title": "Expected result after completion",
+      "items": [
+        "The center VisualViewport displays real terminal graphics through Kitty when available.",
+        "Sixel either displays real encoded images or clearly reports degraded unsupported state instead of fake stub success.",
+        "ANSI/Unicode fallback remains always available and becomes visually useful for diagrams and Markdown.",
+        "Mermaid diagrams choose image mode automatically when renderer, raster and terminal protocol support exist.",
+        "WSL2/Windows users get clear diagnostics and a smoke script to verify what their terminal can actually show."
+      ]
+    }
+  ]
+}
