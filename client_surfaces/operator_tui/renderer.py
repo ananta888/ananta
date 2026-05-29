@@ -2158,7 +2158,10 @@ def _overlay_fullscreen_snake(
             repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
             out[y] = _overlay_at_visible_col(out[y], x, repl)
 
-        message = _display_message_for_snake(str(snapshot.get("message") or ""))
+        message_effect_enabled = bool(game.get("snake_message_effect_enabled")) or (
+            os.environ.get("ANANTA_TUI_SNAKE_MESSAGE_EFFECT", "").strip().lower() in {"1", "true", "yes", "on"}
+        )
+        message = _display_message_for_snake(str(snapshot.get("message") or "")) if message_effect_enabled else ""
         style = str(snapshot.get("message_style") or "trail")
         trail = snapshot.get("trail_path") if isinstance(snapshot.get("trail_path"), list) else []
         if message and trail:

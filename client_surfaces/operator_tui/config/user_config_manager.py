@@ -167,6 +167,26 @@ def _validated(settings: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    """Extract persistable settings, including list-backed input histories."""
+    out: dict[str, Any] = {}
+    for key in _SCHEMA_KEYS:
+        value = settings.get(key)
+        if isinstance(value, (str, int, float, bool)):
+            out[key] = value
+        elif isinstance(value, list) and key in _LIST_SCHEMA_KEYS:
+            out[key] = [str(item) for item in value if isinstance(item, (str, int, float)) and str(item).strip()]
+
+    chat = settings.get("chat_state")
+    if isinstance(chat, dict):
+        history = chat.get("chat_input_history")
+        if isinstance(history, list):
+            out["chat_input_history"] = [
+                str(item) for item in history if isinstance(item, (str, int, float)) and str(item).strip()
+            ]
+    return out
+
+
 class UserConfigManager:
     """Read/write AI-Snake config with per-user and per-project files."""
 
@@ -191,32 +211,25 @@ class UserConfigManager:
     def save(self, settings: dict[str, Any]) -> bool:
         """Write settings immediately to the project file."""
         current = dict(self._cache) if self._cache else self.load()
-        current.update({k: v for k, v in settings.items() if k in _SCHEMA_KEYS})
+        current.update(_extract_settings(settings))
         self._cache = current
         self._dirty = False
         return _write_atomic(self._project_path, current)
 
     def save_from_game(self, game: dict[str, Any]) -> bool:
         """Extract all persistent keys from game state and write project file."""
-        settings: dict[str, Any] = {}
-        for key in _SCHEMA_KEYS:
-            value = game.get(key)
-            if isinstance(value, (str, int, float, bool)):
-                settings[key] = value
-        return self.save(settings)
+        return self.save(_extract_settings(game))
 
     def flush(self, game: dict[str, Any]) -> tuple[bool, bool]:
         """Flush all config from game state to both project and global files.
 
         Returns (project_ok, global_ok).
         """
-        settings: dict[str, Any] = {}
-        for key in _SCHEMA_KEYS:
-            value = game.get(key)
-            if isinstance(value, (str, int, float, bool)):
-                settings[key] = value
+        settings = dict(self._cache) if self._cache else self.load()
+        settings.update(_extract_settings(game))
         project_ok = _write_atomic(self._project_path, settings)
         global_ok = _write_atomic(self._global_path, settings)
+        self._cache = settings
         self._dirty = False
         return project_ok, global_ok
 

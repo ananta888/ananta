@@ -1313,6 +1313,7 @@ def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> No
         "trail_path": [(1, 0), (0, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0)],
         "message": "ABCDE",
         "message_style": "trail",
+        "snake_message_effect_enabled": True,
         "trail_window": 3,
         "trail_speed": 1.0,
     }
@@ -1337,6 +1338,7 @@ def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
         "trail_path": [(1, 0), (0, 0)],  # no extra movement trail
         "message": "HELLO",
         "message_style": "trail",
+        "snake_message_effect_enabled": True,
         "trail_window": 5,
         "trail_speed": 1.0,
     }
@@ -1359,6 +1361,7 @@ def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None
         "trail_path": [(1, 0), (0, 0), (2, 0), (3, 0), (4, 0), (5, 0)],
         "message": "A\nB",
         "message_style": "trail",
+        "snake_message_effect_enabled": True,
         "trail_window": 4,
         "trail_speed": 1.0,
     }
@@ -1368,6 +1371,25 @@ def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[0])
 
     assert "⏎" in plain
+
+
+def test_snake_message_effect_is_disabled_by_default(monkeypatch) -> None:
+    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    lines = [" " * 40] * 20
+    game = {
+        "active": True,
+        "free_mode": True,
+        "snake": [(1, 0), (0, 0)],
+        "trail_path": [(1, 0), (0, 0), (2, 0), (3, 0)],
+        "message": "SHOULD_NOT_RENDER",
+        "message_style": "ticker",
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    out = _overlay_fullscreen_snake(lines, state, width=40)
+    plain = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", row) for row in out)
+
+    assert "SHOULD_NOT_RENDER" not in plain
 
 
 def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatch) -> None:
@@ -2512,9 +2534,11 @@ def test_chat_model_option_label_marks_loaded_status() -> None:
 
 
 def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkeypatch) -> None:
+    import client_surfaces.operator_tui.config.user_config_manager as ucm
     import client_surfaces.operator_tui.snake_persistence as sp
 
     monkeypatch.setattr(sp, "_config_dir", lambda: tmp_path / "ananta")
+    monkeypatch.setattr(ucm, "load_user_config", lambda: {})
     save_tui_chat_settings({"chat_backend": "lmstudio", "chat_context_chars": 5000}, cwd=Path.cwd())
     tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
 
@@ -2522,6 +2546,28 @@ def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkey
 
     assert game.get("chat_backend") == "lmstudio"
     assert game.get("chat_context_chars") == 5000
+
+
+def test_default_header_snake_loads_persisted_chat_input_history(monkeypatch) -> None:
+    import client_surfaces.operator_tui.config.user_config_manager as ucm
+    import client_surfaces.operator_tui.header_snake_mixin as hsm
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    monkeypatch.setattr(hsm, "load_tui_chat_settings", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        ucm,
+        "load_user_config",
+        lambda: {
+            "input_history_chat_enabled": True,
+            "input_history_max_entries": 100,
+            "chat_input_history": ["alte frage", "neuere frage"],
+        },
+    )
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    chat = get_chat_state(tui._default_header_snake())
+
+    assert chat["chat_input_history"] == ["alte frage", "neuere frage"]
 
 
 def test_default_header_snake_starts_in_snake_chat_mode(monkeypatch) -> None:
