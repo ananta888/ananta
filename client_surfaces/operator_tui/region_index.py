@@ -7,6 +7,7 @@ from client_surfaces.operator_tui.chat_long_message import long_message_history_
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.tab_manager import tab_positions_for_render
 
 
 @dataclass(frozen=True)
@@ -47,7 +48,7 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
     left_width = 22
     detail_width = 34
     middle_width = max(12, w - left_width - detail_width - 6)
-    body_start = 9
+    body_start = 10 if len(state.open_tabs) >= 2 else 9
     body_height = max(3, h - 5 - body_start)
     nav_x1, nav_x2 = 0, left_width - 1
     content_x1, content_x2 = left_width + 2, left_width + 1 + middle_width
@@ -211,5 +212,36 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                     ),
                 )
             )
+
+    if len(state.open_tabs) >= 2:
+        tab_y = body_start - 1
+        tab_pos_list = tab_positions_for_render(state, width=w, y=tab_y)
+        for tp in tab_pos_list:
+            if tp.label_x1 <= tp.label_x2:
+                regions.append(RegionRect(
+                    x1=tp.label_x1, y1=tab_y, x2=tp.label_x2, y2=tab_y,
+                    target=RegionTarget(kind="tab", section_id=section.id, pane="tab",
+                                       label=tp.tab_id, payload={"tab_id": tp.tab_id}),
+                ))
+            regions.append(RegionRect(
+                x1=tp.close_x, y1=tab_y, x2=tp.close_x, y2=tab_y,
+                target=RegionTarget(kind="tab_close", section_id=section.id, pane="tab",
+                                    label=tp.tab_id, payload={"tab_id": tp.tab_id}),
+            ))
+        # Overflow scroll arrows at fixed positions
+        if state.tab_scroll_offset > 0:
+            regions.append(RegionRect(
+                x1=0, y1=tab_y, x2=1, y2=tab_y,
+                target=RegionTarget(kind="tab_scroll_left", section_id=section.id, pane="tab",
+                                    label="scroll_left", payload={}),
+            ))
+        offset = state.tab_scroll_offset
+        if offset + len(tab_pos_list) < len(state.open_tabs):
+            arrow_x = max(2, (tab_pos_list[-1].close_x + 2) if tab_pos_list else 2)
+            regions.append(RegionRect(
+                x1=arrow_x, y1=tab_y, x2=min(w - 1, arrow_x + 1), y2=tab_y,
+                target=RegionTarget(kind="tab_scroll_right", section_id=section.id, pane="tab",
+                                    label="scroll_right", payload={}),
+            ))
 
     return RegionIndex(regions)

@@ -21,7 +21,7 @@ from client_surfaces.operator_tui.chat_long_message import (
     should_use_middle_view_for_message,
 )
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
-from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
@@ -80,6 +80,10 @@ def render_operator_shell(
         lines.append(rule_line)
 
     body_height = height - 5 - body_offset
+    if len(state.open_tabs) >= 2:
+        tab_line = _tab_bar_line(state, width)
+        lines.append(tab_line)
+        body_height -= 1
     body_height = max(3, body_height)
     nav_lines = _navigation_lines(state)
     content_lines = _content_lines(state, middle_width)
@@ -1976,6 +1980,52 @@ def _command_line(state: OperatorState, width: int) -> str:
     return _clip(f":{visible}{hist_sfx}", width)
 
 
+def _tab_bar_line(state: OperatorState, width: int) -> str:
+    """Render the tab bar as a single line. Active tab is shown inverted."""
+    tabs = state.open_tabs
+    if len(tabs) < 2:
+        return ""
+
+    offset = max(0, state.tab_scroll_offset)
+    visible = tabs[offset:]
+    overflow_left = offset > 0
+
+    parts: list[str] = []
+    used_width = 2 if overflow_left else 0  # '‹ '
+
+    overflow_right = False
+    visible_count = 0
+    for tab in visible:
+        seg_plain = f" {tab.label} × "
+        sep_w = 1 if visible_count > 0 else 0
+        if used_width + sep_w + len(seg_plain) + 2 > width:  # +2 reserve for '›'
+            overflow_right = True
+            break
+        used_width += sep_w + len(seg_plain)
+        visible_count += 1
+
+    result = ""
+    if overflow_left:
+        result += "\x1b[2m‹\x1b[0m "
+
+    for i, tab in enumerate(visible[:visible_count]):
+        if i > 0:
+            result += "│"
+        seg = f" {tab.label} × "
+        if tab.id == state.active_tab_id:
+            result += f"\x1b[7m{seg}\x1b[0m"
+        else:
+            result += seg
+
+    if overflow_right:
+        result += " \x1b[2m›\x1b[0m"
+
+    plain_len = len(_ANSI_STRIP.sub("", result))
+    if plain_len < width:
+        result += " " * (width - plain_len)
+    return result
+
+
 def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
@@ -2025,6 +2075,12 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot  "
                 "[:config]"
             )
+    if len(state.open_tabs) >= 2 and state.mode is OperatorMode.NORMAL:
+        tab_hints = (
+            f"[{display_for_action('tab_close', 'Ctrl+W')}] Tab×  "
+            f"[{display_for_action('tab_next', 'Ctrl+Tab')}] Tab→  "
+        )
+        hints = tab_hints + hints
     return _clip(hints, width)
 
 

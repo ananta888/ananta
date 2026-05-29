@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 
 class OperatorMode(str, Enum):
@@ -32,6 +32,15 @@ class ActionRisk(str, Enum):
     LOW = "low"
     HIGH = "high"
     DESTRUCTIVE = "destructive"
+
+
+@dataclass(frozen=True)
+class TuiTab:
+    id: str
+    kind: Literal["section", "chat_viewport"]
+    section_id: str
+    label: str
+    viewport_state: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +82,9 @@ class OperatorState:
     browser_fallback_url: str = ""
     terminal_graphics: dict[str, Any] | None = None
     header_logo_game: dict[str, Any] | None = None
+    open_tabs: tuple[TuiTab, ...] = ()
+    active_tab_id: str = ""
+    tab_scroll_offset: int = 0
 
     def with_updates(self, **updates: object) -> "OperatorState":
         return replace(self, **updates)
