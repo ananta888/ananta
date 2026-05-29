@@ -360,7 +360,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                     self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(1, game)))
                 return
             def _j():
-                self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+                self._set_selected_index(self._clamp_down())
             self._normal_or_text("j", _j)
 
         @bindings.add(key_for_action("selection_up", "c-k"))
@@ -372,7 +372,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 else:
                     self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(-1, game)))
                 return
-            self._normal_or_text("k", lambda: self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1))))
+            self._normal_or_text("k", lambda: self._set_selected_index(max(0, self.state.selected_index - 1)))
 
         @bindings.add(key_for_action("inspect", "c-f"))
         def _(event) -> None:
@@ -615,7 +615,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._try_header_snake_direction((1, 0)):
                 return
-            self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+            self._set_selected_index(self._clamp_down())
 
         @bindings.add("up")
         def _(event) -> None:
@@ -637,7 +637,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._try_header_snake_direction((0, -1)):
                 return
-            self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+            self._set_selected_index(max(0, self.state.selected_index - 1))
 
         @bindings.add("down")
         def _(event) -> None:
@@ -659,7 +659,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._try_header_snake_direction((0, 1)):
                 return
-            self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+            self._set_selected_index(self._clamp_down())
 
         @bindings.add(key_for_action("next_section", "c-n"))
         def _(event) -> None:

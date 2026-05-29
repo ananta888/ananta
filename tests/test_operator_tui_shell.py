@@ -2999,7 +2999,7 @@ def test_enter_on_navigation_history_opens_cached_original_output() -> None:
 def test_mouse_click_on_navigation_history_opens_cached_original_output(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
-        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+        lambda fallback=(120, 32): os.terminal_size((180, 33)),
     )
     game = {
         "active": False,
@@ -3047,6 +3047,61 @@ def test_mouse_click_sets_focus_for_visible_panes(monkeypatch) -> None:
 
     tui._ingest_mouse_event(x=2, y=10, event_type="down", buttons=1, now=4.0)
     assert tui.state.focus is FocusPane.NAVIGATION
+
+
+def test_mouse_click_on_nav_section_loads_section_content(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    tui = InteractiveOperatorTui(state)
+
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+
+    assert tui.state.section_id == "goals"
+    assert tui.state.focus is FocusPane.NAVIGATION
+    assert tui.state.selected_index == 1
+    rendered = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", render_operator_shell(tui.state, width=120, height=32))
+    assert "GOALS" in rendered
+    assert "no goals" in rendered or "Goals" in rendered
+
+
+def test_mouse_click_on_visible_footer_shortcut_executes_action(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    tui = InteractiveOperatorTui(state)
+    rendered = tui._render()
+    tui._rendered_text = rendered
+    lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in rendered.splitlines()]
+    y, line = next((idx, row) for idx, row in enumerate(lines) if "Ctrl+J" in row)
+    x = line.index("Ctrl+J") + 1
+
+    tui._ingest_mouse_event(x=x, y=y, event_type="down", buttons=1, now=1.0)
+
+    assert tui.state.selected_index == 1
+    assert tui.state.section_id == "goals"
+
+
+def test_mouse_click_on_visible_refresh_shortcut_executes_action(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((180, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    tui = InteractiveOperatorTui(state)
+    rendered = tui._render()
+    tui._rendered_text = rendered
+    lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in rendered.splitlines()]
+    y, line = next((idx, row) for idx, row in enumerate(lines) if "Ctrl+R" in row)
+    x = line.index("Ctrl+R") + 1
+
+    tui._ingest_mouse_event(x=x, y=y, event_type="down", buttons=1, now=1.0)
+
+    assert tui.state.refresh_count == 1
 
 
 def test_enter_command_mode_from_anywhere_closes_chat_artifact_and_config() -> None:

@@ -205,10 +205,10 @@ class MouseArtifactMixin:
                 self._move_focus(1)
             return
         if action == "selection_down":
-            self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
+            self._set_selected_index(self._clamp_down())
             return
         if action == "selection_up":
-            self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+            self._set_selected_index(max(0, self.state.selected_index - 1))
             return
         if action == "refresh":
             game = dict(self.state.header_logo_game or {})
@@ -794,6 +794,28 @@ class MouseArtifactMixin:
             from client_surfaces.operator_tui.header_config import CONFIG_ITEMS
             return min(cur + 1, len(CONFIG_ITEMS) - 1)
         return cur + 1
+
+    def _set_selected_index(self, index: int) -> None:
+        new_index = max(0, int(index))
+        next_state = self.state.with_updates(selected_index=new_index)
+        if self.state.focus is FocusPane.NAVIGATION:
+            if 0 <= new_index < len(SECTIONS):
+                section = SECTIONS[new_index]
+                next_state = next_state.with_updates(section_id=section.id)
+                if section.id != self.state.section_id:
+                    next_state = load_active_section(next_state, self._registry)
+            else:
+                game = dict(self.state.header_logo_game or self._default_header_snake())
+                rows = long_message_history_rows(game)
+                history_idx = new_index - len(SECTIONS)
+                if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
+                    next_state = next_state.with_updates(
+                        header_logo_game=game,
+                        focus=FocusPane.CONTENT,
+                        selected_index=0,
+                        status_message="Chat-History: Originalausgabe",
+                    )
+        self._set_state(next_state)
 
     def _move_focus(self, delta: int) -> None:
         panes = (FocusPane.HEADER, FocusPane.NAVIGATION, FocusPane.CONTENT, FocusPane.DETAIL)
