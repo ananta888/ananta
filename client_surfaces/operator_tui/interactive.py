@@ -318,6 +318,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("c-h")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._template_editor_active():
+                self._template_editor_backspace()
+                return
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_backspace()
                 return
@@ -339,6 +342,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("delete")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._template_editor_active():
+                self._template_editor_delete()
+                return
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_delete()
                 return
@@ -383,6 +389,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add(key_for_action("inspect", "c-f"))
         def _(event) -> None:
             def _e():
+                if self.state.section_id == "templates" and self.state.focus is FocusPane.CONTENT:
+                    if self._open_template_editor_for_selected():
+                        return
                 if self._open_selected_item_inline():
                     return
                 section = get_section(self.state.section_id)
@@ -460,6 +469,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("toggle_snake_mode", "c-s"))
         def _(event) -> None:
+            if self._template_editor_active():
+                self._template_editor_save()
+                return
             self._exit_command_mode_for_global_shortcut()
             self._toggle_snake_mode()
 
@@ -603,6 +615,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("left")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._template_editor_active():
+                self._template_editor_move_cursor(-1)
+                return
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_move_cursor(-1)
                 return
@@ -622,6 +637,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("right")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._template_editor_active():
+                self._template_editor_move_cursor(1)
+                return
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_move_cursor(1)
                 return
@@ -641,6 +659,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("up")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._template_editor_active():
+                self._template_editor_move_cursor_vertical(-1)
+                return
             if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
                 if self._ai_snake_config_combo_active(game):
                     self._ai_snake_config_combo_move(-1)
@@ -663,6 +684,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("down")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._template_editor_active():
+                self._template_editor_move_cursor_vertical(1)
+                return
             if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
                 if self._ai_snake_config_combo_active(game):
                     self._ai_snake_config_combo_move(1)
@@ -689,6 +713,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("<any>")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._template_editor_active():
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._template_editor_insert_text(data)
+                return
             if self._ai_snake_config_combo_active(game):
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
@@ -1514,8 +1543,207 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return
         normal_action()
 
+    def _template_editor_active(self) -> bool:
+        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        editor = dict(game.get("template_editor") or {})
+        return bool(editor.get("active")) and self.state.section_id == "templates"
+
+    def _selected_template_entry(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]] | None:
+        if self.state.section_id != "templates":
+            return None
+        payload = dict((self.state.section_payloads or {}).get("templates") or {})
+        items = payload.get("items")
+        if not isinstance(items, list) or not items:
+            return None
+        idx = max(0, min(len(items) - 1, int(self.state.selected_index)))
+        item = items[idx]
+        if not isinstance(item, dict):
+            return None
+        kind = str(item.get("kind") or "")
+        if kind not in {"template", "system_prompt"}:
+            return None
+        raw_id = str(item.get("raw_id") or "")
+        raw_list = payload.get("templates_raw")
+        if not isinstance(raw_list, list):
+            return None
+        raw = next((entry for entry in raw_list if isinstance(entry, dict) and str(entry.get("id") or "") == raw_id), {})
+        if not isinstance(raw, dict):
+            return None
+        return payload, item, raw
+
+    def _open_template_editor_for_selected(self) -> bool:
+        selected = self._selected_template_entry()
+        if selected is None:
+            return False
+        _, item, raw = selected
+        text = str(raw.get("prompt_template") or item.get("prompt_preview") or "")
+        game = dict(self.state.header_logo_game or {})
+        game["template_editor"] = {
+            "active": True,
+            "template_id": str(raw.get("id") or item.get("raw_id") or ""),
+            "kind": str(item.get("kind") or "template"),
+            "title": str(item.get("title") or ""),
+            "text": text,
+            "cursor": len(text),
+            "dirty": False,
+        }
+        self._set_state(
+            self.state.with_updates(
+                mode=OperatorMode.EDIT,
+                focus=FocusPane.CONTENT,
+                header_logo_game=game,
+                markdown_source="",
+                status_message=f"template editor: {str(item.get('title') or '')}",
+            )
+        )
+        return True
+
+    def _template_editor_insert_text(self, text: str) -> None:
+        if not text:
+            return
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        if not bool(editor.get("active")):
+            return
+        source = str(editor.get("text") or "")
+        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
+        editor["text"] = source[:cursor] + text + source[cursor:]
+        editor["cursor"] = cursor + len(text)
+        editor["dirty"] = True
+        game["template_editor"] = editor
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _template_editor_backspace(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        if not bool(editor.get("active")):
+            return
+        source = str(editor.get("text") or "")
+        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
+        if cursor <= 0:
+            return
+        editor["text"] = source[: cursor - 1] + source[cursor:]
+        editor["cursor"] = cursor - 1
+        editor["dirty"] = True
+        game["template_editor"] = editor
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _template_editor_delete(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        if not bool(editor.get("active")):
+            return
+        source = str(editor.get("text") or "")
+        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
+        if cursor >= len(source):
+            return
+        editor["text"] = source[:cursor] + source[cursor + 1 :]
+        editor["cursor"] = cursor
+        editor["dirty"] = True
+        game["template_editor"] = editor
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _template_editor_move_cursor(self, delta: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        if not bool(editor.get("active")):
+            return
+        source = str(editor.get("text") or "")
+        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
+        editor["cursor"] = max(0, min(len(source), cursor + int(delta)))
+        game["template_editor"] = editor
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _template_editor_move_cursor_vertical(self, direction: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        if not bool(editor.get("active")):
+            return
+        source = str(editor.get("text") or "")
+        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
+        before = source[:cursor]
+        line_index = before.count("\n")
+        col = len(before.rsplit("\n", 1)[-1])
+        lines = source.splitlines() or [""]
+        target_line = max(0, min(len(lines) - 1, line_index + int(direction)))
+        target_col = min(col, len(lines[target_line]))
+        new_cursor = 0
+        for idx in range(target_line):
+            new_cursor += len(lines[idx]) + 1
+        new_cursor += target_col
+        editor["cursor"] = max(0, min(len(source), new_cursor))
+        game["template_editor"] = editor
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _template_editor_save(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        editor = dict(game.get("template_editor") or {})
+        template_id = str(editor.get("template_id") or "").strip()
+        if not template_id:
+            self._set_state(self.state.with_updates(status_message="template editor: template_id fehlt"))
+            return
+        token = str(os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or "").strip()
+        if not token:
+            self._set_state(self.state.with_updates(status_message="template editor: auth token fehlt"))
+            return
+        endpoint = f"{str(self.state.endpoint).rstrip('/')}/templates/{template_id}"
+        request_data = json.dumps({"prompt_template": str(editor.get("text") or "")}).encode("utf-8")
+        req = urllib.request.Request(endpoint, data=request_data, method="PATCH")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=8.0) as response:
+                body = response.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as exc:
+            self._set_state(self.state.with_updates(status_message=f"template save failed: HTTP {exc.code}"))
+            return
+        except urllib.error.URLError as exc:
+            self._set_state(self.state.with_updates(status_message=f"template save failed: {exc.reason}"))
+            return
+        try:
+            payload = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            payload = {}
+
+        section_payloads = dict(self.state.section_payloads or {})
+        templates_payload = dict(section_payloads.get("templates") or {})
+        templates_raw = [
+            dict(item) if isinstance(item, dict) else item
+            for item in list(templates_payload.get("templates_raw") or [])
+        ]
+        for entry in templates_raw:
+            if isinstance(entry, dict) and str(entry.get("id") or "") == template_id:
+                entry["prompt_template"] = str(editor.get("text") or "")
+        items = [
+            dict(item) if isinstance(item, dict) else item
+            for item in list(templates_payload.get("items") or [])
+        ]
+        for item in items:
+            if isinstance(item, dict) and str(item.get("raw_id") or "") == template_id:
+                item["prompt_preview"] = str(editor.get("text") or "")[:120].replace("\n", " ")
+        templates_payload["templates_raw"] = templates_raw
+        templates_payload["items"] = items
+        section_payloads["templates"] = templates_payload
+        editor["dirty"] = False
+        game["template_editor"] = editor
+        data = payload.get("data") if isinstance(payload, dict) else None
+        warnings = ""
+        if isinstance(data, dict) and data.get("warnings"):
+            warnings = " (mit Warnungen)"
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                section_payloads=section_payloads,
+                status_message=f"template gespeichert{warnings}",
+            )
+        )
+
     def _handle_enter_key(self) -> None:
         game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        if self._template_editor_active():
+            self._template_editor_insert_text("\n")
+            return
         if bool(game.get("ai_snake_config_open")):
             if self.state.focus is not FocusPane.CONTENT:
                 self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))
@@ -1528,6 +1756,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if self._snake_message_mode_active():
             self._snake_commit_message()
             return
+        if self.state.focus is FocusPane.CONTENT and self.state.section_id == "templates":
+            if self._open_template_editor_for_selected():
+                return
         if self._artifact_chat_focus_active():
             self._artifact_chat_send_message()
             return
@@ -2013,6 +2244,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake mouse-follow: {status}"))
 
     def _escape_to_start_state(self) -> None:
+        if self._template_editor_active():
+            game = dict(self.state.header_logo_game or {})
+            game["template_editor"] = {"active": False}
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    focus=FocusPane.CONTENT,
+                    status_message="template editor: geschlossen",
+                )
+            )
+            return
         game = dict(self.state.header_logo_game or self._default_header_snake())
         from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
 

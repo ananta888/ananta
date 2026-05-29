@@ -3866,6 +3866,9 @@ def test_templates_content_renders_groups() -> None:
     assert "1 blueprints" in joined
     assert "prod-team" in joined
     assert "agent_sys" in joined
+    assert "Tree:" in joined
+    assert "├─ Blueprints" in joined
+    assert "└─ Prompt-Templates" in joined
     assert "Blueprints" in joined
     assert "Prompt-Templates" in joined
 
@@ -3926,3 +3929,44 @@ def test_templates_inspect_template() -> None:
     joined = "\n".join(detail)
     assert "worker_v2" in joined
     assert "{{ task }}" in joined
+
+
+def test_templates_enter_opens_middle_editor() -> None:
+    payload = {
+        "items": [
+            {"id": "tpl:a", "kind": "template", "title": "worker_v2", "prompt_preview": "Du bearbeitest...", "raw_id": "a"},
+        ],
+        "blueprints_count": 0,
+        "templates_count": 1,
+        "system_prompts_count": 0,
+        "blueprints_raw": [],
+        "templates_raw": [
+            {
+                "id": "a",
+                "name": "worker_v2",
+                "description": "Worker-Prompt",
+                "prompt_template": "Du bearbeitest die Aufgabe: {{ task }}",
+            }
+        ],
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "templates":
+            return SectionLoadResult(
+                section_id="templates",
+                state=PanelState.HEALTHY,
+                payload=payload,
+                message="loaded templates",
+            )
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=110, height=36)
+
+    assert tui.state.mode is OperatorMode.EDIT
+    assert "template editor" in tui.state.status_message
+    assert "Template Editor" in output
+    assert "{{ task }}" in output
