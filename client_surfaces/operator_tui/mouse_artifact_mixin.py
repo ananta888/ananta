@@ -81,6 +81,16 @@ class MouseArtifactMixin:
         else:
             game["mouse_target"] = None
 
+        scrollbar_handled = self._handle_visual_viewport_scrollbar_mouse(
+            game,
+            x=self._mouse_state.x,
+            y=self._mouse_state.y,
+            width=width,
+            height=height,
+            event_type=event_type,
+            buttons=buttons,
+        )
+
         intent = self._intent_detector.evaluate(
             now=ts,
             mouse=self._mouse_state,
@@ -105,7 +115,7 @@ class MouseArtifactMixin:
 
         # Left-click: select item + AI snake jumps there + open chat + trigger explanation.
         # Drag is handled as visual multi-select and does not repeatedly open targets.
-        if not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
+        if not scrollbar_handled and not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
             self._handle_left_click(game, target=target, now=ts, width=width, height=height)
 
         status = str(game.pop("_copy_status_message", "") or f"mouse {self._mouse_state.x},{self._mouse_state.y}")
@@ -218,8 +228,74 @@ class MouseArtifactMixin:
                     else:
                         ctx.scroll_line_down(delta * 2)
                     game[f"scroll_offset_{ctx_id}"] = ctx.offset
+                    if ctx_id == "center_viewport":
+                        game["visual_viewport_force_render"] = True
         except Exception:
             pass
+
+    def _handle_visual_viewport_scrollbar_mouse(
+        self,
+        game: dict[str, object],
+        *,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        event_type: str,
+        buttons: int,
+    ) -> bool:
+        """Handle clicks/drags on the visual viewport scrollbars."""
+        if not bool(game.get("visual_viewport_enabled")):
+            return False
+        if event_type not in {"down", "move"} or buttons not in {0, 1}:
+            return False
+
+        left_width = 22
+        detail_width = 34
+        middle_width = max(18, int(width) - left_width - detail_width - 6)
+        body_height = max(3, int(height) - 5 - 8)
+        content_x1 = left_width + 2
+        content_x2 = content_x1 + middle_width - 1
+        body_y1 = 8
+        body_y2 = body_y1 + body_height - 1
+        if not (content_x1 <= int(x) <= content_x2 and body_y1 <= int(y) <= body_y2):
+            return False
+
+        meta = dict(game.get("visual_viewport_scene_meta") or {})
+        content_lines = max(1, int(meta.get("content_lines") or body_height))
+        max_line_width = max(1, int(meta.get("max_line_width") or middle_width))
+        h_scrollable = max_line_width > middle_width
+        v_scrollable = content_lines > body_height
+        hbar_y = body_y2 if h_scrollable else -1
+
+        if v_scrollable and int(x) == content_x2 and int(y) <= body_y2:
+            usable_rows = max(1, body_height - (1 if h_scrollable else 0))
+            rel_y = max(0, min(usable_rows - 1, int(y) - body_y1))
+            max_scroll = max(0, content_lines - usable_rows)
+            new_offset = round(max_scroll * rel_y / max(1, usable_rows - 1))
+            try:
+                sm = self._get_scroll_manager()
+                ctx = sm.get("center_viewport")
+                if ctx is not None:
+                    ctx.update_dimensions(content_height=content_lines, viewport_height=usable_rows)
+                    ctx.offset = max(0, min(ctx.max_scroll, new_offset))
+                    game["scroll_offset_center_viewport"] = ctx.offset
+            except Exception:
+                game["scroll_offset_center_viewport"] = max(0, new_offset)
+            game["visual_viewport_force_render"] = True
+            game["_copy_status_message"] = f"scroll: Visual Viewport {game.get('scroll_offset_center_viewport', new_offset)}/{max_scroll}"
+            return True
+
+        if h_scrollable and int(y) == hbar_y:
+            rel_x = max(0, min(middle_width - 1, int(x) - content_x1))
+            max_offset = max(0, max_line_width - middle_width)
+            new_offset = round(max_offset * rel_x / max(1, middle_width - 1))
+            game["center_h_scroll_offset"] = max(0, min(max_offset, new_offset))
+            game["visual_viewport_force_render"] = True
+            game["_copy_status_message"] = f"h-scroll: {game['center_h_scroll_offset']}/{max_offset}"
+            return True
+
+        return False
 
     def _apply_artifact_intent(
         self,

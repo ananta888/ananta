@@ -722,6 +722,18 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
     fallback = str(runtime.get("fallback_reason") or "").strip()
     lines.append("")
     lines.append(f"  {view} · {renderer_name} · {adapter}")
+    if state.focus == FocusPane.CONTENT:
+        up = display_for_action("scroll_line_up", "Shift+Up")
+        down = display_for_action("scroll_line_down", "Shift+Down")
+        page_up = display_for_action("scroll_page_up", "PgUp")
+        page_down = display_for_action("scroll_page_down", "PgDn")
+        left = display_for_action("scroll_left", "Shift+Left")
+        right = display_for_action("scroll_right", "Shift+Right")
+        lines.append(_clip(f"  Scroll {up}/{down} {page_up}/{page_down}  H {left}/{right}  Ctrl+Cursor  Maus/Rad", width))
+        if content_lines > 0:
+            max_v = max(0, content_lines - max(1, body_rows))
+            max_h = max(0, max_line_width - max(1, width))
+            lines.append(_clip(f"  pos v:{v_offset}/{max_v} h:{h_offset}/{max_h}", width))
     if fallback:
         lines.append(f"  fallback: {fallback}")
     return [_clip(l, width) for l in lines]
