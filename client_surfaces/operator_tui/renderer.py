@@ -13,7 +13,12 @@ from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artif
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
 from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
-from client_surfaces.operator_tui.chat_long_message import compact_chat_message_text, should_use_middle_view_for_message
+from client_surfaces.operator_tui.chat_long_message import (
+    compact_chat_message_text,
+    get_render_mode,
+    is_showing_chat_long_message,
+    should_use_middle_view_for_message,
+)
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -602,15 +607,26 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
     lines = [_pane_title("VISUAL VIEWPORT", state.focus == FocusPane.CONTENT)]
     frame_lines = [str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)]
     if frame_lines:
-        lines.extend(frame_lines)
+        # Reserve last frame line for mode hint when showing chat long message
+        if is_showing_chat_long_message(game) and len(frame_lines) > 1:
+            mode = get_render_mode(game)
+            other = "Plain-Text" if mode == "rendered" else "Markdown/Mermaid"
+            shortcut = display_for_action("open_long_chat_message", "Ctrl+Space")
+            hint_col = "\x1b[38;2;80;120;80m" if mode == "rendered" else "\x1b[38;2;100;100;140m"
+            mode_label = "Markdown/Mermaid" if mode == "rendered" else "Plain-Text"
+            hint = f"{hint_col}  ▸ Modus: {mode_label}  |  {shortcut} → {other}\x1b[0m"
+            lines.extend(frame_lines[:-1])
+            lines.append(hint)
+        else:
+            lines.extend(frame_lines)
     else:
         lines.append("  visual runtime aktiv, warte auf frame ...")
     view = str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "-")
-    renderer = str(runtime.get("active_renderer") or "-")
+    renderer_name = str(runtime.get("active_renderer") or "-")
     adapter = str(runtime.get("active_adapter") or "-")
     fallback = str(runtime.get("fallback_reason") or "").strip()
     lines.append("")
-    lines.append(f"  view={view} renderer={renderer} adapter={adapter}")
+    lines.append(f"  view={view} renderer={renderer_name} adapter={adapter}")
     if fallback:
         lines.append(f"  fallback: {fallback}")
     return [_clip(line, width) for line in lines]
@@ -2174,6 +2190,7 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
         if source == "ai":
             col = "\x1b[38;2;255;205;130m"
             pref = ""
+            text = compact_chat_message_text(text)
         elif source == "system":
             col = "\x1b[38;2;100;100;100m"
             pref = "* "

@@ -47,6 +47,28 @@ def markdown_for_message(message: dict[str, Any], *, streaming: bool = False) ->
     return f"# Chat-Nachricht\n\n{status}**{sender_kind}** `{sender}`\n\n{text}"
 
 
+def is_showing_chat_long_message(game: dict[str, Any]) -> bool:
+    """True if the center view is currently showing a long chat message."""
+    return bool(game.get("chat_long_message_id")) and bool(game.get("visual_viewport_enabled"))
+
+
+def get_render_mode(game: dict[str, Any]) -> str:
+    """Returns 'plain' or 'rendered'."""
+    return "plain" if bool(game.get("markdown_stream_plain")) else "rendered"
+
+
+def toggle_render_mode(game: dict[str, Any]) -> str:
+    """Toggle between plain text and rendered Markdown/Mermaid. Returns new mode name."""
+    new_plain = not bool(game.get("markdown_stream_plain"))
+    game["markdown_stream_plain"] = new_plain
+    game["markdown_auto_follow"] = False
+    game["visual_viewport_force_render"] = True
+    msg_id = str(game.get("chat_long_message_id") or "")
+    suffix = "plain" if new_plain else "rendered"
+    game["visual_state_version"] = f"chat-long-message:{msg_id}:{suffix}"
+    return "plain" if new_plain else "rendered"
+
+
 def configure_middle_view_for_message(
     game: dict[str, Any],
     message: dict[str, Any],
