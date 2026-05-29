@@ -202,6 +202,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._command_history: list[str] = []
         self._command_history_index: int | None = None
         self._command_saved_draft = ""
+        # Load persisted input histories from user.json
+        self._load_input_histories()
         # E03: Chat transport (initialized lazily when snake registers with Hub)
         self._chat_transport: Any = None
         # Heuristic selection state
@@ -1531,15 +1533,91 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._command_cursor = len(self._command_buffer)
         self._sync_command_line_state()
 
+    # ── Input history persistence ──────────────────────────────────────────────
+
+    def _input_history_config(self) -> dict[str, Any]:
+        """Return current input-history config from user.json."""
+        try:
+            from client_surfaces.operator_tui.config.user_config_manager import load_user_config
+            cfg = load_user_config()
+            return cfg
+        except Exception:
+            return {}
+
+    def _load_input_histories(self) -> None:
+        """Load persisted command and chat histories from user.json on startup."""
+        try:
+            cfg = self._input_history_config()
+            if cfg.get("input_history_command_enabled", True):
+                saved = cfg.get("command_input_history", [])
+                if isinstance(saved, list):
+                    self._command_history = [str(e) for e in saved if str(e).strip()]
+            # Chat history is loaded into game state in _default_header_snake via _apply_input_history_to_game
+        except Exception:
+            pass
+
+    def _apply_input_history_to_game(self, game: dict[str, Any]) -> None:
+        """Inject persisted chat input history into game state (called from _default_header_snake)."""
+        try:
+            cfg = self._input_history_config()
+            if cfg.get("input_history_chat_enabled", True):
+                saved = cfg.get("chat_input_history", [])
+                if isinstance(saved, list) and saved:
+                    from client_surfaces.operator_tui.chat_state import get_chat_state
+                    chat = get_chat_state(game)
+                    existing = list(chat.get("chat_input_history") or [])
+                    # Prepend persisted entries (avoid duplicates)
+                    for entry in reversed(saved):
+                        if entry not in existing:
+                            existing.insert(0, entry)
+                    max_entries = int(cfg.get("input_history_max_entries", 100))
+                    chat["chat_input_history"] = existing[-max_entries:]
+        except Exception:
+            pass
+
+    def _save_command_to_history(self, text: str) -> None:
+        """Persist a command to user.json if history is enabled."""
+        try:
+            cfg = self._input_history_config()
+            if not cfg.get("input_history_command_enabled", True):
+                return
+            max_entries = int(cfg.get("input_history_max_entries", 100))
+            history = list(self._command_history)[-max_entries:]
+            from client_surfaces.operator_tui.config.user_config_manager import save_user_config
+            save_user_config({"command_input_history": history})
+        except Exception:
+            pass
+
+    def _save_chat_to_history(self, text: str) -> None:
+        """Persist a chat input to user.json if history is enabled."""
+        try:
+            cfg = self._input_history_config()
+            if not cfg.get("input_history_chat_enabled", True):
+                return
+            max_entries = int(cfg.get("input_history_max_entries", 100))
+            # Read current persisted history
+            current = cfg.get("chat_input_history", [])
+            if not isinstance(current, list):
+                current = []
+            if not current or current[-1] != text:
+                current = current + [text]
+            current = current[-max_entries:]
+            from client_surfaces.operator_tui.config.user_config_manager import save_user_config
+            save_user_config({"chat_input_history": current})
+        except Exception:
+            pass
+
     def _command_commit_history(self) -> None:
         text = str(self._command_buffer).strip()
         if not text:
             return
         if not self._command_history or self._command_history[-1] != text:
             self._command_history.append(text)
-        self._command_history = self._command_history[-80:]
+        self._command_history = self._command_history[-100:]
         self._command_history_index = None
         self._command_saved_draft = ""
+        # Persist to user.json
+        self._save_command_to_history(text)
 
     def _command_reset(self) -> None:
         self._command_buffer = ""
@@ -1597,6 +1675,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _sync_command_line_state(self) -> None:
         game = dict(self.state.header_logo_game or {})
         game["command_input_cursor"] = max(0, min(len(self._command_buffer), int(self._command_cursor)))
+        # Expose history count for renderer hint display
+        n = len(self._command_history)
+        game["_command_history_count"] = n if n > 0 else None
         self._set_state(self.state.with_updates(header_logo_game=game, command_line=self._command_buffer))
 
     def _toggle_ai_snake_config_panel(self) -> None:

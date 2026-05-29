@@ -166,6 +166,12 @@ class HeaderSnakeMixin:
             value = persisted_cfg.get(key)
             if isinstance(value, (str, int, float, bool)):
                 game[key] = value
+        # Inject persisted chat input history into game state
+        try:
+            if hasattr(self, "_apply_input_history_to_game"):
+                self._apply_input_history_to_game(game)
+        except Exception:
+            pass
         return game
 
     def _activate_header_snake(self, state: OperatorState) -> OperatorState:

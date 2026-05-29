@@ -98,9 +98,15 @@ class ChatMixin:
         history = [str(item) for item in (chat.get("chat_input_history") or []) if str(item).strip()]
         if not history or history[-1] != buf:
             history.append(buf)
-        chat["chat_input_history"] = history[-50:]
+        chat["chat_input_history"] = history[-100:]
         chat["chat_input_history_index"] = None
         chat["chat_input_saved_draft"] = ""
+        # Persist to user.json
+        try:
+            if hasattr(self, "_save_chat_to_history"):
+                self._save_chat_to_history(buf)
+        except Exception:
+            pass
         ch = get_active_channel(chat)
         if ch is None:
             set_chat_state(game, chat)
