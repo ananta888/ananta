@@ -603,6 +603,8 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("COLUMNS", str(width))
     env.setdefault("LINES", str(height))
     env["ANANTA_ENDPOINT"] = endpoint
+    env["ANANTA_BASE_URL"] = endpoint
+    env["ANANTA_HUB_URL"] = endpoint
     env["ANANTA_TUI_MOUSE"] = "1"
     env["ANANTA_TUI_HEADER_SNAKE"] = "0"
     env["ANANTA_TUI_SNAKE_MODE"] = "0"
