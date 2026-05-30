@@ -19,8 +19,40 @@ from client_surfaces.operator_tui.sections import normalize_section_id
 from client_surfaces.operator_tui.terminal import get_tty_size
 
 
+def _load_env_file() -> dict[str, str]:
+    from pathlib import Path
+    env_file = Path(__file__).parent.parent.parent / ".env"
+    result: dict[str, str] = {}
+    if not env_file.exists():
+        return result
+    try:
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            result[key.strip()] = val.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return result
+
+
 def _get_hub_token() -> str:
-    return str(os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or "")
+    token = str(
+        os.environ.get("ANANTA_AUTH_TOKEN")
+        or os.environ.get("ANANTA_PASSWORD")
+        or os.environ.get("INITIAL_ADMIN_PASSWORD")
+        or ""
+    )
+    if not token:
+        _env = _load_env_file()
+        token = str(
+            _env.get("ANANTA_AUTH_TOKEN")
+            or _env.get("ANANTA_PASSWORD")
+            or _env.get("INITIAL_ADMIN_PASSWORD")
+            or ""
+        )
+    return token
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
