@@ -318,6 +318,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("c-h")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_backspace()
+                return
+            if self._chat_focus_active():
+                self._chat_backspace()
+                return
             if self._audit_viewer_active():
                 return
             if self._template_editor_active():
@@ -332,18 +338,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._snake_message_mode_active():
                 self._snake_message_backspace()
                 return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_backspace()
-                return
-            if self._chat_focus_active():
-                self._chat_backspace()
-                return
             if self._snake_mode_active():
                 return
 
         @bindings.add("delete")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_delete()
+                return
+            if self._chat_focus_active():
+                self._chat_delete()
+                return
             if self._audit_viewer_active():
                 return
             if self._template_editor_active():
@@ -356,12 +362,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._command_delete()
                 return
             if self._snake_message_mode_active():
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_delete()
-                return
-            if self._chat_focus_active():
-                self._chat_delete()
                 return
             if self._snake_mode_active():
                 return
@@ -622,6 +622,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("left")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_move_cursor(-1)
+                return
+            if self._chat_focus_active():
+                self._chat_move_cursor(-1)
+                return
             if self._audit_viewer_active():
                 self._audit_viewer_scroll_horizontal(-4)
                 return
@@ -634,12 +640,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_move_cursor(-1)
                 return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_move_cursor(-1)
-                return
-            if self._chat_focus_active():
-                self._chat_move_cursor(-1)
-                return
             if self._try_header_snake_direction((-1, 0)):
                 return
             self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
@@ -647,6 +647,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("right")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_move_cursor(1)
+                return
+            if self._chat_focus_active():
+                self._chat_move_cursor(1)
+                return
             if self._audit_viewer_active():
                 self._audit_viewer_scroll_horizontal(4)
                 return
@@ -659,12 +665,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_move_cursor(1)
                 return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_move_cursor(1)
-                return
-            if self._chat_focus_active():
-                self._chat_move_cursor(1)
-                return
             if self._try_header_snake_direction((1, 0)):
                 return
             self._set_selected_index(self._clamp_down())
@@ -672,6 +672,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("up")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_history_move(-1)
+                return
+            if self._chat_focus_active():
+                self._chat_history_move(-1)
+                return
             if self._audit_viewer_active():
                 self._audit_viewer_scroll_vertical(-1)
                 return
@@ -687,12 +693,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_history_move(-1)
                 return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_history_move(-1)
-                return
-            if self._chat_focus_active():
-                self._chat_history_move(-1)
-                return
             if self._try_header_snake_direction((0, -1)):
                 return
             self._set_selected_index(max(0, self.state.selected_index - 1))
@@ -700,6 +700,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("down")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._artifact_chat_focus_active():
+                self._artifact_chat_history_move(1)
+                return
+            if self._chat_focus_active():
+                self._chat_history_move(1)
+                return
             if self._audit_viewer_active():
                 self._audit_viewer_scroll_vertical(1)
                 return
@@ -715,12 +721,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_history_move(1)
                 return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_history_move(1)
-                return
-            if self._chat_focus_active():
-                self._chat_history_move(1)
-                return
             if self._try_header_snake_direction((0, 1)):
                 return
             self._set_selected_index(self._clamp_down())
@@ -732,6 +732,16 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("<any>")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._artifact_chat_focus_active():
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._artifact_chat_append(data)
+                return
+            if self._chat_focus_active():
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._chat_append(data)
+                return
             if self._audit_viewer_active():
                 return
             if self._template_editor_active():
@@ -756,16 +766,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
                     self._snake_message_append(data)
-                return
-            if self._artifact_chat_focus_active():
-                data = event.key_sequence[0].data
-                if data and data.isprintable():
-                    self._artifact_chat_append(data)
-                return
-            if self._chat_focus_active():
-                data = event.key_sequence[0].data
-                if data and data.isprintable():
-                    self._chat_append(data)
                 return
 
         @bindings.add(key_for_action("scroll_page_up", "pageup"))
@@ -1250,7 +1250,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _artifact_chat_focus_enter(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
         if not self._chat_panel_available():
-            return
+            game["chat_panel_open"] = True
         game["artifact_chat_focus"] = True
         game.setdefault("artifact_chat_input", "")
         game["artifact_chat_cursor"] = max(0, min(len(str(game.get("artifact_chat_input") or "")), int(game.get("artifact_chat_cursor") or len(str(game.get("artifact_chat_input") or "")))))
@@ -2005,6 +2005,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _handle_enter_key(self) -> None:
         game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        if self._artifact_chat_focus_active():
+            self._artifact_chat_send_message()
+            return
+        if self._chat_focus_active():
+            self._chat_send_message()
+            return
         if self._audit_viewer_active():
             return
         if self._template_editor_active():
@@ -2067,12 +2073,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if self.state.focus is FocusPane.CONTENT and self.state.section_id == "audit":
             if self._open_audit_viewer_for_selected():
                 return
-        if self._artifact_chat_focus_active():
-            self._artifact_chat_send_message()
-            return
-        if self._chat_focus_active():
-            self._chat_send_message()
-            return
         if self._snake_mode_active():
             # T04.04: Enter advances guided tour immediately
             game = self.state.header_logo_game or {}

@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-05-30T09:37:15Z",
+  "updated": "2026-05-30T09:46:02Z",
   "settings": {
     "input_history_chat_enabled": true,
     "chat_answer_chars": 12000,
