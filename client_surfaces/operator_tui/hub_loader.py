@@ -402,6 +402,46 @@ def _dataset_summary(data: Any) -> str:
     return "value"
 
 
+def _extract_llm_traces(data: Any) -> list[dict[str, Any]]:
+    if not isinstance(data, dict):
+        return []
+    traces = data.get("traces")
+    if isinstance(traces, list):
+        return [row for row in traces if isinstance(row, dict)]
+    items = data.get("items")
+    if isinstance(items, list):
+        return [row for row in items if isinstance(row, dict)]
+    return []
+
+
+def _chat_prompt_from_trace_detail(detail: dict[str, Any]) -> str:
+    prompt = str(detail.get("final_prompt_redacted") or "").strip()
+    if prompt:
+        return prompt
+    messages = detail.get("messages_redacted")
+    if isinstance(messages, list):
+        rows: list[str] = []
+        for row in messages:
+            if not isinstance(row, dict):
+                continue
+            role = str(row.get("role") or "unknown")
+            content = str(row.get("content") or "")
+            rows.append(f"[{role}] {content}")
+        if rows:
+            return "\n\n".join(rows)
+    return ""
+
+
+def _is_chat_like_trace(trace: dict[str, Any]) -> bool:
+    request_kind = str(trace.get("request_kind") or "").lower()
+    source_component = str(trace.get("source_component") or "").lower()
+    if "chat" in request_kind:
+        return True
+    if request_kind in {"snake.ask", "snake/ask", "chat.ask"}:
+        return True
+    return "chat" in source_component or "operator_tui" in source_component
+
+
 def _fetch_audit(base: str, token: str, timeout: float) -> SectionLoadResult:
     per = max(0.5, timeout / 3)
     datasets: list[tuple[str, str, str, str]] = [
@@ -440,6 +480,61 @@ def _fetch_audit(base: str, token: str, timeout: float) -> SectionLoadResult:
                 "path": path,
                 "status": status,
                 "summary": _dataset_summary(data if status == "ok" else None),
+                "error": error,
+            }
+        )
+
+    llm_recent = payload_datasets.get("llm.requests.recent")
+    traces_all = _extract_llm_traces(llm_recent)
+    chat_like = [trace for trace in traces_all if _is_chat_like_trace(trace)]
+    selected_traces = chat_like if chat_like else traces_all
+    detail_limit = max(3, min(30, int(timeout * 6)))
+    detail_timeout = max(0.35, timeout / 5)
+    for index, trace in enumerate(selected_traces[:detail_limit], start=1):
+        trace_id = str(trace.get("trace_id") or "").strip()
+        if not trace_id:
+            continue
+        dataset_id = f"llm.requests.chat_prompt.{trace_id}"
+        request_kind = str(trace.get("request_kind") or "")
+        model = str(trace.get("model") or "")
+        created_at = str(trace.get("created_at") or "")
+        title_suffix = trace_id[:10]
+        title = f"Chat Prompt #{index} · {title_suffix}"
+        if created_at:
+            title += f" · {created_at}"
+        if model:
+            title += f" · {model}"
+        status = "ok"
+        error = ""
+        detail: Any = None
+        try:
+            detail = _checked_get(base, f"/debug/llm-requests/{trace_id}", token, detail_timeout)
+        except Exception as exc:
+            status = "unavailable"
+            error = str(exc)[:180] or "request failed"
+            detail = {"trace_id": trace_id, "error": error}
+        prompt_text = ""
+        if isinstance(detail, dict):
+            prompt_text = _chat_prompt_from_trace_detail(detail)
+        payload_datasets[dataset_id] = {
+            "trace_id": trace_id,
+            "request_kind": request_kind,
+            "created_at": created_at,
+            "model": model,
+            "source_component": str(trace.get("source_component") or ""),
+            "prompt_preview_redacted": str(trace.get("prompt_preview_redacted") or ""),
+            "final_prompt_redacted": prompt_text,
+            "detail": detail,
+        }
+        payload_items.append(
+            {
+                "id": dataset_id,
+                "dataset_id": dataset_id,
+                "group": "LLM/Debug",
+                "title": title,
+                "path": f"/debug/llm-requests/{trace_id}",
+                "status": status,
+                "summary": (f"{len(prompt_text)} chars" if prompt_text else _dataset_summary(detail if status == "ok" else None)),
                 "error": error,
             }
         )

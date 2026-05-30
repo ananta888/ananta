@@ -4389,6 +4389,42 @@ def test_audit_viewer_resets_when_leaving_audit_section() -> None:
     assert "Audit Viewer" not in output
 
 
+def test_audit_chat_prompt_item_shows_final_prompt_in_viewer() -> None:
+    payload = {
+        "items": [
+            {
+                "id": "llm.requests.chat_prompt.trace-1",
+                "dataset_id": "llm.requests.chat_prompt.trace-1",
+                "group": "LLM/Debug",
+                "title": "Chat Prompt #1 · trace-1",
+                "status": "ok",
+            },
+        ],
+        "datasets": {
+            "llm.requests.chat_prompt.trace-1": {
+                "trace_id": "trace-1",
+                "final_prompt_redacted": "SYSTEM: context for ananta\nUSER: hi",
+                "detail": {"messages_redacted": [{"role": "user", "content": "hi"}]},
+            }
+        },
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "audit":
+            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION, selected_index=len(SECTIONS))
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=120, height=36)
+
+    assert "Audit Viewer" in output
+    assert "SYSTEM: context for ananta" in output
+    assert "USER: hi" in output
+
+
 def test_template_editor_left_right_updates_horizontal_view_offset(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.interactive.shutil.get_terminal_size",
