@@ -86,12 +86,15 @@ class HeaderSnakeMixin:
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
         _snake_mode_on = os.environ.get("ANANTA_TUI_SNAKE_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+        _share_only_nav_e2e = os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV", "0").strip().lower() in {"1", "true", "yes", "on"}
         _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() not in {"0", "false", "no", "off"}
         game: dict[str, object] = {
             "active": _snake_mode_on,
             "alive": True,
             "ui_steering": _snake_mode_on,
-            "free_mode": _snake_mode_on,
+            # For share-only E2E captures, keep snake mode active but avoid the
+            # fullscreen overlay so Share panel content remains visible.
+            "free_mode": _snake_mode_on and not _share_only_nav_e2e,
             "local_snake_id": "s1",
             "pseudonym": os.environ.get("ANANTA_TUI_SNAKE_PSEUDONYM", "local-snake"),
             "oidc_provider": os.environ.get("ANANTA_TUI_SNAKE_OIDC_PROVIDER", "local"),
