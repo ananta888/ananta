@@ -140,6 +140,53 @@ class ShareSessionService:
                 out.append(dict(item))
             return out
 
+    def list_sessions_as_participant(self, user_id: str) -> list[dict[str, Any]]:
+        """Sessions wo der User Teilnehmer ist (aber nicht Owner)."""
+        now = _now()
+        try:
+            with Session(engine) as session:
+                rows = session.exec(
+                    select(ShareParticipantDB).where(
+                        ShareParticipantDB.user_id == user_id,
+                        ShareParticipantDB.revoked_at.is_(None),  # type: ignore[attr-defined]
+                    )
+                ).all()
+                out: list[dict[str, Any]] = []
+                seen: set[str] = set()
+                for p in rows:
+                    sid = str(p.session_id)
+                    if sid in seen:
+                        continue
+                    sess_row = session.get(ShareSessionDB, sid)
+                    if sess_row is None or sess_row.revoked_at is not None:
+                        continue
+                    if isinstance(sess_row.expires_at, (int, float)) and float(sess_row.expires_at) <= now:
+                        continue
+                    if str(sess_row.owner_user_id) == user_id:
+                        continue  # Owner-Sessions kommen von list_sessions_for_owner
+                    seen.add(sid)
+                    out.append(_session_to_dict(sess_row))
+                return out
+        except SQLAlchemyError:
+            out = []
+            seen = set()
+            for item in _FALLBACK_PARTICIPANTS.values():
+                if str(item.get("user_id") or "") != user_id:
+                    continue
+                if item.get("revoked_at") is not None:
+                    continue
+                sid = str(item.get("session_id") or "")
+                if sid in seen:
+                    continue
+                sess = _FALLBACK_SESSIONS.get(sid)
+                if not sess or sess.get("revoked_at") is not None:
+                    continue
+                if str(sess.get("owner_user_id") or "") == user_id:
+                    continue
+                seen.add(sid)
+                out.append(dict(sess))
+            return out
+
     def get_session(self, session_id: str) -> dict[str, Any] | None:
         try:
             with Session(engine) as session:

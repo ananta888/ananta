@@ -695,27 +695,42 @@ def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> Se
             oidc_status = {"sub": "", "username": "", "raw": True}
 
     # Sessions laden: Public Rendezvous oder lokaler Hub
-    sessions: list[dict[str, Any]] = []
+    sessions_mine: list[dict[str, Any]] = []
+    sessions_joined: list[dict[str, Any]] = []
     if oidc_token and rdv_url:
         try:
             from client_surfaces.operator_tui.share_client import list_sessions
-            sessions = list_sessions(token=oidc_token, base_url=rdv_url)
+            rdv_sessions = list_sessions(token=oidc_token, base_url=rdv_url)
+            me = str(oidc_status.get("sub") or oidc_status.get("username") or "")
+            for s in rdv_sessions:
+                if me and str(s.get("owner_user_id") or s.get("owner_user_sub") or "") == me:
+                    sessions_mine.append(s)
+                else:
+                    sessions_joined.append(s)
         except Exception:
             pass
     elif hub_jwt and hub_base:
         try:
-            from client_surfaces.operator_tui.share_client import list_hub_sessions
-            sessions = list_hub_sessions(token=hub_jwt, hub_url=hub_base)
+            from client_surfaces.operator_tui.share_client import list_hub_sessions, list_joined_hub_sessions
+            sessions_mine = list_hub_sessions(token=hub_jwt, hub_url=hub_base)
         except Exception:
             pass
+        try:
+            from client_surfaces.operator_tui.share_client import list_joined_hub_sessions
+            sessions_joined = list_joined_hub_sessions(token=hub_jwt, hub_url=hub_base)
+        except Exception:
+            pass
+    sessions = sessions_mine + sessions_joined
 
     payload: dict[str, Any] = {
         "profile_id": profile_id,
         "is_public": is_public_profile_active(),
         "oidc_status": oidc_status,
-        "oidc_device_flow": {},  # wird live aus game state befüllt (share_menu liest game direkt)
+        "oidc_device_flow": {},
         "device_key_info": device_key_info,
         "sessions": sessions,
+        "sessions_mine": sessions_mine,
+        "sessions_joined": sessions_joined,
         "selected_session": sessions[0] if sessions else {},
         "participants": [],
         "oidc_token_present": bool(oidc_token),
