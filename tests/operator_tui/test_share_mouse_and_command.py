@@ -1,12 +1,20 @@
 """Tests: :- Kommandos in Snake-Mode und Share-Section Maus-Bedienung."""
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from client_surfaces.operator_tui.share_menu import (
     build_share_section_lines,
     extract_click_command,
 )
+
+_ANSI = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-9;?]*[ -/]*[@-~])")
+
+
+def _strip_ansi(s: str) -> str:
+    return _ANSI.sub("", s)
 
 
 # ── extract_click_command ─────────────────────────────────────────────────────

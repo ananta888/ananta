@@ -32,6 +32,18 @@ def _require_oidc_sub() -> tuple[str, str] | None:
     return user_id, sub
 
 
+@rendezvous_bp.route("/rendezvous/sessions", methods=["GET"])
+@check_user_auth
+def list_rendezvous_sessions():
+    creds = _require_oidc_sub()
+    if not creds:
+        return jsonify({"error": "oidc_sub_required"}), 403
+    user_id, _ = creds
+    service = get_rendezvous_service()
+    sessions = service.list_sessions_for_user(requester_user_id=user_id)
+    return jsonify({"ok": True, "data": {"items": sessions}}), 200
+
+
 @rendezvous_bp.route("/rendezvous/sessions", methods=["POST"])
 @check_user_auth
 def create_rendezvous_session():

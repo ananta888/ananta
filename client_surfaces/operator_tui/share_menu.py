@@ -119,7 +119,7 @@ def build_share_section_lines(
         lines.append(f"  {_btn(':share view on', 'TUI-View freigeben')}  {_btn(':share view off', 'View sperren')}")
     else:
         lines.append("  Keine aktiven Sessions")
-        lines.append(f"  {_btn(':share create', 'neue Session erstellen')}")
+        lines.append(f"  {_btn(':share list', 'alle Sessions laden')}  {_btn(':share create', 'neue Session erstellen')}")
         lines.append(f"  {_btn(':share join', 'per Invite-Code beitreten')}")
     lines.append("")
 
