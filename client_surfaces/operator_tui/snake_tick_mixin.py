@@ -845,14 +845,15 @@ class SnakeTickMixin:
 
     def _share_action_list(self, game: dict, token: str, endpoint: str) -> None:
         from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
-        from client_surfaces.operator_tui.share_client import list_sessions
+        from client_surfaces.operator_tui.share_client import list_sessions, list_hub_sessions
         try:
             if is_public_profile_active() and token:
                 sessions = list_sessions(token=token, base_url=rendezvous_base_url())
             elif token and endpoint:
-                sessions = list_sessions(token=token, base_url=endpoint)
+                # Lokaler Hub: Sessions liegen unter /share-sessions
+                sessions = list_hub_sessions(token=token, hub_url=endpoint)
             else:
-                game["share_status_message"] = "Nicht eingeloggt. :oidc login zuerst."
+                game["share_status_message"] = "Nicht eingeloggt."
                 return
             if not sessions:
                 game["share_status_message"] = "Keine aktiven Sessions."

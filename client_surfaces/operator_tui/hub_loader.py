@@ -155,7 +155,7 @@ def fetch_hub_section(
     if section_id == "audit":
         return _fetch_audit(base, jwt, t)
     if section_id == "share":
-        return _fetch_share(t)
+        return _fetch_share(t, hub_base=base, hub_jwt=jwt)
     return None
 
 
@@ -656,7 +656,7 @@ def get_share_oidc_token() -> str:
         return _share_oidc_token
 
 
-def _fetch_share(timeout: float) -> SectionLoadResult:
+def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> SectionLoadResult:
     from client_surfaces.operator_tui.device_keys import get_device_key_manager, DeviceKeyError
     from client_surfaces.operator_tui.network_profile import get_active_profile, is_public_profile_active
 
@@ -694,12 +694,18 @@ def _fetch_share(timeout: float) -> SectionLoadResult:
         except Exception:
             oidc_status = {"sub": "", "username": "", "raw": True}
 
-    # Sessions von Rendezvous laden (wenn Token + URL vorhanden)
+    # Sessions laden: Public Rendezvous oder lokaler Hub
     sessions: list[dict[str, Any]] = []
     if oidc_token and rdv_url:
         try:
             from client_surfaces.operator_tui.share_client import list_sessions
             sessions = list_sessions(token=oidc_token, base_url=rdv_url)
+        except Exception:
+            pass
+    elif hub_jwt and hub_base:
+        try:
+            from client_surfaces.operator_tui.share_client import list_hub_sessions
+            sessions = list_hub_sessions(token=hub_jwt, hub_url=hub_base)
         except Exception:
             pass
 

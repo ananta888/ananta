@@ -141,6 +141,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self.state = self.state.with_updates(terminal_graphics=term_graphics)
         if self._header_snake_enabled() and not self.state.header_logo_game:
             self.state = self.state.with_updates(header_logo_game=self._default_header_snake())
+        self._restore_oidc_token()
         if not self.state.open_tabs:
             from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
             self.state = open_or_activate_tab(
@@ -3098,6 +3099,30 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             from client_surfaces.operator_tui.app import load_active_section
             new_state = load_active_section(new_state, self._registry)
         self._set_state(new_state.with_updates(header_logo_game=new_game))
+
+    def _restore_oidc_token(self) -> None:
+        """Lädt gecachten OIDC-Token beim Start, wenn noch nicht abgelaufen."""
+        from client_surfaces.operator_tui.snake_persistence import load_oidc_token
+        cached = load_oidc_token()
+        if not cached:
+            return
+        token = str(cached.get("access_token") or "")
+        if not token:
+            return
+        game = dict(self.state.header_logo_game or {})
+        if game.get("oidc_token"):
+            return  # bereits gesetzt (z.B. via env)
+        game["oidc_token"] = token
+        from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
+        from client_surfaces.operator_tui.network_profile import rendezvous_base_url
+        set_share_oidc_token(token, rendezvous_base_url())
+        issuer = str(cached.get("issuer") or "")
+        username = str(cached.get("username") or "")
+        game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
+        self.state = self.state.with_updates(
+            header_logo_game=game,
+            status_message=f"OIDC: Session wiederhergestellt{' – ' + username if username else ''}",
+        )
 
     def _set_state(self, state: OperatorState) -> None:
         if self._splash is not None:
