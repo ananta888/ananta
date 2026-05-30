@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ananta.local/schemas/tui/share_session.v1.json",
+  "title": "Share Session v1",
+  "type": "object",
+  "required": [
+    "id",
+    "owner_user_id",
+    "owner_device_id",
+    "title",
+    "mode",
+    "transport",
+    "permissions",
+    "created_at"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "owner_user_id": { "type": "string", "minLength": 1 },
+    "owner_device_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "mode": { "type": "string" },
+    "transport": { "type": "string" },
+    "permissions": {
+      "type": "object",
+      "required": ["chat", "view_tui", "remote_cursor", "artifact_share", "remote_control"],
+      "properties": {
+        "chat": { "type": "boolean" },
+        "view_tui": { "type": "boolean" },
+        "remote_cursor": { "type": "boolean" },
+        "artifact_share": { "type": "boolean" },
+        "remote_control": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "invite_code": { "type": "string" },
+    "expires_at": { "type": ["number", "null"] },
+    "created_at": { "type": "number" },
+    "revoked_at": { "type": ["number", "null"] }
+  },
+  "additionalProperties": true
+}

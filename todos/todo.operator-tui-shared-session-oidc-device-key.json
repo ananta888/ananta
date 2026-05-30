@@ -81,13 +81,13 @@
       "id": "SS01",
       "title": "Shared-Session Datenmodell und Hub-API",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "SS01.01",
           "title": "ShareSessionDB und ShareParticipantDB einfuehren",
           "type": "backend_data_model",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/db_models.py",
             "agent/services/share_session_service.py",
@@ -105,7 +105,7 @@
           "id": "SS01.02",
           "title": "Hub-API fuer Shared Sessions implementieren",
           "type": "backend_api",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/routes/share_sessions.py",
             "agent/bootstrap/routes.py",
@@ -124,7 +124,7 @@
           "id": "SS01.03",
           "title": "Snake-/Chat-Identitaet an OIDC binden",
           "type": "security_integration",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/routes/snakes.py",
             "agent/routes/auth_oidc.py",

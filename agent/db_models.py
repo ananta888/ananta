@@ -924,6 +924,37 @@ class AuditLogDB(SQLModel, table=True):
     details: dict = Field(default={}, sa_column=Column(JSON))
 
 
+class ShareSessionDB(SQLModel, table=True):
+    __tablename__ = "share_sessions"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    owner_user_id: str = Field(index=True)
+    owner_device_id: str = Field(index=True)
+    title: str = "Shared Session"
+    mode: str = Field(default="relay", index=True)
+    transport: str = Field(default="hub_relay", index=True)
+    permissions: dict = Field(default={}, sa_column=Column(JSON))
+    invite_code: str = Field(index=True)
+    expires_at: Optional[float] = Field(default=None, index=True)
+    created_at: float = Field(default_factory=time.time, index=True)
+    revoked_at: Optional[float] = Field(default=None, index=True)
+    session_metadata: dict = Field(default={}, sa_column=Column(JSON))
+
+
+class ShareParticipantDB(SQLModel, table=True):
+    __tablename__ = "share_participants"
+    __table_args__ = (sa.UniqueConstraint("session_id", "user_id", "device_id", name="uq_share_participant_identity"),)
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    session_id: str = Field(index=True, foreign_key="share_sessions.id")
+    user_id: str = Field(index=True)
+    device_id: str = Field(index=True)
+    public_key_fingerprint: Optional[str] = Field(default=None, index=True)
+    role: str = Field(default="participant", index=True)
+    permissions: dict = Field(default={}, sa_column=Column(JSON))
+    joined_at: float = Field(default_factory=time.time, index=True)
+    revoked_at: Optional[float] = Field(default=None, index=True)
+    participant_metadata: dict = Field(default={}, sa_column=Column(JSON))
+
+
 class PolicyDecisionDB(SQLModel, table=True):
     __tablename__ = "policy_decisions"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

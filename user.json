@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-05-30T10:36:58Z",
+  "updated": "2026-05-30T10:38:12Z",
   "settings": {
     "chat_include_wikipedia": false,
     "chat_use_history": true,
@@ -13,6 +13,10 @@
     "chat_backend_fallback": "lmstudio",
     "chat_history_turns": 8,
     "chat_input_history": [
+      "neue frage",
+      "bitte zeige mir ein mermaid diagramm als beispiel mit umfangreichem inhalt",
+      "hi",
+      "bitte zeige mir ein mermaid diagramm als beispiel",
       "bitte erkläre mir den codecompass"
     ],
     "chat_worker_mode": "propose",
