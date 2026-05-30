@@ -80,6 +80,9 @@ class SnakeTickMixin:
             self._poll_tutor_ask_result(game)
             self._tick_chat(game, now=time.monotonic())
             self._tick_chat_ai_response(game)
+            # OIDC und Share-Actions müssen auch ohne Header-Fokus ticken
+            self._tick_oidc_device_flow(game, now=time.monotonic())
+            self._tick_share_pending_action(game, now=time.monotonic())
             self._set_state(self.state.with_updates(header_logo_game=game))
             return
         if not game.get("active", False) or not game.get("alive", True):
