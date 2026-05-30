@@ -34,6 +34,7 @@ from client_surfaces.operator_tui.mouse import (
 from client_surfaces.operator_tui.plugins import resolve_item_reference
 from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.audit_nav import audit_nav_items
 from client_surfaces.operator_tui.template_nav import template_nav_items
 
 
@@ -51,6 +52,22 @@ class MouseArtifactMixin:
         game_out["template_editor"] = {"active": False}
         next_mode = OperatorMode.NORMAL if state.mode is OperatorMode.EDIT else state.mode
         return state.with_updates(header_logo_game=game_out, mode=next_mode)
+
+    def _deactivate_audit_viewer_for_section_change(self, state, *, next_section_id: str):
+        if str(next_section_id) == "audit":
+            return state
+        game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+        viewer = dict(game.get("audit_viewer") or {})
+        if not bool(viewer.get("active")):
+            return state
+        game_out = dict(game)
+        game_out["audit_viewer"] = {"active": False}
+        return state.with_updates(header_logo_game=game_out)
+
+    def _deactivate_aux_views_for_section_change(self, state, *, next_section_id: str):
+        state = self._deactivate_template_editor_for_section_change(state, next_section_id=next_section_id)
+        state = self._deactivate_audit_viewer_for_section_change(state, next_section_id=next_section_id)
+        return state
 
     def _ingest_mouse_event(
         self,
@@ -451,6 +468,29 @@ class MouseArtifactMixin:
                         game.update(dict(self.state.header_logo_game or {}))
                         game["_copy_status_message"] = "template editor: scroll"
                         return
+            if (
+                self.state.section_id == "audit"
+                and hasattr(self, "_audit_viewer_active")
+                and self._audit_viewer_active()  # type: ignore[attr-defined]
+            ):
+                size = shutil.get_terminal_size((120, 32))
+                width = max(72, int(size.columns))
+                height = max(18, int(size.lines - 1))
+                left_width = 22
+                detail_width = 34
+                middle_width = max(18, width - left_width - detail_width - 6)
+                body_height = max(3, height - 5 - 8)
+                content_x1 = left_width + 2
+                content_x2 = content_x1 + middle_width - 1
+                body_y1 = 8
+                body_y2 = body_y1 + body_height - 1
+                if content_x1 <= int(x) <= content_x2 and body_y1 <= int(y) <= body_y2:
+                    scroll_delta = 2 if delta > 0 else -2
+                    if hasattr(self, "_audit_viewer_scroll_vertical"):
+                        self._audit_viewer_scroll_vertical(scroll_delta)  # type: ignore[attr-defined]
+                        game.update(dict(self.state.header_logo_game or {}))
+                        game["_copy_status_message"] = "audit viewer: scroll"
+                        return
             from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
             from client_surfaces.operator_tui.focus.focus_manager import FocusManager
             fm: FocusManager = self._get_focus_manager()
@@ -790,6 +830,27 @@ class MouseArtifactMixin:
             game["_copy_status_message"] = str(self.state.status_message or "template ausgewählt")
             return
 
+        if target.kind == "audit_nav_item":
+            item_index_raw = target.payload.get("audit_item_index")
+            item_index = int(item_index_raw) if isinstance(item_index_raw, int) else -1
+            if item_index < 0:
+                return
+            self._clear_chat_input_focus(game)
+            next_state = self.state.with_updates(
+                header_logo_game=game,
+                section_id="audit",
+                focus=FocusPane.CONTENT,
+                selected_index=item_index,
+                mode=OperatorMode.NORMAL,
+            )
+            if self.state.section_id != "audit":
+                next_state = load_active_section(next_state, self._registry)
+            self._set_state(next_state)
+            if hasattr(self, "_open_audit_viewer_for_selected"):
+                self._open_audit_viewer_for_selected()  # type: ignore[attr-defined]
+            game["_copy_status_message"] = str(self.state.status_message or "audit ausgewählt")
+            return
+
         if (
             self.state.section_id == "templates"
             and target.pane == "content"
@@ -803,6 +864,14 @@ class MouseArtifactMixin:
             ):
                 game["_copy_status_message"] = "template editor: cursor"
                 return
+        if (
+            self.state.section_id == "audit"
+            and target.pane == "content"
+            and hasattr(self, "_open_audit_viewer_for_selected")
+        ):
+            self._open_audit_viewer_for_selected()  # type: ignore[attr-defined]
+            game["_copy_status_message"] = str(self.state.status_message or "audit viewer")
+            return
 
         if bool(game.get("ai_snake_config_open")) and target.pane == "content":
             combo_value = str(target.payload.get("ai_snake_combo_option_value") or "")
@@ -906,7 +975,7 @@ class MouseArtifactMixin:
             section_id=new_section,
             selected_index=new_selected,
         )
-        next_state = self._deactivate_template_editor_for_section_change(next_state, next_section_id=new_section)
+        next_state = self._deactivate_aux_views_for_section_change(next_state, next_section_id=new_section)
         if new_section != self.state.section_id:
             next_state = load_active_section(next_state, self._registry)
         if target.pane == "nav" and target.kind in {"section", "pane"}:
@@ -920,7 +989,7 @@ class MouseArtifactMixin:
     def _run_command(self, command: str) -> None:
         result = execute_command(command, self.state)
         state = result.state.with_updates(status_message=str(result.state.status_message or result.message))
-        state = self._deactivate_template_editor_for_section_change(state, next_section_id=state.section_id)
+        state = self._deactivate_aux_views_for_section_change(state, next_section_id=state.section_id)
         if state.section_id != self.state.section_id or command.strip().lower() in {":refresh", "refresh", "r", ":next", ":prev"}:
             state = load_active_section(state, self._registry)
         if hasattr(self, "_apply_visual_command_requests"):
@@ -950,7 +1019,8 @@ class MouseArtifactMixin:
             history = game.get("chat_long_message_history")
             history_count = len(history) if isinstance(history, list) else 0
             template_count = self._template_nav_selectable_count()
-            return min(cur + 1, max(0, len(SECTIONS) + template_count + history_count - 1))
+            audit_count = self._audit_nav_selectable_count()
+            return min(cur + 1, max(0, len(SECTIONS) + template_count + audit_count + history_count - 1))
         if self.state.focus is FocusPane.HEADER:
             from client_surfaces.operator_tui.header_config import CONFIG_ITEMS
             return min(cur + 1, len(CONFIG_ITEMS) - 1)
@@ -964,10 +1034,11 @@ class MouseArtifactMixin:
         next_state = self.state.with_updates(header_logo_game=game, selected_index=new_index)
         if self.state.focus is FocusPane.NAVIGATION:
             template_count = self._template_nav_selectable_count()
+            audit_count = self._audit_nav_selectable_count()
             if 0 <= new_index < len(SECTIONS):
                 section = SECTIONS[new_index]
                 next_state = next_state.with_updates(section_id=section.id)
-                next_state = self._deactivate_template_editor_for_section_change(next_state, next_section_id=section.id)
+                next_state = self._deactivate_aux_views_for_section_change(next_state, next_section_id=section.id)
                 if section.id != self.state.section_id:
                     next_state = load_active_section(next_state, self._registry)
                 from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
@@ -977,10 +1048,12 @@ class MouseArtifactMixin:
                 )
             elif template_count > 0 and len(SECTIONS) <= new_index < len(SECTIONS) + template_count:
                 next_state = next_state.with_updates(section_id="templates")
+            elif audit_count > 0 and len(SECTIONS) + template_count <= new_index < len(SECTIONS) + template_count + audit_count:
+                next_state = next_state.with_updates(section_id="audit")
             else:
                 game = dict(self.state.header_logo_game or self._default_header_snake())
                 rows = long_message_history_rows(game)
-                history_idx = new_index - len(SECTIONS) - template_count
+                history_idx = new_index - len(SECTIONS) - template_count - audit_count
                 if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
                     next_state = next_state.with_updates(
                         header_logo_game=game,
@@ -1001,6 +1074,22 @@ class MouseArtifactMixin:
             return None
         payload = dict((self.state.section_payloads or {}).get("templates") or {})
         items = template_nav_items(payload)
+        item_pos = int(nav_index) - len(SECTIONS)
+        if 0 <= item_pos < len(items):
+            return items[item_pos]
+        return None
+
+    def _audit_nav_selectable_count(self) -> int:
+        if self.state.section_id != "audit":
+            return 0
+        payload = dict((self.state.section_payloads or {}).get("audit") or {})
+        return len(audit_nav_items(payload))
+
+    def _audit_nav_item_for_nav_index(self, nav_index: int) -> tuple[int, dict[str, Any]] | None:
+        if self.state.section_id != "audit":
+            return None
+        payload = dict((self.state.section_payloads or {}).get("audit") or {})
+        items = audit_nav_items(payload)
         item_pos = int(nav_index) - len(SECTIONS)
         if 0 <= item_pos < len(items):
             return items[item_pos]

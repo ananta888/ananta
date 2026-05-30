@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from client_surfaces.operator_tui.hub_loader import _fetch_templates
+from client_surfaces.operator_tui.hub_loader import _fetch_audit, _fetch_templates
 from client_surfaces.operator_tui.models import PanelState
 
 
@@ -17,3 +17,36 @@ def test_fetch_templates_uses_local_fallback_when_hub_unavailable(monkeypatch) -
     items = list((result.payload or {}).get("items") or [])
     assert items, "expected local template fallback items"
     assert "hub+local" in str(result.message)
+
+
+def test_fetch_audit_collects_multiple_datasets(monkeypatch) -> None:
+    sample = {
+        "/api/system/audit-logs?limit=200&offset=0": [{"id": "a1"}],
+        "/api/system/audit-logs/summary?limit=1000": {"items": [{"kind": "chat"}]},
+        "/api/system/audit-logs/integrity?limit=500": {"ok": True},
+        "/api/system/stats": {"uptime_seconds": 10},
+        "/api/system/stats/history?limit=120&offset=0": {"items": [1, 2, 3]},
+        "/debug/backend-observability?lookback_seconds=3600&trace_limit=200": {"items": []},
+        "/debug/llm-requests?limit=120": {"items": [{"id": "llm-1"}]},
+        "/tasks/timeline?limit=50": {"items": [{"task_id": "t1"}]},
+        "/tasks?limit=50": [{"id": "t1"}],
+    }
+
+    def _fake_get(_base, path, _token, _timeout):
+        if path in sample:
+            return sample[path]
+        raise OSError("missing path")
+
+    monkeypatch.setattr("client_surfaces.operator_tui.hub_loader._checked_get", _fake_get)
+
+    result = _fetch_audit("http://localhost:5000", "token", 1.0)
+
+    assert result.section_id == "audit"
+    assert result.state is PanelState.HEALTHY
+    payload = dict(result.payload or {})
+    items = list(payload.get("items") or [])
+    datasets = dict(payload.get("datasets") or {})
+    assert len(items) == 9
+    assert "audit.logs.recent" in datasets
+    assert "runtime.stats.snapshot" in datasets
+    assert "llm.requests.recent" in datasets
