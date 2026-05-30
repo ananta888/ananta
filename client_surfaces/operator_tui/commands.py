@@ -3748,9 +3748,40 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
     if sub == "help":
         msg = (
             "share: status | list | create [title] | invite | join <code> | "
-            "key generate | key show | key rotate | view on|off | stop"
+            "key generate | key show | key rotate | view on|off | stop | debug"
         )
         return CommandResult(state.with_updates(status_message=msg), "share help")
+
+    if sub == "debug":
+        import os as _os
+        game = dict(state.header_logo_game or {})
+        endpoint = str(state.endpoint or "")
+        oidc_token = str(game.get("oidc_token") or "")
+        active = dict(game.get("share_active_session") or {})
+        status_msg = str(game.get("share_status_message") or "(keine)")
+        # Hub-Token prüfen
+        hub_raw = (
+            _os.environ.get("ANANTA_AUTH_TOKEN")
+            or _os.environ.get("ANANTA_PASSWORD")
+            or _os.environ.get("INITIAL_ADMIN_PASSWORD")
+            or ""
+        )
+        if not hub_raw:
+            try:
+                from client_surfaces.operator_tui.app import _load_env_file
+                _env = _load_env_file()
+                hub_raw = _env.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_PASSWORD") or _env.get("INITIAL_ADMIN_PASSWORD") or ""
+            except Exception:
+                pass
+        parts = [
+            f"endpoint={endpoint or '(leer)'}",
+            f"hub_raw={'ja (' + hub_raw[:4] + '…)' if hub_raw else 'FEHLT'}",
+            f"oidc={'ja' if oidc_token else 'nein'}",
+            f"active_session={'ja (' + str(active.get('id') or '')[:8] + ')' if active else 'nein'}",
+            f"last_status={status_msg[:60]}",
+        ]
+        msg = " | ".join(parts)
+        return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg)
 
     if sub == "list":
         game = dict(state.header_logo_game or {})
