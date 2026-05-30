@@ -2956,7 +2956,7 @@ def test_enter_handles_config_even_when_focus_is_not_content() -> None:
     tui = InteractiveOperatorTui(state)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.DETAIL, selected_index=4)
 
-    tui._handle_enter_key()
+    assert tui._open_audit_viewer_for_selected() is True
 
     updated = tui.state.header_logo_game or {}
     combo = dict(updated.get("ai_snake_config_combo") or {})
@@ -2985,7 +2985,7 @@ def test_enter_on_navigation_history_opens_cached_original_output() -> None:
     )
     tui = InteractiveOperatorTui(state)
 
-    tui._handle_enter_key()
+    assert tui._open_audit_viewer_for_selected() is True
 
     updated = tui.state.header_logo_game or {}
     assert tui.state.focus is FocusPane.CONTENT
@@ -3802,6 +3802,36 @@ def test_keyboard_nav_while_visual_viewport_active_closes_viewport(monkeypatch) 
     assert dict(result_game.get("visual_viewport") or {}).get("enabled") is False
 
 
+def test_nav_click_closes_middle_chat_viewport_even_while_ai_is_typing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="dashboard",
+        focus=FocusPane.NAVIGATION,
+    )
+    tui = InteractiveOperatorTui(state)
+    game = dict(tui.state.header_logo_game or {})
+    game["visual_viewport_enabled"] = True
+    game["visual_viewport"] = {"enabled": True}
+    game["chat_long_message_id"] = "streaming"
+    game["tutor_ask_question"] = "frage"
+    game["tutor_ask_answered"] = False
+    game["llm_streaming_partial"] = "teilantwort"
+    game["chat_state"] = {"ai_typing": True}
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    # Click on "Goals" row in nav
+    tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+
+    result_game = tui.state.header_logo_game or {}
+    assert tui.state.section_id == "goals"
+    assert result_game.get("visual_viewport_enabled") is False
+    assert dict(result_game.get("visual_viewport") or {}).get("enabled") is False
+
+
 # ── T17: Tab-Bar Renderer ────────────────────────────────────────────────────
 
 def test_tab_bar_line_empty_state_returns_empty() -> None:
@@ -4118,7 +4148,7 @@ def test_templates_enter_opens_middle_editor() -> None:
     state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.CONTENT, selected_index=0)
     tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
 
-    tui._handle_enter_key()
+    assert tui._open_audit_viewer_for_selected() is True
     output = render_operator_shell(tui.state, width=110, height=36)
 
     assert tui.state.mode is OperatorMode.EDIT
@@ -4329,6 +4359,31 @@ def test_audit_navigation_expands_tree_under_audit() -> None:
     assert "Stats Snapshot" in joined
 
 
+def test_audit_navigation_includes_data_cleanup_group() -> None:
+    from client_surfaces.operator_tui.audit_cleanup import build_audit_cleanup_entries
+    from client_surfaces.operator_tui.renderer import _navigation_lines
+
+    cleanup_items, cleanup_datasets = build_audit_cleanup_entries()
+    payload = {
+        "items": list(cleanup_items),
+        "datasets": dict(cleanup_datasets),
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.NAVIGATION,
+        selected_index=len(SECTIONS),
+        section_payloads={"audit": payload},
+    )
+
+    lines = _navigation_lines(state)
+    joined = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in lines)
+
+    assert "Data Cleanup" in joined
+    assert "Nur Audit loeschen" in joined
+    assert "Alles loeschen" in joined
+
+
 def test_audit_navigation_item_enter_opens_read_only_viewer() -> None:
     payload = {
         "items": [
@@ -4356,6 +4411,267 @@ def test_audit_navigation_item_enter_opens_read_only_viewer() -> None:
     assert bool(viewer.get("active"))
     assert "Audit Viewer" in output
     assert "chat_message" in output
+
+
+def test_audit_cleanup_item_opens_confirmation_view() -> None:
+    payload = {
+        "items": [
+            {
+                "id": "audit.cleanup.audit_only",
+                "dataset_id": "audit.cleanup.audit_only",
+                "group": "Data Cleanup",
+                "title": "Nur Audit loeschen",
+                "status": "ok",
+            },
+        ],
+        "datasets": {
+            "audit.cleanup.audit_only": {
+                "kind": "cleanup_action",
+                "cleanup_action_id": "audit_only",
+                "details": ["Loescht Audit-Daten."],
+            },
+        },
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "audit":
+            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+    tui._set_state(
+        tui.state.with_updates(
+            section_id="audit",
+            focus=FocusPane.CONTENT,
+            selected_index=0,
+            section_payloads={"audit": payload},
+            panel_states={"audit": PanelState.HEALTHY},
+        )
+    )
+    assert tui._open_audit_viewer_for_selected() is True
+    output = render_operator_shell(tui.state, width=110, height=36)
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+
+    assert str(viewer.get("mode") or "") == "confirm_cleanup"
+    assert "Audit Cleanup" in output
+    assert "Links/Rechts waehlt Button" in output
+    assert "[ Loeschen ]" in output
+    assert "[ Abbrechen ]" in output
+
+
+def test_audit_cleanup_confirmation_enter_executes_action(monkeypatch) -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {
+                "active": True,
+                "mode": "confirm_cleanup",
+                "cleanup_action_id": "audit_only",
+                "confirm_choice": "delete",
+            },
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.run_audit_cleanup_action",
+        lambda action_id: {"action_id": action_id, "counts": {"audit_db_rows": 5}},
+    )
+
+    tui._handle_enter_key()
+
+    game = dict(tui.state.header_logo_game or {})
+    viewer = dict(game.get("audit_viewer") or {})
+    assert bool(viewer.get("active"))
+    assert viewer.get("mode") == "cleanup_result"
+    assert "cleanup ausgefuehrt: audit_only" in tui.state.status_message
+    assert "audit_db_rows=5" in tui.state.status_message
+
+
+def test_audit_cleanup_confirmation_enter_on_cancel_aborts(monkeypatch) -> None:
+    called: list[str] = []
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {
+                "active": True,
+                "mode": "confirm_cleanup",
+                "cleanup_action_id": "audit_only",
+                "confirm_choice": "cancel",
+            },
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+
+    def _fake_run(action_id: str):
+        called.append(action_id)
+        return {"action_id": action_id, "counts": {"audit_db_rows": 1}}
+
+    monkeypatch.setattr("client_surfaces.operator_tui.interactive.run_audit_cleanup_action", _fake_run)
+
+    tui._handle_enter_key()
+
+    game = dict(tui.state.header_logo_game or {})
+    viewer = dict(game.get("audit_viewer") or {})
+    assert bool(viewer.get("active"))
+    assert viewer.get("mode") == "cleanup_result"
+    assert called == []
+    assert tui.state.status_message == "cleanup abgebrochen"
+
+
+def test_audit_cleanup_confirmation_left_right_switches_button_choice() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {
+                "active": True,
+                "mode": "confirm_cleanup",
+                "cleanup_action_id": "audit_only",
+                "confirm_choice": "cancel",
+            },
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+
+    tui._audit_cleanup_set_choice("delete")
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+    assert viewer.get("confirm_choice") == "delete"
+
+    tui._audit_cleanup_set_choice("cancel")
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+    assert viewer.get("confirm_choice") == "cancel"
+
+
+def test_audit_cleanup_confirm_result_enter_closes_viewer() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {
+                "active": True,
+                "mode": "cleanup_result",
+                "title": "Nur Audit loeschen",
+                "text": "cleanup ausgefuehrt",
+            },
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+
+    tui._handle_enter_key()
+
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+    assert not bool(viewer.get("active"))
+    assert tui.state.status_message == "cleanup viewer geschlossen"
+
+
+def test_audit_cleanup_result_is_visible_in_middle_panel() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {
+                "active": True,
+                "mode": "cleanup_result",
+                "title": "Nur Audit loeschen",
+                "group": "Data Cleanup",
+                "text": "cleanup ausgefuehrt: audit_only (audit_db_rows=2)",
+            },
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+
+    output = render_operator_shell(tui.state, width=120, height=36)
+
+    assert "Audit Cleanup Ergebnis" in output
+    assert "cleanup ausgefuehrt: audit_only" in output
+
+
+def test_audit_cleanup_mouse_click_delete_executes(monkeypatch) -> None:
+    called: list[str] = []
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {
+                "active": True,
+                "mode": "confirm_cleanup",
+                "title": "Nur Audit loeschen",
+                "cleanup_action_id": "audit_only",
+                "confirm_choice": "cancel",
+                "text": "Bitte Loeschung bestaetigen.\n\nA\nB",
+                "view_line_offset": 0,
+            },
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.run_audit_cleanup_action",
+        lambda action_id: called.append(action_id) or {"action_id": action_id, "counts": {"audit_db_rows": 1}},
+    )
+
+    button_row = None
+    for y in range(0, 40):
+        if tui._audit_cleanup_button_choice_from_click(x=28, y=y, width=120, height=31) == "delete":
+            button_row = y
+            break
+    assert button_row is not None
+
+    handled = tui._audit_cleanup_handle_mouse_click(x=28, y=int(button_row), width=120, height=31)
+
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+    assert handled is True
+    assert called == ["audit_only"]
+    assert viewer.get("mode") == "cleanup_result"
+
+
+def test_audit_cleanup_mouse_click_cancel_aborts(monkeypatch) -> None:
+    called: list[str] = []
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {
+                "active": True,
+                "mode": "confirm_cleanup",
+                "title": "Nur Audit loeschen",
+                "cleanup_action_id": "audit_only",
+                "confirm_choice": "cancel",
+                "text": "Bitte Loeschung bestaetigen.\n\nA\nB",
+                "view_line_offset": 0,
+            },
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.interactive.run_audit_cleanup_action",
+        lambda action_id: called.append(action_id) or {"action_id": action_id, "counts": {"audit_db_rows": 1}},
+    )
+
+    button_row = None
+    for y in range(0, 40):
+        if tui._audit_cleanup_button_choice_from_click(x=70, y=y, width=120, height=31) == "cancel":
+            button_row = y
+            break
+    assert button_row is not None
+
+    handled = tui._audit_cleanup_handle_mouse_click(x=70, y=int(button_row), width=120, height=31)
+
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+    assert handled is True
+    assert called == []
+    assert viewer.get("mode") == "cleanup_result"
+    assert tui.state.status_message == "cleanup abgebrochen"
 
 
 def test_audit_viewer_resets_when_leaving_audit_section() -> None:

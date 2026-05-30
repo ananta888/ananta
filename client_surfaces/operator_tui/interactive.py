@@ -55,6 +55,7 @@ from client_surfaces.operator_tui.ai_snake_training_store import (
     save_patterns,
 )
 from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
+from client_surfaces.operator_tui.audit_cleanup import run_audit_cleanup_action
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
@@ -629,6 +630,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._chat_move_cursor(-1)
                 return
             if self._audit_viewer_active():
+                if self._audit_cleanup_confirm_mode_active():
+                    self._audit_cleanup_set_choice("delete")
+                    return
                 self._audit_viewer_scroll_horizontal(-4)
                 return
             if self._template_editor_active():
@@ -654,6 +658,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self._chat_move_cursor(1)
                 return
             if self._audit_viewer_active():
+                if self._audit_cleanup_confirm_mode_active():
+                    self._audit_cleanup_set_choice("cancel")
+                    return
                 self._audit_viewer_scroll_horizontal(4)
                 return
             if self._template_editor_active():
@@ -1569,6 +1576,112 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         viewer = dict(game.get("audit_viewer") or {})
         return bool(viewer.get("active")) and self.state.section_id == "audit"
 
+    def _audit_cleanup_confirm_mode_active(self) -> bool:
+        if not self._audit_viewer_active():
+            return False
+        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        viewer = dict(game.get("audit_viewer") or {})
+        return str(viewer.get("mode") or "") == "confirm_cleanup"
+
+    def _audit_cleanup_result_mode_active(self) -> bool:
+        if not self._audit_viewer_active():
+            return False
+        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        viewer = dict(game.get("audit_viewer") or {})
+        return str(viewer.get("mode") or "") == "cleanup_result"
+
+    def _audit_cleanup_set_choice(self, choice: str) -> None:
+        game = dict(self.state.header_logo_game or {})
+        viewer = dict(game.get("audit_viewer") or {})
+        if str(viewer.get("mode") or "") != "confirm_cleanup":
+            return
+        normalized = "delete" if str(choice).strip().lower() == "delete" else "cancel"
+        viewer["confirm_choice"] = normalized
+        game["audit_viewer"] = viewer
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=(
+                    "cleanup auswahl: Loeschen" if normalized == "delete" else "cleanup auswahl: Abbrechen"
+                ),
+            )
+        )
+
+    def _audit_cleanup_close_viewer(self, *, status_message: str) -> None:
+        game = dict(self.state.header_logo_game or {})
+        game["audit_viewer"] = {"active": False}
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                focus=FocusPane.CONTENT,
+                status_message=status_message,
+            )
+        )
+
+    def _audit_cleanup_show_result(self, *, title: str, summary: str) -> None:
+        game = dict(self.state.header_logo_game or {})
+        game["audit_viewer"] = {
+            "active": True,
+            "mode": "cleanup_result",
+            "title": title,
+            "group": "Data Cleanup",
+            "text": summary,
+            "view_line_offset": 0,
+            "view_col_offset": 0,
+        }
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                focus=FocusPane.CONTENT,
+                status_message=summary,
+            )
+        )
+
+    def _audit_cleanup_button_choice_from_click(self, *, x: int, y: int, width: int, height: int) -> str | None:
+        if not self._audit_cleanup_confirm_mode_active():
+            return None
+        game = dict(self.state.header_logo_game or {})
+        viewer = dict(game.get("audit_viewer") or {})
+        text = str(viewer.get("text") or "")
+        text_lines = text.splitlines() or [""]
+        body_start = 10 if len(self.state.open_tabs) >= 2 else 9
+        body_y1 = body_start
+        body_height = max(3, int(height) - 5 - body_start)
+        y_rel = int(y) - body_y1
+        if y_rel < 0:
+            return None
+        pane_title_rows = 1
+        viewer_header_rows = 3
+        visible_rows = max(1, body_height - pane_title_rows - viewer_header_rows)
+        view_line_offset = max(0, int(viewer.get("view_line_offset") or 0))
+        max_line_offset = max(0, len(text_lines) - visible_rows)
+        view_line_offset = min(view_line_offset, max_line_offset)
+        end_line = min(len(text_lines), view_line_offset + visible_rows)
+        button_row = pane_title_rows + viewer_header_rows + max(0, end_line - view_line_offset)
+        if end_line < len(text_lines):
+            button_row += 1
+        button_row += 1
+        if y_rel != button_row:
+            return None
+        left_width = 22
+        detail_width = 34
+        middle_width = max(12, int(width) - left_width - detail_width - 6)
+        content_x1 = left_width + 2
+        rel_x = int(x) - content_x1
+        if rel_x < 0 or rel_x >= middle_width:
+            return None
+        button_line_mid = len("  [ Loeschen ]   [ Abbrechen ] ") // 2
+        return "delete" if rel_x < button_line_mid else "cancel"
+
+    def _audit_cleanup_handle_mouse_click(self, *, x: int, y: int, width: int, height: int) -> bool:
+        choice = self._audit_cleanup_button_choice_from_click(x=x, y=y, width=width, height=height)
+        if choice is None:
+            return False
+        self._audit_cleanup_set_choice(choice)
+        return self._confirm_audit_cleanup_action()
+
     def _selected_audit_entry(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
         if self.state.section_id != "audit":
             return None
@@ -1631,6 +1744,51 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         dataset_id = str(entry.get("dataset_id") or entry.get("id") or "")
         datasets = payload.get("datasets")
         raw = datasets.get(dataset_id) if isinstance(datasets, dict) else None
+        raw_dict = dict(raw) if isinstance(raw, dict) else {}
+        raw_kind = str(raw_dict.get("kind") or "")
+        if raw_kind in {"cleanup_action", "cleanup_overview"}:
+            details = [str(line) for line in list(raw_dict.get("details") or []) if str(line).strip()]
+            if raw_kind == "cleanup_action":
+                text_lines = [
+                    "Bitte Loeschung bestaetigen.",
+                    "",
+                    *details,
+                    "",
+                    "Diese Aktion kann nicht rueckgaengig gemacht werden.",
+                ]
+                mode = "confirm_cleanup"
+            else:
+                text_lines = details
+                mode = "read_only"
+            text = "\n".join(text_lines).strip() or "{}"
+            game = dict(self.state.header_logo_game or {})
+            game["audit_viewer"] = {
+                "active": True,
+                "mode": mode,
+                "dataset_id": dataset_id,
+                "cleanup_action_id": str(raw_dict.get("cleanup_action_id") or ""),
+                "confirm_choice": "cancel",
+                "clear_runtime_chat": bool(raw_dict.get("clear_runtime_chat")),
+                "clear_persisted_chat_history": bool(raw_dict.get("clear_persisted_chat_history")),
+                "title": str(entry.get("title") or dataset_id or "dataset"),
+                "group": str(entry.get("group") or ""),
+                "text": text,
+                "view_line_offset": 0,
+                "view_col_offset": 0,
+            }
+            self._set_state(
+                self.state.with_updates(
+                    mode=OperatorMode.NORMAL,
+                    focus=FocusPane.CONTENT,
+                    header_logo_game=game,
+                    status_message=(
+                        f"cleanup bereit: {str(entry.get('title') or dataset_id)}"
+                        if raw_kind == "cleanup_action"
+                        else f"audit viewer: {str(entry.get('title') or dataset_id)}"
+                    ),
+                )
+            )
+            return True
         text: str
         if isinstance(raw, str):
             text = raw
@@ -1656,6 +1814,69 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 status_message=f"audit viewer: {str(entry.get('title') or dataset_id)}",
             )
         )
+        return True
+
+    def _clear_runtime_chat_history(self, game: dict[str, Any]) -> None:
+        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
+        chat = get_chat_state(game)
+        channels = chat.get("channels")
+        if isinstance(channels, dict):
+            for channel in channels.values():
+                if not isinstance(channel, dict):
+                    continue
+                channel["messages"] = []
+                channel["unread"] = 0
+        chat["chat_input_buffer"] = ""
+        chat["chat_input_cursor"] = 0
+        chat["chat_input_history_index"] = None
+        chat["chat_input_saved_draft"] = ""
+        chat["ai_typing"] = False
+        set_chat_state(game, chat)
+
+        game["artifact_chat_input"] = ""
+        game["artifact_chat_cursor"] = 0
+        game["artifact_chat_history"] = []
+        game["artifact_chat_history_index"] = None
+        game["artifact_chat_saved_draft"] = ""
+        game["chat_long_message_history"] = []
+        game["chat_long_message_markdown"] = ""
+        game["chat_long_message_plain_text"] = ""
+        game["chat_long_message_id"] = ""
+        game["chat_memory_summary"] = ""
+        game["chat_memory_summary_turn_count"] = 0
+
+    def _clear_persisted_chat_history(self) -> None:
+        from client_surfaces.operator_tui.config.user_config_manager import save_user_config
+
+        save_user_config({"chat_input_history": []})
+
+    def _confirm_audit_cleanup_action(self) -> bool:
+        game = dict(self.state.header_logo_game or {})
+        viewer = dict(game.get("audit_viewer") or {})
+        if str(viewer.get("mode") or "") != "confirm_cleanup":
+            return False
+        choice = str(viewer.get("confirm_choice") or "cancel").strip().lower()
+        title = str(viewer.get("title") or "Cleanup")
+        if choice != "delete":
+            self._audit_cleanup_show_result(title=title, summary="cleanup abgebrochen")
+            return True
+        action_id = str(viewer.get("cleanup_action_id") or "").strip()
+        if not action_id:
+            return False
+        try:
+            result = run_audit_cleanup_action(action_id)
+        except Exception as exc:
+            self._audit_cleanup_show_result(title=title, summary=f"cleanup fehlgeschlagen: {exc}")
+            return True
+        if bool(result.get("clear_runtime_chat")):
+            self._clear_runtime_chat_history(game)
+        if bool(result.get("clear_persisted_chat_history")):
+            self._clear_persisted_chat_history()
+        counts = dict(result.get("counts") or {})
+        summary_parts = [f"{key}={value}" for key, value in counts.items() if int(value) > 0]
+        summary = ", ".join(summary_parts) if summary_parts else "keine gespeicherten Einträge gefunden"
+        self._audit_cleanup_show_result(title=title, summary=f"cleanup ausgefuehrt: {action_id} ({summary})")
         return True
 
     def _template_editor_active(self) -> bool:
@@ -2012,6 +2233,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._chat_send_message()
             return
         if self._audit_viewer_active():
+            if self._audit_cleanup_result_mode_active():
+                self._audit_cleanup_close_viewer(status_message="cleanup viewer geschlossen")
+                return
+            if self._confirm_audit_cleanup_action():
+                return
             return
         if self._template_editor_active():
             self._template_editor_insert_text("\n")

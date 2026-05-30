@@ -872,6 +872,14 @@ class MouseArtifactMixin:
             and target.pane == "content"
             and hasattr(self, "_open_audit_viewer_for_selected")
         ):
+            if hasattr(self, "_audit_cleanup_handle_mouse_click") and self._audit_cleanup_handle_mouse_click(  # type: ignore[attr-defined]
+                x=int(self._mouse_state.x),
+                y=int(self._mouse_state.y),
+                width=int(width),
+                height=int(height),
+            ):
+                game["_copy_status_message"] = str(self.state.status_message or "cleanup")
+                return
             self._open_audit_viewer_for_selected()  # type: ignore[attr-defined]
             game["_copy_status_message"] = str(self.state.status_message or "audit viewer")
             return

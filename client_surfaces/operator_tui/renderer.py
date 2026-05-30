@@ -806,11 +806,21 @@ def _audit_viewer_content_lines(state: OperatorState, width: int, *, viewport_he
     viewer = dict(game.get("audit_viewer") or {})
     title = str(viewer.get("title") or "dataset")
     group = str(viewer.get("group") or "")
+    mode = str(viewer.get("mode") or "read_only")
     text = str(viewer.get("text") or "")
     text_lines = text.splitlines() or [""]
+    if mode == "confirm_cleanup":
+        header = f"  Audit Cleanup · {title}" + (f" ({group})" if group else "")
+        hint = "  Links/Rechts waehlt Button · Enter ausfuehren · Esc abbrechen"
+    elif mode == "cleanup_result":
+        header = f"  Audit Cleanup Ergebnis · {title}" + (f" ({group})" if group else "")
+        hint = "  Enter/Esc schliesst diese Meldung"
+    else:
+        header = f"  Audit Viewer · {title}" + (f" ({group})" if group else "")
+        hint = "  read-only · Esc schließen · ↑/↓ scroll · ←/→ horizontal scroll"
     lines = [
-        f"  Audit Viewer · {title}" + (f" ({group})" if group else ""),
-        "  read-only · Esc schließen · ↑/↓ scroll · ←/→ horizontal scroll",
+        header,
+        hint,
         "",
     ]
     pane_title_rows = 1
@@ -831,6 +841,13 @@ def _audit_viewer_content_lines(state: OperatorState, width: int, *, viewport_he
         lines.append(f"  {row_index + 1:>4} {snippet}")
     if end_line < len(text_lines):
         lines.append(f"  ... ({len(text_lines) - end_line} weitere Zeilen)")
+    if mode == "confirm_cleanup":
+        choice = str(viewer.get("confirm_choice") or "cancel").strip().lower()
+        delete_selected = choice == "delete"
+        delete_button = ">[ Loeschen ]<" if delete_selected else " [ Loeschen ] "
+        cancel_button = ">[ Abbrechen ]<" if not delete_selected else " [ Abbrechen ] "
+        lines.append("")
+        lines.append(f"  {delete_button}   {cancel_button}")
     return [_clip(line, width) for line in lines]
 
 

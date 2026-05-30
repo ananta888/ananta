@@ -18,6 +18,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from client_surfaces.operator_tui.audit_cleanup import build_audit_cleanup_entries
 from client_surfaces.operator_tui.models import PanelState, SectionLoadResult
 
 # ── JWT cache: (base_url, username) → (jwt_str, expires_at) ──────────────────
@@ -538,6 +539,10 @@ def _fetch_audit(base: str, token: str, timeout: float) -> SectionLoadResult:
                 "error": error,
             }
         )
+
+    cleanup_items, cleanup_datasets = build_audit_cleanup_entries()
+    payload_items.extend(cleanup_items)
+    payload_datasets.update(cleanup_datasets)
 
     panel_state = PanelState.HEALTHY if available_count > 0 else PanelState.DEGRADED
     payload: dict[str, Any] = {

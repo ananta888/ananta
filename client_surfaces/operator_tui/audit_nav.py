@@ -8,6 +8,7 @@ _AUDIT_GROUPS: tuple[str, ...] = (
     "Runtime Telemetry",
     "LLM/Debug",
     "Task/Ops",
+    "Data Cleanup",
 )
 
 
