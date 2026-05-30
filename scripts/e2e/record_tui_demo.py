@@ -560,6 +560,146 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     )
 
 
+def _share_session_live_e2e_cast(*, run_id: str) -> str:
+    width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
+    height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
+    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
+    default_cmd = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
+    run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
+    command = shlex.split(run_command)
+    if not command:
+        raise RuntimeError("ANANTA_TUI_E2E_CAST_COMMAND is empty")
+
+    endpoint = str(
+        os.environ.get("ANANTA_TUI_E2E_SHARE_ENDPOINT")
+        or os.environ.get("ANANTA_ENDPOINT")
+        or os.environ.get("ANANTA_HUB_URL")
+        or "http://localhost:5000"
+    ).strip()
+    share_title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "test").strip() or "test"
+    env = dict(os.environ)
+    env.setdefault("TERM", "xterm-256color")
+    env.setdefault("COLORTERM", "truecolor")
+    env.setdefault("COLUMNS", str(width))
+    env.setdefault("LINES", str(height))
+    env.setdefault("ANANTA_ENDPOINT", endpoint)
+    env.setdefault("ANANTA_TUI_MOUSE", "1")
+
+    # Wait for first healthy frame, then issue real share commands in the running TUI.
+    script_actions: list[dict[str, object]] = [
+        {"at": 2.2, "need": "", "send": f":share key generate\r".encode("utf-8")},
+        {"at": 5.0, "need": "", "send": f":share create {share_title}\r".encode("utf-8")},
+        {"at": 8.5, "need": "", "send": b":share list\r"},
+        {"at": 14.0, "need": "", "send": b"q"},
+    ]
+
+    master_fd, slave_fd = pty.openpty()
+    try:
+        termios_winsz = struct.pack("HHHH", height, width, 0, 0)
+        fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, termios_winsz)
+    except Exception:
+        pass
+
+    process = subprocess.Popen(
+        command,
+        stdin=slave_fd,
+        stdout=slave_fd,
+        stderr=slave_fd,
+        env=env,
+        close_fds=True,
+        start_new_session=True,
+    )
+    os.close(slave_fd)
+
+    events: list[tuple[float, str]] = []
+    action_index = 0
+    started = time.monotonic()
+    forced_quit_sent = False
+
+    try:
+        while True:
+            elapsed = time.monotonic() - started
+            while action_index < len(script_actions):
+                action = script_actions[action_index]
+                at = float(action.get("at") or 0.0)
+                need = str(action.get("need") or "")
+                if elapsed < at:
+                    break
+                if need:
+                    tail_text = "".join(chunk for _, chunk in events[-12:])
+                    if need not in tail_text:
+                        break
+                payload = action.get("send")
+                if isinstance(payload, bytes):
+                    os.write(master_fd, payload)
+                action_index += 1
+
+            readable, _, _ = select.select([master_fd], [], [], 0.08)
+            if readable:
+                try:
+                    chunk = os.read(master_fd, 65536)
+                except OSError as exc:
+                    if exc.errno == errno.EIO:
+                        chunk = b""
+                    else:
+                        raise
+                if chunk:
+                    text = chunk.decode("utf-8", errors="replace")
+                    if events:
+                        events.append((elapsed, text))
+                    else:
+                        events.append((elapsed, "\x1b[2J\x1b[H" + text))
+                elif process.poll() is not None:
+                    break
+
+            if process.poll() is not None:
+                try:
+                    while True:
+                        chunk = os.read(master_fd, 65536)
+                        if not chunk:
+                            break
+                        events.append((time.monotonic() - started, chunk.decode("utf-8", errors="replace")))
+                except OSError:
+                    pass
+                break
+
+            if elapsed >= duration_limit and not forced_quit_sent:
+                os.write(master_fd, b"q")
+                forced_quit_sent = True
+
+            if elapsed >= (duration_limit + 4.0):
+                break
+    finally:
+        try:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=1.0)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+
+    if not events:
+        raise RuntimeError(
+            "No PTY output captured for share-session-live-e2e cast. "
+            "Check ANANTA_TUI_E2E_CAST_COMMAND and local terminal environment."
+        )
+
+    first_ts = events[0][0]
+    normalized = [(max(0.0, ts - first_ts), frame) for ts, frame in events]
+    return _asciinema_v2_lines(
+        title=f"Ananta Operator TUI – Share Session Live E2E ({run_id})",
+        frames=normalized,
+        width=width,
+        height=height,
+    )
+
+
 def _click_select_explain_cast(*, run_id: str) -> str:
     """Rendered cast: left-click selects item → AI snake jumps → chat opens → explanation appears."""
     steps = [
@@ -1067,6 +1207,10 @@ def record_tui_demo(
             if sync_targets
             else []
         )
+    elif normalized_scene == "share-session-live-e2e":
+        cast_content = _share_session_live_e2e_cast(run_id=run_id)
+        file_name = "video-tui-share-session-live-e2e.cast"
+        synced_targets = []
     else:
         cast_content = _asciinema_v2_lines(
             title="Ananta Operator TUI – Demo Placeholder",
