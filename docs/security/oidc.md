@@ -70,6 +70,57 @@ TERMINAL_OIDC_AUDIENCE=ananta-hub
 The implementation path remains unchanged and uses `GET /auth/oidc/login` and `GET /auth/oidc/callback` in `agent/routes/auth_oidc.py`.
 For containerized setups, `TERMINAL_OIDC_ISSUER` may point to an internal service DNS name, while `TERMINAL_OIDC_BROWSER_ISSUER` should point to the browser-reachable public URL.
 
+## TUI Device Authorization Grant (RFC 8628)
+
+Der Operator TUI unterstützt den OIDC Device Authorization Grant für headless/terminal Login ohne Browser-Redirect auf dem gleichen Gerät.
+
+### Ablauf
+
+```
+TUI                               Keycloak
+ │── POST /device ────────────────►│  device_code + user_code zurück
+ │◄─ user_code + verification_uri ─│
+ │
+ │  User öffnet verification_uri im Browser, gibt user_code ein, loggt ein
+ │
+ │── POST /token (polling) ────────►│  authorization_pending → weiter pollen
+ │◄─ access_token ─────────────────│  Token im game state gespeichert
+```
+
+### Keycloak-Konfiguration
+
+Der Client `ananta-tui` muss `Device Authorization Grant` aktiviert haben:
+
+```
+Client: ananta-tui
+  Public Client: yes
+  Standard Flow: yes
+  Device Authorization Grant: yes   ← Pflicht für :oidc login
+  Direct Access Grants: no
+```
+
+Im Realm-Export `public-rendezvous/keycloak/ananta-realm.json` ist das bereits konfiguriert.
+
+Das Access-Token enthält über den Audience-Mapper `ananta-hub` in `aud`, was der Rendezvous-Service verifiziert.
+
+### Verwendung in der TUI
+
+```
+:oidc login     – Device Flow starten
+:oidc status    – Aktuellen Anmeldestatus anzeigen
+:oidc logout    – Token verwerfen
+```
+
+Der Token wird nach erfolgreicher Authentifizierung automatisch für alle Share-Session-API-Calls verwendet. Notes und lokale Chat-Nachrichten werden nie über das Token oder den Rendezvous-Server geteilt.
+
+### Relevante ENV-Variablen
+
+```env
+ANANTA_NETWORK_PROFILE=public-ananta
+ANANTA_OIDC_ISSUER=https://keycloak.ananta.de/realms/ananta
+ANANTA_OIDC_CLIENT_ID=ananta-tui
+```
+
 ## Local dev fallback
 
 When `TERMINAL_OIDC_ENABLED=false` (default), standard username/password login via `POST /login` remains active.
