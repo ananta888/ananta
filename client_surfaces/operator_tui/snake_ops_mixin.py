@@ -666,6 +666,9 @@ class SnakeOpsMixin:
         )
 
     def _snake_render_plain_lines(self) -> list[str]:
+        rendered_current = str(getattr(self, "_rendered_text", "") or "")
+        if rendered_current.strip():
+            return [_ANSI_STRIP.sub("", line) for line in rendered_current.splitlines()]
         game = dict(self.state.header_logo_game or {})
         if game.get("free_mode"):
             game["free_mode"] = False
