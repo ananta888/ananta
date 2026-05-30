@@ -154,11 +154,14 @@ def configure_middle_view_for_message(
     *,
     channel_id: str,
     streaming: bool = False,
+    activate_view: bool = True,
 ) -> bool:
     if not should_use_middle_view_for_message(message):
         return False
     text = str(message.get("text") or "")
     remember_long_message(game, message, channel_id=channel_id)
+    if not activate_view:
+        return True
     game["chat_long_message_markdown"] = markdown_for_message(message, streaming=streaming)
     game["chat_long_message_plain_text"] = text
     game["chat_long_message_id"] = str(message.get("id") or ("streaming" if streaming else ""))
