@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-05-30T19:43:03Z",
+  "updated": "2026-05-30T19:46:12Z",
   "settings": {
     "chat_include_local_project": true,
     "chat_max_tokens": 8000,
