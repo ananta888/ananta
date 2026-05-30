@@ -39,6 +39,8 @@ from agent.routes.terminal import terminal_bp
 from agent.routes.auth_oidc import oidc_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.share_sessions import share_sessions_bp
+from agent.routes.rendezvous import rendezvous_bp
+from agent.routes.webrtc_signaling import webrtc_signaling_bp
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -80,6 +82,8 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(oidc_bp)
     app.register_blueprint(snakes_bp)
     app.register_blueprint(share_sessions_bp)
+    app.register_blueprint(rendezvous_bp, url_prefix="/api")
+    app.register_blueprint(webrtc_signaling_bp, url_prefix="/api")
     register_ws_terminal(app)
 
 

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TuiViewDeltaShare",
+  "version": "1.0",
+  "description": "Verschlüsselter Snapshot/Delta-Stream für Secure Shared TUI View.",
+  "type": "object",
+  "required": ["version", "session_id", "message_id", "kind", "encrypted_payload"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"type": "string", "enum": ["1"]},
+    "session_id": {"type": "string", "description": "ShareSession-ID"},
+    "message_id": {"type": "string", "description": "Eindeutige Message-ID (kein Reuse)"},
+    "kind": {"type": "string", "enum": ["snapshot", "delta", "resync_request"]},
+    "width": {"type": "integer"},
+    "height": {"type": "integer"},
+    "base_hash": {"type": "string", "description": "Hash des Basis-Snapshots (für Delta-Validierung)"},
+    "new_hash": {"type": "string", "description": "Hash des neuen Snapshots"},
+    "encrypted_payload": {
+      "type": "object",
+      "description": "E2E-verschlüsselter Payload (AES-256-GCM)",
+      "required": ["ciphertext", "nonce", "context_label", "message_id"],
+      "properties": {
+        "ciphertext": {"type": "string", "description": "Base64-kodierter Ciphertext"},
+        "nonce": {"type": "string", "description": "Base64-kodierter Nonce (12 Byte)"},
+        "context_label": {"type": "string", "enum": ["view"]},
+        "message_id": {"type": "string"}
+      }
+    },
+    "policy_hash": {"type": "string", "description": "Hash der angewandten Policy (kein Klartext)"},
+    "sent_at": {"type": "number"}
+  }
+}

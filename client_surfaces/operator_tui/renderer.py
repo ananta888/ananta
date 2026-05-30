@@ -656,6 +656,8 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
         lines.extend(_system_content_lines(payload))
     elif section.id == "terminal":
         lines.extend(_terminal_content_lines(payload, state, width))
+    elif section.id == "share":
+        lines.extend(_share_section_content_lines(payload, state, width))
     elif section.id == "help":
         lines.append("")
         lines.extend(_binding_lines(state, width))
@@ -1186,6 +1188,11 @@ def _system_content_lines(payload: dict) -> list[str]:
         lines.append("  press r to load system data")
 
     return lines
+
+
+def _share_section_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
+    from client_surfaces.operator_tui.share_menu import share_section_lines
+    return share_section_lines(payload, width=width, selected_index=state.selected_index)
 
 
 def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:

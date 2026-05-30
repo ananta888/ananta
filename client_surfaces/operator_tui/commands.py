@@ -3728,4 +3728,128 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             )
         return CommandResult(state, "ai context notes on|off", handled=False)
 
+    if command == "share":
+        return _handle_share_command(args, state)
+
     return CommandResult(state.with_updates(status_message=f"unknown command: {command}"), f"unknown command: {command}", handled=False)
+
+
+def _handle_share_command(args: list[str], state: OperatorState) -> CommandResult:
+    sub = args[0].lower() if args else "status"
+
+    if sub == "status":
+        return CommandResult(
+            state.with_updates(mode=OperatorMode.NORMAL, command_line="", section_id="share", status_message="share status"),
+            "share status",
+        )
+
+    if sub == "help":
+        msg = (
+            "share: status | create [title] | invite | join <code> | "
+            "key generate | key show | key rotate | view on|off | stop"
+        )
+        return CommandResult(state.with_updates(status_message=msg), "share help")
+
+    if sub == "create":
+        title = " ".join(args[1:]).strip() or "Shared Session"
+        from client_surfaces.operator_tui.share_menu import share_section_lines
+        game = dict(state.header_logo_game or {})
+        game["share_pending_action"] = {"action": "create", "title": title}
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                section_id="share",
+                status_message=f"share create: '{title}' – wird beim Hub erstellt",
+            ),
+            f"share create {title}",
+        )
+
+    if sub == "invite":
+        game = dict(state.header_logo_game or {})
+        invite_code = str((game.get("share_active_session") or {}).get("invite_code") or "")
+        if invite_code:
+            msg = f"Invite-Code: {invite_code}"
+        else:
+            msg = "Keine aktive Share-Session. :share create zuerst."
+        return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg)
+
+    if sub == "join" and len(args) >= 2:
+        invite_code = args[1].strip()
+        game = dict(state.header_logo_game or {})
+        game["share_pending_action"] = {"action": "join", "invite_code": invite_code}
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                section_id="share",
+                status_message=f"share join: Code '{invite_code[:16]}…' wird versucht",
+            ),
+            f"share join {invite_code}",
+        )
+
+    if sub == "key":
+        key_sub = args[1].lower() if len(args) >= 2 else "show"
+        from client_surfaces.operator_tui.device_keys import get_device_key_manager, DeviceKeyError
+        mgr = get_device_key_manager()
+        if key_sub == "generate":
+            if mgr.key_exists():
+                msg = "Device-Key existiert bereits. :share key rotate für Rotation."
+            else:
+                try:
+                    info = mgr.generate_key()
+                    fp = str(info.get("fingerprint") or "")
+                    msg = f"Device-Key erstellt. Fingerprint: {fp}"
+                except DeviceKeyError as exc:
+                    msg = f"Key-Generierung fehlgeschlagen: {exc}"
+            return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg)
+        if key_sub == "show":
+            try:
+                info = mgr.get_public_info()
+                fp = str(info.get("fingerprint") or "")
+                msg = f"Fingerprint: {fp}"
+            except DeviceKeyError as exc:
+                msg = f"Kein Device-Key: {exc}"
+            return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg)
+        if key_sub == "rotate":
+            try:
+                info = mgr.rotate_key()
+                fp = str(info.get("fingerprint") or "")
+                msg = f"Key rotiert. Neuer Fingerprint: {fp}"
+            except DeviceKeyError as exc:
+                msg = f"Key-Rotation fehlgeschlagen: {exc}"
+            return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg)
+
+    if sub == "view":
+        view_sub = args[1].lower() if len(args) >= 2 else ""
+        if view_sub not in ("on", "off"):
+            return CommandResult(state.with_updates(status_message=":share view on|off"), ":share view on|off", handled=False)
+        enabled = view_sub == "on"
+        game = dict(state.header_logo_game or {})
+        session = dict(game.get("share_active_session") or {})
+        if not session:
+            return CommandResult(state.with_updates(status_message="Keine aktive Share-Session"), "no active session", handled=False)
+        game["share_pending_action"] = {"action": "set_view", "view_tui": enabled}
+        msg = "TUI-View-Share aktiviert" if enabled else "TUI-View-Share deaktiviert"
+        return CommandResult(
+            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=msg),
+            msg,
+        )
+
+    if sub == "stop":
+        game = dict(state.header_logo_game or {})
+        game["share_pending_action"] = {"action": "stop"}
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="Share-Session wird beendet",
+            ),
+            "share stop",
+        )
+
+    msg = "share: status | create | invite | join <code> | key generate|show|rotate | view on|off | stop"
+    return CommandResult(state.with_updates(status_message=msg), msg, handled=False)

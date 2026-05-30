@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "public_ananta_rendezvous_defaults_keycloak_webrtc",
   "created": "2026-05-30",
-  "status": "open",
+  "status": "in_progress",
   "priority": "P0",
   "purpose": "Ananta soll optional vordefinierte öffentliche Rendezvous-Endpunkte nutzen können, damit frisch geklonte/gehostete Repos weltweit Teilnehmer über bekannte Ananta-Dienste verbinden können: Keycloak/OIDC für Identität und Ananta Hub/WebRTC-Signaling für Discovery, Invite, Signaling und Fallback-Relay.",
   "important_security_position": {
@@ -75,11 +75,16 @@
       "rendezvous": {
         "base_url": "https://webrtc.ananta.de",
         "signaling_url": "wss://webrtc.ananta.de/signaling",
-        "transport_order": ["webrtc", "hub_relay"],
+        "transport_order": [
+          "webrtc",
+          "hub_relay"
+        ],
         "require_e2e_payload_encryption": true
       },
       "turn": {
-        "urls": ["turns:webrtc.ananta.de:5349"],
+        "urls": [
+          "turns:webrtc.ananta.de:5349"
+        ],
         "credential_mode": "ephemeral_from_rendezvous"
       }
     }
@@ -89,13 +94,13 @@
       "id": "PRD01",
       "title": "Public Rendezvous Network Profile definieren",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "PRD01.01",
           "title": "Default-Netzwerkprofile einführen",
           "type": "configuration",
-          "status": "open",
+          "status": "done",
           "files": [
             "config/ananta_network_profiles.default.json",
             ".env.example",
@@ -114,7 +119,7 @@
           "id": "PRD01.02",
           "title": "TUI-Warnung und Opt-in für öffentliche Infrastruktur",
           "type": "tui_security_ux",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_menu.py",
             "client_surfaces/operator_tui/renderer.py",
@@ -134,13 +139,13 @@
       "id": "PRD02",
       "title": "Öffentliche Keycloak/OIDC Integration",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "PRD02.01",
           "title": "OIDC-Defaults für keycloak.ananta.de ergänzen",
           "type": "oidc_configuration",
-          "status": "open",
+          "status": "done",
           "files": [
             "docs/security/oidc.md",
             ".env.example",
@@ -158,7 +163,7 @@
           "id": "PRD02.02",
           "title": "OIDC Token an Rendezvous-Join binden",
           "type": "security_integration",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/routes/share_sessions.py",
             "agent/services/share_session_service.py",
@@ -178,13 +183,13 @@
       "id": "PRD03",
       "title": "Rendezvous/Discovery über webrtc.ananta.de",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "PRD03.01",
           "title": "Invite-Code und ananta:// Invite-Link spezifizieren",
           "type": "discovery_protocol",
-          "status": "open",
+          "status": "done",
           "files": [
             "schemas/tui/share_invite.v1.json",
             "docs/operator-tui-public-rendezvous.md",
@@ -202,7 +207,7 @@
           "id": "PRD03.02",
           "title": "Rendezvous API für Teilnehmer-Findung",
           "type": "backend_api",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/routes/rendezvous.py",
             "agent/services/rendezvous_service.py",
@@ -267,13 +272,13 @@
       "id": "PRD05",
       "title": "Ende-zu-Ende-Sicherheit trotz öffentlicher Default-Server",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "PRD05.01",
           "title": "E2E-Payload-Verschlüsselung für öffentliche Server erzwingen",
           "type": "security_requirement",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_crypto.py",
             "client_surfaces/operator_tui/share_view_transport.py",
@@ -292,7 +297,7 @@
           "id": "PRD05.02",
           "title": "Missbrauchsschutz für öffentliche Infrastruktur",
           "type": "abuse_prevention",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/services/rate_limit_service.py",
             "agent/routes/rendezvous.py",
@@ -312,13 +317,13 @@
       "id": "PRD06",
       "title": "E2E-Test: frisches Repo nutzt öffentliche Defaults",
       "priority": "P1",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "PRD06.01",
           "title": "Smoke-Test für public-ananta Netzwerkprofil",
           "type": "e2e_test",
-          "status": "open",
+          "status": "done",
           "files": [
             "scripts/e2e/public_rendezvous_profile_smoke.py",
             "tests/e2e/test_public_rendezvous_profile.py"

@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ShareInvite",
+  "version": "1.0",
+  "description": "Einladung zur Ananta ShareSession. Enthält keine privaten Schlüssel oder Bearer-Tokens.",
+  "type": "object",
+  "required": ["version", "session_id", "rendezvous_url", "oidc_issuer", "owner_device_fingerprint", "expires_at", "allowed_permissions"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["1"]
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "UUID der ShareSession"
+    },
+    "rendezvous_url": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Basis-URL des Rendezvous-Servers (z.B. https://webrtc.ananta.de)"
+    },
+    "oidc_issuer": {
+      "type": "string",
+      "description": "OIDC Issuer URL für Authentifizierung"
+    },
+    "owner_device_fingerprint": {
+      "type": "string",
+      "description": "SHA-256 Fingerprint des Owner-Device-Keys"
+    },
+    "expires_at": {
+      "type": "number",
+      "description": "Unix-Timestamp: wann der Invite abläuft"
+    },
+    "allowed_permissions": {
+      "type": "object",
+      "description": "Erlaubte Berechtigungen für Beigetretene",
+      "properties": {
+        "chat": {"type": "boolean"},
+        "view_tui": {"type": "boolean"},
+        "remote_cursor": {"type": "boolean"},
+        "artifact_share": {"type": "boolean"},
+        "remote_control": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "short_code": {
+      "type": "string",
+      "description": "Optionaler Kurzcode für manuelle Eingabe (6-10 Zeichen)"
+    },
+    "invite_link": {
+      "type": "string",
+      "description": "Optional: ananta:// Deep-Link"
+    }
+  }
+}
