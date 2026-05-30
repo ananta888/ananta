@@ -784,11 +784,12 @@ class SnakeTickMixin:
         _bg = self._get_snake_bg_executor()
         oidc_token = str(game.get("oidc_token") or "")
         endpoint = str(self.state.endpoint or "")
-        # Hub-JWT für lokale API-Calls (getrennt vom OIDC-Token)
+        # Hub-Passwort aus Env oder .env lesen — JWT-Auflösung erfolgt im bg-Thread
         import os as _os
         _hub_raw = (
             _os.environ.get("ANANTA_AUTH_TOKEN")
             or _os.environ.get("ANANTA_PASSWORD")
+            or _os.environ.get("INITIAL_ADMIN_PASSWORD")
             or ""
         )
         if not _hub_raw:
@@ -800,28 +801,44 @@ class SnakeTickMixin:
                 or _dotenv.get("INITIAL_ADMIN_PASSWORD")
                 or ""
             )
-        from client_surfaces.operator_tui.hub_loader import resolve_token as _resolve
-        hub_jwt = _resolve(endpoint, _hub_raw) if (endpoint and _hub_raw) else ""
+        hub_raw = _hub_raw  # wird im bg-Thread zu JWT aufgelöst
 
         if action == "create":
             title = str(action_info.get("title") or "Shared Session")
-            _bg.submit(self._share_action_create, game, oidc_token, hub_jwt, endpoint, title)
+            _bg.submit(self._share_action_create, game, oidc_token, hub_raw, endpoint, title)
         elif action == "join":
             code = str(action_info.get("invite_code") or "")
-            _bg.submit(self._share_action_join, game, oidc_token, hub_jwt, endpoint, code)
+            _bg.submit(self._share_action_join, game, oidc_token, hub_raw, endpoint, code)
         elif action == "set_view":
             session_id = str((game.get("share_active_session") or {}).get("id") or "")
             view_enabled = bool(action_info.get("view_tui"))
             if session_id:
-                _bg.submit(self._share_action_set_view, game, oidc_token, hub_jwt, endpoint, session_id, view_enabled)
+                _bg.submit(self._share_action_set_view, game, oidc_token, hub_raw, endpoint, session_id, view_enabled)
         elif action == "list":
-            _bg.submit(self._share_action_list, game, oidc_token, hub_jwt, endpoint)
+            _bg.submit(self._share_action_list, game, oidc_token, hub_raw, endpoint)
         elif action == "stop":
             session_id = str((game.get("share_active_session") or {}).get("id") or "")
             if session_id:
-                _bg.submit(self._share_action_stop, game, oidc_token, hub_jwt, endpoint, session_id)
+                _bg.submit(self._share_action_stop, game, oidc_token, hub_raw, endpoint, session_id)
 
-    def _share_action_create(self, game: dict, oidc_token: str, hub_jwt: str, endpoint: str, title: str) -> None:
+    @staticmethod
+    def _resolve_hub_jwt(hub_raw: str, endpoint: str) -> str:
+        """Löst Passwort/Token zu Hub-JWT auf. Leerer String wenn nicht möglich."""
+        if not hub_raw or not endpoint:
+            return ""
+        from client_surfaces.operator_tui.hub_loader import resolve_token
+        try:
+            import os
+            username = os.environ.get("ANANTA_USER") or os.environ.get("INITIAL_ADMIN_USER") or "admin"
+            if not username or username == "admin":
+                from client_surfaces.operator_tui.app import _load_env_file
+                _env = _load_env_file()
+                username = _env.get("ANANTA_USER") or _env.get("INITIAL_ADMIN_USER") or "admin"
+            return resolve_token(endpoint, hub_raw)
+        except Exception as exc:
+            return f"__error__:{exc}"
+
+    def _share_action_create(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, title: str) -> None:
         from client_surfaces.operator_tui.device_keys import get_device_key_manager
         from client_surfaces.operator_tui.network_profile import is_public_profile_active, oidc_issuer, rendezvous_base_url
         from client_surfaces.operator_tui.share_client import create_session, create_hub_session
@@ -835,11 +852,15 @@ class SnakeTickMixin:
             if is_public_profile_active() and oidc_token:
                 rdv_url = rendezvous_base_url()
                 result = create_session(token=oidc_token, device_fingerprint=fp, title=title, base_url=rdv_url)
-            elif hub_jwt and endpoint:
-                result = create_hub_session(hub_token=hub_jwt, hub_url=endpoint, device_id=fp, title=title)
             else:
-                game["share_status_message"] = "Kein Hub-Token. ANANTA_AUTH_TOKEN oder ANANTA_PASSWORD setzen."
-                return
+                hub_jwt = self._resolve_hub_jwt(hub_raw, endpoint)
+                if hub_jwt.startswith("__error__:"):
+                    game["share_status_message"] = f"Hub-Login fehlgeschlagen: {hub_jwt[10:]}"
+                    return
+                if not hub_jwt:
+                    game["share_status_message"] = "Kein Hub-Token (ANANTA_PASSWORD fehlt)."
+                    return
+                result = create_hub_session(hub_token=hub_jwt, hub_url=endpoint, device_id=fp, title=title)
             if result.get("ok") or result.get("id"):
                 session = dict(result.get("data") or result)
                 invite_code = str(session.get("invite_code") or "")
@@ -863,17 +884,21 @@ class SnakeTickMixin:
         except Exception as exc:
             game["share_status_message"] = f"Fehler beim Erstellen: {exc}"
 
-    def _share_action_list(self, game: dict, oidc_token: str, hub_jwt: str, endpoint: str) -> None:
+    def _share_action_list(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str) -> None:
         from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
         from client_surfaces.operator_tui.share_client import list_sessions, list_hub_sessions
         try:
             if is_public_profile_active() and oidc_token:
                 sessions = list_sessions(token=oidc_token, base_url=rendezvous_base_url())
-            elif hub_jwt and endpoint:
-                sessions = list_hub_sessions(token=hub_jwt, hub_url=endpoint)
             else:
-                game["share_status_message"] = "Kein Token verfügbar."
-                return
+                hub_jwt = self._resolve_hub_jwt(hub_raw, endpoint)
+                if hub_jwt.startswith("__error__:"):
+                    game["share_status_message"] = f"Hub-Login fehlgeschlagen: {hub_jwt[10:]}"
+                    return
+                if not hub_jwt:
+                    game["share_status_message"] = "Kein Hub-Token (ANANTA_PASSWORD fehlt)."
+                    return
+                sessions = list_hub_sessions(token=hub_jwt, hub_url=endpoint)
             if not sessions:
                 game["share_status_message"] = "Keine aktiven Sessions."
             else:
@@ -888,7 +913,7 @@ class SnakeTickMixin:
         except Exception as exc:
             game["share_status_message"] = f"Fehler beim Laden der Sessions: {exc}"
 
-    def _share_action_join(self, game: dict, oidc_token: str, hub_jwt: str, endpoint: str, invite_code: str) -> None:
+    def _share_action_join(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, invite_code: str) -> None:
         from client_surfaces.operator_tui.device_keys import get_device_key_manager
         from client_surfaces.operator_tui.network_profile import rendezvous_base_url, is_public_profile_active
         from client_surfaces.operator_tui.share_client import join_session, join_hub_session
@@ -915,7 +940,14 @@ class SnakeTickMixin:
                     device_fingerprint=fp,
                     base_url=rdv_url,
                 )
-            elif hub_jwt and endpoint:
+            else:
+                hub_jwt = self._resolve_hub_jwt(hub_raw, endpoint)
+                if hub_jwt.startswith("__error__:"):
+                    game["share_status_message"] = f"Hub-Login fehlgeschlagen: {hub_jwt[10:]}"
+                    return
+                if not hub_jwt:
+                    game["share_status_message"] = "Kein Hub-Token (ANANTA_PASSWORD fehlt)."
+                    return
                 session_id = str((game.get("share_active_session") or {}).get("id") or "")
                 result = join_hub_session(
                     hub_token=hub_jwt,
@@ -925,9 +957,6 @@ class SnakeTickMixin:
                     device_id=fp,
                     device_fingerprint=fp,
                 )
-            else:
-                game["share_status_message"] = "Kein Token für Beitritt verfügbar."
-                return
             if result.get("ok") or result.get("data"):
                 participant = dict(result.get("data") or {})
                 game["share_joined_as"] = participant
@@ -937,7 +966,7 @@ class SnakeTickMixin:
         except Exception as exc:
             game["share_status_message"] = f"Fehler beim Beitreten: {exc}"
 
-    def _share_action_set_view(self, game: dict, oidc_token: str, hub_jwt: str, endpoint: str, session_id: str, enabled: bool) -> None:
+    def _share_action_set_view(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, session_id: str, enabled: bool) -> None:
         try:
             from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
             if is_public_profile_active() and oidc_token:
@@ -954,7 +983,11 @@ class SnakeTickMixin:
                 session = dict(result.get("data") or {})
                 if session:
                     game["share_active_session"] = session
-            elif hub_jwt and endpoint:
+            else:
+                hub_jwt = self._resolve_hub_jwt(hub_raw, endpoint)
+                if not hub_jwt or hub_jwt.startswith("__error__:"):
+                    game["share_status_message"] = f"Kein Hub-Token: {hub_jwt[10:] if hub_jwt.startswith('__error__:') else 'fehlt'}"
+                    return
                 import json as _json
                 import urllib.request
                 url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}/permissions"
@@ -971,13 +1004,17 @@ class SnakeTickMixin:
         except Exception as exc:
             game["share_status_message"] = f"View-Share Fehler: {exc}"
 
-    def _share_action_stop(self, game: dict, oidc_token: str, hub_jwt: str, endpoint: str, session_id: str) -> None:
+    def _share_action_stop(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, session_id: str) -> None:
         from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
         from client_surfaces.operator_tui.share_client import revoke_session
         try:
             if is_public_profile_active() and oidc_token:
                 revoke_session(token=oidc_token, session_id=session_id, base_url=rendezvous_base_url())
-            elif hub_jwt and endpoint:
+            else:
+                hub_jwt = self._resolve_hub_jwt(hub_raw, endpoint)
+                if not hub_jwt or hub_jwt.startswith("__error__:"):
+                    game["share_status_message"] = "Stop fehlgeschlagen: kein Hub-Token."
+                    return
                 import urllib.request
                 url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}"
                 req = urllib.request.Request(
