@@ -169,6 +169,13 @@ def get_turn_credentials(*, token: str, base_url: str | None = None) -> dict[str
     return dict(result.get("data") or {}) if result.get("ok") else None
 
 
+def list_hub_sessions(*, token: str, hub_url: str) -> list[dict[str, Any]]:
+    """Listet Hub-Relay-Sessions (lokaler Modus: GET /share-sessions)."""
+    url = f"{hub_url.rstrip('/')}/share-sessions"
+    result = _get(url, token)
+    return list((result.get("data") or {}).get("items") or result.get("items") or [])
+
+
 # --- Share session (Hub relay) API ---
 
 def create_hub_session(
