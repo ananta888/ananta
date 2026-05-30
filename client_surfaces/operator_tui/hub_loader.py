@@ -26,6 +26,24 @@ _jwt_cache: dict[tuple[str, str], tuple[str, float]] = {}
 _jwt_lock = threading.Lock()
 
 
+def _load_dotenv_fallback() -> dict[str, str]:
+    """Load .env from repo root as fallback for missing process env vars."""
+    env_file = Path(__file__).resolve().parents[2] / ".env"
+    if not env_file.exists():
+        return {}
+    out: dict[str, str] = {}
+    try:
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            out[key.strip()] = val.strip().strip('"').strip("'")
+    except Exception:
+        return {}
+    return out
+
+
 def _login(base: str, username: str, password: str, timeout: float = 3.0) -> str:
     """POST /login, return the JWT access token.  Raises on failure."""
     url = f"{base}/login"
@@ -59,14 +77,21 @@ def resolve_token(base: str, raw_token: str) -> str:
 
     If raw_token looks like a JWT (contains dots), use it directly.
     Otherwise treat it as a password and login to get a JWT.
-    Username comes from ANANTA_USER env var, defaulting to 'admin'.
+    Username comes from ANANTA_USER/INITIAL_ADMIN_USER, with .env fallback.
     """
     if not raw_token:
         return ""
     # JWTs have exactly 2 dots (header.payload.sig)
     if raw_token.count(".") >= 2:
         return raw_token
-    username = str(os.environ.get("ANANTA_USER") or "admin").strip()
+    dotenv = _load_dotenv_fallback()
+    username = str(
+        os.environ.get("ANANTA_USER")
+        or os.environ.get("INITIAL_ADMIN_USER")
+        or dotenv.get("ANANTA_USER")
+        or dotenv.get("INITIAL_ADMIN_USER")
+        or "admin"
+    ).strip()
     cache_key = (base, username)
     with _jwt_lock:
         cached = _jwt_cache.get(cache_key)
