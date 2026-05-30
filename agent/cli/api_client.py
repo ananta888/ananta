@@ -17,15 +17,39 @@ def _base_url() -> str:
     return f"http://localhost:{settings.port}"
 
 
+def _load_dotenv_fallback() -> dict[str, str]:
+    """Lädt .env aus dem Repo-Root als Fallback wenn Env-Vars fehlen."""
+    from pathlib import Path
+    env_file = Path(__file__).parent.parent.parent / ".env"
+    if not env_file.exists():
+        return {}
+    result: dict[str, str] = {}
+    try:
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            result[key.strip()] = val.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return result
+
+
 def _auth_token(base_url: str) -> str:
+    _env = _load_dotenv_fallback()
     username = (
         os.environ.get("ANANTA_USER")
         or os.environ.get("INITIAL_ADMIN_USER")
+        or _env.get("ANANTA_USER")
+        or _env.get("INITIAL_ADMIN_USER")
         or "admin"
     )
     password = (
         os.environ.get("ANANTA_PASSWORD")
         or os.environ.get("INITIAL_ADMIN_PASSWORD")
+        or _env.get("ANANTA_PASSWORD")
+        or _env.get("INITIAL_ADMIN_PASSWORD")
         or "admin"
     )
     try:

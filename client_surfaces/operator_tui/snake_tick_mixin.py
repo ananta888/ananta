@@ -786,7 +786,20 @@ class SnakeTickMixin:
         endpoint = str(self.state.endpoint or "")
         # Hub-JWT für lokale API-Calls (getrennt vom OIDC-Token)
         import os as _os
-        _hub_raw = _os.environ.get("ANANTA_AUTH_TOKEN") or _os.environ.get("ANANTA_PASSWORD") or ""
+        _hub_raw = (
+            _os.environ.get("ANANTA_AUTH_TOKEN")
+            or _os.environ.get("ANANTA_PASSWORD")
+            or ""
+        )
+        if not _hub_raw:
+            from client_surfaces.operator_tui.app import _load_env_file as _lef
+            _dotenv = _lef()
+            _hub_raw = (
+                _dotenv.get("ANANTA_AUTH_TOKEN")
+                or _dotenv.get("ANANTA_PASSWORD")
+                or _dotenv.get("INITIAL_ADMIN_PASSWORD")
+                or ""
+            )
         from client_surfaces.operator_tui.hub_loader import resolve_token as _resolve
         hub_jwt = _resolve(endpoint, _hub_raw) if (endpoint and _hub_raw) else ""
 
