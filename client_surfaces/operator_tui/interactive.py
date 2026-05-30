@@ -497,6 +497,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(key_for_action("copy_chat_panel", "c-c"))
         def _(event) -> None:
+            if self._snake_mode_active():
+                self._snake_copy_selection()
+                return
             self._copy_chat_panel_snapshot()
 
         @bindings.add(key_for_action("copy_ai_status", "c-i"))

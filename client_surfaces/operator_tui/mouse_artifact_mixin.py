@@ -401,7 +401,7 @@ class MouseArtifactMixin:
             game["mouse_selection_anchor"] = (int(x), int(y))
             game["mouse_selection_dragged"] = False
             self._set_mouse_selection_rect(game, anchor=(int(x), int(y)), current=(int(x), int(y)), additive=False)
-            return False
+            return bool(self._snake_mode_active(game))
         if event_type == "move" and buttons == 1 and bool(game.get("mouse_selection_active")):
             anchor_raw = game.get("mouse_selection_anchor")
             if isinstance(anchor_raw, (list, tuple)) and len(anchor_raw) == 2:
