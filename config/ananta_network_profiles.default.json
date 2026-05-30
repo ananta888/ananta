@@ -1,11 +1,15 @@
 {
-  "version": "1.0",
+  "version": "1.1",
+  "default_profile": "local",
   "profiles": [
     {
       "profile_id": "public-ananta",
-      "label": "Public Ananta Rendezvous",
-      "description": "Öffentliche Ananta-Infrastruktur: keycloak.ananta.de (OIDC) und webrtc.ananta.de (Rendezvous/Signaling). Inhalte werden E2E-verschlüsselt, Routing-Metadaten sind für die Server sichtbar.",
+      "label": "Public Ananta Test Rendezvous",
+      "description": "Öffentliche, stark begrenzte Ananta-Testinfrastruktur: keycloak.ananta.de für OIDC und webrtc.ananta.de für Rendezvous/Signaling/STUN/TURN. Von Peter Stuiber/ananta.de kostenlos zum Testen bereitgestellt. Nicht für Produktion, vertrauliche Daten oder SLA-pflichtige Nutzung.",
       "enabled_by_default": false,
+      "requires_explicit_opt_in": true,
+      "public_rendezvous": true,
+      "warning": "Dieses Profil nutzt öffentliche Ananta-Testserver. Routing-/Session-Metadaten sind für den Betreiber sichtbar. Inhalte müssen E2E-verschlüsselt werden. Nutzung nur begrenzt und experimentell.",
       "oidc": {
         "issuer": "https://keycloak.ananta.de/realms/ananta",
         "client_id": "ananta-tui",
@@ -18,9 +22,30 @@
         "transport_order": ["webrtc", "hub_relay"],
         "require_e2e_payload_encryption": true
       },
+      "ice_servers": [
+        {
+          "urls": ["stun:webrtc.ananta.de:3478"]
+        },
+        {
+          "urls": ["turn:webrtc.ananta.de:3478"],
+          "credential_mode": "ephemeral_from_rendezvous_or_test_env"
+        }
+      ],
       "turn": {
-        "urls": ["turns:webrtc.ananta.de:5349"],
-        "credential_mode": "ephemeral_from_rendezvous"
+        "urls": ["turn:webrtc.ananta.de:3478"],
+        "test_url": "turn:webrtc.ananta.de:3478",
+        "experimental_tls_urls": ["turns:webrtc.ananta.de:5349"],
+        "credential_mode": "ephemeral_from_rendezvous_or_test_env",
+        "relay_port_range": "49160-49200/udp"
+      },
+      "limits": {
+        "intended_use": "testing_only",
+        "free_public_service": true,
+        "service_level_agreement": false,
+        "max_session_duration_minutes_default": 60,
+        "remote_control_default": false,
+        "view_share_default": false,
+        "notes_share_default": false
       }
     },
     {
@@ -28,6 +53,7 @@
       "label": "Local / Private Deployment",
       "description": "Eigene lokale oder private Ananta-Infrastruktur. Endpunkte werden per ENV oder config.json konfiguriert.",
       "enabled_by_default": true,
+      "public_rendezvous": false,
       "oidc": {
         "issuer": "",
         "client_id": "ananta-tui",
@@ -50,6 +76,7 @@
       "label": "Offline / No Network",
       "description": "Keine Netzwerkverbindung. Chat, View-Share und OIDC sind deaktiviert.",
       "enabled_by_default": false,
+      "public_rendezvous": false,
       "oidc": {
         "issuer": "",
         "client_id": "",
@@ -72,6 +99,7 @@
       "label": "Custom",
       "description": "Vollständig benutzerdefinierte Endpunkte. Alle Werte per ENV oder config.json setzen.",
       "enabled_by_default": false,
+      "public_rendezvous": false,
       "oidc": {
         "issuer": "",
         "client_id": "",
