@@ -3104,6 +3104,26 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _restore_oidc_token(self) -> None:
         """Lädt gecachten OIDC-Token beim Start, wenn noch nicht abgelaufen."""
+        from client_surfaces.operator_tui.network_profile import rendezvous_base_url
+        from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
+        env_token = str(
+            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN")
+            or os.environ.get("ANANTA_TUI_OIDC_TOKEN")
+            or ""
+        ).strip()
+        game = dict(self.state.header_logo_game or {})
+        if game.get("oidc_token"):
+            return  # bereits gesetzt
+        if env_token:
+            game["oidc_token"] = env_token
+            set_share_oidc_token(env_token, rendezvous_base_url())
+            game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
+            self.state = self.state.with_updates(
+                header_logo_game=game,
+                status_message="OIDC: Session aus Environment geladen",
+            )
+            return
+
         from client_surfaces.operator_tui.snake_persistence import load_oidc_token
         cached = load_oidc_token()
         if not cached:
@@ -3111,12 +3131,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         token = str(cached.get("access_token") or "")
         if not token:
             return
-        game = dict(self.state.header_logo_game or {})
-        if game.get("oidc_token"):
-            return  # bereits gesetzt (z.B. via env)
         game["oidc_token"] = token
-        from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
-        from client_surfaces.operator_tui.network_profile import rendezvous_base_url
         set_share_oidc_token(token, rendezvous_base_url())
         issuer = str(cached.get("issuer") or "")
         username = str(cached.get("username") or "")

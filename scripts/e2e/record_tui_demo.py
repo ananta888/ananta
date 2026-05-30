@@ -14,6 +14,7 @@ import subprocess
 import termios
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -101,6 +102,60 @@ def _fetch_share_titles(*, endpoint: str, token: str) -> list[str]:
         return []
 
     return _extract_titles(payload)
+
+
+def _fetch_rendezvous_titles(*, base_url: str, token: str) -> list[str]:
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/rendezvous/sessions",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=7.0) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict):
+        return []
+    items = list(payload.get("data") or payload.get("items") or [])
+    titles: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        if title:
+            titles.append(title)
+    return titles
+
+
+def _issue_oidc_password_token(
+    *,
+    issuer: str,
+    client_id: str,
+    username: str,
+    password: str,
+    client_secret: str = "",
+) -> str:
+    token_url = f"{issuer.rstrip('/')}/protocol/openid-connect/token"
+    form: dict[str, str] = {
+        "grant_type": "password",
+        "client_id": client_id,
+        "username": username,
+        "password": password,
+        "scope": "openid profile email",
+    }
+    if client_secret:
+        form["client_secret"] = client_secret
+    body = urllib.parse.urlencode(form).encode("utf-8")
+    req = urllib.request.Request(
+        token_url,
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=10.0) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    token = str(payload.get("access_token") or "").strip()
+    if not token:
+        raise RuntimeError("OIDC token endpoint response did not include access_token")
+    return token
 
 
 def _tutorial_ai_live_cast(*, run_id: str) -> str:
@@ -650,6 +705,54 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "0"
     env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
     title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "e2e-share").strip() or "e2e-share"
+    public_oidc_token = str(os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
+    public_rendezvous = str(
+        os.environ.get("ANANTA_TUI_E2E_RENDEZVOUS_URL")
+        or os.environ.get("ANANTA_RENDEZVOUS_URL")
+        or "https://webrtc.ananta.de"
+    ).strip()
+    public_signaling = str(
+        os.environ.get("ANANTA_TUI_E2E_SIGNALING_URL")
+        or os.environ.get("ANANTA_SIGNALING_URL")
+        or "wss://webrtc.ananta.de/signaling"
+    ).strip()
+    public_issuer = str(
+        os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
+        or os.environ.get("ANANTA_OIDC_ISSUER")
+        or ""
+    ).strip()
+    public_client_id = str(
+        os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID")
+        or os.environ.get("ANANTA_OIDC_CLIENT_ID")
+        or "ananta-tui"
+    ).strip()
+    public_username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "").strip()
+    public_password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
+    public_client_secret = str(os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_SECRET") or "").strip()
+    use_public_oidc = bool(
+        os.environ.get("ANANTA_TUI_E2E_USE_PUBLIC_OIDC", "").strip().lower() in {"1", "true", "yes", "on"}
+        or public_oidc_token
+        or (public_issuer and public_username and public_password)
+    )
+    if use_public_oidc:
+        if not public_oidc_token and public_issuer and public_username and public_password:
+            public_oidc_token = _issue_oidc_password_token(
+                issuer=public_issuer,
+                client_id=public_client_id or "ananta-tui",
+                client_secret=public_client_secret,
+                username=public_username,
+                password=public_password,
+            )
+        env["ANANTA_NETWORK_PROFILE"] = "public-ananta"
+        env["ANANTA_PUBLIC_RENDEZVOUS_ENABLED"] = "true"
+        if public_issuer:
+            env["ANANTA_OIDC_ISSUER"] = public_issuer
+        if public_client_id:
+            env["ANANTA_OIDC_CLIENT_ID"] = public_client_id
+        env["ANANTA_RENDEZVOUS_URL"] = public_rendezvous
+        env["ANANTA_SIGNALING_URL"] = public_signaling
+        if public_oidc_token:
+            env["ANANTA_TUI_E2E_OIDC_TOKEN"] = public_oidc_token
 
     script_actions: list[dict[str, object]] = [
         {"at": 2.2, "send": f":share create {title}\r".encode("utf-8")},
@@ -761,21 +864,35 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     first_ts = events[0][0]
     normalized = [(max(0.0, ts - first_ts), frame) for ts, frame in events]
 
-    token = str(env.get("ANANTA_AUTH_TOKEN") or "").strip()
-    if token:
+    summary_source = ""
+    summary_endpoint = endpoint
+    titles: list[str] = []
+    token = str(env.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
+    if token and use_public_oidc:
         try:
-            titles = _fetch_share_titles(endpoint=endpoint, token=token)
+            titles = _fetch_rendezvous_titles(base_url=public_rendezvous, token=token)
+            summary_source = "rendezvous"
+            summary_endpoint = public_rendezvous
         except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
             titles = []
-        if titles:
-            summary = (
-                "\x1b[2J\x1b[H"
-                "share-session-live-e2e summary\n"
-                f"endpoint: {endpoint}\n"
-                f"titles: {', '.join(sorted(set(titles))[:6])}\n"
-                f"count: {len(titles)}\n"
-            )
-            normalized.append((normalized[-1][0] + 0.35, summary))
+    if not titles:
+        token = str(env.get("ANANTA_AUTH_TOKEN") or "").strip()
+        if token:
+            try:
+                titles = _fetch_share_titles(endpoint=endpoint, token=token)
+                summary_source = "hub"
+            except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
+                titles = []
+    if titles:
+        summary = (
+            "\x1b[2J\x1b[H"
+            "share-session-live-e2e summary\n"
+            f"source: {summary_source or 'unknown'}\n"
+            f"endpoint: {summary_endpoint}\n"
+            f"titles: {', '.join(sorted(set(titles))[:6])}\n"
+            f"count: {len(titles)}\n"
+        )
+        normalized.append((normalized[-1][0] + 0.35, summary))
 
     return _asciinema_v2_lines(
         title=f"Ananta Operator TUI – Share Session Live E2E ({run_id})",
