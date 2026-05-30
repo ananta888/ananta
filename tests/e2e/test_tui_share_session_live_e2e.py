@@ -96,7 +96,8 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
             '{"version": 2, "width": 160, "height": 44, "title": "Ananta Operator TUI – Share Session Live E2E"}\n'
             '[0.0, "o", "\\u001b[2J\\u001b[Hready> :share create test\\n"]\n'
             "[1.1, \"o\", \"Session 'test' erstellt. Invite: /share/share-test-001\\n\"]\n"
-            "[2.2, \"o\", \"1 Session(s): 'test'[share-te] 1P\\n\"]\n"
+            "[2.2, \"o\", \"ready> :share list\\n\"]\n"
+            "[3.3, \"o\", \"1 Session(s): 'test'[share-te] 1P\\n\"]\n"
         )
 
     monkeypatch.setattr("scripts.e2e.record_tui_demo._share_session_live_e2e_cast", _fake_live_share_cast)
@@ -116,6 +117,7 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.", "", video_path.read_text(encoding="utf-8"))
     assert ":share create test" in plain
     assert "Session 'test' erstellt." in plain
+    assert ":share list" in plain
     assert "1 Session(s):" in plain
     assert "'test'[" in plain
 
@@ -180,8 +182,15 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path) -> None:
     assert header["version"] == 2
     assert header["width"] >= 140
     assert header["height"] >= 40
+    frame_text = "\n".join(json.loads(line)[2] for line in lines[1:])
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.", "", frame_text)
+    assert f":share create {share_title}" in plain
+    assert ":share list" in plain
+    assert "Session(s):" in plain
+    assert f"'{share_title}'[" in plain
 
     snapshot_files = sorted(snapshot_dir.glob("tui-snapshot-*.txt"))
     assert snapshot_files, "No TUI snapshots were captured during live PTY run."
     snapshot_text = snapshot_files[-1].read_text(encoding="utf-8")
     assert f"Session '{share_title}' erstellt." in snapshot_text
+    assert f"'{share_title}'[" in snapshot_text

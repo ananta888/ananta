@@ -594,8 +594,10 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
         {"at": 2.5, "send": b"share key generate\r"},
         {"at": 5.4, "send": b":"},
         {"at": 5.7, "send": f"share create {share_title}\r".encode("utf-8")},
-        {"at": 14.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
-        {"at": 17.0, "send": b"q"},
+        {"at": 10.8, "send": b":"},
+        {"at": 11.1, "send": b"share list\r"},
+        {"at": 15.6, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
+        {"at": 18.6, "send": b"q"},
     ]
 
     master_fd, slave_fd = pty.openpty()
