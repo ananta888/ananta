@@ -157,10 +157,25 @@ class MouseArtifactMixin:
             event_type=event_type,
             buttons=buttons,
         )
+        delayed_click = bool(game.pop("_mouse_selection_click", False))
+        if delayed_click and target is not None:
+            _section_before_click = self.state.section_id
+            _tab_before_click = self.state.active_tab_id
+            self._handle_left_click(game, target=target, now=ts, width=width, height=height)
+            latest_game = dict(self.state.header_logo_game or {})
+            game_out = dict(game)
+            game_out.update(latest_game)
+            game = game_out
+            if self.state.section_id != _section_before_click:
+                game["visual_viewport_enabled"] = False
+                game["visual_viewport"] = {"enabled": False}
+            if self.state.active_tab_id != _tab_before_click:
+                game["visual_viewport_enabled"] = bool((dict(self.state.header_logo_game or {})).get("visual_viewport_enabled", False))
+                game["visual_viewport"] = dict((dict(self.state.header_logo_game or {})).get("visual_viewport") or {"enabled": False})
 
         # Left-click: select item + AI snake jumps there + open chat + trigger explanation.
         # Drag is handled as visual multi-select and does not repeatedly open targets.
-        if not scrollbar_handled and not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
+        if not delayed_click and not scrollbar_handled and not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
             _section_before_click = self.state.section_id
             _tab_before_click = self.state.active_tab_id
             self._handle_left_click(game, target=target, now=ts, width=width, height=height)
@@ -410,8 +425,15 @@ class MouseArtifactMixin:
                 self._set_mouse_selection_rect(game, anchor=anchor, current=(int(x), int(y)), additive=True)
                 return True
         if event_type == "up" and bool(game.get("mouse_selection_active")):
+            dragged = bool(game.get("mouse_selection_dragged"))
             game["mouse_selection_active"] = False
-            return bool(game.get("mouse_selection_dragged"))
+            if self._snake_mode_active(game) and not dragged:
+                game["selection_anchor"] = None
+                game["selection_cells"] = []
+                game["selection_regions"] = []
+                game["_mouse_selection_click"] = True
+                return True
+            return dragged
         return False
 
     def _set_mouse_selection_rect(
