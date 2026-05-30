@@ -24,7 +24,7 @@ def test_split_panel_width_is_wider_than_legacy_default() -> None:
     assert _snake_right_panel_width(120) >= 40
 
 
-def test_fullscreen_overlay_keeps_snake_out_of_right_detail_area() -> None:
+def test_fullscreen_overlay_allows_snake_in_right_area() -> None:
     lines = [" " * 120 for _ in range(24)]
     game = {
         "active": True,
@@ -38,8 +38,7 @@ def test_fullscreen_overlay_keeps_snake_out_of_right_detail_area() -> None:
     state = OperatorState(endpoint="http://localhost", header_logo_game=game)
     out = _overlay_fullscreen_snake(lines, state, width=120, body_start=0, body_end=24)
     row = _strip_ansi(out[10])
-    assert row[118] == " "
-    assert row[32] in {"●", "◉", "·"}
+    assert row[118] in {"●", "◉", "·"}
 
 
 def test_chat_panel_renders_timestamps_and_ai_snake_sender() -> None:

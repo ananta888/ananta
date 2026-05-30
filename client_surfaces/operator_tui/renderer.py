@@ -2368,12 +2368,12 @@ def _overlay_fullscreen_snake(
     body_e = len(shell) if body_end is None else max(body_s, min(len(shell), int(body_end)))
     body_h = body_e - body_s
 
-    # Wide terminals keep the right detail column for AI-Snake status + chat.
-    # The snake playfield is kept left of that column instead of opening a
-    # separate top-right overlay.
     split_view = width >= 100
-    right_detail_col = max(1, width - 34) if split_view else width
-    play_width = max(1, right_detail_col)
+
+    # Snake playfield always uses the full terminal width.
+    # Right-side panels may still be rendered, but they are overlays and do not
+    # constrain snake coordinates or wrapping.
+    play_width = max(1, width)
 
     def _project_x(raw_x: int) -> int:
         return int(raw_x) % play_width
