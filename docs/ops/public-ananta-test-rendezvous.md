@@ -166,6 +166,63 @@ docker compose -f docker-compose.public-rendezvous.yml logs -f rendezvous
 docker compose -f docker-compose.public-rendezvous.yml logs -f coturn
 ```
 
+## Keycloak Realm Setup
+
+Der `ananta`-Realm wird beim ersten Keycloak-Start **automatisch** aus `public-rendezvous/keycloak/ananta-realm.json` importiert (`--import-realm` Flag). Der Realm enthält:
+
+- Self-Registration aktiviert (kein E-Mail-Verify)
+- Client `ananta-tui` (public, Device Authorization Grant aktiviert)
+- Audience-Mapper: jedes Token enthält `"aud": "ananta-hub"`
+- Brute-Force-Schutz aktiviert
+- Passwort-Policy: min. 8 Zeichen, nicht gleich Username
+
+### Automatischer Import (Standard)
+
+Funktioniert automatisch beim ersten `docker compose up`. Keycloak importiert den Realm wenn er noch nicht existiert.
+
+```bash
+# Keycloak-Log prüfen ob Import erfolgreich war:
+docker compose -f docker-compose.public-rendezvous.yml logs keycloak | grep -i "import\|ananta"
+```
+
+Erwartete Ausgabe: `Realm 'ananta' imported`
+
+### Manuelles Setup-Script (Fallback / Nachkonfiguration)
+
+Falls der automatische Import fehlschlägt oder du Änderungen anwenden willst:
+
+```bash
+docker compose -f docker-compose.public-rendezvous.yml exec \
+  -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
+  -e KC_BOOTSTRAP_ADMIN_PASSWORD=<dein-admin-passwort> \
+  keycloak bash /opt/keycloak/data/import/setup.sh
+```
+
+Das Script ist **idempotent** — bestehende Objekte werden übersprungen oder aktualisiert.
+
+### Erste Anmeldung / Registrierung
+
+Nach dem Setup können sich User selbst registrieren:
+
+```
+https://keycloak.ananta.de/realms/ananta/account
+```
+
+Oder direkt über den Device Flow in der TUI (der öffnet den Browser automatisch).
+
+### Realm-Konfiguration prüfen
+
+```bash
+# Realm-Status
+curl -s https://keycloak.ananta.de/realms/ananta | python3 -m json.tool | grep -E '"realm"|"public_key"'
+
+# Device-Flow-Endpunkt
+curl -s https://keycloak.ananta.de/realms/ananta/.well-known/openid-configuration \
+  | python3 -m json.tool | grep device
+```
+
+Erwartete Ausgabe enthält `"device_authorization_endpoint"`.
+
 ## Test DNS and HTTPS
 
 From a client machine:
@@ -193,10 +250,19 @@ curl https://webrtc.ananta.de/health
 # Service-Info
 curl https://webrtc.ananta.de/info
 
-# Mit gültigem Keycloak-Token (OIDC-Auth testen)
-TOKEN=$(curl -s -X POST https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/token \
-  -d "client_id=ananta-tui&grant_type=password&username=testuser&password=testpass" \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+# Token via Device Flow holen (für Tests ohne TUI):
+# 1. Device Code anfordern
+DEVICE=$(curl -s -X POST \
+  https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/auth/device \
+  -d "client_id=ananta-tui")
+echo $DEVICE | python3 -m json.tool
+# user_code und verification_uri ausgeben, im Browser einloggen, dann:
+
+# 2. Token pollen bis er kommt
+TOKEN=$(curl -s -X POST \
+  https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/token \
+  -d "client_id=ananta-tui&grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=<DEVICE_CODE>" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))")
 
 curl -H "Authorization: Bearer $TOKEN" https://webrtc.ananta.de/rendezvous/turn-credentials
 ```
@@ -230,18 +296,76 @@ Errors with code `701` are not always fatal if `relay` candidates are still gath
 
 ## Use from Ananta TUI
 
-Set the public test profile explicitly:
+### Einmalig: ENV setzen
 
-```env
-ANANTA_NETWORK_PROFILE=public-ananta
-ANANTA_PUBLIC_RENDEZVOUS_ENABLED=true
-ANANTA_OIDC_ISSUER=https://keycloak.ananta.de/realms/ananta
-ANANTA_OIDC_CLIENT_ID=ananta-tui
-ANANTA_RENDEZVOUS_URL=https://webrtc.ananta.de
-ANANTA_SIGNALING_URL=wss://webrtc.ananta.de/signaling
-ANANTA_TURN_URL=turn:webrtc.ananta.de:3478
-ANANTA_REQUIRE_E2E_PAYLOAD_ENCRYPTION=true
+```bash
+export ANANTA_NETWORK_PROFILE=public-ananta
 ```
+
+Oder in `.env` eintragen — die TUI liest das automatisch beim Start.
+
+### Vollständiger User-Flow (zwei Teilnehmer)
+
+**User A — Session erstellen:**
+
+```
+# TUI starten
+ananta-tui
+
+# OIDC-Login (öffnet Browser-URL + Code in der TUI)
+:oidc login
+
+#  → Browser öffnen: https://keycloak.ananta.de/realms/ananta/device
+#  → Code eingeben (wird in der TUI angezeigt)
+#  → Account erstellen (Self-Registration) oder einloggen
+#  → TUI empfängt Token automatisch, Status wechselt auf ✓
+
+# Lokalen Device-Key erzeugen (einmalig)
+:share key generate
+
+# Share-Session erstellen
+:share create "Meine Test Session"
+
+# Invite-Code anzeigen (für User B)
+:share invite
+```
+
+**User B — Session beitreten:**
+
+```
+# TUI starten + OIDC-Login (wie oben, anderer User)
+:oidc login
+
+# Device-Key erzeugen
+:share key generate
+
+# Invite-Code von User A eingeben
+:share join <CODE>
+
+# Status prüfen
+:share status
+```
+
+**Beide sehen sich jetzt in `:share status`** und können verschlüsselt chatten.
+
+### Was passiert im Hintergrund
+
+```
+TUI                    keycloak.ananta.de       webrtc.ananta.de
+ │                            │                        │
+ │── :oidc login ────────────►│                        │
+ │◄── device_code+user_code ──│                        │
+ │  [User loggt sich im       │                        │
+ │   Browser ein]             │                        │
+ │◄── access_token ───────────│                        │
+ │                            │                        │
+ │── :share create ───────────│────────────────────────►│
+ │                            │         POST /rendezvous/sessions
+ │◄── invite_code ────────────│────────────────────────◄│
+ │                            │                        │
+```
+
+Token enthält `"aud": "ananta-hub"` — der Rendezvous-Service verifiziert das gegen den Keycloak-JWKS-Endpoint.
 
 The rendezvous service is implemented. The following features are available via `webrtc.ananta.de`:
 

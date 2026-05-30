@@ -55,6 +55,7 @@ services:
       - --http-enabled=true
       - --proxy-headers=xforwarded
       - --hostname=https://${PUBLIC_KEYCLOAK_HOSTNAME:-keycloak.ananta.de}
+      - --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL_HOST: postgres
@@ -63,8 +64,16 @@ services:
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+    volumes:
+      - ./public-rendezvous/keycloak:/opt/keycloak/data/import:ro
     depends_on:
       - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   rendezvous:
     build: ./public-rendezvous/rendezvous
