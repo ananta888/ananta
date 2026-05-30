@@ -1,0 +1,295 @@
+{
+  "id": "todo.operator-tui-carbonyl-oidc-session-modes",
+  "title": "Operator TUI: Carbonyl OIDC browser session modes",
+  "status": "open",
+  "created_at": "2026-05-30",
+  "priority": "high",
+  "scope": "client_surfaces/operator_tui + auth",
+  "supersedes_or_extends": [
+    "todos/todo.operator-tui-carbonyl-center-browser-mode.json"
+  ],
+  "summary": "Add two explicit OIDC-capable Carbonyl browser modes for the Operator TUI center viewport: (A) Carbonyl as the real browser session where provider cookies/session storage stay inside the Carbonyl profile, and (B) Carbonyl as login UI only while Ananta owns the OAuth/OIDC callback and token exchange. Both modes must support Keycloak first and Google as an explicit provider compatibility test.",
+  "important_design_decision": "Carbonyl is allowed to render and hold browser cookies for the active browser profile, but OAuth tokens must be owned by Ananta AuthController by default. A provider-full-browser-session mode may exist, but it must be explicitly enabled and isolated per session/profile.",
+  "provider_notes": {
+    "keycloak": {
+      "expected_status": "first-class supported test provider",
+      "reason": "Ananta controls keycloak.ananta.de and can configure redirect URIs, client type, PKCE and test realms."
+    },
+    "google": {
+      "expected_status": "compatibility probe provider",
+      "reason": "Google OAuth flows may reject non-standard or embedded user agents. Carbonyl should be tested, not assumed."
+    }
+  },
+  "modes": [
+    {
+      "id": "carbonyl_real_browser_session",
+      "description": "Carbonyl acts like the user's browser for the web app. Provider cookies, local/session storage and authenticated browser state remain in Carbonyl's isolated user-data-dir for that Ananta session.",
+      "flow": [
+        "Operator TUI opens Carbonyl in CenterViewport",
+        "Carbonyl navigates to local Ananta web app or external provider login page",
+        "User logs in via Keycloak/Google in Carbonyl",
+        "Redirect returns to the web app or loopback callback",
+        "The logged-in page remains usable inside the same Carbonyl browser profile"
+      ],
+      "benefits": [
+        "Closest to a real browser experience inside the TUI",
+        "Useful for testing web apps that rely on browser cookies/session storage",
+        "OIDC session is visible and debuggable in the center viewport"
+      ],
+      "risks": [
+        "Provider may reject Carbonyl as unsupported/disallowed user agent",
+        "Browser profile can contain sensitive cookies",
+        "Remote pages can execute JavaScript inside the Carbonyl browser context"
+      ],
+      "required_controls": [
+        "ephemeral profile by default",
+        "per-provider allowlist",
+        "explicit remote-url permission",
+        "profile cleanup command",
+        "clear warning when Google/provider rejects the user agent"
+      ]
+    },
+    {
+      "id": "ananta_owned_oidc_callback",
+      "description": "Carbonyl is only the login/consent UI. Ananta starts a local loopback callback listener, validates state/nonce, exchanges the authorization code with PKCE, and owns tokens outside the browser document.",
+      "flow": [
+        "Operator TUI requests login",
+        "AuthController creates state, nonce, PKCE verifier/challenge and loopback callback",
+        "Carbonyl opens the authorization URL",
+        "Provider redirects to http://127.0.0.1:<random-port>/callback",
+        "AuthController validates state/nonce and exchanges code for tokens",
+        "Ananta creates its own local session for the TUI/web app",
+        "Carbonyl loads the local authenticated Ananta page without receiving raw provider tokens"
+      ],
+      "benefits": [
+        "Safer default token ownership",
+        "Works cleanly with native-app style OAuth/OIDC",
+        "Better auditability and logout handling",
+        "Can fall back to external system browser if Carbonyl is rejected"
+      ],
+      "risks": [
+        "Requires robust local callback listener lifecycle",
+        "Requires correct state/nonce/PKCE implementation",
+        "Needs careful token storage and refresh policy"
+      ],
+      "required_controls": [
+        "random loopback port",
+        "PKCE required",
+        "state and nonce required",
+        "short callback timeout",
+        "tokens never embedded in generated HTML",
+        "structured audit events without token values"
+      ]
+    }
+  ],
+  "configuration": {
+    "file": "config/config.example.json",
+    "new_key": "operator_tui.center_browser.oidc",
+    "example": {
+      "operator_tui": {
+        "center_browser": {
+          "enabled": true,
+          "default_active": false,
+          "engine": "carbonyl",
+          "oidc": {
+            "enabled": true,
+            "default_mode": "ananta_owned_oidc_callback",
+            "allow_real_browser_session_mode": true,
+            "providers": {
+              "keycloak_ananta": {
+                "enabled": true,
+                "issuer": "https://keycloak.ananta.de/realms/ananta-test",
+                "client_id": "ananta-tui-carbonyl",
+                "flow": "authorization_code_pkce",
+                "redirect_mode": "loopback",
+                "allowed_redirect_hosts": ["127.0.0.1", "localhost"]
+              },
+              "google": {
+                "enabled": false,
+                "issuer": "https://accounts.google.com",
+                "client_id": "replace-with-local-test-client-id",
+                "flow": "authorization_code_pkce",
+                "redirect_mode": "loopback",
+                "compatibility_status": "experimental_provider_may_reject_carbonyl"
+              }
+            },
+            "profile_policy": {
+              "default_profile_mode": "ephemeral",
+              "profile_root": ".ananta/tmp/carbonyl-profiles",
+              "persist_named_profiles": false,
+              "cleanup_on_exit": true
+            },
+            "security_policy": {
+              "tokens_owned_by": "ananta_auth_controller",
+              "browser_receives_raw_tokens": false,
+              "remote_provider_allowlist_required": true,
+              "log_token_values": false,
+              "require_https_for_remote_providers": true,
+              "loopback_callback_host": "127.0.0.1",
+              "callback_timeout_seconds": 180
+            }
+          }
+        }
+      }
+    }
+  },
+  "implementation_tasks": [
+    {
+      "id": "oidc-001-auth-controller-contract",
+      "title": "Add AuthController contract for Carbonyl-initiated OIDC login",
+      "files": [
+        "client_surfaces/operator_tui/auth/oidc_auth_controller.py",
+        "client_surfaces/operator_tui/auth/oidc_models.py",
+        "client_surfaces/operator_tui/auth/__init__.py"
+      ],
+      "details": [
+        "Create an AuthController that can start OIDC authorization_code_pkce flows for configured providers.",
+        "Generate and store state, nonce, PKCE verifier/challenge per login attempt.",
+        "Expose create_authorization_request(provider_id, mode) and complete_callback(callback_url).",
+        "Never expose access_token, refresh_token or id_token to generated browser HTML unless explicitly configured for a dedicated unsafe test."
+      ],
+      "acceptance_criteria": [
+        "AuthController generates unique state/nonce/verifier per login attempt.",
+        "Callback with wrong state is rejected.",
+        "Callback with missing/invalid code is rejected with a useful error.",
+        "Unit tests verify token values are redacted from logs and status messages."
+      ]
+    },
+    {
+      "id": "oidc-002-loopback-callback-listener",
+      "title": "Implement local loopback callback listener",
+      "files": [
+        "client_surfaces/operator_tui/auth/loopback_callback_server.py",
+        "tests/client_surfaces/operator_tui/auth/test_loopback_callback_server.py"
+      ],
+      "details": [
+        "Bind to 127.0.0.1 on a random free port by default.",
+        "Accept exactly one callback per login attempt unless configured otherwise.",
+        "Render a minimal local success/failure page for Carbonyl after callback.",
+        "Stop automatically after success, failure or timeout.",
+        "Reject non-loopback listener configuration unless explicitly allowed for development."
+      ],
+      "acceptance_criteria": [
+        "Listener starts and returns a concrete redirect_uri.",
+        "Listener shuts down after first valid callback.",
+        "Timeout releases the port and reports degraded login state.",
+        "Non-loopback bind is blocked by default."
+      ]
+    },
+    {
+      "id": "oidc-003-carbonyl-profile-manager",
+      "title": "Add isolated Carbonyl browser profiles",
+      "files": [
+        "client_surfaces/operator_tui/visual/browser/carbonyl_profile_manager.py",
+        "client_surfaces/operator_tui/visual/browser/carbonyl_runner.py",
+        "tests/client_surfaces/operator_tui/visual/browser/test_carbonyl_profile_manager.py"
+      ],
+      "details": [
+        "Create per-session user-data-dir paths under configured profile_root.",
+        "Default to ephemeral profiles cleaned up on exit.",
+        "Support named persisted profiles only when explicitly enabled.",
+        "Associate provider cookies/session storage with the selected profile.",
+        "Add a command to clear the current Carbonyl profile."
+      ],
+      "acceptance_criteria": [
+        "Two login sessions use different profile directories by default.",
+        "Ephemeral profile is deleted after normal exit.",
+        "Persisted profile is never created unless persist_named_profiles=true.",
+        "Profile paths cannot escape the configured profile_root."
+      ]
+    },
+    {
+      "id": "oidc-004-real-browser-session-mode",
+      "title": "Wire Carbonyl real browser session mode",
+      "files": [
+        "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py",
+        "client_surfaces/operator_tui/visual/browser/carbonyl_runner.py",
+        "client_surfaces/operator_tui/input/keybindings_config.py"
+      ],
+      "details": [
+        "Add explicit command center.browser.oidc.open_provider_session.",
+        "Open the provider/app URL inside Carbonyl with the selected isolated profile.",
+        "Keep the browser session alive in the CenterViewport until the user exits.",
+        "Show status: provider, profile mode, network policy and login state if known.",
+        "Handle provider errors like unsupported/disallowed user agent without crashing the TUI."
+      ],
+      "acceptance_criteria": [
+        "Keycloak login page can be opened in Carbonyl session mode.",
+        "After successful login, cookies remain in the same Carbonyl profile for that session.",
+        "Exiting browser mode preserves or destroys profile according to policy.",
+        "Google provider failure is shown as compatibility failure, not as Ananta crash."
+      ]
+    },
+    {
+      "id": "oidc-005-ananta-owned-callback-mode",
+      "title": "Wire default Ananta-owned OIDC callback mode",
+      "files": [
+        "client_surfaces/operator_tui/auth/oidc_auth_controller.py",
+        "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py",
+        "client_surfaces/operator_tui/session/session_store.py"
+      ],
+      "details": [
+        "Make ananta_owned_oidc_callback the default OIDC mode.",
+        "Start loopback listener before launching Carbonyl authorization URL.",
+        "After callback, exchange authorization code server-side/client-side according to provider client type.",
+        "Create an Ananta-local authenticated session and load a local success page in Carbonyl.",
+        "Do not place provider tokens in URL fragments, HTML, logs, TUI status lines or temp files."
+      ],
+      "acceptance_criteria": [
+        "Keycloak PKCE login completes and creates an Ananta session.",
+        "Raw tokens are not present in generated HTML, temp files or normal logs.",
+        "Logout invalidates Ananta session and optionally clears Carbonyl profile.",
+        "Failure paths return the TUI to a usable state."
+      ]
+    },
+    {
+      "id": "oidc-006-provider-compatibility-smoke-tests",
+      "title": "Add Keycloak and Google compatibility smoke tests",
+      "files": [
+        "scripts/operator_tui_carbonyl_oidc_smoke.py",
+        "docs/operator-tui/carbonyl-oidc-session-modes.md",
+        "tests/client_surfaces/operator_tui/auth/"
+      ],
+      "details": [
+        "Smoke test Keycloak against keycloak.ananta.de when explicitly configured.",
+        "Smoke test Google only when a local client_id is provided and user explicitly opts in.",
+        "Capture provider outcome categories: success, provider_rejected_user_agent, network_error, callback_timeout, invalid_state, token_exchange_failed.",
+        "Document that Google compatibility must be tested regularly and may change."
+      ],
+      "acceptance_criteria": [
+        "Default CI does not require external providers.",
+        "Smoke script can run in offline mock mode.",
+        "Smoke script reports provider compatibility as structured JSON.",
+        "Docs explain both OIDC modes and when to use each."
+      ]
+    },
+    {
+      "id": "oidc-007-security-audit-events",
+      "title": "Add redacted audit events for OIDC browser sessions",
+      "files": [
+        "client_surfaces/operator_tui/auth/oidc_audit.py",
+        "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py"
+      ],
+      "details": [
+        "Emit structured events for login_start, callback_received, state_validated, token_exchange_success, token_exchange_failed, provider_rejected, logout, profile_cleanup.",
+        "Redact tokens, auth codes and cookies.",
+        "Include provider_id, mode, profile_mode and error category only."
+      ],
+      "acceptance_criteria": [
+        "Audit logs are useful for debugging without containing secrets.",
+        "Tests fail if token-like values appear in audit output.",
+        "User-visible errors are short and actionable."
+      ]
+    }
+  ],
+  "mermaid_architecture": "flowchart TD\n    A[Operator TUI command] --> B{OIDC mode}\n    B -->|real browser session| C[Carbonyl with isolated profile]\n    C --> D[Provider login page]\n    D --> E[Provider cookies/session stay in Carbonyl profile]\n    B -->|Ananta-owned callback| F[AuthController creates state nonce PKCE]\n    F --> G[Loopback callback 127.0.0.1 random port]\n    F --> H[Carbonyl opens authorization URL]\n    H --> I[Provider redirects to loopback]\n    I --> J[Validate state nonce and exchange code]\n    J --> K[Ananta session store owns tokens]\n    K --> L[Carbonyl loads local authenticated Ananta page]",
+  "acceptance_summary": [
+    "Both OIDC modes exist and are explicit.",
+    "Ananta-owned callback mode is the secure default.",
+    "Carbonyl real browser session mode uses isolated profiles.",
+    "Keycloak is the first-class test provider.",
+    "Google is supported as compatibility probe, not assumed guaranteed.",
+    "Raw tokens/cookies are never logged.",
+    "TUI remains usable after provider failures, timeout or user cancel."
+  ]
+}
