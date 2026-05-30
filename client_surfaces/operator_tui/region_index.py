@@ -5,6 +5,7 @@ from typing import Any
 
 from client_surfaces.operator_tui.chat_long_message import long_message_history_rows
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
+from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
@@ -92,8 +93,12 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
     templates_payload = dict((state.section_payloads or {}).get("templates") or {})
     template_groups = grouped_template_items(templates_payload) if state.section_id == "templates" else []
     template_flat = template_nav_items(templates_payload) if state.section_id == "templates" else []
+    audit_payload = dict((state.section_payloads or {}).get("audit") or {})
+    audit_groups = grouped_audit_items(audit_payload) if state.section_id == "audit" else []
+    audit_flat = audit_nav_items(audit_payload) if state.section_id == "audit" else []
     nav_row = body_y1 + 1
     template_selection_index = len(SECTIONS)
+    audit_selection_index = len(SECTIONS)
     for idx, nav_section in enumerate(SECTIONS):
         if nav_row > body_y2:
             break
@@ -153,6 +158,46 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                     )
                     nav_row += 1
                     template_selection_index += 1
+        if nav_section.id == "audit" and state.section_id == "audit":
+            for group_name, group_rows in audit_groups:
+                if nav_row > body_y2:
+                    break
+                regions.append(
+                    RegionRect(
+                        x1=nav_x1,
+                        y1=nav_row,
+                        x2=nav_x2,
+                        y2=nav_row,
+                        target=RegionTarget(
+                            kind="audit_nav_group",
+                            section_id="audit",
+                            pane="nav",
+                            label=group_name,
+                            payload={},
+                        ),
+                    )
+                )
+                nav_row += 1
+                for item_index, item in group_rows:
+                    if nav_row > body_y2:
+                        break
+                    regions.append(
+                        RegionRect(
+                            x1=nav_x1,
+                            y1=nav_row,
+                            x2=nav_x2,
+                            y2=nav_row,
+                            target=RegionTarget(
+                                kind="audit_nav_item",
+                                section_id="audit",
+                                pane="nav",
+                                label=str(item.get("title") or item.get("id") or "Audit"),
+                                payload={"selected_index": audit_selection_index, "audit_item_index": item_index},
+                            ),
+                        )
+                    )
+                    nav_row += 1
+                    audit_selection_index += 1
 
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     history_rows = long_message_history_rows(game)
@@ -179,7 +224,7 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                         section_id=section.id,
                         pane="nav",
                         label=str(entry.get("preview") or entry.get("text") or "Chat History"),
-                        payload={"selected_index": len(SECTIONS) + len(template_flat) + idx, "history_index": idx},
+                        payload={"selected_index": len(SECTIONS) + len(template_flat) + len(audit_flat) + idx, "history_index": idx},
                     ),
                 )
             )

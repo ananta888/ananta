@@ -24,6 +24,7 @@ from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
 from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
 from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
 from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
@@ -500,8 +501,12 @@ def _navigation_lines(state: OperatorState) -> list[str]:
     template_payload = dict((state.section_payloads or {}).get("templates") or {})
     template_groups = grouped_template_items(template_payload) if state.section_id == "templates" else []
     template_flat = template_nav_items(template_payload) if state.section_id == "templates" else []
+    audit_payload = dict((state.section_payloads or {}).get("audit") or {})
+    audit_groups = grouped_audit_items(audit_payload) if state.section_id == "audit" else []
+    audit_flat = audit_nav_items(audit_payload) if state.section_id == "audit" else []
     template_base_index = len(SECTIONS)
     template_row_index = template_base_index
+    audit_row_index = len(SECTIONS)
     for i, section in enumerate(SECTIONS):
         panel_state = (state.panel_states or {}).get(section.id)
         if nav_focused:
@@ -532,6 +537,22 @@ def _navigation_lines(state: OperatorState) -> list[str]:
                     title = str(item.get("title") or item.get("id") or "?")
                     lines.append(f"{leaf_cursor}{child_prefix}{leaf_branch}─ {title}")
                     template_row_index += 1
+        if section.id == "audit" and audit_groups:
+            for group_idx, (group_name, group_rows) in enumerate(audit_groups):
+                group_branch = "└" if group_idx == len(audit_groups) - 1 else "├"
+                lines.append(f"   {group_branch}─ {group_name} ({len(group_rows)})")
+                for leaf_idx, (_, item) in enumerate(group_rows):
+                    leaf_branch = "└" if leaf_idx == len(group_rows) - 1 else "├"
+                    child_prefix = "      " if group_idx == len(audit_groups) - 1 else "   │  "
+                    if nav_focused and audit_row_index == state.selected_index:
+                        leaf_cursor = DEFAULT_THEME.selected_prefix
+                    else:
+                        leaf_cursor = DEFAULT_THEME.idle_prefix
+                    title = str(item.get("title") or item.get("id") or "Audit")
+                    status = str(item.get("status") or "")
+                    suffix = "" if not status or status == "ok" else " ⚠"
+                    lines.append(f"{leaf_cursor}{child_prefix}{leaf_branch}─ {title}{suffix}")
+                    audit_row_index += 1
     history_rows = long_message_history_rows(game)
     if history_rows:
         lines.append("")
@@ -542,7 +563,7 @@ def _navigation_lines(state: OperatorState) -> list[str]:
             if channel != current_channel:
                 current_channel = channel
                 lines.append(f"  ▸ {channel}")
-            row_index = len(SECTIONS) + len(template_flat) + offset
+            row_index = len(SECTIONS) + len(template_flat) + len(audit_flat) + offset
             if nav_focused and row_index == state.selected_index:
                 cursor = DEFAULT_THEME.selected_prefix
             else:
@@ -611,6 +632,26 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
             lines.extend(_templates_editor_content_lines(state, width, viewport_height=height))
         else:
             lines.extend(_templates_content_lines(payload, state, width))
+    elif section.id == "audit":
+        viewer = dict(game.get("audit_viewer") or {})
+        if bool(viewer.get("active")):
+            lines.extend(_audit_viewer_content_lines(state, width, viewport_height=height))
+        else:
+            items = payload.get("items") or []
+            if not items:
+                lines.append("  (empty)")
+                lines.append("  press r to refresh")
+            else:
+                lines.append("  Audit-Datasets (read-only)")
+                for i, item in enumerate(items[:20]):
+                    marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
+                    title = str(item.get("title") or item.get("id") or "dataset")
+                    group = str(item.get("group") or "")
+                    summary = str(item.get("summary") or "")
+                    status = str(item.get("status") or "")
+                    warn = " ⚠" if status and status != "ok" else ""
+                    parts = [p for p in (group, summary) if p]
+                    lines.append(f"{marker} {title}{warn}" + (f" — {' · '.join(parts)}" if parts else ""))
     elif section.id == "system":
         lines.extend(_system_content_lines(payload))
     elif section.id == "terminal":
@@ -757,6 +798,39 @@ def _templates_content_lines(payload: dict, state: OperatorState, width: int) ->
         lines.append("  (keine Templates, Blueprints oder System-Prompts)")
         lines.append("  press r to refresh")
 
+    return [_clip(line, width) for line in lines]
+
+
+def _audit_viewer_content_lines(state: OperatorState, width: int, *, viewport_height: int | None = None) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    viewer = dict(game.get("audit_viewer") or {})
+    title = str(viewer.get("title") or "dataset")
+    group = str(viewer.get("group") or "")
+    text = str(viewer.get("text") or "")
+    text_lines = text.splitlines() or [""]
+    lines = [
+        f"  Audit Viewer · {title}" + (f" ({group})" if group else ""),
+        "  read-only · Esc schließen · ↑/↓ scroll · ←/→ horizontal scroll",
+        "",
+    ]
+    pane_title_rows = 1
+    viewer_header_rows = 3
+    visible_rows = max(1, int(viewport_height or 24) - pane_title_rows - viewer_header_rows)
+    view_line_offset = max(0, int(viewer.get("view_line_offset") or 0))
+    view_col_offset = max(0, int(viewer.get("view_col_offset") or 0))
+    max_line_width = max((len(line) for line in text_lines), default=0)
+    visible_cols = max(8, width - 8)
+    max_col_offset = max(0, max_line_width - visible_cols)
+    view_col_offset = min(view_col_offset, max_col_offset)
+    max_line_offset = max(0, len(text_lines) - visible_rows)
+    view_line_offset = min(view_line_offset, max_line_offset)
+    end_line = min(len(text_lines), view_line_offset + visible_rows)
+    for row_index in range(view_line_offset, end_line):
+        line = text_lines[row_index]
+        snippet = line[view_col_offset : view_col_offset + visible_cols]
+        lines.append(f"  {row_index + 1:>4} {snippet}")
+    if end_line < len(text_lines):
+        lines.append(f"  ... ({len(text_lines) - end_line} weitere Zeilen)")
     return [_clip(line, width) for line in lines]
 
 

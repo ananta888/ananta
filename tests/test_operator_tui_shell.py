@@ -3175,6 +3175,53 @@ def test_mouse_click_on_second_template_nav_item_switches_editor(monkeypatch) ->
     assert str(editor_second.get("text") or "") != str(editor_first.get("text") or "")
 
 
+def test_mouse_click_on_audit_nav_item_opens_viewer(monkeypatch) -> None:
+    from client_surfaces.operator_tui.region_index import RegionTarget
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((180, 33)),
+    )
+    payload = {
+        "items": [
+            {"id": "audit.logs.recent", "dataset_id": "audit.logs.recent", "group": "Audit Logs", "title": "Recent Logs", "status": "ok"},
+        ],
+        "datasets": {"audit.logs.recent": [{"id": "evt-1", "kind": "chat"}]},
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "audit":
+            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    class _FakeRegionIndex:
+        def get_target_at(self, x: int, y: int):
+            if x == 2 and y == 10:
+                return RegionTarget(
+                    kind="audit_nav_item",
+                    section_id="audit",
+                    pane="nav",
+                    label="Recent Logs",
+                    payload={"audit_item_index": 0, "selected_index": len(SECTIONS)},
+                )
+            return RegionTarget(kind="pane", section_id="audit", pane="nav", label="NAV", payload={"focus": "navigation"})
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.build_region_index",
+        lambda state, width, height: _FakeRegionIndex(),
+    )
+
+    tui._ingest_mouse_event(x=2, y=10, event_type="down", buttons=1, now=1.0)
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+    assert tui.state.section_id == "audit"
+    assert tui.state.focus is FocusPane.CONTENT
+    assert bool(viewer.get("active"))
+    assert "evt-1" in str(viewer.get("text") or "")
+
+
 def test_nav_section_click_leaves_chat_input_focus_and_does_not_open_artifact_overlay(monkeypatch) -> None:
     from client_surfaces.operator_tui.chat_state import get_chat_state
 
@@ -4250,6 +4297,96 @@ def test_template_editor_resets_when_leaving_templates_section() -> None:
     assert tui.state.mode is OperatorMode.NORMAL
     assert "Tree:" in output
     assert "Template Editor" not in output
+
+
+def test_audit_navigation_expands_tree_under_audit() -> None:
+    from client_surfaces.operator_tui.renderer import _navigation_lines
+
+    payload = {
+        "items": [
+            {"id": "audit.logs.recent", "group": "Audit Logs", "title": "Recent Logs", "status": "ok"},
+            {"id": "runtime.stats.snapshot", "group": "Runtime Telemetry", "title": "Stats Snapshot", "status": "ok"},
+        ],
+        "datasets": {
+            "audit.logs.recent": [{"id": "x"}],
+            "runtime.stats.snapshot": {"uptime": 1},
+        },
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.NAVIGATION,
+        selected_index=len(SECTIONS),
+        section_payloads={"audit": payload},
+    )
+
+    lines = _navigation_lines(state)
+    joined = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in lines)
+    assert "Audit" in joined
+    assert "Audit Logs (1)" in joined
+    assert "Runtime Telemetry (1)" in joined
+    assert "Recent Logs" in joined
+    assert "Stats Snapshot" in joined
+
+
+def test_audit_navigation_item_enter_opens_read_only_viewer() -> None:
+    payload = {
+        "items": [
+            {"id": "audit.logs.recent", "dataset_id": "audit.logs.recent", "group": "Audit Logs", "title": "Recent Logs", "status": "ok"},
+        ],
+        "datasets": {
+            "audit.logs.recent": [{"id": "evt-1", "kind": "chat_message"}],
+        },
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "audit":
+            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION, selected_index=len(SECTIONS))
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    output = render_operator_shell(tui.state, width=110, height=36)
+    viewer = dict((tui.state.header_logo_game or {}).get("audit_viewer") or {})
+
+    assert tui.state.focus is FocusPane.CONTENT
+    assert tui.state.mode is OperatorMode.NORMAL
+    assert bool(viewer.get("active"))
+    assert "Audit Viewer" in output
+    assert "chat_message" in output
+
+
+def test_audit_viewer_resets_when_leaving_audit_section() -> None:
+    audit_payload = {
+        "items": [
+            {"id": "audit.logs.recent", "dataset_id": "audit.logs.recent", "group": "Audit Logs", "title": "Recent Logs", "status": "ok"},
+        ],
+        "datasets": {"audit.logs.recent": [{"id": "evt-1"}]},
+    }
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "audit":
+            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=audit_payload, message="loaded audit")
+        if section_id == "goals":
+            return SectionLoadResult(section_id="goals", state=PanelState.EMPTY, payload={"items": []}, message="empty goals")
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.CONTENT, selected_index=0)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    tui._handle_enter_key()
+    assert bool(dict((tui.state.header_logo_game or {}).get("audit_viewer") or {}).get("active"))
+
+    tui._run_command(":section goals")
+    assert tui.state.section_id == "goals"
+    assert not bool(dict((tui.state.header_logo_game or {}).get("audit_viewer") or {}).get("active"))
+
+    tui._run_command(":section audit")
+    output = render_operator_shell(tui.state, width=110, height=36)
+    assert tui.state.section_id == "audit"
+    assert "Audit Viewer" not in output
 
 
 def test_template_editor_left_right_updates_horizontal_view_offset(monkeypatch) -> None:

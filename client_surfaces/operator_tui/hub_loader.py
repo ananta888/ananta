@@ -151,6 +151,8 @@ def fetch_hub_section(
         return _fetch_system(base, jwt, t)
     if section_id == "templates":
         return _fetch_templates(base, jwt, t)
+    if section_id == "audit":
+        return _fetch_audit(base, jwt, t)
     return None
 
 
@@ -384,6 +386,76 @@ def _fetch_templates(base: str, token: str, timeout: float) -> SectionLoadResult
     return SectionLoadResult(
         "templates", panel_state, payload,
         f"{source}: {len(blueprint_items)} blueprints · {len(role_template_items)} templates · {len(system_prompt_items)} system",
+    )
+
+
+def _dataset_summary(data: Any) -> str:
+    if isinstance(data, list):
+        return f"{len(data)} entries"
+    if isinstance(data, dict):
+        items = data.get("items")
+        if isinstance(items, list):
+            return f"{len(items)} items"
+        return f"{len(data)} fields"
+    if data is None:
+        return "no data"
+    return "value"
+
+
+def _fetch_audit(base: str, token: str, timeout: float) -> SectionLoadResult:
+    per = max(0.5, timeout / 3)
+    datasets: list[tuple[str, str, str, str]] = [
+        ("audit.logs.recent", "Audit Logs", "Recent Logs", "/api/system/audit-logs?limit=200&offset=0"),
+        ("audit.logs.summary", "Audit Logs", "Summary", "/api/system/audit-logs/summary?limit=1000"),
+        ("audit.logs.integrity", "Audit Logs", "Integrity", "/api/system/audit-logs/integrity?limit=500"),
+        ("runtime.stats.snapshot", "Runtime Telemetry", "Stats Snapshot", "/api/system/stats"),
+        ("runtime.stats.history", "Runtime Telemetry", "Stats History", "/api/system/stats/history?limit=120&offset=0"),
+        ("runtime.backend.observability", "Runtime Telemetry", "Backend Observability", "/debug/backend-observability?lookback_seconds=3600&trace_limit=200"),
+        ("llm.requests.recent", "LLM/Debug", "LLM Requests", "/debug/llm-requests?limit=120"),
+        ("ops.tasks.timeline", "Task/Ops", "Task Timeline", "/tasks/timeline?limit=50"),
+        ("ops.tasks.recent", "Task/Ops", "Recent Tasks", "/tasks?limit=50"),
+    ]
+    payload_items: list[dict[str, Any]] = []
+    payload_datasets: dict[str, Any] = {}
+    available_count = 0
+
+    for dataset_id, group, title, path in datasets:
+        status = "ok"
+        error = ""
+        data: Any = None
+        try:
+            data = _checked_get(base, path, token, per)
+            available_count += 1
+        except Exception as exc:
+            status = "unavailable"
+            error = str(exc)[:180] or "request failed"
+            data = {"error": error, "path": path}
+        payload_datasets[dataset_id] = data
+        payload_items.append(
+            {
+                "id": dataset_id,
+                "dataset_id": dataset_id,
+                "group": group,
+                "title": title,
+                "path": path,
+                "status": status,
+                "summary": _dataset_summary(data if status == "ok" else None),
+                "error": error,
+            }
+        )
+
+    panel_state = PanelState.HEALTHY if available_count > 0 else PanelState.DEGRADED
+    payload: dict[str, Any] = {
+        "items": payload_items,
+        "datasets": payload_datasets,
+        "available_count": available_count,
+        "total_count": len(datasets),
+    }
+    return SectionLoadResult(
+        "audit",
+        panel_state,
+        payload,
+        f"hub: audit {available_count}/{len(datasets)} datasets",
     )
 
 

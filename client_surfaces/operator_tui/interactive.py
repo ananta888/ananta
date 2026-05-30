@@ -318,6 +318,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("c-h")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._audit_viewer_active():
+                return
             if self._template_editor_active():
                 self._template_editor_backspace()
                 return
@@ -342,6 +344,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("delete")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._audit_viewer_active():
+                return
             if self._template_editor_active():
                 self._template_editor_delete()
                 return
@@ -391,6 +395,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             def _e():
                 if self.state.section_id == "templates" and self.state.focus is FocusPane.CONTENT:
                     if self._open_template_editor_for_selected():
+                        return
+                if self.state.section_id == "audit" and self.state.focus is FocusPane.CONTENT:
+                    if self._open_audit_viewer_for_selected():
                         return
                 if self._open_selected_item_inline():
                     return
@@ -615,6 +622,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("left")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._audit_viewer_active():
+                self._audit_viewer_scroll_horizontal(-4)
+                return
             if self._template_editor_active():
                 self._template_editor_move_cursor(-1)
                 return
@@ -637,6 +647,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("right")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._audit_viewer_active():
+                self._audit_viewer_scroll_horizontal(4)
+                return
             if self._template_editor_active():
                 self._template_editor_move_cursor(1)
                 return
@@ -659,6 +672,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("up")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._audit_viewer_active():
+                self._audit_viewer_scroll_vertical(-1)
+                return
             if self._template_editor_active():
                 self._template_editor_move_cursor_vertical(-1)
                 return
@@ -684,6 +700,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("down")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._audit_viewer_active():
+                self._audit_viewer_scroll_vertical(1)
+                return
             if self._template_editor_active():
                 self._template_editor_move_cursor_vertical(1)
                 return
@@ -713,6 +732,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("<any>")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self._audit_viewer_active():
+                return
             if self._template_editor_active():
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
@@ -1543,6 +1564,100 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return
         normal_action()
 
+    def _audit_viewer_active(self) -> bool:
+        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        viewer = dict(game.get("audit_viewer") or {})
+        return bool(viewer.get("active")) and self.state.section_id == "audit"
+
+    def _selected_audit_entry(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        if self.state.section_id != "audit":
+            return None
+        payload = dict((self.state.section_payloads or {}).get("audit") or {})
+        items = payload.get("items")
+        if not isinstance(items, list) or not items:
+            return None
+        idx = max(0, min(len(items) - 1, int(self.state.selected_index)))
+        entry = items[idx]
+        if not isinstance(entry, dict):
+            return None
+        return payload, entry
+
+    def _audit_viewer_viewport_metrics(self) -> tuple[int, int]:
+        size = shutil.get_terminal_size((120, 32))
+        width = max(72, int(size.columns))
+        height = max(18, int(size.lines - 1))
+        left_width = 22
+        detail_width = 34
+        middle_width = max(18, width - left_width - detail_width - 6)
+        body_height = max(3, height - 5 - 8)
+        pane_title_rows = 1
+        viewer_header_rows = 3
+        visible_rows = max(1, body_height - pane_title_rows - viewer_header_rows)
+        visible_cols = max(8, middle_width - 8)
+        return visible_rows, visible_cols
+
+    def _audit_viewer_scroll_vertical(self, delta_lines: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        viewer = dict(game.get("audit_viewer") or {})
+        if not bool(viewer.get("active")):
+            return
+        lines = str(viewer.get("text") or "").splitlines() or [""]
+        visible_rows, _ = self._audit_viewer_viewport_metrics()
+        max_offset = max(0, len(lines) - visible_rows)
+        current = max(0, int(viewer.get("view_line_offset") or 0))
+        viewer["view_line_offset"] = max(0, min(max_offset, current + int(delta_lines)))
+        game["audit_viewer"] = viewer
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _audit_viewer_scroll_horizontal(self, delta_cols: int) -> None:
+        game = dict(self.state.header_logo_game or {})
+        viewer = dict(game.get("audit_viewer") or {})
+        if not bool(viewer.get("active")):
+            return
+        lines = str(viewer.get("text") or "").splitlines() or [""]
+        _, visible_cols = self._audit_viewer_viewport_metrics()
+        max_width = max((len(line) for line in lines), default=0)
+        max_offset = max(0, max_width - visible_cols)
+        current = max(0, int(viewer.get("view_col_offset") or 0))
+        viewer["view_col_offset"] = max(0, min(max_offset, current + int(delta_cols)))
+        game["audit_viewer"] = viewer
+        self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _open_audit_viewer_for_selected(self) -> bool:
+        selected = self._selected_audit_entry()
+        if selected is None:
+            return False
+        payload, entry = selected
+        dataset_id = str(entry.get("dataset_id") or entry.get("id") or "")
+        datasets = payload.get("datasets")
+        raw = datasets.get(dataset_id) if isinstance(datasets, dict) else None
+        text: str
+        if isinstance(raw, str):
+            text = raw
+        elif raw is None:
+            text = "{}"
+        else:
+            text = json.dumps(raw, indent=2, ensure_ascii=False)
+        game = dict(self.state.header_logo_game or {})
+        game["audit_viewer"] = {
+            "active": True,
+            "dataset_id": dataset_id,
+            "title": str(entry.get("title") or dataset_id or "dataset"),
+            "group": str(entry.get("group") or ""),
+            "text": text,
+            "view_line_offset": 0,
+            "view_col_offset": 0,
+        }
+        self._set_state(
+            self.state.with_updates(
+                mode=OperatorMode.NORMAL,
+                focus=FocusPane.CONTENT,
+                header_logo_game=game,
+                status_message=f"audit viewer: {str(entry.get('title') or dataset_id)}",
+            )
+        )
+        return True
+
     def _template_editor_active(self) -> bool:
         game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
         editor = dict(game.get("template_editor") or {})
@@ -1890,6 +2005,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _handle_enter_key(self) -> None:
         game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        if self._audit_viewer_active():
+            return
         if self._template_editor_active():
             self._template_editor_insert_text("\n")
             return
@@ -1919,7 +2036,19 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 if not self._open_template_editor_for_selected():
                     self._run_command(":inspect")
                 return
-            history_idx = self.state.selected_index - len(SECTIONS) - self._template_nav_selectable_count()
+            audit_selection = self._audit_nav_item_for_nav_index(self.state.selected_index)
+            if audit_selection is not None:
+                item_index, _ = audit_selection
+                next_state = self.state.with_updates(focus=FocusPane.CONTENT, selected_index=item_index, section_id="audit")
+                self._set_state(next_state)
+                self._open_audit_viewer_for_selected()
+                return
+            history_idx = (
+                self.state.selected_index
+                - len(SECTIONS)
+                - self._template_nav_selectable_count()
+                - self._audit_nav_selectable_count()
+            )
             game = dict(self.state.header_logo_game or self._default_header_snake())
             rows = long_message_history_rows(game)
             if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
@@ -1934,6 +2063,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             return
         if self.state.focus is FocusPane.CONTENT and self.state.section_id == "templates":
             if self._open_template_editor_for_selected():
+                return
+        if self.state.focus is FocusPane.CONTENT and self.state.section_id == "audit":
+            if self._open_audit_viewer_for_selected():
                 return
         if self._artifact_chat_focus_active():
             self._artifact_chat_send_message()
@@ -2401,6 +2533,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake mouse-follow: {status}"))
 
     def _escape_to_start_state(self) -> None:
+        if self._audit_viewer_active():
+            game = dict(self.state.header_logo_game or {})
+            game["audit_viewer"] = {"active": False}
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    focus=FocusPane.CONTENT,
+                    status_message="audit viewer: geschlossen",
+                )
+            )
+            return
         if self._template_editor_active():
             game = dict(self.state.header_logo_game or {})
             game["template_editor"] = {"active": False}
