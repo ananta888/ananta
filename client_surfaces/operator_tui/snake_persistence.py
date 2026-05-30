@@ -3,6 +3,7 @@
 Config directory: ~/.config/ananta/
   snake_scores.json   – highscore, last score, game count
   tutor_config.json   – tutor depth mode, visited sections, tutorial progress
+  oidc_token.json     – cached OIDC access token (chmod 600)
 """
 from __future__ import annotations
 
@@ -147,6 +148,99 @@ def reset_tutorial_progress(tutorial_name: str) -> None:
     progress.pop(tutorial_name, None)
     cfg["tutorial_progress"] = progress
     save_tutor_config(cfg)
+
+
+# ── OIDC token cache ─────────────────────────────────────────────────────────
+
+_OIDC_TOKEN_FILE = "oidc_token.json"
+_OIDC_TOKEN_MARGIN = 60  # Sekunden Sicherheitspuffer vor Ablauf
+
+
+def _oidc_token_path() -> Path:
+    return _config_dir() / _OIDC_TOKEN_FILE
+
+
+def _decode_jwt_exp(token: str) -> float:
+    """Liest exp-Claim aus JWT-Payload ohne Krypto-Dependency. 0.0 bei Fehler."""
+    try:
+        import base64
+        parts = token.split(".")
+        if len(parts) != 3:
+            return 0.0
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(pad))
+        return float(claims.get("exp") or 0)
+    except Exception:
+        return 0.0
+
+
+def _decode_jwt_username(token: str) -> str:
+    """Liest preferred_username/email/sub aus JWT-Payload."""
+    try:
+        import base64
+        parts = token.split(".")
+        if len(parts) != 3:
+            return ""
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(pad))
+        return str(
+            claims.get("preferred_username")
+            or claims.get("email")
+            or claims.get("sub")
+            or ""
+        )
+    except Exception:
+        return ""
+
+
+def save_oidc_token(token: str, *, issuer: str = "", username: str = "") -> None:
+    """Persistiert OIDC-Token in ~/.config/ananta/oidc_token.json (chmod 600)."""
+    if not token:
+        return
+    exp = _decode_jwt_exp(token)
+    resolved_username = username or _decode_jwt_username(token)
+    entry: dict[str, Any] = {
+        "access_token": token,
+        "exp": exp,
+        "issuer": issuer,
+        "username": resolved_username,
+        "saved_at": time.time(),
+    }
+    path = _oidc_token_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(entry, indent=2), encoding="utf-8")
+        path.chmod(0o600)
+    except Exception:
+        pass
+
+
+def load_oidc_token() -> dict[str, Any] | None:
+    """Lädt gecachten OIDC-Token. Gibt None zurück wenn nicht vorhanden oder abgelaufen."""
+    path = _oidc_token_path()
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        token = str(data.get("access_token") or "")
+        if not token:
+            return None
+        exp = float(data.get("exp") or 0)
+        if exp > 0 and time.time() >= exp - _OIDC_TOKEN_MARGIN:
+            return None  # abgelaufen
+        return data
+    except Exception:
+        return None
+
+
+def clear_oidc_token() -> None:
+    """Löscht den gecachten OIDC-Token."""
+    try:
+        _oidc_token_path().unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 # ── TUI chat/config settings (per cwd) ───────────────────────────────────────

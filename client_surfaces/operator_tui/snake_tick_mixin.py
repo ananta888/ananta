@@ -762,7 +762,10 @@ class SnakeTickMixin:
             game["oidc_token"] = state.access_token
             from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
             from client_surfaces.operator_tui.network_profile import rendezvous_base_url
-            set_share_oidc_token(state.access_token, rendezvous_base_url())
+            rdv_url = rendezvous_base_url()
+            set_share_oidc_token(state.access_token, rdv_url)
+            from client_surfaces.operator_tui.snake_persistence import save_oidc_token
+            save_oidc_token(state.access_token, issuer=state.issuer)
             game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
             poller.clear()
             _odf._active_poller = None
