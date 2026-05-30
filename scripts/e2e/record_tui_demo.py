@@ -719,6 +719,56 @@ def _click_select_explain_cast(*, run_id: str) -> str:
     )
 
 
+def _share_session_e2e_cast(*, run_id: str) -> str:
+    session_id = "share-test-001"
+    frames: list[tuple[float, str]] = [
+        (
+            0.0,
+            (
+                "ananta tui - share session e2e\n"
+                f"run_id: {run_id}\n"
+                "endpoint: http://localhost:5000\n"
+                "user: admin\n\n"
+                "ready> :share help\n"
+                "commands: create, list, join, leave, debug\n\n"
+            ),
+        ),
+        (
+            1.2,
+            (
+                "ready> :share create test\n"
+                f"[share-create] status=ok session_id={session_id} name=test\n"
+                f"[share-create] join_url=/share/{session_id}\n"
+                "ready> \n"
+            ),
+        ),
+        (
+            2.4,
+            (
+                "ready> :share list\n"
+                "[share-list] count=1\n"
+                "id              name   owner  state   participants\n"
+                f"{session_id}  test   admin  active  1\n"
+                "ready> \n"
+            ),
+        ),
+        (
+            3.6,
+            (
+                "ready> :share list\n"
+                "[share-list] visible session from previous create command\n"
+                "ready> q\n"
+            ),
+        ),
+    ]
+    return _asciinema_v2_lines(
+        title=f"Ananta Operator TUI - Share Session E2E ({run_id})",
+        frames=frames,
+        width=120,
+        height=32,
+    )
+
+
 def _snake_lmstudio_heuristic_cast(*, run_id: str) -> str:
     """Rendered cast: mouse-follow + heuristic switching + LM Studio chat response."""
     nav_walk = [
@@ -1009,6 +1059,14 @@ def record_tui_demo(
         cast_content = _click_select_explain_cast(run_id=run_id)
         file_name = "video-tui-click-select-explain.cast"
         synced_targets = _sync_snake_mode_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
+    elif normalized_scene == "share-session-e2e":
+        cast_content = _share_session_e2e_cast(run_id=run_id)
+        file_name = "video-tui-share-session-e2e.cast"
+        synced_targets = (
+            _sync_snake_mode_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
+            if sync_targets
+            else []
+        )
     else:
         cast_content = _asciinema_v2_lines(
             title="Ananta Operator TUI – Demo Placeholder",
