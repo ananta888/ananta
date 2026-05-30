@@ -609,16 +609,23 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0")
 
     # Run commands in command-mode explicitly; then persist a rendered snapshot from the real TUI.
-    script_actions: list[dict[str, object]] = [
-        {"at": 2.2, "send": b":"},
-        {"at": 2.5, "send": b"share key generate\r"},
-        {"at": 5.4, "send": b":"},
-        {"at": 5.7, "send": f"share create {share_title}\r".encode("utf-8")},
-        {"at": 10.8, "send": b":"},
-        {"at": 11.1, "send": b"share list\r"},
-        {"at": 15.6, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
-        {"at": 18.6, "send": b"q"},
-    ]
+    def _append_typed(actions: list[dict[str, object]], at: float, text: str, *, step: float = 0.035) -> float:
+        encoded = text.encode("utf-8")
+        for idx, byte in enumerate(encoded):
+            actions.append({"at": at + (idx * step), "send": bytes([byte])})
+        return at + (len(encoded) * step)
+
+    script_actions: list[dict[str, object]] = []
+    t = 2.2
+    t = _append_typed(script_actions, t, "share key generate\r\n")
+    t += 3.2
+    t = _append_typed(script_actions, t, f"share create {share_title}\r\n")
+    t += 5.0
+    t = _append_typed(script_actions, t, "share list\r\n")
+    t += 4.0
+    t = _append_typed(script_actions, t, "share list\r\n")
+    script_actions.append({"at": t + 5.0, "send": b"\x1f"})  # Ctrl+_ => save_tui_snapshot
+    script_actions.append({"at": t + 8.0, "send": b"q"})
 
     master_fd, slave_fd = pty.openpty()
     try:
@@ -642,6 +649,8 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     action_index = 0
     started = time.monotonic()
     forced_quit_sent = False
+    ansi_re = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
+    text_tail = ""
 
     try:
         while True:
@@ -649,7 +658,10 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
             while action_index < len(script_actions):
                 action = script_actions[action_index]
                 at = float(action.get("at") or 0.0)
+                need = str(action.get("need") or "")
                 if elapsed < at:
+                    break
+                if need and need not in text_tail:
                     break
                 payload = action.get("send")
                 if isinstance(payload, bytes):
@@ -667,6 +679,8 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
                         raise
                 if chunk:
                     text = chunk.decode("utf-8", errors="replace")
+                    plain = ansi_re.sub("", text)
+                    text_tail = (text_tail + plain)[-12000:]
                     if events:
                         events.append((elapsed, text))
                     else:
