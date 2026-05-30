@@ -11,6 +11,20 @@ import sys
 import time
 
 _CLEAR = "\x1b[2J\x1b[H"
+_TERMINAL_RESTORE = (
+    "\x1b[?1000l"  # X10 mouse
+    "\x1b[?1002l"  # button-event tracking
+    "\x1b[?1003l"  # any-event tracking
+    "\x1b[?1006l"  # SGR mouse mode
+    "\x1b[?1015l"  # urxvt mouse mode
+    "\x1b[?25h"    # show cursor
+    "\x1b[?1049l"  # leave alternate screen if active
+)
+
+
+def _restore_terminal_modes() -> None:
+    sys.stdout.write(_TERMINAL_RESTORE)
+    sys.stdout.flush()
 
 
 def play(path: str, speed: float = 1.0, pause: bool = False) -> None:
@@ -26,29 +40,31 @@ def play(path: str, speed: float = 1.0, pause: bool = False) -> None:
     if pause:
         input("Press Enter to start…")
 
-    prev_t = 0.0
-    for ev in events:
-        t, kind, data = ev
-        if kind != "o":
-            continue
+    try:
+        prev_t = 0.0
+        for ev in events:
+            t, kind, data = ev
+            if kind != "o":
+                continue
 
-        # find label for this timestamp
-        label = labels.get(f"{t:.1f}", "")
+            # find label for this timestamp
+            label = labels.get(f"{t:.1f}", "")
 
-        delay = (t - prev_t) / speed
-        if delay > 0:
-            time.sleep(delay)
-        prev_t = t
+            delay = (t - prev_t) / speed
+            if delay > 0:
+                time.sleep(delay)
+            prev_t = t
 
-        sys.stdout.write(data)
-        if label:
-            sys.stdout.write(f"\x1b[s\x1b[{header['height']};0H\x1b[2K"
-                             f"\x1b[2m── {label} ──\x1b[0m\x1b[u")
-        sys.stdout.flush()
-
-    # move cursor below last frame
-    sys.stdout.write(f"\x1b[{header['height'] + 1};0H\n")
-    print("\x1b[2mdone\x1b[0m")
+            sys.stdout.write(data)
+            if label:
+                sys.stdout.write(f"\x1b[s\x1b[{header['height']};0H\x1b[2K"
+                                 f"\x1b[2m── {label} ──\x1b[0m\x1b[u")
+            sys.stdout.flush()
+    finally:
+        _restore_terminal_modes()
+        # move cursor below last frame
+        sys.stdout.write(f"\x1b[{header['height'] + 1};0H\n")
+        print("\x1b[2mdone\x1b[0m")
 
 
 def main() -> None:
