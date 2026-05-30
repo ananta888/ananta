@@ -100,3 +100,51 @@ def test_fetch_audit_adds_chat_prompt_trace_items(monkeypatch) -> None:
     detail_payload = dict(datasets.get(dataset_id) or {})
     assert detail_payload.get("trace_id") == "trace-1"
     assert "SYSTEM: context" in str(detail_payload.get("final_prompt_redacted") or "")
+
+
+def test_resolve_token_uses_dotenv_username_fallback(monkeypatch) -> None:
+    from client_surfaces.operator_tui import hub_loader
+
+    monkeypatch.delenv("ANANTA_USER", raising=False)
+    monkeypatch.delenv("INITIAL_ADMIN_USER", raising=False)
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.hub_loader._load_dotenv_fallback",
+        lambda: {"ANANTA_USER": "alice"},
+    )
+    calls: dict[str, str] = {}
+
+    def _fake_login(base: str, username: str, password: str, timeout: float = 3.0):
+        calls["base"] = base
+        calls["username"] = username
+        calls["password"] = password
+        return "jwt.token.sig", 9999999999.0
+
+    monkeypatch.setattr("client_surfaces.operator_tui.hub_loader._login", _fake_login)
+    hub_loader._jwt_cache.clear()
+
+    token = hub_loader.resolve_token("http://hub.local", "pw123")
+
+    assert token == "jwt.token.sig"
+    assert calls == {"base": "http://hub.local", "username": "alice", "password": "pw123"}
+
+
+def test_resolve_token_prefers_process_env_username_over_dotenv(monkeypatch) -> None:
+    from client_surfaces.operator_tui import hub_loader
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.hub_loader._load_dotenv_fallback",
+        lambda: {"ANANTA_USER": "alice"},
+    )
+    monkeypatch.setenv("ANANTA_USER", "bob")
+    calls: dict[str, str] = {}
+
+    def _fake_login(base: str, username: str, password: str, timeout: float = 3.0):
+        calls["username"] = username
+        return "jwt.token.sig", 9999999999.0
+
+    monkeypatch.setattr("client_surfaces.operator_tui.hub_loader._login", _fake_login)
+    hub_loader._jwt_cache.clear()
+
+    _ = hub_loader.resolve_token("http://hub.local", "pw123")
+
+    assert calls["username"] == "bob"
