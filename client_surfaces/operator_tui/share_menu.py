@@ -104,41 +104,6 @@ def build_share_section_lines(
         lines.append(f"  {_btn(':share key generate', 'lokalen Device-Key erstellen')}")
     lines.append("")
 
-    # Aktive Share-Sessions
-    sessions: list[dict[str, Any]] = list(payload.get("sessions") or [])
-    if sessions:
-        lines.append(f"  Sessions ({len(sessions)}):   {_btn(':share stop', 'beenden')}")
-        for s in sessions[:5]:
-            title = str(s.get("title") or "Session")[:_W - 22]
-            sid = str(s.get("id") or "")[:8]
-            pcount = len(s.get("participants") or [])
-            perms = s.get("permissions") or s.get("allowed_permissions") or {}
-            view_flag = " \x1b[32m[view]\x1b[0m" if perms.get("view_tui") else ""
-            lines.append(f"    \x1b[1m{title}\x1b[0m \x1b[90m[{sid}] {pcount} Teilnehmer{view_flag}\x1b[0m")
-        lines.append(f"  {_btn(':share invite', 'Invite-Code anzeigen')}")
-        lines.append(f"  {_btn(':share view on', 'TUI-View freigeben')}  {_btn(':share view off', 'View sperren')}")
-    else:
-        lines.append("  Keine aktiven Sessions")
-        lines.append(f"  {_btn(':share list', 'alle Sessions laden')}  {_btn(':share create', 'neue Session erstellen')}")
-        lines.append(f"  {_btn(':share join', 'per Invite-Code beitreten')}")
-    lines.append("")
-
-    # Teilnehmerliste
-    selected_session = dict(payload.get("selected_session") or {})
-    participants: list[dict[str, Any]] = list(payload.get("participants") or [])
-    if selected_session and participants:
-        session_title = str(selected_session.get("title") or "Session")[:30]
-        lines.append(f"  Teilnehmer in \x1b[1m{session_title}\x1b[0m:")
-        for p in participants:
-            user_id = str(p.get("user_id") or "")[:16]
-            fp = str(p.get("public_key_fingerprint") or "")
-            role = str(p.get("role") or "participant")
-            revoked = p.get("revoked_at")
-            status_str = "\x1b[31m[revoked]\x1b[0m" if revoked else "\x1b[32m[aktiv]\x1b[0m"
-            fp_short = f"\x1b[90m{fp[:17]}…\x1b[0m" if fp else "\x1b[33m[kein Key]\x1b[0m"
-            lines.append(f"    {status_str} {user_id} ({role}) {fp_short}")
-        lines.append("")
-
     # Status-Meldung vom Action Executor
     status_msg = str(payload.get("share_status_message") or "")
     if status_msg:
@@ -146,7 +111,93 @@ def build_share_section_lines(
         lines.append(f"  {color}{status_msg}\x1b[0m")
         lines.append("")
 
+    # ── Session-Übersicht ────────────────────────────────────────────────────
+    lines.extend(_session_overview_lines(payload, _W))
+
     lines.append(f"  {_btn(':share help', 'alle Befehle anzeigen')}")
+    return lines
+
+
+def _session_row(s: dict[str, Any], width: int, *, active_id: str = "", show_owner: bool = False) -> str:
+    sid = str(s.get("id") or "")[:8]
+    title = str(s.get("title") or "Session")
+    pcount = len(s.get("participants") or [])
+    perms = s.get("permissions") or s.get("allowed_permissions") or {}
+    view_flag = " \x1b[32m[view]\x1b[0m" if perms.get("view_tui") else ""
+    active_mark = "\x1b[32m●\x1b[0m " if active_id and str(s.get("id") or "") == active_id else "  "
+    owner_prefix = ""
+    if show_owner:
+        owner = str(s.get("owner_user_id") or "")[:12]
+        owner_prefix = f"\x1b[90m{owner:<12}\x1b[0m  "
+    max_title = max(10, width - 30 - (14 if show_owner else 0))
+    title_trunc = title[:max_title]
+    return f"  {active_mark}{owner_prefix}\x1b[1m{title_trunc}\x1b[0m \x1b[90m[{sid}] {pcount}P{view_flag}\x1b[0m"
+
+
+def _session_overview_lines(payload: dict[str, Any], width: int) -> list[str]:
+    lines: list[str] = []
+    sessions_mine: list[dict[str, Any]] = list(payload.get("sessions_mine") or [])
+    sessions_joined: list[dict[str, Any]] = list(payload.get("sessions_joined") or [])
+    active_id = str((payload.get("selected_session") or {}).get("id") or "")
+
+    # Trennlinie
+    def _rule(label: str) -> str:
+        pad = max(0, width - len(label) - 4)
+        return f"  \x1b[90m── {label} {'─' * pad}\x1b[0m"
+
+    # ── Meine Sessions
+    lines.append(_rule(f"Meine Sessions ({len(sessions_mine)})"))
+    if sessions_mine:
+        for s in sessions_mine[:8]:
+            lines.append(_session_row(s, width, active_id=active_id))
+        if len(sessions_mine) > 8:
+            lines.append(f"  \x1b[90m  … {len(sessions_mine) - 8} weitere\x1b[0m")
+        lines.append(
+            f"  {_btn(':share invite', 'Invite')}  "
+            f"{_btn(':share view on', 'View an')}  "
+            f"{_btn(':share stop', 'beenden')}"
+        )
+    else:
+        lines.append("  \x1b[90m(keine)\x1b[0m")
+    lines.append(
+        f"  {_btn(':share create', 'neue Session')}  "
+        f"{_btn(':share list', 'aktualisieren')}"
+    )
+    lines.append("")
+
+    # ── Beigetreten
+    lines.append(_rule(f"Beigetreten ({len(sessions_joined)})"))
+    if sessions_joined:
+        # Gruppierung nach Owner
+        by_owner: dict[str, list[dict[str, Any]]] = {}
+        for s in sessions_joined:
+            owner = str(s.get("owner_user_id") or "unbekannt")
+            by_owner.setdefault(owner, []).append(s)
+        for owner, owner_sessions in sorted(by_owner.items()):
+            if len(by_owner) > 1:
+                lines.append(f"    \x1b[36m{owner}\x1b[0m")
+            for s in owner_sessions[:5]:
+                lines.append(_session_row(s, width, active_id=active_id, show_owner=len(by_owner) == 1))
+        lines.append(f"  {_btn(':share join', 'beitreten')}")
+    else:
+        lines.append("  \x1b[90m(keine)\x1b[0m")
+        lines.append(f"  {_btn(':share join <code>', 'per Invite-Code beitreten')}")
+    lines.append("")
+
+    # Teilnehmerliste der ausgewählten Session
+    participants: list[dict[str, Any]] = list(payload.get("participants") or [])
+    selected = dict(payload.get("selected_session") or {})
+    if selected and participants:
+        session_title = str(selected.get("title") or "Session")[:28]
+        lines.append(_rule(f"Teilnehmer: {session_title}"))
+        for p in participants:
+            uid = str(p.get("user_id") or "")[:18]
+            role = str(p.get("role") or "participant")
+            revoked = p.get("revoked_at")
+            dot = "\x1b[31m●\x1b[0m" if revoked else "\x1b[32m●\x1b[0m"
+            lines.append(f"  {dot} \x1b[1m{uid}\x1b[0m \x1b[90m({role})\x1b[0m")
+        lines.append("")
+
     return lines
 
 

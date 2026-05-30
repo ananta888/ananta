@@ -87,13 +87,13 @@ def test_share_menu_has_create_button_when_no_sessions():
 
 def test_share_menu_has_join_button_when_no_sessions():
     lines = _plain_lines({"sessions": []})
-    btn_lines = [l for l in lines if "[▶ :share join]" in l]
+    btn_lines = [l for l in lines if ":share join" in l]
     assert len(btn_lines) >= 1
 
 
 def test_share_menu_has_invite_button_when_sessions_exist():
     sessions = [{"id": "abc-123", "title": "Test", "participants": []}]
-    lines = _plain_lines({"sessions": sessions})
+    lines = _plain_lines({"sessions": sessions, "sessions_mine": sessions, "sessions_joined": []})
     btn_lines = [l for l in lines if "[▶ :share invite]" in l]
     assert len(btn_lines) >= 1
 

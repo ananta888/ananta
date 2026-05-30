@@ -66,6 +66,17 @@ def list_share_sessions():
     return jsonify({"ok": True, "data": {"items": items}}), 200
 
 
+@share_sessions_bp.route("/share-sessions/joined", methods=["GET"])
+@check_user_auth
+def list_joined_share_sessions():
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({"error": "not_authenticated"}), 401
+    service = get_share_session_service()
+    items = service.list_sessions_as_participant(user_id)
+    return jsonify({"ok": True, "data": {"items": items}}), 200
+
+
 @share_sessions_bp.route("/share-sessions/<session_id>/join", methods=["POST"])
 @check_user_auth
 def join_share_session(session_id: str):

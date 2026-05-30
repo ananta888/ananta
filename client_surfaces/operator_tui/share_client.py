@@ -170,8 +170,15 @@ def get_turn_credentials(*, token: str, base_url: str | None = None) -> dict[str
 
 
 def list_hub_sessions(*, token: str, hub_url: str) -> list[dict[str, Any]]:
-    """Listet Hub-Relay-Sessions (lokaler Modus: GET /share-sessions)."""
+    """Listet eigene Hub-Relay-Sessions (GET /share-sessions)."""
     url = f"{hub_url.rstrip('/')}/share-sessions"
+    result = _get(url, token)
+    return list((result.get("data") or {}).get("items") or result.get("items") or [])
+
+
+def list_joined_hub_sessions(*, token: str, hub_url: str) -> list[dict[str, Any]]:
+    """Listet Sessions als Teilnehmer (GET /share-sessions/joined)."""
+    url = f"{hub_url.rstrip('/')}/share-sessions/joined"
     result = _get(url, token)
     return list((result.get("data") or {}).get("items") or result.get("items") or [])
 

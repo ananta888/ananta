@@ -1202,11 +1202,17 @@ def _share_section_content_lines(payload: dict, state: OperatorState, width: int
         merged["share_status_message"] = str(game["share_status_message"])
     active_session = dict(game.get("share_active_session") or {})
     if active_session:
-        sessions = [dict(s) for s in list(merged.get("sessions") or []) if isinstance(s, dict)]
         active_id = str(active_session.get("id") or "")
+        # sessions (gesamt)
+        sessions = [dict(s) for s in list(merged.get("sessions") or []) if isinstance(s, dict)]
         if active_id:
             sessions = [s for s in sessions if str(s.get("id") or "") != active_id]
         merged["sessions"] = [active_session, *sessions]
+        # sessions_mine: aktive Session an erster Stelle
+        mine = [dict(s) for s in list(merged.get("sessions_mine") or []) if isinstance(s, dict)]
+        if active_id:
+            mine = [s for s in mine if str(s.get("id") or "") != active_id]
+        merged["sessions_mine"] = [active_session, *mine]
         merged["selected_session"] = active_session
         if active_session.get("participants") and not merged.get("participants"):
             merged["participants"] = list(active_session.get("participants") or [])
