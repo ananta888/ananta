@@ -1192,7 +1192,14 @@ def _system_content_lines(payload: dict) -> list[str]:
 
 def _share_section_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
     from client_surfaces.operator_tui.share_menu import share_section_lines
-    return share_section_lines(payload, width=width, selected_index=state.selected_index)
+    # Device-Flow-Status aus game state in payload einbauen
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    merged = dict(payload)
+    if game.get("oidc_device_flow"):
+        merged["oidc_device_flow"] = dict(game["oidc_device_flow"])
+    if game.get("share_status_message"):
+        merged["share_status_message"] = str(game["share_status_message"])
+    return share_section_lines(merged, width=width, selected_index=state.selected_index)
 
 
 def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:

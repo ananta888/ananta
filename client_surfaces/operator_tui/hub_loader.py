@@ -154,6 +154,8 @@ def fetch_hub_section(
         return _fetch_templates(base, jwt, t)
     if section_id == "audit":
         return _fetch_audit(base, jwt, t)
+    if section_id == "share":
+        return _fetch_share(t)
     return None
 
 
@@ -631,3 +633,86 @@ def _load_local_templates_fallback() -> list[dict[str, Any]]:
                 }
             )
     return out
+
+
+# ── share section ─────────────────────────────────────────────────────────────
+
+# Modulweiter Cache für OIDC-Token und Rendezvous-URL (gesetzt vom Action Executor)
+_share_oidc_token: str = ""
+_share_rendezvous_url: str = ""
+_share_lock = threading.Lock()
+
+
+def set_share_oidc_token(token: str, rendezvous_url: str = "") -> None:
+    global _share_oidc_token, _share_rendezvous_url
+    with _share_lock:
+        _share_oidc_token = str(token or "")
+        if rendezvous_url:
+            _share_rendezvous_url = str(rendezvous_url)
+
+
+def get_share_oidc_token() -> str:
+    with _share_lock:
+        return _share_oidc_token
+
+
+def _fetch_share(timeout: float) -> SectionLoadResult:
+    from client_surfaces.operator_tui.device_keys import get_device_key_manager, DeviceKeyError
+    from client_surfaces.operator_tui.network_profile import get_active_profile, is_public_profile_active
+
+    with _share_lock:
+        oidc_token = _share_oidc_token
+        rdv_url = _share_rendezvous_url
+
+    profile = get_active_profile()
+    profile_id = str(profile.get("profile_id") or "local")
+
+    # Device-Key-Status
+    mgr = get_device_key_manager()
+    device_key_info: dict[str, Any] = {}
+    if mgr.key_exists():
+        try:
+            device_key_info = mgr.get_public_info()
+        except DeviceKeyError:
+            pass
+
+    # OIDC-Status
+    oidc_status: dict[str, Any] = {}
+    if oidc_token:
+        try:
+            import base64
+            parts = oidc_token.split(".")
+            if len(parts) == 3:
+                pad = parts[1] + "=" * (-len(parts[1]) % 4)
+                claims = json.loads(base64.b64decode(pad))
+                oidc_status = {
+                    "sub": str(claims.get("sub") or ""),
+                    "username": str(claims.get("preferred_username") or claims.get("email") or ""),
+                    "issuer": str(claims.get("iss") or ""),
+                    "exp": claims.get("exp"),
+                }
+        except Exception:
+            oidc_status = {"sub": "", "username": "", "raw": True}
+
+    # Sessions von Rendezvous laden (wenn Token + URL vorhanden)
+    sessions: list[dict[str, Any]] = []
+    if oidc_token and rdv_url:
+        try:
+            from client_surfaces.operator_tui.share_client import list_sessions
+            sessions = list_sessions(token=oidc_token, base_url=rdv_url)
+        except Exception:
+            pass
+
+    payload: dict[str, Any] = {
+        "profile_id": profile_id,
+        "is_public": is_public_profile_active(),
+        "oidc_status": oidc_status,
+        "oidc_device_flow": {},  # wird live aus game state befüllt (share_menu liest game direkt)
+        "device_key_info": device_key_info,
+        "sessions": sessions,
+        "selected_session": sessions[0] if sessions else {},
+        "participants": [],
+        "oidc_token_present": bool(oidc_token),
+    }
+    state = PanelState.HEALTHY if (oidc_token or device_key_info) else PanelState.EMPTY
+    return SectionLoadResult("share", state, payload, f"share: {len(sessions)} sessions")

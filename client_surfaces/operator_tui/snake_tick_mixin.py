@@ -224,6 +224,10 @@ class SnakeTickMixin:
         # E04: sync AI ask result back to AI chat channel
         self._tick_chat_ai_response(game)
 
+        # SS: OIDC Device Flow Polling + Share Action Executor
+        self._tick_oidc_device_flow(game, now=now)
+        self._tick_share_pending_action(game, now=now)
+
         # T01.05: record section visit for first-visit explanation
         current_section = str(self.state.section_id or "dashboard")
         if current_section != getattr(self, "_last_tracked_section", ""):
@@ -733,3 +737,150 @@ class SnakeTickMixin:
         self._update_tutorial_ai_snake(game, snakes, now=now, board_w=board_w, board_h=board_h, enabled=bool(game.get("tutorial_mode")))
         game["snakes"] = snakes
         game["local_snake_id"] = local_id
+
+    # ── OIDC Device Flow ──────────────────────────────────────────────────────
+
+    def _tick_oidc_device_flow(self, game: dict, *, now: float) -> None:
+        # Poller kommt aus dem globalen Sidecar (gesetzt von :oidc login)
+        import client_surfaces.operator_tui.oidc_device_flow as _odf
+        poller = getattr(_odf, "_active_poller", None)
+        if poller is None:
+            return
+        state = poller.tick(now)
+        if state is None:
+            return
+        game["oidc_device_flow"] = {
+            "status": state.status,
+            "user_code": state.user_code,
+            "verification_uri": state.verification_uri,
+            "error": state.error,
+        }
+        if state.status == "done" and state.access_token:
+            game["oidc_token"] = state.access_token
+            from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
+            from client_surfaces.operator_tui.network_profile import rendezvous_base_url
+            set_share_oidc_token(state.access_token, rendezvous_base_url())
+            game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
+            poller.clear()
+
+    # ── Share Action Executor ─────────────────────────────────────────────────
+
+    def _tick_share_pending_action(self, game: dict, *, now: float) -> None:
+        action_info = game.get("share_pending_action")
+        if not action_info or not isinstance(action_info, dict):
+            return
+        # Nur einmal ausführen — sofort löschen, dann im Background verarbeiten
+        game.pop("share_pending_action", None)
+        action = str(action_info.get("action") or "")
+        _bg = self._get_snake_bg_executor()
+        oidc_token = str(game.get("oidc_token") or "")
+        endpoint = str(self.state.endpoint or "")
+
+        if action == "create":
+            title = str(action_info.get("title") or "Shared Session")
+            _bg.submit(self._share_action_create, game, oidc_token, endpoint, title)
+        elif action == "join":
+            code = str(action_info.get("invite_code") or "")
+            _bg.submit(self._share_action_join, game, oidc_token, endpoint, code)
+        elif action == "set_view":
+            session_id = str((game.get("share_active_session") or {}).get("id") or "")
+            view_enabled = bool(action_info.get("view_tui"))
+            if session_id:
+                _bg.submit(self._share_action_set_view, game, oidc_token, endpoint, session_id, view_enabled)
+        elif action == "stop":
+            session_id = str((game.get("share_active_session") or {}).get("id") or "")
+            if session_id:
+                _bg.submit(self._share_action_stop, game, oidc_token, endpoint, session_id)
+
+    def _share_action_create(self, game: dict, token: str, endpoint: str, title: str) -> None:
+        from client_surfaces.operator_tui.device_keys import get_device_key_manager
+        from client_surfaces.operator_tui.network_profile import rendezvous_base_url, is_public_profile_active
+        from client_surfaces.operator_tui.share_client import create_session, create_hub_session
+        from client_surfaces.operator_tui.share_invite import build_invite
+        from client_surfaces.operator_tui.oidc_device_flow import DeviceFlowPoller
+        mgr = get_device_key_manager()
+        fp = mgr.get_fingerprint() if mgr.key_exists() else ""
+        if not fp:
+            game["share_status_message"] = "Kein Device-Key. :share key generate zuerst."
+            return
+        try:
+            if is_public_profile_active() and token:
+                rdv_url = rendezvous_base_url()
+                result = create_session(token=token, device_fingerprint=fp, title=title, base_url=rdv_url)
+            else:
+                from client_surfaces.operator_tui.device_keys import get_device_key_manager as _mgr
+                result = create_hub_session(hub_token=token, hub_url=endpoint, device_id=fp, title=title)
+            if result.get("ok") or result.get("id"):
+                session = dict(result.get("data") or result)
+                game["share_active_session"] = session
+                game["share_status_message"] = f"Session '{title}' erstellt. Invite: {session.get('invite_code', '')}"
+            else:
+                game["share_status_message"] = f"Session-Erstellung fehlgeschlagen: {result.get('error', result)}"
+        except Exception as exc:
+            game["share_status_message"] = f"Fehler beim Erstellen: {exc}"
+
+    def _share_action_join(self, game: dict, token: str, endpoint: str, invite_code: str) -> None:
+        from client_surfaces.operator_tui.device_keys import get_device_key_manager
+        from client_surfaces.operator_tui.network_profile import rendezvous_base_url, is_public_profile_active
+        from client_surfaces.operator_tui.share_client import join_session, join_hub_session
+        from client_surfaces.operator_tui.share_invite import parse_invite
+        mgr = get_device_key_manager()
+        fp = mgr.get_fingerprint() if mgr.key_exists() else ""
+        # Invite-Link parsen falls ananta://-Format
+        parsed = parse_invite(invite_code)
+        if parsed:
+            code = str(parsed.get("short_code") or invite_code)
+            rdv_url = str(parsed.get("rendezvous_url") or rendezvous_base_url())
+        else:
+            code = invite_code
+            rdv_url = rendezvous_base_url()
+        try:
+            if is_public_profile_active() and token:
+                result = join_session(token=token, invite_code=code, device_fingerprint=fp, base_url=rdv_url)
+            else:
+                session_id = str((game.get("share_active_session") or {}).get("id") or "")
+                result = join_hub_session(hub_token=token, hub_url=endpoint, session_id=session_id, invite_code=code, device_fingerprint=fp)
+            if result.get("ok") or result.get("data"):
+                participant = dict(result.get("data") or {})
+                game["share_joined_as"] = participant
+                game["share_status_message"] = f"Session beigetreten. Fingerprint: {fp[:17]}…"
+            else:
+                game["share_status_message"] = f"Beitritt fehlgeschlagen: {result.get('error', result)}"
+        except Exception as exc:
+            game["share_status_message"] = f"Fehler beim Beitreten: {exc}"
+
+    def _share_action_set_view(self, game: dict, token: str, endpoint: str, session_id: str, enabled: bool) -> None:
+        try:
+            import urllib.request, json as _json
+            url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}/permissions"
+            body = _json.dumps({"permissions": {"view_tui": enabled}}).encode()
+            req = urllib.request.Request(
+                url, data=body,
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                method="PATCH",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                pass
+            label = "aktiviert" if enabled else "deaktiviert"
+            game["share_status_message"] = f"TUI-View-Share {label}"
+        except Exception as exc:
+            game["share_status_message"] = f"View-Share Fehler: {exc}"
+
+    def _share_action_stop(self, game: dict, token: str, endpoint: str, session_id: str) -> None:
+        from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
+        from client_surfaces.operator_tui.share_client import revoke_session
+        try:
+            if is_public_profile_active() and token:
+                revoke_session(token=token, session_id=session_id, base_url=rendezvous_base_url())
+            else:
+                import urllib.request
+                url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}"
+                req = urllib.request.Request(
+                    url, headers={"Authorization": f"Bearer {token}"}, method="DELETE"
+                )
+                with urllib.request.urlopen(req, timeout=5):
+                    pass
+            game.pop("share_active_session", None)
+            game["share_status_message"] = "Share-Session beendet"
+        except Exception as exc:
+            game["share_status_message"] = f"Stop fehlgeschlagen: {exc}"
