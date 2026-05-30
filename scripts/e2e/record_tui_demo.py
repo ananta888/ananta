@@ -584,13 +584,18 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("LINES", str(height))
     env.setdefault("ANANTA_ENDPOINT", endpoint)
     env.setdefault("ANANTA_TUI_MOUSE", "1")
+    env.setdefault("ANANTA_TUI_HEADER_SNAKE", "0")
+    env.setdefault("ANANTA_TUI_SNAKE_MODE", "0")
+    env.setdefault("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0")
 
-    # Wait for first healthy frame, then issue real share commands in the running TUI.
+    # Run commands in command-mode explicitly; then persist a rendered snapshot from the real TUI.
     script_actions: list[dict[str, object]] = [
-        {"at": 2.2, "need": "", "send": f":share key generate\r".encode("utf-8")},
-        {"at": 5.0, "need": "", "send": f":share create {share_title}\r".encode("utf-8")},
-        {"at": 8.5, "need": "Session '", "send": b":share list\r"},
-        {"at": 14.0, "need": "Session(s):", "send": b"q"},
+        {"at": 2.2, "send": b":"},
+        {"at": 2.5, "send": b"share key generate\r"},
+        {"at": 5.4, "send": b":"},
+        {"at": 5.7, "send": f"share create {share_title}\r".encode("utf-8")},
+        {"at": 14.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
+        {"at": 17.0, "send": b"q"},
     ]
 
     master_fd, slave_fd = pty.openpty()
@@ -622,13 +627,8 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
             while action_index < len(script_actions):
                 action = script_actions[action_index]
                 at = float(action.get("at") or 0.0)
-                need = str(action.get("need") or "")
                 if elapsed < at:
                     break
-                if need:
-                    tail_text = "".join(chunk for _, chunk in events[-12:])
-                    if need not in tail_text:
-                        break
                 payload = action.get("send")
                 if isinstance(payload, bytes):
                     os.write(master_fd, payload)
