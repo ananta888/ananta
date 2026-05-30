@@ -1,0 +1,282 @@
+{
+  "id": "todo.operator-tui-carbonyl-center-browser-mode",
+  "title": "Operator TUI: Optional Carbonyl browser render mode for CenterViewport",
+  "status": "open",
+  "created_at": "2026-05-30",
+  "priority": "high",
+  "scope": "client_surfaces/operator_tui",
+  "summary": "Add an explicit, user-triggered browser render mode for the Operator TUI center viewport. When enabled, the content that is currently shown in the middle/center view is transformed into a temporary browser document and rendered through Carbonyl inside the same CenterViewport region. This must not become the default rendering path.",
+  "context": {
+    "current_files": [
+      "client_surfaces/operator_tui/visual/viewport/center_viewport.py",
+      "docs/operator-tui/visual-viewport-renderer-system.md",
+      "docs/operator-tui/markdown-mermaid-center-view.md",
+      "tests/client_surfaces/operator_tui/visual/test_viewport_region.py"
+    ],
+    "existing_architecture_notes": [
+      "CenterViewport currently owns the assigned middle-area rectangle and returns ViewportDrawRequest objects for payload rendering.",
+      "The documented visual renderer system already separates VisualView, Renderer, OutputAdapter, CapabilityDetector and FrameScheduler.",
+      "Markdown/Mermaid rendering is documented as a center-view mode with ANSI fallback and optional image rendering.",
+      "Carbonyl should be integrated as another explicit center render mode, not as a replacement for ANSI/Sixel/Kitty rendering."
+    ]
+  },
+  "non_goals": [
+    "Do not make Carbonyl the default renderer.",
+    "Do not route arbitrary web URLs through Carbonyl unless explicitly requested by the user.",
+    "Do not allow the Carbonyl subprocess to write outside the CenterViewport region.",
+    "Do not remove the existing Markdown/Mermaid ANSI fallback path.",
+    "Do not require Carbonyl for normal Operator TUI startup."
+  ],
+  "desired_behavior": [
+    {
+      "case": "User explicitly switches current center content to browser mode",
+      "behavior": "The active center view is snapshotted, converted into an HTML document, and rendered by Carbonyl in the same CenterViewport bounds."
+    },
+    {
+      "case": "Current center content is Markdown/Mermaid",
+      "behavior": "The Markdown source and Mermaid blocks are wrapped into a local HTML document. Mermaid rendering may use local bundled JS only; no remote CDN loading by default."
+    },
+    {
+      "case": "Current center content is plain text/log/source",
+      "behavior": "The content is escaped and shown in a pre/code oriented HTML template."
+    },
+    {
+      "case": "Current center content is already an HTML preview",
+      "behavior": "The HTML is loaded directly after sanitization or wrapped in the standard Carbonyl document shell."
+    },
+    {
+      "case": "Carbonyl is missing or fails to start",
+      "behavior": "The TUI remains usable, shows a short degraded-state message in the center viewport, and offers the existing renderer fallback."
+    },
+    {
+      "case": "User leaves browser mode",
+      "behavior": "The Carbonyl subprocess is stopped, temporary files are cleaned up, input focus returns to the Operator TUI, and the previous VisualView state is restored."
+    }
+  ],
+  "proposed_user_controls": {
+    "commands": [
+      {
+        "name": "center.browser.toggle",
+        "description": "Toggle Carbonyl browser mode for the current CenterViewport content."
+      },
+      {
+        "name": "center.browser.open_current",
+        "description": "Open the currently displayed center content in Carbonyl without changing global defaults."
+      },
+      {
+        "name": "center.browser.exit",
+        "description": "Exit Carbonyl mode and restore the previous center view."
+      }
+    ],
+    "suggested_keybindings": [
+      {
+        "key": "F7",
+        "action": "center.browser.toggle",
+        "reason": "F8/F9/F10 are already documented for the view switcher; F7 is close but avoids the existing assignments."
+      },
+      {
+        "key": "Escape",
+        "action": "center.browser.exit",
+        "scope": "Only while Carbonyl mode has focus."
+      }
+    ],
+    "footer_hint": "F7 Browser-Render | Esc zurück"
+  },
+  "configuration": {
+    "file": "config/config.example.json",
+    "new_key": "operator_tui.center_browser",
+    "example": {
+      "operator_tui": {
+        "center_browser": {
+          "enabled": true,
+          "default_active": false,
+          "engine": "carbonyl",
+          "carbonyl_binary": "carbonyl",
+          "mode": "explicit_only",
+          "network_policy": "disabled_by_default",
+          "allowed_url_schemes": ["file", "data"],
+          "allow_remote_urls": false,
+          "temp_root": ".ananta/tmp/center-browser",
+          "startup_timeout_seconds": 5.0,
+          "render_timeout_seconds": 20.0,
+          "cleanup_temp_files": true,
+          "inherit_terminal_size_from_center_viewport": true
+        }
+      }
+    }
+  },
+  "implementation_tasks": [
+    {
+      "id": "carbonyl-001-capability-detection",
+      "title": "Detect Carbonyl availability as a degraded optional capability",
+      "files": [
+        "client_surfaces/operator_tui/visual/runtime/capability_detector.py",
+        "client_surfaces/operator_tui/visual/runtime/view_capability_report.py",
+        "docs/operator-tui/visual-viewport-renderer-system.md"
+      ],
+      "details": [
+        "Add a capability flag named carbonyl_browser.",
+        "Detect the configured carbonyl_binary via PATH or explicit config path.",
+        "Do not fail TUI startup when Carbonyl is absent.",
+        "Expose availability and short reason in the view switcher/capability report."
+      ],
+      "acceptance_criteria": [
+        "With Carbonyl installed, capability report marks carbonyl_browser available.",
+        "Without Carbonyl installed, Operator TUI starts normally and marks browser mode unavailable/degraded with a short reason.",
+        "No existing renderer capability changes behavior because of Carbonyl detection."
+      ]
+    },
+    {
+      "id": "carbonyl-002-current-content-snapshot-contract",
+      "title": "Add a CenterViewport content snapshot contract",
+      "files": [
+        "client_surfaces/operator_tui/visual/viewport/center_viewport.py",
+        "client_surfaces/operator_tui/visual/runtime/view_controller.py",
+        "client_surfaces/operator_tui/visual/views/"
+      ],
+      "details": [
+        "Introduce a serializable CenterContentSnapshot with content_type, title, source_text, html_text, metadata and scroll position.",
+        "Every VisualView that can be opened in browser mode must expose get_browser_snapshot() or return an explicit unsupported reason.",
+        "Support at least markdown, mermaid-markdown, plain_text, ansi_text, source_code, html_preview and artifact_preview snapshots.",
+        "Snapshotting must not mutate the active VisualView state."
+      ],
+      "acceptance_criteria": [
+        "The currently visible center content can be snapshotted before switching to Carbonyl mode.",
+        "Unsupported visual views show a clear message instead of crashing.",
+        "Scroll/title/context metadata survive switching into and out of browser mode."
+      ]
+    },
+    {
+      "id": "carbonyl-003-html-document-adapter",
+      "title": "Transform current center content into safe local HTML",
+      "files": [
+        "client_surfaces/operator_tui/visual/browser/browser_document_adapter.py",
+        "client_surfaces/operator_tui/visual/browser/templates/center_document.html",
+        "tests/client_surfaces/operator_tui/visual/browser/test_browser_document_adapter.py"
+      ],
+      "details": [
+        "Create a BrowserDocumentAdapter that converts CenterContentSnapshot into a complete HTML document.",
+        "Escape text by default and only allow trusted/sanitized HTML when content_type is html_preview.",
+        "Render Markdown via the existing Markdown/Mermaid pipeline where possible; otherwise use a simple local Markdown fallback.",
+        "Bundle minimal CSS locally to match the Ananta TUI theme without external network requests.",
+        "For Mermaid blocks, prefer local mermaid.min.js if present; otherwise display the diagram source plus a degraded reason."
+      ],
+      "acceptance_criteria": [
+        "Plain text containing HTML/script characters is displayed escaped and cannot execute as HTML.",
+        "Markdown content gets headings, lists and code blocks rendered in Carbonyl mode.",
+        "Mermaid blocks do not fetch remote CDN content by default.",
+        "Generated HTML is deterministic enough for snapshot tests."
+      ]
+    },
+    {
+      "id": "carbonyl-004-subprocess-pty-runner",
+      "title": "Run Carbonyl in a bounded PTY attached to CenterViewport",
+      "files": [
+        "client_surfaces/operator_tui/visual/browser/carbonyl_runner.py",
+        "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py",
+        "tests/client_surfaces/operator_tui/visual/browser/test_carbonyl_runner.py"
+      ],
+      "details": [
+        "Start Carbonyl as a subprocess with terminal dimensions derived from the CenterViewport region.",
+        "Use a PTY so Carbonyl can behave like an interactive terminal app.",
+        "Clip/pad Carbonyl output to the CenterViewport rectangle before writing to terminal output.",
+        "Forward keyboard/mouse input only while browser mode owns focus.",
+        "On resize, propagate the new center dimensions to the PTY/subprocess.",
+        "Kill the subprocess on exit, TUI shutdown or timeout."
+      ],
+      "acceptance_criteria": [
+        "Carbonyl renders only inside the center viewport and never overwrites header/footer/sidebar content.",
+        "Input focus is exclusive: browser mode gets keys while active; normal TUI gets keys after exit.",
+        "Resize does not crash and does not leave stale output outside the region.",
+        "Subprocess cleanup leaves no orphan Carbonyl process after exit."
+      ]
+    },
+    {
+      "id": "carbonyl-005-explicit-mode-switching",
+      "title": "Wire browser mode into Operator TUI commands and footer hints",
+      "files": [
+        "client_surfaces/operator_tui/input/keybindings_config.py",
+        "client_surfaces/operator_tui/visual/runtime/view_controller.py",
+        "client_surfaces/operator_tui/visual/viewport/center_viewport.py",
+        "docs/operator-tui/visual-viewport-renderer-system.md"
+      ],
+      "details": [
+        "Add explicit commands center.browser.toggle, center.browser.open_current and center.browser.exit.",
+        "Add F7 as suggested default only if there is no conflict in keybindings_config.py.",
+        "Footer/status line must show when browser mode is active and how to leave it.",
+        "Switching to browser mode must wrap the currently active center content, not open an empty browser page."
+      ],
+      "acceptance_criteria": [
+        "Pressing the configured key on Markdown view opens the same Markdown content in Carbonyl mode.",
+        "Pressing exit restores the exact previous center view.",
+        "The mode cannot accidentally activate during normal TUI startup.",
+        "Keybinding conflict detection catches unsafe duplicate assignments."
+      ]
+    },
+    {
+      "id": "carbonyl-006-security-policy",
+      "title": "Add safe defaults for local/remote browser rendering",
+      "files": [
+        "client_surfaces/operator_tui/visual/browser/browser_security_policy.py",
+        "config/config.example.json",
+        "docs/operator-tui/carbonyl-center-browser-mode.md"
+      ],
+      "details": [
+        "Default to local generated file/data rendering only.",
+        "Disable remote URL loading unless allow_remote_urls is explicitly true.",
+        "Restrict generated temp files to configured temp_root and clean them after use.",
+        "Document that Carbonyl is a browser engine and must be treated as untrusted-content execution surface when remote URLs are enabled.",
+        "Add an optional offline mode flag that injects no remote scripts/assets."
+      ],
+      "acceptance_criteria": [
+        "By default, opening current content in Carbonyl performs no remote network fetches caused by Ananta templates.",
+        "Remote URLs are rejected with a clear message unless explicitly allowed.",
+        "Temp files are created under the configured root and removed on normal exit.",
+        "Security docs explain local-only default and remote-risk tradeoff."
+      ]
+    },
+    {
+      "id": "carbonyl-007-tests-and-smoke-script",
+      "title": "Add tests and a smoke command for browser mode",
+      "files": [
+        "scripts/operator_tui_carbonyl_smoke.py",
+        "tests/client_surfaces/operator_tui/visual/browser/",
+        "tests/client_surfaces/operator_tui/visual/test_viewport_region.py"
+      ],
+      "details": [
+        "Add unit tests for snapshot conversion, HTML escaping, config parsing and missing Carbonyl fallback.",
+        "Add a smoke script that renders a Markdown file through the Carbonyl document adapter and optionally launches Carbonyl if available.",
+        "Mock subprocess execution for CI so Carbonyl is not required in default tests.",
+        "Add an integration test marker for local manual Carbonyl tests."
+      ],
+      "acceptance_criteria": [
+        "Default CI passes without Carbonyl installed.",
+        "Manual smoke script prints a useful degraded message when Carbonyl is missing.",
+        "Manual smoke script can launch Carbonyl with a generated local HTML file when Carbonyl exists.",
+        "Viewport clipping tests cover Carbonyl output frames."
+      ]
+    }
+  ],
+  "suggested_new_files": [
+    "client_surfaces/operator_tui/visual/browser/__init__.py",
+    "client_surfaces/operator_tui/visual/browser/browser_document_adapter.py",
+    "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py",
+    "client_surfaces/operator_tui/visual/browser/browser_security_policy.py",
+    "client_surfaces/operator_tui/visual/browser/carbonyl_runner.py",
+    "client_surfaces/operator_tui/visual/browser/templates/center_document.html",
+    "docs/operator-tui/carbonyl-center-browser-mode.md",
+    "scripts/operator_tui_carbonyl_smoke.py",
+    "tests/client_surfaces/operator_tui/visual/browser/test_browser_document_adapter.py",
+    "tests/client_surfaces/operator_tui/visual/browser/test_browser_mode_controller.py",
+    "tests/client_surfaces/operator_tui/visual/browser/test_carbonyl_runner.py"
+  ],
+  "mermaid_architecture": "flowchart TD\n    A[Active CenterViewport content] --> B[CenterContentSnapshot]\n    B --> C[BrowserDocumentAdapter]\n    C --> D[Safe local HTML file/data URL]\n    D --> E[CarbonylRunner PTY subprocess]\n    E --> F[BrowserModeController]\n    F --> G[Clipped terminal frames inside CenterViewport]\n    H[Keyboard/mouse input] -->|only while browser mode active| F\n    I[Exit browser mode] --> J[Stop Carbonyl and restore previous VisualView]",
+  "acceptance_summary": [
+    "Carbonyl mode is explicit-only and never the default.",
+    "The current center content is reused when switching into browser mode.",
+    "Missing Carbonyl causes graceful degradation, not startup failure.",
+    "Browser output is clipped to the CenterViewport.",
+    "Normal TUI input/rendering is restored after leaving browser mode.",
+    "Remote web loading is disabled by default and must be explicitly enabled."
+  ]
+}
