@@ -1,0 +1,519 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "operator_tui_shared_session_oidc_device_key",
+  "created": "2026-05-30",
+  "status": "open",
+  "priority": "P0",
+  "purpose": "Ananta Operator TUI soll sichere Shared Sessions direkt in der TUI verwalten: OIDC/Keycloak-Login, lokale Device-Keys, optionaler Public-Key-Austausch, verschluesselter Chat, sichere gemeinsame TUI-Ansicht und spaeter optional WebRTC-P2P.",
+  "explicit_scope_confirmation": {
+    "secure_shared_tui_view_included": true,
+    "description": "Der Teil 'zwei Nutzer teilen sicher dieselbe TUI-Ansicht' ist als eigener Milestone SS05 enthalten. Er ist nicht nur Chat, sondern ein expliziter read-only View-Share ueber TUI Snapshot/Delta Stream mit Policy, Redaction, Verschluesselung und Audit.",
+    "default": "off",
+    "minimum_safe_mode": "read_only_view_without_remote_control",
+    "remote_control": "separater spaeterer Modus, default verboten"
+  },
+  "current_code_alignment": {
+    "already_present": [
+      "agent/routes/snakes.py enthaelt Snake-Registrierung, Teilnehmerliste und einfache Hub-Chat-Endpunkte.",
+      "client_surfaces/operator_tui/chat_transport.py enthaelt nicht-blockierendes Polling, Outbox und Retry fuer Hub-Chat.",
+      "client_surfaces/operator_tui/chat_state.py und ChatMixin unterstuetzen room/direct/ai/notes Channels.",
+      "docs/security/oidc.md beschreibt OIDC/Keycloak mit Authorization Code Flow + PKCE.",
+      "docs/development/tui-cast-snapshot-delta.md beschreibt TUI Snapshot/Delta Grundlagen.",
+      "docs/security/encrypted-artifact-exchange.md beschreibt Hub als Policy/Audit Control Plane und optional WebRTC-P2P."
+    ],
+    "missing_for_goal": [
+      "Keine echte ShareSession-Domaene fuer Teilnehmer, Grants und Session-Lifecycle.",
+      "Keine OIDC-Bindung der Snake-/Chat-Identitaet an User-Sub/Claims.",
+      "Keine lokale Device-Key-Verwaltung mit Public-Key-Fingerprint.",
+      "Kein Public-Key Austausch im Operator TUI.",
+      "Keine Ende-zu-Ende-Verschluesselung fuer Chat/View-Payloads.",
+      "Kein Live-Stream der TUI Ansicht an andere Teilnehmer.",
+      "Kein Policy-/Redaction-Gate fuer geteilte TUI-Snapshots.",
+      "Kein linker unterer TUI-Menuepunkt fuer Share/Teilnehmer.",
+      "Kein WebRTC Signaling/STUN/TURN Runtime-Pfad."
+    ]
+  },
+  "security_principles": [
+    "Default-Deny fuer Join, Chat, View, Artifact Share und Remote Control.",
+    "OIDC/Keycloak identifiziert den User, ersetzt aber keinen Transport und keine Device-Identitaet.",
+    "Device-Key identifiziert das konkrete lokale Geraet bzw. die lokale TUI-Instanz.",
+    "Private Keys verlassen niemals das lokale Geraet.",
+    "Public-Key-Fingerprints muessen sichtbar und bestaetigbar sein.",
+    "Chat, TUI-View, Artifact-Share und Remote-Control sind getrennte Rechte.",
+    "Notes bleiben default local_only und werden niemals implizit geteilt.",
+    "Hub bleibt Policy-, Grant- und Audit-Control-Plane.",
+    "Transporterfolg erzeugt niemals automatisch Berechtigung.",
+    "Remote Control ist nicht Teil des MVP und bleibt default verboten."
+  ],
+  "target_user_flow": [
+    "User A startet Ananta TUI und oeffnet links unten 'Share / Teilnehmer'.",
+    "TUI zeigt OIDC-Status, Device-Key-Status und aktive Share-Session an.",
+    "User A erzeugt bei Bedarf lokalen Device-Key.",
+    "User A erstellt eine Share-Session mit Default-Recht chat=true, view_tui=false.",
+    "User A aktiviert explizit 'Meine TUI-Ansicht teilen', wenn gewuenscht.",
+    "User B startet Ananta TUI, loggt sich per OIDC ein und erzeugt eigenen Device-Key.",
+    "User B importiert Invite/Public-Key oder tritt per Invite-Code bei.",
+    "Beide bestaetigen Fingerprints oder akzeptieren den Hub-verifizierten Device-Key.",
+    "Chat funktioniert verschluesselt.",
+    "Wenn view_tui erlaubt ist, sieht User B read-only die freigegebene TUI-Ansicht von User A.",
+    "Remote-Steuerung bleibt aus, bis ein separater Grant existiert."
+  ],
+  "menu_target": {
+    "section_id": "share_participants",
+    "label": "Share / Teilnehmer",
+    "placement": "left navigation bottom",
+    "minimum_entries": [
+      "Status",
+      "Teilnehmer",
+      "Einladung erstellen",
+      "Einladung annehmen",
+      "Public Key anzeigen",
+      "Public Key importieren",
+      "Freigaben",
+      "Transport",
+      "Audit",
+      "Session beenden"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "SS01",
+      "title": "Shared-Session Datenmodell und Hub-API",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "SS01.01",
+          "title": "ShareSessionDB und ShareParticipantDB einfuehren",
+          "type": "backend_data_model",
+          "status": "open",
+          "files": [
+            "agent/db_models.py",
+            "agent/services/share_session_service.py",
+            "schemas/tui/share_session.v1.json"
+          ],
+          "acceptance_criteria": [
+            "ShareSession enthaelt id, owner_user_id, owner_device_id, title, mode, transport, permissions, expires_at, created_at, revoked_at.",
+            "ShareParticipant enthaelt session_id, user_id, device_id, public_key_fingerprint, role, permissions, joined_at, revoked_at.",
+            "permissions unterscheiden mindestens chat, view_tui, remote_cursor, artifact_share, remote_control.",
+            "Default permissions sind chat=true, view_tui=false, remote_control=false, artifact_share=false.",
+            "Migration oder In-Memory-Fallback fuer Tests ist vorhanden."
+          ]
+        },
+        {
+          "id": "SS01.02",
+          "title": "Hub-API fuer Shared Sessions implementieren",
+          "type": "backend_api",
+          "status": "open",
+          "files": [
+            "agent/routes/share_sessions.py",
+            "agent/bootstrap/routes.py",
+            "tests/test_share_sessions_api.py"
+          ],
+          "acceptance_criteria": [
+            "POST /share-sessions erstellt eine Session nur fuer authentifizierte User.",
+            "GET /share-sessions listet eigene aktive Sessions.",
+            "POST /share-sessions/{id}/join prueft Invite, OIDC-Kontext und Device-Key.",
+            "PATCH /share-sessions/{id}/permissions aendert Rechte nur fuer Owner/Admin.",
+            "DELETE /share-sessions/{id}/participants/{participant_id} widerruft Teilnehmer.",
+            "Jede relevante Aktion erzeugt ein Audit-Event ohne Klartext-Secrets."
+          ]
+        },
+        {
+          "id": "SS01.03",
+          "title": "Snake-/Chat-Identitaet an OIDC binden",
+          "type": "security_integration",
+          "status": "open",
+          "files": [
+            "agent/routes/snakes.py",
+            "agent/routes/auth_oidc.py",
+            "tests/test_snake_oidc_binding.py"
+          ],
+          "acceptance_criteria": [
+            "Snake-Registrierung kann OIDC User-Sub aus dem Auth-Kontext uebernehmen.",
+            "oidc_id aus Request-Body wird nicht blind vertraut.",
+            "Chat-Send prueft, ob Snake/Session zum authentifizierten User oder Device gehoert.",
+            "Legacy-Token bleibt nur fuer lokale/dev Tests erlaubt und ist klar markiert.",
+            "Tests decken spoofed oidc_id, fehlenden Login und gueltigen Login ab."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SS02",
+      "title": "Device-Key und Public-Key Austausch",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "SS02.01",
+          "title": "Lokale Device-Key Verwaltung implementieren",
+          "type": "client_security",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/device_keys.py",
+            "tests/operator_tui/test_device_keys.py"
+          ],
+          "acceptance_criteria": [
+            "Beim ersten Oeffnen des Share-Menues kann ein lokaler Device-Key erzeugt werden.",
+            "Private Key wird nur lokal unter User-Konfigurationspfad gespeichert.",
+            "Dateirechte werden restriktiv gesetzt, soweit Plattform es erlaubt.",
+            "Public Key und Fingerprint sind abrufbar.",
+            "Key-Rotation erzeugt neuen Fingerprint und deaktiviert alte Session-Keys fuer neue Sessions.",
+            "Tests pruefen Erzeugung, Laden, Rotation und fehlerhafte Key-Dateien."
+          ]
+        },
+        {
+          "id": "SS02.02",
+          "title": "Public-Key Import/Export im TUI anbieten",
+          "type": "tui_feature",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_menu.py",
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
+          "acceptance_criteria": [
+            "Public Key kann im Share-Menue angezeigt und kopiert werden.",
+            "Public Key eines Teilnehmers kann importiert werden.",
+            "Fingerprint wird vor dem Speichern sichtbar angezeigt.",
+            "Import eines bereits bekannten Keys ist idempotent.",
+            "Ungueltige Keys erzeugen klare Fehlermeldung ohne Crash."
+          ]
+        },
+        {
+          "id": "SS02.03",
+          "title": "Session-Key Ableitung fuer Chat/View vorbereiten",
+          "type": "crypto_design_and_runtime",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_crypto.py",
+            "tests/operator_tui/test_share_crypto.py"
+          ],
+          "acceptance_criteria": [
+            "Shared Secret oder Envelope-Key kann pro Teilnehmer abgeleitet/verpackt werden.",
+            "Chat- und View-Payloads nutzen getrennte Kontextlabels fuer Key-Derivation.",
+            "Nonce/Message-IDs werden nicht wiederverwendet.",
+            "Fehlerhafte Entschluesselung wird als failed/blocked markiert, nicht ignoriert.",
+            "Tests pruefen erfolgreiche Roundtrips und Manipulationsfehler."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SS03",
+      "title": "TUI-Menue links unten: Share / Teilnehmer",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "SS03.01",
+          "title": "Share / Teilnehmer als eigene TUI-Section einbauen",
+          "type": "tui_navigation",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/sections.py",
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
+          "acceptance_criteria": [
+            "Links unten existiert ein sichtbarer Menuepunkt 'Share / Teilnehmer'.",
+            "Der Menuepunkt bleibt auch bei kleineren Terminalgroessen erreichbar.",
+            "Section zeigt OIDC-Status, Device-Key-Status, aktive Session und Teilnehmerzahl.",
+            "Section kann ohne aktiven Hub geoeffnet werden und zeigt sinnvolle Offline-Hinweise.",
+            "Keine bestehende TUI-Section wird ueberdeckt oder unbenutzbar."
+          ]
+        },
+        {
+          "id": "SS03.02",
+          "title": "Share-Kommandos fuer Power-User ergaenzen",
+          "type": "tui_commands",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "tests/operator_tui/test_share_commands.py"
+          ],
+          "acceptance_criteria": [
+            ":share status zeigt aktuellen Share-Status.",
+            ":share create erstellt eine Session mit sicheren Defaults.",
+            ":share invite zeigt Invite-Code/Fingerprint.",
+            ":share join <code> tritt einer Session bei.",
+            ":share view on/off toggelt View-Share nur nach sichtbarer Bestaetigung.",
+            ":share stop beendet die lokale Teilnahme oder Owner-Session."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SS04",
+      "title": "Verschluesselter Chat ueber Shared Session",
+      "priority": "P1",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "SS04.01",
+          "title": "ChatTransport um ShareSession-Routing erweitern",
+          "type": "transport",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/chat_transport.py",
+            "agent/routes/share_sessions.py",
+            "tests/operator_tui/test_chat_transport_share_session.py"
+          ],
+          "acceptance_criteria": [
+            "Chat-Nachrichten koennen mit share_session_id versendet werden.",
+            "Payload kann vor dem Versand verschluesselt werden.",
+            "Hub relayt verschluesselte Payloads ohne Klartext zu benoetigen.",
+            "Delivery-State queued/sent/failed/blocked bleibt erhalten.",
+            "Notes local_only werden nie in ShareSession-Chat uebernommen.",
+            "Policy-Blockaden erscheinen als Systemnachricht."
+          ]
+        },
+        {
+          "id": "SS04.02",
+          "title": "Teilnehmerliste mit OIDC- und Device-Fingerprint anzeigen",
+          "type": "tui_feature",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_menu.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
+          "acceptance_criteria": [
+            "Teilnehmer zeigen Name, OIDC-Sub Kurzform, Device-Fingerprint, Rechte und Status.",
+            "Unbestaetigte Fingerprints sind sichtbar markiert.",
+            "Widerrufene Teilnehmer verschwinden nicht spurlos, sondern erscheinen im Audit/History-Kontext.",
+            "Offline-Teilnehmer bleiben fuer alte Nachrichten nachvollziehbar."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SS05",
+      "title": "Secure Shared TUI View: zwei Nutzer teilen sicher dieselbe TUI-Ansicht",
+      "priority": "P0",
+      "status": "open",
+      "explicitly_answers_user_request": true,
+      "goal": "Ein Teilnehmer kann read-only dieselbe TUI-Ansicht sehen wie der Owner. Die Uebertragung erfolgt ueber Snapshot/Delta-Stream, ist policy-gesteuert, verschluesselt, auditierbar und default aus.",
+      "tasks": [
+        {
+          "id": "SS05.01",
+          "title": "TUI Snapshot/Delta Stream fuer Live-Share definieren",
+          "type": "schema_and_runtime",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_view_stream.py",
+            "client_surfaces/operator_tui/tui_snapshot.py",
+            "schemas/tui/tui_view_delta_share.v1.json",
+            "tests/operator_tui/test_share_view_stream.py"
+          ],
+          "acceptance_criteria": [
+            "Owner-TUI kann periodisch einen initialen Snapshot erzeugen.",
+            "Nach dem initialen Snapshot werden bevorzugt Deltas uebertragen.",
+            "Delta enthaelt Dimension, base_hash, new_hash, changed_lines oder changed_cells.",
+            "Empfaenger kann Snapshot + Deltas lokal rekonstruieren.",
+            "Hash-Mismatch loest Resync per Full Snapshot aus.",
+            "Stream laeuft nicht im Render-Hotpath und blockiert Snake/Chat nicht."
+          ]
+        },
+        {
+          "id": "SS05.02",
+          "title": "Policy- und Redaction-Gate vor View-Share einfuehren",
+          "type": "security_gate",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_view_policy.py",
+            "client_surfaces/operator_tui/share_view_stream.py",
+            "tests/operator_tui/test_share_view_policy.py"
+          ],
+          "acceptance_criteria": [
+            "View-Share ist default aus und muss explizit aktiviert werden.",
+            "Policy entscheidet pro Snapshot/Delta, ob Teilen erlaubt ist.",
+            "Sensitive Inhalte wie Tokens, Passwoerter, Secrets werden blockiert oder redacted.",
+            "Notes-Panel wird default komplett redacted oder nicht uebertragen.",
+            "AI-Kontext/Artefaktinhalte werden nur gezeigt, wenn die ShareSession-Rechte das erlauben.",
+            "Audit speichert Hash/Metadaten, aber keinen vollstaendigen Screenshot-Klartext."
+          ]
+        },
+        {
+          "id": "SS05.03",
+          "title": "Read-only Viewer-Modus in der TUI implementieren",
+          "type": "tui_viewer",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/shared_viewer.py",
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/interactive.py",
+            "tests/operator_tui/test_shared_viewer.py"
+          ],
+          "acceptance_criteria": [
+            "Teilnehmer kann eine freigegebene TUI-Ansicht read-only anzeigen.",
+            "Viewer kann nicht versehentlich lokale Owner-Aktionen ausloesen.",
+            "Viewer-TUI zeigt klar 'READ ONLY VIEW OF <owner>'.",
+            "Lokaler Chat bleibt bedienbar, waehrend View read-only ist.",
+            "Bei Verbindungsverlust bleibt letzter Snapshot sichtbar und Status wechselt auf disconnected/stale.",
+            "Remote-Control ist in diesem Milestone nicht moeglich."
+          ]
+        },
+        {
+          "id": "SS05.04",
+          "title": "View-Share Transport ueber Hub Relay implementieren",
+          "type": "backend_transport",
+          "status": "open",
+          "files": [
+            "agent/routes/share_sessions.py",
+            "client_surfaces/operator_tui/share_view_transport.py",
+            "tests/test_share_view_transport_api.py"
+          ],
+          "acceptance_criteria": [
+            "Owner kann verschluesselte Snapshot/Delta-Payloads an ShareSession senden.",
+            "Teilnehmer koennen nur Payloads von Sessions abrufen, in denen sie aktiv berechtigt sind.",
+            "Hub prueft view_tui Permission vor Annahme und Auslieferung.",
+            "Payloads sind groessenbegrenzt und rate-limited.",
+            "Backpressure verhindert unendliches Anwachsen von View-Queues.",
+            "Tests decken erlaubte, verweigerte, abgelaufene und widerrufene Sessions ab."
+          ]
+        },
+        {
+          "id": "SS05.05",
+          "title": "Shared Cursor und Presence optional anzeigen",
+          "type": "tui_presence",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_presence.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
+          "acceptance_criteria": [
+            "Remote Cursor/Presence ist eigenes Recht remote_cursor.",
+            "Presence zeigt Teilnehmer online/offline/last_seen.",
+            "Remote Cursor kann deaktiviert werden, ohne View-Share zu beenden.",
+            "Cursor-Daten enthalten keine Tastatureingaben oder geheimen Eingaben.",
+            "Viewer sieht klar, welche Teilnehmer dieselbe Ansicht betrachten."
+          ]
+        },
+        {
+          "id": "SS05.06",
+          "title": "E2E-Test fuer zwei geteilte TUI-Instanzen",
+          "type": "e2e_test",
+          "status": "open",
+          "files": [
+            "scripts/e2e/shared_tui_view_e2e.py",
+            "tests/e2e/test_shared_tui_view.py"
+          ],
+          "acceptance_criteria": [
+            "Test startet zwei Operator-TUI Instanzen gegen einen Test-Hub.",
+            "User A erstellt ShareSession und aktiviert view_tui.",
+            "User B joint und sieht read-only den initialen Snapshot.",
+            "Aenderung in User A TUI erscheint bei User B als Delta innerhalb definierter Zeit.",
+            "Notes/Secrets werden im geteilten View redacted oder nicht uebertragen.",
+            "Nach Widerruf erhaelt User B keine weiteren Deltas."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SS06",
+      "title": "Optional WebRTC-P2P Transport",
+      "priority": "P2",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "SS06.01",
+          "title": "WebRTC Signaling-Endpunkte planen und implementieren",
+          "type": "transport_optional",
+          "status": "open",
+          "files": [
+            "agent/routes/webrtc_signaling.py",
+            "client_surfaces/operator_tui/webrtc_transport.py",
+            "docs/security/shared-tui-webrtc.md"
+          ],
+          "acceptance_criteria": [
+            "Signaling laeuft ueber Hub und ist an ShareSession/Participant gebunden.",
+            "STUN/TURN Server sind konfigurierbar.",
+            "WebRTC DataChannel kann Chat/View-Payloads transportieren.",
+            "Fallback auf Hub Relay funktioniert.",
+            "P2P-Transport bekommt keine zusaetzlichen Rechte gegenueber Hub Relay.",
+            "Policy- und Redaction-Gates bleiben identisch."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SS07",
+      "title": "Audit, Dokumentation und Sicherheits-Tests",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "SS07.01",
+          "title": "Audit-Events fuer Shared Sessions definieren",
+          "type": "audit",
+          "status": "open",
+          "files": [
+            "agent/services/share_audit_service.py",
+            "docs/security/shared-session-audit.md",
+            "tests/test_share_audit.py"
+          ],
+          "acceptance_criteria": [
+            "Events existieren fuer session_created, participant_joined, participant_revoked, permission_changed, chat_sent, view_started, view_delta_sent, view_stopped.",
+            "Audit enthaelt User/Device/Session/Fingerprint/Permission-Metadaten.",
+            "Audit enthaelt keine Chat- oder View-Klartextinhalte.",
+            "Audit kann im Share-Menue kompakt angezeigt werden."
+          ]
+        },
+        {
+          "id": "SS07.02",
+          "title": "Dokumentation fuer Setup und Bedienung schreiben",
+          "type": "documentation",
+          "status": "open",
+          "files": [
+            "docs/operator-tui-shared-sessions.md",
+            "docs/security/shared-tui-view.md"
+          ],
+          "acceptance_criteria": [
+            "Dokument erklaert OIDC, Device-Key, Public-Key Austausch und ShareSession.",
+            "Dokument beschreibt Hub Relay MVP und optional WebRTC spaeter.",
+            "Dokument erklaert sicher, warum Remote-Control default aus ist.",
+            "Dokument enthaelt Mermaid-Diagramme fuer Join, Chat und Shared View.",
+            "Dokument enthaelt klare Troubleshooting-Hinweise fuer Keycloak/OIDC."
+          ]
+        }
+      ]
+    }
+  ],
+  "mvp_cut": {
+    "must_have": [
+      "SS01.01",
+      "SS01.02",
+      "SS01.03",
+      "SS02.01",
+      "SS02.02",
+      "SS03.01",
+      "SS04.01",
+      "SS05.01",
+      "SS05.02",
+      "SS05.03",
+      "SS05.04",
+      "SS05.06",
+      "SS07.01"
+    ],
+    "explicitly_not_mvp": [
+      "Remote-Control durch andere Teilnehmer",
+      "Vollstaendige Artefakt-Synchronisation",
+      "WebRTC als einziger Transport",
+      "Trust-on-first-use ohne sichtbaren Fingerprint",
+      "Teilen von local_only Notes"
+    ]
+  },
+  "done_definition": [
+    "Zwei separat gestartete Ananta TUI Instanzen koennen ueber OIDC-authentifizierte ShareSession verbunden werden.",
+    "Beide Instanzen besitzen lokale Device-Keys mit sichtbaren Fingerprints.",
+    "Chat funktioniert ueber die ShareSession mit sicherem Routing und ohne Notes-Leak.",
+    "Owner kann 'Meine TUI-Ansicht teilen' aktivieren.",
+    "Teilnehmer sieht die Owner-TUI read-only per Snapshot/Delta.",
+    "Secrets und Notes werden im Shared View blockiert oder redacted.",
+    "Widerruf beendet weitere Chat/View-Auslieferung.",
+    "Alle Join/Grant/View/Chat Aktionen sind auditierbar.",
+    "Remote-Control ist nicht moeglich, solange kein separates Recht und keine separate Implementierung existiert."
+  ]
+}
