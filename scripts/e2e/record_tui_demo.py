@@ -619,8 +619,12 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
     env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
     env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
+    title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "e2e-share").strip() or "e2e-share"
 
     script_actions: list[dict[str, object]] = [
+        {"at": 2.2, "send": f":share create {title}\r".encode("utf-8")},
+        {"at": 5.5, "send": b":share list\r"},
+        {"at": 8.8, "send": b":share list\r"},
         {"at": 31.7, "send": b"\x10"},  # Ctrl+P => immediately pause to avoid navigation jumps
         {"at": 32.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
         {"at": 38.0, "send": b"q"},
