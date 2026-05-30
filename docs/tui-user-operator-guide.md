@@ -36,7 +36,8 @@ For selected-object drilldown and guarded actions:
 - Instruction
 - Automation
 - Audit
-- Repair
+- Terminal
+- **Share / Teilnehmer** (Collaboration)
 - Help
 
 ## Operator safety rules
@@ -86,6 +87,56 @@ For selected-object drilldown and guarded actions:
 - Automation view exposes autopilot/planner/trigger status plus explicit guarded actions (`autopilot_start|stop|tick`, `configure_planner`, `configure_triggers`).
 - Audit view includes redacted message rendering, cross-entity references (task/goal/artifact/trace), and analyze summary.
 - Approval queue and repair view show pending/stale/denied states, reviewable proposals, and risk-oriented repair status fields.
+
+## Collaboration (Share / Teilnehmer)
+
+Zwei oder mehr TUI-Instanzen können eine sichere Share-Session aufbauen: verschlüsselter Chat, optionale read-only TUI-Ansicht.
+
+### Schnellstart
+
+```bash
+# Netzwerkprofil setzen (öffentliche Testinfrastruktur)
+export ANANTA_NETWORK_PROFILE=public-ananta
+
+# TUI starten, dann:
+:oidc login           # Browser-URL + Code → Account erstellen oder einloggen
+:share key generate   # Einmalig: lokalen Device-Key anlegen
+:share create         # Session erstellen → gibt Invite-Code aus
+```
+
+Anderer Teilnehmer:
+```
+:oidc login           # eigenen Account
+:share key generate
+:share join <CODE>    # Invite-Code eingeben
+```
+
+Beide sehen sich danach in `:share status`.
+
+### Sicherheitshinweise
+
+- Chat- und View-Payloads werden **vor dem Versand E2E-verschlüsselt**. Kein Server sieht Klartextinhalte.
+- Notes bleiben immer lokal (`local_only`). Sie werden nie in eine Share-Session übertragen.
+- View-Share ist default deaktiviert. `:share view on` aktiviert ihn explizit und zeigt eine Warnung.
+- Remote-Control ist nicht implementiert. Teilnehmer können nur sehen, nicht steuern.
+- Device-Key-Fingerprints sind in `:share status` sichtbar und können manuell verglichen werden.
+
+### Befehle
+
+| Befehl | Aktion |
+|---|---|
+| `:oidc login` | Device Flow starten (Keycloak) |
+| `:oidc status` | Anmeldestatus |
+| `:oidc logout` | Token löschen |
+| `:share status` | Übersicht öffnen |
+| `:share key generate` | Lokalen Device-Key erzeugen |
+| `:share create [Titel]` | Neue Session + Invite-Code |
+| `:share invite` | Invite-Code anzeigen |
+| `:share join <CODE>` | Session beitreten |
+| `:share view on\|off` | TUI-Ansicht teilen |
+| `:share stop` | Session beenden |
+
+Vollständige Doku: `docs/operator-tui-guide.md`, `docs/ops/public-ananta-test-rendezvous.md`
 
 ## Live refresh model (optional)
 

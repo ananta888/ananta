@@ -123,6 +123,58 @@ Rollout stages:
 - `default_candidate`
 - `default`
 
+## Collaboration: Share / Teilnehmer
+
+### OIDC-Login in der TUI
+
+Für die öffentliche Testinfrastruktur oder jedes Keycloak-Deployment mit Device Authorization Grant:
+
+```
+:oidc login      – startet Device Flow, zeigt URL + Code an
+:oidc status     – aktueller Login-Status und Username
+:oidc logout     – Token verwerfen
+```
+
+Der Flow läuft vollständig im Terminal:
+
+1. `:oidc login` zeigt eine URL und einen kurzen Code an.
+2. URL im Browser öffnen, Code eingeben, Account erstellen oder einloggen.
+3. TUI empfängt Token automatisch im Hintergrund — kein weiterer Schritt nötig.
+
+Voraussetzung: `ANANTA_NETWORK_PROFILE=public-ananta` (oder eigenes Keycloak mit Device Grant).
+
+### Share-Session
+
+```
+:share status               – Übersicht: OIDC, Device-Key, aktive Sessions
+:share key generate         – lokalen Device-Key erzeugen (einmalig)
+:share key show             – Fingerprint anzeigen
+:share key rotate           – Key rotieren (invalidiert alte Sessions)
+:share create [Titel]       – neue Share-Session erstellen, gibt Invite-Code aus
+:share invite               – Invite-Code der aktiven Session anzeigen
+:share join <CODE>          – per Invite-Code beitreten
+:share view on|off          – TUI-Ansicht für Teilnehmer freigeben / sperren
+:share stop                 – Session beenden
+:share help                 – alle Share-Befehle
+```
+
+Die Share-Section (`s` im Navigationsmenü oder `:section share`) zeigt OIDC-Status, Device-Key-Fingerprint, aktive Sessions und Teilnehmerliste live.
+
+### Netzwerkprofil
+
+| Profil | Beschreibung |
+|---|---|
+| `local` (Standard) | Eigene Infrastruktur, kein öffentlicher Rendezvous |
+| `public-ananta` | Test-Infrastruktur auf `keycloak.ananta.de` + `webrtc.ananta.de` |
+| `offline` | Kein Netzwerk |
+| `custom` | Eigene Endpunkte per ENV |
+
+```bash
+export ANANTA_NETWORK_PROFILE=public-ananta
+```
+
+Alle Payloads (Chat, TUI-View) werden vor dem Versand E2E-verschlüsselt. Der Rendezvous-Server sieht nur verschlüsselte Blöcke und Session-Metadaten.
+
 ## Architecture Boundary
 
 The operator TUI is a client surface. It can inspect hub state, render terminal views, prepare explicit actions, and route requests through hub-owned contracts. It must not orchestrate workers, mutate state directly, or create hidden execution loops.
