@@ -1,0 +1,359 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "public_ananta_rendezvous_defaults_keycloak_webrtc",
+  "created": "2026-05-30",
+  "status": "open",
+  "priority": "P0",
+  "purpose": "Ananta soll optional vordefinierte öffentliche Rendezvous-Endpunkte nutzen können, damit frisch geklonte/gehostete Repos weltweit Teilnehmer über bekannte Ananta-Dienste verbinden können: Keycloak/OIDC für Identität und Ananta Hub/WebRTC-Signaling für Discovery, Invite, Signaling und Fallback-Relay.",
+  "important_security_position": {
+    "do_not_hard_force": true,
+    "reason": "Feste öffentliche Endpunkte im Repo dürfen nicht die einzige Möglichkeit sein. Betreiber müssen sie per ENV/config deaktivieren oder durch eigene Infrastruktur ersetzen können.",
+    "recommended_default": "shipped_default_but_opt_in_or_clearly_visible",
+    "hardcoded_domains_requested": [
+      "keycloak.ananta.de",
+      "webrtc.ananta.de"
+    ],
+    "better_model": "Bekannte Default-Profile im Repository, aber überschreibbar über ENV, config.json und TUI-Setup. Die TUI zeigt sichtbar, ob öffentliche Ananta-Infrastruktur genutzt wird."
+  },
+  "target_architecture": {
+    "keycloak_endpoint": "https://keycloak.ananta.de/realms/ananta",
+    "rendezvous_endpoint": "https://webrtc.ananta.de",
+    "signaling_endpoint": "wss://webrtc.ananta.de/signaling",
+    "turn_endpoint_placeholder": "turns:webrtc.ananta.de:5349",
+    "roles": {
+      "keycloak.ananta.de": "OIDC Identity Provider: Login, User-Identität, Rollen/Gruppen, Token.",
+      "webrtc.ananta.de": "Ananta Rendezvous/Discovery/Signaling: ShareSession, Invite-Code, Teilnehmer-Finden, SDP/ICE Austausch, optional Hub Relay.",
+      "turns:webrtc.ananta.de": "TURN Relay für Fälle, in denen direktes WebRTC wegen NAT/Firewall nicht funktioniert."
+    }
+  },
+  "non_goals": [
+    "Keycloak soll kein WebRTC-Signaling ersetzen.",
+    "Keycloak soll keine Teilnehmer-Discovery speichern müssen.",
+    "Öffentliche Ananta-Server sollen keine Klartext-Chat- oder Klartext-TUI-View-Inhalte benötigen.",
+    "Öffentliche Defaults dürfen lokale/private Deployments nicht brechen.",
+    "Remote-Control wird dadurch nicht automatisch aktiviert."
+  ],
+  "user_flow": [
+    "User A startet Ananta TUI aus einem frisch geklonten Repo.",
+    "TUI erkennt Default-Profil public-ananta mit keycloak.ananta.de und webrtc.ananta.de.",
+    "TUI zeigt klar: 'öffentliche Ananta Rendezvous-Infrastruktur wird verwendet'.",
+    "User A loggt sich über keycloak.ananta.de ein.",
+    "User A erzeugt lokalen Device-Key und erstellt ShareSession auf webrtc.ananta.de.",
+    "User A bekommt Invite-Code oder ananta:// Invite-Link.",
+    "User B startet Ananta TUI, loggt sich über denselben Keycloak ein und gibt Invite-Code ein.",
+    "webrtc.ananta.de prüft OIDC-Token, ShareSession, Invite und Device-Key-Fingerprint.",
+    "Danach werden Chat/View-Payloads verschlüsselt über Hub Relay oder WebRTC DataChannel übertragen.",
+    "Wenn WebRTC fehlschlägt, bleibt Hub Relay als sicherer Fallback aktiv."
+  ],
+  "configuration_model": {
+    "files": [
+      "config/public_rendezvous.default.json",
+      "config/ananta_network_profiles.default.json",
+      ".env.example",
+      "docs/operator-tui-public-rendezvous.md"
+    ],
+    "env_vars": [
+      "ANANTA_NETWORK_PROFILE=public-ananta|local|custom|offline",
+      "ANANTA_PUBLIC_RENDEZVOUS_ENABLED=true|false",
+      "ANANTA_OIDC_ISSUER=https://keycloak.ananta.de/realms/ananta",
+      "ANANTA_OIDC_CLIENT_ID=ananta-tui",
+      "ANANTA_RENDEZVOUS_URL=https://webrtc.ananta.de",
+      "ANANTA_SIGNALING_URL=wss://webrtc.ananta.de/signaling",
+      "ANANTA_TURN_URL=turns:webrtc.ananta.de:5349",
+      "ANANTA_REQUIRE_E2E_PAYLOAD_ENCRYPTION=true"
+    ],
+    "config_example": {
+      "profile_id": "public-ananta",
+      "label": "Public Ananta Rendezvous",
+      "enabled_by_default": false,
+      "oidc": {
+        "issuer": "https://keycloak.ananta.de/realms/ananta",
+        "client_id": "ananta-tui",
+        "audience": "ananta-hub"
+      },
+      "rendezvous": {
+        "base_url": "https://webrtc.ananta.de",
+        "signaling_url": "wss://webrtc.ananta.de/signaling",
+        "transport_order": ["webrtc", "hub_relay"],
+        "require_e2e_payload_encryption": true
+      },
+      "turn": {
+        "urls": ["turns:webrtc.ananta.de:5349"],
+        "credential_mode": "ephemeral_from_rendezvous"
+      }
+    }
+  },
+  "milestones": [
+    {
+      "id": "PRD01",
+      "title": "Public Rendezvous Network Profile definieren",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "PRD01.01",
+          "title": "Default-Netzwerkprofile einführen",
+          "type": "configuration",
+          "status": "open",
+          "files": [
+            "config/ananta_network_profiles.default.json",
+            ".env.example",
+            "agent/config.py",
+            "client_surfaces/operator_tui/network_profile.py"
+          ],
+          "acceptance_criteria": [
+            "Profile public-ananta, local, custom und offline existieren.",
+            "public-ananta enthält keycloak.ananta.de und webrtc.ananta.de als vordefinierte Endpunkte.",
+            "public-ananta ist sichtbar auswählbar, aber nicht unsichtbar erzwungen.",
+            "ENV-Werte überschreiben Repo-Defaults.",
+            "TUI zeigt das aktive Netzwerkprofil im Share-Menü an."
+          ]
+        },
+        {
+          "id": "PRD01.02",
+          "title": "TUI-Warnung und Opt-in für öffentliche Infrastruktur",
+          "type": "tui_security_ux",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_menu.py",
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
+          "acceptance_criteria": [
+            "Beim ersten Aktivieren von public-ananta zeigt die TUI eine klare Warnung.",
+            "Warnung erklärt: Identität/Discovery läuft über öffentliche Ananta-Server, Inhalte bleiben E2E-verschlüsselt.",
+            "User muss aktiv bestätigen oder per config explizit aktivieren.",
+            "Statuszeile zeigt bei aktiver öffentlicher Infrastruktur 'public rendezvous'.",
+            "Offline/local Deployments funktionieren weiter ohne diese Endpunkte."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD02",
+      "title": "Öffentliche Keycloak/OIDC Integration",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "PRD02.01",
+          "title": "OIDC-Defaults für keycloak.ananta.de ergänzen",
+          "type": "oidc_configuration",
+          "status": "open",
+          "files": [
+            "docs/security/oidc.md",
+            ".env.example",
+            "docker-compose.oidc-keycloak.yml"
+          ],
+          "acceptance_criteria": [
+            "Dokumentation enthält public-ananta Beispiel mit https://keycloak.ananta.de/realms/ananta.",
+            "Client-ID und Redirect-URI Strategie für lokale TUI/Hub-Setups ist dokumentiert.",
+            "PKCE bleibt Pflicht.",
+            "Lokale Keycloak-Compose-Variante bleibt unverändert nutzbar.",
+            "TUI erkennt fehlgeschlagenen OIDC-Login und bietet Profilwechsel an."
+          ]
+        },
+        {
+          "id": "PRD02.02",
+          "title": "OIDC Token an Rendezvous-Join binden",
+          "type": "security_integration",
+          "status": "open",
+          "files": [
+            "agent/routes/share_sessions.py",
+            "agent/services/share_session_service.py",
+            "tests/test_public_rendezvous_oidc_join.py"
+          ],
+          "acceptance_criteria": [
+            "Join an ShareSession akzeptiert nur gültige OIDC-Tokens.",
+            "Issuer muss zum aktiven Netzwerkprofil passen.",
+            "User-Sub wird serverseitig aus Token gelesen, nicht aus Request-Body vertraut.",
+            "Abgelaufene oder falsche Tokens werden abgelehnt.",
+            "Audit speichert issuer, subject hash und session_id, aber kein Token."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD03",
+      "title": "Rendezvous/Discovery über webrtc.ananta.de",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "PRD03.01",
+          "title": "Invite-Code und ananta:// Invite-Link spezifizieren",
+          "type": "discovery_protocol",
+          "status": "open",
+          "files": [
+            "schemas/tui/share_invite.v1.json",
+            "docs/operator-tui-public-rendezvous.md",
+            "client_surfaces/operator_tui/share_invite.py"
+          ],
+          "acceptance_criteria": [
+            "Invite enthält session_id, rendezvous_url, oidc_issuer, owner_device_fingerprint, expires_at und allowed_permissions.",
+            "Invite kann als kurzer Code, JSON und ananta:// Link dargestellt werden.",
+            "Invite enthält keine privaten Schlüssel und keine Bearer Tokens.",
+            "Abgelaufene Invites werden abgelehnt.",
+            "TUI kann Invite anzeigen, kopieren und importieren."
+          ]
+        },
+        {
+          "id": "PRD03.02",
+          "title": "Rendezvous API für Teilnehmer-Findung",
+          "type": "backend_api",
+          "status": "open",
+          "files": [
+            "agent/routes/rendezvous.py",
+            "agent/services/rendezvous_service.py",
+            "tests/test_rendezvous_api.py"
+          ],
+          "acceptance_criteria": [
+            "POST /rendezvous/sessions erstellt eine öffentliche ShareSession mit Invite-Code.",
+            "POST /rendezvous/sessions/{id}/join verbindet Teilnehmer nach OIDC- und Invite-Prüfung.",
+            "GET /rendezvous/sessions/{id}/participants liefert nur berechtigten Teilnehmern Presence-Metadaten.",
+            "Rate-Limits gegen Invite-Bruteforce sind vorhanden.",
+            "Session-IDs und Invite-Codes sind ausreichend zufällig.",
+            "Missbrauchsfälle werden auditierbar und ohne Token-Leak protokolliert."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD04",
+      "title": "WebRTC Signaling und TURN-Fallback",
+      "priority": "P1",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "PRD04.01",
+          "title": "WebRTC Signaling über webrtc.ananta.de implementieren",
+          "type": "webrtc_signaling",
+          "status": "open",
+          "files": [
+            "agent/routes/webrtc_signaling.py",
+            "client_surfaces/operator_tui/webrtc_transport.py",
+            "tests/test_webrtc_signaling.py"
+          ],
+          "acceptance_criteria": [
+            "Signaling-Endpunkt ist an ShareSession und Participant gebunden.",
+            "SDP Offers/Answers werden nur zwischen berechtigten Teilnehmern vermittelt.",
+            "ICE Candidates werden sessiongebunden vermittelt.",
+            "Signaling-Messages sind größen- und zeitbegrenzt.",
+            "Falsche Session, falscher Teilnehmer oder widerrufene Rechte werden abgelehnt.",
+            "Wenn WebRTC scheitert, fällt der Transport auf Hub Relay zurück."
+          ]
+        },
+        {
+          "id": "PRD04.02",
+          "title": "TURN-Konzept für coturn auf webrtc.ananta.de dokumentieren",
+          "type": "ops_security",
+          "status": "open",
+          "files": [
+            "docs/ops/public-rendezvous-coturn.md",
+            "docker-compose.public-rendezvous.yml"
+          ],
+          "acceptance_criteria": [
+            "coturn Setup mit TLS/TURNS ist dokumentiert.",
+            "TURN Credentials werden kurzlebig über Rendezvous API ausgegeben.",
+            "Keine statischen TURN-Passwörter im Repo.",
+            "Abuse-/Bandwidth-Limits sind dokumentiert.",
+            "Monitoring für Relay-Traffic ist vorgesehen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD05",
+      "title": "Ende-zu-Ende-Sicherheit trotz öffentlicher Default-Server",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "PRD05.01",
+          "title": "E2E-Payload-Verschlüsselung für öffentliche Server erzwingen",
+          "type": "security_requirement",
+          "status": "open",
+          "files": [
+            "client_surfaces/operator_tui/share_crypto.py",
+            "client_surfaces/operator_tui/share_view_transport.py",
+            "client_surfaces/operator_tui/chat_transport.py",
+            "tests/operator_tui/test_public_rendezvous_e2e_encryption.py"
+          ],
+          "acceptance_criteria": [
+            "Bei public-ananta Profil ist E2E-Payload-Verschlüsselung Pflicht.",
+            "Chat/View-Payloads werden nicht im Klartext an webrtc.ananta.de gesendet.",
+            "Hub/Rendezvous kann Routing-Metadaten sehen, aber keine Nachrichteninhalte oder TUI-Screens rekonstruieren.",
+            "Fehlender oder unbestätigter Device-Key blockiert Chat/View im public Profil.",
+            "Tests prüfen, dass Klartext nicht im übertragenen Payload vorkommt."
+          ]
+        },
+        {
+          "id": "PRD05.02",
+          "title": "Missbrauchsschutz für öffentliche Infrastruktur",
+          "type": "abuse_prevention",
+          "status": "open",
+          "files": [
+            "agent/services/rate_limit_service.py",
+            "agent/routes/rendezvous.py",
+            "docs/ops/public-rendezvous-abuse-handling.md"
+          ],
+          "acceptance_criteria": [
+            "Rate-Limits für Login-Join-Versuche, Invite-Erstellung und Signaling-Messages existieren.",
+            "Sessions haben kurze Default-Expiry.",
+            "Unbenutzte Sessions werden automatisch entfernt.",
+            "IP/User/Device Abuse-Marker werden ohne Klartextinhalte protokolliert.",
+            "Öffentlicher Dienst kann einzelne User/Devices/Sessions sperren."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD06",
+      "title": "E2E-Test: frisches Repo nutzt öffentliche Defaults",
+      "priority": "P1",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "PRD06.01",
+          "title": "Smoke-Test für public-ananta Netzwerkprofil",
+          "type": "e2e_test",
+          "status": "open",
+          "files": [
+            "scripts/e2e/public_rendezvous_profile_smoke.py",
+            "tests/e2e/test_public_rendezvous_profile.py"
+          ],
+          "acceptance_criteria": [
+            "Test lädt public-ananta Profil und prüft Default-URLs.",
+            "Test validiert, dass ENV-Override funktioniert.",
+            "Test startet zwei simulierte TUI Clients gegen Test-Rendezvous.",
+            "Ein Client erstellt Invite, zweiter joined.",
+            "Chat/View-Payload wird nur verschlüsselt übertragen.",
+            "Profil local/offline nutzt keine öffentlichen URLs."
+          ]
+        }
+      ]
+    }
+  ],
+  "recommended_first_implementation_order": [
+    "PRD01.01",
+    "PRD01.02",
+    "PRD02.01",
+    "PRD03.01",
+    "PRD03.02",
+    "PRD05.01",
+    "PRD06.01",
+    "PRD04.01",
+    "PRD04.02"
+  ],
+  "definition_of_done": [
+    "Repository enthält public-ananta Netzwerkprofil mit keycloak.ananta.de und webrtc.ananta.de.",
+    "Profil ist sichtbar auswählbar und per ENV/config überschreibbar.",
+    "TUI warnt klar, wenn öffentliche Ananta-Infrastruktur verwendet wird.",
+    "Invite-Code/Invite-Link enthält Rendezvous- und OIDC-Informationen.",
+    "Zwei Teilnehmer können sich über webrtc.ananta.de finden, nachdem beide über keycloak.ananta.de authentifiziert wurden.",
+    "Chat/View-Payloads sind im public Profil immer E2E-verschlüsselt.",
+    "WebRTC wird versucht, Hub Relay bleibt Fallback.",
+    "Lokale/private Deployments funktionieren ohne öffentliche Ananta-Server."
+  ]
+}
