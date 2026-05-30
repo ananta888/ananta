@@ -1,0 +1,7 @@
+keycloak.ananta.de {
+    reverse_proxy keycloak:8080
+}
+
+webrtc.ananta.de {
+    reverse_proxy rendezvous:80
+}
