@@ -3979,6 +3979,8 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
         set_share_oidc_token("")
         import client_surfaces.operator_tui.oidc_device_flow as _odf
         _odf._active_poller = None
+        from client_surfaces.operator_tui.snake_persistence import clear_oidc_token
+        clear_oidc_token()
         msg = "OIDC: ausgeloggt"
         return CommandResult(
             state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=msg),
