@@ -67,7 +67,7 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
     def _fake_live_share_cast(*, run_id: str) -> str:
         assert run_id == "video-enable-share-session-live-e2e"
         return (
-            '{"version": 2, "width": 120, "height": 32, "title": "Ananta Operator TUI – Share Session Live E2E"}\n'
+            '{"version": 2, "width": 160, "height": 44, "title": "Ananta Operator TUI – Share Session Live E2E"}\n'
             '[0.0, "o", "\\u001b[2J\\u001b[Hready> :share create test\\n"]\n'
             "[1.1, \"o\", \"Session 'test' erstellt. Invite: /share/share-test-001\\n\"]\n"
             "[2.2, \"o\", \"1 Session(s): 'test'[share-te] 1P\\n\"]\n"
@@ -91,16 +91,20 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
     assert ":share create test" in plain
     assert "Session 'test' erstellt." in plain
     assert "1 Session(s):" in plain
+    assert "'test'[" in plain
 
 
 def test_share_session_live_e2e_records_real_pty_flow() -> None:
     endpoint, _password = _require_live_share()
+    share_title = "e2e-live-share"
 
     original_seconds = os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS")
     original_endpoint = os.environ.get("ANANTA_TUI_E2E_SHARE_ENDPOINT")
+    original_title = os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE")
     try:
         os.environ["ANANTA_TUI_E2E_CAST_SECONDS"] = "28"
         os.environ["ANANTA_TUI_E2E_SHARE_ENDPOINT"] = endpoint
+        os.environ["ANANTA_TUI_E2E_SHARE_TITLE"] = share_title
         payload = record_tui_demo(
             run_id="video-enable-share-session-live-e2e-real",
             flow_id="tui-share-session-live-e2e-video",
@@ -116,6 +120,10 @@ def test_share_session_live_e2e_records_real_pty_flow() -> None:
             os.environ.pop("ANANTA_TUI_E2E_SHARE_ENDPOINT", None)
         else:
             os.environ["ANANTA_TUI_E2E_SHARE_ENDPOINT"] = original_endpoint
+        if original_title is None:
+            os.environ.pop("ANANTA_TUI_E2E_SHARE_TITLE", None)
+        else:
+            os.environ["ANANTA_TUI_E2E_SHARE_TITLE"] = original_title
 
     assert payload["status"] == "recorded"
     video_path = _resolve_ref(payload["video_ref"])
@@ -125,12 +133,13 @@ def test_share_session_live_e2e_records_real_pty_flow() -> None:
     lines = [line for line in video_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     header = json.loads(lines[0])
     assert header["version"] == 2
-    assert header["width"] >= 100
-    assert header["height"] >= 28
+    assert header["width"] >= 140
+    assert header["height"] >= 40
 
     frame_text = "\n".join(json.loads(line)[2] for line in lines[1:])
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.", "", frame_text)
-    assert ":share create test" in plain
-    assert "Session 'test' erstellt." in plain
+    assert f":share create {share_title}" in plain
+    assert f"Session '{share_title}' erstellt." in plain
     assert ":share list" in plain
     assert "Session(s):" in plain
+    assert f"'{share_title}'[" in plain

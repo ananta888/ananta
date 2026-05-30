@@ -561,8 +561,8 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
 
 
 def _share_session_live_e2e_cast(*, run_id: str) -> str:
-    width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
-    height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
+    width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "160"))))
+    height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "44"))))
     duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
     default_cmd = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
@@ -589,8 +589,8 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     script_actions: list[dict[str, object]] = [
         {"at": 2.2, "need": "", "send": f":share key generate\r".encode("utf-8")},
         {"at": 5.0, "need": "", "send": f":share create {share_title}\r".encode("utf-8")},
-        {"at": 8.5, "need": "", "send": b":share list\r"},
-        {"at": 14.0, "need": "", "send": b"q"},
+        {"at": 8.5, "need": "Session '", "send": b":share list\r"},
+        {"at": 14.0, "need": "Session(s):", "send": b"q"},
     ]
 
     master_fd, slave_fd = pty.openpty()
