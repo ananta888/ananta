@@ -13,6 +13,8 @@ import struct
 import subprocess
 import termios
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +73,34 @@ def _apply_tui_e2e_baseline_env(env: dict[str, str], *, width: int, height: int)
     env.setdefault("ANANTA_TUI_HEADER_SNAKE", "1")
     env.setdefault("ANANTA_TUI_SNAKE_MODE", "1")
     return env
+
+
+def _fetch_share_titles(*, endpoint: str, token: str) -> list[str]:
+    req = urllib.request.Request(
+        f"{endpoint.rstrip('/')}/share-sessions",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=5.0) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    def _extract_titles(obj: object) -> list[str]:
+        if isinstance(obj, dict):
+            out: list[str] = []
+            title = obj.get("title")
+            if isinstance(title, str) and title.strip():
+                out.append(title.strip())
+            for value in obj.values():
+                out.extend(_extract_titles(value))
+            return out
+        if isinstance(obj, list):
+            out: list[str] = []
+            for item in obj:
+                out.extend(_extract_titles(item))
+            return out
+        return []
+
+    return _extract_titles(payload)
 
 
 def _tutorial_ai_live_cast(*, run_id: str) -> str:
@@ -617,7 +647,7 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env["ANANTA_BASE_URL"] = endpoint
     env["ANANTA_HUB_URL"] = endpoint
     env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
-    env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
+    env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "0"
     env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
     title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "e2e-share").strip() or "e2e-share"
 
@@ -625,8 +655,7 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
         {"at": 2.2, "send": f":share create {title}\r".encode("utf-8")},
         {"at": 5.5, "send": b":share list\r"},
         {"at": 8.8, "send": b":share list\r"},
-        {"at": 31.7, "send": b"\x10"},  # Ctrl+P => immediately pause to avoid navigation jumps
-        {"at": 32.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
+        {"at": 10.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
         {"at": 38.0, "send": b"q"},
     ]
 
@@ -731,6 +760,23 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
 
     first_ts = events[0][0]
     normalized = [(max(0.0, ts - first_ts), frame) for ts, frame in events]
+
+    token = str(env.get("ANANTA_AUTH_TOKEN") or "").strip()
+    if token:
+        try:
+            titles = _fetch_share_titles(endpoint=endpoint, token=token)
+        except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
+            titles = []
+        if titles:
+            summary = (
+                "\x1b[2J\x1b[H"
+                "share-session-live-e2e summary\n"
+                f"endpoint: {endpoint}\n"
+                f"titles: {', '.join(sorted(set(titles))[:6])}\n"
+                f"count: {len(titles)}\n"
+            )
+            normalized.append((normalized[-1][0] + 0.35, summary))
+
     return _asciinema_v2_lines(
         title=f"Ananta Operator TUI – Share Session Live E2E ({run_id})",
         frames=normalized,
