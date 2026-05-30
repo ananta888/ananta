@@ -602,31 +602,32 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("COLORTERM", "truecolor")
     env.setdefault("COLUMNS", str(width))
     env.setdefault("LINES", str(height))
-    env.setdefault("ANANTA_ENDPOINT", endpoint)
-    env.setdefault("ANANTA_TUI_MOUSE", "1")
-    env.setdefault("ANANTA_TUI_HEADER_SNAKE", "0")
-    env.setdefault("ANANTA_TUI_SNAKE_MODE", "0")
-    env.setdefault("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0")
+    env["ANANTA_ENDPOINT"] = endpoint
+    env["ANANTA_TUI_MOUSE"] = "1"
+    env["ANANTA_TUI_HEADER_SNAKE"] = "0"
+    env["ANANTA_TUI_SNAKE_MODE"] = "0"
+    env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
+    env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
 
-    # Run commands in command-mode explicitly; then persist a rendered snapshot from the real TUI.
     script_actions: list[dict[str, object]] = [
-        {"at": 2.2, "need": "Share / Teilnehmer", "send": b":"},
-        {"at": 2.5, "send": b"share key generate"},
-        {"at": 3.9, "need": "share key generate", "send": b"\r"},
-        {"at": 7.0, "send": b":"},
-        {"at": 7.3, "send": f"share create {share_title}".encode("utf-8")},
-        {"at": 9.3, "need": f"share create {share_title}", "send": b"\r"},
-        {"at": 14.0, "send": b":"},
-        {"at": 14.3, "send": b"share list"},
-        {"at": 15.9, "need": "share list", "send": b"\r"},
-        {"at": 19.8, "send": b":"},
-        {"at": 20.1, "send": b"share list"},
-        {"at": 21.7, "need": "share list", "send": b"\r"},
-        {"at": 25.6, "send": b":"},
-        {"at": 25.9, "send": b"share list"},
-        {"at": 27.5, "need": "share list", "send": b"\r"},
-        {"at": 32.0, "need": "Session(s):", "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
-        {"at": 36.0, "send": b"q"},
+        {"at": 2.0, "send": b":"},
+        {"at": 2.3, "send": f"share create {share_title}".encode("utf-8")},
+        {"at": 3.7, "send": b"\r"},
+        {"at": 4.0, "send": b"\n"},
+        {"at": 8.5, "send": b":"},
+        {"at": 8.8, "send": b"share list"},
+        {"at": 10.1, "send": b"\r"},
+        {"at": 10.4, "send": b"\n"},
+        {"at": 14.5, "send": b":"},
+        {"at": 14.8, "send": b"share list"},
+        {"at": 16.1, "send": b"\r"},
+        {"at": 16.4, "send": b"\n"},
+        {"at": 21.5, "send": b":"},
+        {"at": 21.8, "send": b"share list"},
+        {"at": 23.1, "send": b"\r"},
+        {"at": 23.4, "send": b"\n"},
+        {"at": 32.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
+        {"at": 38.0, "send": b"q"},
     ]
 
     master_fd, slave_fd = pty.openpty()

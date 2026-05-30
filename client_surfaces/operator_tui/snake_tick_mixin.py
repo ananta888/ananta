@@ -68,6 +68,13 @@ class SnakeTickMixin:
 
     def _tick_header_snake(self) -> None:
         if not self._header_snake_enabled():
+            # Keep OIDC/share background actions alive even when header snake is disabled.
+            game = dict(self.state.header_logo_game or self._default_header_snake())  # type: ignore[arg-type]
+            now = time.monotonic()
+            self._tick_oidc_device_flow(game, now=now)
+            self._tick_e2e_share_autorun(game, now=now)
+            self._tick_share_pending_action(game, now=now)
+            self._set_state(self.state.with_updates(header_logo_game=game))
             return
         # Auto-initialize game state on first tick when it hasn't been set yet
         if not self.state.header_logo_game:
@@ -82,6 +89,7 @@ class SnakeTickMixin:
             self._tick_chat_ai_response(game)
             # OIDC und Share-Actions müssen auch ohne Header-Fokus ticken
             self._tick_oidc_device_flow(game, now=time.monotonic())
+            self._tick_e2e_share_autorun(game, now=time.monotonic())
             self._tick_share_pending_action(game, now=time.monotonic())
             self._set_state(self.state.with_updates(header_logo_game=game))
             return
@@ -229,6 +237,7 @@ class SnakeTickMixin:
 
         # SS: OIDC Device Flow Polling + Share Action Executor
         self._tick_oidc_device_flow(game, now=now)
+        self._tick_e2e_share_autorun(game, now=now)
         self._tick_share_pending_action(game, now=now)
 
         # T01.05: record section visit for first-visit explanation
@@ -773,6 +782,53 @@ class SnakeTickMixin:
             _odf._active_poller = None
 
     # ── Share Action Executor ─────────────────────────────────────────────────
+
+    def _tick_e2e_share_autorun(self, game: dict, *, now: float) -> None:
+        enabled = str(os.environ.get("ANANTA_TUI_E2E_SHARE_AUTORUN") or "").strip().lower() in {"1", "true", "yes", "on"}
+        if not enabled:
+            return
+        state = dict(game.get("_e2e_share_autorun") or {})
+        stage = str(state.get("stage") or "init")
+        title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "e2e-share").strip() or "e2e-share"
+        since = float(state.get("since") or now)
+
+        if stage == "init":
+            from client_surfaces.operator_tui.device_keys import get_device_key_manager
+            try:
+                mgr = get_device_key_manager()
+                if not mgr.key_exists():
+                    mgr.generate_key()
+                    game["share_status_message"] = "e2e autorun: :share key generate"
+            except Exception as exc:
+                game["share_status_message"] = f"e2e autorun keygen failed: {exc}"
+                state = {"stage": "done", "since": now}
+                game["_e2e_share_autorun"] = state
+                return
+            game["share_pending_action"] = {"action": "create", "title": title}
+            game["share_status_message"] = f"e2e autorun: :share create {title}"
+            state = {"stage": "create_sent", "since": now}
+        elif stage == "create_sent":
+            active = dict(game.get("share_active_session") or {})
+            if str(active.get("id") or "").strip():
+                game["share_pending_action"] = {"action": "list"}
+                game["share_status_message"] = "e2e autorun: :share list"
+                state = {"stage": "list_sent", "since": now}
+            elif (now - since) >= 8.0:
+                state = {"stage": "create_retry", "since": now}
+        elif stage == "create_retry":
+            game["share_pending_action"] = {"action": "create", "title": title}
+            game["share_status_message"] = f"e2e autorun: :share create {title}"
+            state = {"stage": "create_sent", "since": now}
+        elif stage == "list_sent":
+            status = str(game.get("share_status_message") or "")
+            if "Session(s):" in status:
+                state = {"stage": "done", "since": now}
+            elif (now - since) >= 5.0:
+                game["share_pending_action"] = {"action": "list"}
+                game["share_status_message"] = "e2e autorun: :share list"
+                state = {"stage": "list_sent", "since": now}
+
+        game["_e2e_share_autorun"] = state
 
     def _tick_share_pending_action(self, game: dict, *, now: float) -> None:
         action_info = game.get("share_pending_action")
