@@ -290,8 +290,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._chat_focus_active():
                 self._chat_append(":")
                 return
-            if self._snake_mode_active():
-                return
+            # Snake mode does NOT block `:` — commands must remain reachable at all times.
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command(":")
                 return

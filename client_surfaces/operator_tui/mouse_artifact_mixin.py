@@ -867,6 +867,10 @@ class MouseArtifactMixin:
             ):
                 game["_copy_status_message"] = "template editor: cursor"
                 return
+        if self.state.section_id == "share" and target.pane == "content":
+            if self._handle_share_content_click(y=int(self._mouse_state.y), game=game):
+                return
+
         if (
             self.state.section_id == "audit"
             and target.pane == "content"
@@ -1129,3 +1133,30 @@ class MouseArtifactMixin:
             new_selected = self.state.selected_index
         next_state = self.state.with_updates(focus=new_focus, selected_index=new_selected)
         self._set_state(next_state)
+
+    # ── Share section mouse click ─────────────────────────────────────────────
+
+    def _handle_share_content_click(self, *, y: int, game: dict) -> bool:
+        """Extrahiert [▶ :cmd] aus der angeklickten Zeile und führt den Befehl aus.
+
+        Returns True wenn ein Befehl ausgeführt wurde.
+        """
+        rendered = str(getattr(self, "_rendered_text", "") or "")
+        if not rendered.strip():
+            try:
+                rendered = self._render()
+            except Exception:
+                return False
+        lines = rendered.splitlines()
+        if not (0 <= y < len(lines)):
+            return False
+
+        from client_surfaces.operator_tui.share_menu import extract_click_command
+        cmd = extract_click_command(lines[y])
+        if not cmd:
+            return False
+
+        result = execute_command(cmd, self.state)
+        self._set_state(result.state)
+        game["_copy_status_message"] = f"share: {cmd}"
+        return True
