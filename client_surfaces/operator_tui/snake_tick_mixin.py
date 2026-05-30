@@ -851,10 +851,24 @@ class SnakeTickMixin:
             rdv_url = rendezvous_base_url()
         try:
             if is_public_profile_active() and token:
-                result = join_session(token=token, invite_code=code, session_id=session_id, device_fingerprint=fp, base_url=rdv_url)
+                result = join_session(
+                    token=token,
+                    invite_code=code,
+                    session_id=session_id,
+                    device_id=fp,
+                    device_fingerprint=fp,
+                    base_url=rdv_url,
+                )
             else:
                 session_id = str((game.get("share_active_session") or {}).get("id") or "")
-                result = join_hub_session(hub_token=token, hub_url=endpoint, session_id=session_id, invite_code=code, device_fingerprint=fp)
+                result = join_hub_session(
+                    hub_token=token,
+                    hub_url=endpoint,
+                    session_id=session_id,
+                    invite_code=code,
+                    device_id=fp,
+                    device_fingerprint=fp,
+                )
             if result.get("ok") or result.get("data"):
                 participant = dict(result.get("data") or {})
                 game["share_joined_as"] = participant
