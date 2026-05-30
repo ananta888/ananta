@@ -765,6 +765,9 @@ class SnakeTickMixin:
             set_share_oidc_token(state.access_token, rendezvous_base_url())
             game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
             poller.clear()
+            _odf._active_poller = None
+        elif state.status in ("error", "expired"):
+            _odf._active_poller = None
 
     # ── Share Action Executor ─────────────────────────────────────────────────
 
