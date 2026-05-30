@@ -67,6 +67,16 @@ class SnakeTickMixin:
     # ── T01: Header snake tick ────────────────────────────────────────────────
 
     def _tick_header_snake(self) -> None:
+        def _state_with_share_lock(current_state):
+            share_only = str(os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV") or "").strip().lower() in {"1", "true", "yes", "on"}
+            if not share_only:
+                return current_state
+            from client_surfaces.operator_tui.sections import SECTIONS
+            from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+            share_index = next((i for i, section in enumerate(SECTIONS) if section.id == "share"), 0)
+            locked = open_or_activate_tab(current_state, section_id="share", kind="section", label=tab_label_for_section("share"))
+            return locked.with_updates(section_id="share", selected_index=share_index)
+
         if not self._header_snake_enabled():
             # Keep OIDC/share background actions alive even when header snake is disabled.
             game = dict(self.state.header_logo_game or self._default_header_snake())  # type: ignore[arg-type]
@@ -74,7 +84,7 @@ class SnakeTickMixin:
             self._tick_oidc_device_flow(game, now=now)
             self._tick_e2e_share_autorun(game, now=now)
             self._tick_share_pending_action(game, now=now)
-            self._set_state(self.state.with_updates(header_logo_game=game))
+            self._set_state(_state_with_share_lock(self.state).with_updates(header_logo_game=game))
             return
         # Auto-initialize game state on first tick when it hasn't been set yet
         if not self.state.header_logo_game:
@@ -91,7 +101,7 @@ class SnakeTickMixin:
             self._tick_oidc_device_flow(game, now=time.monotonic())
             self._tick_e2e_share_autorun(game, now=time.monotonic())
             self._tick_share_pending_action(game, now=time.monotonic())
-            self._set_state(self.state.with_updates(header_logo_game=game))
+            self._set_state(_state_with_share_lock(self.state).with_updates(header_logo_game=game))
             return
         if not game.get("active", False) or not game.get("alive", True):
             return
