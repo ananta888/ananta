@@ -351,6 +351,24 @@ ananta-tui
 
 **Beide sehen sich jetzt in `:share status`** und können verschlüsselt chatten.
 
+### Derselbe Keycloak-Account in mehreren Umgebungen
+
+Der Rendezvous-Flow trennt User-Identität und Device-Identität:
+
+- Keycloak/OIDC authentifiziert den Account.
+- Der lokale Device-Key/Fingerprint identifiziert die konkrete TUI-Umgebung.
+
+Darum kann derselbe Account derselben Session mehrfach beitreten, zum Beispiel aus Host-TUI, Container und VM. Jede Umgebung muss einen eigenen lokalen Device-Key haben:
+
+```
+:oidc login
+:share key generate
+:share join <CODE>
+:share status
+```
+
+Wenn ein Workspace kopiert wurde und zwei Umgebungen denselben Fingerprint anzeigen, in einer Umgebung `:share key rotate` ausführen. Danach erneut beitreten. Private Device-Keys dürfen nicht zwischen Umgebungen kopiert werden.
+
 ### Was passiert im Hintergrund
 
 ```

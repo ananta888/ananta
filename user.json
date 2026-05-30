@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-05-30T17:16:29Z",
+  "updated": "2026-05-30T17:23:17Z",
   "settings": {
     "chat_use_history": true,
     "chat_use_summary": true,
@@ -34,7 +34,8 @@
       ":tasks",
       "oidc login",
       "q",
-      "oidc login"
+      "oidc login",
+      "share create"
     ],
     "input_history_chat_enabled": true,
     "tutorial_mode": false,

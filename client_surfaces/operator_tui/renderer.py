@@ -1192,13 +1192,24 @@ def _system_content_lines(payload: dict) -> list[str]:
 
 def _share_section_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
     from client_surfaces.operator_tui.share_menu import share_section_lines
-    # Device-Flow-Status aus game state in payload einbauen
+    # Live-Status aus game state in payload einbauen: Share-Aktionen laufen im
+    # Hintergrund und sollen sofort im Menü sichtbar werden.
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     merged = dict(payload)
     if game.get("oidc_device_flow"):
         merged["oidc_device_flow"] = dict(game["oidc_device_flow"])
     if game.get("share_status_message"):
         merged["share_status_message"] = str(game["share_status_message"])
+    active_session = dict(game.get("share_active_session") or {})
+    if active_session:
+        sessions = [dict(s) for s in list(merged.get("sessions") or []) if isinstance(s, dict)]
+        active_id = str(active_session.get("id") or "")
+        if active_id:
+            sessions = [s for s in sessions if str(s.get("id") or "") != active_id]
+        merged["sessions"] = [active_session, *sessions]
+        merged["selected_session"] = active_session
+        if active_session.get("participants") and not merged.get("participants"):
+            merged["participants"] = list(active_session.get("participants") or [])
     return share_section_lines(merged, width=width, selected_index=state.selected_index)
 
 

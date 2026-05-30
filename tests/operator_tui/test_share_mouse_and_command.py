@@ -90,6 +90,33 @@ def test_share_menu_has_invite_button_when_sessions_exist():
     assert len(btn_lines) >= 1
 
 
+def test_share_section_renders_active_session_from_live_state():
+    from client_surfaces.operator_tui.models import OperatorMode, OperatorState
+    from client_surfaces.operator_tui.renderer import _share_section_content_lines
+
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="share",
+        selected_index=0,
+        mode=OperatorMode.NORMAL,
+        header_logo_game={
+            "share_active_session": {
+                "id": "sess-live-1",
+                "title": "Live Session",
+                "invite_code": "LIVE123",
+                "participants": [],
+            }
+        },
+    )
+
+    lines = _share_section_content_lines({"sessions": []}, state, 100)
+    plain = "\n".join(_strip_ansi(line) for line in lines)
+
+    assert "Sessions (1)" in plain
+    assert "Live Session" in plain
+    assert "Keine aktiven Sessions" not in plain
+
+
 def test_share_menu_has_help_button():
     lines = _plain_lines({})
     btn_lines = [l for l in lines if "[▶ :share help]" in l]
