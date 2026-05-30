@@ -122,7 +122,9 @@ class DeviceFlowPoller:
         state = start_device_flow(issuer, client_id)
         with self._lock:
             self._state = state
-            self._last_poll = time.time()
+            # 0.0 sorgt dafür, dass der erste tick() sofort pollt,
+            # unabhängig davon ob now time.monotonic() oder time.time() ist.
+            self._last_poll = 0.0
         return state
 
     def tick(self, now: float) -> DeviceFlowState | None:
