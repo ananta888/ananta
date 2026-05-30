@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "operator_tui_shared_session_oidc_device_key",
   "created": "2026-05-30",
-  "status": "open",
+  "status": "in_progress",
   "priority": "P0",
   "purpose": "Ananta Operator TUI soll sichere Shared Sessions direkt in der TUI verwalten: OIDC/Keycloak-Login, lokale Device-Keys, optionaler Public-Key-Austausch, verschluesselter Chat, sichere gemeinsame TUI-Ansicht und spaeter optional WebRTC-P2P.",
   "explicit_scope_confirmation": {
@@ -144,13 +144,13 @@
       "id": "SS02",
       "title": "Device-Key und Public-Key Austausch",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "SS02.01",
           "title": "Lokale Device-Key Verwaltung implementieren",
           "type": "client_security",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/device_keys.py",
             "tests/operator_tui/test_device_keys.py"
@@ -168,7 +168,7 @@
           "id": "SS02.02",
           "title": "Public-Key Import/Export im TUI anbieten",
           "type": "tui_feature",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_menu.py",
             "client_surfaces/operator_tui/commands.py",
@@ -186,7 +186,7 @@
           "id": "SS02.03",
           "title": "Session-Key Ableitung fuer Chat/View vorbereiten",
           "type": "crypto_design_and_runtime",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_crypto.py",
             "tests/operator_tui/test_share_crypto.py"
@@ -205,13 +205,13 @@
       "id": "SS03",
       "title": "TUI-Menue links unten: Share / Teilnehmer",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "SS03.01",
           "title": "Share / Teilnehmer als eigene TUI-Section einbauen",
           "type": "tui_navigation",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/sections.py",
             "client_surfaces/operator_tui/renderer.py",
@@ -229,7 +229,7 @@
           "id": "SS03.02",
           "title": "Share-Kommandos fuer Power-User ergaenzen",
           "type": "tui_commands",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/commands.py",
             "tests/operator_tui/test_share_commands.py"
@@ -249,13 +249,13 @@
       "id": "SS04",
       "title": "Verschluesselter Chat ueber Shared Session",
       "priority": "P1",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "SS04.01",
           "title": "ChatTransport um ShareSession-Routing erweitern",
           "type": "transport",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/chat_transport.py",
             "agent/routes/share_sessions.py",
@@ -274,7 +274,7 @@
           "id": "SS04.02",
           "title": "Teilnehmerliste mit OIDC- und Device-Fingerprint anzeigen",
           "type": "tui_feature",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_menu.py",
             "client_surfaces/operator_tui/renderer.py"
@@ -292,7 +292,7 @@
       "id": "SS05",
       "title": "Secure Shared TUI View: zwei Nutzer teilen sicher dieselbe TUI-Ansicht",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "explicitly_answers_user_request": true,
       "goal": "Ein Teilnehmer kann read-only dieselbe TUI-Ansicht sehen wie der Owner. Die Uebertragung erfolgt ueber Snapshot/Delta-Stream, ist policy-gesteuert, verschluesselt, auditierbar und default aus.",
       "tasks": [
@@ -300,7 +300,7 @@
           "id": "SS05.01",
           "title": "TUI Snapshot/Delta Stream fuer Live-Share definieren",
           "type": "schema_and_runtime",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_view_stream.py",
             "client_surfaces/operator_tui/tui_snapshot.py",
@@ -320,7 +320,7 @@
           "id": "SS05.02",
           "title": "Policy- und Redaction-Gate vor View-Share einfuehren",
           "type": "security_gate",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_view_policy.py",
             "client_surfaces/operator_tui/share_view_stream.py",
@@ -339,7 +339,7 @@
           "id": "SS05.03",
           "title": "Read-only Viewer-Modus in der TUI implementieren",
           "type": "tui_viewer",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/shared_viewer.py",
             "client_surfaces/operator_tui/renderer.py",
@@ -359,7 +359,7 @@
           "id": "SS05.04",
           "title": "View-Share Transport ueber Hub Relay implementieren",
           "type": "backend_transport",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/routes/share_sessions.py",
             "client_surfaces/operator_tui/share_view_transport.py",
@@ -378,7 +378,7 @@
           "id": "SS05.05",
           "title": "Shared Cursor und Presence optional anzeigen",
           "type": "tui_presence",
-          "status": "open",
+          "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_presence.py",
             "client_surfaces/operator_tui/renderer.py"
@@ -395,7 +395,7 @@
           "id": "SS05.06",
           "title": "E2E-Test fuer zwei geteilte TUI-Instanzen",
           "type": "e2e_test",
-          "status": "open",
+          "status": "done",
           "files": [
             "scripts/e2e/shared_tui_view_e2e.py",
             "tests/e2e/test_shared_tui_view.py"
@@ -448,7 +448,7 @@
           "id": "SS07.01",
           "title": "Audit-Events fuer Shared Sessions definieren",
           "type": "audit",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/services/share_audit_service.py",
             "docs/security/shared-session-audit.md",

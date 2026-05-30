@@ -221,6 +221,19 @@ class ShareSessionService:
             _FALLBACK_PARTICIPANTS[participant["id"]] = dict(participant)
             return JoinResult(ok=True, participant=participant)
 
+    def get_participants(self, session_id: str) -> list[dict[str, Any]]:
+        try:
+            with Session(engine) as session:
+                rows = session.exec(
+                    select(ShareParticipantDB).where(ShareParticipantDB.session_id == session_id)
+                ).all()
+                return [_participant_to_dict(r) for r in rows]
+        except SQLAlchemyError:
+            return [
+                dict(p) for p in _FALLBACK_PARTICIPANTS.values()
+                if str(p.get("session_id") or "") == session_id
+            ]
+
     def update_session_permissions(
         self, *, session_id: str, actor_user_id: str, permissions: dict[str, Any]
     ) -> tuple[bool, str, dict[str, Any] | None]:

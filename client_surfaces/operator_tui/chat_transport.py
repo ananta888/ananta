@@ -1,10 +1,11 @@
-"""T03.02 + T03.03: Nicht-blockierendes Chat-Transport-Layer.
+"""T03.02 + T03.03 / SS04.01: Nicht-blockierendes Chat-Transport-Layer.
 
 - Polling: läuft im Thread, nicht im Render-Hotpath
 - Default-Intervall: 1000ms, Backoff bei Fehler bis 10s
 - Deduplication per message.id
 - Ausgehende Queue mit Retry + delivery_state Tracking
 - Notes gehen NIEMALS in Transport-Queue
+- ShareSession-Routing: share_session_id + optionale Payload-Verschlüsselung
 """
 from __future__ import annotations
 
@@ -44,8 +45,33 @@ class ChatTransport:
             return False
         if str(msg.get("channel_type") or "") == "notes":
             return False
+        item = dict(msg)
+        if "delivery_state" not in item:
+            item["delivery_state"] = "queued"
         with self._lock:
-            self._outbox.append(dict(msg))
+            self._outbox.append(item)
+        return True
+
+    def enqueue_share_session_message(
+        self,
+        msg: dict[str, Any],
+        *,
+        share_session_id: str,
+        encrypted_payload: dict[str, Any] | None = None,
+    ) -> bool:
+        """Nachrichten über eine ShareSession senden. Notes werden abgelehnt."""
+        if str(msg.get("visibility") or "") == "local_only":
+            return False
+        if str(msg.get("channel_type") or "") == "notes":
+            return False
+        item = dict(msg)
+        item["share_session_id"] = str(share_session_id)
+        item["delivery_state"] = "queued"
+        if encrypted_payload is not None:
+            item["encrypted_payload"] = encrypted_payload
+            item["_is_encrypted"] = True
+        with self._lock:
+            self._outbox.append(item)
         return True
 
     def tick(self, now: float) -> None:
@@ -115,6 +141,11 @@ class ChatTransport:
             self._outbox = self._outbox[-50:]
 
     def _send_one(self, msg: dict[str, Any]) -> bool:
+        # ShareSession-Routing hat Priorität
+        share_session_id = str(msg.get("share_session_id") or "").strip()
+        if share_session_id:
+            return self._send_share_session_message(msg, share_session_id=share_session_id)
+
         ch_type = str(msg.get("channel_type") or "")
         if ch_type == "room":
             url = f"{self._hub_url}/snakes/{self._snake_id}/chat/messages"
@@ -145,6 +176,34 @@ class ChatTransport:
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=4) as resp:
+                return resp.status in {200, 201, 202}
+        except Exception:
+            return False
+
+    def _send_share_session_message(self, msg: dict[str, Any], *, share_session_id: str) -> bool:
+        url = f"{self._hub_url}/share-sessions/{share_session_id}/chat/messages"
+        payload: dict[str, Any] = {
+            "id": str(msg.get("id") or str(uuid.uuid4())),
+            "from_id": str(msg.get("sender_id") or self._snake_id),
+            "channel_type": str(msg.get("channel_type") or "room"),
+            "visibility": str(msg.get("visibility") or "room"),
+        }
+        if msg.get("_is_encrypted") and msg.get("encrypted_payload"):
+            payload["encrypted_payload"] = msg["encrypted_payload"]
+        else:
+            payload["text"] = str(msg.get("text") or "")
+        body = json.dumps(payload).encode()
+        try:
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Authorization": f"Bearer {self._token}", "Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data = json.loads(resp.read())
+                if data.get("blocked"):
+                    return False  # Policy-Block
                 return resp.status in {200, 201, 202}
         except Exception:
             return False
