@@ -18,9 +18,13 @@ import hashlib
 import secrets
 import time
 import uuid
+from ipaddress import ip_address
 from typing import Any
 
+import jwt
 from flask import Blueprint, jsonify, request
+
+from agent.config import settings
 
 snakes_bp = Blueprint("snakes", __name__)
 
@@ -41,6 +45,52 @@ _VALID_VISIBILITY = {"room", "direct", "ai_context", "system"}  # local_only is 
 
 _VALID_ROLES = {"player", "tutor", "critic", "coach", "viewer"}
 _VALID_COLORS = {"mint", "amber", "rose", "violet", "sky", "coral", "lime", "ice", "cyan"}
+
+
+def _is_local_request() -> bool:
+    remote = request.remote_addr or ""
+    try:
+        ip = ip_address(remote)
+        return ip.is_loopback or ip.is_private
+    except ValueError:
+        return False
+
+
+def _optional_user_auth() -> dict[str, Any]:
+    auth = request.headers.get("Authorization", "")
+    token = ""
+    if auth.startswith("Bearer "):
+        token = auth[7:].strip()
+    if token.count(".") != 2:
+        alt = str(request.headers.get("X-Ananta-User-Authorization") or "").strip()
+        if not alt.startswith("Bearer "):
+            return {}
+        token = alt[7:].strip()
+    if token.count(".") != 2:
+        return {}
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"], leeway=30)
+        return dict(payload or {})
+    except jwt.PyJWTError:
+        return {}
+
+
+def _request_device_id() -> str:
+    return str(request.headers.get("X-Ananta-Device-Id") or "").strip()
+
+
+def _snake_bound_to_auth(snake: dict[str, Any], auth: dict[str, Any]) -> bool:
+    user_id = str(auth.get("sub") or auth.get("username") or "").strip()
+    if not user_id:
+        return False
+    snake_user = str(snake.get("oidc_id") or "").strip()
+    if snake_user and snake_user != user_id:
+        return False
+    req_device = _request_device_id()
+    snake_device = str(snake.get("owner_device_id") or "").strip()
+    if req_device and snake_device and req_device != snake_device:
+        return False
+    return True
 
 
 def _next_free_color() -> str:
@@ -68,7 +118,11 @@ def register_snake():
     used_colors = {s["color"] for s in _snakes.values() if s.get("active")}
     if color in used_colors:
         color = _next_free_color()
-    oidc_id = str(body.get("oidc_id") or "")
+    auth = _optional_user_auth()
+    if not auth and not _is_local_request():
+        return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
+    oidc_id = str(auth.get("sub") or auth.get("username") or "")
+    owner_device_id = _request_device_id()
 
     active_count = sum(1 for s in _snakes.values() if s.get("active"))
     if active_count >= _MAX_SNAKES:
@@ -82,6 +136,8 @@ def register_snake():
         "role": role,
         "color": color,
         "oidc_id": oidc_id,
+        "owner_device_id": owner_device_id,
+        "auth_mode": "user_jwt" if auth else "legacy_local_dev",
         "token": token,
         "active": True,
         "registered_at": time.time(),
@@ -190,6 +246,12 @@ def chat_send(snake_id: str):
     """POST /snakes/<id>/chat/messages – ChatMessage-v1 senden."""
     if not _verify_token(snake_id):
         return jsonify({"error": "Ungültiger Token"}), 401
+    auth = _optional_user_auth()
+    if not auth and not _is_local_request():
+        return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
+    snake = _snakes.get(snake_id) or {}
+    if auth and not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_identity_mismatch"}), 403
 
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     channel_type = str(body.get("channel_type") or "room")
