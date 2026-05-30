@@ -3893,7 +3893,19 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
         issuer = oidc_issuer()
         if not issuer:
             msg = "Kein OIDC Issuer konfiguriert. ANANTA_NETWORK_PROFILE=public-ananta setzen."
-            return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg, handled=False)
+            game = dict(state.header_logo_game or {})
+            game["oidc_device_flow"] = {"status": "error", "user_code": "", "verification_uri": "", "error": msg}
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    status_message=msg,
+                    section_id="share",
+                ),
+                msg,
+                handled=False,
+            )
         profile = get_active_profile()
         client_id = str(profile.get("oidc", {}).get("client_id") or "ananta-tui")
         try:
@@ -3925,7 +3937,24 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
             )
         except Exception as exc:
             msg = f"OIDC Login fehlgeschlagen: {exc}"
-            return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg, handled=False)
+            game = dict(state.header_logo_game or {})
+            game["oidc_device_flow"] = {
+                "status": "error",
+                "user_code": "",
+                "verification_uri": "",
+                "error": str(exc),
+            }
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    status_message=msg,
+                    section_id="share",
+                ),
+                msg,
+                handled=False,
+            )
 
     if sub == "logout":
         game = dict(state.header_logo_game or {})
