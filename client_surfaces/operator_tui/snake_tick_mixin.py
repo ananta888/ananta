@@ -838,6 +838,13 @@ class SnakeTickMixin:
         except Exception as exc:
             return f"__error__:{exc}"
 
+    @staticmethod
+    def _append_share_audit(game: dict, text: str) -> None:
+        items = list(game.get("share_audit_items") or [])
+        import time as _time
+        items.append({"ts": _time.strftime("%Y-%m-%dT%H:%M:%S"), "text": str(text or "")})
+        game["share_audit_items"] = items[-20:]
+
     def _share_action_create(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, title: str) -> None:
         from client_surfaces.operator_tui.device_keys import get_device_key_manager
         from client_surfaces.operator_tui.network_profile import is_public_profile_active, oidc_issuer, rendezvous_base_url
@@ -879,6 +886,7 @@ class SnakeTickMixin:
                 game["share_active_session"] = session
                 invite_label = session.get("invite_link") or session.get("invite_code") or ""
                 game["share_status_message"] = f"Session '{title}' erstellt. Invite: {invite_label}"
+                self._append_share_audit(game, f"session_created title={title}")
             else:
                 game["share_status_message"] = f"Session-Erstellung fehlgeschlagen: {result.get('error', result)}"
         except Exception as exc:
@@ -910,6 +918,7 @@ class SnakeTickMixin:
                     parts.append(f"'{title}'[{sid}] {pcount}P")
                 suffix = f" (+{len(sessions) - 5} weitere)" if len(sessions) > 5 else ""
                 game["share_status_message"] = f"{len(sessions)} Session(s): {', '.join(parts)}{suffix}"
+                self._append_share_audit(game, f"sessions_listed count={len(sessions)}")
         except Exception as exc:
             game["share_status_message"] = f"Fehler beim Laden der Sessions: {exc}"
 
@@ -961,6 +970,7 @@ class SnakeTickMixin:
                 participant = dict(result.get("data") or {})
                 game["share_joined_as"] = participant
                 game["share_status_message"] = f"Session beigetreten. Fingerprint: {fp[:17]}…"
+                self._append_share_audit(game, f"participant_joined device={fp[:17]}")
             else:
                 game["share_status_message"] = f"Beitritt fehlgeschlagen: {result.get('error', result)}"
         except Exception as exc:
@@ -1001,6 +1011,7 @@ class SnakeTickMixin:
                     pass
             label = "aktiviert" if enabled else "deaktiviert"
             game["share_status_message"] = f"TUI-View-Share {label}"
+            self._append_share_audit(game, f"view_tui_{'on' if enabled else 'off'}")
         except Exception as exc:
             game["share_status_message"] = f"View-Share Fehler: {exc}"
 
@@ -1024,5 +1035,6 @@ class SnakeTickMixin:
                     pass
             game.pop("share_active_session", None)
             game["share_status_message"] = "Share-Session beendet"
+            self._append_share_audit(game, "session_stopped")
         except Exception as exc:
             game["share_status_message"] = f"Stop fehlgeschlagen: {exc}"

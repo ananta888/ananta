@@ -1200,6 +1200,8 @@ def _share_section_content_lines(payload: dict, state: OperatorState, width: int
         merged["oidc_device_flow"] = dict(game["oidc_device_flow"])
     if game.get("share_status_message"):
         merged["share_status_message"] = str(game["share_status_message"])
+    if game.get("share_audit_items"):
+        merged["share_audit_items"] = list(game.get("share_audit_items") or [])
     active_session = dict(game.get("share_active_session") or {})
     if active_session:
         active_id = str(active_session.get("id") or "")

@@ -194,8 +194,27 @@ def _session_overview_lines(payload: dict[str, Any], width: int) -> list[str]:
             uid = str(p.get("user_id") or "")[:18]
             role = str(p.get("role") or "participant")
             revoked = p.get("revoked_at")
-            dot = "\x1b[31m●\x1b[0m" if revoked else "\x1b[32m●\x1b[0m"
-            lines.append(f"  {dot} \x1b[1m{uid}\x1b[0m \x1b[90m({role})\x1b[0m")
+            last_seen_raw = p.get("last_seen")
+            try:
+                last_seen_age = max(0, int(_now() - float(last_seen_raw or 0.0)))
+            except Exception:
+                last_seen_age = -1
+            online = bool(not revoked and (last_seen_age < 90 or last_seen_age < 0))
+            dot = "\x1b[31m●\x1b[0m" if revoked else ("\x1b[32m●\x1b[0m" if online else "\x1b[33m●\x1b[0m")
+            presence = "revoked" if revoked else ("online" if online else f"offline {last_seen_age}s")
+            perms = dict(p.get("permissions") or {})
+            cursor_flag = " cursor" if perms.get("remote_cursor") else ""
+            lines.append(f"  {dot} \x1b[1m{uid}\x1b[0m \x1b[90m({role}, {presence}{cursor_flag})\x1b[0m")
+        lines.append("")
+
+    # Kompakte Audit-Historie
+    audit_items: list[dict[str, Any]] = list(payload.get("share_audit_items") or [])
+    if audit_items:
+        lines.append(_rule("Audit (letzte Events)"))
+        for item in audit_items[-5:]:
+            ts = str(item.get("ts") or "")[:19].replace("T", " ")
+            text = str(item.get("text") or "")[: max(10, width - 10)]
+            lines.append(f"  \x1b[90m{ts}\x1b[0m {text}")
         lines.append("")
 
     return lines
