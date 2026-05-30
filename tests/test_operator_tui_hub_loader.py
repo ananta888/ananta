@@ -46,10 +46,11 @@ def test_fetch_audit_collects_multiple_datasets(monkeypatch) -> None:
     payload = dict(result.payload or {})
     items = list(payload.get("items") or [])
     datasets = dict(payload.get("datasets") or {})
-    assert len(items) == 9
+    assert len(items) == 15
     assert "audit.logs.recent" in datasets
     assert "runtime.stats.snapshot" in datasets
     assert "llm.requests.recent" in datasets
+    assert "audit.cleanup.all" in datasets
 
 
 def test_fetch_audit_adds_chat_prompt_trace_items(monkeypatch) -> None:
