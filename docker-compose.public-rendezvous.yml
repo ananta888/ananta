@@ -1,0 +1,103 @@
+# Public Ananta test rendezvous stack
+#
+# This compose file describes the public test setup used for:
+#   - https://keycloak.ananta.de
+#   - https://webrtc.ananta.de
+#   - stun:webrtc.ananta.de:3478
+#   - turn:webrtc.ananta.de:3478
+#
+# It is intended for Peter's small public test VM only. It is not a production
+# HA deployment and should not be used for confidential workloads without
+# additional hardening, backups, monitoring, abuse protection and rate limiting.
+#
+# Required host firewall / OCI ingress:
+#   TCP 22                SSH
+#   TCP 80                Caddy HTTP / ACME
+#   TCP 443               Caddy HTTPS / WSS
+#   TCP 3478, UDP 3478    STUN/TURN
+#   TCP 5349, UDP 5349    optional TURNS later
+#   UDP 49160-49200       TURN relay range
+#
+# Required DNS:
+#   keycloak.ananta.de -> public server IP
+#   webrtc.ananta.de   -> public server IP
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./public-rendezvous/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - public_caddy_data:/data
+      - public_caddy_config:/config
+    depends_on:
+      - keycloak
+      - rendezvous
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
+    volumes:
+      - public_keycloak_postgres_data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    restart: unless-stopped
+    command:
+      - start
+      - --http-enabled=true
+      - --proxy-headers=xforwarded
+      - --hostname=https://${PUBLIC_KEYCLOAK_HOSTNAME:-keycloak.ananta.de}
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: ${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+    depends_on:
+      - postgres
+
+  # Placeholder until the real Ananta rendezvous/signaling service is implemented.
+  # It proves HTTPS/DNS routing for webrtc.ananta.de and can later be replaced by
+  # the Ananta signaling service exposing /signaling.
+  rendezvous:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./public-rendezvous/rendezvous/html:/usr/share/nginx/html:ro
+
+  # coturn needs host networking because it allocates UDP relay ports.
+  # PUBLIC_TURN_EXTERNAL_IP should be "PUBLIC_IP/PRIVATE_IP", e.g.
+  # "79.76.105.53/10.0.1.233" for Oracle Cloud NAT.
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --tls-listening-port=5349
+      - --realm=${PUBLIC_TURN_REALM:-ananta.de}
+      - --server-name=${PUBLIC_WEBRTC_HOSTNAME:-webrtc.ananta.de}
+      - --external-ip=${PUBLIC_TURN_EXTERNAL_IP:?set PUBLIC_TURN_EXTERNAL_IP, e.g. 79.76.105.53/10.0.1.233}
+      - --listening-ip=0.0.0.0
+      - --min-port=${PUBLIC_TURN_MIN_PORT:-49160}
+      - --max-port=${PUBLIC_TURN_MAX_PORT:-49200}
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=${PUBLIC_TURN_USER:-ananta}:${PUBLIC_TURN_PASSWORD:?set PUBLIC_TURN_PASSWORD in .env}
+
+volumes:
+  public_caddy_data:
+  public_caddy_config:
+  public_keycloak_postgres_data:
