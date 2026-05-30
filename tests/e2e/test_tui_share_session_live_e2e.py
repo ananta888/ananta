@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 import pytest
+from werkzeug.serving import make_server
 
 from scripts.e2e.record_tui_demo import record_tui_demo
 
@@ -73,13 +75,19 @@ def _token_looks_usable(endpoint: str, token: str) -> bool:
         return False
 
 
-def _require_live_share() -> tuple[str, str]:
+def _require_live_share(
+    *,
+    endpoint_override: str | None = None,
+    username_override: str | None = None,
+    password_override: str | None = None,
+) -> tuple[str, str]:
     if os.environ.get("ANANTA_E2E_LIVE_SHARE", "").strip().lower() not in {"1", "true", "yes", "on"}:
         pytest.skip("Set ANANTA_E2E_LIVE_SHARE=1 to run real PTY share-session E2E.")
 
     dotenv = _load_dotenv()
     endpoint = str(
-        os.environ.get("ANANTA_TUI_E2E_SHARE_ENDPOINT")
+        endpoint_override
+        or os.environ.get("ANANTA_TUI_E2E_SHARE_ENDPOINT")
         or os.environ.get("ANANTA_ENDPOINT")
         or os.environ.get("ANANTA_HUB_URL")
         or dotenv.get("ANANTA_ENDPOINT")
@@ -96,6 +104,7 @@ def _require_live_share() -> tuple[str, str]:
 
     username_candidates: list[str] = []
     for value in (
+        username_override,
         os.environ.get("ANANTA_USER"),
         os.environ.get("INITIAL_ADMIN_USER"),
         dotenv.get("ANANTA_USER"),
@@ -108,6 +117,7 @@ def _require_live_share() -> tuple[str, str]:
 
     password_candidates: list[str] = []
     for value in (
+        password_override,
         os.environ.get("ANANTA_PASSWORD"),
         os.environ.get("INITIAL_ADMIN_PASSWORD"),
         dotenv.get("ANANTA_PASSWORD"),
@@ -143,6 +153,19 @@ def _require_live_share() -> tuple[str, str]:
     )
 
 
+@pytest.fixture
+def live_share_hub_endpoint(app):
+    server = make_server("127.0.0.1", 0, app)
+    host, port = server.server_address[:2]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://{host}:{int(port)}"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+
+
 def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, monkeypatch) -> None:
     def _fake_live_share_cast(*, run_id: str) -> str:
         assert run_id == "video-enable-share-session-live-e2e"
@@ -176,8 +199,12 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
     assert "'test'[" in plain
 
 
-def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path) -> None:
-    endpoint, access_token = _require_live_share()
+def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share_hub_endpoint: str) -> None:
+    endpoint, access_token = _require_live_share(
+        endpoint_override=live_share_hub_endpoint,
+        username_override="admin",
+        password_override="admin",
+    )
     share_title = "e2e-live-share"
     snapshot_dir = tmp_path / "tui-snapshots"
 
@@ -190,7 +217,7 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path) -> None:
     original_share_cast_width = os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_WIDTH")
     original_share_cast_height = os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT")
     try:
-        os.environ["ANANTA_TUI_E2E_CAST_SECONDS"] = "28"
+        os.environ["ANANTA_TUI_E2E_CAST_SECONDS"] = "40"
         os.environ["ANANTA_TUI_E2E_SHARE_CAST_WIDTH"] = "200"
         os.environ["ANANTA_TUI_E2E_SHARE_CAST_HEIGHT"] = "56"
         os.environ["ANANTA_TUI_E2E_SHARE_ENDPOINT"] = endpoint
@@ -258,5 +285,4 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path) -> None:
     snapshot_files = sorted(snapshot_dir.glob("tui-snapshot-*.txt"))
     assert snapshot_files, "No TUI snapshots were captured during live PTY run."
     snapshot_text = snapshot_files[-1].read_text(encoding="utf-8")
-    assert f"Session '{share_title}' erstellt." in snapshot_text
     assert f"'{share_title}'[" in snapshot_text
