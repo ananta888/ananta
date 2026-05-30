@@ -51,6 +51,28 @@ def _asciinema_v2_lines(
     return "\n".join(lines) + "\n"
 
 
+def _default_tui_command(*, section: str | None = None, focus: str | None = None) -> str:
+    base = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
+    if section:
+        base += f" --section {section}"
+    if focus:
+        base += f" --focus {focus}"
+    return base
+
+
+def _apply_tui_e2e_baseline_env(env: dict[str, str], *, width: int, height: int) -> dict[str, str]:
+    env.setdefault("TERM", "xterm-256color")
+    env.setdefault("COLORTERM", "truecolor")
+    env.setdefault("COLUMNS", str(width))
+    env.setdefault("LINES", str(height))
+    env.setdefault("ANANTA_TUI_SPLASH", "1")
+    env.setdefault("ANANTA_TUI_MOUSE", "1")
+    # Shared TUI-E2E baseline: start with header logo + snake mode active.
+    env.setdefault("ANANTA_TUI_HEADER_SNAKE", "1")
+    env.setdefault("ANANTA_TUI_SNAKE_MODE", "1")
+    return env
+
+
 def _tutorial_ai_live_cast(*, run_id: str) -> str:
     frames: list[tuple[float, str]] = [
         (
@@ -397,28 +419,19 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
     height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
     duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "52"))))
-    default_cmd = (
-        ".venv/bin/ananta tui --section share --focus navigation"
-        if Path(".venv/bin/ananta").exists()
-        else "ananta tui --section share --focus navigation"
-    )
+    default_cmd = _default_tui_command()
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
     command = shlex.split(run_command)
     if not command:
         raise RuntimeError("ANANTA_TUI_E2E_CAST_COMMAND is empty")
 
-    env = dict(os.environ)
-    env.setdefault("TERM", "xterm-256color")
-    env.setdefault("COLORTERM", "truecolor")
-    env.setdefault("COLUMNS", str(width))
-    env.setdefault("LINES", str(height))
+    env = _apply_tui_e2e_baseline_env(dict(os.environ), width=width, height=height)
     env.setdefault("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1")
     env.setdefault("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")
     env.setdefault("ANANTA_TUI_SNAKE_AI_BACKEND", "openai-compatible")
     env.setdefault("ANANTA_TUI_SNAKE_AI_REFRESH", "1.2")
     env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0")
     env.setdefault("ANANTA_TUI_SNAKE_SELECT_DELAY", "0.30")
-    env.setdefault("ANANTA_TUI_MOUSE", "1")
     env.setdefault("ANANTA_TUI_SNAKE_AI_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_TOKEN", str(env.get("ANANTA_TUI_LLM_API_TOKEN") or ""))
@@ -426,7 +439,6 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     # Event-driven walkthrough:
     # wait for usable TUI frame -> snake to nav/artifacts -> tutorial AI -> user asks -> AI answers -> quit.
     script_actions: list[dict[str, object]] = [
-        {"at": 4.0, "need": "endpoint=", "send": b"\x13"},  # Ctrl+S
         {"at": 4.4, "need": "", "send": b"o"},  # mouse follow on/off toggle hint
         {"at": 4.8, "need": "", "send": b"\x1b[<35;35;12M"},  # synthetic mouse move (SGR)
         {"at": 5.0, "need": "", "send": (b"\x1b[B" * 12)},
@@ -588,7 +600,7 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
         ),
     )
     duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
-    default_cmd = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
+    default_cmd = _default_tui_command(section="share", focus="navigation")
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
     command = shlex.split(run_command)
     if not command:
@@ -600,23 +612,15 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
         or os.environ.get("ANANTA_HUB_URL")
         or "http://localhost:5000"
     ).strip()
-    env = dict(os.environ)
-    env.setdefault("TERM", "xterm-256color")
-    env.setdefault("COLORTERM", "truecolor")
-    env.setdefault("COLUMNS", str(width))
-    env.setdefault("LINES", str(height))
+    env = _apply_tui_e2e_baseline_env(dict(os.environ), width=width, height=height)
     env["ANANTA_ENDPOINT"] = endpoint
     env["ANANTA_BASE_URL"] = endpoint
     env["ANANTA_HUB_URL"] = endpoint
-    env["ANANTA_TUI_MOUSE"] = "1"
-    env["ANANTA_TUI_HEADER_SNAKE"] = "0"
-    env["ANANTA_TUI_SNAKE_MODE"] = "0"
     env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
     env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
     env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
 
     script_actions: list[dict[str, object]] = [
-        {"at": 31.7, "send": b"\x13"},  # Ctrl+S => snake mode on (for visible mode state near snapshot)
         {"at": 31.7, "send": b"\x10"},  # Ctrl+P => immediately pause to avoid navigation jumps
         {"at": 32.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
         {"at": 38.0, "send": b"q"},
