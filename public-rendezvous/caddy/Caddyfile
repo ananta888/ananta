@@ -3,5 +3,13 @@ keycloak.ananta.de {
 }
 
 webrtc.ananta.de {
-    reverse_proxy rendezvous:80
+    # WebSocket upgrade für /signaling (zukünftige native WS-Unterstützung)
+    @ws {
+        path /signaling
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @ws rendezvous:5000
+
+    reverse_proxy rendezvous:5000
 }

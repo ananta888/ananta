@@ -66,14 +66,23 @@ services:
     depends_on:
       - postgres
 
-  # Placeholder until the real Ananta rendezvous/signaling service is implemented.
-  # It proves HTTPS/DNS routing for webrtc.ananta.de and can later be replaced by
-  # the Ananta signaling service exposing /signaling.
   rendezvous:
-    image: nginx:alpine
+    build: ./public-rendezvous/rendezvous
     restart: unless-stopped
-    volumes:
-      - ./public-rendezvous/rendezvous/html:/usr/share/nginx/html:ro
+    environment:
+      OIDC_ISSUER: ${OIDC_ISSUER:-https://keycloak.ananta.de/realms/ananta}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ananta-hub}
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in .env}
+      TURN_REALM: ${PUBLIC_TURN_REALM:-ananta.de}
+      TURN_URLS: ${TURN_URLS:-turn:webrtc.ananta.de:3478}
+      TURN_TTL_SECONDS: ${TURN_TTL_SECONDS:-3600}
+      SESSION_MAX_DURATION_SECONDS: ${SESSION_MAX_DURATION_SECONDS:-3600}
+      LOG_LEVEL: ${RENDEZVOUS_LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # coturn needs host networking because it allocates UDP relay ports.
   # PUBLIC_TURN_EXTERNAL_IP should be "PUBLIC_IP/PRIVATE_IP", e.g.

@@ -95,6 +95,25 @@ sudo firewall-cmd --permanent --add-port=49160-49200/udp
 sudo firewall-cmd --reload
 ```
 
+## Rendezvous Service
+
+The rendezvous service (`public-rendezvous/rendezvous/`) is a standalone Flask/Gunicorn app built from source. It provides:
+
+| Endpoint | Zweck |
+|---|---|
+| `GET /health` | Healthcheck |
+| `GET /info` | Öffentliche Service-Infos |
+| `POST /rendezvous/sessions` | Session erstellen (OIDC-Auth erforderlich) |
+| `POST /rendezvous/sessions/<id>/join` | Beitreten per Invite-Code |
+| `GET /rendezvous/sessions/<id>/participants` | Presence für berechtigte Teilnehmer |
+| `DELETE /rendezvous/sessions/<id>` | Session widerrufen (Owner) |
+| `GET /rendezvous/turn-credentials` | Kurzlebige TURN-Credentials (HMAC-SHA1) |
+| `POST /webrtc/sessions/<id>/signal` | SDP Offer/Answer, ICE Candidate senden |
+| `GET /webrtc/sessions/<id>/signal` | Signale abholen (Polling) |
+| `GET/POST /signaling` | HTTP-Polling-Alias, zukünftig native WSS |
+
+Alle Endpunkte außer `/health` und `/info` erfordern einen gültigen Keycloak-Bearer-Token.
+
 ## Environment file
 
 Create `.env` next to `docker-compose.public-rendezvous.yml`:
@@ -116,45 +135,24 @@ PUBLIC_TURN_PASSWORD=change_me_long_random_turn_password
 PUBLIC_TURN_EXTERNAL_IP=79.76.105.53/10.0.1.233
 PUBLIC_TURN_MIN_PORT=49160
 PUBLIC_TURN_MAX_PORT=49200
+
+# TURN_SHARED_SECRET muss identisch zu coturn --static-auth-secret sein.
+# Generieren: openssl rand -hex 32
+TURN_SHARED_SECRET=replace_with_output_of_openssl_rand_hex_32
+TURN_URLS=turn:webrtc.ananta.de:3478
+TURN_TTL_SECONDS=3600
+SESSION_MAX_DURATION_SECONDS=3600
 ```
 
-For Oracle Cloud, `PUBLIC_TURN_EXTERNAL_IP` should usually be:
+For Oracle Cloud, `PUBLIC_TURN_EXTERNAL_IP` should usually be `<PUBLIC_IP>/<PRIVATE_VCN_IP>`, e.g. `79.76.105.53/10.0.1.233`.
 
-```text
-<PUBLIC_IP>/<PRIVATE_VCN_IP>
-```
-
-Example:
-
-```text
-79.76.105.53/10.0.1.233
-```
-
-## Placeholder page
-
-Until the real Ananta rendezvous/signaling service exists, create a small placeholder page:
-
-```bash
-mkdir -p public-rendezvous/rendezvous/html
-cat > public-rendezvous/rendezvous/html/index.html <<'EOF'
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Ananta Test Rendezvous</title>
-</head>
-<body>
-  <h1>Ananta Test Rendezvous</h1>
-  <p>Limited test endpoint for Ananta rendezvous and signaling experiments.</p>
-</body>
-</html>
-EOF
-```
+> **TURN_SHARED_SECRET** must match the secret configured in coturn. The rendezvous service uses this to sign ephemeral TURN credentials via HMAC-SHA1 (coturn REST API format). Never commit the real secret to git.
 
 ## Start
 
 ```bash
-docker compose -f docker-compose.public-rendezvous.yml config
+# Image bauen und Stack starten
+docker compose -f docker-compose.public-rendezvous.yml build
 docker compose -f docker-compose.public-rendezvous.yml up -d
 docker compose -f docker-compose.public-rendezvous.yml ps
 ```
@@ -164,6 +162,7 @@ Logs:
 ```bash
 docker compose -f docker-compose.public-rendezvous.yml logs -f caddy
 docker compose -f docker-compose.public-rendezvous.yml logs -f keycloak
+docker compose -f docker-compose.public-rendezvous.yml logs -f rendezvous
 docker compose -f docker-compose.public-rendezvous.yml logs -f coturn
 ```
 
@@ -183,7 +182,24 @@ Expected:
 
 - DNS returns the public server IP.
 - HTTPS works with a valid Caddy/Let's Encrypt certificate.
-- `webrtc.ananta.de` shows the placeholder until the real signaling service is deployed.
+- `webrtc.ananta.de/health` returns `{"ok": true, "service": "ananta-rendezvous"}`.
+
+## Test Rendezvous Service
+
+```bash
+# Health
+curl https://webrtc.ananta.de/health
+
+# Service-Info
+curl https://webrtc.ananta.de/info
+
+# Mit gültigem Keycloak-Token (OIDC-Auth testen)
+TOKEN=$(curl -s -X POST https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/token \
+  -d "client_id=ananta-tui&grant_type=password&username=testuser&password=testpass" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+
+curl -H "Authorization: Bearer $TOKEN" https://webrtc.ananta.de/rendezvous/turn-credentials
+```
 
 ## Test STUN/TURN
 
@@ -193,10 +209,13 @@ Use the WebRTC Trickle ICE test page and configure:
 STUN:
 stun:webrtc.ananta.de:3478
 
-TURN:
+TURN (statischer Test-User, nur falls PUBLIC_TURN_USER gesetzt):
 turn:webrtc.ananta.de:3478
 Username: ananta
 Password: value of PUBLIC_TURN_PASSWORD
+
+TURN (ephemeral via Rendezvous API):
+Credentials von GET /rendezvous/turn-credentials abrufen.
 ```
 
 A successful TURN test must show a `relay` candidate, for example:
@@ -224,14 +243,18 @@ ANANTA_TURN_URL=turn:webrtc.ananta.de:3478
 ANANTA_REQUIRE_E2E_PAYLOAD_ENCRYPTION=true
 ```
 
-The current repository still needs the real TUI shared-session/rendezvous runtime. The public infrastructure can already provide OIDC, HTTPS routing and TURN relay, but the following Ananta features are still implementation work:
+The rendezvous service is implemented. The following features are available via `webrtc.ananta.de`:
 
-- invite-code session creation
-- `/signaling` endpoint
-- WebRTC SDP/ICE exchange between TUI clients
-- device-key exchange
-- encrypted chat/view payload routing
-- read-only shared TUI view
+- OIDC-authentifizierte Session-Erstellung mit Invite-Code
+- Beitreten per Invite-Code (OIDC-Sub-Verifikation, Issuer-Bindung)
+- Presence-Metadaten für berechtigte Teilnehmer
+- Ephemere TURN-Credentials (HMAC-SHA1)
+- WebRTC SDP Offer/Answer und ICE-Candidate-Relay
+- HTTP-Polling unter `/signaling` (zukünftig native WebSocket)
+
+Noch ausstehend (P2 / optional):
+- Native WebSocket-Verbindungen auf `/signaling` (statt HTTP-Polling)
+- Persistente Session-Speicherung (aktuell in-memory, Restart löscht Sessions)
 
 See:
 
