@@ -39,6 +39,17 @@ def build_share_section_lines(
 
     lines.append("")
 
+    # Aktiver Device Flow
+    flow = dict(payload.get("oidc_device_flow") or {})
+    if flow.get("status") in ("waiting", "polling"):
+        lines.append(f"  \x1b[1;33m◉ OIDC Login läuft\x1b[0m")
+        lines.append(f"  Browser öffnen:  \x1b[36m{flow.get('verification_uri', '')}\x1b[0m")
+        lines.append(f"  Code eingeben:   \x1b[1;33m{flow.get('user_code', '')}\x1b[0m")
+        lines.append("")
+    elif flow.get("status") == "error":
+        lines.append(f"  \x1b[31m✗ OIDC Fehler: {flow.get('error', '')}\x1b[0m  :oidc login erneut")
+        lines.append("")
+
     # OIDC-Status
     oidc_info = dict(payload.get("oidc_status") or {})
     oidc_user = str(oidc_info.get("sub") or oidc_info.get("username") or "")
@@ -105,7 +116,13 @@ def build_share_section_lines(
             lines.append(f"    {status} {user_id} ({role}) {fp_display}")
 
     lines.append("")
-    lines.append("  \x1b[90m:share help  für alle Befehle\x1b[0m")
+    # Status-Meldung vom Action Executor
+    status_msg = str(payload.get("share_status_message") or "")
+    if status_msg:
+        color = "\x1b[31m" if "fehler" in status_msg.lower() or "fehlgeschlagen" in status_msg.lower() else "\x1b[32m"
+        lines.append(f"  {color}{status_msg}\x1b[0m")
+        lines.append("")
+    lines.append("  \x1b[90m:oidc login · :share create · :share join <code> · :share help\x1b[0m")
 
     return lines
 
