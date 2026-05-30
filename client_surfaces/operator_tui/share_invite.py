@@ -25,6 +25,7 @@ def build_invite(
     owner_device_fingerprint: str,
     allowed_permissions: dict[str, bool] | None = None,
     expires_at: float | None = None,
+    short_code: str = "",
 ) -> dict[str, Any]:
     perms = {
         "chat": True,
@@ -41,7 +42,7 @@ def build_invite(
     perms["remote_control"] = False
 
     exp = float(expires_at) if expires_at else time.time() + _DEFAULT_INVITE_TTL
-    short_code = _generate_short_code()
+    code = str(short_code or "").strip().upper() or _generate_short_code()
     invite: dict[str, Any] = {
         "version": "1",
         "session_id": str(session_id),
@@ -50,7 +51,7 @@ def build_invite(
         "owner_device_fingerprint": str(owner_device_fingerprint),
         "expires_at": exp,
         "allowed_permissions": perms,
-        "short_code": short_code,
+        "short_code": code,
     }
     invite["invite_link"] = _to_ananta_link(invite)
     return invite

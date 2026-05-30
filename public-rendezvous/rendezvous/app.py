@@ -4,8 +4,11 @@ Endpunkte:
   GET  /health
   GET  /info
   POST /rendezvous/sessions
+  GET  /rendezvous/sessions
+  POST /rendezvous/sessions/join
   POST /rendezvous/sessions/<id>/join
   GET  /rendezvous/sessions/<id>/participants
+  PATCH /rendezvous/sessions/<id>/permissions
   DELETE /rendezvous/sessions/<id>
   GET  /rendezvous/turn-credentials
   POST /webrtc/sessions/<id>/signal
@@ -95,8 +98,26 @@ def create_session():
     return jsonify({"ok": True, "data": session}), 201
 
 
+@app.get("/rendezvous/sessions")
+def list_sessions():
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    sessions = svc.list_sessions_for_user(requester_user_id=ctx.username)
+    return jsonify({"ok": True, "data": {"items": sessions}}), 200
+
+
+@app.post("/rendezvous/sessions/join")
+def join_session_by_invite():
+    return _join_session_by_invite(expected_session_id="")
+
+
 @app.post("/rendezvous/sessions/<session_id>/join")
 def join_session(session_id: str):
+    return _join_session_by_invite(expected_session_id=session_id)
+
+
+def _join_session_by_invite(*, expected_session_id: str):
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
@@ -114,6 +135,7 @@ def join_session(session_id: str):
         device_id=str(body.get("device_id") or "").strip(),
         device_fingerprint=str(body.get("device_fingerprint") or "").strip(),
         oidc_issuer=cfg.OIDC_ISSUER,
+        expected_session_id=expected_session_id,
     )
     if not result.get("ok"):
         reason = result["reason"]
@@ -121,7 +143,8 @@ def join_session(session_id: str):
             "session_revoked", "session_expired", "oidc_issuer_mismatch", "forbidden"
         } else 400
         return jsonify({"error": reason}), status
-    log.info("participant_joined session=%s user=%s", session_id, ctx.username)
+    session_label = expected_session_id or "invite"
+    log.info("participant_joined session=%s user=%s", session_label, ctx.username)
     return jsonify({"ok": True, "data": result.get("participant")}), 201 if not result.get("idempotent") else 200
 
 
@@ -136,6 +159,26 @@ def list_participants(session_id: str):
         return jsonify({"error": reason}), 403 if reason == "forbidden" else 404
     svc.touch_participant(session_id=session_id, user_id=ctx.username)
     return jsonify({"ok": True, "data": {"participants": result["participants"]}}), 200
+
+
+@app.patch("/rendezvous/sessions/<session_id>/permissions")
+def update_permissions(session_id: str):
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    permissions = body.get("permissions")
+    if not isinstance(permissions, dict):
+        return jsonify({"error": "permissions_required"}), 400
+    result = svc.update_session_permissions(
+        session_id=session_id,
+        actor_user_id=ctx.username,
+        permissions=permissions,
+    )
+    if not result.get("ok"):
+        reason = result["reason"]
+        return jsonify({"error": reason}), 403 if reason == "forbidden" else 404
+    return jsonify({"ok": True, "data": result.get("session")}), 200
 
 
 @app.delete("/rendezvous/sessions/<session_id>")

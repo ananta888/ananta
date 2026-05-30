@@ -794,10 +794,9 @@ class SnakeTickMixin:
 
     def _share_action_create(self, game: dict, token: str, endpoint: str, title: str) -> None:
         from client_surfaces.operator_tui.device_keys import get_device_key_manager
-        from client_surfaces.operator_tui.network_profile import rendezvous_base_url, is_public_profile_active
+        from client_surfaces.operator_tui.network_profile import is_public_profile_active, oidc_issuer, rendezvous_base_url
         from client_surfaces.operator_tui.share_client import create_session, create_hub_session
         from client_surfaces.operator_tui.share_invite import build_invite
-        from client_surfaces.operator_tui.oidc_device_flow import DeviceFlowPoller
         mgr = get_device_key_manager()
         fp = mgr.get_fingerprint() if mgr.key_exists() else ""
         if not fp:
@@ -812,8 +811,22 @@ class SnakeTickMixin:
                 result = create_hub_session(hub_token=token, hub_url=endpoint, device_id=fp, title=title)
             if result.get("ok") or result.get("id"):
                 session = dict(result.get("data") or result)
+                invite_code = str(session.get("invite_code") or "")
+                if is_public_profile_active() and invite_code:
+                    invite = build_invite(
+                        session_id=str(session.get("id") or ""),
+                        rendezvous_url=rendezvous_base_url(),
+                        oidc_issuer=oidc_issuer(),
+                        owner_device_fingerprint=fp,
+                        allowed_permissions=dict(session.get("allowed_permissions") or session.get("permissions") or {}),
+                        expires_at=float(session.get("expires_at") or 0) or None,
+                        short_code=invite_code,
+                    )
+                    session["invite_link"] = str(invite.get("invite_link") or "")
+                    session["short_code"] = invite_code
                 game["share_active_session"] = session
-                game["share_status_message"] = f"Session '{title}' erstellt. Invite: {session.get('invite_code', '')}"
+                invite_label = session.get("invite_link") or session.get("invite_code") or ""
+                game["share_status_message"] = f"Session '{title}' erstellt. Invite: {invite_label}"
             else:
                 game["share_status_message"] = f"Session-Erstellung fehlgeschlagen: {result.get('error', result)}"
         except Exception as exc:
@@ -830,13 +843,15 @@ class SnakeTickMixin:
         parsed = parse_invite(invite_code)
         if parsed:
             code = str(parsed.get("short_code") or invite_code)
+            session_id = str(parsed.get("session_id") or "")
             rdv_url = str(parsed.get("rendezvous_url") or rendezvous_base_url())
         else:
             code = invite_code
+            session_id = ""
             rdv_url = rendezvous_base_url()
         try:
             if is_public_profile_active() and token:
-                result = join_session(token=token, invite_code=code, device_fingerprint=fp, base_url=rdv_url)
+                result = join_session(token=token, invite_code=code, session_id=session_id, device_fingerprint=fp, base_url=rdv_url)
             else:
                 session_id = str((game.get("share_active_session") or {}).get("id") or "")
                 result = join_hub_session(hub_token=token, hub_url=endpoint, session_id=session_id, invite_code=code, device_fingerprint=fp)
@@ -851,16 +866,33 @@ class SnakeTickMixin:
 
     def _share_action_set_view(self, game: dict, token: str, endpoint: str, session_id: str, enabled: bool) -> None:
         try:
-            import urllib.request, json as _json
-            url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}/permissions"
-            body = _json.dumps({"permissions": {"view_tui": enabled}}).encode()
-            req = urllib.request.Request(
-                url, data=body,
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                method="PATCH",
-            )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                pass
+            from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
+            if is_public_profile_active() and token:
+                from client_surfaces.operator_tui.share_client import update_session_permissions
+                result = update_session_permissions(
+                    token=token,
+                    session_id=session_id,
+                    permissions={"view_tui": enabled},
+                    base_url=rendezvous_base_url(),
+                )
+                if not result.get("ok"):
+                    game["share_status_message"] = f"View-Share Fehler: {result.get('error', result)}"
+                    return
+                session = dict(result.get("data") or {})
+                if session:
+                    game["share_active_session"] = session
+            else:
+                import json as _json
+                import urllib.request
+                url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}/permissions"
+                body = _json.dumps({"permissions": {"view_tui": enabled}}).encode()
+                req = urllib.request.Request(
+                    url, data=body,
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    method="PATCH",
+                )
+                with urllib.request.urlopen(req, timeout=5):
+                    pass
             label = "aktiviert" if enabled else "deaktiviert"
             game["share_status_message"] = f"TUI-View-Share {label}"
         except Exception as exc:

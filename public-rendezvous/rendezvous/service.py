@@ -130,7 +130,38 @@ def create_session(
         _sessions[sid] = session
         _invite_codes[code] = sid
         _participants[sid] = []
-    return dict(session)
+    return _session_snapshot(session, include_participants=True)
+
+
+def _session_snapshot(session: dict[str, Any], *, include_participants: bool = False) -> dict[str, Any]:
+    """Return the public API shape for a session."""
+    sid = str(session.get("id") or "")
+    participants = [dict(p) for p in _participants.get(sid, []) if not p.get("revoked_at")]
+    permissions = dict(session.get("allowed_permissions") or {})
+    out = dict(session)
+    out["permissions"] = permissions
+    out["participant_count"] = len(participants)
+    if include_participants:
+        out["participants"] = participants
+    return out
+
+
+def list_sessions_for_user(*, requester_user_id: str) -> list[dict[str, Any]]:
+    _cleanup_expired()
+    with _lock:
+        out: list[dict[str, Any]] = []
+        for sid, session in _sessions.items():
+            if session.get("revoked_at") is not None:
+                continue
+            parts = _participants.get(sid, [])
+            is_member = (
+                session.get("owner_user_id") == requester_user_id
+                or any(p.get("user_id") == requester_user_id and not p.get("revoked_at") for p in parts)
+            )
+            if is_member:
+                out.append(_session_snapshot(session, include_participants=True))
+        out.sort(key=lambda item: float(item.get("created_at") or 0), reverse=True)
+        return out
 
 
 def join_session(
@@ -141,6 +172,7 @@ def join_session(
     device_id: str,
     device_fingerprint: str,
     oidc_issuer: str,
+    expected_session_id: str = "",
 ) -> dict[str, Any]:
     _cleanup_expired()
     code = str(invite_code or "").strip().upper()
@@ -148,6 +180,8 @@ def join_session(
         sid = _invite_codes.get(code)
         if not sid:
             return {"ok": False, "reason": "invalid_invite_code"}
+        if expected_session_id and sid != expected_session_id:
+            return {"ok": False, "reason": "session_not_found"}
         session = _sessions.get(sid)
         if not session:
             return {"ok": False, "reason": "session_not_found"}
@@ -180,6 +214,27 @@ def join_session(
         }
         _participants[sid].append(participant)
         return {"ok": True, "participant": dict(participant)}
+
+
+def update_session_permissions(
+    *,
+    session_id: str,
+    actor_user_id: str,
+    permissions: dict[str, bool],
+) -> dict[str, Any]:
+    with _lock:
+        session = _sessions.get(session_id)
+        if not session:
+            return {"ok": False, "reason": "session_not_found"}
+        if session.get("owner_user_id") != actor_user_id:
+            return {"ok": False, "reason": "forbidden"}
+        current = dict(session.get("allowed_permissions") or {})
+        for key in current:
+            if key in permissions:
+                current[key] = bool(permissions[key])
+        current["remote_control"] = False
+        session["allowed_permissions"] = current
+        return {"ok": True, "session": _session_snapshot(session, include_participants=True)}
 
 
 def get_participants(*, session_id: str, requester_user_id: str) -> dict[str, Any]:
