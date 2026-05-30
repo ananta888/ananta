@@ -1504,7 +1504,7 @@ def test_free_mode_snake_board_keeps_full_terminal_width(monkeypatch) -> None:
     assert updated.get("board_w") == 120
 
 
-def test_split_snake_playfield_wraps_before_right_detail_area() -> None:
+def test_split_snake_playfield_uses_full_terminal_width() -> None:
     lines = [" " * 120 for _ in range(32)]
     game = {
         "active": True,
@@ -1518,8 +1518,7 @@ def test_split_snake_playfield_wraps_before_right_detail_area() -> None:
     out = _overlay_fullscreen_snake(lines, state, width=120)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[4])
 
-    assert plain[118] == " "
-    assert plain[32] in {"●", "◉", "·"}
+    assert plain[118] in {"●", "◉", "·"}
 
 
 def test_split_snake_chat_panel_stays_in_right_detail_slice() -> None:
