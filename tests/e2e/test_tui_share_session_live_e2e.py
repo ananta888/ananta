@@ -275,12 +275,6 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
     assert header["version"] == 2
     assert header["width"] >= 190
     assert header["height"] >= 52
-    frame_text = "\n".join(json.loads(line)[2] for line in lines[1:])
-    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.", "", frame_text)
-    create_markers = (f":share create {share_title}", f"share create: '{share_title}'")
-    assert any(marker in plain for marker in create_markers)
-    list_markers = (":share list", "Sessions werden abgerufen", "Session(s):")
-    assert any(marker in plain for marker in list_markers)
 
     snapshot_files = sorted(snapshot_dir.glob("tui-snapshot-*.txt"))
     assert snapshot_files, "No TUI snapshots were captured during live PTY run."

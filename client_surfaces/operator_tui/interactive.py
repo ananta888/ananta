@@ -311,6 +311,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._enter_command_mode_from_anywhere()
 
         @bindings.add("enter")
+        @bindings.add("c-m")
+        @bindings.add("c-j")
         def _(event) -> None:
             self._handle_enter_key()
 
