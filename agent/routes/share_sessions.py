@@ -1,15 +1,64 @@
 from __future__ import annotations
 
+import time
+import uuid
 from typing import Any
 
 from flask import Blueprint, jsonify, request
 
 from agent.auth import check_user_auth, get_request_auth_context
 from agent.common.audit import log_audit
+from agent.services.rate_limit_service import RateLimitService
+from agent.services.share_audit_service import (
+    audit_chat_sent,
+    audit_participant_joined,
+    audit_participant_revoked,
+    audit_permission_changed,
+    audit_session_created,
+    audit_view_delta_sent,
+    audit_view_started,
+)
 from agent.services.share_session_service import get_share_session_service
 
 share_sessions_bp = Blueprint("share_sessions", __name__)
+_rate_limiter = RateLimitService()
 
+_CHAT_QUEUE_MAX = 200
+_CHAT_MSG_MAX_BYTES = 64 * 1024
+_VIEW_QUEUE_MAX = 50
+_VIEW_PAYLOAD_MAX_BYTES = 256 * 1024
+_VIEW_FRAME_RATE = {"namespace": "share_view_push", "limit": 40, "window_seconds": 10}
+_VIEW_POLL_RATE = {"namespace": "share_view_poll", "limit": 80, "window_seconds": 10}
+_CHAT_SEND_RATE = {"namespace": "share_chat_send", "limit": 60, "window_seconds": 10}
+_CHAT_POLL_RATE = {"namespace": "share_chat_poll", "limit": 120, "window_seconds": 10}
+
+_view_queues: dict[str, list[dict[str, Any]]] = {}  # session_id -> frames
+_chat_queues: dict[str, list[dict[str, Any]]] = {}  # session_id -> chat messages
+_view_started_audited: set[str] = set()
+
+
+def _is_session_active(session_item: dict[str, Any]) -> bool:
+    if not isinstance(session_item, dict):
+        return False
+    if session_item.get("revoked_at") is not None:
+        return False
+    exp = session_item.get("expires_at")
+    if isinstance(exp, (int, float)) and float(exp) <= time.time():
+        return False
+    return True
+
+
+def _is_active_participant(*, session_id: str, user_id: str, session_item: dict[str, Any] | None = None) -> bool:
+    if not user_id:
+        return False
+    service = get_share_session_service()
+    session = session_item if isinstance(session_item, dict) else service.get_session(session_id)
+    if not isinstance(session, dict) or not _is_session_active(session):
+        return False
+    if str(session.get("owner_user_id") or "") == user_id:
+        return True
+    participants = service.get_participants(session_id)
+    return any(str(p.get("user_id") or "") == user_id and not p.get("revoked_at") for p in participants)
 
 def _current_user_id() -> str:
     auth = dict(get_request_auth_context() or {})
@@ -51,6 +100,14 @@ def create_share_session():
             "transport": session_item.get("transport"),
             "permissions": dict(session_item.get("permissions") or {}),
         },
+    )
+    audit_session_created(
+        session_id=str(session_item.get("id") or ""),
+        owner_user_id=user_id,
+        owner_device_id=owner_device_id,
+        mode=str(session_item.get("mode") or ""),
+        transport=str(session_item.get("transport") or ""),
+        permissions=dict(session_item.get("permissions") or {}),
     )
     return jsonify({"ok": True, "data": session_item}), 201
 
@@ -120,6 +177,14 @@ def join_share_session(session_id: str):
             "permissions": dict(participant.get("permissions") or {}),
         },
     )
+    audit_participant_joined(
+        session_id=session_id,
+        participant_id=str(participant.get("id") or ""),
+        user_id=user_id,
+        device_id=str(participant.get("device_id") or ""),
+        public_key_fingerprint=str(participant.get("public_key_fingerprint") or ""),
+        permissions=dict(participant.get("permissions") or {}),
+    )
     return jsonify({"ok": True, "data": participant}), 201
 
 
@@ -151,12 +216,12 @@ def patch_share_session_permissions(session_id: str):
             "permissions": dict((session_item or {}).get("permissions") or {}),
         },
     )
+    audit_permission_changed(
+        session_id=session_id,
+        actor_user_id=user_id,
+        new_permissions=dict((session_item or {}).get("permissions") or {}),
+    )
     return jsonify({"ok": True, "data": session_item}), 200
-
-
-_view_queues: dict[str, list[dict]] = {}  # session_id -> list of view payloads
-_VIEW_QUEUE_MAX = 50
-_VIEW_PAYLOAD_MAX_BYTES = 256 * 1024
 
 
 @share_sessions_bp.route("/share-sessions/<session_id>/view/push", methods=["POST"])
@@ -166,29 +231,41 @@ def push_view_payload(session_id: str):
     user_id = _current_user_id()
     service = get_share_session_service()
     session_item = service.get_session(session_id)
-    if not session_item:
+    if not isinstance(session_item, dict):
         return jsonify({"error": "session_not_found"}), 404
+    if not _is_session_active(session_item):
+        return jsonify({"error": "session_not_active"}), 403
     if session_item.get("owner_user_id") != user_id:
         return jsonify({"error": "forbidden"}), 403
+    if not _rate_limiter.allow_request(
+        namespace=_VIEW_FRAME_RATE["namespace"],
+        subject=user_id,
+        limit=_VIEW_FRAME_RATE["limit"],
+        window_seconds=_VIEW_FRAME_RATE["window_seconds"],
+    ):
+        return jsonify({"error": "rate_limited"}), 429
     if not session_item.get("permissions", {}).get("view_tui"):
         return jsonify({"error": "view_tui_permission_required"}), 403
-    body: dict = request.get_json(force=True, silent=True) or {}
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     if not body.get("encrypted_payload"):
         return jsonify({"error": "encrypted_payload_required"}), 400
     raw = request.get_data(as_text=False)
     if len(raw) > _VIEW_PAYLOAD_MAX_BYTES:
         return jsonify({"error": "payload_too_large"}), 413
-    import time as _time
-    entry = {
+    if session_id not in _view_started_audited:
+        audit_view_started(session_id=session_id, owner_user_id=user_id)
+        _view_started_audited.add(session_id)
+    message_id = str(body.get("message_id") or str(uuid.uuid4()))
+    entry: dict[str, Any] = {
         "session_id": session_id,
-        "message_id": str(body.get("message_id") or ""),
+        "message_id": message_id,
         "kind": str(body.get("kind") or "snapshot"),
         "width": int(body.get("width") or 0),
         "height": int(body.get("height") or 0),
         "base_hash": str(body.get("base_hash") or ""),
         "new_hash": str(body.get("new_hash") or ""),
         "encrypted_payload": body.get("encrypted_payload"),
-        "pushed_at": _time.time(),
+        "pushed_at": time.time(),
     }
     if session_id not in _view_queues:
         _view_queues[session_id] = []
@@ -200,6 +277,13 @@ def push_view_payload(session_id: str):
         "kind": entry["kind"],
         "new_hash": entry["new_hash"],
     })
+    audit_view_delta_sent(
+    session_id=session_id,
+    owner_user_id=user_id,
+    kind=str(entry["kind"]),
+    new_hash=str(entry["new_hash"]),
+    policy_hash=str(entry["base_hash"] or entry["new_hash"] or ""),
+    )
     return jsonify({"ok": True}), 200
 
 
@@ -212,18 +296,21 @@ def poll_view_payload(session_id: str):
         return jsonify({"error": "not_authenticated"}), 401
     service = get_share_session_service()
     session_item = service.get_session(session_id)
-    if not session_item:
+    if not isinstance(session_item, dict):
         return jsonify({"error": "session_not_found"}), 404
+    if not _is_session_active(session_item):
+        return jsonify({"error": "session_not_active"}), 403
+    if not _rate_limiter.allow_request(
+        namespace=_VIEW_POLL_RATE["namespace"],
+        subject=user_id,
+        limit=_VIEW_POLL_RATE["limit"],
+        window_seconds=_VIEW_POLL_RATE["window_seconds"],
+    ):
+        return jsonify({"error": "rate_limited"}), 429
     perms = session_item.get("permissions") or {}
     if not perms.get("view_tui"):
         return jsonify({"error": "view_tui_permission_required"}), 403
-    # Prüfe ob User Teilnehmer ist
-    participants = service.get_participants(session_id)
-    is_participant = any(
-        p.get("user_id") == user_id and not p.get("revoked_at")
-        for p in participants
-    ) or session_item.get("owner_user_id") == user_id
-    if not is_participant:
+    if not _is_active_participant(session_id=session_id, user_id=user_id, session_item=session_item):
         return jsonify({"error": "not_a_participant"}), 403
     since = str(request.args.get("since") or "").strip()
     frames = list(_view_queues.get(session_id) or [])
@@ -234,6 +321,95 @@ def poll_view_payload(session_id: str):
                 frames = frames[i + 1:]
                 break
     return jsonify({"ok": True, "data": {"frames": frames[-10:]}}), 200
+
+
+@share_sessions_bp.route("/share-sessions/<session_id>/chat/messages", methods=["POST"])
+@check_user_auth
+def send_share_chat_message(session_id: str):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({"error": "not_authenticated"}), 401
+    service = get_share_session_service()
+    session_item = service.get_session(session_id)
+    if not isinstance(session_item, dict):
+        return jsonify({"error": "session_not_found"}), 404
+    if not _is_session_active(session_item):
+        return jsonify({"error": "session_not_active", "blocked": True}), 403
+    if not _is_active_participant(session_id=session_id, user_id=user_id, session_item=session_item):
+        return jsonify({"error": "not_a_participant", "blocked": True}), 403
+    if not bool((session_item.get("permissions") or {}).get("chat")):
+        return jsonify({"error": "chat_permission_required", "blocked": True}), 403
+    if not _rate_limiter.allow_request(
+        namespace=_CHAT_SEND_RATE["namespace"],
+        subject=user_id,
+        limit=_CHAT_SEND_RATE["limit"],
+        window_seconds=_CHAT_SEND_RATE["window_seconds"],
+    ):
+        return jsonify({"error": "rate_limited", "blocked": True}), 429
+
+    raw = request.get_data(as_text=False)
+    if len(raw) > _CHAT_MSG_MAX_BYTES:
+        return jsonify({"error": "payload_too_large", "blocked": True}), 413
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    message_id = str(body.get("id") or str(uuid.uuid4()))
+    encrypted_payload = body.get("encrypted_payload")
+    text = str(body.get("text") or "")
+    if not encrypted_payload and not text:
+        return jsonify({"error": "message_required", "blocked": True}), 400
+    message = {
+        "id": message_id,
+        "share_session_id": session_id,
+        "from_id": str(body.get("from_id") or user_id),
+        "channel_type": str(body.get("channel_type") or "room"),
+        "visibility": str(body.get("visibility") or "room"),
+        "encrypted_payload": encrypted_payload,
+        "text": text,
+        "created_at": time.time(),
+    }
+    queue = _chat_queues.setdefault(session_id, [])
+    queue.append(message)
+    _chat_queues[session_id] = queue[-_CHAT_QUEUE_MAX:]
+    audit_chat_sent(
+        session_id=session_id,
+        sender_user_id=user_id,
+        message_id=message_id,
+        is_encrypted=bool(encrypted_payload),
+    )
+    return jsonify({"ok": True, "data": {"id": message_id}, "blocked": False}), 201
+
+
+@share_sessions_bp.route("/share-sessions/<session_id>/chat/messages", methods=["GET"])
+@check_user_auth
+def list_share_chat_messages(session_id: str):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({"error": "not_authenticated"}), 401
+    service = get_share_session_service()
+    session_item = service.get_session(session_id)
+    if not isinstance(session_item, dict):
+        return jsonify({"error": "session_not_found"}), 404
+    if not _is_session_active(session_item):
+        return jsonify({"error": "session_not_active"}), 403
+    if not _is_active_participant(session_id=session_id, user_id=user_id, session_item=session_item):
+        return jsonify({"error": "not_a_participant"}), 403
+    if not _rate_limiter.allow_request(
+        namespace=_CHAT_POLL_RATE["namespace"],
+        subject=user_id,
+        limit=_CHAT_POLL_RATE["limit"],
+        window_seconds=_CHAT_POLL_RATE["window_seconds"],
+    ):
+        return jsonify({"error": "rate_limited"}), 429
+
+    messages = list(_chat_queues.get(session_id) or [])
+    since = str(request.args.get("since") or "").strip()
+    if since:
+        for index, message in enumerate(messages):
+            if str(message.get("id") or "") == since:
+                messages = messages[index + 1 :]
+                break
+    messages = messages[-100:]
+    cursor = str(messages[-1].get("id") or since) if messages else since
+    return jsonify({"ok": True, "messages": messages, "cursor": cursor}), 200
 
 
 @share_sessions_bp.route("/share-sessions/<session_id>/participants/<participant_id>", methods=["DELETE"])
@@ -260,4 +436,5 @@ def revoke_share_session_participant(session_id: str, participant_id: str):
             "actor_user_id": user_id,
         },
     )
+    audit_participant_revoked(session_id=session_id, participant_id=participant_id, actor_user_id=user_id)
     return jsonify({"ok": True, "data": participant}), 200

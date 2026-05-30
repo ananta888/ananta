@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "public_ananta_rendezvous_defaults_keycloak_webrtc",
   "created": "2026-05-30",
-  "status": "in_progress",
+  "status": "done",
   "priority": "P0",
   "purpose": "Ananta soll optional vordefinierte öffentliche Rendezvous-Endpunkte nutzen können, damit frisch geklonte/gehostete Repos weltweit Teilnehmer über bekannte Ananta-Dienste verbinden können: Keycloak/OIDC für Identität und Ananta Hub/WebRTC-Signaling für Discovery, Invite, Signaling und Fallback-Relay.",
   "important_security_position": {
@@ -192,7 +192,7 @@
           "status": "done",
           "files": [
             "schemas/tui/share_invite.v1.json",
-            "docs/operator-tui-public-rendezvous.md",
+            "docs/ops/public-ananta-test-rendezvous.md",
             "client_surfaces/operator_tui/share_invite.py"
           ],
           "acceptance_criteria": [
@@ -228,16 +228,17 @@
       "id": "PRD04",
       "title": "WebRTC Signaling und TURN-Fallback",
       "priority": "P1",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "PRD04.01",
           "title": "WebRTC Signaling über webrtc.ananta.de implementieren",
           "type": "webrtc_signaling",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/routes/webrtc_signaling.py",
             "client_surfaces/operator_tui/webrtc_transport.py",
+            "tests/operator_tui/test_share_client.py",
             "tests/test_webrtc_signaling.py"
           ],
           "acceptance_criteria": [
@@ -253,9 +254,9 @@
           "id": "PRD04.02",
           "title": "TURN-Konzept für coturn auf webrtc.ananta.de dokumentieren",
           "type": "ops_security",
-          "status": "open",
+          "status": "done",
           "files": [
-            "docs/ops/public-rendezvous-coturn.md",
+            "docs/ops/public-ananta-test-rendezvous.md",
             "docker-compose.public-rendezvous.yml"
           ],
           "acceptance_criteria": [
@@ -281,9 +282,9 @@
           "status": "done",
           "files": [
             "client_surfaces/operator_tui/share_crypto.py",
-            "client_surfaces/operator_tui/share_view_transport.py",
+            "client_surfaces/operator_tui/webrtc_transport.py",
             "client_surfaces/operator_tui/chat_transport.py",
-            "tests/operator_tui/test_public_rendezvous_e2e_encryption.py"
+            "tests/e2e/test_public_rendezvous_profile.py"
           ],
           "acceptance_criteria": [
             "Bei public-ananta Profil ist E2E-Payload-Verschlüsselung Pflicht.",
@@ -301,6 +302,8 @@
           "files": [
             "agent/services/rate_limit_service.py",
             "agent/routes/rendezvous.py",
+            "agent/routes/share_sessions.py",
+            "agent/routes/webrtc_signaling.py",
             "docs/ops/public-rendezvous-abuse-handling.md"
           ],
           "acceptance_criteria": [
@@ -325,7 +328,6 @@
           "type": "e2e_test",
           "status": "done",
           "files": [
-            "scripts/e2e/public_rendezvous_profile_smoke.py",
             "tests/e2e/test_public_rendezvous_profile.py"
           ],
           "acceptance_criteria": [
