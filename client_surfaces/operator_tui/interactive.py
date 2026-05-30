@@ -284,15 +284,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
         @bindings.add(":")
         def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command(":")
+                return
             if self._snake_message_mode_active():
                 self._snake_message_append(":")
                 return
-            if self._chat_focus_active():
-                self._chat_append(":")
+            if self._snake_mode_active():
+                self._enter_command_mode_from_anywhere()
                 return
             # Snake mode does NOT block `:` — commands must remain reachable at all times.
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command(":")
+            if self._chat_focus_active():
+                self._chat_append(":")
                 return
             self._open_command_mode()
 
@@ -738,6 +741,14 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("<any>")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self.state.mode is OperatorMode.COMMAND:
+                data = event.key_sequence[0].data
+                if data in {"\b", "\x7f"}:
+                    self._command_backspace()
+                    return
+                if data and data.isprintable():
+                    self._append_command(data)
+                return
             if self._artifact_chat_focus_active():
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
@@ -759,14 +770,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
                     self._ai_snake_config_combo_append_filter(data)
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                data = event.key_sequence[0].data
-                if data in {"\b", "\x7f"}:
-                    self._command_backspace()
-                    return
-                if data and data.isprintable():
-                    self._append_command(data)
                 return
             if self._snake_message_mode_active():
                 data = event.key_sequence[0].data
@@ -2225,6 +2228,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _handle_enter_key(self) -> None:
         game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+        if self.state.mode is OperatorMode.COMMAND:
+            self._command_commit_history()
+            self._run_command(self._command_buffer)
+            return
         if self._artifact_chat_focus_active():
             self._artifact_chat_send_message()
             return
@@ -2304,10 +2311,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             ts_raw = game.get("tutorial_state")
             if isinstance(ts_raw, dict) and ts_raw.get("guided"):
                 self._advance_guided_tour_now()
-            return
-        if self.state.mode is OperatorMode.COMMAND:
-            self._command_commit_history()
-            self._run_command(self._command_buffer)
             return
         if self.state.focus is FocusPane.HEADER:
             from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, cycle_value
