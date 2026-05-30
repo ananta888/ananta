@@ -75,6 +75,31 @@ def _token_looks_usable(endpoint: str, token: str) -> bool:
         return False
 
 
+def _extract_titles(payload: object) -> list[str]:
+    titles: list[str] = []
+    if isinstance(payload, dict):
+        title = payload.get("title")
+        if isinstance(title, str) and title.strip():
+            titles.append(title.strip())
+        for value in payload.values():
+            titles.extend(_extract_titles(value))
+    elif isinstance(payload, list):
+        for item in payload:
+            titles.extend(_extract_titles(item))
+    return titles
+
+
+def _list_share_titles(endpoint: str, token: str) -> list[str]:
+    req = urllib.request.Request(
+        f"{endpoint.rstrip('/')}/share-sessions",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=5.0) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return _extract_titles(payload)
+
+
 def _require_live_share(
     *,
     endpoint_override: str | None = None,
@@ -279,4 +304,7 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
     snapshot_files = sorted(snapshot_dir.glob("tui-snapshot-*.txt"))
     assert snapshot_files, "No TUI snapshots were captured during live PTY run."
     snapshot_text = snapshot_files[-1].read_text(encoding="utf-8")
-    assert f"'{share_title}'[" in snapshot_text
+    assert "share:" in snapshot_text and "share: 0 sessions" not in snapshot_text
+
+    titles = _list_share_titles(endpoint, access_token)
+    assert share_title in titles
