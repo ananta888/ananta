@@ -178,6 +178,28 @@ class RendezvousService:
             del _invite_codes[code]
         return {"ok": True}
 
+    def list_sessions_for_user(self, *, requester_user_id: str) -> list[dict[str, Any]]:
+        now = _now()
+        out: list[dict[str, Any]] = []
+        for sid, session in list(_sessions.items()):
+            if session.get("revoked_at") is not None:
+                continue
+            if float(session.get("expires_at") or 0) < now:
+                continue
+            parts = _participants.get(sid, [])
+            is_member = session.get("owner_user_id") == requester_user_id or any(
+                p.get("user_id") == requester_user_id and not p.get("revoked_at")
+                for p in parts
+            )
+            if not is_member:
+                continue
+            snap = dict(session)
+            snap["participants"] = [dict(p) for p in parts if not p.get("revoked_at")]
+            snap["participant_count"] = len(snap["participants"])
+            out.append(snap)
+        out.sort(key=lambda s: float(s.get("created_at") or 0), reverse=True)
+        return out
+
     def touch_participant(self, *, session_id: str, user_id: str) -> None:
         for p in _participants.get(session_id, []):
             if p.get("user_id") == user_id and not p.get("revoked_at"):

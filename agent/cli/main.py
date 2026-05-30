@@ -40,6 +40,7 @@ DOMAIN_COMMANDS = (
     "rag",
     "repair",
     "dev",
+    "share",
 )
 
 

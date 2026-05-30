@@ -3747,10 +3747,24 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
 
     if sub == "help":
         msg = (
-            "share: status | create [title] | invite | join <code> | "
+            "share: status | list | create [title] | invite | join <code> | "
             "key generate | key show | key rotate | view on|off | stop"
         )
         return CommandResult(state.with_updates(status_message=msg), "share help")
+
+    if sub == "list":
+        game = dict(state.header_logo_game or {})
+        game["share_pending_action"] = {"action": "list"}
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                section_id="share",
+                status_message="Sessions werden abgerufen…",
+            ),
+            "share list",
+        )
 
     if sub == "create":
         title = " ".join(args[1:]).strip() or "Shared Session"
@@ -3857,7 +3871,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
             "share stop",
         )
 
-    msg = "share: status | create | invite | join <code> | key generate|show|rotate | view on|off | stop"
+    msg = "share: status | list | create [title] | invite | join <code> | key generate|show|rotate | view on|off | stop"
     return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
 
 

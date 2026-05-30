@@ -787,6 +787,8 @@ class SnakeTickMixin:
             view_enabled = bool(action_info.get("view_tui"))
             if session_id:
                 _bg.submit(self._share_action_set_view, game, oidc_token, endpoint, session_id, view_enabled)
+        elif action == "list":
+            _bg.submit(self._share_action_list, game, oidc_token, endpoint)
         elif action == "stop":
             session_id = str((game.get("share_active_session") or {}).get("id") or "")
             if session_id:
@@ -831,6 +833,31 @@ class SnakeTickMixin:
                 game["share_status_message"] = f"Session-Erstellung fehlgeschlagen: {result.get('error', result)}"
         except Exception as exc:
             game["share_status_message"] = f"Fehler beim Erstellen: {exc}"
+
+    def _share_action_list(self, game: dict, token: str, endpoint: str) -> None:
+        from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
+        from client_surfaces.operator_tui.share_client import list_sessions
+        try:
+            if is_public_profile_active() and token:
+                sessions = list_sessions(token=token, base_url=rendezvous_base_url())
+            elif token and endpoint:
+                sessions = list_sessions(token=token, base_url=endpoint)
+            else:
+                game["share_status_message"] = "Nicht eingeloggt. :oidc login zuerst."
+                return
+            if not sessions:
+                game["share_status_message"] = "Keine aktiven Sessions."
+            else:
+                parts = []
+                for s in sessions[:5]:
+                    title = str(s.get("title") or "Session")[:20]
+                    sid = str(s.get("id") or "")[:8]
+                    pcount = len(s.get("participants") or [])
+                    parts.append(f"'{title}'[{sid}] {pcount}P")
+                suffix = f" (+{len(sessions) - 5} weitere)" if len(sessions) > 5 else ""
+                game["share_status_message"] = f"{len(sessions)} Session(s): {', '.join(parts)}{suffix}"
+        except Exception as exc:
+            game["share_status_message"] = f"Fehler beim Laden der Sessions: {exc}"
 
     def _share_action_join(self, game: dict, token: str, endpoint: str, invite_code: str) -> None:
         from client_surfaces.operator_tui.device_keys import get_device_key_manager

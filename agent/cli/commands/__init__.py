@@ -18,6 +18,7 @@ from agent.cli.commands import (
     rag,
     repair,
     runtime,
+    share,
     task,
     worker,
 )
@@ -35,6 +36,7 @@ DOMAIN_MODULES = {
     "repair": repair,
     "prompt": prompt,
     "dev": dev,
+    "share": share,
 }
 
 __all__ = ["DOMAIN_MODULES"]
