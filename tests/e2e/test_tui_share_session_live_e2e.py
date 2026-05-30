@@ -5,6 +5,7 @@ import os
 import re
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -98,6 +99,60 @@ def _list_share_titles(endpoint: str, token: str) -> list[str]:
     with urllib.request.urlopen(req, timeout=5.0) as response:
         payload = json.loads(response.read().decode("utf-8"))
     return _extract_titles(payload)
+
+
+def _list_rendezvous_titles(base_url: str, token: str) -> list[str]:
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/rendezvous/sessions",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=5.0) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict):
+        return []
+    items = list(payload.get("data") or payload.get("items") or [])
+    titles: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        if title:
+            titles.append(title)
+    return titles
+
+
+def _issue_oidc_password_token(
+    *,
+    issuer: str,
+    client_id: str,
+    username: str,
+    password: str,
+    client_secret: str = "",
+) -> str:
+    token_url = f"{issuer.rstrip('/')}/protocol/openid-connect/token"
+    form: dict[str, str] = {
+        "grant_type": "password",
+        "client_id": client_id,
+        "username": username,
+        "password": password,
+        "scope": "openid profile email",
+    }
+    if client_secret:
+        form["client_secret"] = client_secret
+    body = urllib.parse.urlencode(form).encode("utf-8")
+    req = urllib.request.Request(
+        token_url,
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=10.0) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    token = str(payload.get("access_token") or "").strip()
+    if not token:
+        raise RuntimeError("OIDC token endpoint did not return access_token")
+    return token
 
 
 def _require_live_share(
@@ -225,11 +280,56 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
 
 
 def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share_hub_endpoint: str) -> None:
-    endpoint, access_token = _require_live_share(
-        endpoint_override=live_share_hub_endpoint,
-        username_override="admin",
-        password_override="admin",
-    )
+    use_public_oidc = os.environ.get("ANANTA_TUI_E2E_USE_PUBLIC_OIDC", "").strip().lower() in {"1", "true", "yes", "on"}
+    public_rendezvous_for_assert = ""
+    if use_public_oidc:
+        endpoint = str(
+            os.environ.get("ANANTA_TUI_E2E_SHARE_ENDPOINT")
+            or os.environ.get("ANANTA_ENDPOINT")
+            or live_share_hub_endpoint
+        ).strip()
+        public_rendezvous_for_assert = str(
+            os.environ.get("ANANTA_TUI_E2E_RENDEZVOUS_URL")
+            or os.environ.get("ANANTA_RENDEZVOUS_URL")
+            or "https://webrtc.ananta.de"
+        ).strip()
+        access_token = str(os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
+        if not access_token:
+            issuer = str(
+                os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
+                or os.environ.get("ANANTA_OIDC_ISSUER")
+                or ""
+            ).strip()
+            username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "").strip()
+            password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
+            client_id = str(
+                os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID")
+                or os.environ.get("ANANTA_OIDC_CLIENT_ID")
+                or "ananta-tui"
+            ).strip()
+            client_secret = str(os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_SECRET") or "").strip()
+            if not (issuer and username and password):
+                pytest.skip(
+                    "Public OIDC E2E needs ANANTA_TUI_E2E_OIDC_ISSUER, "
+                    "ANANTA_TUI_E2E_OIDC_USERNAME, ANANTA_TUI_E2E_OIDC_PASSWORD "
+                    "or a pre-issued ANANTA_TUI_E2E_OIDC_TOKEN."
+                )
+            try:
+                access_token = _issue_oidc_password_token(
+                    issuer=issuer,
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    username=username,
+                    password=password,
+                )
+            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, RuntimeError, ValueError) as exc:
+                pytest.skip(f"Public OIDC login failed: {exc}")
+    else:
+        endpoint, access_token = _require_live_share(
+            endpoint_override=live_share_hub_endpoint,
+            username_override="admin",
+            password_override="admin",
+        )
     share_title = "e2e-live-share"
     snapshot_dir = tmp_path / "tui-snapshots"
 
@@ -239,8 +339,15 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
     original_snapshot_dir = os.environ.get("ANANTA_TUI_SNAPSHOT_DIR")
     original_password = os.environ.get("ANANTA_PASSWORD")
     original_access_token = os.environ.get("ANANTA_AUTH_TOKEN")
+    original_public_oidc_token = os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN")
     original_share_cast_width = os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_WIDTH")
     original_share_cast_height = os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT")
+    original_network_profile = os.environ.get("ANANTA_NETWORK_PROFILE")
+    original_public_rdv_enabled = os.environ.get("ANANTA_PUBLIC_RENDEZVOUS_ENABLED")
+    original_rendezvous = os.environ.get("ANANTA_RENDEZVOUS_URL")
+    original_signaling = os.environ.get("ANANTA_SIGNALING_URL")
+    original_oidc_issuer = os.environ.get("ANANTA_OIDC_ISSUER")
+    original_oidc_client_id = os.environ.get("ANANTA_OIDC_CLIENT_ID")
     try:
         os.environ["ANANTA_TUI_E2E_CAST_SECONDS"] = "40"
         os.environ["ANANTA_TUI_E2E_SHARE_CAST_WIDTH"] = "200"
@@ -248,8 +355,21 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
         os.environ["ANANTA_TUI_E2E_SHARE_ENDPOINT"] = endpoint
         os.environ["ANANTA_TUI_E2E_SHARE_TITLE"] = share_title
         os.environ["ANANTA_TUI_SNAPSHOT_DIR"] = str(snapshot_dir)
-        os.environ["ANANTA_AUTH_TOKEN"] = access_token
-        os.environ.pop("ANANTA_PASSWORD", None)
+        if use_public_oidc:
+            os.environ["ANANTA_TUI_E2E_OIDC_TOKEN"] = access_token
+            os.environ["ANANTA_NETWORK_PROFILE"] = "public-ananta"
+            os.environ["ANANTA_PUBLIC_RENDEZVOUS_ENABLED"] = "true"
+            if os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER"):
+                os.environ["ANANTA_OIDC_ISSUER"] = str(os.environ["ANANTA_TUI_E2E_OIDC_ISSUER"])
+            if os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID"):
+                os.environ["ANANTA_OIDC_CLIENT_ID"] = str(os.environ["ANANTA_TUI_E2E_OIDC_CLIENT_ID"])
+            if os.environ.get("ANANTA_TUI_E2E_RENDEZVOUS_URL"):
+                os.environ["ANANTA_RENDEZVOUS_URL"] = str(os.environ["ANANTA_TUI_E2E_RENDEZVOUS_URL"])
+            if os.environ.get("ANANTA_TUI_E2E_SIGNALING_URL"):
+                os.environ["ANANTA_SIGNALING_URL"] = str(os.environ["ANANTA_TUI_E2E_SIGNALING_URL"])
+        else:
+            os.environ["ANANTA_AUTH_TOKEN"] = access_token
+            os.environ.pop("ANANTA_PASSWORD", None)
         payload = record_tui_demo(
             run_id="video-enable-share-session-live-e2e-real",
             flow_id="tui-share-session-live-e2e-video",
@@ -281,6 +401,10 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
             os.environ.pop("ANANTA_AUTH_TOKEN", None)
         else:
             os.environ["ANANTA_AUTH_TOKEN"] = original_access_token
+        if original_public_oidc_token is None:
+            os.environ.pop("ANANTA_TUI_E2E_OIDC_TOKEN", None)
+        else:
+            os.environ["ANANTA_TUI_E2E_OIDC_TOKEN"] = original_public_oidc_token
         if original_share_cast_width is None:
             os.environ.pop("ANANTA_TUI_E2E_SHARE_CAST_WIDTH", None)
         else:
@@ -289,6 +413,30 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
             os.environ.pop("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT", None)
         else:
             os.environ["ANANTA_TUI_E2E_SHARE_CAST_HEIGHT"] = original_share_cast_height
+        if original_network_profile is None:
+            os.environ.pop("ANANTA_NETWORK_PROFILE", None)
+        else:
+            os.environ["ANANTA_NETWORK_PROFILE"] = original_network_profile
+        if original_public_rdv_enabled is None:
+            os.environ.pop("ANANTA_PUBLIC_RENDEZVOUS_ENABLED", None)
+        else:
+            os.environ["ANANTA_PUBLIC_RENDEZVOUS_ENABLED"] = original_public_rdv_enabled
+        if original_rendezvous is None:
+            os.environ.pop("ANANTA_RENDEZVOUS_URL", None)
+        else:
+            os.environ["ANANTA_RENDEZVOUS_URL"] = original_rendezvous
+        if original_signaling is None:
+            os.environ.pop("ANANTA_SIGNALING_URL", None)
+        else:
+            os.environ["ANANTA_SIGNALING_URL"] = original_signaling
+        if original_oidc_issuer is None:
+            os.environ.pop("ANANTA_OIDC_ISSUER", None)
+        else:
+            os.environ["ANANTA_OIDC_ISSUER"] = original_oidc_issuer
+        if original_oidc_client_id is None:
+            os.environ.pop("ANANTA_OIDC_CLIENT_ID", None)
+        else:
+            os.environ["ANANTA_OIDC_CLIENT_ID"] = original_oidc_client_id
 
     assert payload["status"] == "recorded"
     video_path = _resolve_ref(payload["video_ref"])
@@ -308,5 +456,8 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
     assert "Share / Teilnehmer" in snapshot_text
     assert ". Artifacts" not in snapshot_text and ". Knowledge" not in snapshot_text
 
-    titles = _list_share_titles(endpoint, access_token)
+    if use_public_oidc:
+        titles = _list_rendezvous_titles(public_rendezvous_for_assert, access_token)
+    else:
+        titles = _list_share_titles(endpoint, access_token)
     assert share_title in titles
