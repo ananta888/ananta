@@ -4528,6 +4528,35 @@ def test_template_editor_click_sets_cursor_position(monkeypatch) -> None:
     assert int(editor.get("cursor") or -1) == 9
 
 
+def test_mouse_drag_selection_works_in_middle_content_without_snake_mode(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
+        lambda fallback=(120, 32): os.terminal_size((120, 33)),
+    )
+    state = OperatorState(endpoint="http://localhost:5000", section_id="dashboard", focus=FocusPane.CONTENT)
+    tui = InteractiveOperatorTui(
+        state,
+        registry=SectionAdapterRegistry(
+            loader=lambda section_id: SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+        ),
+    )
+
+    tui._ingest_mouse_event(x=28, y=12, event_type="down", buttons=1, now=1.0)
+    tui._ingest_mouse_event(x=36, y=14, event_type="move", buttons=1, now=1.1)
+    tui._ingest_mouse_event(x=36, y=14, event_type="up", buttons=1, now=1.2)
+
+    game = dict(tui.state.header_logo_game or {})
+    cells = {
+        (int(cell[0]), int(cell[1]))
+        for cell in (game.get("selection_cells") or [])
+        if isinstance(cell, (list, tuple)) and len(cell) == 2
+    }
+    assert (28, 12) in cells
+    assert (36, 14) in cells
+    assert (30, 13) in cells
+    assert tuple(game.get("selection_regions") or [None])[0] == (28, 12, 36, 14)
+
+
 def test_template_editor_highlights_template_variables(monkeypatch) -> None:
     payload = {
         "items": [{"id": "tpl:a", "kind": "template", "title": "vars", "prompt_preview": "vars", "raw_id": "a"}],

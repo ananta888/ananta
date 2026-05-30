@@ -151,6 +151,7 @@ class MouseArtifactMixin:
 
         mouse_selection_handled = self._handle_mouse_selection_event(
             game,
+            target=target,
             x=self._mouse_state.x,
             y=self._mouse_state.y,
             event_type=event_type,
@@ -383,12 +384,14 @@ class MouseArtifactMixin:
         self,
         game: dict[str, object],
         *,
+        target: RegionTarget | None,
         x: int,
         y: int,
         event_type: str,
         buttons: int,
     ) -> bool:
-        if not self._snake_mode_active(game):
+        selection_enabled = self._snake_mode_active(game) or (target is not None and target.pane == "content")
+        if not selection_enabled:
             return False
         if event_type == "down" and buttons == 3:
             self._snake_copy_selection_to_game(game)
