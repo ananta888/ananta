@@ -35,8 +35,9 @@ def extract_click_command(rendered_line: str, *, x: int | None = None) -> str | 
     matches = list(_BTN_PATTERN.finditer(plain))
     if x is None:
         return matches[0].group(1).strip() if matches else None
-    for match in matches:
-        if match.start() <= x < match.end():
+    for index, match in enumerate(matches):
+        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(plain)
+        if match.start() <= x < next_start:
             return match.group(1).strip()
     return None
 

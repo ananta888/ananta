@@ -40,7 +40,9 @@ def test_extract_click_command_view_on():
 def test_extract_click_command_uses_click_column_for_multiple_buttons():
     line = "  [▶ :share view on] TUI-View freigeben  [▶ :share view off] View sperren"
     assert extract_click_command(line, x=line.index(":share view on")) == ":share view on"
+    assert extract_click_command(line, x=line.index("TUI-View")) == ":share view on"
     assert extract_click_command(line, x=line.index(":share view off")) == ":share view off"
+    assert extract_click_command(line, x=line.index("View sperren")) == ":share view off"
     assert extract_click_command(line, x=0) is None
 
 
