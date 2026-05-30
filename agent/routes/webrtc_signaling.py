@@ -24,9 +24,11 @@ webrtc_signaling_bp = Blueprint("webrtc_signaling", __name__)
 
 _rate_limiter = RateLimitService()
 _RATE_SIGNAL = {"namespace": "webrtc_signal", "limit": 30, "window_seconds": 10}
+_RATE_POLL = {"namespace": "webrtc_signal_poll", "limit": 120, "window_seconds": 10}
 
 _MAX_SIGNAL_BYTES = 8 * 1024  # 8 KB pro Signal
 _MAX_QUEUE_DEPTH = 20
+_MAX_SIGNAL_AGE_SECONDS = 60.0
 
 _signal_queues: dict[str, list[dict[str, Any]]] = defaultdict(list)  # session_id:user_id -> signals
 
@@ -44,6 +46,11 @@ def _is_authorized_participant(session_id: str, user_id: str) -> bool:
     service = get_share_session_service()
     session = service.get_session(session_id)
     if not session:
+        return False
+    if session.get("revoked_at") is not None:
+        return False
+    expires_at = session.get("expires_at")
+    if isinstance(expires_at, (int, float)) and float(expires_at) <= time.time():
         return False
     if str(session.get("owner_user_id") or "") == user_id:
         return True
@@ -89,6 +96,7 @@ def send_signal(session_id: str):
     key = _queue_key(session_id, recipient_id)
     _signal_queues[key].append(entry)
     _signal_queues[key] = _signal_queues[key][-_MAX_QUEUE_DEPTH:]
+    log_audit("webrtc_signal_sent", {"session_id": session_id, "sender_id": sender_id, "recipient_id": recipient_id, "type": signal_type})
     return jsonify({"ok": True, "signal_id": entry["id"]}), 201
 
 
@@ -99,9 +107,15 @@ def poll_signals(session_id: str):
     user_id = _current_user_id()
     if not user_id:
         return jsonify({"error": "not_authenticated"}), 401
+    if not _rate_limiter.allow_request(namespace=_RATE_POLL["namespace"], subject=user_id, limit=_RATE_POLL["limit"], window_seconds=_RATE_POLL["window_seconds"]):
+        return jsonify({"error": "rate_limited"}), 429
     if not _is_authorized_participant(session_id, user_id):
         return jsonify({"error": "forbidden"}), 403
     key = _queue_key(session_id, user_id)
-    signals = list(_signal_queues.get(key) or [])
+    now = time.time()
+    signals = [
+        s for s in list(_signal_queues.get(key) or [])
+        if now - float(s.get("sent_at") or 0.0) <= _MAX_SIGNAL_AGE_SECONDS
+    ]
     _signal_queues[key] = []  # consume
     return jsonify({"ok": True, "data": {"signals": signals}}), 200

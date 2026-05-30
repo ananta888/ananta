@@ -30,3 +30,16 @@ def test_join_session_sends_device_id_and_fingerprint(monkeypatch):
         "device_id": "fp-1",
         "device_fingerprint": "fp-1",
     }
+
+
+def test_webrtc_transport_falls_back_to_hub_relay_without_aiortc(monkeypatch):
+    from client_surfaces.operator_tui.webrtc_transport import WebRtcTransport
+
+    monkeypatch.setattr(WebRtcTransport, "_check_rtc", lambda self: False)
+    transport = WebRtcTransport(
+        hub_url="https://hub.example",
+        session_id="sess-1",
+        user_id="user-a",
+        token="tok",
+    )
+    assert transport.transport_mode == "hub_relay"

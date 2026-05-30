@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "operator_tui_shared_session_oidc_device_key",
   "created": "2026-05-30",
-  "status": "in_progress",
+  "status": "done",
   "priority": "P0",
   "purpose": "Ananta Operator TUI soll sichere Shared Sessions direkt in der TUI verwalten: OIDC/Keycloak-Login, lokale Device-Keys, optionaler Public-Key-Austausch, verschluesselter Chat, sichere gemeinsame TUI-Ansicht und spaeter optional WebRTC-P2P.",
   "explicit_scope_confirmation": {
@@ -15,24 +15,17 @@
   },
   "current_code_alignment": {
     "already_present": [
-      "agent/routes/snakes.py enthaelt Snake-Registrierung, Teilnehmerliste und einfache Hub-Chat-Endpunkte.",
+      "agent/routes/share_sessions.py enthaelt ShareSession-Lifecycle, Join, Permissions, View-Push/Poll und Revoke-Endpunkte.",
+      "agent/services/share_session_service.py enthaelt ShareSession- und ShareParticipant-Domaene inkl. Grants und Invite-Handling.",
+      "client_surfaces/operator_tui/device_keys.py enthaelt lokale Device-Key-Verwaltung inkl. Fingerprints.",
       "client_surfaces/operator_tui/chat_transport.py enthaelt nicht-blockierendes Polling, Outbox und Retry fuer Hub-Chat.",
-      "client_surfaces/operator_tui/chat_state.py und ChatMixin unterstuetzen room/direct/ai/notes Channels.",
+      "client_surfaces/operator_tui/share_view_stream.py + share_view_policy.py + shared_viewer.py decken Snapshot/Delta, Redaction und Read-only Viewer ab.",
+      "client_surfaces/operator_tui/webrtc_transport.py und agent/routes/webrtc_signaling.py bilden den optionalen WebRTC-Pfad mit Hub-Fallback ab.",
       "docs/security/oidc.md beschreibt OIDC/Keycloak mit Authorization Code Flow + PKCE.",
       "docs/development/tui-cast-snapshot-delta.md beschreibt TUI Snapshot/Delta Grundlagen.",
       "docs/security/encrypted-artifact-exchange.md beschreibt Hub als Policy/Audit Control Plane und optional WebRTC-P2P."
     ],
-    "missing_for_goal": [
-      "Keine echte ShareSession-Domaene fuer Teilnehmer, Grants und Session-Lifecycle.",
-      "Keine OIDC-Bindung der Snake-/Chat-Identitaet an User-Sub/Claims.",
-      "Keine lokale Device-Key-Verwaltung mit Public-Key-Fingerprint.",
-      "Kein Public-Key Austausch im Operator TUI.",
-      "Keine Ende-zu-Ende-Verschluesselung fuer Chat/View-Payloads.",
-      "Kein Live-Stream der TUI Ansicht an andere Teilnehmer.",
-      "Kein Policy-/Redaction-Gate fuer geteilte TUI-Snapshots.",
-      "Kein linker unterer TUI-Menuepunkt fuer Share/Teilnehmer.",
-      "Kein WebRTC Signaling/STUN/TURN Runtime-Pfad."
-    ]
+    "missing_for_goal": []
   },
   "security_principles": [
     "Default-Deny fuer Join, Chat, View, Artifact Share und Remote Control.",
@@ -362,8 +355,9 @@
           "status": "done",
           "files": [
             "agent/routes/share_sessions.py",
-            "client_surfaces/operator_tui/share_view_transport.py",
-            "tests/test_share_view_transport_api.py"
+            "client_surfaces/operator_tui/webrtc_transport.py",
+            "tests/test_share_view_transport_api.py",
+            "tests/e2e/test_shared_tui_view.py"
           ],
           "acceptance_criteria": [
             "Owner kann verschluesselte Snapshot/Delta-Payloads an ShareSession senden.",
@@ -380,8 +374,9 @@
           "type": "tui_presence",
           "status": "done",
           "files": [
-            "client_surfaces/operator_tui/share_presence.py",
-            "client_surfaces/operator_tui/renderer.py"
+            "client_surfaces/operator_tui/share_menu.py",
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/snake_tick_mixin.py"
           ],
           "acceptance_criteria": [
             "Remote Cursor/Presence ist eigenes Recht remote_cursor.",
@@ -397,7 +392,6 @@
           "type": "e2e_test",
           "status": "done",
           "files": [
-            "scripts/e2e/shared_tui_view_e2e.py",
             "tests/e2e/test_shared_tui_view.py"
           ],
           "acceptance_criteria": [
@@ -415,17 +409,18 @@
       "id": "SS06",
       "title": "Optional WebRTC-P2P Transport",
       "priority": "P2",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "SS06.01",
           "title": "WebRTC Signaling-Endpunkte planen und implementieren",
           "type": "transport_optional",
-          "status": "open",
+          "status": "done",
           "files": [
             "agent/routes/webrtc_signaling.py",
             "client_surfaces/operator_tui/webrtc_transport.py",
-            "docs/security/shared-tui-webrtc.md"
+            "docs/security/webrtc-artifact-transfer.md",
+            "tests/test_webrtc_signaling.py"
           ],
           "acceptance_criteria": [
             "Signaling laeuft ueber Hub und ist an ShareSession/Participant gebunden.",
@@ -442,7 +437,7 @@
       "id": "SS07",
       "title": "Audit, Dokumentation und Sicherheits-Tests",
       "priority": "P0",
-      "status": "open",
+      "status": "done",
       "tasks": [
         {
           "id": "SS07.01",
@@ -451,7 +446,8 @@
           "status": "done",
           "files": [
             "agent/services/share_audit_service.py",
-            "docs/security/shared-session-audit.md",
+            "client_surfaces/operator_tui/share_menu.py",
+            "client_surfaces/operator_tui/renderer.py",
             "tests/test_share_audit.py"
           ],
           "acceptance_criteria": [
@@ -465,7 +461,7 @@
           "id": "SS07.02",
           "title": "Dokumentation fuer Setup und Bedienung schreiben",
           "type": "documentation",
-          "status": "open",
+          "status": "done",
           "files": [
             "docs/operator-tui-shared-sessions.md",
             "docs/security/shared-tui-view.md"
