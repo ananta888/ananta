@@ -3770,9 +3770,13 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
 
     if sub == "invite":
         game = dict(state.header_logo_game or {})
-        invite_code = str((game.get("share_active_session") or {}).get("invite_code") or "")
+        session = dict(game.get("share_active_session") or {})
+        invite_code = str(session.get("invite_code") or session.get("short_code") or "")
+        invite_link = str(session.get("invite_link") or "")
         if invite_code:
             msg = f"Invite-Code: {invite_code}"
+            if invite_link:
+                msg = f"{msg}  Link: {invite_link}"
         else:
             msg = "Keine aktive Share-Session. :share create zuerst."
         return CommandResult(state.with_updates(status_message=msg, section_id="share"), msg)

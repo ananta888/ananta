@@ -29,11 +29,16 @@ def _btn(cmd: str, label: str | None = None) -> str:
     return f"\x1b[36m[▶ {cmd}]\x1b[0m \x1b[90m{display}\x1b[0m"
 
 
-def extract_click_command(rendered_line: str) -> str | None:
-    """Extrahiert :command aus einer Button-Zeile. None wenn keine gefunden."""
+def extract_click_command(rendered_line: str, *, x: int | None = None) -> str | None:
+    """Extrahiert :command aus einer Button-Zeile. None wenn kein Button getroffen wurde."""
     plain = _ANSI.sub("", rendered_line)
-    m = _BTN_PATTERN.search(plain)
-    return m.group(1).strip() if m else None
+    matches = list(_BTN_PATTERN.finditer(plain))
+    if x is None:
+        return matches[0].group(1).strip() if matches else None
+    for match in matches:
+        if match.start() <= x < match.end():
+            return match.group(1).strip()
+    return None
 
 
 def build_share_section_lines(
@@ -106,7 +111,7 @@ def build_share_section_lines(
             title = str(s.get("title") or "Session")[:_W - 22]
             sid = str(s.get("id") or "")[:8]
             pcount = len(s.get("participants") or [])
-            perms = s.get("permissions") or {}
+            perms = s.get("permissions") or s.get("allowed_permissions") or {}
             view_flag = " \x1b[32m[view]\x1b[0m" if perms.get("view_tui") else ""
             lines.append(f"    \x1b[1m{title}\x1b[0m \x1b[90m[{sid}] {pcount} Teilnehmer{view_flag}\x1b[0m")
         lines.append(f"  {_btn(':share invite', 'Invite-Code anzeigen')}")

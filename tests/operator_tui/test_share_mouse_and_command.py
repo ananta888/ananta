@@ -37,6 +37,13 @@ def test_extract_click_command_view_on():
     assert extract_click_command(line) == ":share view on"
 
 
+def test_extract_click_command_uses_click_column_for_multiple_buttons():
+    line = "  [▶ :share view on] TUI-View freigeben  [▶ :share view off] View sperren"
+    assert extract_click_command(line, x=line.index(":share view on")) == ":share view on"
+    assert extract_click_command(line, x=line.index(":share view off")) == ":share view off"
+    assert extract_click_command(line, x=0) is None
+
+
 # ── share_menu enthält klickbare Buttons ──────────────────────────────────────
 
 def _plain_lines(payload=None, **kw) -> list[str]:

@@ -104,8 +104,11 @@ The rendezvous service (`public-rendezvous/rendezvous/`) is a standalone Flask/G
 | `GET /health` | Healthcheck |
 | `GET /info` | Öffentliche Service-Infos |
 | `POST /rendezvous/sessions` | Session erstellen (OIDC-Auth erforderlich) |
+| `GET /rendezvous/sessions` | Eigene/beitretene Sessions listen |
+| `POST /rendezvous/sessions/join` | Beitreten per Invite-Code ohne bekannte Session-ID |
 | `POST /rendezvous/sessions/<id>/join` | Beitreten per Invite-Code |
 | `GET /rendezvous/sessions/<id>/participants` | Presence für berechtigte Teilnehmer |
+| `PATCH /rendezvous/sessions/<id>/permissions` | Session-Rechte aktualisieren (Owner) |
 | `DELETE /rendezvous/sessions/<id>` | Session widerrufen (Owner) |
 | `GET /rendezvous/turn-credentials` | Kurzlebige TURN-Credentials (HMAC-SHA1) |
 | `POST /webrtc/sessions/<id>/signal` | SDP Offer/Answer, ICE Candidate senden |

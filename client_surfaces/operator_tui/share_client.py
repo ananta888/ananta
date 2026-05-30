@@ -67,6 +67,30 @@ def _delete(url: str, token: str, timeout: float = 5.0) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def _patch(url: str, body: dict[str, Any], token: str, timeout: float = 5.0) -> dict[str, Any]:
+    data = json.dumps(body).encode()
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="PATCH",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        try:
+            return json.loads(exc.read())
+        except Exception:
+            return {"ok": False, "error": f"http_{exc.code}"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def _base(base_url: str | None = None) -> str:
     return (base_url or rendezvous_base_url()).rstrip("/")
 
@@ -97,9 +121,13 @@ def join_session(
     invite_code: str,
     device_id: str = "",
     device_fingerprint: str = "",
+    session_id: str = "",
     base_url: str | None = None,
 ) -> dict[str, Any]:
-    url = f"{_base(base_url)}/rendezvous/sessions/join"
+    if session_id:
+        url = f"{_base(base_url)}/rendezvous/sessions/{session_id}/join"
+    else:
+        url = f"{_base(base_url)}/rendezvous/sessions/join"
     return _post(url, {
         "invite_code": invite_code,
         "device_id": device_id,
@@ -122,6 +150,17 @@ def get_participants(*, token: str, session_id: str, base_url: str | None = None
 def revoke_session(*, token: str, session_id: str, base_url: str | None = None) -> dict[str, Any]:
     url = f"{_base(base_url)}/rendezvous/sessions/{session_id}"
     return _delete(url, token)
+
+
+def update_session_permissions(
+    *,
+    token: str,
+    session_id: str,
+    permissions: dict[str, bool],
+    base_url: str | None = None,
+) -> dict[str, Any]:
+    url = f"{_base(base_url)}/rendezvous/sessions/{session_id}/permissions"
+    return _patch(url, {"permissions": permissions}, token)
 
 
 def get_turn_credentials(*, token: str, base_url: str | None = None) -> dict[str, Any] | None:
