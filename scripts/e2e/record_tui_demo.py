@@ -397,7 +397,11 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
     height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
     duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "52"))))
-    default_cmd = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
+    default_cmd = (
+        ".venv/bin/ananta tui --section share --focus navigation"
+        if Path(".venv/bin/ananta").exists()
+        else "ananta tui --section share --focus navigation"
+    )
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
     command = shlex.split(run_command)
     if not command:
@@ -596,7 +600,6 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
         or os.environ.get("ANANTA_HUB_URL")
         or "http://localhost:5000"
     ).strip()
-    share_title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "test").strip() or "test"
     env = dict(os.environ)
     env.setdefault("TERM", "xterm-256color")
     env.setdefault("COLORTERM", "truecolor")
@@ -610,24 +613,11 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env["ANANTA_TUI_SNAKE_MODE"] = "0"
     env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
     env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
+    env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
 
     script_actions: list[dict[str, object]] = [
-        {"at": 2.0, "send": b":"},
-        {"at": 2.3, "send": f"share create {share_title}".encode("utf-8")},
-        {"at": 3.7, "send": b"\r"},
-        {"at": 4.0, "send": b"\n"},
-        {"at": 8.5, "send": b":"},
-        {"at": 8.8, "send": b"share list"},
-        {"at": 10.1, "send": b"\r"},
-        {"at": 10.4, "send": b"\n"},
-        {"at": 14.5, "send": b":"},
-        {"at": 14.8, "send": b"share list"},
-        {"at": 16.1, "send": b"\r"},
-        {"at": 16.4, "send": b"\n"},
-        {"at": 21.5, "send": b":"},
-        {"at": 21.8, "send": b"share list"},
-        {"at": 23.1, "send": b"\r"},
-        {"at": 23.4, "send": b"\n"},
+        {"at": 31.7, "send": b"\x13"},  # Ctrl+S => snake mode on (for visible mode state near snapshot)
+        {"at": 31.7, "send": b"\x10"},  # Ctrl+P => immediately pause to avoid navigation jumps
         {"at": 32.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
         {"at": 38.0, "send": b"q"},
     ]

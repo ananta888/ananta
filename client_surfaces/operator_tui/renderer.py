@@ -33,6 +33,10 @@ if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
 
 
+def _share_only_nav_mode() -> bool:
+    return str(os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def render_operator_shell(
     state: OperatorState,
     *,
@@ -82,7 +86,7 @@ def render_operator_shell(
         lines.append(rule_line)
 
     body_height = height - 5 - body_offset
-    if len(state.open_tabs) >= 2:
+    if len(state.open_tabs) >= 2 and not _share_only_nav_mode():
         tab_line = _tab_bar_line(state, width)
         lines.append(tab_line)
         body_height -= 1
@@ -491,6 +495,11 @@ def _render_splash_header(splash: SplashMachine, state: OperatorState, width: in
 
 def _navigation_lines(state: OperatorState) -> list[str]:
     lines = [_pane_title("NAV", state.focus == FocusPane.NAVIGATION)]
+    if _share_only_nav_mode():
+        panel_state = (state.panel_states or {}).get("share")
+        cursor = DEFAULT_THEME.selected_prefix if state.section_id == "share" else DEFAULT_THEME.idle_prefix
+        lines.append(f"{cursor}{state_prefix(panel_state)} Share / Teilnehmer")
+        return lines
     nav_focused = state.focus == FocusPane.NAVIGATION
     # T02.04: tutor pointer – blink marker next to target section
     game = state.header_logo_game or {}
@@ -2410,7 +2419,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot  "
                 "[:config]"
             )
-    if len(state.open_tabs) >= 2 and state.mode is OperatorMode.NORMAL:
+    if len(state.open_tabs) >= 2 and state.mode is OperatorMode.NORMAL and not _share_only_nav_mode():
         tab_hints = (
             f"[{display_for_action('tab_close', 'Ctrl+W')}] Tab×  "
             f"[{display_for_action('tab_next', 'Ctrl+Tab')}] Tab→  "
@@ -2474,6 +2483,8 @@ def _overlay_fullscreen_snake(
     body_start: int = 0,
     body_end: int | None = None,
 ) -> list[str]:
+    if _share_only_nav_mode():
+        return lines
     game = state.header_logo_game or {}
     if not game.get("active") or not game.get("free_mode"):
         return lines

@@ -304,7 +304,9 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
     snapshot_files = sorted(snapshot_dir.glob("tui-snapshot-*.txt"))
     assert snapshot_files, "No TUI snapshots were captured during live PTY run."
     snapshot_text = snapshot_files[-1].read_text(encoding="utf-8")
-    assert "share:" in snapshot_text and "share: 0 sessions" not in snapshot_text
+    assert "Snake-Modus aktiv" in snapshot_text
+    assert "Share / Teilnehmer" in snapshot_text
+    assert "Artifacts" not in snapshot_text and "Knowledge" not in snapshot_text
 
     titles = _list_share_titles(endpoint, access_token)
     assert share_title in titles
