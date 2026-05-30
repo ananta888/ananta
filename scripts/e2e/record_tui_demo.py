@@ -561,8 +561,28 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
 
 
 def _share_session_live_e2e_cast(*, run_id: str) -> str:
-    width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "160"))))
-    height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "44"))))
+    width = max(
+        80,
+        min(
+            220,
+            int(
+                os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_WIDTH")
+                or os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH")
+                or "200"
+            ),
+        ),
+    )
+    height = max(
+        20,
+        min(
+            80,
+            int(
+                os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT")
+                or os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT")
+                or "56"
+            ),
+        ),
+    )
     duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
     default_cmd = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()

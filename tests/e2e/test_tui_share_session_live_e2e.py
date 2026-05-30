@@ -93,7 +93,7 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
     def _fake_live_share_cast(*, run_id: str) -> str:
         assert run_id == "video-enable-share-session-live-e2e"
         return (
-            '{"version": 2, "width": 160, "height": 44, "title": "Ananta Operator TUI – Share Session Live E2E"}\n'
+            '{"version": 2, "width": 200, "height": 56, "title": "Ananta Operator TUI – Share Session Live E2E"}\n'
             '[0.0, "o", "\\u001b[2J\\u001b[Hready> :share create test\\n"]\n'
             "[1.1, \"o\", \"Session 'test' erstellt. Invite: /share/share-test-001\\n\"]\n"
             "[2.2, \"o\", \"ready> :share list\\n\"]\n"
@@ -133,8 +133,12 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path) -> None:
     original_snapshot_dir = os.environ.get("ANANTA_TUI_SNAPSHOT_DIR")
     original_password = os.environ.get("ANANTA_PASSWORD")
     original_access_token = os.environ.get("ANANTA_AUTH_TOKEN")
+    original_share_cast_width = os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_WIDTH")
+    original_share_cast_height = os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT")
     try:
         os.environ["ANANTA_TUI_E2E_CAST_SECONDS"] = "28"
+        os.environ["ANANTA_TUI_E2E_SHARE_CAST_WIDTH"] = "200"
+        os.environ["ANANTA_TUI_E2E_SHARE_CAST_HEIGHT"] = "56"
         os.environ["ANANTA_TUI_E2E_SHARE_ENDPOINT"] = endpoint
         os.environ["ANANTA_TUI_E2E_SHARE_TITLE"] = share_title
         os.environ["ANANTA_TUI_SNAPSHOT_DIR"] = str(snapshot_dir)
@@ -171,6 +175,14 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path) -> None:
             os.environ.pop("ANANTA_AUTH_TOKEN", None)
         else:
             os.environ["ANANTA_AUTH_TOKEN"] = original_access_token
+        if original_share_cast_width is None:
+            os.environ.pop("ANANTA_TUI_E2E_SHARE_CAST_WIDTH", None)
+        else:
+            os.environ["ANANTA_TUI_E2E_SHARE_CAST_WIDTH"] = original_share_cast_width
+        if original_share_cast_height is None:
+            os.environ.pop("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT", None)
+        else:
+            os.environ["ANANTA_TUI_E2E_SHARE_CAST_HEIGHT"] = original_share_cast_height
 
     assert payload["status"] == "recorded"
     video_path = _resolve_ref(payload["video_ref"])
@@ -180,8 +192,8 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path) -> None:
     lines = [line for line in video_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     header = json.loads(lines[0])
     assert header["version"] == 2
-    assert header["width"] >= 140
-    assert header["height"] >= 40
+    assert header["width"] >= 190
+    assert header["height"] >= 52
     frame_text = "\n".join(json.loads(line)[2] for line in lines[1:])
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.", "", frame_text)
     assert f":share create {share_title}" in plain
