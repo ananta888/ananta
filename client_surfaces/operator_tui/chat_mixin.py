@@ -432,7 +432,13 @@ class ChatMixin:
                 delivery_state="received",
             )
             append_message(chat, ai_msg)
-            configure_middle_view_for_message(game, ai_msg | {"text": answer}, channel_id=channel_id, streaming=False)
+            configure_middle_view_for_message(
+                game,
+                ai_msg | {"text": answer},
+                channel_id=channel_id,
+                streaming=False,
+                activate_view=bool(game.get("visual_viewport_enabled")),
+            )
             chat.pop("ai_pending_msg_channel", None)
             set_chat_state(game, chat)
             game.pop("tutor_ask_deadline_at", None)
@@ -453,6 +459,7 @@ class ChatMixin:
                 {"id": "streaming", "sender_id": "s-ai", "sender_kind": "ai", "text": partial},
                 channel_id=channel_id,
                 streaming=True,
+                activate_view=bool(game.get("visual_viewport_enabled")),
             )
         if not question or bool(game.get("tutor_ask_answered")):
             return

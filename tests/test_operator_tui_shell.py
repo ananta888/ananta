@@ -3832,6 +3832,28 @@ def test_nav_click_closes_middle_chat_viewport_even_while_ai_is_typing(monkeypat
     assert dict(result_game.get("visual_viewport") or {}).get("enabled") is False
 
 
+def test_streaming_update_does_not_reopen_middle_view_after_menu_switch() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="goals",
+        focus=FocusPane.CONTENT,
+    )
+    tui = InteractiveOperatorTui(state)
+    game = dict(tui.state.header_logo_game or {})
+    game["visual_viewport_enabled"] = False
+    game["visual_viewport"] = {"enabled": False}
+    game["chat_state"] = {"ai_pending_msg_channel": "ai:tutor"}
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    setattr(tui, "_llm_streaming_partial", "antwort " * 30)
+    tui._poll_tutor_ask_result(game)
+
+    assert game.get("visual_viewport_enabled") is False
+    assert dict(game.get("visual_viewport") or {}).get("enabled") is False
+    rows = list(game.get("chat_long_message_history") or [])
+    assert rows
+
+
 # ── T17: Tab-Bar Renderer ────────────────────────────────────────────────────
 
 def test_tab_bar_line_empty_state_returns_empty() -> None:
