@@ -4425,6 +4425,42 @@ def test_audit_chat_prompt_item_shows_final_prompt_in_viewer() -> None:
     assert "USER: hi" in output
 
 
+def test_ctrl_e_chat_focus_opens_chat_panel_from_audit_viewer() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={"audit_viewer": {"active": True}, "chat_panel_open": False},
+    )
+    tui = InteractiveOperatorTui(state)
+
+    tui._toggle_chat_focus()
+
+    game = dict(tui.state.header_logo_game or {})
+    assert game.get("chat_panel_open") is True
+    assert game.get("artifact_chat_focus") is True
+
+
+def test_enter_sends_chat_even_with_active_audit_viewer(monkeypatch) -> None:
+    called: list[bool] = []
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="audit",
+        focus=FocusPane.CONTENT,
+        header_logo_game={
+            "audit_viewer": {"active": True},
+            "artifact_chat_focus": True,
+            "chat_panel_open": True,
+        },
+    )
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_artifact_chat_send_message", lambda: called.append(True))
+
+    tui._handle_enter_key()
+
+    assert called == [True]
+
+
 def test_template_editor_left_right_updates_horizontal_view_offset(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.interactive.shutil.get_terminal_size",
