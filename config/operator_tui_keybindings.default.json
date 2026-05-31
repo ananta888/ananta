@@ -27,6 +27,7 @@
     { "action": "focus_left", "key": "f7", "display": "F7", "label": "Fokus links", "areas": ["footer-normal", "shortcuts"] },
     { "action": "focus_right", "key": "c-d", "display": "Ctrl+D", "label": "Fokus rechts", "areas": ["footer-normal", "shortcuts"] },
     { "action": "center_browser_toggle", "key": "f5", "display": "F5", "label": "Browser", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "switch_center_to_doc_view", "key": "f6", "display": "F6", "label": "Center→Doc", "areas": ["footer-normal", "shortcuts"] },
     { "action": "refresh", "key": "c-r", "display": "Ctrl+R", "label": "Refresh", "areas": ["footer-normal", "shortcuts"] },
     { "action": "help", "key": "c-y", "display": "Ctrl+Y", "label": "Help", "areas": ["footer-normal", "shortcuts"] },
     { "action": "inspect", "key": "c-f", "display": "Ctrl+F", "label": "Inspect/Open", "areas": ["footer-normal", "shortcuts"] },

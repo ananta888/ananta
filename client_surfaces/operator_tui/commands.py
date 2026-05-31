@@ -160,6 +160,29 @@ def _doc_preflight_hints(report: dict[str, object]) -> list[str]:
     return hints
 
 
+def _doc_switch_markdown_from_state(state: OperatorState) -> tuple[str, dict[str, str]]:
+    section_id = str(state.section_id or "dashboard")
+    payloads = dict(state.section_payloads or {})
+    payload = payloads.get(section_id)
+    heading = f"# {section_id}\n\n"
+
+    if isinstance(payload, dict):
+        for key in ("markdown", "text", "content"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return heading + value.strip() + "\n", {"kind": "state", "content_or_ref": section_id, "title": section_id}
+        body = json.dumps(payload, ensure_ascii=False, indent=2)
+    elif isinstance(payload, list):
+        body = json.dumps(payload, ensure_ascii=False, indent=2)
+    elif payload is None:
+        body = "(keine Daten im aktuellen Bereich)"
+    else:
+        body = str(payload)
+
+    markdown = f"{heading}```json\n{body}\n```\n"
+    return markdown, {"kind": "state", "content_or_ref": section_id, "title": section_id}
+
+
 def _active_goal_id(state: OperatorState) -> str:
     game = dict(state.header_logo_game or {})
     return str(game.get("active_goal_id") or "").strip()
@@ -1018,9 +1041,28 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         sub = str(args[0]).strip().lower() if args else "help"
         if sub in {"help", "status"}:
             return CommandResult(
-                state.with_updates(status_message="doc: open <path-to-md> | preflight"),
+                state.with_updates(status_message="doc: open <path-to-md> | switch | preflight"),
                 "doc help",
                 handled=(sub == "status"),
+            )
+        if sub in {"switch", "here"}:
+            game = dict(state.header_logo_game or {})
+            markdown, source = _doc_switch_markdown_from_state(state)
+            game["visual_viewport_enabled"] = True
+            game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
+            game["markdown_text"] = markdown
+            game["markdown_mermaid_render_requested"] = True
+            game["document_source"] = source
+            game["_cmd_feedback"] = "doc_view: markdown_mermaid_document"
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    focus=FocusPane.CONTENT,
+                    status_message="doc_view aktiv: aktueller Bereich",
+                ),
+                "doc switch",
             )
         if sub == "preflight":
             report = _doc_preflight_report()
@@ -1038,7 +1080,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 json.dumps(payload, ensure_ascii=False),
             )
         if sub != "open":
-            msg = "doc: open <path-to-md> | preflight"
+            msg = "doc: open <path-to-md> | switch | preflight"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         if len(args) < 2:
             msg = "doc open: path fehlt"

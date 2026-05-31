@@ -694,6 +694,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             result = execute_command("center.browser.toggle", self.state)
             self._set_state(result.state)
 
+        @bindings.add(key_for_action("switch_center_to_doc_view", "f6"))
+        def _(event) -> None:
+            self._exit_command_mode_for_global_shortcut()
+            self._run_command(":doc switch")
+
         @bindings.add(key_for_action("next_visual_view", "f9"))
         def _(event) -> None:
             self._next_visual_view()
