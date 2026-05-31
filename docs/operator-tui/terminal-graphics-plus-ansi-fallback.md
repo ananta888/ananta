@@ -110,3 +110,13 @@ python scripts/operator_tui_terminal_graphics_smoke.py --require-image
 | Blank/leer nach Kitty | Kitty nicht unterstützt | `ANANTA_FORCE_KITTY=0` + ANSI nutzen |
 | `sixel_encoder_unavailable` | Kein Pillow | `pip install Pillow` |
 | Nur 2-3 Zeilen Block-Art | LR-Diagramm zu breit | `flowchart TD` statt `flowchart LR` verwenden |
+
+## Markdown/Mermaid quality matrix (WSL2)
+
+| Symptom | Root cause | Recommended fix |
+|---|---|---|
+| Mermaid shows only source block | `mmdc` missing | `npm install -g @mermaid-js/mermaid-cli`, then `:doc preflight` |
+| Mermaid image path unstable | Playwright missing assets | `npm install mermaid` and `playwright install chromium` or prefer `mmdc` |
+| Markdown looks fine but diagrams are tiny | Pixel limits too low for diagram complexity | Increase markdown/mermaid max pixel config and retest with smoke script |
+| Browser mode looks white/empty | Carbonyl + site/DNS/terminal limitations | Use `:doc open <file.md>` (document view), not browser mode |
+| Inconsistent output across terminals | Adapter capability mismatch | Prefer WezTerm/Kitty for image adapters, fallback to ANSI/chafa on Windows Terminal |

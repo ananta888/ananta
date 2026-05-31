@@ -56,6 +56,14 @@ Use the ViewSwitcher overlay (when available) to select `markdown_mermaid_docume
 appears under *Views OK* when the ANSI Markdown fallback is available.  If Mermaid image
 rendering is also available it will not be listed as degraded.
 
+For local documents prefer:
+
+```bash
+:doc open /absolute/or/relative/path/to/file.md
+```
+
+This keeps Markdown/Mermaid on the dedicated document render path and avoids browser-mode quality pitfalls.
+
 ## Mermaid renderer dependency choices
 
 ### mermaid-cli (mmdc)
@@ -124,6 +132,31 @@ the reason, e.g. `Mermaid image renderer unavailable: mmdc not found in PATH`.
 | File outside allowed roots | `allowed_roots` too restrictive | Placeholder error frame |
 
 Markdown text rendering remains fully usable even when all Mermaid image rendering paths fail.
+
+## WSL2 recommended stack
+
+Baseline (best quality/effort in WSL2):
+
+```bash
+sudo apt install -y chafa
+npm install -g @mermaid-js/mermaid-cli
+```
+
+Optional:
+
+```bash
+pip install playwright
+playwright install chromium
+npm install mermaid
+```
+
+Run diagnostics in TUI:
+
+```bash
+:doc preflight
+```
+
+`doc preflight` reports dependency status (`mmdc`, `node`, `chafa`, `playwright`, `mermaid.js`) and actionable hints.
 
 ## View switcher capability states
 
