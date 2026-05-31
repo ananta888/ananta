@@ -613,7 +613,7 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
     if status == "error" or error:
         return [header,
                 f"  \x1b[38;2;220;80;80m✗ {error[:width - 4]}\x1b[0m",
-                "  \x1b[2mF5 zum Schliessen\x1b[0m"]
+                "  \x1b[2mCtrl+2 zum Schliessen\x1b[0m"]
 
     raw_bytes: bytes = bytes(game.get("_browser_frame_bytes") or b"")
     if not raw_bytes:
@@ -1247,7 +1247,7 @@ def _content_ai_snake_config_lines(state: OperatorState, width: int) -> list[str
                 lines.append(f"  {marker} {option_text}")
         lines.append("  Up/Down oder Click waehlt Option | Esc schliesst Auswahl")
     lines.append("")
-    lines.append(f"  {display_for_action('toggle_ai_snake_config', 'F6')} Config ein/aus")
+    lines.append(f"  {display_for_action('toggle_ai_snake_config', 'Ctrl+A')} Config ein/aus")
     lines.append(f"  {display_for_action('toggle_tutorial_ai', 'Ctrl+U')} Visual AI hart an/aus")
     return [_clip(line, width) for line in lines]
 
@@ -2517,7 +2517,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[Esc] game  [Enter] send  "
                 f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] channel  "
                 f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear  "
-                f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
+                f"[{display_for_action('toggle_ai_snake_config', 'Ctrl+A')}] AI-Config  "
                 "[:config]  "
                 f"[{active_ch}]"
             )
@@ -2526,7 +2526,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[Esc] close  [Enter] send  "
                 f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] channel  "
                 f"[{display_for_action('clear_chat_input', 'Ctrl+L')}] clear  "
-                f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
+                f"[{display_for_action('toggle_ai_snake_config', 'Ctrl+A')}] AI-Config  "
                 "[:config]"
             )
         elif game.get("paused"):
@@ -2548,7 +2548,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('chat_focus', 'Ctrl+E')}] Input  "
                 f"[{display_for_action('snake_pause', 'Ctrl+P')}] Pause  "
                 f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI  "
-                f"[{display_for_action('toggle_ai_snake_config', 'F6')}] AI-Config  "
+                f"[{display_for_action('toggle_ai_snake_config', 'Ctrl+A')}] AI-Config  "
                 f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot  "
                 "[:config]"
             )

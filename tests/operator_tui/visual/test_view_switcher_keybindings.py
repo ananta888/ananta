@@ -29,24 +29,24 @@ def test_ctrl_m_diagnostics_returns_none_when_not_configured():
     assert ctrl_m_binding_diagnostics() is None
 
 
-def test_f8_is_default_view_switcher_key():
-    key = key_for_action("toggle_visual_view_switcher_overlay", "f8")
-    assert key == "f8"
+def test_ctrl_4_is_default_view_switcher_key():
+    key = key_for_action("toggle_visual_view_switcher_overlay", "c-4")
+    assert key == "c-4"
 
 
-def test_f9_is_default_next_view_key():
-    key = key_for_action("next_visual_view", "f9")
-    assert key == "f9"
+def test_ctrl_5_is_default_next_view_key():
+    key = key_for_action("next_visual_view", "c-5")
+    assert key == "c-5"
 
 
-def test_f10_is_default_previous_view_key():
-    key = key_for_action("previous_visual_view", "f10")
-    assert key == "f10"
+def test_ctrl_6_is_default_previous_view_key():
+    key = key_for_action("previous_visual_view", "c-6")
+    assert key == "c-6"
 
 
-def test_f6_is_default_switch_center_to_doc_view_key():
-    key = key_for_action("switch_center_to_doc_view", "f6")
-    assert key == "f6"
+def test_ctrl_3_is_default_switch_center_to_doc_view_key():
+    key = key_for_action("switch_center_to_doc_view", "c-3")
+    assert key == "c-3"
 
 
 def test_ctrl_m_detected_as_unsafe_when_configured(tmp_path):
