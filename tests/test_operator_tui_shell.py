@@ -3766,6 +3766,7 @@ def test_nav_click_while_visual_viewport_active_closes_viewport(monkeypatch) -> 
 
     # Click on "Goals" row in nav (body_start=9, title row +1, Goals is index 1 → y=11)
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=1.1)
 
     result_game = tui.state.header_logo_game or {}
     assert tui.state.section_id == "goals"
@@ -3825,6 +3826,7 @@ def test_nav_click_closes_middle_chat_viewport_even_while_ai_is_typing(monkeypat
 
     # Click on "Goals" row in nav
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=1.1)
 
     result_game = tui.state.header_logo_game or {}
     assert tui.state.section_id == "goals"
@@ -3987,6 +3989,7 @@ def test_nav_click_creates_tab(monkeypatch) -> None:
 
     # Dashboard tab already open from __init__; click on Goals (y=11)
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=1.1)
 
     assert tui.state.section_id == "goals"
     tab_ids = [t.id for t in tui.state.open_tabs]
@@ -4001,8 +4004,10 @@ def test_nav_click_twice_no_duplicate_tab(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
     tui = InteractiveOperatorTui(state)
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=1.1)
     count_before = len(tui.state.open_tabs)
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=2.0)
+    tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=2.1)
     assert len(tui.state.open_tabs) == count_before
 
 
@@ -4015,6 +4020,7 @@ def test_tab_cycle_keyboard(monkeypatch) -> None:
     tui = InteractiveOperatorTui(state)
     # Add goals tab
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=1.1)
     initial_tab = tui.state.active_tab_id
     tui._tab_cycle(1)
     assert tui.state.active_tab_id != initial_tab or len(tui.state.open_tabs) == 1
@@ -4028,6 +4034,7 @@ def test_tab_close_keyboard(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
     tui = InteractiveOperatorTui(state)
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
+    tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=1.1)
     assert len(tui.state.open_tabs) >= 2
     active_before = tui.state.active_tab_id
     tui._tab_close_active()

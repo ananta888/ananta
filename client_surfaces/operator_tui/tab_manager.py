@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from hashlib import sha1
 from textwrap import shorten
 from typing import TYPE_CHECKING, Any
 
@@ -46,15 +47,20 @@ def open_or_activate_tab(
 ) -> "OperatorState":
     from client_surfaces.operator_tui.models import TuiTab
 
-    existing = find_tab(state, section_id=section_id, kind=kind)
+    existing = _matching_existing_tab(
+        state,
+        section_id=section_id,
+        kind=kind,
+        label=label,
+        viewport_state=viewport_state,
+    )
     if existing is not None:
         if state.active_tab_id == existing.id:
             return state
         return state.with_updates(active_tab_id=existing.id)
 
     if kind == "chat_viewport":
-        import time
-        tab_id = f"chat:{int(time.time() * 1000) % 100000000}"
+        tab_id = _chat_tab_id(state, section_id=section_id, label=label, viewport_state=viewport_state)
     else:
         tab_id = f"section:{section_id}"
 
@@ -62,6 +68,51 @@ def open_or_activate_tab(
     new_tabs = state.open_tabs + (new_tab,)
     new_scroll = _scroll_to_show(state.tab_scroll_offset, len(new_tabs) - 1)
     return state.with_updates(open_tabs=new_tabs, active_tab_id=tab_id, tab_scroll_offset=new_scroll)
+
+
+def _matching_existing_tab(
+    state: "OperatorState",
+    *,
+    section_id: str,
+    kind: str,
+    label: str,
+    viewport_state: dict[str, Any] | None,
+) -> "TuiTab | None":
+    if kind != "chat_viewport":
+        return find_tab(state, section_id=section_id, kind=kind)
+
+    preview = _preview_key(viewport_state)
+    for tab in state.open_tabs:
+        if tab.kind != kind or tab.section_id != section_id or tab.label != label:
+            continue
+        if _preview_key(tab.viewport_state) == preview:
+            return tab
+    return None
+
+
+def _chat_tab_id(
+    state: "OperatorState",
+    *,
+    section_id: str,
+    label: str,
+    viewport_state: dict[str, Any] | None,
+) -> str:
+    seed = f"{section_id}:{label}:{_preview_key(viewport_state)}"
+    digest = sha1(seed.encode("utf-8")).hexdigest()[:10]
+    base = f"chat:{digest}"
+    used = {tab.id for tab in state.open_tabs}
+    if base not in used:
+        return base
+    index = 2
+    while f"{base}:{index}" in used:
+        index += 1
+    return f"{base}:{index}"
+
+
+def _preview_key(viewport_state: dict[str, Any] | None) -> str:
+    if not viewport_state:
+        return ""
+    return str(viewport_state.get("preview") or viewport_state.get("message_id") or "")
 
 
 def close_tab(state: "OperatorState", tab_id: str) -> "OperatorState":
@@ -77,7 +128,12 @@ def close_tab(state: "OperatorState", tab_id: str) -> "OperatorState":
     if not new_tabs:
         dashboard = TuiTab(id="section:dashboard", kind="section", section_id="dashboard", label="Dashboard")  # type: ignore[arg-type]
         new_tabs = (dashboard,)
-        return state.with_updates(open_tabs=new_tabs, active_tab_id="section:dashboard", section_id="dashboard", tab_scroll_offset=0)
+        return state.with_updates(
+            open_tabs=new_tabs,
+            active_tab_id="section:dashboard",
+            section_id="dashboard",
+            tab_scroll_offset=0,
+        )
 
     if state.active_tab_id == tab_id:
         next_idx = max(0, idx - 1)

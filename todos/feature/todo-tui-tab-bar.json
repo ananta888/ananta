@@ -7,8 +7,11 @@
   "architecture_notes": {
     "tab_bar_position": "Zeile direkt nach dem Header-Rule, vor dem Body. body_start rückt um 1 nach unten wenn Tabs vorhanden.",
     "tab_state_location": "open_tabs, active_tab_id und tab_scroll_offset als neue Felder in OperatorState (dataclass). NICHT im game-dict — game ist für AI-Snake-Logik, nicht für UI-Layout-State. Einzige Ausnahme: visual_viewport_enabled in game muss beim Tab-Wechsel synchronisiert werden.",
-    "tab_kinds": ["section", "chat_viewport"],
-    "body_start_dynamic": "region_index.py und renderer.py berechnen body_start dynamisch: 9 (kein Tab-Bar) oder 10 (Tab-Bar aktiv, wenn len(state.open_tabs) > 0).",
+    "tab_kinds": [
+      "section",
+      "chat_viewport"
+    ],
+    "body_start_dynamic": "region_index.py und renderer.py berechnen body_start dynamisch: 9 (kein sichtbarer Tab-Bar) oder 10 (Tab-Bar aktiv, wenn len(state.open_tabs) >= 2). Der initiale Dashboard-Tab existiert im State, wird aber allein bewusst nicht als leere Tab-Leiste gerendert.",
     "tab_label_rules": "Section-Tabs: section.title (z.B. 'Goals'). Chat-Viewport-Tabs: shorten(preview, 10, placeholder='…'). Beide enden mit ' ×' als schließbarer Bereich.",
     "overflow": "Bei zu vielen Tabs: tab_scroll_offset (int in OperatorState) steuert sichtbaren Bereich. Anzeige von '‹' links und '›' rechts.",
     "dashboard_tab": "Dashboard-Tab ist immer der erste Tab. Beim Schließen des letzten verbleibenden Tabs wird ein frischer Dashboard-Tab neu erstellt.",
@@ -36,7 +39,7 @@
       "area": "model",
       "title": "TuiTab Datenmodell und OperatorState-Erweiterung",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "problem": "Es gibt keine Datenstruktur für Tabs. OperatorState kennt nur section_id, focus, selected_index.",
       "solution": "In models.py TuiTab als frozen dataclass: id, kind (Literal['section','chat_viewport']), section_id, label, viewport_state (dict|None). OperatorState um open_tabs: tuple[TuiTab,...]=(), active_tab_id: str='', tab_scroll_offset: int=0 erweitern. tab_scroll_offset in OperatorState (nicht game-dict) für Konsistenz.",
       "acceptance_criteria": [
@@ -46,7 +49,9 @@
         "OperatorState.tab_scroll_offset int, Default 0",
         "with_updates funktioniert korrekt für alle neuen Felder"
       ],
-      "files": ["client_surfaces/operator_tui/models.py"],
+      "files": [
+        "client_surfaces/operator_tui/models.py"
+      ],
       "complexity": "small",
       "depends_on": []
     },
@@ -55,27 +60,32 @@
       "area": "model",
       "title": "tab_manager.py: pure Hilfsfunktionen",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "problem": "Tab-State-Mutationen werden an mehreren Stellen benötigt. Ohne zentrale Hilfsfunktionen entstehen Dopplungen.",
       "solution": "Neue Datei tab_manager.py. Pure functions: open_or_activate_tab(state, *, section_id, kind, label, viewport_state=None) → OperatorState. close_tab(state, tab_id) → OperatorState. activate_tab(state, tab_id, *, game=None) → tuple[OperatorState, dict] — gibt auch game zurück (für viewport-coupling). find_tab(state, *, section_id=None, tab_id=None, kind=None) → TuiTab|None. tab_label_for_section(section_id) → str. tab_label_for_chat_preview(text) → str. tab_positions_for_render(state, width) → list[TabPosition] — gemeinsam genutzt von Renderer und RegionIndex.",
       "acceptance_criteria": [
-        "open_or_activate_tab: Duplikat-Schutz (section_id+kind eindeutig)",
+        "open_or_activate_tab: Duplikat-Schutz für Section-Tabs; Chat-Viewport-Tabs deduplizieren gleiche Preview, lassen unterschiedliche Nachrichten parallel offen",
         "close_tab letzter Tab: Dashboard-Tab wird neu erstellt",
         "activate_tab section-Tab: section_id im State gesetzt",
         "activate_tab chat_viewport-Tab: game['visual_viewport_enabled']=True, scroll_offset restauriert",
         "tab_label_for_chat_preview kürzt auf 10 Zeichen",
         "tab_positions_for_render liefert exakte x-Koordinaten für Renderer und RegionIndex"
       ],
-      "files": ["client_surfaces/operator_tui/tab_manager.py"],
+      "files": [
+        "client_surfaces/operator_tui/tab_manager.py"
+      ],
       "complexity": "medium",
-      "depends_on": ["T02"]
+      "depends_on": [
+        "T02"
+      ],
+      "solution_implemented": "tab_manager.py zentralisiert Tab-Erzeugung, Aktivierung, Schließen, Scroll-Persistenz und Render-Geometrie. Chat-Viewport-Tabs verwenden previewbasierte stabile IDs."
     },
     {
       "id": "T04",
       "area": "renderer",
       "title": "_tab_bar_line() in renderer.py",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "solution": "Funktion _tab_bar_line(state, width) → str. Aktiver Tab: \\x1b[7m Label × \\x1b[0m. Inaktiv: ' Label × '. Trenner '│'. Overflow: '‹'/'›'. Leer → ''.",
       "acceptance_criteria": [
         "Leer → ''",
@@ -83,47 +93,61 @@
         "ANSI-stripped Länge == width",
         "Overflow-Indikatoren korrekt"
       ],
-      "files": ["client_surfaces/operator_tui/renderer.py"],
+      "files": [
+        "client_surfaces/operator_tui/renderer.py"
+      ],
       "complexity": "medium",
-      "depends_on": ["T02", "T03"]
+      "depends_on": [
+        "T02",
+        "T03"
+      ]
     },
     {
       "id": "T05",
       "area": "renderer",
       "title": "Tab-Bar in render_operator_shell() integrieren",
       "priority": "high",
-      "status": "open",
-      "solution": "Nach rule_line: wenn open_tabs nicht leer → tab_line einfügen, body_height -= 1. body_start = len(lines) danach.",
+      "status": "done",
+      "solution": "Nach rule_line: wenn mindestens zwei open_tabs vorhanden sind -> tab_line einfügen, body_height -= 1. body_start = len(lines) danach. Ein einzelner initialer Dashboard-Tab bleibt im State, aber die Tab-Leiste wird erst ab zwei Tabs sichtbar.",
       "acceptance_criteria": [
         "Ohne Tabs: identisches Layout wie heute",
         "Mit Tabs: Tab-Bar auf Zeile 9, body_start=10"
       ],
-      "files": ["client_surfaces/operator_tui/renderer.py:34-109"],
+      "files": [
+        "client_surfaces/operator_tui/renderer.py:34-109"
+      ],
       "complexity": "small",
-      "depends_on": ["T04"]
+      "depends_on": [
+        "T04"
+      ]
     },
     {
       "id": "T06",
       "area": "layout",
       "title": "body_start in region_index.py dynamisch",
       "priority": "high",
-      "status": "open",
-      "solution": "body_start = 10 if state.open_tabs else 9. body_height anpassen.",
+      "status": "done",
+      "solution": "body_start = 10 if len(state.open_tabs) >= 2 else 9. body_height anpassen.",
       "acceptance_criteria": [
         "Mit Tabs: body_start=10, alle Body-Rects korrekt",
         "Ohne Tabs: body_start=9 wie bisher"
       ],
-      "files": ["client_surfaces/operator_tui/region_index.py:44-55"],
+      "files": [
+        "client_surfaces/operator_tui/region_index.py:44-55"
+      ],
       "complexity": "small",
-      "depends_on": ["T02", "T05"]
+      "depends_on": [
+        "T02",
+        "T05"
+      ]
     },
     {
       "id": "T07",
       "area": "layout",
       "title": "Tab-Regionen in RegionIndex registrieren",
       "priority": "high",
-      "status": "open",
-      "solution": "Wenn open_tabs nicht leer: Tab-Zeile (y=body_start-1) mit RegionRects für kind='tab', kind='tab_close', kind='tab_scroll_left'/'tab_scroll_right'. Koordinaten aus tab_positions_for_render() (gleiche Funktion wie Renderer).",
+      "status": "done",
+      "solution": "Wenn mindestens zwei open_tabs vorhanden sind: Tab-Zeile (y=body_start-1) mit RegionRects für kind='tab', kind='tab_close', kind='tab_scroll_left'/'tab_scroll_right'. Koordinaten aus tab_positions_for_render() (gleiche Funktion wie Renderer).",
       "acceptance_criteria": [
         "Tab-Label-Klick → kind='tab'",
         "×-Klick → kind='tab_close'",
@@ -134,14 +158,17 @@
         "client_surfaces/operator_tui/tab_manager.py"
       ],
       "complexity": "medium",
-      "depends_on": ["T03", "T06"]
+      "depends_on": [
+        "T03",
+        "T06"
+      ]
     },
     {
       "id": "T08",
       "area": "navigation",
       "title": "Section-Navigation erstellt/aktiviert Tabs",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "problem": "_select_region_target, _set_selected_index und _run_command wechseln section_id direkt ohne Tabs zu erstellen.",
       "solution": "In _select_region_target() für nav/section: open_or_activate_tab() statt direktes section_id-Setzen. In _set_selected_index() bei NAVIGATION-Fokus: analog. In _run_command(): wenn section sich ändert (nach execute_command), open_or_activate_tab(). _move_focus() (Ctrl+A/D) öffnet KEINE Tabs. Achtung _ingest_mouse_event Double-Call: nach _handle_left_click, falls active_tab_id sich geändert, game-dict für viewport synchronisieren.",
       "acceptance_criteria": [
@@ -157,14 +184,16 @@
         "client_surfaces/operator_tui/mouse_artifact_mixin.py:809-832"
       ],
       "complexity": "medium",
-      "depends_on": ["T03"]
+      "depends_on": [
+        "T03"
+      ]
     },
     {
       "id": "T09",
       "area": "navigation",
       "title": "Chat-Viewport-Einträge als Tab öffnen",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "solution": "In _open_latest_long_chat_message() und _handle_left_click() für chat_history: open_or_activate_tab() mit kind='chat_viewport'. activate_tab() für chat_viewport-Tabs setzt visual_viewport_enabled=True.",
       "acceptance_criteria": [
         "Chat-History-Klick → Tab mit gekürztem Preview",
@@ -177,14 +206,17 @@
         "client_surfaces/operator_tui/mouse_artifact_mixin.py:647-671"
       ],
       "complexity": "medium",
-      "depends_on": ["T03", "T08"]
+      "depends_on": [
+        "T03",
+        "T08"
+      ]
     },
     {
       "id": "T10",
       "area": "navigation",
       "title": "Tab-Scroll-Offset: Overflow-Handling",
       "priority": "medium",
-      "status": "open",
+      "status": "done",
       "solution": "tab_scroll_offset in OperatorState (nicht game-dict). Auto-Scroll bei Tab-Aktivierung. Mausrad auf Tab-Zeile scrollt. ‹/›-Klick scrollt.",
       "acceptance_criteria": [
         "Bei 15 Tabs auf 120 Spalten: ‹/› sichtbar",
@@ -197,14 +229,17 @@
         "client_surfaces/operator_tui/mouse_artifact_mixin.py"
       ],
       "complexity": "medium",
-      "depends_on": ["T07", "T09"]
+      "depends_on": [
+        "T07",
+        "T09"
+      ]
     },
     {
       "id": "T11",
       "area": "keyboard",
       "title": "Tastenkürzel: tab_next, tab_prev, tab_close",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "solution": "Actions 'tab_next' (Ctrl+Tab oder eigener Key), 'tab_prev', 'tab_close' in keybindings_config.py. Registrieren in interactive.py. Ctrl+W: wenn kein Chat-Fokus und Tabs offen → tab_close.",
       "acceptance_criteria": [
         "tab_next/tab_prev zyklisch",
@@ -216,30 +251,37 @@
         "client_surfaces/operator_tui/keybindings_config.py"
       ],
       "complexity": "small",
-      "depends_on": ["T03"]
+      "depends_on": [
+        "T03"
+      ]
     },
     {
       "id": "T12",
       "area": "mouse",
       "title": "Mouse-Handler für Tab-Klicks",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "solution": "In _handle_left_click(): für kind='tab' → activate_tab() + _set_state() + return. kind='tab_close' → close_tab() + _set_state() + return. kind='tab_scroll_left'/'tab_scroll_right' → state.tab_scroll_offset ±1. In _ingest_mouse_event: nach _handle_left_click active_tab_id-Änderung erkennen und game-dict viewport-State synchronisieren.",
       "acceptance_criteria": [
         "Tab-Klick → aktiviert, kein AI-Context",
         "×-Klick → Tab geschlossen",
         "‹/›-Klick → Scroll"
       ],
-      "files": ["client_surfaces/operator_tui/mouse_artifact_mixin.py:647-729"],
+      "files": [
+        "client_surfaces/operator_tui/mouse_artifact_mixin.py:647-729"
+      ],
       "complexity": "small",
-      "depends_on": ["T07", "T03"]
+      "depends_on": [
+        "T07",
+        "T03"
+      ]
     },
     {
       "id": "T13",
       "area": "viewport",
       "title": "Scroll-Position beim Tab-Wechsel speichern",
       "priority": "medium",
-      "status": "open",
+      "status": "done",
       "solution": "Beim Tab-Deaktivieren (nicht bei jedem Scroll-Frame): aktuellen scroll_offset_center_viewport in tab.viewport_state['scroll_offset'] speichern. activate_tab() restauriert ihn.",
       "acceptance_criteria": [
         "Tab verlassen und zurück: Scroll-Position erhalten",
@@ -250,30 +292,37 @@
         "client_surfaces/operator_tui/tab_manager.py"
       ],
       "complexity": "medium",
-      "depends_on": ["T09"]
+      "depends_on": [
+        "T09"
+      ]
     },
     {
       "id": "T14",
       "area": "viewport",
       "title": "Initiale Tabs beim TUI-Start",
       "priority": "medium",
-      "status": "open",
-      "solution": "In __init__: open_or_activate_tab für initiale section_id aufrufen. Tab-Leiste startet mit einem Tab.",
+      "status": "done",
+      "solution": "In __init__: open_or_activate_tab für initiale section_id aufrufen. Der State startet mit einem Dashboard-Tab; die sichtbare Tab-Leiste erscheint ab dem zweiten Tab.",
       "acceptance_criteria": [
-        "TUI-Start: 'Dashboard'-Tab sichtbar",
+        "TUI-Start: Dashboard-Tab im State vorhanden",
         "Kein leerer Tab-Bar"
       ],
-      "files": ["client_surfaces/operator_tui/interactive.py"],
+      "files": [
+        "client_surfaces/operator_tui/interactive.py"
+      ],
       "complexity": "small",
-      "depends_on": ["T03", "T08"]
+      "depends_on": [
+        "T03",
+        "T08"
+      ]
     },
     {
       "id": "T15",
       "area": "keyboard",
       "title": "Hints-Zeile: Tab-Shortcuts kontextsensitiv",
       "priority": "low",
-      "status": "open",
-      "solution": "In _hints_line(): wenn open_tabs, Tab-Shortcuts als Token prependen.",
+      "status": "done",
+      "solution": "In _hints_line(): wenn mindestens zwei open_tabs vorhanden sind, Tab-Shortcuts als Token prependen.",
       "acceptance_criteria": [
         "Ohne Tabs: Hints wie bisher",
         "Mit Tabs: tab_close/tab_next Hint sichtbar"
@@ -283,88 +332,140 @@
         "client_surfaces/operator_tui/keymap.py"
       ],
       "complexity": "small",
-      "depends_on": ["T11"]
+      "depends_on": [
+        "T11"
+      ]
     },
     {
       "id": "T16",
       "area": "tests",
       "title": "Tests: TuiTab Modell und tab_manager",
       "priority": "high",
-      "status": "open",
-      "files": ["tests/test_tui_tab_manager.py"],
+      "status": "done",
+      "files": [
+        "tests/test_tui_tab_manager.py"
+      ],
       "complexity": "medium",
-      "depends_on": ["T03"]
+      "depends_on": [
+        "T03"
+      ]
     },
     {
       "id": "T17",
       "area": "tests",
       "title": "Tests: Tab-Bar Renderer",
       "priority": "high",
-      "status": "open",
-      "files": ["tests/test_operator_tui_shell.py"],
+      "status": "done",
+      "files": [
+        "tests/test_operator_tui_shell.py"
+      ],
       "complexity": "medium",
-      "depends_on": ["T04", "T05"]
+      "depends_on": [
+        "T04",
+        "T05"
+      ]
     },
     {
       "id": "T18",
       "area": "tests",
       "title": "Tests: RegionIndex Tab-Regionen",
       "priority": "high",
-      "status": "open",
-      "files": ["tests/test_operator_tui_shell.py"],
+      "status": "done",
+      "files": [
+        "tests/test_operator_tui_shell.py"
+      ],
       "complexity": "medium",
-      "depends_on": ["T07"]
+      "depends_on": [
+        "T07"
+      ]
     },
     {
       "id": "T19",
       "area": "tests",
       "title": "Tests: Keyboard/Mouse Integration",
       "priority": "high",
-      "status": "open",
-      "files": ["tests/test_operator_tui_shell.py"],
+      "status": "done",
+      "files": [
+        "tests/test_operator_tui_shell.py"
+      ],
       "complexity": "medium",
-      "depends_on": ["T12", "T16", "T17", "T18"]
+      "depends_on": [
+        "T12",
+        "T16",
+        "T17",
+        "T18"
+      ]
     },
     {
       "id": "T20",
       "area": "tests",
       "title": "Tests: Scroll-Persistenz und Chat-Viewport-Tab-State",
       "priority": "medium",
-      "status": "open",
-      "files": ["tests/test_tui_tab_manager.py"],
+      "status": "done",
+      "files": [
+        "tests/test_tui_tab_manager.py"
+      ],
       "complexity": "small",
-      "depends_on": ["T13", "T16"]
+      "depends_on": [
+        "T13",
+        "T16"
+      ]
     }
   ],
   "milestones": [
     {
       "id": "M1",
       "title": "Grundlage: Bug-Fix + Datenmodell",
-      "tasks": ["T01", "T02", "T03"],
+      "tasks": [
+        "T01",
+        "T02",
+        "T03"
+      ],
       "description": "T01 erledigt. Tab-Modell und Helper-Funktionen vorhanden."
     },
     {
       "id": "M2",
       "title": "Sichtbare Tab-Leiste",
-      "tasks": ["T04", "T05", "T06", "T07"],
+      "tasks": [
+        "T04",
+        "T05",
+        "T06",
+        "T07"
+      ],
       "description": "Tab-Bar gerendert, body_start korrekt, Klick-Regionen registriert."
     },
     {
       "id": "M3",
       "title": "Voll funktionale Navigation",
-      "tasks": ["T08", "T09", "T11", "T12", "T14"],
+      "tasks": [
+        "T08",
+        "T09",
+        "T11",
+        "T12",
+        "T14"
+      ],
       "description": "Section-Nav und Chat-History öffnen Tabs. Tastatur und Maus funktionieren."
     },
     {
       "id": "M4",
       "title": "Polish & Persistenz",
-      "tasks": ["T10", "T13", "T15"],
+      "tasks": [
+        "T10",
+        "T13",
+        "T15"
+      ],
       "description": "Overflow, Scroll-Persistenz, Hints."
     },
     {
       "id": "M5",
       "title": "Tests vollständig",
-      "tasks": ["T16", "T17", "T18", "T19", "T20"],
+      "tasks": [
+        "T16",
+        "T17",
+        "T18",
+        "T19",
+        "T20"
+      ],
       "description": "Alle Tests grün."
     }
   ],
@@ -373,5 +474,17 @@
     "in_progress": 0,
     "done": 20,
     "total": 20
+  },
+  "verification": {
+    "updated": "2026-05-31",
+    "evidence": [
+      ".venv/bin/python -m pytest tests/test_tui_tab_manager.py tests/test_operator_tui_shell.py -q -k 'tab_bar or region_index_tab or nav_click or tab_cycle or tab_close_keyboard or tab_initial or visual_viewport_enabled' -> 15 passed, 230 deselected",
+      ".venv/bin/python -m ruff check client_surfaces/operator_tui/tab_manager.py tests/test_tui_tab_manager.py -> All checks passed",
+      "SOLID check: tab state mutations remain centralized in tab_manager.py; renderer and region index share tab_positions_for_render instead of duplicating geometry."
+    ],
+    "notes": [
+      "Refined UX from original spec: one initial Dashboard tab is kept in OperatorState but hidden as a visible tab bar until a second tab exists.",
+      "Chat viewport tabs now use deterministic preview-based identity: same preview reactivates, different long messages can coexist."
+    ]
   }
 }
