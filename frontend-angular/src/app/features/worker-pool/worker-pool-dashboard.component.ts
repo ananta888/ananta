@@ -1,1 +1,1 @@
-export { WorkerPoolDashboardComponent } from ../../components/worker-pool-dashboard.component;
+export { WorkerPoolDashboardComponent } from '../../components/worker-pool-dashboard.component';

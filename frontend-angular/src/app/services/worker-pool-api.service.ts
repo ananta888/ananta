@@ -1,8 +1,8 @@
-import { Injectable } from @angular/core;
-import { Observable } from rxjs;
-import { ApiBaseService } from ./api-base.service;
+import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { ApiBaseService } from './api-base.service';
 
-@Injectable({ providedIn: root })
+@Injectable({ providedIn: 'root' })
 export class WorkerPoolApiService extends ApiBaseService {
   getStatus(baseUrl: string, token?: string): Observable<any> {
     return this.core.get<any>(`${baseUrl}/api/worker-pool/status`, baseUrl, token);

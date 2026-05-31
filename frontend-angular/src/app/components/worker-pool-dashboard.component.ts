@@ -1,10 +1,12 @@
-import { Component, inject } from @angular/core;
-import { WorkerPoolApiService } from ../services/worker-pool-api.service;
-import { SystemFacade } from ../features/system/system.facade;
+import { Component, inject } from '@angular/core';
+import { JsonPipe } from '@angular/common';
+import { WorkerPoolApiService } from '../services/worker-pool-api.service';
+import { SystemFacade } from '../features/system/system.facade';
 
 @Component({
   standalone: true,
-  selector: app-worker-pool-dashboard,
+  imports: [JsonPipe],
+  selector: 'app-worker-pool-dashboard',
   template: `
     <h2>Worker Pool</h2>
     <p class="muted">Scheduler-Diagnostik fuer Worker/Ollama/Queues.</p>
