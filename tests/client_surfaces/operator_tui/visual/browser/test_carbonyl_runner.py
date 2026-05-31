@@ -42,6 +42,8 @@ class TestBinaryResolution:
             mock_popen.return_value = mock_proc
             runner.start("/tmp/doc.html", cols=80, rows=24)
         runner._proc = None  # prevent stop() from trying to terminate mock
+        runner._master_fd = -1
+        runner._slave_fd = -1
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +72,8 @@ class TestCarbonylRunnerLifecycle:
             runner.start("/tmp/doc.html", cols=80, rows=24)
             assert runner.is_running()
         runner._proc = None  # cleanup
+        runner._master_fd = -1
+        runner._slave_fd = -1
 
     def test_double_start_raises(self) -> None:
         runner, mock_proc = self._make_runner_with_mocks()
@@ -83,21 +87,24 @@ class TestCarbonylRunnerLifecycle:
             with pytest.raises(RuntimeError, match="already running"):
                 runner.start("/tmp/doc.html", cols=80, rows=24)
         runner._proc = None
+        runner._master_fd = -1
+        runner._slave_fd = -1
 
     def test_stop_clears_state(self) -> None:
         runner, mock_proc = self._make_runner_with_mocks()
         with patch("shutil.which", return_value="/fake/carbonyl"), \
              patch("pty.openpty", return_value=(10, 11)), \
-             patch("os.close"), \
+             patch("os.close") as mock_close, \
              patch("fcntl.ioctl"), \
              patch("fcntl.fcntl"), \
              patch("subprocess.Popen", return_value=mock_proc):
             runner.start("/tmp/doc.html", cols=80, rows=24)
-        runner._proc = mock_proc
-        mock_proc.poll.return_value = None
-        runner.stop()
+            runner._proc = mock_proc
+            mock_proc.poll.return_value = None
+            runner.stop()
         assert runner._master_fd == -1
         assert runner._slave_fd == -1
+        assert mock_close.call_count >= 2
 
 
 # ---------------------------------------------------------------------------

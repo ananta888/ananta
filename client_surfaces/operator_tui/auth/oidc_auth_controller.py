@@ -18,6 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from client_surfaces.operator_tui.auth.oidc_models import (
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 _PKCE_VERIFIER_BYTES = 48  # 64 base64url chars
 _STATE_BYTES = 32
 _NONCE_BYTES = 32
+_SESSION_NONCE_BYTES = 32
 
 
 class OidcAuthController:
@@ -122,17 +124,16 @@ class OidcAuthController:
         Raises:
             ValueError: If state does not match or code is missing.
         """
+        now = time.time()
+        if request.provider_id != provider.provider_id:
+            raise ValueError("OIDC provider mismatch: request/provider do not match.")
+        if now > request.expires_at:
+            raise ValueError("OIDC request expired before callback completion.")
+
+        self._validate_loopback_callback_url(callback_url, provider)
+
         parsed = urllib.parse.urlparse(callback_url)
         params = dict(urllib.parse.parse_qsl(parsed.query))
-
-        # Check for provider-reported errors first
-        if "error" in params:
-            error_desc = params.get("error_description", params["error"])
-            return OidcAuthResult(
-                ok=False,
-                error=f"provider_error: {error_desc}",
-                provider_id=request.provider_id,
-            )
 
         # Mandatory state validation — reject mismatches
         received_state = params.get("state", "")
@@ -140,6 +141,15 @@ class OidcAuthController:
             raise ValueError(
                 "OIDC state mismatch: callback state does not match request state. "
                 "Possible CSRF attack or stale request."
+            )
+
+        # Provider errors are trusted only after state validation.
+        if "error" in params:
+            error_desc = params.get("error_description", params["error"])
+            return OidcAuthResult(
+                ok=False,
+                error=f"provider_error: {error_desc}",
+                provider_id=request.provider_id,
             )
 
         code = params.get("code", "").strip()
@@ -174,6 +184,29 @@ class OidcAuthController:
     def _generate_nonce(self) -> str:
         """Generate a cryptographically random nonce parameter."""
         return secrets.token_urlsafe(_NONCE_BYTES)
+
+    def issue_realtime_session_nonce(self) -> str:
+        """Generate a fresh nonce for realtime/WebRTC handoff.
+
+        This nonce is not derived from and does not reveal any provider token.
+        """
+        return secrets.token_urlsafe(_SESSION_NONCE_BYTES)
+
+    @staticmethod
+    def derive_subject_hash(subject: str, provider_id: str) -> str:
+        """Return a stable, non-reversible subject hash for non-secret handoff."""
+        normalized = f"{provider_id.strip()}:{subject.strip()}".encode("utf-8")
+        return hashlib.sha256(normalized).hexdigest()
+
+    def build_realtime_identity(self, result: OidcAuthResult) -> dict[str, str]:
+        """Build non-secret metadata for WebRTC/session surfaces."""
+        if not result.ok or not result.subject:
+            raise ValueError("Cannot build realtime identity without successful OIDC subject.")
+        return {
+            "provider_id": result.provider_id,
+            "subject_hash": self.derive_subject_hash(result.subject, result.provider_id),
+            "session_nonce": self.issue_realtime_session_nonce(),
+        }
 
     def _discover_auth_endpoint(self, provider: OidcProviderConfig) -> str:
         """Resolve the authorization endpoint from the OIDC discovery document.
@@ -299,9 +332,9 @@ class OidcAuthController:
                 provider_id=request.provider_id,
             )
 
-        # Extract subject/username from id_token claims if available
+        # Extract and validate non-secret display claims from id_token if available.
         id_token = str(data.get("id_token") or "")
-        subject, username = self._extract_id_token_claims(id_token)
+        subject, username = self._extract_validated_id_token_claims(id_token, request, provider)
 
         return OidcAuthResult(
             ok=True,
@@ -349,3 +382,80 @@ class OidcAuthController:
             return subject, username
         except Exception:
             return "", ""
+
+    @classmethod
+    def _extract_validated_id_token_claims(
+        cls,
+        id_token: str,
+        request: OidcAuthRequest,
+        provider: OidcProviderConfig,
+    ) -> tuple[str, str]:
+        claims = cls._decode_id_token_claims(id_token)
+        if not claims:
+            return "", ""
+
+        issuer = str(claims.get("iss") or "").rstrip("/")
+        if issuer and issuer != provider.issuer.rstrip("/"):
+            return "", ""
+
+        audience = claims.get("aud")
+        if audience and not _audience_contains(audience, provider.client_id):
+            return "", ""
+
+        nonce = str(claims.get("nonce") or "")
+        if nonce and not secrets.compare_digest(nonce, request.nonce):
+            return "", ""
+
+        exp = claims.get("exp")
+        if exp is not None:
+            try:
+                if float(exp) <= time.time():
+                    return "", ""
+            except (TypeError, ValueError):
+                return "", ""
+
+        subject = str(claims.get("sub") or "")
+        username = str(
+            claims.get("preferred_username")
+            or claims.get("email")
+            or claims.get("name")
+            or ""
+        )
+        return subject, username
+
+    @staticmethod
+    def _decode_id_token_claims(id_token: str) -> dict:
+        if not id_token:
+            return {}
+        parts = id_token.split(".")
+        if len(parts) != 3:
+            return {}
+        try:
+            payload_b64 = parts[1]
+            padding = 4 - len(payload_b64) % 4
+            if padding != 4:
+                payload_b64 += "=" * padding
+            payload_bytes = base64.urlsafe_b64decode(payload_b64)
+            return dict(json.loads(payload_bytes))
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _validate_loopback_callback_url(callback_url: str, provider: OidcProviderConfig) -> None:
+        parsed = urllib.parse.urlparse(callback_url)
+        host = (parsed.hostname or "").lower()
+        allowed_hosts = {str(item).lower() for item in provider.allowed_redirect_hosts}
+        if allowed_hosts and host not in allowed_hosts:
+            raise ValueError("OIDC callback host is not allowed for this provider.")
+        if parsed.scheme != "http":
+            raise ValueError("OIDC loopback callback must use http.")
+        if parsed.path != "/callback":
+            raise ValueError("OIDC callback path must be /callback.")
+
+
+def _audience_contains(audience: object, client_id: str) -> bool:
+    if isinstance(audience, str):
+        return secrets.compare_digest(audience, client_id)
+    if isinstance(audience, Sequence) and not isinstance(audience, (bytes, bytearray)):
+        return any(isinstance(item, str) and secrets.compare_digest(item, client_id) for item in audience)
+    return False

@@ -169,6 +169,31 @@ class TestCallbackValidation(unittest.TestCase):
         mock_exchange.assert_called_once()
         self.assertTrue(result.ok)
 
+    def test_expired_request_raises_value_error(self):
+        """Expired auth requests must not be completed."""
+        request = _make_request(state="correct_state")
+        request.expires_at = time.time() - 1
+        callback_url = "http://127.0.0.1:12345/callback?code=mycode&state=correct_state"
+        with self.assertRaises(ValueError) as ctx:
+            self.ctrl.complete_callback(callback_url, request, self.provider)
+        self.assertIn("expired", str(ctx.exception).lower())
+
+    def test_provider_error_with_wrong_state_raises_value_error(self):
+        """Provider error callbacks are trusted only after state validation."""
+        request = _make_request(state="correct_state")
+        callback_url = "http://127.0.0.1:12345/callback?error=access_denied&state=WRONG"
+        with self.assertRaises(ValueError) as ctx:
+            self.ctrl.complete_callback(callback_url, request, self.provider)
+        self.assertIn("state", str(ctx.exception).lower())
+
+    def test_callback_host_must_be_allowed(self):
+        """Callback URL must stay on an allowed loopback host."""
+        request = _make_request(state="correct_state")
+        callback_url = "http://evil.example.com:12345/callback?code=mycode&state=correct_state"
+        with self.assertRaises(ValueError) as ctx:
+            self.ctrl.complete_callback(callback_url, request, self.provider)
+        self.assertIn("host", str(ctx.exception).lower())
+
 
 class TestTokenNotExposedInOutput(unittest.TestCase):
     """Token values must never appear in string/repr outputs."""
@@ -247,6 +272,66 @@ class TestTokenNotExposedInOutput(unittest.TestCase):
         self.assertNotIn("some_code", result.error)
         # Verify no JWT-like pattern in error
         self.assertNotIn("eyJ", result.error)
+
+
+def _jwt_payload(claims: dict) -> str:
+    header = {"alg": "none"}
+
+    def _part(obj: dict) -> str:
+        raw = json.dumps(obj, separators=(",", ":")).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+    return f"{_part(header)}.{_part(claims)}."
+
+
+class TestOidcIdentityDerivation(unittest.TestCase):
+    """Realtime handoff must expose derived metadata only."""
+
+    def setUp(self):
+        self.ctrl = OidcAuthController()
+        self.provider = _make_provider()
+
+    def test_valid_id_token_claims_are_extracted(self):
+        request = _make_request(nonce="nonce-123")
+        token = _jwt_payload({
+            "iss": self.provider.issuer,
+            "aud": self.provider.client_id,
+            "nonce": "nonce-123",
+            "exp": time.time() + 300,
+            "sub": "subject-1",
+            "preferred_username": "alice",
+        })
+        subject, username = self.ctrl._extract_validated_id_token_claims(token, request, self.provider)
+        self.assertEqual(subject, "subject-1")
+        self.assertEqual(username, "alice")
+
+    def test_wrong_nonce_claims_are_rejected(self):
+        request = _make_request(nonce="nonce-123")
+        token = _jwt_payload({
+            "iss": self.provider.issuer,
+            "aud": self.provider.client_id,
+            "nonce": "wrong",
+            "exp": time.time() + 300,
+            "sub": "subject-1",
+        })
+        self.assertEqual(self.ctrl._extract_validated_id_token_claims(token, request, self.provider), ("", ""))
+
+    def test_realtime_identity_has_no_raw_token_material(self):
+        result = OidcAuthResult(
+            ok=True,
+            access_token="secret-access-token",
+            refresh_token="secret-refresh-token",
+            id_token="secret-id-token",
+            provider_id="provider",
+            subject="subject-1",
+        )
+        identity = self.ctrl.build_realtime_identity(result)
+        rendered = json.dumps(identity)
+        self.assertIn("subject_hash", identity)
+        self.assertIn("session_nonce", identity)
+        self.assertNotIn("secret-access-token", rendered)
+        self.assertNotIn("secret-refresh-token", rendered)
+        self.assertNotIn("subject-1", rendered)
 
 
 class TestCreateAuthorizationRequest(unittest.TestCase):

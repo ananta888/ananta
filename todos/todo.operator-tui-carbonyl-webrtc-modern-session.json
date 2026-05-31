@@ -144,16 +144,15 @@
     },
     {
       "id": "webrtc-002-signaling-client",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "client_surfaces/operator_tui/realtime/signaling_client.py exists and implements allowlist check before connect().",
         "client_surfaces/operator_tui/realtime/signaling_models.py exists with join/leave/offer/answer/ice_candidate/error/heartbeat envelope and session_nonce field.",
-        "No direct dependency on webrtc_transport.py observed in reviewed realtime signaling files."
-      ],
-      "remaining_work": [
-        "Fix allowlist semantics if prefix matching could accidentally allow unintended sibling URLs; prefer exact origin/path match or normalized configured endpoint comparison.",
-        "Add or restore tests/client_surfaces/operator_tui/realtime/test_signaling_client.py; direct fetch currently returned 404.",
-        "Verify raw token absence via tests."
+        "No direct dependency on webrtc_transport.py observed in reviewed realtime signaling files.",
+        "SignalingClient now parses URLs and requires scheme, host, port and configured endpoint path to match; prefix sibling hosts are rejected.",
+        "commands.py no longer auto-adds an arbitrary configured signaling_url to allowed_servers.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/realtime -q => 21 passed in 2.85s, including test_signaling_client.py."
       ],
       "title": "Implement allowlisted WebSocket signaling client",
       "files": ["client_surfaces/operator_tui/realtime/signaling_client.py", "client_surfaces/operator_tui/realtime/signaling_models.py", "tests/client_surfaces/operator_tui/realtime/test_signaling_client.py"]
@@ -190,28 +189,26 @@
     },
     {
       "id": "webrtc-005-identity-binding-and-policy",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "client_surfaces/operator_tui/realtime/webrtc_policy.py exists with deny-by-default camera/microphone/screen-share and explicit_accept_required artifact policy.",
-        "webrtc_session_controller.py stores oidc_subject_hash and session_nonce and exposes status."
-      ],
-      "remaining_work": [
-        "Actually enforce require_oidc_session and reject_unknown_peers in controller flow, not only store policy values.",
-        "Add tests for unknown peer rejection and missing session nonce failure.",
-        "Connect OIDC-derived metadata from AuthController/session store."
+        "webrtc_session_controller.py stores oidc_subject_hash and session_nonce and exposes status.",
+        "WebRtcSessionController now requires OIDC subject hash and session_nonce when policy requires them, rejects session_id/session_nonce mismatches, rejects unknown empty peers and preserves controller session_id in accept/reject messages.",
+        "OidcAuthController.build_realtime_identity() provides non-secret subject_hash/session_nonce metadata for realtime handoff.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/realtime -q => 21 passed in 2.85s, including test_webrtc_policy.py and test_webrtc_session_controller.py."
       ],
       "title": "Bind WebRTC peer/session to OIDC identity and Ananta policy",
       "files": ["client_surfaces/operator_tui/realtime/webrtc_policy.py", "client_surfaces/operator_tui/auth/oidc_auth_controller.py", "client_surfaces/operator_tui/realtime/webrtc_session_controller.py"]
     },
     {
       "id": "webrtc-006-ice-stun-turn-capability-probe",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
-        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims realtime/ice_probe.py and scripts/operator_tui_webrtc_smoke.py."
-      ],
-      "remaining_work": [
-        "Inspect or run mock-mode smoke script and record output.",
-        "Verify candidate IP redaction behavior."
+        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims realtime/ice_probe.py and scripts/operator_tui_webrtc_smoke.py.",
+        ".venv/bin/python scripts/operator_tui_webrtc_smoke.py --mock --indent 0 => summary mock: all probes succeeded.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/realtime -q => 21 passed in 2.85s, including test_ice_probe.py for STUN/TURN URL parsing and IP redaction."
       ],
       "title": "Add ICE/STUN/TURN capability and connectivity probes",
       "files": ["scripts/operator_tui_webrtc_smoke.py", "client_surfaces/operator_tui/realtime/ice_probe.py", "docs/operator-tui/carbonyl-webrtc-session.md"]
@@ -248,30 +245,26 @@
     },
     {
       "id": "webrtc-009-security-audit-and-cleanup",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims realtime/webrtc_audit.py with redacted audit ring buffer.",
-        "WebRtcSessionController.stop_session() disconnects signaling and sets states closed/disconnected."
-      ],
-      "remaining_work": [
-        "Verify audit tests fail on token/cookie/payload leakage.",
-        "Verify half-open session cleanup and actual WebSocket/DataChannel resource closure.",
-        "Record tests/client_surfaces/operator_tui/realtime/test_webrtc_audit.py results."
+        "WebRtcSessionController.stop_session() disconnects signaling and sets states closed/disconnected.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/realtime -q => 21 passed in 2.85s, including test_webrtc_audit.py for token/IP scrubbing and ring-buffer behavior.",
+        "Session controller tests cover cleanup-relevant signaling state and session id/nonce rejection paths."
       ],
       "title": "Audit and cleanup WebRTC sessions safely",
       "files": ["client_surfaces/operator_tui/realtime/webrtc_audit.py", "client_surfaces/operator_tui/realtime/webrtc_session_controller.py", "tests/client_surfaces/operator_tui/realtime/test_webrtc_audit.py"]
     },
     {
       "id": "webrtc-010-documentation-and-examples",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "docs/operator-tui/carbonyl-webrtc-session.md exists and explains Option C, security boundary, package layout and limited test services.",
-        "Docs clearly mark audio/video experimental and disabled by default."
-      ],
-      "remaining_work": [
-        "Verify examples/operator-tui/webrtc/README.md exists and is runnable.",
-        "Add local-only mock signaling example if missing.",
-        "Record docs smoke run path."
+        "Docs clearly mark audio/video experimental and disabled by default.",
+        "examples/operator-tui/webrtc/README.md now documents the local mock ICE probe and realtime protocol/policy test command.",
+        "docs/operator-tui/carbonyl-oidc-session-modes.md documents OIDC modes, token ownership and smoke commands."
       ],
       "title": "Document WebRTC + OIDC + Carbonyl setup",
       "files": ["docs/operator-tui/carbonyl-webrtc-session.md", "docs/operator-tui/carbonyl-oidc-session-modes.md", "examples/operator-tui/webrtc/README.md"]

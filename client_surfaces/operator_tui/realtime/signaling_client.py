@@ -303,9 +303,9 @@ class SignalingClient:
     # ------------------------------------------------------------------
 
     def _check_allowlist(self) -> None:
-        url = self._server_url.rstrip("/")
+        url = _parse_allowed_websocket_url(self._server_url)
         for allowed in self._allowed_servers:
-            if url.startswith(allowed.rstrip("/")):
+            if _websocket_url_allowed(url, _parse_allowed_websocket_url(allowed)):
                 return
         raise SignalingNotAllowedError(
             f"Server URL not in allowlist: {self._server_url!r}. "
@@ -330,3 +330,34 @@ class SignalingClient:
                 break
         self._connected = False
         self._recv_queue.put_nowait(None)
+
+
+def _parse_allowed_websocket_url(raw_url: str) -> urllib.parse.ParseResult:
+    parsed = urllib.parse.urlparse(raw_url.strip())
+    if parsed.scheme not in {"ws", "wss"} or not parsed.hostname:
+        raise SignalingNotAllowedError(f"Invalid WebSocket URL: {raw_url!r}")
+    return parsed
+
+
+def _websocket_url_allowed(
+    target: urllib.parse.ParseResult,
+    allowed: urllib.parse.ParseResult,
+) -> bool:
+    if target.scheme != allowed.scheme:
+        return False
+    if (target.hostname or "").lower() != (allowed.hostname or "").lower():
+        return False
+    if _port_or_default(target) != _port_or_default(allowed):
+        return False
+
+    allowed_path = allowed.path.rstrip("/")
+    target_path = target.path.rstrip("/")
+    if not allowed_path:
+        return True
+    return target_path == allowed_path
+
+
+def _port_or_default(parsed: urllib.parse.ParseResult) -> int:
+    if parsed.port is not None:
+        return parsed.port
+    return 443 if parsed.scheme == "wss" else 80
