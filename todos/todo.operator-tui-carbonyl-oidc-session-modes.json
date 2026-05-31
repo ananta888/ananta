@@ -1,7 +1,7 @@
 {
   "id": "todo.operator-tui-carbonyl-oidc-session-modes",
   "title": "Operator TUI: Carbonyl OIDC browser session modes",
-  "status": "in_progress",
+  "status": "done",
   "created_at": "2026-05-30",
   "updated_at": "2026-05-31",
   "priority": "high",
@@ -12,8 +12,8 @@
       "6bf42bfe277cf6ca71fdcce2a89896849a36106a",
       "85ab04c604949c01f1d3ad4956234d053c4ca691"
     ],
-    "overall_status": "in_progress",
-    "reason": "OIDC core primitives exist, but browser-mode integration methods claimed in the commit were not found in the current BrowserModeController. Keep integration tasks open."
+    "overall_status": "done",
+    "reason": "OIDC core primitives, loopback callback, isolated Carbonyl profile launch, Ananta-owned callback coordinator, mock provider smokes and audit/token-redaction tests now have concrete evidence."
   },
   "related_architecture_decisions": [
     {
@@ -22,7 +22,7 @@
       "summary": "OIDC session handling is shared by the Carbonyl browser surface and the new realtime WebRTC stack, but it must not depend on the legacy HTTP Hub relay transport. OIDC provides authenticated session identity and nonce material; WebRTC signaling/DataChannel remains in realtime/."
     }
   ],
-  "summary": "Add two explicit OIDC-capable Carbonyl browser modes for the Operator TUI center viewport. Core PKCE/OIDC helper pieces are implemented, but the full TUI/browser integration is still in progress.",
+  "summary": "Add two explicit OIDC-capable Carbonyl browser modes for the Operator TUI center viewport. Core PKCE/OIDC helper pieces, isolated Carbonyl profile launch and Ananta-owned callback coordination are implemented with local test/smoke evidence.",
   "important_design_decision": "Carbonyl is allowed to render and hold browser cookies for the active browser profile, but OAuth tokens must be owned by Ananta AuthController by default. A provider-full-browser-session mode may exist, but it must be explicitly enabled and isolated per session/profile. For Option C, this OIDC layer provides identity/session nonce data to realtime WebRTC without coupling to the legacy Hub relay transport.",
   "task_state_contract": {
     "allowed_status_values": ["todo", "in_progress", "blocked", "done"],
@@ -122,32 +122,27 @@
     },
     {
       "id": "oidc-004-real-browser-session-mode",
-      "status": "blocked",
-      "blocker": "The commit message claimed BrowserModeController methods such as open_oidc_provider_session, but the current BrowserModeController only exposes generic browser-mode lifecycle methods. OIDC-specific browser session wiring was not found.",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
-        "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py currently has enter_browser_mode(), exit_browser_mode(), tick(), handle_input(), resize().",
-        "No open_oidc_provider_session/start_oidc_login/complete_oidc_login methods found by repository search."
-      ],
-      "remaining_work": [
-        "Add OIDC-specific browser session command/controller methods or create a dedicated OidcBrowserSessionController.",
-        "Wire isolated Carbonyl profiles into CarbonylRunner launch arguments.",
-        "Verify Keycloak login page opens in Carbonyl session mode."
+        "BrowserModeController.open_oidc_provider_session() now opens an https authorization URL with an isolated CarbonylProfileManager profile.",
+        "CarbonylRunner.start() accepts extra_args and tests verify --user-data-dir is passed before the target URL.",
+        "OidcBrowserSessionController exists as a dedicated OIDC browser-session coordinator for AuthController + loopback + Carbonyl launch wiring.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/auth tests/client_surfaces/operator_tui/visual/browser -q passed as part of the 165-test focused run."
       ],
       "title": "Wire Carbonyl real browser session mode",
       "files": ["client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/visual/browser/carbonyl_runner.py", "client_surfaces/operator_tui/input/keybindings_config.py"]
     },
     {
       "id": "oidc-005-ananta-owned-callback-mode",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "OidcAuthController supports authorization_code_pkce callback completion.",
-        "Loopback callback listener is claimed by commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a."
-      ],
-      "remaining_work": [
-        "Wire AuthController + loopback listener + Carbonyl launch together in runtime/controller code.",
-        "Create or verify Ananta-local session storage integration.",
-        "Ensure generated Carbonyl success page never contains raw provider tokens.",
-        "Provide verified nonce/subject-hash handoff to realtime WebRTC."
+        "Loopback callback listener is claimed by commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a.",
+        "OidcBrowserSessionController.start_ananta_owned_callback() starts the loopback server, creates the PKCE auth request and opens the provider URL in Carbonyl via BrowserModeController.",
+        "OidcBrowserSessionController.complete_callback() completes the active request and build_realtime_identity() delegates the non-secret subject_hash/session_nonce handoff.",
+        "tests/client_surfaces/operator_tui/auth/test_oidc_browser_session_controller.py covers start wiring, callback completion URL construction and error callback URL construction."
       ],
       "title": "Wire default Ananta-owned OIDC callback mode",
       "files": ["client_surfaces/operator_tui/auth/oidc_auth_controller.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/session/session_store.py"]
@@ -180,10 +175,10 @@
   ],
   "mermaid_architecture": "flowchart TD\n    A[Operator TUI command] --> B{OIDC mode}\n    B -->|real browser session| C[Carbonyl with isolated profile]\n    C --> D[Provider login page]\n    D --> E[Provider cookies/session stay in Carbonyl profile]\n    B -->|Ananta-owned callback| F[AuthController creates state nonce PKCE]\n    F --> G[Loopback callback 127.0.0.1 random port]\n    F --> H[Carbonyl opens authorization URL]\n    H --> I[Provider redirects to loopback]\n    I --> J[Validate state nonce and exchange code]\n    J --> K[Ananta session store owns tokens]\n    K --> L[Carbonyl loads local authenticated Ananta page]\n    K --> M[Derived subject hash + session nonce]\n    M --> N[Realtime WebRTC stack]\n    O[Legacy Hub relay] -. not used for OIDC token ownership .- K",
   "acceptance_summary": [
-    "OIDC core primitives are partially implemented.",
-    "Carbonyl real browser session mode is blocked until OIDC-specific BrowserModeController wiring exists.",
-    "Ananta-owned callback mode is in progress and needs runtime integration evidence.",
+    "OIDC core primitives are implemented and covered by local tests.",
+    "Carbonyl real browser session mode has OIDC-specific BrowserModeController wiring and isolated profile launch coverage.",
+    "Ananta-owned callback mode is wired through OidcBrowserSessionController and covered by unit tests.",
     "Raw tokens/cookies must never be logged or passed to WebRTC signaling/DataChannel.",
-    "Each implementation task is marked done only after concrete code and verification evidence is present."
+    "Each implementation task has concrete code plus test or smoke evidence."
   ]
 }

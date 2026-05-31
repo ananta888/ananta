@@ -10,14 +10,14 @@
     "todos/todo.operator-tui-carbonyl-center-browser-mode.json",
     "todos/todo.operator-tui-carbonyl-oidc-session-modes.json"
   ],
-  "summary": "Add an explicit WebRTC-capable Carbonyl center-browser session for Ananta. Core realtime skeletons exist, but the full RTCPeerConnection/DataChannel runtime, TUI command wiring and test evidence are not complete yet.",
+  "summary": "Add an explicit WebRTC-capable Carbonyl center-browser session for Ananta. Core realtime skeletons, browser/OIDC bridge, TUI controls and local tests exist; live browser RTCDataChannel ping/pong and Carbonyl media behavior still need environment-backed verification.",
   "progress_assessment": {
     "source_commits": [
       "3211b92606c28be382eb72f6e642f1276070fa6f",
       "16a4f1ed974e6da3fbd014722c6199336f8335ef"
     ],
     "overall_status": "in_progress",
-    "reason": "Option C, signaling models/client, DataChannel protocol, policy and docs exist. Actual complete PeerConnection/DataChannel runtime and tests were not sufficiently verified. Some expected tests are not currently fetchable by path."
+    "reason": "Option C, signaling models/client, DataChannel protocol, policy, browser app shell, OIDC bridge, TUI controls and docs exist with local tests. The remaining open work is live browser RTCDataChannel ping/pong and Carbonyl media behavior verification."
   },
   "design_principle": "WebRTC is not just rendering. It is a network/session/runtime feature. Carbonyl may host the browser page in the CenterViewport, but Ananta must own policy, identity binding, signaling configuration, permissions and audit state.",
   "accepted_architecture_decision": {
@@ -40,10 +40,9 @@
     "evidence_examples": ["test names", "manual smoke command output", "docs path", "commit hash"]
   },
   "known_gaps": [
-    "WebRtcSessionController currently looks like a signaling/session state orchestrator, not a full RTCPeerConnection/RTCDataChannel implementation.",
-    "Expected tests under tests/client_surfaces/operator_tui/realtime/ were not fetchable by direct path during review.",
-    "OIDC-specific BrowserModeController wiring is currently blocked in the OIDC TODO and therefore WebRTC startup from authenticated Carbonyl session is not fully closed.",
-    "TUI commands and full E2E smoke output still need concrete verification evidence."
+    "WebRtcSessionController owns Python-side signaling/session state; browser RTCPeerConnection/DataChannel execution still needs live browser smoke evidence.",
+    "Live Carbonyl media behavior must be recorded in the target terminal/WSL2 environment.",
+    "The carbonyl binary is not installed on PATH in this workspace, so local verification is limited to degraded-mode smoke and unit/asset tests."
   ],
   "non_goals": [
     "Do not enable camera or microphone by default.",
@@ -130,14 +129,14 @@
     },
     {
       "id": "webrtc-001-local-web-app-shell",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
-        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims visual/browser/webrtc_app/ index.html, app.js, datachannel.js, style.css, media_probe.js."
-      ],
-      "remaining_work": [
-        "Verify the files exist and are actually loaded by Carbonyl browser mode.",
-        "Verify app performs no remote fetch before explicit WebRTC start.",
-        "Record local smoke evidence."
+        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims visual/browser/webrtc_app/ index.html, app.js, datachannel.js, style.css, media_probe.js.",
+        "BrowserModeController.open_webrtc_app() generates local HTML with a file:// base href and injects non-secret window.ANANTA_CONFIG.",
+        "tests/client_surfaces/operator_tui/visual/browser/test_browser_mode_controller.py verifies WebRTC app config injection and token scrubbing.",
+        "tests/client_surfaces/operator_tui/realtime/test_webrtc_app_assets.py verifies index.html has no remote assets and app.js does not call media APIs by default.",
+        ".venv/bin/python scripts/operator_tui_carbonyl_smoke.py => adapter pipeline OK; Carbonyl binary absent on PATH, degraded mode reported correctly."
       ],
       "title": "Create local WebRTC browser app loaded by Carbonyl",
       "files": ["client_surfaces/operator_tui/visual/browser/webrtc_app/index.html", "client_surfaces/operator_tui/visual/browser/webrtc_app/app.js", "client_surfaces/operator_tui/visual/browser/webrtc_app/style.css", "client_surfaces/operator_tui/visual/browser/browser_document_adapter.py"]
@@ -159,16 +158,14 @@
     },
     {
       "id": "webrtc-003-browser-session-bridge",
-      "status": "blocked",
-      "blocker": "The boundary is documented, but full bridge integration depends on OIDC/browser session wiring that is currently blocked in todo.operator-tui-carbonyl-oidc-session-modes.json.",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "webrtc_session_controller.py documents that Python owns signaling/policy and browser JS receives only derived metadata.",
-        "No complete runtime bridge from authenticated Carbonyl OIDC session into WebRTC app was verified."
-      ],
-      "remaining_work": [
-        "Implement or verify actual window.ANANTA_CONFIG injection/path into the WebRTC app.",
-        "Connect OIDC subject hash/session nonce generation to WebRtcSessionController startup.",
-        "Verify browser app can establish DataChannel without raw provider tokens."
+        "BrowserModeController.build_webrtc_app_html() injects window.ANANTA_CONFIG after removing token/secret/credential/cookie/password/refresh keys.",
+        "OidcBrowserSessionController and OidcAuthController.build_realtime_identity() provide non-secret subject_hash/session_nonce metadata for the WebRTC app/controller boundary.",
+        "visual/browser/webrtc_app/app.js now sends signaling messages with session_id, sender_id, recipient_id, payload, session_nonce, message_id and timestamp fields matching the Python SignalingMessage envelope.",
+        "tests/client_surfaces/operator_tui/realtime/test_webrtc_app_assets.py verifies the browser app signaling envelope fields and no default media import."
       ],
       "title": "Bridge Carbonyl browser app and Ananta runtime safely",
       "files": ["client_surfaces/operator_tui/realtime/webrtc_session_controller.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/visual/browser/webrtc_app/app.js"]
@@ -177,12 +174,12 @@
       "id": "webrtc-004-datachannel-protocol",
       "status": "in_progress",
       "evidence": [
-        "client_surfaces/operator_tui/realtime/datachannel_protocol.py exists with DataChannelMessage, DataChannelProtocol, version checking, size checks and SHA-256 verification helper."
+        "client_surfaces/operator_tui/realtime/datachannel_protocol.py exists with DataChannelMessage, DataChannelProtocol, version checking, size checks and SHA-256 verification helper.",
+        "tests/client_surfaces/operator_tui/realtime/test_datachannel_protocol.py covers Python ping round-trip, unknown type rejection, version mismatch, artifact size limit and SHA-256 helper.",
+        "tests/client_surfaces/operator_tui/realtime/test_webrtc_app_assets.py verifies JS datachannel.js constants and message types stay aligned with Python."
       ],
       "remaining_work": [
-        "Verify JS datachannel.js stays in sync with Python protocol.",
-        "Add or restore tests/client_surfaces/operator_tui/realtime/test_datachannel_protocol.py; direct search did not find it.",
-        "Record real ping/pong smoke test before marking done."
+        "Record real browser RTCDataChannel ping/pong smoke test before marking done."
       ],
       "title": "Define and implement Ananta DataChannel protocol v1",
       "files": ["client_surfaces/operator_tui/realtime/datachannel_protocol.py", "client_surfaces/operator_tui/visual/browser/webrtc_app/datachannel.js", "tests/client_surfaces/operator_tui/realtime/test_datachannel_protocol.py"]
@@ -218,10 +215,11 @@
       "status": "in_progress",
       "evidence": [
         "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims media_probe.js.",
-        "WebRtcPolicy defaults camera_enabled, microphone_enabled and screen_share_enabled to false."
+        "WebRtcPolicy defaults camera_enabled, microphone_enabled and screen_share_enabled to false.",
+        "tests/client_surfaces/operator_tui/realtime/test_webrtc_app_assets.py verifies app.js does not import media_probe.js and does not call getUserMedia/getDisplayMedia by default.",
+        "media_probe.js exports probeMediaCapabilities(), which is only available for explicit host-triggered calls."
       ],
       "remaining_work": [
-        "Verify media_probe.js exists and is only called by explicit user action.",
         "Record behavior under Carbonyl/terminal/WSL2."
       ],
       "title": "Add optional audio/video/camera/microphone capability experiment",
@@ -229,16 +227,14 @@
     },
     {
       "id": "webrtc-008-ui-controls-and-status",
-      "status": "blocked",
-      "blocker": "WebRTC UI controls depend on completed browser/OIDC session bridge and verified TUI command wiring.",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "WebRtcSessionController exposes get_status() with auth/signaling/ice/datachannel/peer/transfer state.",
-        "Actual TUI commands center.browser.webrtc.start/stop/status/accept_artifact were not verified in this review."
-      ],
-      "remaining_work": [
-        "Wire commands into keybindings/config and runtime view controller.",
-        "Verify Esc cleanup from active WebRTC mode.",
-        "Add keybinding conflict tests."
+        "commands.py handles center.browser.webrtc.start/stop/status/accept_artifact.",
+        "config/operator_tui_keybindings.default.json defines center_browser_toggle on F5 and tests verify no footer-normal keybinding conflicts.",
+        "interactive.py wires center_browser_toggle to center.browser.toggle and Esc clears center browser state.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/test_center_browser_commands.py -q passed as part of the 165-test focused run."
       ],
       "title": "Add TUI controls/status for WebRTC mode",
       "files": ["client_surfaces/operator_tui/input/keybindings_config.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/visual/runtime/view_controller.py"]
@@ -273,9 +269,10 @@
   "mermaid_architecture": "flowchart TD\n    A[User starts WebRTC mode in Operator TUI] --> B{OIDC session exists?}\n    B -->|no| C[Carbonyl OIDC login flow]\n    B -->|yes| D[Load local WebRTC app in Carbonyl]\n    C --> D\n    D --> E[Connect to allowlisted WebSocket signaling server]\n    E --> F[Exchange offer answer ICE]\n    F --> G[RTCPeerConnection]\n    G --> H[RTCDataChannel]\n    H --> I[hello + identity/session nonce handshake]\n    I --> J{Policy allows artifact exchange?}\n    J -->|yes explicit accept| K[Chunked artifact transfer + SHA256 verify]\n    J -->|no| L[Reject with reason]\n    K --> M[Audit redacted completion]\n    L --> M\n    N[Esc/stop] --> O[Close channel peer connection signaling Carbonyl mode]\n    P[Existing webrtc_transport.py] --> Q[HubRelayTransport HTTP polling]\n    Q --> R[Existing Share-Session relay]\n    P -. separate from Option C .- E",
   "acceptance_summary": [
     "Option C split is done and documented.",
-    "Core realtime skeleton exists but must remain in_progress until RTCPeerConnection/DataChannel runtime and tests are verified.",
-    "Signaling and protocol files exist but tests must be added/restored and run.",
-    "Browser/OIDC bridge and TUI controls are blocked/in_progress, not done.",
+    "Core realtime skeleton, signaling allowlist, browser app shell, OIDC bridge, audit, docs and TUI command/keybinding contracts have local test evidence.",
+    "The WebRTC TODO remains in_progress until live browser RTCDataChannel ping/pong and Carbonyl media behavior are recorded.",
+    "DataChannel protocol parity and media opt-in behavior are covered by local tests, but live browser behavior is still pending.",
+    "Browser/OIDC bridge and TUI controls are no longer blocked.",
     "No task may be marked done without concrete evidence from code plus tests or smoke output."
   ]
 }
