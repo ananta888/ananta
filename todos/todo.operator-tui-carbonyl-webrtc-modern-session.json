@@ -1,7 +1,7 @@
 {
   "id": "todo.operator-tui-carbonyl-webrtc-modern-session",
   "title": "Operator TUI: Carbonyl WebRTC/DataChannel session with OIDC and modern browser capabilities",
-  "status": "open",
+  "status": "in_progress",
   "created_at": "2026-05-30",
   "updated_at": "2026-05-31",
   "priority": "high",
@@ -10,7 +10,15 @@
     "todos/todo.operator-tui-carbonyl-center-browser-mode.json",
     "todos/todo.operator-tui-carbonyl-oidc-session-modes.json"
   ],
-  "summary": "Add an explicit WebRTC-capable Carbonyl center-browser session for Ananta. Primary goal is RTCDataChannel-based peer/session communication and artifact exchange inside an authenticated browser session. Audio/video and camera/microphone are optional capability probes and disabled by default.",
+  "summary": "Add an explicit WebRTC-capable Carbonyl center-browser session for Ananta. Core realtime skeletons exist, but the full RTCPeerConnection/DataChannel runtime, TUI command wiring and test evidence are not complete yet.",
+  "progress_assessment": {
+    "source_commits": [
+      "3211b92606c28be382eb72f6e642f1276070fa6f",
+      "16a4f1ed974e6da3fbd014722c6199336f8335ef"
+    ],
+    "overall_status": "in_progress",
+    "reason": "Option C, signaling models/client, DataChannel protocol, policy and docs exist. Actual complete PeerConnection/DataChannel runtime and tests were not sufficiently verified. Some expected tests are not currently fetchable by path."
+  },
   "design_principle": "WebRTC is not just rendering. It is a network/session/runtime feature. Carbonyl may host the browser page in the CenterViewport, but Ananta must own policy, identity binding, signaling configuration, permissions and audit state.",
   "accepted_architecture_decision": {
     "id": "ADR-operator-tui-webrtc-option-c",
@@ -19,8 +27,6 @@
     "date": "2026-05-31",
     "meaning": "client_surfaces/operator_tui/webrtc_transport.py remains the existing Share-Session Hub relay path and must not be treated as real WebRTC. The new client_surfaces/operator_tui/realtime/ stack is the real Carbonyl/WebRTC path using WebSocket signaling plus RTCDataChannel. The two paths stay separate and are only joined at a higher session/controller level when explicitly needed.",
     "renaming_guidance": "webrtc_transport.py should be renamed or wrapped as hub_relay_transport.py in a later compatibility task, because the existing implementation uses HTTP polling against the Ananta Hub and not RTCDataChannel. Existing imports may keep a deprecated compatibility alias until callers are migrated.",
-    "why_not_option_a": "Replacing webrtc_transport.py directly would risk breaking existing Share-Session behavior.",
-    "why_not_option_b": "Extending webrtc_transport.py with WebSocket and DataChannel behavior would mix two different responsibilities and make the misleading class name worse.",
     "required_separation": [
       "Hub relay path: HTTP polling, Ananta Hub auth, existing Share-Session/TUI operator relay use case.",
       "Realtime path: WebSocket signaling, OIDC-derived session nonce, allowlisted signaling server, RTCPeerConnection and RTCDataChannel.",
@@ -33,12 +39,11 @@
     "rule": "Every implementation task has its own status. When a task is implemented and verified, change that task status to done and add done_at plus evidence. Do not mark the whole TODO done until all implementation_tasks are done.",
     "evidence_examples": ["test names", "manual smoke command output", "docs path", "commit hash"]
   },
-  "intended_use_cases": [
-    "Authenticated peer-to-peer Ananta session using Keycloak/OIDC identity.",
-    "DataChannel ping/pong and low-latency control messages.",
-    "Encrypted artifact/chunk exchange between trusted peers.",
-    "Collaborative TUI/session demo through webrtc.ananta.de signaling.",
-    "Optional media capability smoke test for microphone/camera/audio/video where supported."
+  "known_gaps": [
+    "WebRtcSessionController currently looks like a signaling/session state orchestrator, not a full RTCPeerConnection/RTCDataChannel implementation.",
+    "Expected tests under tests/client_surfaces/operator_tui/realtime/ were not fetchable by direct path during review.",
+    "OIDC-specific BrowserModeController wiring is currently blocked in the OIDC TODO and therefore WebRTC startup from authenticated Carbonyl session is not fully closed.",
+    "TUI commands and full E2E smoke output still need concrete verification evidence."
   ],
   "non_goals": [
     "Do not enable camera or microphone by default.",
@@ -52,21 +57,11 @@
     "components": [
       {"name": "CarbonylBrowserModeController", "responsibility": "Launches Carbonyl in the CenterViewport and loads the local WebRTC app or authenticated remote app."},
       {"name": "OidcAuthController", "responsibility": "Provides login/session identity before WebRTC session start."},
-      {"name": "WebRtcSessionController", "responsibility": "Owns realtime signaling state, peer identity binding, channel lifecycle and policy decisions. It must not depend on the legacy Hub relay transport."},
+      {"name": "WebRtcSessionController", "responsibility": "Owns realtime signaling state, peer identity binding, channel lifecycle and policy decisions. Current implementation still needs full RTCPeerConnection/DataChannel runtime verification."},
       {"name": "SignalingClient", "responsibility": "Connects to configured allowlisted WebSocket signaling endpoint such as wss://webrtc.ananta.de/signaling."},
       {"name": "DataChannelProtocol", "responsibility": "Defines structured RTCDataChannel messages for ping/pong, control events, artifact metadata and chunk transfer."},
       {"name": "PermissionPolicy", "responsibility": "Controls datachannel, remote URL, camera, microphone, file/artifact exchange and TURN usage."},
       {"name": "HubRelayTransport", "responsibility": "Compatibility name for the existing HTTP polling Share-Session relay. This is separate from the realtime WebRTC path."}
-    ],
-    "default_flow": [
-      "User explicitly starts WebRTC mode from Operator TUI.",
-      "Ananta verifies OIDC session or triggers Carbonyl OIDC login first.",
-      "Carbonyl loads local Ananta WebRTC test/app page in CenterViewport.",
-      "The realtime stack connects to an allowlisted WebSocket signaling server.",
-      "Peers exchange offer/answer/ICE candidates via signaling.",
-      "RTCPeerConnection opens RTCDataChannel and runs capability handshake.",
-      "Artifact exchange is allowed only after identity and policy checks.",
-      "Leaving WebRTC mode closes channels, stops signaling and returns to previous CenterView."
     ]
   },
   "configuration": {
@@ -92,12 +87,6 @@
               "connect_timeout_seconds": 10.0,
               "reconnect": false
             },
-            "ice": {
-              "stun_servers": ["stun:webrtc.ananta.de:3478"],
-              "turn_servers": [{"url": "turn:webrtc.ananta.de:3478", "credential_source": "ephemeral_credential_endpoint"}],
-              "ice_transport_policy": "all",
-              "turn_required_for_private_networks": false
-            },
             "permissions": {
               "datachannel": true,
               "artifact_exchange": "explicit_accept_required",
@@ -111,7 +100,6 @@
               "max_message_bytes": 65536,
               "max_artifact_bytes": 104857600,
               "chunk_size_bytes": 32768,
-              "compression": "optional_zstd_or_none",
               "integrity": "sha256_required",
               "application_ack": true
             },
@@ -128,28 +116,173 @@
     }
   },
   "implementation_tasks": [
-    {"id": "webrtc-000-transport-split-documentation", "status": "todo", "title": "Document and enforce Option C transport split", "files": ["client_surfaces/operator_tui/webrtc_transport.py", "client_surfaces/operator_tui/realtime/", "docs/operator-tui/carbonyl-webrtc-session.md"], "details": ["Document that webrtc_transport.py is an HTTP Hub relay and not real WebRTC.", "Add a deprecated compatibility note or wrapper name hub_relay_transport.py without breaking existing imports.", "Ensure realtime/ does not import or depend on webrtc_transport.py for signaling or RTCDataChannel work."], "acceptance_criteria": ["Docs contain an explicit Option C section.", "Existing Share-Session relay behavior remains unchanged.", "Realtime tests can run without constructing WebRtcTransport.", "A future rename path to hub_relay_transport.py is documented."]},
-    {"id": "webrtc-001-local-web-app-shell", "status": "todo", "title": "Create local WebRTC browser app loaded by Carbonyl", "files": ["client_surfaces/operator_tui/visual/browser/webrtc_app/index.html", "client_surfaces/operator_tui/visual/browser/webrtc_app/app.js", "client_surfaces/operator_tui/visual/browser/webrtc_app/style.css", "client_surfaces/operator_tui/visual/browser/browser_document_adapter.py"], "details": ["Create a minimal local HTML/JS app for WebRTC testing and runtime use.", "Load only local JS/CSS by default.", "Render session status: OIDC state, signaling state, ICE state, DataChannel state, peer id and degraded reasons.", "Expose a safe postMessage or localhost bridge only if needed and policy-controlled."], "acceptance_criteria": ["Carbonyl can open the local WebRTC app from CenterViewport.", "The app performs no remote fetch before the user starts/connects WebRTC.", "The app clearly shows disconnected, connecting, connected and failed states.", "Default app works without camera/microphone permission requests."]},
-    {"id": "webrtc-002-signaling-client", "status": "todo", "title": "Implement allowlisted WebSocket signaling client", "files": ["client_surfaces/operator_tui/realtime/signaling_client.py", "client_surfaces/operator_tui/realtime/signaling_models.py", "tests/client_surfaces/operator_tui/realtime/test_signaling_client.py"], "details": ["Support configured WebSocket signaling server URLs only.", "Reject signaling servers not present in allowed_servers.", "Define message envelope for join, leave, offer, answer, ice_candidate, error and heartbeat.", "Include Ananta session id, OIDC subject hash and session nonce where appropriate, but never raw tokens.", "Do not use HTTP polling or WebRtcTransport for this realtime path."], "acceptance_criteria": ["Unallowlisted signaling URL is rejected before any network connection.", "Offer/answer/candidate messages serialize and deserialize deterministically.", "Raw OIDC tokens are never included in signaling messages.", "Timeout/failure returns a structured degraded state to the TUI.", "Tests prove signaling_client.py does not call /webrtc/sessions/{id}/signal Hub polling endpoints."]},
-    {"id": "webrtc-003-browser-session-bridge", "status": "todo", "title": "Bridge Carbonyl browser app and Ananta runtime safely", "files": ["client_surfaces/operator_tui/realtime/webrtc_session_controller.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/visual/browser/webrtc_app/app.js"], "details": ["Decide whether RTCPeerConnection is owned by browser JS or Python aiortc and document the chosen boundary.", "Pass only sanitized config and session metadata to the page.", "Keep OIDC tokens in Ananta runtime; browser receives only derived non-secret session identity claims.", "Keep the bridge independent from the legacy Hub relay transport."], "acceptance_criteria": ["The browser app can establish a DataChannel without receiving provider access/refresh tokens.", "Session nonce is required for local bridge calls.", "Invalid bridge calls are rejected and audited.", "Boundary decision is documented in docs/operator-tui/carbonyl-webrtc-session.md."]},
-    {"id": "webrtc-004-datachannel-protocol", "status": "todo", "title": "Define and implement Ananta DataChannel protocol v1", "files": ["client_surfaces/operator_tui/realtime/datachannel_protocol.py", "client_surfaces/operator_tui/visual/browser/webrtc_app/datachannel.js", "tests/client_surfaces/operator_tui/realtime/test_datachannel_protocol.py"], "details": ["Define JSON message envelope: type, protocol_version, session_nonce, message_id, timestamp, payload.", "Initial message types: hello, hello_ack, ping, pong, artifact_offer, artifact_accept, artifact_reject, artifact_chunk, artifact_complete, error.", "Require SHA-256 integrity for artifact transfer.", "Use chunking for large artifacts and application-level acknowledgements.", "Add max sizes and reject oversize messages before processing payload."], "acceptance_criteria": ["Ping/pong works over DataChannel in a local smoke test.", "Artifact transfer verifies final SHA-256 before marking complete.", "Oversized messages/chunks are rejected safely.", "Protocol version mismatch produces a clear error message."]},
-    {"id": "webrtc-005-identity-binding-and-policy", "status": "todo", "title": "Bind WebRTC peer/session to OIDC identity and Ananta policy", "files": ["client_surfaces/operator_tui/realtime/webrtc_policy.py", "client_surfaces/operator_tui/auth/oidc_auth_controller.py", "client_surfaces/operator_tui/realtime/webrtc_session_controller.py"], "details": ["Require an authenticated Ananta/OIDC session before starting WebRTC by default.", "Bind peer claims to OIDC subject or provider-specific stable id without exposing raw tokens.", "Use explicit accept policy for artifact exchange.", "Add deny-by-default for microphone, camera and screen share.", "Add policy reason strings for user-visible degraded/denied states."], "acceptance_criteria": ["Starting WebRTC without login triggers login flow or fails closed depending on config.", "Unknown peer identity is rejected by default.", "Artifact exchange requires explicit local approval unless policy is changed.", "Camera/microphone requests are blocked by default."]},
-    {"id": "webrtc-006-ice-stun-turn-capability-probe", "status": "todo", "title": "Add ICE/STUN/TURN capability and connectivity probes", "files": ["scripts/operator_tui_webrtc_smoke.py", "client_surfaces/operator_tui/realtime/ice_probe.py", "docs/operator-tui/carbonyl-webrtc-session.md"], "details": ["Add smoke test for ICE gathering against configured STUN/TURN servers.", "Report host/srflx/relay candidate categories without leaking exact local IPs in normal logs.", "Test TURN fallback with ephemeral credentials where available.", "Report unsupported browser/WebRTC API states clearly."], "acceptance_criteria": ["Smoke script can run in mock mode without real network.", "With configured servers, script reports whether relay candidates are available.", "Normal logs redact precise candidate IPs unless verbose-debug is explicitly enabled.", "Failure does not leave WebSocket or Carbonyl processes running."]},
-    {"id": "webrtc-007-media-capability-experiment", "status": "todo", "title": "Add optional audio/video/camera/microphone capability experiment", "files": ["client_surfaces/operator_tui/visual/browser/webrtc_app/media_probe.js", "scripts/operator_tui_carbonyl_media_probe.py", "docs/operator-tui/carbonyl-webrtc-session.md"], "details": ["Keep media disabled by default.", "Provide explicit command to run media probe.", "Probe navigator.mediaDevices availability and permission behavior in Carbonyl/terminal/WSL2.", "Do not request camera/microphone unless the user explicitly selected media probe.", "Document expected degraded behavior under WSL2 and headless/terminal environments."], "acceptance_criteria": ["Default WebRTC DataChannel test does not trigger camera/microphone permission prompt.", "Media probe clearly reports unsupported, permission_denied, device_missing or success.", "Failed media probe does not affect DataChannel functionality.", "Docs warn that media support is experimental in Carbonyl terminal mode."]},
-    {"id": "webrtc-008-ui-controls-and-status", "status": "todo", "title": "Add TUI controls/status for WebRTC mode", "files": ["client_surfaces/operator_tui/input/keybindings_config.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/visual/runtime/view_controller.py"], "details": ["Add commands center.browser.webrtc.start, center.browser.webrtc.stop, center.browser.webrtc.status and center.browser.webrtc.accept_artifact.", "Show concise status line: auth, signaling, ICE, DataChannel, peer, transfer state.", "Do not reuse F8/F9/F10; keep browser/WebRTC controls conflict-free.", "Esc exits active Carbonyl/WebRTC mode and closes connections gracefully."], "acceptance_criteria": ["User can start/stop WebRTC mode explicitly.", "Status line shows disconnected/connecting/connected/failed states.", "Esc closes channels and returns to previous CenterView.", "Keybinding conflict detection covers new commands."]},
-    {"id": "webrtc-009-security-audit-and-cleanup", "status": "todo", "title": "Audit and cleanup WebRTC sessions safely", "files": ["client_surfaces/operator_tui/realtime/webrtc_audit.py", "client_surfaces/operator_tui/realtime/webrtc_session_controller.py", "tests/client_surfaces/operator_tui/realtime/test_webrtc_audit.py"], "details": ["Emit structured audit events for session_start, signaling_connected, peer_offer_received, peer_accepted, datachannel_open, artifact_offer, artifact_complete, session_closed and error.", "Do not log artifact payloads, raw tokens, cookies or full ICE candidate IPs by default.", "Ensure cleanup closes DataChannel, RTCPeerConnection, WebSocket signaling and Carbonyl subprocess where owned.", "Add timeout cleanup for half-open sessions."], "acceptance_criteria": ["Audit output contains enough state for debugging but no sensitive payload values.", "Tests fail if token-like or cookie-like values are logged.", "Closing WebRTC mode leaves no open signaling connection.", "Half-open sessions are cleaned after timeout."]},
-    {"id": "webrtc-010-documentation-and-examples", "status": "todo", "title": "Document WebRTC + OIDC + Carbonyl setup", "files": ["docs/operator-tui/carbonyl-webrtc-session.md", "docs/operator-tui/carbonyl-oidc-session-modes.md", "examples/operator-tui/webrtc/README.md"], "details": ["Explain the difference between Carbonyl as renderer, Carbonyl as OIDC browser session and Carbonyl as WebRTC app host.", "Document setup for keycloak.ananta.de and webrtc.ananta.de as limited public test infrastructure.", "Warn that public Ananta test services are rate/usage limited and not for production.", "Provide local-only mock signaling example for development.", "Include Mermaid diagrams for OIDC-before-WebRTC, Option C transport split and DataChannel artifact transfer."], "acceptance_criteria": ["Docs allow a developer to run a local mock WebRTC DataChannel smoke test.", "Docs explain required Keycloak/OIDC config and redirect URIs.", "Docs clearly mark audio/video as experimental.", "Docs clearly mark webrtc.ananta.de/keycloak.ananta.de as limited test services.", "Docs distinguish Hub relay from real WebRTC DataChannel."]}
+    {
+      "id": "webrtc-000-transport-split-documentation",
+      "status": "done",
+      "done_at": "2026-05-31",
+      "evidence": [
+        "docs/operator-tui/carbonyl-webrtc-session.md contains Option C section and table separating webrtc_transport.py Hub Relay from realtime/ WebRTC DataChannel.",
+        "client_surfaces/operator_tui/realtime/signaling_client.py module docstring explicitly states Option C separation from webrtc_transport.py.",
+        "client_surfaces/operator_tui/realtime/signaling_models.py states it is completely separate from webrtc_transport.py."
+      ],
+      "title": "Document and enforce Option C transport split",
+      "files": ["client_surfaces/operator_tui/webrtc_transport.py", "client_surfaces/operator_tui/realtime/", "docs/operator-tui/carbonyl-webrtc-session.md"]
+    },
+    {
+      "id": "webrtc-001-local-web-app-shell",
+      "status": "in_progress",
+      "evidence": [
+        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims visual/browser/webrtc_app/ index.html, app.js, datachannel.js, style.css, media_probe.js."
+      ],
+      "remaining_work": [
+        "Verify the files exist and are actually loaded by Carbonyl browser mode.",
+        "Verify app performs no remote fetch before explicit WebRTC start.",
+        "Record local smoke evidence."
+      ],
+      "title": "Create local WebRTC browser app loaded by Carbonyl",
+      "files": ["client_surfaces/operator_tui/visual/browser/webrtc_app/index.html", "client_surfaces/operator_tui/visual/browser/webrtc_app/app.js", "client_surfaces/operator_tui/visual/browser/webrtc_app/style.css", "client_surfaces/operator_tui/visual/browser/browser_document_adapter.py"]
+    },
+    {
+      "id": "webrtc-002-signaling-client",
+      "status": "in_progress",
+      "evidence": [
+        "client_surfaces/operator_tui/realtime/signaling_client.py exists and implements allowlist check before connect().",
+        "client_surfaces/operator_tui/realtime/signaling_models.py exists with join/leave/offer/answer/ice_candidate/error/heartbeat envelope and session_nonce field.",
+        "No direct dependency on webrtc_transport.py observed in reviewed realtime signaling files."
+      ],
+      "remaining_work": [
+        "Fix allowlist semantics if prefix matching could accidentally allow unintended sibling URLs; prefer exact origin/path match or normalized configured endpoint comparison.",
+        "Add or restore tests/client_surfaces/operator_tui/realtime/test_signaling_client.py; direct fetch currently returned 404.",
+        "Verify raw token absence via tests."
+      ],
+      "title": "Implement allowlisted WebSocket signaling client",
+      "files": ["client_surfaces/operator_tui/realtime/signaling_client.py", "client_surfaces/operator_tui/realtime/signaling_models.py", "tests/client_surfaces/operator_tui/realtime/test_signaling_client.py"]
+    },
+    {
+      "id": "webrtc-003-browser-session-bridge",
+      "status": "blocked",
+      "blocker": "The boundary is documented, but full bridge integration depends on OIDC/browser session wiring that is currently blocked in todo.operator-tui-carbonyl-oidc-session-modes.json.",
+      "evidence": [
+        "webrtc_session_controller.py documents that Python owns signaling/policy and browser JS receives only derived metadata.",
+        "No complete runtime bridge from authenticated Carbonyl OIDC session into WebRTC app was verified."
+      ],
+      "remaining_work": [
+        "Implement or verify actual window.ANANTA_CONFIG injection/path into the WebRTC app.",
+        "Connect OIDC subject hash/session nonce generation to WebRtcSessionController startup.",
+        "Verify browser app can establish DataChannel without raw provider tokens."
+      ],
+      "title": "Bridge Carbonyl browser app and Ananta runtime safely",
+      "files": ["client_surfaces/operator_tui/realtime/webrtc_session_controller.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/visual/browser/webrtc_app/app.js"]
+    },
+    {
+      "id": "webrtc-004-datachannel-protocol",
+      "status": "in_progress",
+      "evidence": [
+        "client_surfaces/operator_tui/realtime/datachannel_protocol.py exists with DataChannelMessage, DataChannelProtocol, version checking, size checks and SHA-256 verification helper."
+      ],
+      "remaining_work": [
+        "Verify JS datachannel.js stays in sync with Python protocol.",
+        "Add or restore tests/client_surfaces/operator_tui/realtime/test_datachannel_protocol.py; direct search did not find it.",
+        "Record real ping/pong smoke test before marking done."
+      ],
+      "title": "Define and implement Ananta DataChannel protocol v1",
+      "files": ["client_surfaces/operator_tui/realtime/datachannel_protocol.py", "client_surfaces/operator_tui/visual/browser/webrtc_app/datachannel.js", "tests/client_surfaces/operator_tui/realtime/test_datachannel_protocol.py"]
+    },
+    {
+      "id": "webrtc-005-identity-binding-and-policy",
+      "status": "in_progress",
+      "evidence": [
+        "client_surfaces/operator_tui/realtime/webrtc_policy.py exists with deny-by-default camera/microphone/screen-share and explicit_accept_required artifact policy.",
+        "webrtc_session_controller.py stores oidc_subject_hash and session_nonce and exposes status."
+      ],
+      "remaining_work": [
+        "Actually enforce require_oidc_session and reject_unknown_peers in controller flow, not only store policy values.",
+        "Add tests for unknown peer rejection and missing session nonce failure.",
+        "Connect OIDC-derived metadata from AuthController/session store."
+      ],
+      "title": "Bind WebRTC peer/session to OIDC identity and Ananta policy",
+      "files": ["client_surfaces/operator_tui/realtime/webrtc_policy.py", "client_surfaces/operator_tui/auth/oidc_auth_controller.py", "client_surfaces/operator_tui/realtime/webrtc_session_controller.py"]
+    },
+    {
+      "id": "webrtc-006-ice-stun-turn-capability-probe",
+      "status": "in_progress",
+      "evidence": [
+        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims realtime/ice_probe.py and scripts/operator_tui_webrtc_smoke.py."
+      ],
+      "remaining_work": [
+        "Inspect or run mock-mode smoke script and record output.",
+        "Verify candidate IP redaction behavior."
+      ],
+      "title": "Add ICE/STUN/TURN capability and connectivity probes",
+      "files": ["scripts/operator_tui_webrtc_smoke.py", "client_surfaces/operator_tui/realtime/ice_probe.py", "docs/operator-tui/carbonyl-webrtc-session.md"]
+    },
+    {
+      "id": "webrtc-007-media-capability-experiment",
+      "status": "in_progress",
+      "evidence": [
+        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims media_probe.js.",
+        "WebRtcPolicy defaults camera_enabled, microphone_enabled and screen_share_enabled to false."
+      ],
+      "remaining_work": [
+        "Verify media_probe.js exists and is only called by explicit user action.",
+        "Record behavior under Carbonyl/terminal/WSL2."
+      ],
+      "title": "Add optional audio/video/camera/microphone capability experiment",
+      "files": ["client_surfaces/operator_tui/visual/browser/webrtc_app/media_probe.js", "scripts/operator_tui_carbonyl_media_probe.py", "docs/operator-tui/carbonyl-webrtc-session.md"]
+    },
+    {
+      "id": "webrtc-008-ui-controls-and-status",
+      "status": "blocked",
+      "blocker": "WebRTC UI controls depend on completed browser/OIDC session bridge and verified TUI command wiring.",
+      "evidence": [
+        "WebRtcSessionController exposes get_status() with auth/signaling/ice/datachannel/peer/transfer state.",
+        "Actual TUI commands center.browser.webrtc.start/stop/status/accept_artifact were not verified in this review."
+      ],
+      "remaining_work": [
+        "Wire commands into keybindings/config and runtime view controller.",
+        "Verify Esc cleanup from active WebRTC mode.",
+        "Add keybinding conflict tests."
+      ],
+      "title": "Add TUI controls/status for WebRTC mode",
+      "files": ["client_surfaces/operator_tui/input/keybindings_config.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py", "client_surfaces/operator_tui/visual/runtime/view_controller.py"]
+    },
+    {
+      "id": "webrtc-009-security-audit-and-cleanup",
+      "status": "in_progress",
+      "evidence": [
+        "Commit 3211b92606c28be382eb72f6e642f1276070fa6f claims realtime/webrtc_audit.py with redacted audit ring buffer.",
+        "WebRtcSessionController.stop_session() disconnects signaling and sets states closed/disconnected."
+      ],
+      "remaining_work": [
+        "Verify audit tests fail on token/cookie/payload leakage.",
+        "Verify half-open session cleanup and actual WebSocket/DataChannel resource closure.",
+        "Record tests/client_surfaces/operator_tui/realtime/test_webrtc_audit.py results."
+      ],
+      "title": "Audit and cleanup WebRTC sessions safely",
+      "files": ["client_surfaces/operator_tui/realtime/webrtc_audit.py", "client_surfaces/operator_tui/realtime/webrtc_session_controller.py", "tests/client_surfaces/operator_tui/realtime/test_webrtc_audit.py"]
+    },
+    {
+      "id": "webrtc-010-documentation-and-examples",
+      "status": "in_progress",
+      "evidence": [
+        "docs/operator-tui/carbonyl-webrtc-session.md exists and explains Option C, security boundary, package layout and limited test services.",
+        "Docs clearly mark audio/video experimental and disabled by default."
+      ],
+      "remaining_work": [
+        "Verify examples/operator-tui/webrtc/README.md exists and is runnable.",
+        "Add local-only mock signaling example if missing.",
+        "Record docs smoke run path."
+      ],
+      "title": "Document WebRTC + OIDC + Carbonyl setup",
+      "files": ["docs/operator-tui/carbonyl-webrtc-session.md", "docs/operator-tui/carbonyl-oidc-session-modes.md", "examples/operator-tui/webrtc/README.md"]
+    }
   ],
   "mermaid_architecture": "flowchart TD\n    A[User starts WebRTC mode in Operator TUI] --> B{OIDC session exists?}\n    B -->|no| C[Carbonyl OIDC login flow]\n    B -->|yes| D[Load local WebRTC app in Carbonyl]\n    C --> D\n    D --> E[Connect to allowlisted WebSocket signaling server]\n    E --> F[Exchange offer answer ICE]\n    F --> G[RTCPeerConnection]\n    G --> H[RTCDataChannel]\n    H --> I[hello + identity/session nonce handshake]\n    I --> J{Policy allows artifact exchange?}\n    J -->|yes explicit accept| K[Chunked artifact transfer + SHA256 verify]\n    J -->|no| L[Reject with reason]\n    K --> M[Audit redacted completion]\n    L --> M\n    N[Esc/stop] --> O[Close channel peer connection signaling Carbonyl mode]\n    P[Existing webrtc_transport.py] --> Q[HubRelayTransport HTTP polling]\n    Q --> R[Existing Share-Session relay]\n    P -. separate from Option C .- E",
   "acceptance_summary": [
-    "WebRTC mode is explicit-only and requires OIDC session by default.",
-    "Option C is accepted: existing Hub relay remains separate from the new realtime WebRTC stack.",
-    "DataChannel ping/pong works before any artifact exchange feature is considered complete.",
-    "Signaling server is allowlisted and defaults to webrtc.ananta.de only when configured.",
-    "Tokens/cookies/artifact payloads are not logged.",
-    "Artifact exchange is integrity-checked and explicit-accept by default.",
-    "Camera/microphone/screen-share are disabled by default and only available as experimental probes.",
-    "Leaving the mode cleans up Carbonyl, signaling, PeerConnection and channels.",
-    "Each implementation task is marked done only after verification evidence is added."
+    "Option C split is done and documented.",
+    "Core realtime skeleton exists but must remain in_progress until RTCPeerConnection/DataChannel runtime and tests are verified.",
+    "Signaling and protocol files exist but tests must be added/restored and run.",
+    "Browser/OIDC bridge and TUI controls are blocked/in_progress, not done.",
+    "No task may be marked done without concrete evidence from code plus tests or smoke output."
   ]
 }
