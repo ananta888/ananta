@@ -597,6 +597,11 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
     status = str(game.get("center_browser_status") or "")
     url = str(game.get("center_browser_url") or "")
     error = str(game.get("center_browser_error") or "")
+    render_mode = str(
+        game.get("center_browser_render_mode")
+        or os.environ.get("ANANTA_TUI_BROWSER_RENDER_MODE")
+        or "pyte_auto"
+    ).strip().lower()
     header = f"\x1b[38;2;80;140;220m[BROWSER]\x1b[0m {url[:max(4, width - 12)]}"
 
     if status in ("requested", "starting"):
@@ -610,6 +615,18 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
     if not raw_bytes:
         return [header, "  \x1b[2mwarte auf Carbonyl-Output…\x1b[0m"]
 
+    def _raw_ansi_lines() -> list[str]:
+        try:
+            text = raw_bytes[-65536:].decode("utf-8", errors="replace")
+        except Exception:
+            text = ""
+        ansi_lines = text.split("\n")
+        visible = ansi_lines[-h:]
+        result = [header] + [_clip(line, width) for line in visible]
+        while len(result) < h:
+            result.append("")
+        return result[:h]
+
     def _raw_fallback_lines() -> list[str]:
         try:
             text = raw_bytes[-32768:].decode("utf-8", errors="replace")
@@ -621,6 +638,9 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
         while len(result) < h:
             result.append("")
         return result[:h]
+
+    if render_mode == "raw_ansi":
+        return _raw_ansi_lines()
 
     try:
         import pyte
