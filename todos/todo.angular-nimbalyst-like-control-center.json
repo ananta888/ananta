@@ -1,0 +1,842 @@
+{
+  "id": "todo.angular-nimbalyst-like-control-center",
+  "title": "Angular Control Center UI inspired by Nimbalyst, adapted for Ananta security, workers, policies and artifacts",
+  "status": "open",
+  "created_at": "2026-06-01",
+  "summary": {
+    "short": "Build a Nimbalyst-like Angular control center for Ananta, but centered around worker governance, policy visibility, context control, artifacts, diffs, verification and safe agent orchestration.",
+    "problem": "Ananta currently has strong backend, worker, TUI and orchestration ideas, but the Angular UI should make the agent workflow visually understandable and controllable. The goal is not to clone Nimbalyst, but to adopt the useful UX patterns: task boards, agent sessions, artifact views, diffs, markdown/mermaid previews, worktree/session overview and a clear right-side control panel.",
+    "goal": "Create a modern Angular UI where a user can see what each agent is doing, which worker/model/context/tools are used, what was changed, which artifacts were produced, which policies were applied and whether verification passed.",
+    "non_goal": "Do not copy Nimbalyst branding, code, styling assets or exact UI implementation. Do not bypass existing Ananta security boundaries. Do not allow arbitrary tool execution directly from UI without backend policy validation. Do not make the UI the source of truth for security decisions; the backend/hub remains authoritative."
+  },
+  "positioning": {
+    "core_statement": "Nimbalyst makes coding agents visually usable. Ananta should make coding agents governable, inspectable and safe.",
+    "product_direction": "Ananta Angular UI should become a control center for secure agent orchestration rather than only a chat or task frontend.",
+    "differentiators": [
+      "Worker isolation and runtime selection are first-class UI concepts.",
+      "Policy decisions and denied actions are visible, explainable and auditable.",
+      "CodeCompass/context scopes are selectable and inspectable before an agent run.",
+      "Artifacts, diffs, tests and verification are central completion signals.",
+      "Cloud/local model boundaries are explicit and cannot be hidden behind a pretty UI.",
+      "Default-deny and least-privilege are visible to the user instead of only backend implementation details."
+    ]
+  },
+  "target_layout": {
+    "description": "Three-column workspace with optional collapsible panels.",
+    "left_sidebar": {
+      "name": "Navigation and project scope",
+      "contains": [
+        "Project selector",
+        "Task board entry",
+        "Agent sessions entry",
+        "Artifacts entry",
+        "Workers entry",
+        "Policies entry",
+        "CodeCompass/context entry",
+        "Settings entry"
+      ]
+    },
+    "center_workspace": {
+      "name": "Main active workspace",
+      "contains": [
+        "Task board",
+        "Session detail",
+        "Artifact viewer",
+        "Markdown viewer",
+        "Mermaid preview",
+        "Diff viewer",
+        "Log/timeline viewer",
+        "Optional embedded terminal panel"
+      ]
+    },
+    "right_panel": {
+      "name": "Agent and security inspector",
+      "contains": [
+        "Selected worker",
+        "Selected model",
+        "Runtime environment",
+        "Allowed and denied tools",
+        "Allowed and denied paths",
+        "Context scope",
+        "Risk level",
+        "Verification state",
+        "Policy decision log",
+        "Manual approval controls where required"
+      ]
+    },
+    "wireframe": [
+      "┌────────────────────┬──────────────────────────────┬──────────────────────┐",
+      "│ Projects / Tasks   │ Active Workspace             │ Agent / Policy       │",
+      "│ Sessions           │ Markdown / Mermaid / Diff    │ Worker, Rights       │",
+      "│ Artifacts          │ Editor / Preview / Logs      │ Context, Tools       │",
+      "│ Workers            │ Kanban / Plan / Result       │ Security Status      │",
+      "└────────────────────┴──────────────────────────────┴──────────────────────┘"
+    ]
+  },
+  "angular_architecture": {
+    "recommended_feature_modules": [
+      {
+        "path": "src/app/features/dashboard/",
+        "purpose": "High-level overview of projects, running tasks, blocked sessions, failed verification and worker health."
+      },
+      {
+        "path": "src/app/features/projects/",
+        "purpose": "Project/workspace selection, metadata and workspace root visibility."
+      },
+      {
+        "path": "src/app/features/tasks/",
+        "purpose": "Kanban board and task detail pages for Ananta goals/tasks."
+      },
+      {
+        "path": "src/app/features/sessions/",
+        "purpose": "Agent session list, session detail, session chaining and run history."
+      },
+      {
+        "path": "src/app/features/workers/",
+        "purpose": "Worker registry, worker status, model routing and runtime capabilities."
+      },
+      {
+        "path": "src/app/features/artifacts/",
+        "purpose": "Artifact browser, artifact graph, generated files, diffs, logs and test reports."
+      },
+      {
+        "path": "src/app/features/policies/",
+        "purpose": "Policy viewer/editor, path scopes, tool scopes, approval rules, denied action timeline."
+      },
+      {
+        "path": "src/app/features/codecompass/",
+        "purpose": "Context graph, RAG/context scope selection, allowed sources and excluded secrets."
+      },
+      {
+        "path": "src/app/features/terminal/",
+        "purpose": "Optional live terminal/log view for controlled sessions, never unrestricted shell by default."
+      },
+      {
+        "path": "src/app/shared/ui/",
+        "purpose": "Reusable presentational components: panels, badges, status chips, split layout, toolbar, cards."
+      },
+      {
+        "path": "src/app/shared/viewers/",
+        "purpose": "Markdown viewer, Mermaid viewer, diff viewer, JSON viewer, log viewer and file preview components."
+      },
+      {
+        "path": "src/app/core/api/",
+        "purpose": "Typed API clients for hub, workers, tasks, sessions, artifacts and policy decisions."
+      },
+      {
+        "path": "src/app/core/state/",
+        "purpose": "Global state facade for selected project, selected task, selected session, selected artifact and live status."
+      }
+    ],
+    "routing": [
+      {
+        "route": "/dashboard",
+        "view": "DashboardPageComponent"
+      },
+      {
+        "route": "/projects/:projectId/tasks",
+        "view": "TaskBoardPageComponent"
+      },
+      {
+        "route": "/projects/:projectId/tasks/:taskId",
+        "view": "TaskDetailPageComponent"
+      },
+      {
+        "route": "/projects/:projectId/sessions",
+        "view": "AgentSessionsPageComponent"
+      },
+      {
+        "route": "/projects/:projectId/sessions/:sessionId",
+        "view": "AgentSessionDetailPageComponent"
+      },
+      {
+        "route": "/projects/:projectId/artifacts",
+        "view": "ArtifactBrowserPageComponent"
+      },
+      {
+        "route": "/projects/:projectId/artifacts/:artifactId",
+        "view": "ArtifactDetailPageComponent"
+      },
+      {
+        "route": "/workers",
+        "view": "WorkerRegistryPageComponent"
+      },
+      {
+        "route": "/policies",
+        "view": "PolicyOverviewPageComponent"
+      },
+      {
+        "route": "/codecompass",
+        "view": "CodeCompassPageComponent"
+      }
+    ],
+    "state_management": {
+      "recommendation": "Use small facades/services first. Introduce NgRx or signal-store only if state becomes too cross-cutting.",
+      "core_state_slices": [
+        "selectedProject",
+        "selectedTask",
+        "selectedSession",
+        "selectedArtifact",
+        "workerHealth",
+        "policyDecisionStream",
+        "liveRunEvents",
+        "contextScopeDraft"
+      ]
+    }
+  },
+  "data_models": {
+    "TaskCard": {
+      "id": "string",
+      "title": "string",
+      "description": "string",
+      "status": "backlog | proposed | running | blocked | review | verified | done | failed",
+      "riskLevel": "low | medium | high | critical",
+      "projectId": "string",
+      "assignedWorkerId": "string | null",
+      "preferredModel": "string | null",
+      "contextScopeId": "string | null",
+      "artifactIds": "string[]",
+      "verificationSummary": "VerificationSummary | null",
+      "createdAt": "string",
+      "updatedAt": "string"
+    },
+    "AgentSession": {
+      "id": "string",
+      "projectId": "string",
+      "taskId": "string | null",
+      "workerId": "string",
+      "workerType": "ananta-worker | opencode | hermes | codex | claude-code | custom",
+      "model": "string",
+      "runtime": "local | docker | remote | cloud",
+      "status": "idle | proposed | running | waiting_for_approval | blocked | review | done | failed | cancelled",
+      "contextScope": "ContextScope",
+      "policySnapshot": "PolicySnapshot",
+      "toolCalls": "ToolCall[]",
+      "artifacts": "ArtifactRef[]",
+      "events": "RunEvent[]",
+      "createdAt": "string",
+      "updatedAt": "string"
+    },
+    "ContextScope": {
+      "id": "string",
+      "name": "string",
+      "allowedPaths": "string[]",
+      "deniedPaths": "string[]",
+      "allowedCodeCompassNodes": "string[]",
+      "deniedCodeCompassNodes": "string[]",
+      "includeGitDiff": "boolean",
+      "includeTests": "boolean",
+      "includeDocs": "boolean",
+      "includeSecrets": "false",
+      "cloudAllowed": "boolean"
+    },
+    "PolicySnapshot": {
+      "id": "string",
+      "riskLevel": "low | medium | high | critical",
+      "allowedTools": "string[]",
+      "deniedTools": "string[]",
+      "allowedPaths": "string[]",
+      "deniedPaths": "string[]",
+      "requiresHumanApproval": "boolean",
+      "approvalReason": "string | null",
+      "policyVersion": "string"
+    },
+    "ToolCall": {
+      "id": "string",
+      "sessionId": "string",
+      "toolName": "string",
+      "argumentsPreview": "unknown",
+      "status": "proposed | allowed | denied | running | completed | failed",
+      "policyDecisionId": "string | null",
+      "startedAt": "string | null",
+      "finishedAt": "string | null"
+    },
+    "ArtifactRef": {
+      "id": "string",
+      "type": "file | diff | markdown | mermaid | log | test-report | security-report | plan | screenshot | terminal-cast | json | unknown",
+      "title": "string",
+      "path": "string | null",
+      "mimeType": "string | null",
+      "createdBySessionId": "string | null",
+      "taskId": "string | null",
+      "verificationState": "unverified | verified | failed | skipped",
+      "createdAt": "string"
+    },
+    "VerificationSummary": {
+      "status": "not_run | running | passed | failed | partial | skipped",
+      "testCount": "number",
+      "passedCount": "number",
+      "failedCount": "number",
+      "lastRunAt": "string | null",
+      "reportArtifactId": "string | null"
+    },
+    "PolicyDecision": {
+      "id": "string",
+      "sessionId": "string",
+      "toolCallId": "string | null",
+      "decision": "allow | deny | require_approval",
+      "reason": "string",
+      "matchedRuleIds": "string[]",
+      "createdAt": "string"
+    }
+  },
+  "ui_components": [
+    {
+      "name": "ShellLayoutComponent",
+      "path": "src/app/shared/ui/shell-layout/",
+      "description": "Three-column responsive layout with left navigation, center workspace and right inspector."
+    },
+    {
+      "name": "TaskBoardComponent",
+      "path": "src/app/features/tasks/components/task-board/",
+      "description": "Kanban-style task board with columns backlog, proposed, running, blocked, review, verified, done and failed."
+    },
+    {
+      "name": "TaskCardComponent",
+      "path": "src/app/features/tasks/components/task-card/",
+      "description": "Compact card showing title, status, risk, worker, model, artifact count and verification status."
+    },
+    {
+      "name": "AgentSessionListComponent",
+      "path": "src/app/features/sessions/components/agent-session-list/",
+      "description": "List of agent sessions with status, worker, model, runtime, task relation and last event."
+    },
+    {
+      "name": "AgentSessionDetailComponent",
+      "path": "src/app/features/sessions/components/agent-session-detail/",
+      "description": "Main session detail view with plan, messages/events, tool calls, artifacts, diffs and verification."
+    },
+    {
+      "name": "AgentSecurityInspectorComponent",
+      "path": "src/app/features/sessions/components/agent-security-inspector/",
+      "description": "Right-side panel showing worker, model, runtime, context scope, allowed/denied paths, allowed/denied tools, cloud boundary and risk."
+    },
+    {
+      "name": "ToolCallTimelineComponent",
+      "path": "src/app/features/sessions/components/tool-call-timeline/",
+      "description": "Timeline of proposed, allowed, denied, running and completed tool calls."
+    },
+    {
+      "name": "PolicyDecisionLogComponent",
+      "path": "src/app/features/policies/components/policy-decision-log/",
+      "description": "Explainable log of allow/deny/approval decisions with matched rules and reasons."
+    },
+    {
+      "name": "ContextScopeEditorComponent",
+      "path": "src/app/features/codecompass/components/context-scope-editor/",
+      "description": "Editor for allowed context sources, paths, graph nodes, docs, tests and cloud/local restrictions."
+    },
+    {
+      "name": "ArtifactBrowserComponent",
+      "path": "src/app/features/artifacts/components/artifact-browser/",
+      "description": "Artifact list/tree grouped by task, session, type and verification state."
+    },
+    {
+      "name": "ArtifactViewerComponent",
+      "path": "src/app/features/artifacts/components/artifact-viewer/",
+      "description": "Generic viewer that dispatches to markdown, mermaid, diff, log, JSON, text or binary preview."
+    },
+    {
+      "name": "MarkdownMermaidViewerComponent",
+      "path": "src/app/shared/viewers/markdown-mermaid-viewer/",
+      "description": "Renders Markdown and Mermaid safely, with sanitization and error fallback."
+    },
+    {
+      "name": "DiffViewerComponent",
+      "path": "src/app/shared/viewers/diff-viewer/",
+      "description": "Side-by-side and unified diff view for generated changes."
+    },
+    {
+      "name": "JsonViewerComponent",
+      "path": "src/app/shared/viewers/json-viewer/",
+      "description": "Readable JSON viewer for plans, tool payloads and metadata."
+    },
+    {
+      "name": "LogViewerComponent",
+      "path": "src/app/shared/viewers/log-viewer/",
+      "description": "Streaming and static log viewer with search and severity filtering."
+    },
+    {
+      "name": "WorkerRegistryComponent",
+      "path": "src/app/features/workers/components/worker-registry/",
+      "description": "Worker cards with health, supported capabilities, runtime, model provider and policy defaults."
+    },
+    {
+      "name": "WorkerCapabilityMatrixComponent",
+      "path": "src/app/features/workers/components/worker-capability-matrix/",
+      "description": "Matrix comparing workers by tools, model routing, local/cloud, filesystem access, terminal access and risk profile."
+    },
+    {
+      "name": "VerificationPanelComponent",
+      "path": "src/app/features/tasks/components/verification-panel/",
+      "description": "Shows test results, verification artifacts and whether a task may be closed."
+    },
+    {
+      "name": "ApprovalGateComponent",
+      "path": "src/app/features/policies/components/approval-gate/",
+      "description": "Manual approval UI for high-risk actions, with explicit reason and backend-confirmed approval token."
+    }
+  ],
+  "backend_api_requirements": {
+    "principle": "Angular consumes backend state; Angular must not directly decide security. Hub/worker backend remains source of truth.",
+    "endpoints_needed": [
+      {
+        "method": "GET",
+        "path": "/api/projects",
+        "purpose": "List known projects/workspaces."
+      },
+      {
+        "method": "GET",
+        "path": "/api/projects/{projectId}/tasks",
+        "purpose": "List tasks with board status and summaries."
+      },
+      {
+        "method": "GET",
+        "path": "/api/tasks/{taskId}",
+        "purpose": "Read task detail, plan, sessions, artifacts and verification summary."
+      },
+      {
+        "method": "POST",
+        "path": "/api/tasks",
+        "purpose": "Create a new task/goal with initial risk and context draft."
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/tasks/{taskId}",
+        "purpose": "Update task metadata/status where backend policy allows it."
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions",
+        "purpose": "List agent sessions."
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions/{sessionId}",
+        "purpose": "Read full session state."
+      },
+      {
+        "method": "POST",
+        "path": "/api/tasks/{taskId}/sessions",
+        "purpose": "Start/propose a controlled agent session for a task."
+      },
+      {
+        "method": "POST",
+        "path": "/api/sessions/{sessionId}/cancel",
+        "purpose": "Cancel a running session through backend control."
+      },
+      {
+        "method": "GET",
+        "path": "/api/workers",
+        "purpose": "List workers, health and capabilities."
+      },
+      {
+        "method": "GET",
+        "path": "/api/policies",
+        "purpose": "List policy sets and versions."
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions/{sessionId}/policy-decisions",
+        "purpose": "Read allow/deny/approval decisions."
+      },
+      {
+        "method": "POST",
+        "path": "/api/policy/approve",
+        "purpose": "Approve a specific pending action, never a broad unrestricted session."
+      },
+      {
+        "method": "GET",
+        "path": "/api/artifacts",
+        "purpose": "List artifacts with filters for project, task, session and type."
+      },
+      {
+        "method": "GET",
+        "path": "/api/artifacts/{artifactId}",
+        "purpose": "Read artifact metadata and content reference."
+      },
+      {
+        "method": "GET",
+        "path": "/api/artifacts/{artifactId}/content",
+        "purpose": "Read text content, diff, log, markdown, mermaid or report data."
+      },
+      {
+        "method": "GET",
+        "path": "/api/codecompass/context-scopes",
+        "purpose": "List saved context scopes."
+      },
+      {
+        "method": "POST",
+        "path": "/api/codecompass/context-scopes/preview",
+        "purpose": "Preview what context would be sent to a worker before starting a session."
+      },
+      {
+        "method": "GET",
+        "path": "/api/events/stream",
+        "purpose": "SSE/WebSocket stream for live session, worker, policy and verification events."
+      }
+    ]
+  },
+  "security_requirements": [
+    {
+      "id": "SEC-001",
+      "title": "Backend remains authoritative",
+      "description": "UI may display and request actions, but policy decisions, path checks, tool permissions and approvals must be enforced by backend/hub/worker runtime."
+    },
+    {
+      "id": "SEC-002",
+      "title": "No unrestricted shell from UI",
+      "description": "Terminal/log panels must connect only to controlled sessions. Arbitrary shell execution requires explicit backend policy and should be disabled by default."
+    },
+    {
+      "id": "SEC-003",
+      "title": "Context preview before cloud usage",
+      "description": "If cloudAllowed is true, UI must show a preview/summary of outgoing context scope and explicitly mark excluded secrets/paths."
+    },
+    {
+      "id": "SEC-004",
+      "title": "Denied actions are visible",
+      "description": "Denied tool calls and path accesses must be shown in the policy decision log with reason and matched rule id where available."
+    },
+    {
+      "id": "SEC-005",
+      "title": "Approvals are narrow",
+      "description": "Manual approval must approve a specific action/tool/path/session step, not unlimited future access."
+    },
+    {
+      "id": "SEC-006",
+      "title": "Sanitize rendered artifacts",
+      "description": "Markdown, Mermaid, logs and HTML-like content must be sanitized. No arbitrary script execution in artifact preview."
+    },
+    {
+      "id": "SEC-007",
+      "title": "Secret paths are visually explicit",
+      "description": "Common secret locations such as .env, secrets/**, credentials files and private keys should be marked as denied in UI when policies provide this information."
+    },
+    {
+      "id": "SEC-008",
+      "title": "Auditability",
+      "description": "Starting, cancelling, approving, denying and closing tasks should produce auditable backend events visible from UI."
+    }
+  ],
+  "user_flows": [
+    {
+      "id": "FLOW-001",
+      "title": "Create task and start safe agent session",
+      "steps": [
+        "User opens project task board.",
+        "User creates a new task with title and description.",
+        "UI proposes default context scope and risk level.",
+        "User selects worker/model or accepts backend recommendation.",
+        "UI shows policy preview: allowed paths, denied paths, tools, cloud/local boundary.",
+        "User starts session.",
+        "Backend creates controlled session and streams events back to UI."
+      ]
+    },
+    {
+      "id": "FLOW-002",
+      "title": "Inspect running session",
+      "steps": [
+        "User opens running session.",
+        "Center view shows plan, events and current step.",
+        "Right inspector shows worker, model, context and policy snapshot.",
+        "ToolCallTimeline shows proposed/allowed/denied/completed tool calls.",
+        "Artifacts appear as soon as they are produced."
+      ]
+    },
+    {
+      "id": "FLOW-003",
+      "title": "Review generated changes",
+      "steps": [
+        "User opens task in review state.",
+        "Artifact viewer shows changed files and generated diff.",
+        "Diff viewer allows side-by-side and unified mode.",
+        "Verification panel shows test result artifacts.",
+        "User can mark task accepted only if backend allows closing based on verification policy."
+      ]
+    },
+    {
+      "id": "FLOW-004",
+      "title": "Handle denied tool call",
+      "steps": [
+        "Worker proposes or attempts a risky action.",
+        "Backend denies or requires approval.",
+        "UI displays the denied action with reason.",
+        "If approval is possible, ApprovalGate shows exact action, path, risk and narrow approval button.",
+        "Approval event is sent to backend and logged."
+      ]
+    },
+    {
+      "id": "FLOW-005",
+      "title": "Select CodeCompass/context scope",
+      "steps": [
+        "User opens context scope editor.",
+        "User selects docs, source paths, tests and graph nodes.",
+        "UI previews estimated outgoing context.",
+        "Secrets and denied paths remain excluded.",
+        "Context scope is saved and attached to a task/session."
+      ]
+    }
+  ],
+  "implementation_phases": [
+    {
+      "phase": "P1",
+      "title": "UI shell and static data model",
+      "tasks": [
+        "Create shell layout with left navigation, center workspace and right inspector.",
+        "Add route structure for dashboard, tasks, sessions, artifacts, workers, policies and codecompass.",
+        "Add TypeScript interfaces for TaskCard, AgentSession, ContextScope, PolicySnapshot, ToolCall, ArtifactRef, VerificationSummary and PolicyDecision.",
+        "Add mock data services for first UI iteration if backend endpoints are incomplete.",
+        "Add status chips for task status, risk level, runtime and verification status."
+      ],
+      "acceptance_criteria": [
+        "Angular app has a navigable shell layout with all main sections reachable.",
+        "The right inspector can display a selected mock session policy snapshot.",
+        "Task board can render mock tasks in all defined columns.",
+        "No hard dependency on unfinished backend endpoints blocks UI development."
+      ]
+    },
+    {
+      "phase": "P2",
+      "title": "Task board and session detail MVP",
+      "tasks": [
+        "Implement TaskBoardComponent and TaskCardComponent.",
+        "Implement AgentSessionListComponent and AgentSessionDetailComponent.",
+        "Implement ToolCallTimelineComponent.",
+        "Implement AgentSecurityInspectorComponent.",
+        "Connect to real or adapter-backed task/session APIs."
+      ],
+      "acceptance_criteria": [
+        "User can open a task board and select a task.",
+        "User can open a session and see worker/model/runtime/context/policy information.",
+        "Tool calls are visible with statuses proposed, allowed, denied, running, completed and failed.",
+        "Denied tool calls are not hidden in generic error messages."
+      ]
+    },
+    {
+      "phase": "P3",
+      "title": "Artifacts, Markdown, Mermaid and diffs",
+      "tasks": [
+        "Implement ArtifactBrowserComponent.",
+        "Implement ArtifactViewerComponent dispatcher.",
+        "Implement MarkdownMermaidViewerComponent with sanitization and render fallback.",
+        "Implement DiffViewerComponent with unified and side-by-side modes.",
+        "Implement LogViewerComponent and JsonViewerComponent.",
+        "Connect artifact APIs."
+      ],
+      "acceptance_criteria": [
+        "Markdown artifacts render safely.",
+        "Mermaid diagrams render or show a readable error fallback without breaking the page.",
+        "Diff artifacts can be opened from a task/session and inspected.",
+        "Large logs remain usable with search or basic filtering.",
+        "Artifact viewer does not execute arbitrary scripts from artifact content."
+      ]
+    },
+    {
+      "phase": "P4",
+      "title": "Policy and approval UX",
+      "tasks": [
+        "Implement PolicyDecisionLogComponent.",
+        "Implement ApprovalGateComponent.",
+        "Display matched policy rules where backend provides them.",
+        "Add explicit local/cloud boundary warnings.",
+        "Add approval flow for specific pending actions."
+      ],
+      "acceptance_criteria": [
+        "User can see why an action was denied or required approval.",
+        "Approval UI shows exact action, worker, path/tool, risk and reason.",
+        "Approval sends a narrow backend request, not a broad permission toggle.",
+        "All policy changes or approvals are reflected in the event stream/log."
+      ]
+    },
+    {
+      "phase": "P5",
+      "title": "CodeCompass/context scope UI",
+      "tasks": [
+        "Implement ContextScopeEditorComponent.",
+        "Show allowed and denied paths.",
+        "Show selected CodeCompass graph nodes/sources when available.",
+        "Add context preview endpoint integration.",
+        "Attach saved context scopes to tasks and sessions."
+      ],
+      "acceptance_criteria": [
+        "User can build or select a context scope before starting a session.",
+        "UI clearly marks what will and will not be sent to the worker/model.",
+        "Cloud usage requires visible cloudAllowed state.",
+        "Secrets are never shown as included by default."
+      ]
+    },
+    {
+      "phase": "P6",
+      "title": "Live event stream and worker health",
+      "tasks": [
+        "Integrate SSE or WebSocket event stream.",
+        "Update task/session/tool/artifact status live.",
+        "Implement WorkerRegistryComponent.",
+        "Implement WorkerCapabilityMatrixComponent.",
+        "Show degraded/offline workers and model/provider errors."
+      ],
+      "acceptance_criteria": [
+        "Running sessions update without manual refresh.",
+        "Worker health changes are visible within the UI.",
+        "User can distinguish worker failure, model failure, policy denial and test failure.",
+        "Event stream reconnects gracefully after temporary disconnect."
+      ]
+    },
+    {
+      "phase": "P7",
+      "title": "Verification-centered task completion",
+      "tasks": [
+        "Implement VerificationPanelComponent.",
+        "Show test reports and generated verification artifacts.",
+        "Block or warn on closing tasks without required verification, depending on backend policy.",
+        "Show artifact-first completion evidence: files changed, tests run, results, logs."
+      ],
+      "acceptance_criteria": [
+        "Done state is not purely chat-based; task completion references artifacts and verification.",
+        "Failed tests are visible directly from task detail.",
+        "User can inspect the evidence used to mark a task as verified or failed."
+      ]
+    }
+  ],
+  "ux_details": {
+    "status_colors_semantics": [
+      "Use consistent status chips for task/session/tool/verification states.",
+      "Risk level should be visually distinct but also readable as text for accessibility.",
+      "Do not rely only on color; include labels/icons/text."
+    ],
+    "empty_states": [
+      "No tasks: show create-task action and short explanation.",
+      "No workers online: show worker setup hint and backend status.",
+      "No artifacts: explain that artifacts appear after agent/tool execution.",
+      "No policy decisions: show that no evaluated actions exist yet."
+    ],
+    "keyboard_support": [
+      "Navigate board columns and cards by keyboard.",
+      "Open selected task/session/artifact with Enter.",
+      "Close right inspector or panels with Escape where appropriate.",
+      "Provide accessible focus states."
+    ],
+    "responsive_behavior": [
+      "On narrow screens, right inspector becomes a drawer.",
+      "Left navigation can collapse to icons.",
+      "Diff viewer should fall back to unified mode on small widths."
+    ]
+  },
+  "testing_requirements": {
+    "unit_tests": [
+      "Task board groups tasks by status correctly.",
+      "Security inspector displays allowed/denied paths and tools correctly.",
+      "Artifact viewer dispatches by artifact type correctly.",
+      "Policy decision log renders allow/deny/approval states correctly.",
+      "Context scope editor never marks includeSecrets as true by default."
+    ],
+    "component_tests": [
+      "Session detail renders session, tool calls, artifacts and policy snapshot together.",
+      "Approval gate requires exact pending action data before enabling approval.",
+      "Markdown/Mermaid viewer handles invalid Mermaid gracefully."
+    ],
+    "e2e_tests": [
+      "Create a mock task, start a mock session, receive events, show artifact and verification result.",
+      "Denied tool call appears in timeline and policy log.",
+      "Review flow opens diff artifact and test report artifact.",
+      "Context scope preview is shown before starting a cloud-enabled session."
+    ],
+    "security_tests": [
+      "Rendered markdown cannot execute script tags.",
+      "Mermaid rendering failure does not inject unsafe HTML.",
+      "UI does not expose unrestricted shell controls unless backend capability explicitly allows it.",
+      "Approval request payload contains a specific action id/tool call id, not broad wildcard permission."
+    ]
+  },
+  "acceptance_criteria_global": [
+    "The Angular UI clearly separates productivity views from security/governance views.",
+    "A user can always see which worker and model are responsible for a running session.",
+    "A user can always see which context scope is attached to a session.",
+    "A user can inspect allowed and denied tools/paths for a session.",
+    "Generated artifacts are reachable from task and session detail views.",
+    "Diffs and verification results are first-class review objects.",
+    "Policy denials and approvals are visible and understandable.",
+    "The UI never becomes the source of truth for security decisions.",
+    "The UI supports Ananta's default-deny and least-privilege philosophy.",
+    "The design is inspired by modern agent workspaces but remains visually and conceptually Ananta-specific."
+  ],
+  "open_questions": [
+    "Which Angular version and component library are currently used in the app?",
+    "Should the UI use Angular Material, PrimeNG, Tailwind, custom CSS or the existing styling system?",
+    "Which backend endpoints already exist and which require adapter/shim endpoints?",
+    "Should live updates use SSE first or WebSocket?",
+    "Should worktree/branch management be part of the first Angular MVP or a later phase?",
+    "How much of the existing TUI event model can be reused for the Angular live event stream?"
+  ],
+  "recommended_mvp_scope": [
+    "ShellLayoutComponent",
+    "TaskBoardComponent",
+    "AgentSessionDetailComponent",
+    "AgentSecurityInspectorComponent",
+    "ToolCallTimelineComponent",
+    "ArtifactBrowserComponent",
+    "ArtifactViewerComponent",
+    "MarkdownMermaidViewerComponent",
+    "DiffViewerComponent",
+    "VerificationPanelComponent"
+  ],
+  "recommended_commit_plan": [
+    {
+      "commit": "ui: add control center shell and routes",
+      "contains": [
+        "Shell layout",
+        "Navigation",
+        "Routes",
+        "Placeholder pages"
+      ]
+    },
+    {
+      "commit": "ui: add task and session models",
+      "contains": [
+        "TypeScript interfaces",
+        "Mock services",
+        "Status chips"
+      ]
+    },
+    {
+      "commit": "ui: add task board and session detail",
+      "contains": [
+        "Task board",
+        "Session detail",
+        "Tool timeline",
+        "Security inspector"
+      ]
+    },
+    {
+      "commit": "ui: add artifact viewers",
+      "contains": [
+        "Artifact browser",
+        "Markdown/Mermaid viewer",
+        "Diff viewer",
+        "Log/JSON viewer"
+      ]
+    },
+    {
+      "commit": "ui: add policy decision and approval views",
+      "contains": [
+        "Policy decision log",
+        "Approval gate",
+        "Denied action display"
+      ]
+    },
+    {
+      "commit": "ui: connect live events and worker health",
+      "contains": [
+        "SSE/WebSocket adapter",
+        "Worker registry",
+        "Live task/session updates"
+      ]
+    }
+  ],
+  "notes": [
+    "This todo intentionally describes the UX direction in detail so implementation can happen incrementally without losing the larger control-center goal.",
+    "The design should be allowed to look visually modern like Nimbalyst-style agent workspaces, but the conceptual center must remain Ananta security, policy and artifact verification.",
+    "Whenever there is a conflict between convenience and safety, the UI should expose the safety boundary instead of hiding it."
+  ]
+}
