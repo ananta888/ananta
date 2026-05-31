@@ -145,11 +145,15 @@ TURN_SHARED_SECRET=replace_with_output_of_openssl_rand_hex_32
 TURN_URLS=turn:webrtc.ananta.de:3478
 TURN_TTL_SECONDS=3600
 SESSION_MAX_DURATION_SECONDS=3600
+RENDEZVOUS_DB_PATH=/var/lib/ananta/rendezvous.db
+RENDEZVOUS_DB_TIMEOUT_SECONDS=5.0
 ```
 
 For Oracle Cloud, `PUBLIC_TURN_EXTERNAL_IP` should usually be `<PUBLIC_IP>/<PRIVATE_VCN_IP>`, e.g. `79.76.105.53/10.0.1.233`.
 
 > **TURN_SHARED_SECRET** must match the secret configured in coturn. The rendezvous service uses this to sign ephemeral TURN credentials via HMAC-SHA1 (coturn REST API format). Never commit the real secret to git.
+
+`RENDEZVOUS_DB_PATH` points to the shared SQLite file used by all Gunicorn workers. Keep this path on a persistent Docker volume so session lists stay consistent across workers and restarts.
 
 ## Start
 
