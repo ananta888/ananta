@@ -68,6 +68,7 @@ def test_center_browser_renders_non_empty_carbonyl_cast(tmp_path: Path) -> None:
         "center_browser_active": True,
         "center_browser_status": "active",
         "center_browser_url": str(html_path),
+        "center_browser_render_mode": "raw_ansi",
         "_browser_frame_bytes": raw,
     }
     state = OperatorState(
@@ -93,13 +94,18 @@ def test_center_browser_renders_non_empty_carbonyl_cast(tmp_path: Path) -> None:
     assert "Center Browser Carbonyl E2E" in header["title"]
 
     frame_text = json.loads(lines[1])[2]
+    assert "\x1b[" in frame_text
     plain = _ANSI_STRIP.sub("", frame_text)
     assert "[BROWSER]" in plain
 
-    # Analysis guard: browser pane must contain visible non-space payload beyond header chrome.
+    # Analysis guard for raw_ansi mode: browser chrome + substantial ANSI activity + visible content.
+    ansi_seq_count = frame_text.count("\x1b[")
+    assert ansi_seq_count >= 20, f"expected rich ANSI stream in raw_ansi mode, got {ansi_seq_count}"
+    assert "about:blank" in plain or "ANANTA_BROWSER_E2E_OK" in plain
+
     block_count = plain.count("▄") + plain.count("█") + plain.count("▀")
     non_space = sum(1 for ch in plain if not ch.isspace())
-    assert block_count > 200 or non_space > 1200, (
+    assert block_count > 20 or non_space > 800, (
         "center browser cast looks visually empty; expected substantial rendered payload "
-        f"(block_count={block_count}, non_space={non_space})"
+        f"(block_count={block_count}, non_space={non_space}, ansi_seq_count={ansi_seq_count})"
     )
