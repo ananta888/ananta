@@ -702,7 +702,7 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     env["ANANTA_BASE_URL"] = endpoint
     env["ANANTA_HUB_URL"] = endpoint
     env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
-    env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "0"
+    env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
     env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
     title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "e2e-share").strip() or "e2e-share"
     public_oidc_token = str(os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
@@ -756,19 +756,7 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
             env["ANANTA_TUI_OIDC_TOKEN"] = public_oidc_token
 
     script_actions: list[dict[str, object]] = [
-        {
-            "at": 3.5,
-            "send": f":share create {title}\r".encode("utf-8"),
-        },
-        {
-            "at": 7.0,
-            "send": b":share list\r",
-        },
-        {
-            "at": 10.5,
-            "send": b":share list\r",
-        },
-        {"at": 13.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
+        {"at": 16.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
         {"at": 38.0, "send": b"q"},
     ]
 

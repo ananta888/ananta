@@ -4,6 +4,7 @@ import json
 import os
 import re
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -120,6 +121,20 @@ def _list_rendezvous_titles(base_url: str, token: str) -> list[str]:
         if title:
             titles.append(title)
     return titles
+
+
+def _wait_for_rendezvous_title(base_url: str, token: str, expected_title: str, *, timeout_seconds: float = 12.0) -> list[str]:
+    deadline = time.monotonic() + max(1.0, timeout_seconds)
+    last_titles: list[str] = []
+    while time.monotonic() < deadline:
+        try:
+            last_titles = _list_rendezvous_titles(base_url, token)
+        except urllib.error.HTTPError:
+            last_titles = []
+        if expected_title in last_titles:
+            return last_titles
+        time.sleep(0.8)
+    return last_titles
 
 
 def _issue_oidc_password_token(
@@ -457,7 +472,7 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
     assert ". Artifacts" not in snapshot_text and ". Knowledge" not in snapshot_text
 
     if use_public_oidc:
-        titles = _list_rendezvous_titles(public_rendezvous_for_assert, access_token)
+        titles = _wait_for_rendezvous_title(public_rendezvous_for_assert, access_token, share_title)
     else:
         titles = _list_share_titles(endpoint, access_token)
     assert share_title in titles
