@@ -625,10 +625,21 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
         non_space_chars = 0
         for row_idx in range(h):
             row = screen.buffer.get(row_idx, {})
-            line = "".join(
-                (row[col].data if row.get(col) else " ")
-                for col in range(width)
-            ).rstrip()
+            cells: list[str] = []
+            for col in range(width):
+                cell = row.get(col)
+                if not cell:
+                    cells.append(" ")
+                    continue
+                ch = str(getattr(cell, "data", " ") or " ")
+                if ch == " ":
+                    # Carbonyl often paints with colored background spaces.
+                    # Preserve visibility by showing a block for non-default bg.
+                    bg = str(getattr(cell, "bg", "default") or "default").lower()
+                    if bg not in {"default", "black", "000000", "#000000"}:
+                        ch = "█"
+                cells.append(ch)
+            line = "".join(cells).rstrip()
             non_space_chars += sum(1 for ch in line if not ch.isspace())
             result.append(line)
         # Some Carbonyl/frame combinations render as nearly-empty in pyte; prefer raw fallback then.
