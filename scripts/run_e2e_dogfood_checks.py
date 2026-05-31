@@ -16,6 +16,7 @@ DEFAULT_E2E_TEST_TARGETS = [
     "tests/e2e/test_cli_golden_path_snapshots.py",
     "tests/e2e/test_cli_degraded_policy_snapshots.py",
     "tests/e2e/test_tui_scripted_smoke.py",
+    "tests/e2e/test_tui_markdown_mermaid_quality_cast_e2e.py",
     "tests/e2e/test_web_ui_screenshots.py",
     "tests/e2e/test_rag_dogfood_tiny_repo.py",
     "tests/e2e/test_policy_approval_visual_evidence.py",

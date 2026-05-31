@@ -16,6 +16,8 @@ class MermaidRenderResult:
     fallback_text: str
     reason: str
     duration_ms: float
+    reason_code: str = ""
+    backend_used: str = ""
 
 
 def _check_mmdc() -> str | None:
@@ -126,6 +128,8 @@ class MermaidCliBackend:
                         image_format="svg",
                         fallback_text="",
                         reason="",
+                        reason_code="OK",
+                        backend_used=self.name,
                         duration_ms=round(elapsed_ms, 2),
                     )
                 raw_err = proc.stderr.decode(errors="replace").strip() or "mmdc exited non-zero"
@@ -133,6 +137,8 @@ class MermaidCliBackend:
                     success=False, image_data=None, image_format="",
                     fallback_text=source,
                     reason=_compact_error(raw_err),
+                    reason_code="MMDC_RENDER_FAILED",
+                    backend_used=self.name,
                     duration_ms=round(elapsed_ms, 2),
                 )
             except subprocess.TimeoutExpired:
@@ -141,6 +147,8 @@ class MermaidCliBackend:
                     success=False, image_data=None, image_format="",
                     fallback_text=source,
                     reason=f"timeout nach {timeout_seconds:.0f}s",
+                    reason_code="MMDC_TIMEOUT",
+                    backend_used=self.name,
                     duration_ms=round(elapsed_ms, 2),
                 )
             except Exception as exc:
@@ -149,6 +157,8 @@ class MermaidCliBackend:
                     success=False, image_data=None, image_format="",
                     fallback_text=source,
                     reason=_compact_error(str(exc)),
+                    reason_code="MMDC_EXEC_ERROR",
+                    backend_used=self.name,
                     duration_ms=round(elapsed_ms, 2),
                 )
 
@@ -165,7 +175,7 @@ class MermaidCliBackend:
         if not mmdc:
             return MermaidRenderResult(
                 success=False, image_data=None, image_format="",
-                fallback_text=source, reason="mmdc nicht im PATH", duration_ms=0.0,
+                fallback_text=source, reason="mmdc nicht im PATH", reason_code="MMD_NOT_FOUND", backend_used=self.name, duration_ms=0.0,
             )
         # First attempt with original source
         result = self._run_mmdc(source, mmdc, timeout_seconds=timeout_seconds, width=width, height=height)
@@ -204,6 +214,8 @@ class PlaywrightBackend:
                 image_format="",
                 fallback_text=source,
                 reason="playwright package not installed",
+                reason_code="PLAYWRIGHT_MISSING",
+                backend_used=self.name,
                 duration_ms=0.0,
             )
         try:
@@ -217,6 +229,8 @@ class PlaywrightBackend:
                     image_format="",
                     fallback_text=source,
                     reason="mermaid.min.js not found; install via 'npm install mermaid' in project root",
+                    reason_code="MERMAID_JS_MISSING",
+                    backend_used=self.name,
                     duration_ms=(time.perf_counter() - start) * 1000.0,
                 )
             html = _build_mermaid_html(source, mermaid_js, width, height)
@@ -233,6 +247,8 @@ class PlaywrightBackend:
                 image_format="png",
                 fallback_text="",
                 reason="",
+                reason_code="OK",
+                backend_used=self.name,
                 duration_ms=round(elapsed_ms, 2),
             )
         except Exception as exc:
@@ -243,6 +259,8 @@ class PlaywrightBackend:
                 image_format="",
                 fallback_text=source,
                 reason=str(exc),
+                reason_code="PLAYWRIGHT_RENDER_FAILED",
+                backend_used=self.name,
                 duration_ms=round(elapsed_ms, 2),
             )
 
@@ -294,6 +312,8 @@ class FallbackCodeblockBackend:
             image_format="",
             fallback_text=source,
             reason="Mermaid image renderer unavailable",
+            reason_code="FALLBACK_CODEBLOCK",
+            backend_used=self.name,
             duration_ms=0.0,
         )
 
@@ -352,6 +372,8 @@ class MermaidRenderer:
                         image_format="",
                         fallback_text=source,
                         reason=real_backend_failure,
+                        reason_code="BACKEND_UNAVAILABLE",
+                        backend_used=name,
                         duration_ms=result.duration_ms,
                     )
                 return result
@@ -361,5 +383,7 @@ class MermaidRenderer:
             image_format="",
             fallback_text=source,
             reason=real_backend_failure or "no renderer available",
+            reason_code="NO_RENDERER_AVAILABLE",
+            backend_used="",
             duration_ms=0.0,
         )
