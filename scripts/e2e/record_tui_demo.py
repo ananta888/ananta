@@ -718,7 +718,6 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     ).strip()
     public_issuer = str(
         os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
-        or os.environ.get("ANANTA_OIDC_ISSUER")
         or "https://keycloak.ananta.de/realms/ananta-e2e"
     ).strip()
     public_client_id = str(
