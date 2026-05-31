@@ -752,6 +752,11 @@ def _build_helpcenter_payload(*, game: dict[str, object], repo_root: Path) -> di
 
 
 def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
+    # Dispatch center.browser.* commands first (carbonyl-005)
+    browser_result = execute_center_browser_command(raw_command, state)
+    if browser_result is not None:
+        return browser_result
+
     text = str(raw_command or "").strip()
     while text.startswith(":") or text.startswith("/"):
         text = text[1:].strip()
@@ -4025,3 +4030,50 @@ def _handle_oidc_command(args: list[str], state: OperatorState) -> CommandResult
 
     msg = "oidc: status | login | logout"
     return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+
+
+# ---------------------------------------------------------------------------
+# center.browser commands (carbonyl-005)
+# ---------------------------------------------------------------------------
+
+def execute_center_browser_command(raw_command: str, state: OperatorState) -> CommandResult | None:
+    """Handle center.browser.* commands. Returns None if not a browser command."""
+    text = str(raw_command or "").strip().lstrip(":").lstrip("/").strip()
+    parts = text.split()
+    if not parts:
+        return None
+
+    cmd = parts[0].lower().replace("-", ".").replace("_", ".")
+    if cmd not in {"center.browser.toggle", "center.browser.open_current", "center.browser.exit"}:
+        return None
+
+    game = dict(state.header_logo_game or {})
+    browser_active = bool(game.get("center_browser_active"))
+
+    if cmd == "center.browser.exit" or (cmd == "center.browser.toggle" and browser_active):
+        game["center_browser_active"] = False
+        game["center_browser_status"] = "exited"
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="browser mode: exited | center view restored",
+            ),
+            "center.browser.exit",
+        )
+
+    if cmd in {"center.browser.open_current", "center.browser.toggle"}:
+        game["center_browser_active"] = True
+        game["center_browser_status"] = "requested"
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="browser mode: activating | F7 toggle | Esc exit",
+            ),
+            "center.browser.open_current",
+        )
+
+    return None

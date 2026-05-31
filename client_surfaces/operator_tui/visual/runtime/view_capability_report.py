@@ -36,6 +36,7 @@ class ViewCapabilityBundle:
     available: list[ViewCapabilityReport] = field(default_factory=list)
     unavailable: list[ViewCapabilityReport] = field(default_factory=list)
     active_view_id: str = ""
+    carbonyl_browser: ViewCapabilityReport | None = None
 
     def all_reports(self) -> list[ViewCapabilityReport]:
         return self.available + self.unavailable
