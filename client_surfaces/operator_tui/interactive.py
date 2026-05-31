@@ -1623,6 +1623,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _open_latest_long_chat_message(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
+        active_view = str(game.get("visual_viewport_active_view") or game.get("visual_runtime_status", {}).get("active_view") or "")
 
         # If center view is already showing a long chat message, toggle render mode
         if is_showing_chat_long_message(game):
@@ -1632,6 +1633,31 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 self.state.with_updates(
                     header_logo_game=game,
                     status_message=f"Chat-Ansicht: {mode_label}",
+                )
+            )
+            return
+
+        # Generic document toggle: simple -> rendered -> mermaid -> simple
+        if bool(game.get("visual_viewport_enabled")) and active_view == "markdown_mermaid_document":
+            plain = bool(game.get("markdown_stream_plain"))
+            mermaid_on = bool(game.get("markdown_mermaid_render_requested"))
+            if plain:
+                game["markdown_stream_plain"] = False
+                game["markdown_mermaid_render_requested"] = False
+                mode_label = "Markdown gerendert"
+            elif not mermaid_on:
+                game["markdown_stream_plain"] = False
+                game["markdown_mermaid_render_requested"] = True
+                mode_label = "Markdown+Mermaid"
+            else:
+                game["markdown_stream_plain"] = True
+                game["markdown_mermaid_render_requested"] = False
+                mode_label = "Simple"
+            game["visual_viewport_force_render"] = True
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    status_message=f"Doc-Ansicht: {mode_label}",
                 )
             )
             return
