@@ -125,6 +125,8 @@ Generate aggregate reports:
 Run release gate with integrated E2E evidence:
 
 - `python3 scripts/run_release_gate.py --strict`
+- `python3 scripts/run_e2e_dogfood_checks.py --window-profile headless` (default, fast CI)
+- `python3 scripts/run_e2e_dogfood_checks.py --window-profile full-wslg` (includes external-window E2E)
 
 Optional video capture (non-blocking):
 
@@ -134,6 +136,13 @@ Optional video capture (non-blocking):
 Real local TUI+LMStudio evidence run (homepage snake cast source):
 
 - `ANANTA_TUI_LLM_API_BASE=http://127.0.0.1:1234/v1 ANANTA_TUI_LLM_MODEL=meta-llama_-_llama-3.2-1b-instruct python3 scripts/e2e/record_tui_demo.py --enable --scene snake-mode-live-e2e`
+
+External-window hybrid local reproduction (WSL2/Windows11):
+
+- `export DISPLAY=:0`
+- `export WAYLAND_DISPLAY=wayland-0`
+- `python3 scripts/operator_tui_window_smoke.py`
+- `python3 scripts/run_e2e_dogfood_checks.py --window-profile full-wslg`
 
 ## Extension guidance
 
