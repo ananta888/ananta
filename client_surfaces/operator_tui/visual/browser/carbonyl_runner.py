@@ -55,17 +55,23 @@ class CarbonylRunner:
 
         resolved = self._resolve_binary()
         self._master_fd, self._slave_fd = pty.openpty()
+        # Set PTY size via ioctl — carbonyl reads this via TIOCGWINSZ, not via flags
+        self._set_pty_size(self._slave_fd, cols=cols, rows=rows)
         self._set_pty_size(self._master_fd, cols=cols, rows=rows)
         # Make master fd non-blocking for read_output
         _set_nonblocking(self._master_fd)
 
+        env = dict(os.environ)
+        env["TERM"] = "xterm-256color"
+
         try:
             self._proc = subprocess.Popen(
-                [resolved, "--cols", str(cols), "--rows", str(rows), *(extra_args or []), html_path],
+                [resolved, *(extra_args or []), html_path],
                 stdin=self._slave_fd,
                 stdout=self._slave_fd,
                 stderr=self._slave_fd,
                 close_fds=True,
+                env=env,
             )
         except (FileNotFoundError, PermissionError) as exc:
             self._close_fds()
