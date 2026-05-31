@@ -21,6 +21,7 @@ from client_surfaces.operator_tui.visual.markdown.markdown_parser import Mermaid
 from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import extract_mermaid_blocks
 from client_surfaces.operator_tui.visual.markdown.mermaid_cache import MermaidCache
 from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
+from client_surfaces.operator_tui.visual.markdown.render_policy import MarkdownRenderPolicyResolver
 from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
 from client_surfaces.operator_tui.visual.views.base_view import ViewContext, ViewRequirements
 
@@ -114,6 +115,7 @@ class MarkdownMermaidDocumentView:
     _config: MarkdownMermaidConfig = field(default_factory=MarkdownMermaidConfig)
     _mermaid_renderer: MermaidRenderer = field(default_factory=MermaidRenderer)
     _mermaid_cache: MermaidCache = field(default_factory=MermaidCache)
+    _policy_resolver: MarkdownRenderPolicyResolver = field(default_factory=MarkdownRenderPolicyResolver)
     _scroll_offset: int = 0        # vertical: lines scrolled from top
     _h_offset: int = 0             # horizontal: columns scrolled from left
     _last_content_lines: int = 0
@@ -157,6 +159,8 @@ class MarkdownMermaidDocumentView:
         blocks = parse_markdown(text)
         mermaid_fallbacks: dict[str, MermaidFallbackInfo] = {}
         diagram_nodes: list[dict[str, Any]] = []
+        effective_policy = self._policy_resolver.resolve(config=self._config, state=context.state)
+        renderer = MermaidRenderer(renderer_order=effective_policy.backend_order)
 
         # Diagnostics counters (MIMG-003 / MDP-009)
         mermaid_blocks_total = 0
@@ -170,12 +174,12 @@ class MarkdownMermaidDocumentView:
         if mermaid_render_requested and self._config.mermaid_mode != "disabled":
             mermaid_block_list = extract_mermaid_blocks(blocks)
             mermaid_blocks_total = len(mermaid_block_list)
-            diagram_w = max(64, context.region.columns)
-            diagram_h = _DIAGRAM_RESERVED_ROWS * 14  # approx pixel height
+            diagram_w = min(max(64, context.region.columns * 10), int(effective_policy.max_pixel_width))
+            diagram_h = min(_DIAGRAM_RESERVED_ROWS * 14, int(effective_policy.max_pixel_height))
 
             for idx, mb in enumerate(mermaid_block_list):
                 src_hash = _source_hash(mb.source)
-                backend_name = self._mermaid_renderer.renderer_order[0] if self._mermaid_renderer.renderer_order else "unknown"
+                backend_name = renderer.renderer_order[0] if renderer.renderer_order else "unknown"
                 diagram_id = f"mermaid_{src_hash}_{idx}"
 
                 # Check cache first (MDP-008 / MIMG-006)
@@ -190,7 +194,12 @@ class MarkdownMermaidDocumentView:
                     cache_misses += 1
                     was_cache_hit = False
                     t0 = time.perf_counter()
-                    result = self._mermaid_renderer.render(mb.source)
+                    result = renderer.render(
+                        mb.source,
+                        timeout_seconds=effective_policy.timeout_seconds,
+                        width=diagram_w,
+                        height=diagram_h,
+                    )
                     duration_ms = (time.perf_counter() - t0) * 1000.0
                     if result.success:
                         self._mermaid_cache.put(src_hash, backend_name, "auto", diagram_w, diagram_h, result)
@@ -303,6 +312,9 @@ class MarkdownMermaidDocumentView:
                 "mermaid_cache_hits": cache_diag["hits"],
                 "mermaid_cache_misses": cache_diag["misses"],
                 "mermaid_visible_images": mermaid_images_rendered,
+                "docs_graphics_profile": effective_policy.active_profile,
+                "docs_graphics_backend_order": list(effective_policy.backend_order),
+                "docs_graphics_wsl2_detected": effective_policy.wsl2_detected,
                 "view_requirements": {
                     "markdown_ansi": "available",
                     "mermaid_image": "available" if mermaid_image_ok else "degraded",
@@ -367,7 +379,7 @@ class MarkdownMermaidDocumentView:
         )
 
     def capability_report(self) -> dict[str, Any]:
-        status = self._mermaid_renderer.capability_status()
+        status = MermaidRenderer(renderer_order=self._config.mermaid_renderers).capability_status()
         real_backends = {k: v for k, v in status.items() if k != "fallback_codeblock"}
         mermaid_image_available = any(ok for ok, _ in real_backends.values())
         return {
