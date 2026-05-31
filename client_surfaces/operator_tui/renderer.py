@@ -2205,7 +2205,9 @@ def _pane_title(title: str, focused: bool) -> str:
 
 def _cell(lines: list[str], index: int, width: int) -> str:
     value = lines[index] if index < len(lines) else ""
-    return _clip(value, width).ljust(width)
+    clipped = _clip(value, width)
+    visible_len = len(_ANSI_STRIP.sub("", clipped))
+    return clipped + " " * max(0, width - visible_len)
 
 
 def _status_line(state: OperatorState, width: int, splash_state: str = "") -> str:

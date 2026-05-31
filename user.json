@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-05-31T10:22:40Z",
+  "updated": "2026-05-31T10:25:06Z",
   "settings": {
     "chat_pass_memory_to_worker": false,
     "ai_visual_use_codecompass": true,
