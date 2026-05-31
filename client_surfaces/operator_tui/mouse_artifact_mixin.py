@@ -1055,7 +1055,10 @@ class MouseArtifactMixin:
             self._command_saved_draft = ""
         game = dict(state.header_logo_game or {})
         game["command_input_cursor"] = 0
-        state = state.with_updates(header_logo_game=game, command_line="")
+        # Always exit COMMAND mode after execution — commands that want to stay in
+        # a specific mode must pass mode= explicitly in their CommandResult state.
+        mode_after = state.mode if state.mode is not OperatorMode.COMMAND else OperatorMode.NORMAL
+        state = state.with_updates(header_logo_game=game, command_line="", mode=mode_after)
         if state.section_id != self.state.section_id:
             from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
             state = open_or_activate_tab(
