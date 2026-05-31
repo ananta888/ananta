@@ -25,8 +25,9 @@ from client_surfaces.operator_tui.visual.markdown.render_policy import MarkdownR
 from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
 from client_surfaces.operator_tui.visual.views.base_view import ViewContext, ViewRequirements
 
-# Rows reserved per Mermaid diagram block in ANSI/layout mode
-_DIAGRAM_RESERVED_ROWS = 10
+# Rows reserved per Mermaid diagram block in ANSI/layout mode.
+# Keep this high enough to avoid overlap/cutoff for medium-sized diagrams.
+_DIAGRAM_RESERVED_ROWS = 24
 # Sentinel reason emitted by FallbackCodeblockBackend — not a real render failure
 _GRACEFUL_FALLBACK_REASON = "Mermaid image renderer unavailable"
 
@@ -174,8 +175,10 @@ class MarkdownMermaidDocumentView:
         if mermaid_render_requested and self._config.mermaid_mode != "disabled":
             mermaid_block_list = extract_mermaid_blocks(blocks)
             mermaid_blocks_total = len(mermaid_block_list)
-            diagram_w = min(max(64, context.region.columns * 10), int(effective_policy.max_pixel_width))
-            diagram_h = min(_DIAGRAM_RESERVED_ROWS * 14, int(effective_policy.max_pixel_height))
+            diagram_w = min(max(96, context.region.columns * 12), int(effective_policy.max_pixel_width))
+            # Scale requested height with viewport rows to reduce truncated Mermaid renderings.
+            wanted_h = max(_DIAGRAM_RESERVED_ROWS * 14, context.region.rows * 18)
+            diagram_h = min(wanted_h, int(effective_policy.max_pixel_height))
 
             for idx, mb in enumerate(mermaid_block_list):
                 src_hash = _source_hash(mb.source)
