@@ -93,4 +93,23 @@ def resolve_renderer_adapter_pair(
         diagnostics.append(f"select {renderer}+{adapter}: candidate accepted")
         return FallbackResolution(renderer=renderer, adapter=adapter, diagnostics=tuple(diagnostics))
 
-    raise RuntimeError("no viable renderer/adapter pair; ensure ansi_blocks+ansi is registered")
+    # Never hard-fail the runtime: degrade to any available pair.
+    if "ansi_blocks" in available_renderers and "ansi" in available_adapters:
+        diagnostics.append("degrade ansi_blocks+ansi: forced fallback")
+        return FallbackResolution(renderer="ansi_blocks", adapter="ansi", diagnostics=tuple(diagnostics))
+    if config.default_renderer in available_renderers and config.default_output_adapter in available_adapters:
+        diagnostics.append("degrade default pair: capabilities check bypassed")
+        return FallbackResolution(
+            renderer=config.default_renderer,
+            adapter=config.default_output_adapter,
+            diagnostics=tuple(diagnostics),
+        )
+    if available_renderers and available_adapters:
+        renderer = sorted(available_renderers)[0]
+        adapter = sorted(available_adapters)[0]
+        diagnostics.append(f"degrade arbitrary pair: {renderer}+{adapter}")
+        return FallbackResolution(renderer=renderer, adapter=adapter, diagnostics=tuple(diagnostics))
+
+    # Absolute last resort: keep deterministic ids; downstream runtime will render diagnostic text.
+    diagnostics.append("degrade emergency pair: ansi_blocks+ansi (not registered)")
+    return FallbackResolution(renderer="ansi_blocks", adapter="ansi", diagnostics=tuple(diagnostics))

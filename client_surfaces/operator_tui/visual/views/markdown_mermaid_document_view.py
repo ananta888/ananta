@@ -161,7 +161,6 @@ class MarkdownMermaidDocumentView:
         mermaid_fallbacks: dict[str, MermaidFallbackInfo] = {}
         diagram_nodes: list[dict[str, Any]] = []
         effective_policy = self._policy_resolver.resolve(config=self._config, state=context.state)
-        renderer = MermaidRenderer(renderer_order=effective_policy.backend_order)
 
         # Diagnostics counters (MIMG-003 / MDP-009)
         mermaid_blocks_total = 0
@@ -180,6 +179,16 @@ class MarkdownMermaidDocumentView:
             wanted_h = max(_DIAGRAM_RESERVED_ROWS * 14, context.region.rows * 18)
             diagram_h = min(wanted_h, int(effective_policy.max_pixel_height))
 
+            if isinstance(self._mermaid_renderer, MermaidRenderer):
+                renderer = MermaidRenderer(
+                    renderer_order=effective_policy.backend_order,
+                    timeout_seconds=float(effective_policy.timeout_seconds),
+                    max_width=int(diagram_w),
+                    max_height=int(diagram_h),
+                )
+            else:
+                # Keep injected test/custom renderer behavior stable.
+                renderer = self._mermaid_renderer
             for idx, mb in enumerate(mermaid_block_list):
                 src_hash = _source_hash(mb.source)
                 backend_name = renderer.renderer_order[0] if renderer.renderer_order else "unknown"
@@ -197,12 +206,7 @@ class MarkdownMermaidDocumentView:
                     cache_misses += 1
                     was_cache_hit = False
                     t0 = time.perf_counter()
-                    result = renderer.render(
-                        mb.source,
-                        timeout_seconds=effective_policy.timeout_seconds,
-                        width=diagram_w,
-                        height=diagram_h,
-                    )
+                    result = renderer.render(mb.source)
                     duration_ms = (time.perf_counter() - t0) * 1000.0
                     if result.success:
                         self._mermaid_cache.put(src_hash, backend_name, "auto", diagram_w, diagram_h, result)
