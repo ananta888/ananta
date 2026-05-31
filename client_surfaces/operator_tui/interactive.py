@@ -407,6 +407,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("c-h")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_backspace()
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_backspace()
                 return
@@ -421,9 +424,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_backspace()
                 return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_backspace()
-                return
             if self._snake_message_mode_active():
                 self._snake_message_backspace()
                 return
@@ -433,6 +433,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("delete")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_delete()
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_delete()
                 return
@@ -446,9 +449,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_delete()
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_delete()
                 return
             if self._snake_message_mode_active():
                 return
@@ -721,6 +721,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("left")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_move_cursor(-1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_move_cursor(-1)
                 return
@@ -739,9 +742,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_move_cursor(-1)
                 return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_move_cursor(-1)
-                return
             if self._try_header_snake_direction((-1, 0)):
                 return
             self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
@@ -749,6 +749,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("right")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_move_cursor(1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_move_cursor(1)
                 return
@@ -767,9 +770,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if self._ai_snake_config_combo_active(game):
                 self._ai_snake_config_combo_move_cursor(1)
                 return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_move_cursor(1)
-                return
             if self._try_header_snake_direction((1, 0)):
                 return
             self._set_selected_index(self._clamp_down())
@@ -777,6 +777,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("up")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_history_move(-1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_history_move(-1)
                 return
@@ -795,9 +798,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 else:
                     self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(-1, game)))
                 return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_history_move(-1)
-                return
             if self._try_header_snake_direction((0, -1)):
                 return
             self._set_selected_index(max(0, self.state.selected_index - 1))
@@ -805,6 +805,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         @bindings.add("down")
         def _(event) -> None:
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_history_move(1)
+                return
             if self._artifact_chat_focus_active():
                 self._artifact_chat_history_move(1)
                 return
@@ -822,9 +825,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                     self._ai_snake_config_combo_move(1)
                 else:
                     self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(1, game)))
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_history_move(1)
                 return
             if self._try_header_snake_direction((0, 1)):
                 return
