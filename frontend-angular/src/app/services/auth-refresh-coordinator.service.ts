@@ -4,10 +4,29 @@ import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, filter, switchMap, take } from 'rxjs/operators';
 
 import { UserAuthService } from './user-auth.service';
+import { OidcAuthService } from './oidc-auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthRefreshCoordinator {
   private userAuth = inject(UserAuthService);
+  private oidc = inject(OidcAuthService);
+
+  /** T13: Pro-active token refresh — call from AppComponent or interceptor. */
+  startSilentRefreshTimer(): void {
+    setInterval(async () => {
+      const token = this.userAuth.token;
+      if (!token) return;
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return;
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const expiry = Number(payload.exp) * 1000;
+        if (expiry - Date.now() < 60_000) {
+          await this.oidc.silentRefresh();
+        }
+      } catch { /* ignore */ }
+    }, 30_000);
+  }
 
   private isRefreshing = false;
   private refreshTokenSubject = new BehaviorSubject<string | null>(null);

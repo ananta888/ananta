@@ -8,6 +8,7 @@ import { firstValueFrom, timeout } from 'rxjs';
 import { UserAuthService } from '../services/user-auth.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { PythonRuntimeService } from '../services/python-runtime.service';
+import { OidcAuthService } from '../services/oidc-auth.service';
 
 @Component({
   selector: 'app-login',
@@ -116,6 +117,30 @@ import { PythonRuntimeService } from '../services/python-runtime.service';
             @if (forgotInfo) {
               <div class="hint-text text-center mt-sm" aria-live="polite">{{ forgotInfo }}</div>
             }
+            <div class="oidc-divider"><span>oder</span></div>
+            <button type="button" class="secondary btn-full" (click)="loginWithKeycloak()" [disabled]="loading">
+              Mit Keycloak anmelden (keycloak.ananta.de)
+            </button>
+            <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDeviceFlow()" [disabled]="loading">
+              {{ deviceFlowOpen ? 'Device Flow schliessen' : 'Device Flow (TUI-Code)' }}
+            </button>
+            @if (deviceFlowOpen) {
+              <div class="device-flow-panel">
+                @if (!deviceFlowData) {
+                  <button type="button" class="primary btn-full" (click)="startDeviceFlow()" [disabled]="deviceFlowBusy">
+                    {{ deviceFlowBusy ? 'Starte...' : 'Device Flow starten' }}
+                  </button>
+                } @else {
+                  <div class="device-code-box">
+                    <div class="device-code-label">Code in Browser oder TUI eingeben:</div>
+                    <div class="device-code">{{ deviceFlowData.user_code }}</div>
+                    <div class="device-code-url">{{ deviceFlowData.verification_uri }}</div>
+                  </div>
+                  @if (deviceFlowError) { <div class="error-msg">{{ deviceFlowError }}</div> }
+                  @if (deviceFlowBusy) { <div class="hint-text">Warte auf Bestätigung...</div> }
+                }
+              </div>
+            }
           }
           @if (mfaRequired) {
             <button
@@ -137,6 +162,49 @@ export class LoginComponent {
   private auth = inject(UserAuthService);
   private dir = inject(AgentDirectoryService);
   private pythonRuntime = inject(PythonRuntimeService);
+  private oidc = inject(OidcAuthService);
+
+  deviceFlowOpen = false;
+  deviceFlowBusy = false;
+  deviceFlowData: { user_code: string; verification_uri: string; device_code: string; interval: number } | null = null;
+  deviceFlowError = '';
+  private deviceFlowPollHandle: ReturnType<typeof setInterval> | null = null;
+
+  loginWithKeycloak(): void {
+    void this.oidc.startLogin('/');
+  }
+
+  toggleDeviceFlow(): void {
+    this.deviceFlowOpen = !this.deviceFlowOpen;
+    if (!this.deviceFlowOpen) this.stopDeviceFlow();
+  }
+
+  async startDeviceFlow(): Promise<void> {
+    this.deviceFlowBusy = true;
+    this.deviceFlowError = '';
+    try {
+      const data = await this.oidc.startDeviceFlow();
+      this.deviceFlowData = data;
+      this.deviceFlowBusy = false;
+      this.deviceFlowPollHandle = setInterval(async () => {
+        try {
+          const ok = await this.oidc.pollDeviceToken(data.device_code, data.interval);
+          if (ok) { this.stopDeviceFlow(); this.router.navigate(['/']); }
+        } catch (e: any) {
+          this.stopDeviceFlow();
+          this.deviceFlowError = String(e?.message ?? 'Fehler');
+        }
+      }, (data.interval + 1) * 1000);
+    } catch (e: any) {
+      this.deviceFlowError = String(e?.message ?? 'Device Flow fehlgeschlagen');
+      this.deviceFlowBusy = false;
+    }
+  }
+
+  private stopDeviceFlow(): void {
+    if (this.deviceFlowPollHandle) { clearInterval(this.deviceFlowPollHandle); this.deviceFlowPollHandle = null; }
+    this.deviceFlowBusy = false;
+  }
 
   username = '';
   password = '';
