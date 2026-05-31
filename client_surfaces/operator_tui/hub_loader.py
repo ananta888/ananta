@@ -683,11 +683,19 @@ def get_share_oidc_token() -> str:
 
 def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> SectionLoadResult:
     from client_surfaces.operator_tui.device_keys import get_device_key_manager, DeviceKeyError
-    from client_surfaces.operator_tui.network_profile import get_active_profile, is_public_profile_active
+    from client_surfaces.operator_tui.network_profile import get_active_profile, is_public_profile_active, rendezvous_base_url
 
     with _share_lock:
         oidc_token = _share_oidc_token
         rdv_url = _share_rendezvous_url
+    if not oidc_token:
+        oidc_token = str(
+            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN")
+            or os.environ.get("ANANTA_TUI_OIDC_TOKEN")
+            or ""
+        ).strip()
+    if not rdv_url:
+        rdv_url = str(os.environ.get("ANANTA_RENDEZVOUS_URL") or rendezvous_base_url() or "").strip()
 
     profile = get_active_profile()
     profile_id = str(profile.get("profile_id") or "local")
