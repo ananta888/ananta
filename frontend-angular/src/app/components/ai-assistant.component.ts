@@ -1,7 +1,11 @@
-import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter, forkJoin } from 'rxjs';
+
+import { WindowBridgeService } from '../services/window-bridge.service';
+import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
+import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
@@ -17,7 +21,7 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
 @Component({
   standalone: true,
   selector: 'app-ai-assistant',
-  imports: [CommonModule, AiAssistantMessageListComponent, AiAssistantControlsComponent],
+  imports: [CommonModule, AiAssistantMessageListComponent, AiAssistantControlsComponent, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent],
   template: `
     @if (hidden) {
       <button
@@ -25,12 +29,15 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
         class="assistant-launcher"
         data-testid="assistant-dock-launcher"
         (click)="showDock()">
-        AI Assistant ({{ chatThreads.length }})
+        AI Snake
       </button>
     } @else {
       <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
         <div class="header" data-testid="assistant-dock-header" (click)="toggleMinimize()">
-          <span>AI Assistant</span>
+          <span class="header-title">
+            <span class="bridge-dot" [class.online]="snakeBridgeActive" title="{{ snakeBridgeActive ? 'Bridge verbunden' : 'Bridge offline' }}">●</span>
+            AI Snake
+          </span>
           <div class="controls">
             <button
               type="button"
@@ -50,7 +57,26 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
         </div>
       
         @if (!minimized) {
-          <div class="content">
+          @if (configPanelOpen) {
+            <div class="overlay-panel">
+              <app-ai-snake-config-panel />
+            </div>
+          }
+          @if (sharePanelOpen) {
+            <div class="overlay-panel">
+              <app-ai-snake-share-panel />
+            </div>
+          }
+          <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen">
+            @if (snakeVisible) {
+              <div class="snake-panel">
+                <canvas #snakeCanvas class="snake-canvas"></canvas>
+                <div class="snake-status-bar">
+                  <span class="snake-status-dot" [class.active]="snakeBridgeActive">■</span>
+                  {{ snakeStatusText }}
+                </div>
+              </div>
+            }
             <app-ai-assistant-message-list
               [chatHistory]="chatHistory"
               [busy]="busy"
@@ -87,6 +113,15 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
               <button type="button" class="mini-footer-btn primary" (click)="createThread()">
                 + Neuer Chat
               </button>
+              <button type="button" class="mini-footer-btn snake-btn" (click)="toggleSnakeCanvas()" [class.active]="snakeVisible" title="{{ snakeVisible ? 'Snake ausblenden' : 'Snake anzeigen' }}">
+                ◈ Snake
+              </button>
+              <button type="button" class="mini-footer-btn share-btn" (click)="toggleSharePanel()" [class.active]="sharePanelOpen" title="Session Sharing">
+                ⇄ Share
+              </button>
+              <button type="button" class="mini-footer-btn config-btn" (click)="toggleConfigPanel()" [class.active]="configPanelOpen" title="AI-Snake Konfiguration">
+                ⚙
+              </button>
             </div>
             @if (threadSwitcherOpen) {
               <div class="thread-switcher">
@@ -107,140 +142,104 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
     }
 
     <style>
+      :host { font-family: ui-monospace, Menlo, Consolas, monospace; }
       .assistant-launcher {
-        position: fixed;
-        right: 16px;
-        bottom: 20px;
-        z-index: 1000;
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 8px 14px;
-        background: var(--accent);
-        color: #fff;
-        font-weight: 600;
-        cursor: pointer;
+        position: fixed; right: 16px; bottom: 20px; z-index: 1000;
+        border: 1px solid #2a4070; border-radius: 4px;
+        padding: 6px 14px; background: #0d1a30; color: #7fffd4;
+        font-weight: 600; cursor: pointer; font-size: 13px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        letter-spacing: 0.03em;
       }
+      .assistant-launcher:hover { background: #122040; border-color: #7fffd4; }
       .ai-assistant-container {
-        position: fixed;
-        bottom: 0;
-        right: 20px;
-        width: 380px;
-        background: var(--card-bg);
-        border: 1px solid var(--border);
-        border-radius: 8px 8px 0 0;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        z-index: 1000;
-        display: flex;
-        flex-direction: column;
-        transition: height 0.2s ease;
-        color: var(--fg);
-        height: 560px;
-        max-height: 78dvh;
+        position: fixed; bottom: 0; right: 20px; width: 400px;
+        background: #0b1220; border: 1px solid #1a2d4a; border-bottom: none;
+        border-radius: 6px 6px 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+        z-index: 1000; display: flex; flex-direction: column;
+        color: #c8d8f8; font-family: ui-monospace, Menlo, Consolas, monospace;
+        height: 580px; max-height: 82dvh;
       }
-      .ai-assistant-container.minimized {
-        height: 40px;
-      }
+      .ai-assistant-container.minimized { height: 38px; }
       .header {
-        background: var(--accent);
-        color: white;
-        padding: 8px 15px;
-        border-radius: 8px 8px 0 0;
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-weight: bold;
+        background: #0d1828; color: #c8d8f8; padding: 7px 12px;
+        border-radius: 6px 6px 0 0; border-bottom: 1px solid #1a2d4a;
+        cursor: pointer; display: flex; justify-content: space-between;
+        align-items: center; font-size: 13px; font-weight: 600; flex-shrink: 0;
       }
+      .header-title { display: flex; align-items: center; gap: 7px; letter-spacing: 0.04em; }
+      .bridge-dot { font-size: 10px; color: #2a4070; transition: color 0.3s; }
+      .bridge-dot.online { color: #7fffd4; }
+      .controls { display: flex; gap: 4px; }
+      .control-btn {
+        background: none; border: 1px solid transparent; color: #6b8ab8;
+        cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 3px;
+        font-family: inherit;
+      }
+      .control-btn:hover { border-color: #2a4070; color: #c8d8f8; }
       .content {
-        flex: 1 1 auto;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        padding: 10px;
+        flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+        padding: 8px 10px 6px;
       }
+      .snake-panel {
+        flex-shrink: 0; margin-bottom: 8px;
+        border: 1px solid #1a2d4a; border-radius: 4px; overflow: hidden;
+        background: #0b1220;
+      }
+      .snake-canvas { display: block; width: 100%; height: 90px; }
+      .snake-status-bar {
+        display: flex; align-items: center; gap: 6px;
+        padding: 3px 8px; background: #0d1828; border-top: 1px solid #1a2d4a;
+        font-size: 11px; color: #6b8ab8;
+      }
+      .snake-status-dot { font-size: 9px; color: #2a4070; }
+      .snake-status-dot.active { color: #7fffd4; }
       .dock-footer {
-        border-top: 1px solid var(--border);
-        padding: 8px 10px 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        align-items: flex-end;
-        background: color-mix(in srgb, var(--card-bg) 92%, #000 8%);
+        border-top: 1px solid #1a2d4a; padding: 6px 10px 8px;
+        display: flex; flex-direction: column; gap: 6px;
+        background: #0d1828; flex-shrink: 0;
       }
-      .dock-footer-actions {
-        display: flex;
-        gap: 8px;
-      }
+      .dock-footer-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
       .mini-footer-btn {
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 4px 10px;
-        background: transparent;
-        color: var(--fg);
-        cursor: pointer;
-        font-size: 11px;
+        border: 1px solid #1a2d4a; border-radius: 3px; padding: 3px 9px;
+        background: transparent; color: #6b8ab8; cursor: pointer;
+        font-size: 11px; font-family: inherit;
       }
+      .mini-footer-btn:hover { border-color: #2a4070; color: #c8d8f8; }
       .mini-footer-btn.primary {
-        background: var(--accent);
-        border-color: var(--accent);
-        color: #fff;
-        font-weight: 600;
+        background: #162444; border-color: #2a4070; color: #a8c7ff; font-weight: 600;
       }
+      .mini-footer-btn.primary:hover { background: #1e3058; border-color: #7fffd4; color: #7fffd4; }
+      .snake-btn { margin-left: auto; color: #4a6a9a; border-color: #1a2d4a; }
+      .snake-btn:hover, .snake-btn.active { color: #7fffd4; border-color: #7fffd4; background: #0f1e34; }
+      .share-btn { color: #4a6a9a; border-color: #1a2d4a; }
+      .share-btn:hover, .share-btn.active { color: #a8c7ff; border-color: #2a4070; background: #0f1e34; }
+      .config-btn { color: #4a6a9a; border-color: #1a2d4a; }
+      .config-btn:hover, .config-btn.active { color: #fbbf24; border-color: #7a5a10; background: #0f1e34; }
+      .overlay-panel {
+        position: absolute; inset: 38px 0 0 0; z-index: 10;
+        display: flex; flex-direction: column; overflow: hidden;
+      }
+      .content.hidden { display: none; }
       .thread-switcher {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        justify-content: flex-end;
-        max-height: 96px;
-        overflow-y: auto;
+        display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-start;
+        max-height: 88px; overflow-y: auto;
       }
       .thread-chip {
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 3px 10px;
-        background: transparent;
-        color: var(--fg);
-        cursor: pointer;
-        font-size: 11px;
+        border: 1px solid #1a2d4a; border-radius: 3px; padding: 2px 9px;
+        background: transparent; color: #6b8ab8; cursor: pointer; font-size: 11px; font-family: inherit;
       }
-      .thread-chip.active {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-      .control-btn {
-        background: none;
-        border: none;
-        color: white;
-        cursor: pointer;
-        font-size: 12px;
-      }
+      .thread-chip.active { border-color: #7fffd4; color: #7fffd4; background: #0f1e34; }
+      .thread-chip:hover { border-color: #2a4070; color: #c8d8f8; }
       @media (max-width: 900px) {
-        .assistant-launcher {
-          right: 12px;
-          bottom: 10px;
-          z-index: 1090;
-        }
-        .ai-assistant-container {
-          right: 0;
-          left: 0;
-          bottom: 0;
-          width: auto;
-          border-radius: 10px 10px 0 0;
-        }
-        .ai-assistant-container:not(.minimized) {
-          height: min(78dvh, 680px);
-        }
-        .ai-assistant-container:not(.minimized) .header {
-          border-radius: 10px 10px 0 0;
-        }
-        .content {
-          min-height: 0;
-        }
+        .assistant-launcher { right: 10px; bottom: 10px; z-index: 1090; }
+        .ai-assistant-container { right: 0; left: 0; bottom: 0; width: auto; border-radius: 6px 6px 0 0; }
+        .ai-assistant-container:not(.minimized) { height: min(82dvh, 680px); }
       }
     </style>
     `
 })
-export class AiAssistantComponent implements OnInit {
+export class AiAssistantComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
   private agentApi = inject(AgentApiService);
   private hubApi = inject(HubApiService);
@@ -251,6 +250,13 @@ export class AiAssistantComponent implements OnInit {
   private router = inject(Router);
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
+  readonly bridge = inject(WindowBridgeService);
+
+  @ViewChild('snakeCanvas') private snakeCanvasRef?: ElementRef<HTMLCanvasElement>;
+  snakeVisible = false;
+  configPanelOpen = false;
+  sharePanelOpen = false;
+  private snakeDrawHandle: number | null = null;
 
   minimized = true;
   busy = false;
@@ -324,7 +330,7 @@ export class AiAssistantComponent implements OnInit {
     const thread: ChatThread = {
       id: `thread-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title: `Chat ${index}`,
-      history: [{ role: 'assistant', content: 'Hello. I am your AI assistant.' }],
+      history: [{ role: 'assistant', content: 'Hallo. Ich bin AI Snake.' }],
       updatedAt: Date.now(),
     };
     this.chatThreads = [...this.chatThreads, thread];
@@ -958,7 +964,7 @@ export class AiAssistantComponent implements OnInit {
       {
         id: 'thread-default',
         title: 'Chat 1',
-        history: this.chatHistory.length ? this.chatHistory : [{ role: 'assistant', content: 'Hello. I am your AI assistant.' }],
+        history: this.chatHistory.length ? this.chatHistory : [{ role: 'assistant', content: 'Hallo. Ich bin AI Snake.' }],
         updatedAt: Date.now(),
       },
     ];
@@ -971,7 +977,7 @@ export class AiAssistantComponent implements OnInit {
         {
           id: 'thread-default',
           title: 'Chat 1',
-          history: [{ role: 'assistant', content: 'Hello. I am your AI assistant.' }],
+          history: [{ role: 'assistant', content: 'Hallo. Ich bin AI Snake.' }],
           updatedAt: Date.now(),
         },
       ];
@@ -991,5 +997,118 @@ export class AiAssistantComponent implements OnInit {
     const isDefaultTitle = /^Chat \d+$/.test(active.title) || active.title === 'Chat';
     if (!isDefaultTitle) return;
     active.title = normalized.length > 30 ? `${normalized.slice(0, 30)}...` : normalized;
+  }
+
+  ngOnDestroy(): void {
+    this.stopSnakeDraw();
+  }
+
+  toggleConfigPanel(): void {
+    this.configPanelOpen = !this.configPanelOpen;
+    if (this.configPanelOpen) this.sharePanelOpen = false;
+  }
+
+  toggleSharePanel(): void {
+    this.sharePanelOpen = !this.sharePanelOpen;
+    if (this.sharePanelOpen) this.configPanelOpen = false;
+  }
+
+  toggleSnakeCanvas(): void {
+    this.snakeVisible = !this.snakeVisible;
+    if (this.snakeVisible) {
+      setTimeout(() => this.startSnakeDraw(), 60);
+    } else {
+      this.stopSnakeDraw();
+    }
+  }
+
+  get snakeBridgeActive(): boolean {
+    return this.bridge.isActive;
+  }
+
+  get snakeStatusText(): string {
+    const p = (this.bridge.state$.value?.payload || {}) as Record<string, unknown>;
+    if (!this.bridge.isActive) return 'bridge offline';
+    if (!p['active']) return 'snake inaktiv';
+    if (p['paused']) return 'pausiert';
+    return String(p['ai_snake_runtime_status'] || 'aktiv');
+  }
+
+  private startSnakeDraw(): void {
+    this.stopSnakeDraw();
+    const canvas = this.snakeCanvasRef?.nativeElement;
+    if (!canvas) return;
+    canvas.width = canvas.offsetWidth || 360;
+    canvas.height = 90;
+    this.drawSnakeFrame();
+  }
+
+  private stopSnakeDraw(): void {
+    if (this.snakeDrawHandle !== null) {
+      cancelAnimationFrame(this.snakeDrawHandle);
+      this.snakeDrawHandle = null;
+    }
+  }
+
+  private drawSnakeFrame(): void {
+    const canvas = this.snakeCanvasRef?.nativeElement;
+    if (!canvas || !this.snakeVisible) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const p = (this.bridge.state$.value?.payload || {}) as Record<string, unknown>;
+    const bw = Math.max(1, Number(p['board_w']) || 24);
+    const bh = Math.max(1, Number(p['board_h']) || 8);
+    const W = canvas.width;
+    const H = canvas.height;
+    const cw = W / bw;
+    const ch = H / bh;
+
+    const COLORS: Record<string, string> = {
+      mint: '#7fffd4', cyan: '#22d3ee', violet: '#a78bfa', amber: '#fbbf24', rose: '#fb7185',
+    };
+    const col = COLORS[String(p['snake_color'] || 'mint')] ?? '#7fffd4';
+
+    ctx.fillStyle = '#0b1220';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = '#131e36';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= bw; x++) {
+      ctx.beginPath(); ctx.moveTo(x * cw, 0); ctx.lineTo(x * cw, H); ctx.stroke();
+    }
+    for (let y = 0; y <= bh; y++) {
+      ctx.beginPath(); ctx.moveTo(0, y * ch); ctx.lineTo(W, y * ch); ctx.stroke();
+    }
+
+    const trail = Array.isArray(p['trail_path']) ? (p['trail_path'] as number[][]) : [];
+    ctx.fillStyle = col + '22';
+    for (const [x, y] of trail) {
+      ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
+    }
+
+    const snake = Array.isArray(p['snake']) ? (p['snake'] as number[][]) : [];
+    ctx.fillStyle = col + 'aa';
+    for (let i = 1; i < snake.length; i++) {
+      const [x, y] = snake[i];
+      ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
+    }
+    if (snake.length > 0) {
+      ctx.fillStyle = col;
+      const [hx, hy] = snake[0];
+      ctx.fillRect(hx * cw, hy * ch, cw, ch);
+    }
+
+    if (p['paused']) {
+      ctx.fillStyle = 'rgba(11,18,32,0.65)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = col;
+      ctx.font = `bold ${Math.round(ch * 0.75)}px ui-monospace,monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('PAUSED', W / 2, H / 2);
+    }
+
+    this.snakeDrawHandle = requestAnimationFrame(() => this.drawSnakeFrame());
   }
 }

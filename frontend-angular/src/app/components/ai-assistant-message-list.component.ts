@@ -118,22 +118,86 @@ import { ChatMessage, ContextSource } from './ai-assistant.types';
     </div>
   `,
   styles: [`
-    .chat-history { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; padding-right: 5px; }
-    .msg-bubble { display: inline-block; padding: 8px 12px; border-radius: 15px; max-width: 90%; font-size: 14px; line-height: 1.4; text-align: left; white-space: pre-wrap; }
-    .user-msg { background: var(--accent); color: white; border-bottom-right-radius: 2px; }
-    .assistant-msg { background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
-    .assistant-msg pre { background: #1e1e1e; color: #d4d4d4; padding: 8px; border-radius: 4px; overflow-x: auto; font-family: monospace; margin: 5px 0; }
-    .assistant-msg code { background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-    .context-panel { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; font-size: 12px; }
-    .context-title { font-weight: 600; margin-bottom: 4px; }
-    .context-meta { opacity: 0.9; }
-    .context-sources { margin-top: 5px; max-height: 90px; overflow-y: auto; }
-    .context-source-row { margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dotted var(--border); }
-    .context-actions { margin-top: 4px; display: flex; gap: 6px; }
-    .mini-btn { font-size: 11px; padding: 2px 6px; border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer; }
-    .source-preview { margin-top: 4px; max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 4px; }
-    .confirm-btn { background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-    .cancel-btn { background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    :host { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .chat-history {
+      flex-grow: 1; overflow-y: auto; margin-bottom: 8px; padding-right: 4px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .chat-history::-webkit-scrollbar { width: 4px; }
+    .chat-history::-webkit-scrollbar-track { background: #0b1220; }
+    .chat-history::-webkit-scrollbar-thumb { background: #1a2d4a; border-radius: 2px; }
+    .msg-row { margin-bottom: 6px; display: flex; }
+    .msg-row[style*="right"] { justify-content: flex-end; }
+    .msg-bubble {
+      display: inline-block; padding: 6px 10px; max-width: 88%;
+      font-size: 13px; line-height: 1.5; text-align: left; word-break: break-word;
+      border-radius: 3px; white-space: pre-wrap;
+    }
+    .user-msg {
+      background: #162238; color: #a8c7ff;
+      border: 1px solid #2a4070; border-radius: 3px 3px 2px 3px;
+    }
+    .assistant-msg {
+      background: #0f1c30; color: #c8d8f8;
+      border: 1px solid #1a3058; border-radius: 3px 3px 3px 2px;
+    }
+    .assistant-msg pre {
+      background: #0d1828; color: #7fffd4; padding: 7px; border-radius: 2px;
+      overflow-x: auto; font-family: inherit; margin: 5px 0;
+      border: 1px solid #1a2d4a; font-size: 12px;
+    }
+    .assistant-msg code {
+      background: #0d1828; color: #7fffd4; padding: 1px 4px;
+      border-radius: 2px; font-family: inherit; font-size: 12px;
+    }
+    .working-text { color: #7fffd4; font-size: 12px; padding: 4px 2px; animation: blink 1s step-start infinite; }
+    @keyframes blink { 50% { opacity: 0.3; } }
+    .msg-meta { font-size: 10px; color: #3a5a8f; margin-top: 3px; }
+    .context-panel { margin-top: 8px; border-top: 1px solid #1a2d4a; padding-top: 6px; font-size: 11px; color: #6b8ab8; }
+    .context-title { font-weight: 600; margin-bottom: 3px; color: #a8c7ff; }
+    .context-meta { color: #4a6a9a; }
+    .context-sources { margin-top: 4px; max-height: 80px; overflow-y: auto; }
+    .context-source-row { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #131e36; }
+    .context-actions { margin-top: 3px; display: flex; gap: 5px; }
+    .mini-btn {
+      font-size: 10px; padding: 2px 6px; border: 1px solid #1a2d4a;
+      background: transparent; color: #6b8ab8; cursor: pointer; border-radius: 2px; font-family: inherit;
+    }
+    .mini-btn:hover { border-color: #2a4070; color: #c8d8f8; }
+    .source-preview {
+      margin-top: 3px; max-height: 100px; overflow-y: auto;
+      background: #0d1828; padding: 5px; border-radius: 2px;
+      font-size: 11px; color: #7fffd4; border: 1px solid #1a2d4a;
+    }
+    .sgpt-section { margin-top: 8px; border-top: 1px solid #1a2d4a; padding-top: 6px; }
+    .sgpt-label { font-size: 11px; color: #6b8ab8; margin-bottom: 4px; }
+    .sgpt-code {
+      background: #0d1828; color: #fbbf24; padding: 5px; border-radius: 2px;
+      font-family: inherit; font-size: 12px; margin: 3px 0; border: 1px solid #1a2d4a;
+    }
+    .sgpt-actions { display: flex; gap: 6px; margin-top: 5px; }
+    .plan-header { font-weight: 600; color: #a8c7ff; margin-bottom: 4px; font-size: 12px; }
+    .plan-risk { font-size: 11px; margin-bottom: 4px; }
+    .tool-card {
+      background: #0d1828; border: 1px solid #1a2d4a; border-radius: 2px;
+      padding: 5px 8px; margin-bottom: 4px; font-size: 11px;
+    }
+    .tool-meta { color: #4a6a9a; }
+    .raw-args { font-size: 10px; }
+    .raw-args-code { background: #0b1220; padding: 4px; font-size: 10px; color: #6b8ab8; }
+    .confirm-hint { font-size: 11px; color: #6b8ab8; margin: 4px 0; }
+    .confirm-input {
+      width: 100%; box-sizing: border-box; background: #0f1c30; border: 1px solid #1a2d4a;
+      color: #c8d8f8; padding: 4px 7px; font-family: inherit; font-size: 12px; border-radius: 2px;
+    }
+    .confirm-btn {
+      background: #0f2a1a; color: #7fffd4; border: 1px solid #1a4a2a;
+      padding: 3px 8px; border-radius: 2px; cursor: pointer; font-size: 12px; font-family: inherit;
+    }
+    .cancel-btn {
+      background: #2a0f0f; color: #fb7185; border: 1px solid #4a1a1a;
+      padding: 3px 8px; border-radius: 2px; cursor: pointer; font-size: 12px; font-family: inherit;
+    }
   `]
 })
 export class AiAssistantMessageListComponent implements AfterViewChecked {
