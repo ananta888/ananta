@@ -1048,6 +1048,11 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             )
         if sub in {"switch", "here"}:
             game = dict(state.header_logo_game or {})
+            viewport_cfg = dict(game.get("visual_viewport") or {})
+            viewport_cfg["enabled"] = True
+            game["visual_viewport"] = viewport_cfg
+            game["center_browser_active"] = False
+            game["center_browser_status"] = "exited"
             markdown, source = _doc_switch_markdown_from_state(state)
             game["visual_viewport_enabled"] = True
             game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
@@ -1104,6 +1109,11 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             msg = f"doc open: Datei nicht lesbar ({exc})"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         game = dict(state.header_logo_game or {})
+        viewport_cfg = dict(game.get("visual_viewport") or {})
+        viewport_cfg["enabled"] = True
+        game["visual_viewport"] = viewport_cfg
+        game["center_browser_active"] = False
+        game["center_browser_status"] = "exited"
         game["visual_viewport_enabled"] = True
         game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
         game["markdown_text"] = text

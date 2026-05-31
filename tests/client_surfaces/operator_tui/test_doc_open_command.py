@@ -61,3 +61,19 @@ def test_doc_switch_uses_current_center_payload_as_markdown() -> None:
     assert text.startswith("# dashboard")
     assert "```json" in text
     assert '"status": "ok"' in text
+
+
+def test_doc_switch_disables_center_browser_and_enables_visual_viewport() -> None:
+    state = OperatorState(
+        endpoint="http://hub",
+        section_id="dashboard",
+        header_logo_game={"center_browser_active": True, "center_browser_status": "active"},
+        section_payloads={"dashboard": {"k": "v"}},
+    )
+    result = execute_command("doc switch", state)
+    game = result.state.header_logo_game or {}
+    assert result.handled is True
+    assert game.get("center_browser_active") is False
+    assert game.get("center_browser_status") == "exited"
+    assert dict(game.get("visual_viewport") or {}).get("enabled") is True
+    assert game.get("visual_viewport_enabled") is True
