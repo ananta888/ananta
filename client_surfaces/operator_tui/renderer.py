@@ -643,10 +643,10 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
         return _content_shortcut_lines(state, width)
     if bool(game.get("ai_snake_config_open")):
         return _content_ai_snake_config_lines(state, width)
-    if bool(dict(game.get("visual_viewport") or {}).get("enabled")):
-        return _content_visual_viewport_lines(state, width)
     if bool(game.get("center_browser_active")):
         return _content_browser_lines(game, width, height=height)
+    if bool(dict(game.get("visual_viewport") or {}).get("enabled")):
+        return _content_visual_viewport_lines(state, width)
 
     if panel_state == PanelState.LOADING:
         lines.append("  loading...")

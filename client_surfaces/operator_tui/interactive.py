@@ -3031,6 +3031,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _sync_visual_viewport_state(self, *, width: int, height: int) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
+        # Browser mode owns the center pane while active; pause visual viewport rendering.
+        if bool(game.get("center_browser_active")):
+            game["visual_viewport"] = {"enabled": False}
+            self.state = self.state.with_updates(header_logo_game=game)
+            return
         enabled = bool(game.get("visual_viewport_enabled", self._visual_viewport_config.enabled))
         if not enabled:
             game["visual_viewport"] = {"enabled": False}
