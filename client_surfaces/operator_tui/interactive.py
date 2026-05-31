@@ -668,15 +668,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._normal_or_text("?", lambda: self._run_command(":help"))
 
-        @bindings.add(key_for_action("toggle_shortcut_help", "c-]"))
-        def _(event) -> None:
-            self._toggle_context_help()
-
-        @bindings.add(key_for_action("send_terminal_context", "c-t"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._send_terminal_context_to_ai()
-
         @bindings.add(key_for_action("cycle_focus_or_channel", "c-w"))
         def _(event) -> None:
             if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
@@ -733,20 +724,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 return
             self._copy_chat_panel_snapshot()
 
-        @bindings.add(key_for_action("copy_ai_status", "c-i"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._copy_ai_status_snapshot()
-
         @bindings.add(key_for_action("copy_tui_snapshot", "c-\\"))
         def _(event) -> None:
             self._exit_command_mode_for_global_shortcut()
             self._copy_tui_snapshot()
-
-        @bindings.add(key_for_action("save_tui_snapshot", "c-_"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._save_tui_snapshot()
 
         @bindings.add(key_for_action("clear_chat_input", "c-l"))
         def _(event) -> None:
@@ -760,66 +741,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._exit_command_mode_for_global_shortcut()
             self._open_latest_long_chat_message()
-
-        @bindings.add(key_for_action("snake_toggle_selection", "c-x"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("x")
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_append("x")
-                return
-            if not self._snake_mode_active():
-                return
-            if self._chat_focus_active():
-                self._chat_append("x")
-                return
-            self._snake_toggle_selection()
-
-        @bindings.add(key_for_action("snake_toggle_frame", "c-b"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("b")
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_append("b")
-                return
-            if not self._snake_mode_active():
-                return
-            if self._chat_focus_active():
-                self._chat_append("b")
-                return
-            self._snake_toggle_frame_mode()
-
-        @bindings.add(key_for_action("snake_replace_selection", "c-v"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("v")
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_append("v")
-                return
-            if not self._snake_mode_active():
-                return
-            if self._chat_focus_active():
-                self._chat_append("v")
-                return
-            self._snake_replace_selection()
-
-        @bindings.add(key_for_action("snake_clear_marks", "c-z"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("z")
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_append("z")
-                return
-            if not self._snake_mode_active():
-                return
-            if self._chat_focus_active():
-                self._chat_append("z")
-                return
-            self._snake_clear_visual_marks()
 
         @bindings.add(key_for_action("toggle_visual_view_switcher_overlay", "f8"))
         def _(event) -> None:
@@ -855,28 +776,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._previous_visual_view()
 
-        @bindings.add(key_for_action("toggle_tutorial_ai", "c-u"))
-        def _(event) -> None:
-            self._toggle_tutorial_ai_mode()
-
         @bindings.add(key_for_action("toggle_ai_snake_config", "f6"))
         def _(event) -> None:
             self._toggle_ai_snake_config_panel()
-
-        @bindings.add(key_for_action("toggle_mouse_follow", "c-o"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("o")
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_append("o")
-                return
-            if not self._snake_mode_active():
-                return
-            if self._chat_focus_active():
-                self._chat_append("o")
-                return
-            self._toggle_snake_mouse_follow()
 
         @bindings.add("left")
         def _(event) -> None:
