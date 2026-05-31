@@ -39,6 +39,7 @@ from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, 
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.sections import SECTIONS
+from client_surfaces.operator_tui.tui_snapshot import clipboard_safe_text
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -739,6 +740,9 @@ class SnakeOpsMixin:
     def _copy_to_system_clipboard(self, text: str) -> bool:
         if not text:
             return False
+        clipboard_text = clipboard_safe_text(text)
+        if not clipboard_text:
+            return False
         commands = [
             ["clip.exe"],
             ["powershell.exe", "-NoProfile", "-Command", "Set-Clipboard"],
@@ -751,7 +755,7 @@ class SnakeOpsMixin:
             try:
                 completed = subprocess.run(
                     command,
-                    input=text,
+                    input=clipboard_text,
                     text=True,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,

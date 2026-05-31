@@ -3786,6 +3786,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
     if sub == "list":
         game = dict(state.header_logo_game or {})
         game["share_pending_action"] = {"action": "list"}
+        game["share_status_message"] = "Sessions werden abgerufen…"
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
@@ -3802,6 +3803,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
         from client_surfaces.operator_tui.share_menu import share_section_lines
         game = dict(state.header_logo_game or {})
         game["share_pending_action"] = {"action": "create", "title": title}
+        game["share_status_message"] = f"Session '{title}' wird erstellt…"
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
@@ -3830,6 +3832,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
         invite_code = args[1].strip()
         game = dict(state.header_logo_game or {})
         game["share_pending_action"] = {"action": "join", "invite_code": invite_code}
+        game["share_status_message"] = f"Beitritt mit Code '{invite_code[:16]}…' wird versucht…"
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
@@ -3884,6 +3887,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
             return CommandResult(state.with_updates(status_message="Keine aktive Share-Session"), "no active session", handled=False)
         game["share_pending_action"] = {"action": "set_view", "view_tui": enabled}
         msg = "TUI-View-Share aktiviert" if enabled else "TUI-View-Share deaktiviert"
+        game["share_status_message"] = f"{msg} (wird angewendet…)"
         return CommandResult(
             state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=msg),
             msg,
@@ -3892,6 +3896,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
     if sub == "stop":
         game = dict(state.header_logo_game or {})
         game["share_pending_action"] = {"action": "stop"}
+        game["share_status_message"] = "Share-Session wird beendet…"
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
