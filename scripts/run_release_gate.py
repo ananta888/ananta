@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from scripts import release_gate as _release_gate
+
 ROOT = Path(__file__).resolve().parents[1]
 PLANNING_UTILS_PATH = ROOT / "agent" / "services" / "planning_utils.py"
 TEAMS_ROUTE_PATH = ROOT / "agent" / "routes" / "teams.py"
@@ -19,6 +21,14 @@ DEFAULT_DOCS_DRIFT_TESTS = (
     "tests/test_docs_presence.py",
     "tests/test_bootstrap_docs.py",
 )
+
+
+def _forbidden_runtime_paths(paths: list[str]) -> list[str]:
+    return _release_gate._forbidden_runtime_paths(paths)
+
+
+def check_dyndns_secret_hygiene() -> _release_gate.CheckResult:
+    return _release_gate.check_dyndns_secret_hygiene()
 
 
 def _python_executable() -> str:

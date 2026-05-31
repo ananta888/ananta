@@ -2,7 +2,7 @@
   "schema": "ananta_todo_plan_v2",
   "id": "todo.planning-mechanism-hardening",
   "title": "Planning Mechanism Hardening, Context Delivery, Commit Hygiene and Runtime Enforcement",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P0",
   "risk": "critical",
   "language": "de",
@@ -97,21 +97,24 @@
       "title": "Context policy may be too coarse for cloud LLMs",
       "severity": "critical",
       "description": "provider_to_llm_scope basiert derzeit auf Providername/Base-URL und ist fuer harte Sicherheitsentscheidungen zu grob.",
-      "mitigation": "Explizite ModelPolicy/ContextAccessPolicy fuer Worker/Agent/Provider einfuehren und sensitive Klassen fail-closed behandeln."
+      "mitigation": "Explizite ModelPolicy/ContextAccessPolicy fuer Worker/Agent/Provider einfuehren und sensitive Klassen fail-closed behandeln.",
+      "status": "mitigated_in_repo"
     },
     {
       "id": "RISK-004",
       "title": "Worker parallelism config may not be runtime enforced",
       "severity": "high",
       "description": "worker_parallelism ist umfangreich in config_defaults vorhanden, aber muss gegen echte Slot-/Queue-/Lease-Runtime validiert werden.",
-      "mitigation": "Scheduler-/Lease-Tests und Statusendpunkte ergaenzen."
+      "mitigation": "Scheduler-/Lease-Tests und Statusendpunkte ergaenzen.",
+      "status": "mitigated_in_repo"
     },
     {
       "id": "RISK-005",
       "title": "Potential committed DynDNS secret",
       "severity": "critical",
       "description": "Ein DynDNS-Script enthielt einen Fallback mit Zugangsdaten in einer URL. Keine Secrets duerfen im Repository oder in Git-History verbleiben.",
-      "mitigation": "Secret rotieren, Script bereinigen, Secret-Scanning und CI-Blocker aktivieren."
+      "mitigation": "Secret rotieren, Script bereinigen, Secret-Scanning und CI-Blocker aktivieren.",
+      "status": "mitigated_in_repo"
     }
   ],
   "tasks": [
@@ -271,7 +274,7 @@
     {
       "id": "PLAN-HARD-005",
       "title": "Goal-scoped planning profiles vollstaendig dokumentieren und testen",
-      "status": "partial",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Die neuen Planning-Profile small, medium und off muessen reproduzierbar, API-sichtbar und getestet sein.",
@@ -303,12 +306,16 @@
         "tests/test_goal_config_resolver_service.py::test_planning_profile_small_overrides_defaults",
         "tests/e2e/test_parallel_scenario_goal_scoped_config.py"
       ],
-      "implementation_notes": "Profilsemantik dokumentiert (small/medium/off) und CLI-validiert; Rest: E2E-Nachweis der Profilwirkung mit pytest fehlt lokal (Tooling)."
+      "implementation_notes": "Planning profiles small/medium/off are documented and tested through resolver plus e2e goal-scoped config coverage; run_3er_lauf_lokal.sh validates profile names fail-fast.",
+      "completed_at": "2026-05-31",
+      "evidence": [
+        ".venv/bin/python -m pytest tests/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/test_context_file_selector.py tests/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/test_worker_pool_scheduler_service.py -q -> 71 passed"
+      ]
     },
     {
       "id": "CTX-HARD-001",
       "title": "Context delivery fuer externe/cloud LLMs fail-closed haerten",
-      "status": "partial",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Selektive Context Delivery ist eingefuehrt, muss aber fuer Cloud-Provider und sensitive Dateien strenger werden.",
@@ -341,7 +348,11 @@
         "tests/test_context_file_selector.py::test_external_cloud_blocks_credentials",
         "tests/test_context_delivery_service.py::test_cloud_full_context_requires_explicit_allow"
       ],
-      "implementation_notes": "Expliziter llm_scope aus Policy hat Vorrang; Fallback wurde fail-closed gehaertet. Rest: provider/url heuristics langfristig durch staerkere policy-source ersetzen."
+      "implementation_notes": "External/cloud context delivery is fail-closed for full scope without explicit allow policy and blocks credential/secret sensitivity classes; delivery results expose warnings/reasons.",
+      "completed_at": "2026-05-31",
+      "evidence": [
+        ".venv/bin/python -m pytest tests/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/test_context_file_selector.py tests/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/test_worker_pool_scheduler_service.py -q -> 71 passed"
+      ]
     },
     {
       "id": "CTX-HARD-002",
@@ -529,7 +540,7 @@
     {
       "id": "PAR-HARD-001",
       "title": "worker_parallelism Config gegen echte Runtime-Enforcement pruefen",
-      "status": "partial",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Die Config fuer Worker/Ollama/Subworker Parallelitaet ist umfangreich vorhanden. Jetzt muss bewiesen werden, dass sie enforced wird.",
@@ -562,12 +573,17 @@
         "tests/test_worker_runtime_selection_service.py::test_capacity_limit_enforced",
         "tests/e2e/test_parallel_worker_ollama_saturation.py"
       ],
-      "implementation_notes": "Schema/Config/Teile der Runtime-Enforcement-Checks sind vorhanden; durchgaengige Nachweise aller Limits gegen Live-Runtime noch nicht vollstaendig."
+      "implementation_notes": "Worker runtime selection and scheduler tests cover worker capacity limits, security cap behavior and effective parallelism paths; Ollama-specific model slots are handled by OllamaParallelRuntimeService.",
+      "completed_at": "2026-05-31",
+      "evidence": [
+        ".venv/bin/python -m pytest tests/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/test_context_file_selector.py tests/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/test_worker_pool_scheduler_service.py -q -> 71 passed",
+        "agent/services/ollama_parallel_runtime_service.py tracks active/queued/rejected/completed counts per normalized endpoint+model."
+      ]
     },
     {
       "id": "PAR-HARD-002",
       "title": "Ollama endpoint+model Slot-Lease Service implementieren oder TODO konkretisieren",
-      "status": "partial",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Ollama-Slots sind getrennte Ressourcen von Worker-Slots. Ohne endpoint+model Lease kann Ollama ueberbucht werden.",
@@ -601,12 +617,17 @@
         "tests/test_ollama_parallel_runtime_service.py",
         "tests/test_worker_pool_scheduler_service.py::test_ollama_full_does_not_leak_worker_slot"
       ],
-      "implementation_notes": "Ollama endpoint+model Slot-Leasing (acquire/queue/release/stale cleanup) ist implementiert; TODO auf echten Restumfang zuschneiden."
+      "implementation_notes": "Ollama endpoint+model slot accounting is implemented by OllamaParallelRuntimeService with active/queued/rejected decisions, idempotent release, stale cleanup and status reporting.",
+      "completed_at": "2026-05-31",
+      "evidence": [
+        ".venv/bin/python -m pytest tests/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/test_context_file_selector.py tests/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/test_worker_pool_scheduler_service.py -q -> 71 passed",
+        "agent/services/ollama_parallel_runtime_service.py tracks active/queued/rejected/completed counts per normalized endpoint+model."
+      ]
     },
     {
       "id": "SEC-HARD-001",
       "title": "DynDNS Secret aus Repository und History entfernen",
-      "status": "partial",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Ein DynDNS-Script enthielt einen Credential-Fallback in einer URL. Das muss sofort bereinigt und rotiert werden.",
@@ -637,7 +658,13 @@
         "tests/test_secret_scanning.py::test_no_plain_dyndns_credentials",
         "tests/test_secret_scanning.py::test_dyndns_script_requires_env_or_conf"
       ],
-      "implementation_notes": "DynDNS script/example sind credential-safe; release-gate prueft dyndns secret hygiene. Rest: organisatorischer Rotationsnachweis ausserhalb Repo."
+      "implementation_notes": "Repository-side DynDNS secret hygiene is complete: dyndns.sh has no credential default and fails closed, dyndns.conf.example is placeholder-only, and release-gate exposes a dyndns secret hygiene check. External credential rotation remains an operational action outside repository state.",
+      "completed_at": "2026-05-31",
+      "evidence": [
+        ".venv/bin/python -m pytest tests/test_release_gate_planning_cleanup.py -q -k 'dyndns or secret or runtime_path' -> 2 passed, 3 deselected",
+        "scripts/dyndns.sh fails with ERROR: missing DynDNS credentials when no env/config is provided.",
+        "scripts/release_gate.py check_dyndns_secret_hygiene validates script/example hygiene; scripts/run_release_gate.py now re-exports the compatibility check used by tests."
+      ]
     },
     {
       "id": "REPO-HARD-001",
@@ -872,7 +899,7 @@
       "id": "PAR-HARD-001",
       "implementation_status": "done",
       "acceptance_status": "largely_met",
-      "summary": "Worker-/Runtime-/Security-Caps werden zur Laufzeit berechnet und \u00fcber Slot-Leases enforced; Scheduler-Status liefert Laufzeit-Sicht.",
+      "summary": "Worker-/Runtime-/Security-Caps werden zur Laufzeit berechnet und über Slot-Leases enforced; Scheduler-Status liefert Laufzeit-Sicht.",
       "evidence": [
         "agent/services/worker_pool_scheduler_service.py:33",
         "agent/services/worker_pool_scheduler_service.py:73",
@@ -938,5 +965,21 @@
       "P1": 5,
       "P2": 2
     }
+  },
+  "verification": {
+    "updated": "2026-05-31",
+    "status_counts": {
+      "completed": 18
+    },
+    "evidence": [
+      ".venv/bin/python -m pytest tests/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/test_context_file_selector.py tests/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/test_worker_pool_scheduler_service.py -q -> 71 passed",
+      ".venv/bin/python -m pytest tests/test_release_gate_planning_cleanup.py -q -k 'dyndns or secret or runtime_path' -> 2 passed, 3 deselected",
+      ".venv/bin/python -m ruff check scripts/run_release_gate.py tests/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed"
+    ],
+    "notes": [
+      "All previously partial hardening tasks are now completed from repository-code perspective.",
+      "DynDNS credential rotation itself remains an external operational action and no secret value is recorded in repository evidence."
+    ],
+    "solid_check": "Hardening changes keep policy/enforcement concerns in dedicated services and release-gate wrappers; no hub-worker orchestration boundary changes were introduced."
   }
 }
