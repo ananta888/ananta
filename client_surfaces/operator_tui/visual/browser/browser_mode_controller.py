@@ -69,6 +69,13 @@ class BrowserModeController:
     def error_message(self) -> str:
         return self._error_message
 
+    def is_running(self) -> bool:
+        """Return True while controller is active and Carbonyl subprocess is alive."""
+        if self._state != BrowserModeState.ACTIVE:
+            return False
+        runner = self._runner
+        return bool(runner is not None and runner.is_running())
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
