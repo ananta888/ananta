@@ -603,23 +603,7 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
     if not raw_bytes:
         return [header, "  \x1b[2mwarte auf Carbonyl-Output…\x1b[0m"]
 
-    try:
-        import pyte
-        screen = pyte.Screen(width, h)
-        stream = pyte.ByteStream(screen)
-        # Feed the last 128 KB to the virtual terminal
-        stream.feed(raw_bytes[-131072:])
-        result = [header]
-        for row_idx in range(h):
-            row = screen.buffer.get(row_idx, {})
-            line = "".join(
-                (row[col].data if row.get(col) else " ")
-                for col in range(width)
-            ).rstrip()
-            result.append(line)
-        return result[:h + 1]
-    except Exception:
-        # pyte not available or parse error — fall back to last raw lines
+    def _raw_fallback_lines() -> list[str]:
         try:
             text = raw_bytes[-32768:].decode("utf-8", errors="replace")
         except Exception:
@@ -630,6 +614,30 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
         while len(result) < h:
             result.append("")
         return result[:h]
+
+    try:
+        import pyte
+        screen = pyte.Screen(width, h)
+        stream = pyte.ByteStream(screen)
+        # Feed the last 128 KB to the virtual terminal
+        stream.feed(raw_bytes[-131072:])
+        result = [header]
+        non_space_chars = 0
+        for row_idx in range(h):
+            row = screen.buffer.get(row_idx, {})
+            line = "".join(
+                (row[col].data if row.get(col) else " ")
+                for col in range(width)
+            ).rstrip()
+            non_space_chars += sum(1 for ch in line if not ch.isspace())
+            result.append(line)
+        # Some Carbonyl/frame combinations render as nearly-empty in pyte; prefer raw fallback then.
+        if non_space_chars <= max(8, width // 6):
+            return _raw_fallback_lines()
+        return result[:h + 1]
+    except Exception:
+        # pyte not available or parse error — fall back to last raw lines
+        return _raw_fallback_lines()
 
 
 def _content_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
