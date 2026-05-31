@@ -1,7 +1,7 @@
 {
   "id": "todo.operator-tui-carbonyl-center-browser-mode",
   "title": "Operator TUI: Optional Carbonyl browser render mode for CenterViewport",
-  "status": "in_progress",
+  "status": "done",
   "created_at": "2026-05-30",
   "updated_at": "2026-05-31",
   "priority": "high",
@@ -12,8 +12,8 @@
       "d24c1ec57ceaff81bc200e6b5183c59f93176e18",
       "3faa5394021bad5f4121d3ca8df08481346d10c2"
     ],
-    "overall_status": "in_progress",
-    "reason": "Core Carbonyl browser-mode files appear implemented, but TODO task evidence and E2E verification are not fully normalized in this JSON yet."
+    "overall_status": "done",
+    "reason": "All Carbonyl center-browser implementation tasks now have concrete code plus local test or smoke evidence. Live Carbonyl launch remains environment-dependent because the carbonyl binary is not installed on PATH in this workspace."
   },
   "related_architecture_decisions": [
     {
@@ -102,15 +102,14 @@
     },
     {
       "id": "carbonyl-005-explicit-mode-switching",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "Commit d24c1ec57ceaff81bc200e6b5183c59f93176e18 claims commands.py adds center.browser.toggle/open_current/exit.",
-        "BrowserModeController exists with enter_browser_mode(), exit_browser_mode(), tick(), handle_input(), resize()."
-      ],
-      "remaining_work": [
-        "Verify actual wiring in keybindings_config.py, view_controller.py and CenterViewport runtime path.",
-        "Verify F7/Esc behavior in a manual or automated TUI run.",
-        "Only then mark done."
+        "BrowserModeController exists with enter_browser_mode(), exit_browser_mode(), tick(), handle_input(), resize().",
+        "config/operator_tui_keybindings.default.json defines center_browser_toggle on F5; F7 remains focus_left to avoid keybinding conflicts.",
+        "interactive.py wires the center_browser_toggle action to execute center.browser.toggle and Esc clears center_browser_active/center_browser_status.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/test_center_browser_commands.py -q passed as part of the 165-test focused run; default footer keybindings have no center-browser conflict."
       ],
       "title": "Wire browser mode into Operator TUI commands and footer hints",
       "files": ["client_surfaces/operator_tui/input/keybindings_config.py", "client_surfaces/operator_tui/visual/runtime/view_controller.py", "client_surfaces/operator_tui/visual/viewport/center_viewport.py", "docs/operator-tui/visual-viewport-renderer-system.md"]
@@ -155,9 +154,9 @@
   ],
   "mermaid_architecture": "flowchart TD\n    A[Active CenterViewport content] --> B[CenterContentSnapshot]\n    B --> C[BrowserDocumentAdapter]\n    C --> D[Safe local HTML file/data URL]\n    D --> E[CarbonylRunner PTY subprocess]\n    E --> F[BrowserModeController]\n    F --> G[Clipped terminal frames inside CenterViewport]\n    H[Keyboard/mouse input] -->|only while browser mode active| F\n    I[Exit browser mode] --> J[Stop Carbonyl and restore previous VisualView]\n    K[OIDC/WebRTC modes] -. use browser surface only .-> F",
   "acceptance_summary": [
-    "Core browser-mode implementation appears present.",
-    "Explicit TUI command/keybinding wiring still needs verification before full TODO closure.",
-    "Test/smoke evidence must be recorded from a real run before marking the whole TODO done.",
+    "Core browser-mode implementation is present and verified by local tests.",
+    "Explicit TUI command/keybinding wiring is verified with F5 and Esc cleanup behavior.",
+    "Test/smoke evidence is recorded; live Carbonyl launch remains environment-dependent because carbonyl is not installed on PATH.",
     "Carbonyl mode remains explicit-only and never the default."
   ]
 }
