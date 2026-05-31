@@ -420,63 +420,48 @@ class MouseArtifactMixin:
             game["mouse_selection_anchor"] = (int(x), int(y))
             game["mouse_selection_dragged"] = False
             game["mouse_selection_ctrl"] = ctrl_held
-            # Ctrl+click: commit current selection as base for additive drag
+            mode = "block" if ctrl_held else "linear"
             if ctrl_held:
-                existing = game.get("selection_cells") or []
-                game["mouse_selection_committed"] = list(existing)
+                # Commit current active range into the committed list for additive selection
+                active = game.get("mouse_selection_range")
+                if active and isinstance(active, dict):
+                    committed = list(game.get("mouse_selection_committed_ranges") or [])
+                    committed.append(active)
+                    game["mouse_selection_committed_ranges"] = committed
             else:
-                game["mouse_selection_committed"] = []
-            self._set_mouse_selection_rect(
-                game,
-                anchor=(int(x), int(y)),
-                current=(int(x), int(y)),
-                committed=list(game.get("mouse_selection_committed") or []),
-            )
+                game["mouse_selection_committed_ranges"] = []
+                game["mouse_selection_range"] = None
+            game["mouse_selection_range"] = {
+                "start_x": int(x), "start_y": int(y),
+                "end_x": int(x), "end_y": int(y),
+                "mode": mode,
+            }
             return bool(self._snake_mode_active(game))
         if event_type == "move" and buttons == 1 and bool(game.get("mouse_selection_active")):
             anchor_raw = game.get("mouse_selection_anchor")
             if isinstance(anchor_raw, (list, tuple)) and len(anchor_raw) == 2:
-                anchor = (int(anchor_raw[0]), int(anchor_raw[1]))
+                ax, ay = int(anchor_raw[0]), int(anchor_raw[1])
                 game["mouse_selection_dragged"] = True
-                committed = list(game.get("mouse_selection_committed") or [])
-                self._set_mouse_selection_rect(game, anchor=anchor, current=(int(x), int(y)), committed=committed)
+                mode = "block" if bool(game.get("mouse_selection_ctrl")) else "linear"
+                game["mouse_selection_range"] = {
+                    "start_x": ax, "start_y": ay,
+                    "end_x": int(x), "end_y": int(y),
+                    "mode": mode,
+                }
                 return True
         if event_type == "up" and bool(game.get("mouse_selection_active")):
             dragged = bool(game.get("mouse_selection_dragged"))
             game["mouse_selection_active"] = False
             if self._snake_mode_active(game) and not dragged:
+                game["mouse_selection_range"] = None
+                game["mouse_selection_committed_ranges"] = []
                 game["selection_anchor"] = None
                 game["selection_cells"] = []
                 game["selection_regions"] = []
-                game["mouse_selection_committed"] = []
                 game["_mouse_selection_click"] = True
                 return True
             return dragged
         return False
-
-    def _set_mouse_selection_rect(
-        self,
-        game: dict[str, object],
-        *,
-        anchor: tuple[int, int],
-        current: tuple[int, int],
-        committed: list | None = None,
-    ) -> None:
-        ax, ay = anchor
-        cx, cy = current
-        min_x, max_x = sorted((int(ax), int(cx)))
-        min_y, max_y = sorted((int(ay), int(cy)))
-        rect: set[tuple[int, int]] = {(x, y) for y in range(min_y, max_y + 1) for x in range(min_x, max_x + 1)}
-        if committed:
-            base = {
-                (int(item[0]), int(item[1]))
-                for item in committed
-                if isinstance(item, (list, tuple)) and len(item) == 2
-            }
-            rect = base | rect
-        game["selection_cells"] = sorted(rect)
-        game["selection_anchor"] = anchor
-        game["selection_regions"] = [(min_x, min_y, max_x, max_y)]
 
     def _route_wheel_scroll(self, game: dict, *, x: int, y: int, delta: int) -> None:
         """Route mouse wheel events to the appropriate ScrollContext via MouseRouter."""
