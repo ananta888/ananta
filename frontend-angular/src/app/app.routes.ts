@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './components/login.component';
+import { OidcCallbackComponent } from './components/oidc-callback.component';
 import { NotFoundComponent } from './components/not-found.component';
 import { authGuard } from './auth.guard';
 import { adminRoutes } from './features/admin/admin.routes';
@@ -10,6 +11,7 @@ import { contextAccessPolicyRoutes } from './features/context-access-policy/cont
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+  { path: 'oidc-callback', component: OidcCallbackComponent },
   {
     path: '',
     canActivate: [authGuard],

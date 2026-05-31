@@ -2,6 +2,8 @@ import { Injectable, inject, OnDestroy } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
+import { WebrtcTransportService } from './webrtc-transport.service';
+import { NetworkProfileService } from './network-profile.service';
 
 export interface ShareSession {
   id: string;

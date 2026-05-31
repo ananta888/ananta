@@ -38,6 +38,7 @@ from agent.routes.debug.command_guardrails import command_guardrails_bp
 from agent.routes.terminal import terminal_bp
 from agent.routes.auth_oidc import oidc_bp
 from agent.routes.ai_snake_config import ai_snake_config_bp
+from agent.routes.network_profiles import network_profiles_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.share_sessions import share_sessions_bp
 from agent.routes.rendezvous import rendezvous_bp
@@ -82,6 +83,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(terminal_bp)
     app.register_blueprint(oidc_bp)
     app.register_blueprint(ai_snake_config_bp)
+    app.register_blueprint(network_profiles_bp)
     app.register_blueprint(snakes_bp)
     app.register_blueprint(share_sessions_bp)
     app.register_blueprint(rendezvous_bp, url_prefix="/api")
