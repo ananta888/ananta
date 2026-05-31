@@ -80,6 +80,7 @@ services:
     restart: unless-stopped
     environment:
       OIDC_ISSUER: ${OIDC_ISSUER:-https://keycloak.ananta.de/realms/ananta}
+      OIDC_ISSUERS_EXTRA: ${OIDC_ISSUERS_EXTRA:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ananta-hub}
       TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in .env}
       TURN_REALM: ${PUBLIC_TURN_REALM:-ananta.de}
