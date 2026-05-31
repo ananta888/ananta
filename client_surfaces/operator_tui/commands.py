@@ -4,8 +4,10 @@ import json
 import hashlib
 import urllib.error
 import urllib.request
+import urllib.parse
 import os
 import shutil
+import html as _html
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -4294,12 +4296,57 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
             msg = f"browser: carbonyl {'verfügbar' if cap.available else 'nicht gefunden — ' + cap.unavailable_reason}"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
 
+    def _center_webview_html(mode: str, game: dict[str, object]) -> str:
+        snake_active = bool(game.get("active"))
+        snake_paused = bool(game.get("paused"))
+        snake_mode = str(game.get("ai_snake_mode") or "lurking_follow")
+        runtime = str(game.get("ai_snake_runtime_status") or "idle")
+        focus = str(state.focus.value if hasattr(state.focus, "value") else state.focus)
+        section = str(state.section_id or "dashboard")
+        status = _html.escape(str(state.status_message or "ready"))
+        mode_label = _html.escape(mode)
+        return f"""<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ananta Center WebView</title>
+<style>
+body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color:#d8e2ff;margin:0;padding:16px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
+.card{{border:1px solid #2b3a58;border-radius:10px;padding:12px;background:#101a2f}}
+.h{{font-weight:700;color:#9ec5ff;margin-bottom:8px}}
+.k{{color:#8aa2d3}} .v{{color:#f3f7ff}} .ok{{color:#7ee787}} .warn{{color:#ffd866}}
+.hint{{margin-top:12px;color:#a7b7d9;font-size:12px;line-height:1.45}}
+</style></head>
+<body>
+<div class="card"><div class="h">Ananta Hybrid Center</div>
+<div><span class="k">mode:</span> <span class="v">{mode_label}</span></div>
+<div><span class="k">section:</span> <span class="v">{_html.escape(section)}</span></div>
+<div><span class="k">focus:</span> <span class="v">{_html.escape(focus)}</span></div>
+<div><span class="k">status:</span> <span class="v">{status}</span></div></div>
+<div class="grid">
+<div class="card"><div class="h">AI-Snake</div>
+<div><span class="k">active:</span> <span class="{'ok' if snake_active else 'warn'}">{snake_active}</span></div>
+<div><span class="k">paused:</span> <span class="v">{snake_paused}</span></div>
+<div><span class="k">mode:</span> <span class="v">{_html.escape(snake_mode)}</span></div>
+<div><span class="k">runtime:</span> <span class="v">{_html.escape(runtime)}</span></div></div>
+<div class="card"><div class="h">Steuerung (TUI bleibt Master)</div>
+<div><span class="k">Ctrl+S</span> Snake an/aus</div>
+<div><span class="k">Ctrl+P</span> Pause/Resume</div>
+<div><span class="k">Ctrl+E</span> Chat-Fokus</div>
+<div><span class="k">Ctrl+3</span> Center→Doc</div>
+<div><span class="k">Ctrl+2</span> Browser/WebView toggle</div></div>
+</div>
+<div class="hint">Hinweis: Diese WebView ist eine externe Render-Surface. Die Orchestrierung/Steuerung bleibt in der TUI.</div>
+</body></html>"""
+
     known = {
         "center.browser.toggle",
         "center.browser.open_current",
         "center.browser.exit",
         "center.browser.url",
         "center.browser.open",
+        "center.webview.open",
+        "center.webview.snake",
+        "cwv",
         "cb",
     }
     if cmd not in known:
@@ -4387,6 +4434,35 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
                 ),
             ),
             "center.browser.open_current",
+        )
+
+    if cmd == "cwv":
+        cmd = "center.webview.open"
+
+    if cmd in {"center.webview.open", "center.webview.snake"}:
+        from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
+        mode = "snake" if cmd.endswith(".snake") else "dashboard"
+        cap = detect_carbonyl_browser()
+        if not cap.available:
+            msg = f"webview: carbonyl nicht gefunden — {cap.unavailable_reason} | npm install -g carbonyl"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        html_doc = _center_webview_html(mode, game)
+        data_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_doc, safe=":/?&=#,%+-._~")
+        game["center_browser_active"] = True
+        game["center_browser_status"] = "requested"
+        game["center_browser_url"] = data_url
+        game["center_browser_allow_remote"] = False
+        game["center_browser_render_mode"] = "raw_ansi"
+        game.pop("center_browser_error", None)
+        game.pop("_browser_frame_bytes", None)
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"webview: {mode} aktiv | {display_for_action('center_browser_toggle', 'Ctrl+2')} toggle",
+            ),
+            "center.webview.open",
         )
 
     return None
