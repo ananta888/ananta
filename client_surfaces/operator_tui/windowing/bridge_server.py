@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+import time
 from collections import deque
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -35,6 +36,9 @@ class ExternalWindowBridgeServer:
         self._rejected_actions = 0
         self._accepted_actions = 0
         self._session_token = uuid.uuid4().hex
+        self._recent_event_ids: deque[str] = deque(maxlen=512)
+        self._event_timestamps: deque[float] = deque(maxlen=256)
+        self._rate_limit_per_sec = 30.0
 
     @property
     def session_token(self) -> str:
@@ -66,14 +70,21 @@ class ExternalWindowBridgeServer:
                 token = self.headers.get("X-Ananta-Window-Token", "")
                 return token == server._session_token
 
+            def _is_local_client(self) -> bool:
+                host = str((self.client_address or ("", 0))[0] or "")
+                return host in {"127.0.0.1", "::1", "localhost"}
+
             def do_GET(self) -> None:  # noqa: N802
                 parsed = urlparse(self.path)
                 if parsed.path == "/health":
                     self._json(200, {"ok": True, "status": server.status().__dict__})
                     return
                 if parsed.path == "/state":
+                    if not self._is_local_client():
+                        self._json(403, {"ok": False, "error": "forbidden", "reason_code": "window_bridge_non_local_client"})
+                        return
                     if not self._authorized():
-                        self._json(401, {"ok": False, "error": "unauthorized"})
+                        self._json(401, {"ok": False, "error": "unauthorized", "reason_code": "window_bridge_unauthorized"})
                         return
                     with server._state_lock:
                         payload = dict(server._state_payload)
@@ -90,8 +101,11 @@ class ExternalWindowBridgeServer:
                 if parsed.path != "/action":
                     self._json(404, {"ok": False, "error": "not_found"})
                     return
+                if not self._is_local_client():
+                    self._json(403, {"ok": False, "error": "forbidden", "reason_code": "window_bridge_non_local_client"})
+                    return
                 if not self._authorized():
-                    self._json(401, {"ok": False, "error": "unauthorized"})
+                    self._json(401, {"ok": False, "error": "unauthorized", "reason_code": "window_bridge_unauthorized"})
                     return
                 try:
                     length = int(self.headers.get("Content-Length", "0"))
@@ -106,13 +120,42 @@ class ExternalWindowBridgeServer:
                 action_id = str(payload.get("action_id") or "").strip()
                 args = dict(payload.get("args") or {}) if isinstance(payload.get("args"), dict) else {}
                 event_id = str(payload.get("event_id") or uuid.uuid4().hex)
+                now = time.monotonic()
+                while server._event_timestamps and now - server._event_timestamps[0] > 1.0:
+                    server._event_timestamps.popleft()
+                if len(server._event_timestamps) >= int(server._rate_limit_per_sec):
+                    server._rejected_actions += 1
+                    self._json(429, {"ok": False, "error": "rate_limited", "reason_code": "window_bridge_rate_limited"})
+                    return
                 if not is_allowed_action(action_id):
                     server._rejected_actions += 1
-                    self._json(403, {"ok": False, "error": "action_not_allowed", "action_id": action_id})
+                    self._json(
+                        403,
+                        {
+                            "ok": False,
+                            "error": "action_not_allowed",
+                            "reason_code": "window_bridge_action_not_allowed",
+                            "action_id": action_id,
+                        },
+                    )
+                    return
+                if event_id in server._recent_event_ids:
+                    server._rejected_actions += 1
+                    self._json(
+                        409,
+                        {
+                            "ok": False,
+                            "error": "duplicate_event",
+                            "reason_code": "window_bridge_duplicate_event",
+                            "event_id": event_id,
+                        },
+                    )
                     return
                 if len(server._events) >= server._events.maxlen:
                     server._dropped_events += 1
                 server._events.append(WindowActionEvent(action_id=action_id, args=args, event_id=event_id))
+                server._event_timestamps.append(now)
+                server._recent_event_ids.append(event_id)
                 server._accepted_actions += 1
                 self._json(202, {"ok": True, "accepted": action_id})
 
@@ -175,6 +218,9 @@ pre{{white-space:pre-wrap;background:#111a30;border:1px solid #31476d;border-rad
 <button onclick="act('snake.resume')">Snake Resume</button>
 <button onclick="act('view.next')">View Next</button>
 <button onclick="act('view.previous')">View Prev</button>
+<button onclick="act('view.simple')">View Simple</button>
+<button onclick="act('view.doc')">View Doc</button>
+<button onclick="act('view.snake')">View Snake</button>
 </div>
 <pre id="out">loading...</pre>
 <script>
