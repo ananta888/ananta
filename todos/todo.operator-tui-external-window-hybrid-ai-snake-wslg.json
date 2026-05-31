@@ -1,0 +1,471 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Krusty / ananta",
+  "track": "todo.operator-tui-external-window-hybrid-ai-snake-wslg",
+  "title": "Operator TUI: Externes WSLg-Fenster (Hybrid-UI) mit voll steuerbarer AI-Snake",
+  "purpose": "Ein robustes, externes GUI-Fenster unter WSL2/Windows 11 bereitstellen, das den mittleren Inhalt der TUI hochwertig darstellt und gleichzeitig voll durch die bestehende TUI-Steuerlogik bedient wird.",
+  "goal": "Center-Bereich optional als separates Fenster (WSLg/X11) betreiben; AI-Snake im Fenster sichtbar und steuerbar; TUI bleibt Single Source of Truth fuer State, Policy und Orchestrierung.",
+  "status": "todo",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "source_code_audit": {
+    "baseline_date": "2026-05-31",
+    "scope": "client_surfaces/operator_tui/visual/browser/*, realtime/*, commands/interactive wiring, runtime fallback",
+    "already_implemented": [
+      {
+        "id": "EW-A01",
+        "path": "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py",
+        "finding": "Browser-/WebView-Lifecycle-Controller vorhanden (start/stop/tick/input/resize).",
+        "risk": "medium",
+        "notes": "Aktuell terminalgebunden (Carbonyl), kein natives externes WSLg-Fenster als eigener Prozess-UI-Kanal."
+      },
+      {
+        "id": "EW-A02",
+        "path": "client_surfaces/operator_tui/visual/browser/browser_document_adapter.py",
+        "finding": "Dokument-Rendering nach HTML inkl. Sanitizing und lokalem Template vorhanden.",
+        "risk": "low",
+        "notes": "Gute Basis fuer externes View-Fenster (Doc/Markdown/Mermaid HTML-Surface)."
+      },
+      {
+        "id": "EW-A03",
+        "path": "client_surfaces/operator_tui/visual/browser/webrtc_app/*",
+        "finding": "Lokale Browser-App-Struktur fuer Session-/Statusansicht existiert (HTML/CSS/JS).",
+        "risk": "medium",
+        "notes": "Kann als UI-Basis wiederverwendet werden; derzeit nicht als eigenstaendiges WSLg-Fenster orchestriert."
+      },
+      {
+        "id": "EW-A04",
+        "path": "client_surfaces/operator_tui/realtime/*",
+        "finding": "Realtime-/DataChannel-Stack inklusive Policy, Audit und Controller vorhanden.",
+        "risk": "medium",
+        "notes": "Transportseitig vorhanden; fehlend ist die lokale bidirektionale Bridge zwischen externer Fenster-UI und TUI-Action-Dispatcher."
+      },
+      {
+        "id": "EW-A05",
+        "path": "client_surfaces/operator_tui/commands.py",
+        "finding": "Center-Browser-Commands vorhanden; initiale center.webview-Kommandos vorhanden.",
+        "risk": "high",
+        "notes": "Noch kein vollwertiger external-window Command-Flow mit WSLg-Fensterprozess und Lebenszyklus-Management."
+      },
+      {
+        "id": "EW-A06",
+        "path": "client_surfaces/operator_tui/visual/runtime/fallback_resolver.py",
+        "finding": "Runtime-Fallbacks inzwischen crash-frei degradiert.",
+        "risk": "medium",
+        "notes": "Stabilisiert TUI; fuer externes Fenster braucht es zusaetzlich harte Error-Boundaries zwischen TUI und Fensterprozess."
+      }
+    ],
+    "gaps_to_close": [
+      "Kein nativer External-Window-Controller (WSLg/X11) als dedizierter Subsystem-Baustein.",
+      "Kein standardisierter localhost Event-Bus fuer State-Streaming und Input-Events zwischen TUI und Fenster.",
+      "Keine harte Session-/Ownership-Policy fuer externes Fenster (start/stop/reconnect/timeout).",
+      "AI-Snake wird nicht als eigener renderbarer, interaktiver Fenster-View mit deterministischen Steuerbefehlen gespiegelt.",
+      "Kein End-to-end Test-Gate fuer externes Fenster inklusive Steuerbarkeit und Fallback-Verhalten."
+    ],
+    "solid_review": {
+      "srp": "Verbesserbar: Fenster-Lifecycle, Rendering, Event-Bridge und Command-Parsing sollten in getrennten Modulen liegen.",
+      "ocp": "Gut erweiterbar wenn View-Modes als Strategien hinter einem Bridge-Interface registriert werden.",
+      "lsp": "Erfuellbar durch einheitliches WindowSurface-Interface fuer verschiedene Backends (WSLg/X11/Headless-Mock).",
+      "isp": "Noetig: kleine Interfaces fuer state-publish, action-consume, window-lifecycle statt Monolith-Controller.",
+      "dip": "Noetig: TUI darf nur gegen Bridge/Window-Abstraktionen arbeiten, nicht gegen konkrete Toolkit-Implementierungen."
+    }
+  },
+  "milestones": [
+    {
+      "id": "EW-M1",
+      "title": "External-Window Fundament und Runtime-Contracts",
+      "status": "todo",
+      "task_ids": [
+        "EW-001",
+        "EW-002",
+        "EW-003"
+      ]
+    },
+    {
+      "id": "EW-M2",
+      "title": "Bidirektionale Bridge und AI-Snake Sichtbarkeit",
+      "status": "todo",
+      "task_ids": [
+        "EW-004",
+        "EW-005",
+        "EW-006",
+        "EW-007"
+      ]
+    },
+    {
+      "id": "EW-M3",
+      "title": "Steuerbarkeit, Sicherheit und Recovery",
+      "status": "todo",
+      "task_ids": [
+        "EW-008",
+        "EW-009",
+        "EW-010"
+      ]
+    },
+    {
+      "id": "EW-M4",
+      "title": "E2E-Nachweis und Release-Gate",
+      "status": "todo",
+      "task_ids": [
+        "EW-011",
+        "EW-012",
+        "EW-013"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "EW-001",
+      "title": "WindowSurface Interface und Controller-Skeleton einziehen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/window_surface.py",
+        "client_surfaces/operator_tui/windowing/external_window_controller.py",
+        "client_surfaces/operator_tui/interactive.py"
+      ],
+      "description": "Fuehre ein abstrahiertes WindowSurface-Interface ein (start/stop/publish_state/consume_events/health), damit WSLg/X11-Fenster als austauschbarer Backend-Treiber integriert werden kann.",
+      "acceptance_criteria": [
+        "Interface kapselt Lebenszyklus und Bridge-Verkehr ohne direkte Toolkit-Abhaengigkeit in InteractiveOperatorTui.",
+        "Controller bietet deterministische States: inactive, starting, active, degraded, stopping, failed.",
+        "TUI kann ohne Fensterbackend starten (no-op backend) und bleibt voll funktionsfaehig.",
+        "Unit-Tests pruefen State-Transitions inkl. start-failure, restart und stop idempotency."
+      ]
+    },
+    {
+      "id": "EW-002",
+      "title": "Externer Fensterprozess fuer WSLg/X11 startbar machen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/backends/wslg_webview_backend.py",
+        "client_surfaces/operator_tui/windowing/process_runner.py",
+        "scripts/operator_tui_window_smoke.py"
+      ],
+      "description": "Implementiere einen echten External-Window-Backend-Treiber, der unter WSLg ein separates GUI-Fenster startet (nicht nur Terminal-embedded Carbonyl).",
+      "acceptance_criteria": [
+        "Fensterstart funktioniert in WSL2+Windows11 Umgebung mit DISPLAY/WAYLAND Detection.",
+        "Bei fehlender GUI-Umgebung wird sauber auf TUI-only degradiert, ohne Crash.",
+        "Fensterprozess wird beim TUI-Exit sicher beendet (kein Zombie-Prozess).",
+        "Smoke-Script liefert maschinenlesbares Ergebnis (started, pid, backend, degraded_reason)."
+      ]
+    },
+    {
+      "id": "EW-003",
+      "title": "Neue Commands fuer External Window Lifecycle",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/commands.py",
+        "config/operator_tui_keybindings.default.json",
+        "tests/client_surfaces/operator_tui/test_center_browser_commands.py"
+      ],
+      "description": "Fuehre klare Commands fuer window open/close/status/restart ein (z.B. :center.window.open/:center.window.close/:center.window.status).",
+      "acceptance_criteria": [
+        "Commands existieren und liefern klare Statusmeldungen inkl. degraded reasons.",
+        "Shortcut-Mapping bleibt konsistent im Ctrl-Schema und konfliktfrei.",
+        "Status-Command zeigt backend, pid/session, bridge health, current view mode.",
+        "Regressions-Tests bestaetigen: bestehende center.browser/doc commands bleiben intakt."
+      ]
+    },
+    {
+      "id": "EW-004",
+      "title": "Localhost Event Bridge (TUI -> Fenster) implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/bridge_server.py",
+        "client_surfaces/operator_tui/windowing/protocol.py",
+        "client_surfaces/operator_tui/interactive.py"
+      ],
+      "description": "Implementiere eine lokale Bridge fuer State-Streaming (center content, doc mode, ai-snake state, focus, status) Richtung Fenster.",
+      "acceptance_criteria": [
+        "Bridge bindet ausschliesslich an localhost/loopback.",
+        "State-Payload ist versioniert (schema_version + state_version).",
+        "Publish ist backpressure-sicher (bounded queue, drop policy mit diagnostics).",
+        "Bei Bridge-Ausfall bleibt TUI responsive und zeigt degradierten Window-Status."
+      ]
+    },
+    {
+      "id": "EW-005",
+      "title": "Input Bridge (Fenster -> TUI Actions) anbinden",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/bridge_server.py",
+        "client_surfaces/operator_tui/tui_action_dispatcher.py",
+        "client_surfaces/operator_tui/interactive.py"
+      ],
+      "description": "Fenster-Eingaben (Buttons/Hotkeys) werden als erlaubte Actions an den bestehenden TUI-Dispatcher uebergeben; keine zweite Logik im Fenster.",
+      "acceptance_criteria": [
+        "Nur allowlisted actions werden angenommen; unbekannte actions werden verworfen und geloggt.",
+        "Action-Ausfuehrung aendert denselben TUI-State wie lokale Shortcuts.",
+        "Replay-/Duplicate-Schutz fuer Events ueber event_id/event_ts vorhanden.",
+        "Unit-Tests pruefen action allowlist, payload validation und idempotentes Verhalten."
+      ]
+    },
+    {
+      "id": "EW-006",
+      "title": "AI-Snake View Model fuer Fenster definieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/view_models/ai_snake_window_model.py",
+        "client_surfaces/operator_tui/snake_tick_mixin.py",
+        "tests/test_operator_tui_shell.py"
+      ],
+      "description": "Definiere ein dediziertes, kompaktes ViewModel fuer AI-Snake im Fenster (position/velocity/state/runtime/heuristics/log tail).",
+      "acceptance_criteria": [
+        "ViewModel ist stabil serialisierbar und enthaelt keine Secrets.",
+        "Aktualisierungsrate ist konfigurierbar und CPU-schonend.",
+        "Fenster zeigt AI-Snake aktiv/paused/mode/runtime konsistent zum TUI-State.",
+        "Tests validieren Konsistenz zwischen TUI- und Window-Model in typischen Spielphasen."
+      ]
+    },
+    {
+      "id": "EW-007",
+      "title": "Center View Modes im Fenster (simple/doc/snake) sauber schalten",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/view_models/center_window_model.py",
+        "client_surfaces/operator_tui/commands.py",
+        "client_surfaces/operator_tui/chat_long_message.py"
+      ],
+      "description": "Fenster muss zwischen simple/doc/snake umschalten koennen, basierend auf demselben TUI-State wie der mittlere Bereich.",
+      "acceptance_criteria": [
+        "Mode-Wechsel funktioniert via TUI-Commands und via fensterseitige Action-Events.",
+        "Simple bleibt Default beim Oeffnen neuer Dokumente.",
+        "Doc/Mermaid Rendering im Fenster ist vom Terminal-Renderer entkoppelt.",
+        "Keine State-Desynchronisation bei schnellem Umschalten (race-safe)."
+      ]
+    },
+    {
+      "id": "EW-008",
+      "title": "Security Hardening fuer lokale Window-Bridge",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/bridge_server.py",
+        "client_surfaces/operator_tui/windowing/protocol.py",
+        "docs/security/operator-tui-window-bridge.md"
+      ],
+      "description": "Haerte die Bridge gegen Missbrauch ab (localhost-only, session token/nonces, input validation, rate limits, audit trail).",
+      "acceptance_criteria": [
+        "Bridge akzeptiert nur lokale Clients und gueltige Session-Tokens.",
+        "Action-Payloads werden strikt validiert (schema + bounds).",
+        "Rate-Limits fuer inbound events verhindern Flooding.",
+        "Security-Doku beschreibt Threat-Model, trusted boundary und residual risks."
+      ]
+    },
+    {
+      "id": "EW-009",
+      "title": "Recovery/Resilience: Fenster-Neustart ohne TUI-Neustart",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/windowing/external_window_controller.py",
+        "client_surfaces/operator_tui/interactive.py",
+        "tests/client_surfaces/operator_tui/test_external_window_recovery.py"
+      ],
+      "description": "Wenn das externe Fenster abstuerzt oder geschlossen wird, muss die TUI weiterlaufen und einen kontrollierten Reopen erlauben.",
+      "acceptance_criteria": [
+        "Fensterabsturz setzt Status auf degraded/closed, TUI bleibt funktionsfaehig.",
+        "Reopen-Command startet Fenster wieder mit letztem konsistenten View-Mode.",
+        "Keine ungebundenen Prozesse/Sockets nach wiederholten open/close-Zyklen.",
+        "Recovery-Tests pruefen mindestens 3 Crash-/Disconnect-Szenarien."
+      ]
+    },
+    {
+      "id": "EW-010",
+      "title": "Observability: Window/Bridge Diagnostik in TUI sichtbar",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/commands.py",
+        "tests/operator_tui/visual/test_view_capability_report.py"
+      ],
+      "description": "Erweitere Status/Diagnostik um window backend, bridge RTT, event drop count, action rejects und letzte Fehlercodes.",
+      "acceptance_criteria": [
+        "Diagnostik ist optional aktivierbar (normal UX bleibt ruhig).",
+        "Statusausgabe nennt konkrete reason_codes statt generischer Fehltexte.",
+        "Metriken zeigen mindestens: window_state, bridge_connected, dropped_events, rejected_actions.",
+        "Snapshot-Tests decken success/degraded/failure-Darstellung ab."
+      ]
+    },
+    {
+      "id": "EW-011",
+      "title": "E2E-Szenario: TUI + externes Fenster + AI-Snake Steuerung",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "tests/e2e/test_tui_external_window_ai_snake_e2e.py",
+        "scripts/e2e/record_tui_demo.py"
+      ],
+      "description": "End-to-end Nachweis, dass AI-Snake im Fenster sichtbar ist und Aktionen aus dem Fenster dieselbe TUI-Logik triggern.",
+      "acceptance_criteria": [
+        "E2E erzeugt reproduzierbares Artefakt (Log/Cast/JSON) mit Fenster-Lifecycle und Action-Events.",
+        "Test prueft mindestens: toggle snake, pause/resume, mode switch, doc switch.",
+        "Bei fehlendem WSLg wird Test nicht stillschweigend gruen, sondern klar als degraded/skipped mit Grund markiert.",
+        "Fehlschlag nennt eindeutige Ursache (window_start_failed, bridge_timeout, action_rejected, state_mismatch)."
+      ]
+    },
+    {
+      "id": "EW-012",
+      "title": "Fixture- und Mock-Stack fuer headless CI",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "tests/fixtures/scenarios/external_window_ai_snake/*.json",
+        "tests/client_surfaces/operator_tui/test_external_window_bridge_protocol.py"
+      ],
+      "description": "Fuer CI ohne GUI muss ein deterministischer headless Mock-Window-Backend und Fixture-Set vorhanden sein.",
+      "acceptance_criteria": [
+        "Fixtures sind klein, deterministisch, ohne volatile timestamps/ids.",
+        "Mock-Backend emuliert open/close/crash/input/state-flow reproduzierbar.",
+        "Protocol-Tests pruefen schema_version handling und backward compatibility.",
+        "CI kann Kernlogik ohne echtes WSLg-Fenster absichern."
+      ]
+    },
+    {
+      "id": "EW-013",
+      "title": "Release-Gate fuer External Window Hybrid",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "scripts/run_e2e_dogfood_checks.py",
+        "docs/testing/e2e_visual_evidence.md"
+      ],
+      "description": "Erweitere Gate, damit External-Window-Hybrid und AI-Snake-Steuerbarkeit nicht regressieren.",
+      "acceptance_criteria": [
+        "Gate enthaelt Pflichtcheck fuer Bridge-Protokoll + Action-Routing + Recovery.",
+        "Gate liefert klare reason_codes pro Failure-Klasse.",
+        "Gate bleibt zeitlich budgetiert (schneller headless default, optional full WSLg profile).",
+        "Doku beschreibt exakte lokale Reproduktion inklusive env-variablen."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "EW-001",
+    "EW-002",
+    "EW-004",
+    "EW-005",
+    "EW-008",
+    "EW-011",
+    "EW-013"
+  ],
+  "tasks_status_summary": {
+    "total": 13,
+    "by_status": {
+      "todo": 13,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "critical": 6,
+      "high": 5,
+      "medium": 2,
+      "low": 0
+    },
+    "by_risk": {
+      "high": 6,
+      "medium": 5,
+      "low": 2,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 0,
+      "remaining": 7
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 13,
+    "by_type": {
+      "architecture": 1,
+      "implementation": 9,
+      "test": 3
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 13,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Plan setzt explizit auf vorhandene Browser-/Realtime-Bausteine auf und fuehrt ein separates External-Window-Subsystem ein.",
+    "TUI bleibt zentrale Control Plane; Fenster bleibt Render-/Input-Surface ueber kontrollierte Bridge.",
+    "Akzeptanzkriterien sind auf messbare Steuerbarkeit, Stabilitaet und Security ausgelegt."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "ES-EW-001",
+      "title": "Architektur-Richtung",
+      "text": "Bestehende Carbonyl/Realtime-Komponenten sind nutzbare Basis, aber fuer echtes WSLg-Fenster fehlt ein dedizierter Window-Backend-Controller und eine lokale bidirektionale Bridge mit klaren Vertrauensgrenzen.",
+      "timestamp": "2026-05-31T00:00:00Z"
+    },
+    {
+      "summary_id": "ES-EW-002",
+      "title": "Erfolgsdefinition",
+      "text": "Erfolg ist erreicht, wenn AI-Snake im externen Fenster sichtbar und steuerbar ist, alle Eingaben durch den bestehenden TUI-Action-Dispatcher laufen, und Ausfall/Restart ohne TUI-Absturz funktioniert.",
+      "timestamp": "2026-05-31T00:00:00Z"
+    }
+  ]
+}
