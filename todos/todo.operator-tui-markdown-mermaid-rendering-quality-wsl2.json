@@ -1,0 +1,469 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Krusty / ananta",
+  "track": "todo.operator-tui-markdown-mermaid-rendering-quality-wsl2",
+  "title": "Operator TUI: hochwertige Markdown- und Mermaid-Darstellung unter WSL2",
+  "purpose": "Eine robuste, reproduzierbare Render-Pipeline bereitstellen, die unter WSL2/Ubuntu ohne Browser-Abhaengigkeit eine deutlich bessere Darstellung fuer Markdown und Mermaid liefert (Text + Diagramm), mit klaren Fallbacks und messbarer Qualitaet.",
+  "goal": "Markdown/Mermaid im Center-Viewport standardmaessig lesbar und stabil darstellen; Browser/Carbonyl nicht als Hauptpfad fuer Docs/Diagramme verwenden; Rendering-Qualitaet ueber E2E-Casts und Snapshot-Metriken absichern.",
+  "status": "todo",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "source_code_audit": {
+    "baseline_date": "2026-05-31",
+    "scope": "client_surfaces/operator_tui/visual/markdown/*, visual views/runtime wiring, markdown docs/tests, center-browser integration",
+    "already_implemented": [
+      {
+        "id": "A01",
+        "path": "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "finding": "Dedizierte View existiert inkl. Scroll-Handling, Mermaid-Renderpfad, Fallback-Infos und Szene-Metadaten.",
+        "risk": "medium",
+        "notes": "Komplexe Verantwortlichkeiten in einer Klasse (Parsing, Render-Orchestrierung, Telemetrie) -> SRP-Spannung."
+      },
+      {
+        "id": "A02",
+        "path": "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py",
+        "finding": "ANSI-basierter Markdown-Renderer vorhanden; Block-Darstellung und Fallback-Infos implementiert.",
+        "risk": "medium",
+        "notes": "Output-Qualitaet variiert je Terminalbreite und horizontale Scroll-Strategie."
+      },
+      {
+        "id": "A03",
+        "path": "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py",
+        "finding": "Backend-Abstraktion vorhanden (mmdc, Playwright, fallback).",
+        "risk": "high",
+        "notes": "Runtime-Abhaengigkeiten (node/playwright/mermaid.js) sind unter WSL2 oft inkonsistent."
+      },
+      {
+        "id": "A04",
+        "path": "client_surfaces/operator_tui/visual/markdown/mermaid_cache.py",
+        "finding": "Render-Cache vorhanden.",
+        "risk": "low",
+        "notes": "Qualitaetsmetriken fuer Cache-Hit/Miss noch nicht als produktive UX-Signale genutzt."
+      },
+      {
+        "id": "A05",
+        "path": "config/operator_tui_visual_viewport.default.json",
+        "finding": "Pixel-Limits standardisiert (default 800x450, max 1280x720).",
+        "risk": "medium",
+        "notes": "Feste Max-Limits sind fuer komplexe Mermaid-Diagramme teils zu niedrig."
+      },
+      {
+        "id": "A06",
+        "path": "tests/operator_tui/visual/markdown/*",
+        "finding": "Unit-/Snapshot-Tests fuer Parser/Renderer/Mermaid-Pfade sind vorhanden.",
+        "risk": "medium",
+        "notes": "Kein fokussierter WSL2-Qualitaets-E2E mit Cast-Metriken fuer Markdown+Mermaid in einem kombinierten Flow."
+      }
+    ],
+    "gaps_to_close": [
+      "Klare Runtime-Policy fuer WSL2 (welcher Mermaid-Backend-Pfad hat Prioritaet).",
+      "Expliziter Qualitaetsmodus fuer Docs/Diagramme statt Browser-Mode-Missbrauch.",
+      "End-to-end Qualitaetskriterien fuer Lesbarkeit (nicht nur 'kein Crash').",
+      "Operationales Troubleshooting (Dependency-Checks + actionable hints in TUI).",
+      "Saubere Trennung von Browser-Rendering und Dokument-Rendering (SRP/OCP)."
+    ],
+    "solid_review": {
+      "srp": "Teilweise verletzt in markdown_mermaid_document_view.py (Orchestrierung + Renderdetails + Telemetrie).",
+      "ocp": "Backend-Abstraktion vorhanden; Erweiterbarkeit gut, aber Policy-Auswahl koennte strategischer gekapselt werden.",
+      "lsp": "Backend-Contracts grundsaetzlich substituierbar.",
+      "isp": "Akzeptabel; Interfaces eher klein.",
+      "dip": "Verbesserbar: Runtime-Policy und Environment-Detection staerker ueber Abstraktionen injizieren."
+    }
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Runtime-Policy und Render-Strategie fuer WSL2 stabilisieren",
+      "status": "todo",
+      "task_ids": ["MMQ-001", "MMQ-002", "MMQ-003"]
+    },
+    {
+      "id": "M2",
+      "title": "Markdown-Qualitaet im ANSI/Viewport-Pfad verbessern",
+      "status": "todo",
+      "task_ids": ["MMQ-004", "MMQ-005", "MMQ-006"]
+    },
+    {
+      "id": "M3",
+      "title": "Mermaid-Rendering robust machen (WSL2-first)",
+      "status": "todo",
+      "task_ids": ["MMQ-007", "MMQ-008", "MMQ-009", "MMQ-010"]
+    },
+    {
+      "id": "M4",
+      "title": "Observability, Troubleshooting und UX-Hinweise",
+      "status": "todo",
+      "task_ids": ["MMQ-011", "MMQ-012", "MMQ-013"]
+    },
+    {
+      "id": "M5",
+      "title": "E2E-Qualitaetsgates und Release-Guard",
+      "status": "todo",
+      "task_ids": ["MMQ-014", "MMQ-015", "MMQ-016"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "MMQ-001",
+      "title": "WSL2 Render Policy einfuehren (docs_graphics_profile)",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/config.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "config/config.example.json"
+      ],
+      "description": "Ergaenze ein explizites Profil fuer Dokumentgrafik unter WSL2 (Backend-Reihenfolge, Timeouts, Pixel-Limits, Fallback-Modus), statt impliziter Auto-Heuristiken.",
+      "acceptance_criteria": [
+        "Config enthaelt docs_graphics_profile mit mindestens: backend_order, timeout_seconds, max_pixel_width, max_pixel_height, prefer_image_over_source.",
+        "WSL2 kann per klarer Policy erkannt oder explizit gesetzt werden (kein hidden magic).",
+        "Policy-Auswahl ist in View-Metadaten sichtbar (active_profile, backend_order).",
+        "Default-Verhalten bleibt backward-kompatibel fuer Nicht-WSL2-Umgebungen."
+      ]
+    },
+    {
+      "id": "MMQ-002",
+      "title": "Browser-Pfad fuer Markdown/Mermaid explizit entkoppeln",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/commands.py",
+        "client_surfaces/operator_tui/renderer.py",
+        "docs/operator-tui/markdown-mermaid-center-view.md"
+      ],
+      "description": "Stelle sicher, dass Markdown/Mermaid-Workflows nicht ueber Carbonyl laufen, sondern ueber den Dokument-Renderer; Browser bleibt optional fuer Webziele.",
+      "acceptance_criteria": [
+        "Dokumentierter Command-Flow fuer 'Docs ansehen' nutzt markdown_mermaid_document view.",
+        "Keine erzwungene Browser-Aktivierung fuer Markdown/Mermaid Content-Quellen.",
+        "Nutzerhinweis in Statuszeile erklaert den aktiven Renderpfad (doc_view vs browser).",
+        "Regressions-Tests zeigen: bestehende Browser-Commands bleiben funktionsfaehig."
+      ]
+    },
+    {
+      "id": "MMQ-003",
+      "title": "SOLID-Refactor: Render-Policy aus View extrahieren",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/visual/markdown/render_policy.py"
+      ],
+      "description": "Extrahiere Policy-/Backend-Auswahl aus der View in eine eigene Strategie-Komponente (SRP/OCP).",
+      "acceptance_criteria": [
+        "Neue Komponente entscheidet Backend-Reihenfolge, Timeouts und Fallback-Regeln.",
+        "View reduziert sich auf Orchestrierung und Scene-Erstellung.",
+        "Unit-Tests decken Policy-Entscheidungen isoliert ab.",
+        "Keine funktionale Regression in bestehenden Markdown/Mermaid-Tests."
+      ]
+    },
+    {
+      "id": "MMQ-004",
+      "title": "Markdown-Layout-Polish fuer Listen, Tabellen und Codeblöcke",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/markdown_ansi_renderer.py",
+        "tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py"
+      ],
+      "description": "Verbessere lesbare Typografie im ANSI-Pfad fuer reale technische Dokumente (Listenhierarchie, Tabellen-Fallback, Codeblock-Rahmung).",
+      "acceptance_criteria": [
+        "Mindestens 3 Ebenen von Listen bleiben visuell unterscheidbar.",
+        "Tabellen sind als strukturiertes Plain-Layout erkennbar (nicht nur Fliesstext).",
+        "Codeblöcke besitzen konsistente Einfassung und Sprachlabel-Zeile.",
+        "Snapshot-Tests fuer mindestens 4 realistische Markdown-Fixtures bestehen."
+      ]
+    },
+    {
+      "id": "MMQ-005",
+      "title": "Viewport-H-Scroll fuer breite Markdown-Zeilen robust machen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/scroll/scrollbar_renderer.py",
+        "tests/operator_tui/scroll/test_keyboard_scroll_routing.py"
+      ],
+      "description": "Horizontales Scrollen fuer breite Zeilen stabilisieren (ohne ANSI-Artefakte/Farbbleed).",
+      "acceptance_criteria": [
+        "H-Scroll zeigt bei langen Codezeilen konsistente Zeichen ohne Farbkorruption.",
+        "Scroll-Metadaten (max_line_width, h_offset) werden korrekt aktualisiert.",
+        "Keyboard-Routing fuer H-Scroll funktioniert auch nach View-Wechseln.",
+        "Keine Regression in bestehenden Scrollbar-/Focus-Tests."
+      ]
+    },
+    {
+      "id": "MMQ-006",
+      "title": "Auto-follow und Dokumentwechsel-Reset sauber definieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "tests/operator_tui/visual/markdown/test_markdown_ansi_renderer.py"
+      ],
+      "description": "Dokumentwechsel und Stream-/Auto-Follow-Verhalten deterministisch machen, um 'springende' Ansicht zu vermeiden.",
+      "acceptance_criteria": [
+        "Bei neuem Dokument werden nur definierte State-Felder zurueckgesetzt.",
+        "Auto-follow laeuft nur, wenn explizit aktiviert.",
+        "Manueller Scroll hebt Auto-follow erwartungsgemaess auf.",
+        "Tests pruefen mindestens 3 Wechsel-Szenarien (same doc, new doc, stream update)."
+      ]
+    },
+    {
+      "id": "MMQ-007",
+      "title": "Mermaid Backend-Probing mit klaren Health-Codes",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py",
+        "client_surfaces/operator_tui/visual/markdown/config.py"
+      ],
+      "description": "Backend-Verfuegbarkeit (mmdc/playwright/assets) systematisch pruefen und strukturierte Ursachen liefern.",
+      "acceptance_criteria": [
+        "Probe liefert reason_codes (z.B. MMD_NOT_FOUND, PLAYWRIGHT_MISSING, MERMAID_JS_MISSING).",
+        "Reason-Codes sind user-facing in knapper Form abbildbar.",
+        "Backend-Auswahl ueberspringt nur fehlerhafte Kandidaten und dokumentiert den Grund.",
+        "Unit-Tests decken alle reason_codes ab."
+      ]
+    },
+    {
+      "id": "MMQ-008",
+      "title": "WSL2-friendly Mermaid-Pfad priorisieren (mmdc zuerst)",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py",
+        "docs/operator-tui/markdown-mermaid-center-view.md"
+      ],
+      "description": "Unter WSL2 den stabilsten Renderingpfad priorisieren (mmdc > playwright > source fallback) und sauber dokumentieren.",
+      "acceptance_criteria": [
+        "In WSL2 wird default-maessig mmdc zuerst versucht.",
+        "Falls mmdc fehlt, wird klare Install-Anleitung ausgegeben.",
+        "Playwright wird nur genutzt, wenn explizit verfuegbar/aktiviert.",
+        "Source-fallback bleibt immer funktional und absturzfrei."
+      ]
+    },
+    {
+      "id": "MMQ-009",
+      "title": "Mermaid Bildqualitaet und Groessenlogik verbessern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_renderer.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py",
+        "client_surfaces/operator_tui/visual/viewport/layout_contract.py"
+      ],
+      "description": "Requested width/height und Skalierung an Viewport-Geometrie koppeln, um lesbare Diagramme statt undersized Outputs zu erzeugen.",
+      "acceptance_criteria": [
+        "Diagramm-Rendergroesse orientiert sich nachvollziehbar an viewport pixel geometry.",
+        "Min-/Max-Limits sind konfigurierbar und werden korrekt geklemmt.",
+        "Qualitaetstest mit mindestens 3 Mermaid-Beispielen zeigt lesbare Knoten/Labels.",
+        "Keine unbounded memory growth bei grossen Diagrammen."
+      ]
+    },
+    {
+      "id": "MMQ-010",
+      "title": "Mermaid Cache-Invalidierung und Telemetrie vervollstaendigen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/visual/markdown/mermaid_cache.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"
+      ],
+      "description": "Cache-Keys und Metriken vervollstaendigen (Backend, Dimensionen, Source-Hash, Config-Fingerprint) und sichtbar machen.",
+      "acceptance_criteria": [
+        "Cache-Hit/Miss-Zahlen sind in scene metadata verfuegbar.",
+        "Config- oder Groessenwechsel invalidiert betroffene Cache-Eintraege deterministisch.",
+        "Es gibt keine stale-diagramm-Ausgabe bei geaenderter Quelle.",
+        "Unit-Tests pruefen mindestens 4 Cache-Invalidierungsfaelle."
+      ]
+    },
+    {
+      "id": "MMQ-011",
+      "title": "In-TUI Diagnostikzeile fuer Markdown/Mermaid aktivieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/visual/views/markdown_mermaid_document_view.py"
+      ],
+      "description": "Zeige im Center-Header oder Statusline den aktiven Modus/Backend/Fallback-Grund fuer schnelle Diagnose.",
+      "acceptance_criteria": [
+        "Status zeigt mindestens: mode, backend, fallback_reason(optional), cache_hit_rate.",
+        "Bei Fehlern werden reason_codes kompakt und nicht nur generische Fehlertexte angezeigt.",
+        "Diagnostik ist abschaltbar fuer normale UX.",
+        "Snapshot-Test deckt Success- und Failure-Darstellung ab."
+      ]
+    },
+    {
+      "id": "MMQ-012",
+      "title": "Dependency preflight command fuer Grafikpfad",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/commands.py",
+        "docs/operator-tui/markdown-mermaid-center-view.md"
+      ],
+      "description": "Fuehre einen Command ein, der mmdc/node/playwright/chafa/adapter capabilities prueft und konkrete Fix-Anleitungen ausgibt.",
+      "acceptance_criteria": [
+        "Command liefert maschinenlesbare und menschenlesbare Ausgabe.",
+        "Ausgabe nennt fehlende Binaries/Pakete mit exakten Install-Hinweisen.",
+        "WSL2-spezifische Hinweise (Terminal/Adapter) sind enthalten.",
+        "Fehlende Tools fuehren nicht zu Exceptions im Command-Pfad."
+      ]
+    },
+    {
+      "id": "MMQ-013",
+      "title": "Dokumentation: Recommended WSL2 Stack fuer Markdown/Mermaid",
+      "type": "docs",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "docs/operator-tui/markdown-mermaid-center-view.md",
+        "docs/operator-tui/terminal-graphics-plus-ansi-fallback.md"
+      ],
+      "description": "Dokumentiere verbindlich, welche Toolchain unter WSL2 die beste Qualitaet liefert (z.B. mmdc + chafa + WezTerm).",
+      "acceptance_criteria": [
+        "Doc enthaelt Schritt-fuer-Schritt Setup inklusive Verifikation.",
+        "Doc trennt klar: recommended path vs optional browser path.",
+        "Doc enthält Troubleshooting Matrix (symptom -> cause -> fix).",
+        "Doc ist mit existierenden Smoke-Scripts verlinkt."
+      ]
+    },
+    {
+      "id": "MMQ-014",
+      "title": "Neuer E2E Cast fuer Markdown+Mermaid Qualitaet (WSL2)",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "tests/e2e/test_tui_markdown_mermaid_quality_cast_e2e.py",
+        "scripts/e2e/record_tui_demo.py"
+      ],
+      "description": "Baue einen dedizierten E2E-Cast, der einen realen Markdown-Text mit Mermaid-Block rendert und messbare Qualitaetskriterien prueft.",
+      "acceptance_criteria": [
+        "Test erzeugt asciinema v2 cast mit dokumentiertem Szenennamen.",
+        "Analyse prueft nicht nur 'laeuft', sondern Lesbarkeitsmetriken (non-space density, heading/label visibility, fallback markers).",
+        "Test kann ohne externe Web-Ziele laufen (lokale Fixture).",
+        "Test ist reproduzierbar in CI/WSL2 und liefert eindeutige Fehlgruende."
+      ]
+    },
+    {
+      "id": "MMQ-015",
+      "title": "Fixture-Set fuer Qualitätsregressionen erstellen",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "target_files": [
+        "tests/fixtures/scenarios/markdown_mermaid_quality/*.md",
+        "tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py"
+      ],
+      "description": "Stabile kleine Fixtures fuer typische Problemfaelle bereitstellen (lange Codezeilen, grosse Mermaid-Flows, Tabellen, gemischte Listen).",
+      "acceptance_criteria": [
+        "Alle neuen Fixtures sind deterministisch und klein.",
+        "Jeder Fixture ist mindestens ein konkreter Test zugeordnet.",
+        "Keine volatilen timestamps/ids in Fixtures.",
+        "Fixture-Zweck ist im Test oder Doc klar benannt."
+      ]
+    },
+    {
+      "id": "MMQ-016",
+      "title": "Release-Gate: Markdown/Mermaid Rendering Quality",
+      "type": "test",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "target_files": [
+        "scripts/run_e2e_dogfood_checks.py",
+        "docs/testing/e2e_visual_evidence.md"
+      ],
+      "description": "Erweitere den E2E-Gate um eine verpflichtende Qualitaetspruefung fuer Dokument-/Diagramm-Rendering.",
+      "acceptance_criteria": [
+        "Gate failt bei klaren Rendering-Regressionssignalen (leer/nahezu leer/fehlende diagram labels).",
+        "Gate reportet Ursache und betroffene Szene eindeutig.",
+        "Gate bleibt schnell genug fuer regulare CI-Laeufe (zeitlich budgetiert).",
+        "Dokumentation beschreibt wie lokal derselbe Gate reproduziert wird."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["MMQ-001", "MMQ-007", "MMQ-008", "MMQ-009", "MMQ-014", "MMQ-016"],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": { "todo": 16, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0 },
+    "progress_percent_done": 0,
+    "by_priority": { "critical": 4, "high": 9, "medium": 3, "low": 0 },
+    "by_risk": { "low": 4, "medium": 8, "high": 4, "critical": 0 },
+    "critical_path": { "total": 6, "done": 0, "remaining": 6 },
+    "milestones": { "total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0 }
+  },
+  "tasks_type_summary": {
+    "total": 16,
+    "by_type": {
+      "architecture": 1,
+      "implementation": 10,
+      "refactor": 1,
+      "test": 3,
+      "docs": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 16,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Der Plan nutzt vorhandene Markdown/Mermaid-Module als Basis und fokussiert auf Qualitaet + WSL2-Operationalisierung statt Greenfield-Neubau.",
+    "Browser/Carbonyl bleibt optional fuer Web-Use-Cases und ist explizit nicht der Standardpfad fuer Markdown/Mermaid.",
+    "Die Acceptance-Kriterien sind auf messbare Sichtbarkeit/Lesbarkeit ausgerichtet, nicht nur auf Crash-Freiheit."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "ES-ARCH-001",
+      "title": "Architekturleitplanken",
+      "items": [
+        "Hub-Worker-Orchestrierung unveraendert lassen; nur TUI-Renderpfade erweitern.",
+        "Additive Aenderungen mit Feature-Flags/Policy-Profilen statt Breaking-Changes.",
+        "SOLID: Policy-Auswahl aus View extrahieren, damit SRP/OCP verbessert werden."
+      ]
+    },
+    {
+      "summary_id": "ES-QA-001",
+      "title": "Qualitaetsstrategie",
+      "items": [
+        "Unit + Snapshot + E2E-Cast-Metriken kombinieren.",
+        "WSL2-spezifische Diagnostik als First-Class Feature anbieten.",
+        "Release-Gate soll Rendering-Regressionen frueh und eindeutig blocken."
+      ]
+    }
+  ]
+}
