@@ -41,8 +41,8 @@ import { SystemFacade } from '../features/system/system.facade';
               <strong>{{a.name}}</strong>
               <span class="muted">({{a.role || 'worker'}})</span>
               <span class="muted">{{ agentScopeLabel(a) }}</span>
-              @if ((a as any).strategy_mode) {
-                <span class="badge">{{ (a as any).strategy_mode }}</span>
+              @if ($any(a).strategy_mode) {
+                <span class="badge">{{ $any(a).strategy_mode }}</span>
               }
             </div>
             <div>
