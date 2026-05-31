@@ -689,6 +689,49 @@ class SnakeOpsMixin:
         )
 
     def _snake_copy_selection_to_game(self, game: dict[str, object]) -> None:
+        # Mouse drag selection takes priority over cell-based snake selection
+        _active_range = game.get("mouse_selection_range")
+        if _active_range and isinstance(_active_range, dict):
+            _all_ranges: list[dict] = [_active_range]
+            for _c in (game.get("mouse_selection_committed_ranges") or []):
+                if isinstance(_c, dict):
+                    _all_ranges.append(_c)
+            _plain_lines = self._snake_render_plain_lines()
+            _chunks: list[str] = []
+            for _r in _all_ranges:
+                _sx = int(_r.get("start_x", 0))
+                _sy = int(_r.get("start_y", 0))
+                _ex = int(_r.get("end_x", 0))
+                _ey = int(_r.get("end_y", 0))
+                _mode = str(_r.get("mode", "linear"))
+                if _sy > _ey or (_sy == _ey and _sx > _ex):
+                    _sx, _ex = _ex, _sx
+                    _sy, _ey = _ey, _sy
+                for _ly in range(max(0, _sy), min(_ey + 1, len(_plain_lines))):
+                    _row = _plain_lines[_ly]
+                    if _mode == "block":
+                        _x1, _x2 = sorted([_sx, _ex])
+                    elif _ly == _sy and _ly == _ey:
+                        _x1, _x2 = sorted([_sx, _ex])
+                    elif _ly == _sy:
+                        _x1, _x2 = _sx, len(_row)
+                    elif _ly == _ey:
+                        _x1, _x2 = 0, _ex + 1
+                    else:
+                        _x1, _x2 = 0, len(_row)
+                    _chunks.append(_row[_x1:_x2])
+            copied = "\n".join(_chunks).rstrip("\n")
+            game["clipboard"] = copied
+            if copied:
+                game["message"] = copied
+            system_clipboard = self._copy_to_system_clipboard(copied) if copied else False
+            game["_copy_status_message"] = (
+                "copy: intern + Windows-Zwischenablage"
+                if system_clipboard
+                else "copy: intern (System-Zwischenablage nicht erreichbar)"
+            )
+            return
+
         cells_raw = game.get("selection_cells") or []
         cells = [
             (int(c[0]), int(c[1]))

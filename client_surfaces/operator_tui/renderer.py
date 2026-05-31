@@ -2557,6 +2557,39 @@ def _overlay_fullscreen_snake(
         repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
         out[y] = _overlay_at_visible_col(out[y], x, repl)
 
+    # Mouse drag selection: efficient range-based rendering (linear or block)
+    _mouse_sel_ranges: list[dict] = []
+    _active_range = game.get("mouse_selection_range")
+    if isinstance(_active_range, dict):
+        _mouse_sel_ranges.append(_active_range)
+    for _committed in (game.get("mouse_selection_committed_ranges") or []):
+        if isinstance(_committed, dict):
+            _mouse_sel_ranges.append(_committed)
+    if _mouse_sel_ranges:
+        _scol = local_pal["head"]
+        _fg = (15, 15, 15)
+        for _r in _mouse_sel_ranges:
+            _sx = int(_r.get("start_x", 0))
+            _sy = int(_r.get("start_y", 0))
+            _ex = int(_r.get("end_x", 0))
+            _ey = int(_r.get("end_y", 0))
+            _mode = str(_r.get("mode", "linear"))
+            if _sy > _ey or (_sy == _ey and _sx > _ex):
+                _sx, _ex = _ex, _sx
+                _sy, _ey = _ey, _sy
+            for _ly in range(max(0, _sy), min(_ey + 1, len(out))):
+                if _mode == "block":
+                    _lx1, _lx2 = sorted([_sx, _ex])
+                elif _ly == _sy and _ly == _ey:
+                    _lx1, _lx2 = sorted([_sx, _ex])
+                elif _ly == _sy:
+                    _lx1, _lx2 = _sx, width - 1
+                elif _ly == _ey:
+                    _lx1, _lx2 = 0, _ex
+                else:
+                    _lx1, _lx2 = 0, width - 1
+                out[_ly] = _highlight_line_range(out[_ly], _lx1, _lx2, _fg, _scol)
+
     if bool(game.get("selection_frame_mode")):
         frame_anchor = game.get("selection_frame_anchor")
         local_head = local_snake[0] if local_snake and isinstance(local_snake[0], (list, tuple)) else None
@@ -3407,6 +3440,41 @@ def _overlay_frame_preview(
     out[max_y] = _overlay_at_visible_col(out[max_y], min_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{bl}\x1b[0m")
     out[max_y] = _overlay_at_visible_col(out[max_y], max_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{br}\x1b[0m")
     return out
+
+
+def _highlight_line_range(line: str, x1: int, x2: int, fg: tuple, bg: tuple) -> str:
+    """Highlight visible columns x1..x2 inclusive in a single O(len) pass."""
+    x1, x2 = sorted((max(0, x1), max(0, x2)))
+    plain = _ANSI_STRIP.sub("", line)
+    if x1 >= len(plain):
+        return line
+    x2 = min(x2, len(plain) - 1)
+    i = 0
+    visible = 0
+    n = len(line)
+    pos_x1: int | None = None
+    pos_x2_end: int | None = None
+    while i < n:
+        if line[i] == "\x1b":
+            m = _ANSI_STRIP.match(line, i)
+            if m:
+                i = m.end()
+                continue
+        if visible == x1:
+            pos_x1 = i
+        if visible == x2 + 1:
+            pos_x2_end = i
+            break
+        visible += 1
+        i += 1
+    if pos_x1 is None:
+        return line
+    if pos_x2_end is None:
+        pos_x2_end = n
+    mid_plain = _ANSI_STRIP.sub("", line[pos_x1:pos_x2_end])
+    bg_code = f"\x1b[48;2;{bg[0]};{bg[1]};{bg[2]}m"
+    fg_code = f"\x1b[38;2;{fg[0]};{fg[1]};{fg[2]}m"
+    return line[:pos_x1] + "\x1b[0m" + bg_code + fg_code + mid_plain + "\x1b[0m" + line[pos_x2_end:]
 
 
 def _overlay_at_visible_col(line: str, col: int, replacement: str) -> str:
