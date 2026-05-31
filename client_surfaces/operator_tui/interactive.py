@@ -119,6 +119,8 @@ from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowB
 from client_surfaces.operator_tui.windowing.external_window_controller import ExternalWindowController
 from client_surfaces.operator_tui.windowing.backends.wslg_webview_backend import WslgWebviewBackend
 from client_surfaces.operator_tui.windowing.window_surface import ExternalWindowState
+from client_surfaces.operator_tui.windowing.view_models.ai_snake_window_model import build_ai_snake_window_model
+from client_surfaces.operator_tui.windowing.view_models.center_window_model import build_center_window_model
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
@@ -433,20 +435,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _build_external_window_state_payload(self) -> dict[str, Any]:
         game = dict(self.state.header_logo_game or {})
+        center_model = build_center_window_model(state=self.state, game=game)
+        snake_model = build_ai_snake_window_model(game)
         return {
             "state_version": str(int(time.monotonic() * 1000)),
-            "mode": str(self.state.mode.value),
-            "section": str(self.state.section_id or ""),
-            "focus": str(self.state.focus.value),
-            "status_message": str(self.state.status_message or ""),
-            "visual_view": str(game.get("visual_viewport_active_view") or ""),
-            "center_browser_active": bool(game.get("center_browser_active")),
+            "mode": center_model["mode"],
+            "section": center_model["section"],
+            "focus": center_model["focus"],
+            "status_message": center_model["status_message"],
+            "visual_view": center_model["visual_view"],
+            "center_browser_active": center_model["center_browser_active"],
             "center_window_active": bool(game.get("center_window_active")),
-            "snake": {
-                "active": bool(game.get("snake_mode")),
-                "paused": bool(game.get("paused")),
-                "tutorial_mode": bool(game.get("tutorial_mode")),
-            },
+            "snake": snake_model,
         }
 
     def _apply_external_window_action(self, action_id: str) -> None:

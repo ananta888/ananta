@@ -81,3 +81,30 @@ def test_run_e2e_dogfood_checks_fails_on_missing_blocking_snapshots(monkeypatch,
 
     assert report["ok"] is False
     assert any(check["name"] == "required-evidence" and not check["ok"] for check in report["checks"])
+
+
+def test_run_e2e_dogfood_checks_uses_full_wslg_profile_targets(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(e2e_gate, "ROOT", tmp_path)
+    monkeypatch.setattr(e2e_gate, "_python_executable", lambda: "python3")
+    seen: list[str] = []
+
+    def fake_run(command: list[str]):  # noqa: ANN001
+        joined = " ".join(command)
+        seen.append(joined)
+        if "generate_e2e_report.py" in joined:
+            aggregate = {
+                "summary": {"total": 1, "passed": 1, "failed": 0, "skipped": 0, "advisory": 0, "blocking_failed": 0},
+                "flows": [{"flow_id": "core", "status": "passed", "blocking": True, "logs": ["x"], "snapshots": ["y"], "screenshots": []}],
+            }
+            out_path = tmp_path / "artifacts" / "e2e" / "aggregate_report.json"
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(json.dumps(aggregate), encoding="utf-8")
+        return _completed(0, stdout="ok")
+
+    monkeypatch.setattr(e2e_gate, "_run_command", fake_run)
+    report = e2e_gate.run_e2e_dogfood_checks(
+        artifact_root=tmp_path / "artifacts" / "e2e",
+        window_profile="full-wslg",
+    )
+    assert report["ok"] is True
+    assert any("test_tui_external_window_ai_snake_e2e.py" in cmd for cmd in seen)

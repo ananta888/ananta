@@ -5,7 +5,7 @@
   "title": "Operator TUI: Externes WSLg-Fenster (Hybrid-UI) mit voll steuerbarer AI-Snake",
   "purpose": "Ein robustes, externes GUI-Fenster unter WSL2/Windows 11 bereitstellen, das den mittleren Inhalt der TUI hochwertig darstellt und gleichzeitig voll durch die bestehende TUI-Steuerlogik bedient wird.",
   "goal": "Center-Bereich optional als separates Fenster (WSLg/X11) betreiben; AI-Snake im Fenster sichtbar und steuerbar; TUI bleibt Single Source of Truth fuer State, Policy und Orchestrierung.",
-  "status": "in_progress",
+  "status": "done",
   "status_scale": [
     "todo",
     "in_progress",
@@ -101,7 +101,7 @@
     {
       "id": "EW-M2",
       "title": "Bidirektionale Bridge und AI-Snake Sichtbarkeit",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "EW-004",
         "EW-005",
@@ -122,7 +122,7 @@
     {
       "id": "EW-M4",
       "title": "E2E-Nachweis und Release-Gate",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "EW-011",
         "EW-012",
@@ -195,7 +195,7 @@
       "id": "EW-004",
       "title": "Localhost Event Bridge (TUI -> Fenster) implementieren",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -215,7 +215,7 @@
       "id": "EW-005",
       "title": "Input Bridge (Fenster -> TUI Actions) anbinden",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -235,7 +235,7 @@
       "id": "EW-006",
       "title": "AI-Snake View Model fuer Fenster definieren",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -335,7 +335,7 @@
       "id": "EW-011",
       "title": "E2E-Szenario: TUI + externes Fenster + AI-Snake Steuerung",
       "type": "test",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -373,7 +373,7 @@
       "id": "EW-013",
       "title": "Release-Gate fuer External Window Hybrid",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "target_files": [
@@ -401,13 +401,13 @@
   "tasks_status_summary": {
     "total": 13,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 4,
+      "partial": 0,
       "blocked": 0,
-      "done": 8
+      "done": 13
     },
-    "progress_percent_done": 62,
+    "progress_percent_done": 100,
     "by_priority": {
       "critical": 6,
       "high": 5,
@@ -422,15 +422,15 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 3,
-      "remaining": 4
+      "done": 7,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
       "todo": 0,
-      "in_progress": 2,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 2
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -442,12 +442,12 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 1,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 4,
+    "partial": 0,
     "blocked": 0,
-    "done": 8
+    "done": 13
   },
   "summary_notes": [
     "Plan setzt explizit auf vorhandene Browser-/Realtime-Bausteine auf und fuehrt ein separates External-Window-Subsystem ein.",
