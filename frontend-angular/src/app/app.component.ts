@@ -13,6 +13,7 @@ import { MobileRuntimeService } from './services/mobile-runtime.service';
 import { SystemFacade } from './features/system/system.facade';
 import { AppShellStateService } from './services/app-shell-state.service';
 import { PythonRuntimeService } from './services/python-runtime.service';
+import { WindowBridgeService } from './services/window-bridge.service';
 
 @Component({
   selector: 'app-root',
@@ -278,6 +279,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private system = inject(SystemFacade);
   shell = inject(AppShellStateService);
   private pythonRuntime = inject(PythonRuntimeService);
+  readonly bridge = inject(WindowBridgeService);
 
   private authSub?: Subscription;
   private touchStartX = 0;
@@ -294,6 +296,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.shell.init();
+    this.bridge.initFromUrlParams();
     void this.bootstrapEmbeddedRuntime();
     this.authSub = this.auth.token$.subscribe((token) => {
       if (token) {

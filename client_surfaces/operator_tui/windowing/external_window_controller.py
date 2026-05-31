@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlencode
 
 from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowBridgeServer
 from client_surfaces.operator_tui.windowing.window_surface import ExternalWindowState, WindowHealth, WindowSurface
@@ -48,7 +50,13 @@ class ExternalWindowController:
 
     def open(self) -> ExternalWindowStatus:
         self._bridge.start()
-        self._current_url = self._bridge.window_url()
+        angular_base = os.environ.get("ANANTA_ANGULAR_URL", "").strip()
+        if angular_base:
+            bridge_status = self._bridge.status()
+            params = urlencode({"bridge": f"http://127.0.0.1:{bridge_status.port}", "token": self._bridge.session_token})
+            self._current_url = f"{angular_base.rstrip('/')}?{params}"
+        else:
+            self._current_url = self._bridge.window_url()
         health = self._surface.open_window(url=self._current_url)
         self._opened_once = True
         return self.status(health_override=health)

@@ -50,11 +50,26 @@ class ExternalWindowBridgeServer:
         server = self
 
         class Handler(BaseHTTPRequestHandler):
+            def _cors_origin(self) -> str | None:
+                origin = self.headers.get("Origin", "")
+                for prefix in ("http://127.0.0.1:", "http://localhost:", "http://[::1]:"):
+                    if origin.startswith(prefix):
+                        return origin
+                return None
+
+            def _add_cors_headers(self) -> None:
+                cors = self._cors_origin()
+                if cors:
+                    self.send_header("Access-Control-Allow-Origin", cors)
+                    self.send_header("Access-Control-Allow-Headers", "X-Ananta-Window-Token, Content-Type")
+                    self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
             def _json(self, code: int, payload: dict[str, Any]) -> None:
                 raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
                 self.send_response(code)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Content-Length", str(len(raw)))
+                self._add_cors_headers()
                 self.end_headers()
                 self.wfile.write(raw)
 
@@ -63,8 +78,23 @@ class ExternalWindowBridgeServer:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(raw)))
+                self._add_cors_headers()
                 self.end_headers()
                 self.wfile.write(raw)
+
+            def do_OPTIONS(self) -> None:  # noqa: N802
+                cors = self._cors_origin()
+                if not cors or not self._is_local_client():
+                    self.send_response(403)
+                    self.end_headers()
+                    return
+                self.send_response(204)
+                self.send_header("Access-Control-Allow-Origin", cors)
+                self.send_header("Access-Control-Allow-Headers", "X-Ananta-Window-Token, Content-Type")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Max-Age", "86400")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
 
             def _authorized(self) -> bool:
                 token = self.headers.get("X-Ananta-Window-Token", "")
