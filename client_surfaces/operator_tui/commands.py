@@ -1106,6 +1106,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
             game["markdown_text"] = markdown
             _apply_doc_mode(game, "simple")
+            game["center_window_view_mode"] = "simple"
             game["document_source"] = source
             game["_cmd_feedback"] = "doc_view: markdown_mermaid_document"
             return CommandResult(
@@ -1166,6 +1167,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
         game["markdown_text"] = text
         _apply_doc_mode(game, "simple")
+        game["center_window_view_mode"] = "simple"
         game["document_source"] = {"kind": "file", "content_or_ref": str(path), "title": path.name}
         game["_cmd_feedback"] = "doc_view: markdown_mermaid_document"
         return CommandResult(
@@ -4350,6 +4352,7 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
         "center.window.close",
         "center.window.status",
         "center.window.restart",
+        "center.window.view",
         "cwv",
         "cb",
         "cwo",
@@ -4445,6 +4448,22 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
         cmd = "center.webview.open"
     if cmd == "cwo":
         cmd = "center.window.open"
+
+    if cmd == "center.window.view":
+        mode = str(parts[1] if len(parts) > 1 else "").strip().lower()
+        if mode not in {"simple", "doc", "snake"}:
+            msg = "center.window.view <simple|doc|snake>"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        game["center_window_view_mode_request"] = mode
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"center window: view {mode} angefordert",
+            ),
+            cmd,
+        )
 
     if cmd in {"center.window.open", "center.window.close", "center.window.status", "center.window.restart"}:
         game["center_window_command"] = cmd

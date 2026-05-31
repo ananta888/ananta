@@ -1,0 +1,15 @@
+{
+  "schema_version": "window.bridge.v1",
+  "state_version": "fixture-001",
+  "payload": {
+    "mode": "normal",
+    "section": "dashboard",
+    "focus": "content",
+    "visual_view": "markdown_mermaid_document",
+    "snake": {
+      "active": true,
+      "paused": false,
+      "tutorial_mode": false
+    }
+  }
+}

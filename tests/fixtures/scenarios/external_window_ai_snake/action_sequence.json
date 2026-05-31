@@ -1,0 +1,8 @@
+{
+  "sequence_id": "external-window-seq-001",
+  "events": [
+    {"event_id": "ev-001", "action_id": "view.doc", "args": {}},
+    {"event_id": "ev-002", "action_id": "snake.pause", "args": {}},
+    {"event_id": "ev-003", "action_id": "snake.resume", "args": {}}
+  ]
+}

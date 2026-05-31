@@ -57,6 +57,13 @@ class TestCenterBrowserCommands(unittest.TestCase):
         game = result.state.header_logo_game or {}
         self.assertEqual(game.get("center_window_command"), "center.window.status")
 
+    def test_center_window_view_sets_mode_request(self):
+        state = OperatorState(endpoint="http://hub")
+        result = execute_center_browser_command("center.window.view doc", state)
+        assert result is not None
+        game = result.state.header_logo_game or {}
+        self.assertEqual(game.get("center_window_view_mode_request"), "doc")
+
 
 if __name__ == "__main__":
     unittest.main()

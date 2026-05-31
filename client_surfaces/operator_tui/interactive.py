@@ -372,6 +372,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _tick_external_window(self) -> None:
         game = dict(self.state.header_logo_game or {})
         command = str(game.pop("center_window_command", "")).strip().lower()
+        requested_view_mode = str(game.pop("center_window_view_mode_request", "")).strip().lower()
         if command:
             ctrl = self._ensure_external_window_controller()
             if command == "center.window.open":
@@ -389,8 +390,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             game["center_window_bridge_port"] = st.bridge_port
             game["center_window_reason"] = st.reason
             game["center_window_active"] = st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING}
+            game["center_window_view_mode"] = str(game.get("center_window_view_mode") or "simple")
+            game["center_window_reason_code"] = (
+                "window_ok" if st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING} else (
+                    "window_degraded" if st.state == ExternalWindowState.DEGRADED else (
+                        "window_failed" if st.state == ExternalWindowState.FAILED else "window_inactive"
+                    )
+                )
+            )
             msg = (
                 f"center window: {st.state.value} backend={st.backend} bridge={st.bridge_host}:{st.bridge_port}"
+                f" dropped={st.dropped_events} rejected={st.rejected_actions} accepted={st.accepted_actions}"
+                f" reason_code={game.get('center_window_reason_code')}"
                 + (f" reason={st.reason}" if st.reason else "")
             )
             import time as _t
@@ -398,9 +409,24 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             game["_cmd_feedback_at"] = _t.monotonic()
             self._set_state(self.state.with_updates(header_logo_game=game, status_message=msg))
 
+        if requested_view_mode in {"simple", "doc", "snake"}:
+            self._apply_external_window_action(f"view.{requested_view_mode}")
+
         ctrl = self._external_window_controller
         if ctrl is None:
             return
+        st_now = ctrl.status()
+        game = dict(self.state.header_logo_game or {})
+        game["center_window_state"] = st_now.state.value
+        game["center_window_backend"] = st_now.backend
+        game["center_window_bridge_port"] = st_now.bridge_port
+        game["center_window_bridge_connected"] = bool(st_now.bridge_running)
+        game["center_window_dropped_events"] = int(st_now.dropped_events)
+        game["center_window_rejected_actions"] = int(st_now.rejected_actions)
+        game["center_window_accepted_actions"] = int(st_now.accepted_actions)
+        game["center_window_reason"] = st_now.reason
+        game["center_window_active"] = st_now.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING}
+        self.state = self.state.with_updates(header_logo_game=game)
         ctrl.publish_state(self._build_external_window_state_payload())
         for event in ctrl.drain_events():
             self._apply_external_window_action(str(getattr(event, "action_id", "")))
@@ -426,6 +452,24 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _apply_external_window_action(self, action_id: str) -> None:
         aid = str(action_id or "").strip()
         if not aid:
+            return
+        if aid == "view.simple":
+            game = dict(self.state.header_logo_game or {})
+            game["center_window_view_mode"] = "simple"
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="window action: view simple"))
+            return
+        if aid == "view.doc":
+            game = dict(self.state.header_logo_game or {})
+            game["center_window_view_mode"] = "doc"
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="window action: view doc"))
+            self._run_command(":doc switch")
+            return
+        if aid == "view.snake":
+            game = dict(self.state.header_logo_game or {})
+            game["center_window_view_mode"] = "snake"
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="window action: view snake"))
+            if not bool(game.get("snake_mode")):
+                self._toggle_snake_mode()
             return
         if aid == "view.next":
             self._next_visual_view()
