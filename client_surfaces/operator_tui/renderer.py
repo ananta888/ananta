@@ -72,8 +72,15 @@ def render_operator_shell(
         rule_line = _header_rule(width, focused=header_focused)
         body_offset = len(persistent_header) + 1  # +1 for the rule
 
-    left_width = 22
-    detail_width = 34
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    browser_active = bool(game.get("center_browser_active"))
+    # Browser mode benefits from a much wider center pane to approximate native Carbonyl rendering.
+    if browser_active:
+        left_width = 12 if width >= 100 else 10
+        detail_width = 18 if width >= 100 else 14
+    else:
+        left_width = 22
+        detail_width = 34
     middle_width = width - left_width - detail_width - 6
     section = get_section(state.section_id)
 
