@@ -115,6 +115,10 @@ from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view im
 from client_surfaces.operator_tui.visual.views.renderer_diagnostics_view import RendererDiagnosticsView
 from client_surfaces.operator_tui.visual.views.snake_debug_view import SnakeDebugView
 from client_surfaces.operator_tui.visual.views.strategy_map_preview_view import StrategyMapPreviewView
+from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowBridgeServer
+from client_surfaces.operator_tui.windowing.external_window_controller import ExternalWindowController
+from client_surfaces.operator_tui.windowing.backends.wslg_webview_backend import WslgWebviewBackend
+from client_surfaces.operator_tui.windowing.window_surface import ExternalWindowState
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
@@ -215,6 +219,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._last_command_feedback: str = ""
         self._last_command_feedback_at: float = 0.0
         self._browser_controller: object | None = None
+        self._external_window_controller: ExternalWindowController | None = None
         self._command_history: list[str] = []
         self._command_history_index: int | None = None
         self._command_saved_draft = ""
@@ -265,9 +270,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         while True:
             self._tick_header_snake()
             self._tick_center_browser()
+            self._tick_external_window()
             self._rendered_text = self._render()
             self._app.invalidate()
             await asyncio.sleep(delay)
+
+    def _ensure_external_window_controller(self) -> ExternalWindowController:
+        if self._external_window_controller is None:
+            self._external_window_controller = ExternalWindowController(
+                surface=WslgWebviewBackend(),
+                bridge=ExternalWindowBridgeServer(),
+            )
+        return self._external_window_controller
 
     def _tick_center_browser(self) -> None:
         """Drive the BrowserModeController each frame when browser mode is active."""
@@ -354,6 +368,86 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 game["_cmd_feedback_at"] = _t.monotonic()
                 self._browser_controller = None
                 self._set_state(self.state.with_updates(header_logo_game=game))
+
+    def _tick_external_window(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        command = str(game.pop("center_window_command", "")).strip().lower()
+        if command:
+            ctrl = self._ensure_external_window_controller()
+            if command == "center.window.open":
+                st = ctrl.open()
+                game["center_window_url"] = ctrl.view_url()
+            elif command == "center.window.close":
+                st = ctrl.close()
+            elif command == "center.window.restart":
+                st = ctrl.restart()
+                game["center_window_url"] = ctrl.view_url()
+            else:
+                st = ctrl.status()
+            game["center_window_state"] = st.state.value
+            game["center_window_backend"] = st.backend
+            game["center_window_bridge_port"] = st.bridge_port
+            game["center_window_reason"] = st.reason
+            game["center_window_active"] = st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING}
+            msg = (
+                f"center window: {st.state.value} backend={st.backend} bridge={st.bridge_host}:{st.bridge_port}"
+                + (f" reason={st.reason}" if st.reason else "")
+            )
+            import time as _t
+            game["_cmd_feedback"] = msg
+            game["_cmd_feedback_at"] = _t.monotonic()
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message=msg))
+
+        ctrl = self._external_window_controller
+        if ctrl is None:
+            return
+        ctrl.publish_state(self._build_external_window_state_payload())
+        for event in ctrl.drain_events():
+            self._apply_external_window_action(str(getattr(event, "action_id", "")))
+
+    def _build_external_window_state_payload(self) -> dict[str, Any]:
+        game = dict(self.state.header_logo_game or {})
+        return {
+            "state_version": str(int(time.monotonic() * 1000)),
+            "mode": str(self.state.mode.value),
+            "section": str(self.state.section_id or ""),
+            "focus": str(self.state.focus.value),
+            "status_message": str(self.state.status_message or ""),
+            "visual_view": str(game.get("visual_viewport_active_view") or ""),
+            "center_browser_active": bool(game.get("center_browser_active")),
+            "center_window_active": bool(game.get("center_window_active")),
+            "snake": {
+                "active": bool(game.get("snake_mode")),
+                "paused": bool(game.get("paused")),
+                "tutorial_mode": bool(game.get("tutorial_mode")),
+            },
+        }
+
+    def _apply_external_window_action(self, action_id: str) -> None:
+        aid = str(action_id or "").strip()
+        if not aid:
+            return
+        if aid == "view.next":
+            self._next_visual_view()
+            return
+        if aid == "view.previous":
+            self._previous_visual_view()
+            return
+        if aid == "focus.center":
+            self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, status_message="window action: focus center"))
+            return
+        if aid == "focus.nav":
+            self._set_state(self.state.with_updates(focus=FocusPane.NAVIGATION, status_message="window action: focus nav"))
+            return
+        game = dict(self.state.header_logo_game or {})
+        if aid == "snake.pause":
+            if bool(game.get("snake_mode")) and not bool(game.get("paused")):
+                self._toggle_snake_pause()
+            return
+        if aid == "snake.resume":
+            if bool(game.get("snake_mode")) and bool(game.get("paused")):
+                self._toggle_snake_pause()
+            return
 
     async def _splash_loop(self) -> None:
         while self._splash is not None:
@@ -698,6 +792,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._exit_command_mode_for_global_shortcut()
             self._run_command(":center.webview.open")
+
+        @bindings.add(key_for_action("open_center_window", "c-9"))
+        def _(event) -> None:
+            self._exit_command_mode_for_global_shortcut()
+            self._run_command(":center.window.open")
 
         @bindings.add(key_for_action("switch_center_to_doc_view", "f6"))
         def _(event) -> None:
@@ -2883,6 +2982,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._ai_snake_config_combo_apply(game, value=value)
 
     def _handle_quit_key(self, event) -> None:
+        if self._external_window_controller is not None:
+            try:
+                self._external_window_controller.close()
+            except Exception:
+                pass
         self._flush_config_on_exit()
         event.app.exit()
 
@@ -3318,6 +3422,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game = self.state.header_logo_game or {}
         if bool(game.get("center_browser_active")) and not self._header_3d_active():
             self._tick_center_browser()
+        if bool(game.get("center_window_active")) and not self._header_3d_active():
+            self._tick_external_window()
         size = shutil.get_terminal_size((120, 32))
         self._sync_visual_viewport_state(width=size.columns, height=max(18, size.lines - 1))
         return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)

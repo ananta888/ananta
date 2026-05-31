@@ -43,6 +43,20 @@ class TestCenterBrowserCommands(unittest.TestCase):
         self.assertEqual(game.get("center_browser_status"), "requested")
         self.assertTrue(str(game.get("center_browser_url") or "").startswith("data:text/html"))
 
+    def test_center_window_open_sets_window_command(self):
+        state = OperatorState(endpoint="http://hub")
+        result = execute_center_browser_command("center.window.open", state)
+        assert result is not None
+        game = result.state.header_logo_game or {}
+        self.assertEqual(game.get("center_window_command"), "center.window.open")
+
+    def test_center_window_status_sets_window_command(self):
+        state = OperatorState(endpoint="http://hub")
+        result = execute_center_browser_command("center.window.status", state)
+        assert result is not None
+        game = result.state.header_logo_game or {}
+        self.assertEqual(game.get("center_window_command"), "center.window.status")
+
 
 if __name__ == "__main__":
     unittest.main()
