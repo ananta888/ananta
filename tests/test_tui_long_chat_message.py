@@ -72,9 +72,9 @@ def test_configure_middle_view_starts_as_cached_original_output() -> None:
     changed = configure_middle_view_for_message(game, msg, channel_id="ai:tutor", streaming=False)
 
     assert changed is True
-    assert game["markdown_stream_plain"] is True
-    assert game["markdown_mermaid_render_requested"] is False
-    assert game["markdown_mermaid_config"]["mermaid_mode"] == "disabled"  # type: ignore[index]
+    assert game["markdown_stream_plain"] is False
+    assert game["markdown_mermaid_render_requested"] is True
+    assert game["markdown_mermaid_config"]["mermaid_mode"] == "auto"  # type: ignore[index]
     assert game["chat_long_message_plain_text"] == "a" * 140
     rows = long_message_history_rows(game)
     assert len(rows) == 1
@@ -87,20 +87,20 @@ def test_toggle_render_mode_preserves_original_output() -> None:
     msg = {"id": "answer-1", "sender_id": "s-ai", "sender_kind": "ai", "text": "a" * 140}
     configure_middle_view_for_message(game, msg, channel_id="ai:tutor", streaming=False)
 
-    rendered_mode = toggle_render_mode(game)
-
-    assert rendered_mode == "rendered"
-    assert game["markdown_stream_plain"] is False
-    assert game["markdown_mermaid_render_requested"] is True
-    assert game["markdown_mermaid_config"]["mermaid_mode"] == "auto"  # type: ignore[index]
-    assert game["chat_long_message_plain_text"] == "a" * 140
-
     plain_mode = toggle_render_mode(game)
 
     assert plain_mode == "plain"
     assert game["markdown_stream_plain"] is True
     assert game["markdown_mermaid_render_requested"] is False
     assert game["markdown_mermaid_config"]["mermaid_mode"] == "disabled"  # type: ignore[index]
+    assert game["chat_long_message_plain_text"] == "a" * 140
+
+    rendered_mode = toggle_render_mode(game)
+
+    assert rendered_mode == "rendered"
+    assert game["markdown_stream_plain"] is False
+    assert game["markdown_mermaid_render_requested"] is True
+    assert game["markdown_mermaid_config"]["mermaid_mode"] == "auto"  # type: ignore[index]
     assert game["chat_long_message_plain_text"] == "a" * 140
 
 
@@ -118,7 +118,7 @@ def test_refresh_rendered_view_keeps_cached_original_output() -> None:
     assert game["chat_long_message_plain_text"] == "a" * 140
 
 
-def test_configure_middle_view_for_history_entry_shows_plain_original() -> None:
+def test_configure_middle_view_for_history_entry_shows_rendered_original() -> None:
     game: dict[str, object] = {}
     entry = {
         "id": "answer-1",
@@ -133,8 +133,8 @@ def test_configure_middle_view_for_history_entry_shows_plain_original() -> None:
 
     assert changed is True
     assert game["chat_long_message_plain_text"] == "a" * 140
-    assert game["markdown_stream_plain"] is True
-    assert game["markdown_mermaid_render_requested"] is False
+    assert game["markdown_stream_plain"] is False
+    assert game["markdown_mermaid_render_requested"] is True
 
 
 def test_chat_renderer_shows_hint_after_100_chars() -> None:

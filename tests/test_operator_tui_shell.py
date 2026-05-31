@@ -2990,8 +2990,8 @@ def test_enter_on_navigation_history_opens_cached_original_output() -> None:
     updated = tui.state.header_logo_game or {}
     assert tui.state.focus is FocusPane.CONTENT
     assert updated["chat_long_message_plain_text"].startswith("Antwort lang")
-    assert updated["markdown_stream_plain"] is True
-    assert updated["markdown_mermaid_render_requested"] is False
+    assert updated["markdown_stream_plain"] is False
+    assert updated["markdown_mermaid_render_requested"] is True
     assert tui.state.status_message == "Chat-History: Originalausgabe"
 
 
@@ -3022,8 +3022,8 @@ def test_mouse_click_on_navigation_history_opens_cached_original_output(monkeypa
     updated = tui.state.header_logo_game or {}
     assert tui.state.focus is FocusPane.CONTENT
     assert updated["chat_long_message_plain_text"].startswith("Antwort lang")
-    assert updated["markdown_stream_plain"] is True
-    assert updated["markdown_mermaid_render_requested"] is False
+    assert updated["markdown_stream_plain"] is False
+    assert updated["markdown_mermaid_render_requested"] is True
     assert tui.state.status_message == "Chat-History: Originalausgabe"
 
 

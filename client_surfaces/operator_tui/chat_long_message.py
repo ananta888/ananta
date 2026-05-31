@@ -141,10 +141,10 @@ def configure_middle_view_for_history_entry(game: dict[str, Any], entry: dict[st
     game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
     game["visual_viewport_force_render"] = True
     game["markdown_auto_follow"] = False
-    game["markdown_stream_plain"] = True
-    game["markdown_mermaid_render_requested"] = False
-    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=False)
-    game["visual_state_version"] = f"chat-long-message:{msg_id}:plain-history"
+    game["markdown_stream_plain"] = False
+    game["markdown_mermaid_render_requested"] = True
+    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=True)
+    game["visual_state_version"] = f"chat-long-message:{msg_id}:rendered-history"
     return True
 
 
@@ -170,9 +170,11 @@ def configure_middle_view_for_message(
     game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
     game["visual_viewport_force_render"] = True
     game["markdown_auto_follow"] = True
-    game["markdown_stream_plain"] = True
-    game["markdown_mermaid_render_requested"] = False
-    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=False)
+    # While streaming we stay plain; once done we switch to rendered markdown/mermaid.
+    game["markdown_stream_plain"] = bool(streaming)
+    game["markdown_mermaid_render_requested"] = not bool(streaming)
+    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=not bool(streaming))
     version_suffix = len(text)
-    game["visual_state_version"] = f"chat-long-message:{game['chat_long_message_id']}:plain:{version_suffix}"
+    mode = "plain" if bool(streaming) else "rendered"
+    game["visual_state_version"] = f"chat-long-message:{game['chat_long_message_id']}:{mode}:{version_suffix}"
     return True
