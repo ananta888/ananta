@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
 
+from agent.cli.logo_assets import clear_asset_cache, load_logo
 from agent.cli.splash import SplashMachine, SplashState
-from agent.cli.logo_assets import load_logo, clear_asset_cache
 
 
 def test_splash_disabled_by_env_var(monkeypatch):
@@ -199,7 +198,7 @@ def test_splash_debug_file_written_with_flag(tmp_path, monkeypatch):
 
 
 def test_render_once_without_splash():
-    from client_surfaces.operator_tui.models import OperatorState, OperatorMode, FocusPane
+    from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
     from client_surfaces.operator_tui.renderer import render_operator_shell
 
     state = OperatorState(
@@ -211,12 +210,12 @@ def test_render_once_without_splash():
         terminal_graphics={"no_color": True},
     )
     output = render_operator_shell(state, width=120, height=32, splash=None)
-    assert "SNAKE" in output
+    assert "DASHBOARD" in output
     assert len(output) > 0
 
 
 def test_render_once_with_compact_splash():
-    from client_surfaces.operator_tui.models import OperatorState, OperatorMode, FocusPane
+    from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
     from client_surfaces.operator_tui.renderer import render_operator_shell
 
     sm = SplashMachine(fullscreen_seconds=0.0, transition_seconds=0.001, clock=lambda: 0.0)
@@ -236,7 +235,7 @@ def test_render_once_with_compact_splash():
 
 
 def test_render_once_with_skip_splash():
-    from client_surfaces.operator_tui.models import OperatorState, OperatorMode, FocusPane
+    from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
     from client_surfaces.operator_tui.renderer import render_operator_shell
 
     sm = SplashMachine(clock=lambda: 0.0)
@@ -251,7 +250,28 @@ def test_render_once_with_skip_splash():
         terminal_graphics={"no_color": True},
     )
     output = render_operator_shell(state, width=120, height=32, splash=sm)
-    assert "SNAKE" in output
+    assert "DASHBOARD" in output
+
+
+def test_operator_tui_main_render_once_skip_splash_exits_zero(capsys, monkeypatch):
+    from client_surfaces.operator_tui.app import main
+
+    monkeypatch.setenv("ANANTA_TUI_SPLASH", "0")
+    rc = main(["--render-once", "--skip-splash", "--width", "90", "--height", "24"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "DASHBOARD" in out
+    assert "endpoint=http://localhost:5000" in out
+
+
+def test_operator_tui_main_render_once_compact_frame_exits_zero(capsys, monkeypatch):
+    from client_surfaces.operator_tui.app import main
+
+    monkeypatch.setenv("ANANTA_TUI_SPLASH", "0")
+    rc = main(["--render-once", "--splash-frame", "compact", "--width", "90", "--height", "24"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "mode" in out
 
 
 def test_render_once_pixel_intro_frame(capsys, monkeypatch):
