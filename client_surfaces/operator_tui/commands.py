@@ -184,6 +184,36 @@ def _doc_switch_markdown_from_state(state: OperatorState) -> tuple[str, dict[str
     return markdown, {"kind": "state", "content_or_ref": section_id, "title": section_id}
 
 
+def _apply_doc_mode(game: dict[str, object], mode: str) -> str:
+    m = str(mode or "").strip().lower()
+    if m in {"simple", "plain"}:
+        game["markdown_stream_plain"] = True
+        game["markdown_mermaid_render_requested"] = False
+        game["markdown_mermaid_config"] = {
+            "markdown_mode": "ansi",
+            "mermaid_mode": "disabled",
+            "mermaid_renderers": ["fallback_codeblock"],
+        }
+        return "simple"
+    if m in {"rendered", "markdown"}:
+        game["markdown_stream_plain"] = False
+        game["markdown_mermaid_render_requested"] = False
+        game["markdown_mermaid_config"] = {
+            "markdown_mode": "ansi",
+            "mermaid_mode": "disabled",
+            "mermaid_renderers": ["fallback_codeblock"],
+        }
+        return "rendered"
+    game["markdown_stream_plain"] = False
+    game["markdown_mermaid_render_requested"] = True
+    game["markdown_mermaid_config"] = {
+        "markdown_mode": "ansi",
+        "mermaid_mode": "auto",
+        "mermaid_renderers": ["mermaid_cli", "playwright", "fallback_codeblock"],
+    }
+    return "mermaid"
+
+
 def _active_goal_id(state: OperatorState) -> str:
     game = dict(state.header_logo_game or {})
     return str(game.get("active_goal_id") or "").strip()
@@ -1042,9 +1072,25 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         sub = str(args[0]).strip().lower() if args else "help"
         if sub in {"help", "status"}:
             return CommandResult(
-                state.with_updates(status_message="doc: open <path-to-md> | switch | preflight"),
+                state.with_updates(status_message="doc: open <path-to-md> | switch | mode <simple|rendered|mermaid> | preflight"),
                 "doc help",
                 handled=(sub == "status"),
+            )
+        if sub == "mode":
+            if len(args) < 2:
+                msg = "doc mode: simple|rendered|mermaid"
+                return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+            game = dict(state.header_logo_game or {})
+            selected = _apply_doc_mode(game, str(args[1]))
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    mode=OperatorMode.NORMAL,
+                    command_line="",
+                    focus=FocusPane.CONTENT,
+                    status_message=f"doc mode: {selected}",
+                ),
+                f"doc mode: {selected}",
             )
         if sub in {"switch", "here"}:
             game = dict(state.header_logo_game or {})
@@ -1057,7 +1103,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             game["visual_viewport_enabled"] = True
             game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
             game["markdown_text"] = markdown
-            game["markdown_mermaid_render_requested"] = True
+            _apply_doc_mode(game, "simple")
             game["document_source"] = source
             game["_cmd_feedback"] = "doc_view: markdown_mermaid_document"
             return CommandResult(
@@ -1086,7 +1132,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 json.dumps(payload, ensure_ascii=False),
             )
         if sub != "open":
-            msg = "doc: open <path-to-md> | switch | preflight"
+            msg = "doc: open <path-to-md> | switch | mode <simple|rendered|mermaid> | preflight"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         if len(args) < 2:
             msg = "doc open: path fehlt"
@@ -1117,7 +1163,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         game["visual_viewport_enabled"] = True
         game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
         game["markdown_text"] = text
-        game["markdown_mermaid_render_requested"] = True
+        _apply_doc_mode(game, "simple")
         game["document_source"] = {"kind": "file", "content_or_ref": str(path), "title": path.name}
         game["_cmd_feedback"] = "doc_view: markdown_mermaid_document"
         return CommandResult(

@@ -18,7 +18,8 @@ def test_doc_open_activates_markdown_mermaid_view(tmp_path: Path) -> None:
     assert result.handled is True
     assert game.get("visual_viewport_enabled") is True
     assert game.get("visual_viewport_active_view_request") == "markdown_mermaid_document"
-    assert game.get("markdown_mermaid_render_requested") is True
+    assert game.get("markdown_stream_plain") is True
+    assert game.get("markdown_mermaid_render_requested") is False
     source = dict(game.get("document_source") or {})
     assert source.get("kind") == "file"
     assert source.get("content_or_ref") == str(md.resolve())
@@ -57,6 +58,8 @@ def test_doc_switch_uses_current_center_payload_as_markdown() -> None:
     assert result.handled is True
     assert game.get("visual_viewport_enabled") is True
     assert game.get("visual_viewport_active_view_request") == "markdown_mermaid_document"
+    assert game.get("markdown_stream_plain") is True
+    assert game.get("markdown_mermaid_render_requested") is False
     text = str(game.get("markdown_text") or "")
     assert text.startswith("# dashboard")
     assert "```json" in text
@@ -77,3 +80,19 @@ def test_doc_switch_disables_center_browser_and_enables_visual_viewport() -> Non
     assert game.get("center_browser_status") == "exited"
     assert dict(game.get("visual_viewport") or {}).get("enabled") is True
     assert game.get("visual_viewport_enabled") is True
+
+
+def test_doc_mode_switches_between_simple_rendered_and_mermaid() -> None:
+    state = OperatorState(endpoint="http://hub", header_logo_game={})
+    r1 = execute_command("doc mode simple", state)
+    g1 = dict(r1.state.header_logo_game or {})
+    assert g1.get("markdown_stream_plain") is True
+    assert g1.get("markdown_mermaid_render_requested") is False
+    r2 = execute_command("doc mode rendered", r1.state)
+    g2 = dict(r2.state.header_logo_game or {})
+    assert g2.get("markdown_stream_plain") is False
+    assert g2.get("markdown_mermaid_render_requested") is False
+    r3 = execute_command("doc mode mermaid", r2.state)
+    g3 = dict(r3.state.header_logo_game or {})
+    assert g3.get("markdown_stream_plain") is False
+    assert g3.get("markdown_mermaid_render_requested") is True
