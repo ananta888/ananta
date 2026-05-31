@@ -1075,6 +1075,7 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     runtime = dict(game.get("visual_runtime_status") or {})
     title = _pane_title("VISUAL VIEWPORT", state.focus == FocusPane.CONTENT)
+    show_doc_diag = str(os.environ.get("ANANTA_TUI_DOC_DIAGNOSTICS") or "").strip().lower() in {"1", "true", "yes", "on"}
 
     frame_lines = [str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)]
     if not frame_lines:
@@ -1113,6 +1114,20 @@ def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str
 
     # Compose output lines
     lines: list[str] = [title]
+    if show_doc_diag and str(runtime.get("active_view") or game.get("visual_viewport_active_view") or "") == "markdown_mermaid_document":
+        diag = dict(game.get("visual_viewport_scene_meta") or {})
+        profile = str(diag.get("docs_graphics_profile") or "-")
+        backend = str(diag.get("mermaid_renderer_used") or "-")
+        fallback_count = int(diag.get("mermaid_fallback_count") or 0)
+        cache_hits = int(diag.get("mermaid_cache_hits") or 0)
+        cache_misses = int(diag.get("mermaid_cache_misses") or 0)
+        cache_ratio = (cache_hits / max(1, cache_hits + cache_misses)) * 100.0
+        lines.append(
+            _clip(
+                f"  docdiag profile={profile} backend={backend} fallback={fallback_count} cache={cache_hits}/{cache_misses} ({cache_ratio:.0f}%)",
+                width,
+            )
+        )
 
     # Body lines: v-scrollbar overlaid as LAST character of each line (no width change)
     for i in range(body_rows):

@@ -3143,7 +3143,18 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if frame.metadata:
                 game["visual_viewport_scene_meta"] = {
                     k: frame.metadata.get(k)
-                    for k in ("content_lines", "max_line_width", "scroll_offset", "h_offset")
+                    for k in (
+                        "content_lines",
+                        "max_line_width",
+                        "scroll_offset",
+                        "h_offset",
+                        "mermaid_renderer_used",
+                        "mermaid_fallback_count",
+                        "mermaid_cache_hits",
+                        "mermaid_cache_misses",
+                        "docs_graphics_profile",
+                        "docs_graphics_wsl2_detected",
+                    )
                     if frame.metadata.get(k) is not None
                 }
                 game["visual_viewport_scene_meta"]["viewport_width"] = middle_width
