@@ -50,7 +50,7 @@ class ExternalWindowController:
 
     def open(self) -> ExternalWindowStatus:
         self._bridge.start()
-        angular_base = os.environ.get("ANANTA_ANGULAR_URL", "").strip()
+        angular_base = os.environ.get("ANANTA_ANGULAR_URL", "http://127.0.0.1:4200").strip()
         if angular_base:
             bridge_status = self._bridge.status()
             params = urlencode({"bridge": f"http://127.0.0.1:{bridge_status.port}", "token": self._bridge.session_token})
