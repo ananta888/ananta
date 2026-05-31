@@ -709,7 +709,7 @@ def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> Se
             parts = oidc_token.split(".")
             if len(parts) == 3:
                 pad = parts[1] + "=" * (-len(parts[1]) % 4)
-                claims = json.loads(base64.b64decode(pad))
+                claims = json.loads(base64.urlsafe_b64decode(pad))
                 oidc_status = {
                     "sub": str(claims.get("sub") or ""),
                     "username": str(claims.get("preferred_username") or claims.get("email") or ""),

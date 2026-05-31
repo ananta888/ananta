@@ -753,12 +753,22 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
         env["ANANTA_SIGNALING_URL"] = public_signaling
         if public_oidc_token:
             env["ANANTA_TUI_E2E_OIDC_TOKEN"] = public_oidc_token
+            env["ANANTA_TUI_OIDC_TOKEN"] = public_oidc_token
 
     script_actions: list[dict[str, object]] = [
-        {"at": 2.2, "send": f":share create {title}\r".encode("utf-8")},
-        {"at": 5.5, "send": b":share list\r"},
-        {"at": 8.8, "send": b":share list\r"},
-        {"at": 10.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
+        {
+            "at": 3.5,
+            "send": f":share create {title}\r".encode("utf-8"),
+        },
+        {
+            "at": 7.0,
+            "send": b":share list\r",
+        },
+        {
+            "at": 10.5,
+            "send": b":share list\r",
+        },
+        {"at": 13.0, "send": b"\x1f"},  # Ctrl+_ => save_tui_snapshot
         {"at": 38.0, "send": b"q"},
     ]
 
