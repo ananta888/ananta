@@ -946,6 +946,53 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 "visual status",
             )
         return CommandResult(state, "visual: on|off|toggle|status|list|view <id>", handled=False)
+    if command in {"doc", "md", "markdown"}:
+        sub = str(args[0]).strip().lower() if args else "help"
+        if sub in {"help", "status"}:
+            return CommandResult(
+                state.with_updates(status_message="doc: open <path-to-md> | uses markdown_mermaid_document view"),
+                "doc help",
+                handled=(sub == "status"),
+            )
+        if sub != "open":
+            msg = "doc: open <path-to-md>"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        if len(args) < 2:
+            msg = "doc open: path fehlt"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        path_raw = str(args[1]).strip()
+        if not path_raw:
+            msg = "doc open: path fehlt"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        try:
+            path = Path(path_raw).expanduser().resolve()
+        except Exception as exc:
+            msg = f"doc open: ungültiger Pfad ({exc})"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        if not path.exists() or not path.is_file():
+            msg = f"doc open: Datei nicht gefunden ({path})"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            msg = f"doc open: Datei nicht lesbar ({exc})"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        game = dict(state.header_logo_game or {})
+        game["visual_viewport_enabled"] = True
+        game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
+        game["markdown_text"] = text
+        game["markdown_mermaid_render_requested"] = True
+        game["document_source"] = {"kind": "file", "content_or_ref": str(path), "title": path.name}
+        game["_cmd_feedback"] = "doc_view: markdown_mermaid_document"
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"doc_view aktiv: {path.name}",
+            ),
+            "doc open",
+        )
     if command in {"snake-access", "snake_access"}:
         if len(args) < 2:
             return CommandResult(state, "snake-access requires: <snake-id> <cancel|view|full>", handled=False)
@@ -4110,9 +4157,16 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
         if not cap.available:
             msg = f"browser: carbonyl nicht gefunden — {cap.unavailable_reason} | npm install -g carbonyl"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
+        local_md_candidate = Path(url).expanduser()
+        if url.lower().endswith(".md") and local_md_candidate.exists():
+            msg = f"doc erkannt: :doc open {url}"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         # Normalise: add https:// if no scheme given
         if not url.startswith(("http://", "https://", "file://", "data:")):
             url = "https://" + url
+        if url.startswith(("file://",)) and url.lower().endswith(".md"):
+            msg = "doc erkannt: nutze :doc open <pfad.md> fuer markdown_mermaid_document view"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         game["center_browser_active"] = True
         game["center_browser_status"] = "requested"
         game["center_browser_url"] = url
