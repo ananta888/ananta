@@ -584,6 +584,54 @@ def _navigation_lines(state: OperatorState) -> list[str]:
     return lines
 
 
+def _content_browser_lines(game: dict, width: int, *, height: int | None = None) -> list[str]:
+    """Render Carbonyl browser output via pyte virtual terminal."""
+    h = max(3, int(height or 20))
+    status = str(game.get("center_browser_status") or "")
+    url = str(game.get("center_browser_url") or "")
+    error = str(game.get("center_browser_error") or "")
+    header = f"\x1b[38;2;80;140;220m[BROWSER]\x1b[0m {url[:max(4, width - 12)]}"
+
+    if status in ("requested", "starting"):
+        return [header, "  \x1b[2mstarte carbonyl…\x1b[0m"]
+    if status == "error" or error:
+        return [header,
+                f"  \x1b[38;2;220;80;80m✗ {error[:width - 4]}\x1b[0m",
+                "  \x1b[2mF5 zum Schliessen\x1b[0m"]
+
+    raw_bytes: bytes = bytes(game.get("_browser_frame_bytes") or b"")
+    if not raw_bytes:
+        return [header, "  \x1b[2mwarte auf Carbonyl-Output…\x1b[0m"]
+
+    try:
+        import pyte
+        screen = pyte.Screen(width, h)
+        stream = pyte.ByteStream(screen)
+        # Feed the last 128 KB to the virtual terminal
+        stream.feed(raw_bytes[-131072:])
+        result = [header]
+        for row_idx in range(h):
+            row = screen.buffer.get(row_idx, {})
+            line = "".join(
+                (row[col].data if row.get(col) else " ")
+                for col in range(width)
+            ).rstrip()
+            result.append(line)
+        return result[:h + 1]
+    except Exception:
+        # pyte not available or parse error — fall back to last raw lines
+        try:
+            text = raw_bytes[-32768:].decode("utf-8", errors="replace")
+        except Exception:
+            text = ""
+        plain_lines = _ANSI_STRIP.sub("", text).split("\n")
+        visible = [l for l in plain_lines if l.strip()][-h:]
+        result = [header] + [_clip(l, width) for l in visible]
+        while len(result) < h:
+            result.append("")
+        return result[:h]
+
+
 def _content_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
     section = get_section(state.section_id)
     panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
@@ -597,6 +645,8 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
         return _content_ai_snake_config_lines(state, width)
     if bool(dict(game.get("visual_viewport") or {}).get("enabled")):
         return _content_visual_viewport_lines(state, width)
+    if bool(game.get("center_browser_active")):
+        return _content_browser_lines(game, width, height=height)
 
     if panel_state == PanelState.LOADING:
         lines.append("  loading...")

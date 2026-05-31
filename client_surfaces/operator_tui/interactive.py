@@ -3255,6 +3255,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     def _render(self) -> str:
         if self._splash is not None:
             self._splash.tick()
+        # Tick browser even when 3D header loop is disabled
+        game = self.state.header_logo_game or {}
+        if bool(game.get("center_browser_active")) and not self._header_3d_active():
+            self._tick_center_browser()
         size = shutil.get_terminal_size((120, 32))
         self._sync_visual_viewport_state(width=size.columns, height=max(18, size.lines - 1))
         return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
