@@ -1028,7 +1028,19 @@ class MouseArtifactMixin:
 
     def _run_command(self, command: str) -> None:
         result = execute_command(command, self.state)
-        state = result.state.with_updates(status_message=str(result.state.status_message or result.message))
+        msg = str(result.state.status_message or result.message or "")
+        state = result.state.with_updates(status_message=msg)
+        # Store result for brief display in the command line area (4s timeout)
+        if msg:
+            import time as _t
+            _now = _t.monotonic()
+            if hasattr(self, "_last_command_feedback"):
+                self._last_command_feedback = msg  # type: ignore[attr-defined]
+                self._last_command_feedback_at = _now  # type: ignore[attr-defined]
+            _game_pre = dict(state.header_logo_game or {})
+            _game_pre["_cmd_feedback"] = msg
+            _game_pre["_cmd_feedback_at"] = _now
+            state = state.with_updates(header_logo_game=_game_pre)
         state = self._deactivate_aux_views_for_section_change(state, next_section_id=state.section_id)
         if state.section_id != self.state.section_id or command.strip().lower() in {":refresh", "refresh", "r", ":next", ":prev"}:
             state = load_active_section(state, self._registry)

@@ -4054,9 +4054,16 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
 
     cmd = parts[0].lower().replace("-", ".").replace("_", ".")
     # :cb <url> — short alias for center.browser.url
-    if cmd == "cb" and len(parts) > 1:
-        parts = ["center.browser.url"] + parts[1:]
-        cmd = "center.browser.url"
+    if cmd == "cb":
+        if len(parts) > 1:
+            parts = ["center.browser.url"] + parts[1:]
+            cmd = "center.browser.url"
+        else:
+            # :cb without args — show status
+            from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
+            cap = detect_carbonyl_browser()
+            msg = f"browser: carbonyl {'verfügbar' if cap.available else 'nicht gefunden — ' + cap.unavailable_reason}"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
 
     known = {
         "center.browser.toggle",
@@ -4097,6 +4104,12 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
                 "center.browser.url",
                 handled=False,
             )
+        # Check carbonyl availability immediately
+        from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
+        cap = detect_carbonyl_browser()
+        if not cap.available:
+            msg = f"browser: carbonyl nicht gefunden — {cap.unavailable_reason} | npm install -g @fathym/carbonyl"
+            return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         # Normalise: add https:// if no scheme given
         if not url.startswith(("http://", "https://", "file://", "data:")):
             url = "https://" + url
