@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<style>
+/* Ananta TUI dark theme — no external CDN, no remote resources */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: #1a1a2e;
+  color: #e0e0f0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 12px 16px;
+  min-height: 100vh;
+}
+h1, h2, h3, h4, h5, h6 {
+  color: #a8b4ff;
+  margin: 0.8em 0 0.4em 0;
+  font-weight: bold;
+}
+h1 { font-size: 1.5em; border-bottom: 1px solid #3a3a5e; padding-bottom: 0.2em; }
+h2 { font-size: 1.3em; }
+h3 { font-size: 1.1em; }
+p { margin: 0.6em 0; }
+a { color: #66b3ff; }
+a:visited { color: #aa88ff; }
+code {
+  background: #2a2a4e;
+  color: #c8f0c8;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+pre {
+  background: #0f0f1e;
+  color: #c8f0c8;
+  padding: 10px 14px;
+  border-left: 3px solid #5050a0;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+pre code { background: transparent; padding: 0; }
+blockquote {
+  border-left: 3px solid #5050a0;
+  padding-left: 10px;
+  color: #aaaacc;
+  margin: 0.6em 0;
+  font-style: italic;
+}
+table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+th { background: #2a2a5e; color: #c0c8ff; padding: 6px 10px; border: 1px solid #3a3a6e; }
+td { padding: 5px 10px; border: 1px solid #2a2a4e; }
+tr:nth-child(even) { background: #1e1e38; }
+ul, ol { padding-left: 1.5em; margin: 0.4em 0; }
+li { margin: 0.2em 0; }
+hr { border: none; border-top: 1px solid #3a3a5e; margin: 1em 0; }
+.mermaid-source {
+  background: #0f0f1e;
+  color: #88aacc;
+  padding: 8px 12px;
+  border-left: 3px solid #4466aa;
+  border-radius: 4px;
+  font-style: italic;
+  margin: 0.8em 0;
+}
+.mermaid-source::before {
+  content: "[Mermaid diagram — local renderer not available] ";
+  color: #888;
+}
+.ananta-browser-footer {
+  margin-top: 2em;
+  padding-top: 0.5em;
+  border-top: 1px solid #2a2a4e;
+  color: #666;
+  font-size: 0.85em;
+}
+</style>
+</head>
+<body>
+{{BODY}}
+<div class="ananta-browser-footer">Ananta TUI &mdash; browser render mode &mdash; local only</div>
+</body>
+</html>
