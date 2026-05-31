@@ -597,6 +597,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         def _(event) -> None:
             self._toggle_visual_view_switcher_overlay()
 
+        @bindings.add(key_for_action("center_browser_toggle", "f5"))
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            result = execute_command("center.browser.toggle", self.state)
+            self._set_state(result.state)
+
         @bindings.add(key_for_action("next_visual_view", "f9"))
         def _(event) -> None:
             self._next_visual_view()
@@ -2810,6 +2817,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         game["snake_message_input"] = ""
         game["snake_message_cursor"] = 0
         game["shortcut_help_middle_open"] = False
+        game["center_browser_active"] = False
+        game["center_browser_status"] = "exited"
         game["active"] = False
         game["ui_steering"] = False
         game["free_mode"] = False

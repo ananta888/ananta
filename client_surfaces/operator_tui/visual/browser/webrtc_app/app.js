@@ -91,6 +91,19 @@ function getConfig() {
   return window.ANANTA_CONFIG || {};
 }
 
+function signalingMessage(type, cfg, payload = {}, recipientId = "") {
+  return {
+    type,
+    session_id: cfg.session_id || "default",
+    sender_id: cfg.browser_peer_id || "browser",
+    recipient_id: recipientId,
+    payload,
+    session_nonce: cfg.session_nonce || "",
+    message_id: crypto.randomUUID(),
+    timestamp: Date.now() / 1000,
+  };
+}
+
 // ---- Signaling over WebSocket ----------------------------------------------
 
 function connectSignaling(cfg) {
@@ -118,12 +131,9 @@ function connectSignaling(cfg) {
     state.signaling = "connected";
     renderAll();
     log("Signaling connected", "ok");
-    // Send join message
-    ws.send(JSON.stringify({
-      type: "join",
-      session_nonce: cfg.session_nonce || "",
+    ws.send(JSON.stringify(signalingMessage("join", cfg, {
       oidc_subject_hash: cfg.oidc_subject_hash || "",
-    }));
+    })));
   };
 
   ws.onmessage = (ev) => {
@@ -177,9 +187,7 @@ function createPeerConnection(cfg) {
   pc.onicecandidate = (ev) => {
     if (ev.candidate && state.ws && state.ws.readyState === WebSocket.OPEN) {
       state.ws.send(JSON.stringify({
-        type: "ice_candidate",
-        candidate: ev.candidate,
-        session_nonce: cfg.session_nonce || "",
+        ...signalingMessage("ice_candidate", cfg, { candidate: ev.candidate }, state.peerId || ""),
       }));
     }
   };
@@ -224,10 +232,11 @@ function attachDataChannel(dc, cfg) {
 // ---- Message handlers ------------------------------------------------------
 
 async function handleSignalingMessage(msg, cfg) {
+  const payload = msg.payload || {};
   switch (msg.type) {
     case "joined":
       state.oidc = "authenticated";
-      state.peerId = msg.peer_id || null;
+      state.peerId = msg.peer_id || msg.sender_id || payload.peer_id || null;
       renderAll();
       log(`Joined session. Peer ID: ${state.peerId}`, "ok");
       break;
@@ -235,14 +244,12 @@ async function handleSignalingMessage(msg, cfg) {
     case "offer": {
       log("Received SDP offer");
       if (!state.pc) state.pc = createPeerConnection(cfg);
-      await state.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+      await state.pc.setRemoteDescription(new RTCSessionDescription(payload.sdp || msg.sdp));
       const answer = await state.pc.createAnswer();
       await state.pc.setLocalDescription(answer);
       if (state.ws && state.ws.readyState === WebSocket.OPEN) {
         state.ws.send(JSON.stringify({
-          type: "answer",
-          sdp: answer,
-          session_nonce: cfg.session_nonce || "",
+          ...signalingMessage("answer", cfg, { sdp: answer }, state.peerId || ""),
         }));
       }
       break;
@@ -251,15 +258,16 @@ async function handleSignalingMessage(msg, cfg) {
     case "answer": {
       log("Received SDP answer");
       if (state.pc) {
-        await state.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        await state.pc.setRemoteDescription(new RTCSessionDescription(payload.sdp || msg.sdp));
       }
       break;
     }
 
     case "ice_candidate": {
-      if (state.pc && msg.candidate) {
+      const candidate = payload.candidate || msg.candidate;
+      if (state.pc && candidate) {
         try {
-          await state.pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          await state.pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (err) {
           log(`ICE candidate error: ${err.message}`, "error");
         }
