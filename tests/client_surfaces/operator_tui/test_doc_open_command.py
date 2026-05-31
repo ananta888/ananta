@@ -44,3 +44,20 @@ def test_doc_preflight_returns_structured_report() -> None:
     report = dict(payload["report"])
     for key in ("mmdc_path", "node_path", "chafa_path", "playwright_installed", "wsl2_detected"):
         assert key in report
+
+
+def test_doc_switch_uses_current_center_payload_as_markdown() -> None:
+    state = OperatorState(
+        endpoint="http://hub",
+        section_id="dashboard",
+        section_payloads={"dashboard": {"status": "ok", "items": [1, 2]}},
+    )
+    result = execute_command("doc switch", state)
+    game = result.state.header_logo_game or {}
+    assert result.handled is True
+    assert game.get("visual_viewport_enabled") is True
+    assert game.get("visual_viewport_active_view_request") == "markdown_mermaid_document"
+    text = str(game.get("markdown_text") or "")
+    assert text.startswith("# dashboard")
+    assert "```json" in text
+    assert '"status": "ok"' in text

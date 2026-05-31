@@ -44,6 +44,11 @@ def test_f10_is_default_previous_view_key():
     assert key == "f10"
 
 
+def test_f6_is_default_switch_center_to_doc_view_key():
+    key = key_for_action("switch_center_to_doc_view", "f6")
+    assert key == "f6"
+
+
 def test_ctrl_m_detected_as_unsafe_when_configured(tmp_path):
     import json
     kb = {
