@@ -841,6 +841,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 event_type=parsed[2],
                 buttons=parsed[3],
                 scroll_delta=parsed[4],
+                ctrl_held=parsed[5] if len(parsed) > 5 else False,
             )
 
         return bindings
