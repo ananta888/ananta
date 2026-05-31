@@ -1,0 +1,149 @@
+/* Ananta WebRTC App — dark theme, matches TUI aesthetics */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0d0d0d;
+  --bg-panel: #1a1a1a;
+  --bg-row: #111111;
+  --border: #2a2a2a;
+  --text: #d0d0d0;
+  --text-dim: #666666;
+  --text-label: #888888;
+  --green: #00cc66;
+  --yellow: #ccaa00;
+  --red: #cc3333;
+  --blue: #3399cc;
+  --font: "Courier New", Courier, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 15px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.panel-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--bg-row);
+}
+
+.status-row:last-child {
+  border-bottom: none;
+}
+
+.status-label {
+  color: var(--text-label);
+  min-width: 160px;
+}
+
+.status-value {
+  font-weight: bold;
+}
+
+/* State color classes */
+.state-connected,
+.state-open,
+.state-success {
+  color: var(--green);
+}
+
+.state-connecting,
+.state-checking,
+.state-pending {
+  color: var(--yellow);
+}
+
+.state-failed,
+.state-closed,
+.state-error,
+.state-disconnected {
+  color: var(--red);
+}
+
+.state-unknown,
+.state-new,
+.state-inactive {
+  color: var(--text-dim);
+}
+
+/* Peer ID display */
+#peer-id {
+  font-size: 11px;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+/* Log area */
+#log {
+  background: var(--bg-row);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  height: 120px;
+  overflow-y: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+#log .log-entry {
+  padding: 1px 0;
+}
+
+#log .log-error {
+  color: var(--red);
+}
+
+#log .log-ok {
+  color: var(--green);
+}
+
+/* Indicator dot */
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.dot-green { background: var(--green); }
+.dot-yellow { background: var(--yellow); }
+.dot-red { background: var(--red); }
+.dot-grey { background: var(--text-dim); }
