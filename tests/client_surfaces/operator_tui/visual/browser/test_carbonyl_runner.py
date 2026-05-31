@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,9 +7,7 @@ import pytest
 from client_surfaces.operator_tui.visual.browser.carbonyl_runner import (
     CarbonylNotAvailableError,
     CarbonylRunner,
-    _set_nonblocking,
 )
-
 
 # ---------------------------------------------------------------------------
 # Binary resolution
@@ -42,6 +38,28 @@ class TestBinaryResolution:
             mock_popen.return_value = mock_proc
             runner.start("/tmp/doc.html", cols=80, rows=24)
         runner._proc = None  # prevent stop() from trying to terminate mock
+        runner._master_fd = -1
+        runner._slave_fd = -1
+
+    def test_extra_args_are_passed_before_target(self) -> None:
+        runner = CarbonylRunner(carbonyl_binary="echo")
+        with patch("pty.openpty", return_value=(3, 4)), \
+             patch("os.close"), \
+             patch("fcntl.ioctl"), \
+             patch("fcntl.fcntl"), \
+             patch("subprocess.Popen") as mock_popen:
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = None
+            mock_popen.return_value = mock_proc
+            runner.start(
+                "https://issuer.example.com/auth",
+                cols=80,
+                rows=24,
+                extra_args=["--user-data-dir=/tmp/profile"],
+            )
+        argv = mock_popen.call_args.args[0]
+        assert argv[-2:] == ["--user-data-dir=/tmp/profile", "https://issuer.example.com/auth"]
+        runner._proc = None
         runner._master_fd = -1
         runner._slave_fd = -1
 
@@ -123,6 +141,7 @@ class TestCarbonylRunnerResize:
         runner._master_fd = -1  # skip ioctl
         with patch("fcntl.ioctl"), patch.object(mock_proc, "send_signal") as mock_sig:
             runner.resize(100, 30)
+        mock_sig.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

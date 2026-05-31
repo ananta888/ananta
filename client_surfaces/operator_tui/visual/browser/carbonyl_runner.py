@@ -9,7 +9,6 @@ import signal
 import struct
 import subprocess
 import termios
-from typing import Any
 
 
 class CarbonylNotAvailableError(RuntimeError):
@@ -38,13 +37,14 @@ class CarbonylRunner:
     # Public interface
     # ------------------------------------------------------------------
 
-    def start(self, html_path: str, cols: int, rows: int) -> None:
-        """Start carbonyl for html_path with given terminal dimensions.
+    def start(self, html_path: str, cols: int, rows: int, *, extra_args: list[str] | None = None) -> None:
+        """Start carbonyl for html_path/URL with given terminal dimensions.
 
         Args:
-            html_path: Path to a local HTML file to open.
+            html_path: Path or URL to open.
             cols: Terminal column count (width).
             rows: Terminal row count (height).
+            extra_args: Additional Carbonyl flags before the path/URL.
 
         Raises:
             CarbonylNotAvailableError: If the binary is not found.
@@ -61,7 +61,7 @@ class CarbonylRunner:
 
         try:
             self._proc = subprocess.Popen(
-                [resolved, "--cols", str(cols), "--rows", str(rows), html_path],
+                [resolved, "--cols", str(cols), "--rows", str(rows), *(extra_args or []), html_path],
                 stdin=self._slave_fd,
                 stdout=self._slave_fd,
                 stderr=self._slave_fd,
