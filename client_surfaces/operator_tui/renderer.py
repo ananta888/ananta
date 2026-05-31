@@ -74,8 +74,12 @@ def render_operator_shell(
 
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     browser_active = bool(game.get("center_browser_active"))
-    # Browser mode benefits from a much wider center pane to approximate native Carbonyl rendering.
-    if browser_active:
+    wide_browser_layout = bool(game.get("center_browser_wide_layout")) or (
+        str(os.environ.get("ANANTA_TUI_BROWSER_WIDE_LAYOUT") or "").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+    # Keep legacy layout as default. Wider browser center is opt-in only.
+    if browser_active and wide_browser_layout:
         left_width = 12 if width >= 100 else 10
         detail_width = 18 if width >= 100 else 14
     else:
