@@ -719,14 +719,14 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
     public_issuer = str(
         os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
         or os.environ.get("ANANTA_OIDC_ISSUER")
-        or ""
+        or "https://keycloak.ananta.de/realms/ananta-e2e"
     ).strip()
     public_client_id = str(
         os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID")
         or os.environ.get("ANANTA_OIDC_CLIENT_ID")
         or "ananta-tui"
     ).strip()
-    public_username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "").strip()
+    public_username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "e2e").strip()
     public_password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
     public_client_secret = str(os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_SECRET") or "").strip()
     use_public_oidc = bool(

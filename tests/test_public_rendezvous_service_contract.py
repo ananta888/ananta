@@ -12,18 +12,13 @@ import pytest
 def public_service(monkeypatch):
     service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
     monkeypatch.syspath_prepend(str(service_dir))
+    monkeypatch.setenv("RENDEZVOUS_DB_PATH", str(Path(__file__).resolve().parent / ".tmp-public-rendezvous-test.db"))
     sys.modules.pop("config", None)
     sys.modules.pop("service", None)
     service = importlib.import_module("service")
-    service._sessions.clear()
-    service._participants.clear()
-    service._invite_codes.clear()
-    service._rate_buckets.clear()
+    service.reset_state_for_tests()
     yield service
-    service._sessions.clear()
-    service._participants.clear()
-    service._invite_codes.clear()
-    service._rate_buckets.clear()
+    service.reset_state_for_tests()
 
 
 def test_list_sessions_returns_owner_and_participant_sessions(public_service):

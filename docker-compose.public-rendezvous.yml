@@ -86,7 +86,11 @@ services:
       TURN_URLS: ${TURN_URLS:-turn:webrtc.ananta.de:3478}
       TURN_TTL_SECONDS: ${TURN_TTL_SECONDS:-3600}
       SESSION_MAX_DURATION_SECONDS: ${SESSION_MAX_DURATION_SECONDS:-3600}
+      RENDEZVOUS_DB_PATH: ${RENDEZVOUS_DB_PATH:-/var/lib/ananta/rendezvous.db}
+      RENDEZVOUS_DB_TIMEOUT_SECONDS: ${RENDEZVOUS_DB_TIMEOUT_SECONDS:-5.0}
       LOG_LEVEL: ${RENDEZVOUS_LOG_LEVEL:-INFO}
+    volumes:
+      - public_rendezvous_data:/var/lib/ananta
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
       interval: 30s
@@ -119,3 +123,4 @@ volumes:
   public_caddy_data:
   public_caddy_config:
   public_keycloak_postgres_data:
+  public_rendezvous_data:

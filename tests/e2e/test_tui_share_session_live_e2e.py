@@ -298,9 +298,9 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
             issuer = str(
                 os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
                 or os.environ.get("ANANTA_OIDC_ISSUER")
-                or ""
+                or "https://keycloak.ananta.de/realms/ananta-e2e"
             ).strip()
-            username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "").strip()
+            username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "e2e").strip()
             password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
             client_id = str(
                 os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID")
