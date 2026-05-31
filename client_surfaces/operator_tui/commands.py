@@ -4,6 +4,8 @@ import json
 import hashlib
 import urllib.error
 import urllib.request
+import os
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -90,6 +92,72 @@ from agent.services.imap_threading_service import annotate_messages_with_thread_
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _doc_preflight_report() -> dict[str, object]:
+    def _which(name: str) -> str:
+        return shutil.which(name) or ""
+
+    def _exists(path: str) -> bool:
+        try:
+            return Path(path).expanduser().exists()
+        except Exception:
+            return False
+
+    def _wsl2_detected() -> bool:
+        if str(os.environ.get("ANANTA_TUI_WSL2") or "").strip().lower() in {"1", "true", "yes", "on"}:
+            return True
+        if os.environ.get("WSL_DISTRO_NAME"):
+            return True
+        try:
+            text = Path("/proc/version").read_text(encoding="utf-8", errors="replace").lower()
+            return "microsoft" in text or "wsl" in text
+        except OSError:
+            return False
+
+    playwright_ok = False
+    try:
+        import importlib.util
+
+        playwright_ok = importlib.util.find_spec("playwright") is not None
+    except Exception:
+        playwright_ok = False
+
+    mermaid_js_candidates = (
+        "node_modules/mermaid/dist/mermaid.min.js",
+        "node_modules/.bin/../mermaid/dist/mermaid.min.js",
+    )
+    mermaid_js_path = next((p for p in mermaid_js_candidates if _exists(p)), "")
+
+    return {
+        "wsl2_detected": _wsl2_detected(),
+        "term": str(os.environ.get("TERM") or ""),
+        "term_program": str(os.environ.get("TERM_PROGRAM") or ""),
+        "mmdc_path": _which("mmdc"),
+        "node_path": _which("node"),
+        "chafa_path": _which("chafa"),
+        "playwright_installed": playwright_ok,
+        "mermaid_js_path": mermaid_js_path,
+    }
+
+
+def _doc_preflight_hints(report: dict[str, object]) -> list[str]:
+    hints: list[str] = []
+    if not report.get("mmdc_path"):
+        hints.append("install: npm install -g @mermaid-js/mermaid-cli")
+    if not report.get("node_path"):
+        hints.append("install: nodejs/npm required for mmdc")
+    if not report.get("chafa_path"):
+        hints.append("optional: sudo apt install -y chafa")
+    if not report.get("playwright_installed"):
+        hints.append("optional: pip install playwright && playwright install chromium")
+    if not report.get("mermaid_js_path"):
+        hints.append("optional: npm install mermaid (for playwright backend assets)")
+    if report.get("wsl2_detected"):
+        hints.append("wsl2: prefer mmdc + ansi/chafa; browser mode is not recommended for docs")
+    if not hints:
+        hints.append("ok: recommended markdown/mermaid dependencies available")
+    return hints
 
 
 def _active_goal_id(state: OperatorState) -> str:
@@ -950,12 +1018,27 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         sub = str(args[0]).strip().lower() if args else "help"
         if sub in {"help", "status"}:
             return CommandResult(
-                state.with_updates(status_message="doc: open <path-to-md> | uses markdown_mermaid_document view"),
+                state.with_updates(status_message="doc: open <path-to-md> | preflight"),
                 "doc help",
                 handled=(sub == "status"),
             )
+        if sub == "preflight":
+            report = _doc_preflight_report()
+            hints = _doc_preflight_hints(report)
+            msg = (
+                "doc preflight | "
+                f"mmdc={'ok' if report.get('mmdc_path') else 'missing'} "
+                f"node={'ok' if report.get('node_path') else 'missing'} "
+                f"chafa={'ok' if report.get('chafa_path') else 'missing'} "
+                f"playwright={'ok' if report.get('playwright_installed') else 'missing'}"
+            )
+            payload = {"status": "ok", "report": report, "hints": hints}
+            return CommandResult(
+                state.with_updates(status_message=msg),
+                json.dumps(payload, ensure_ascii=False),
+            )
         if sub != "open":
-            msg = "doc: open <path-to-md>"
+            msg = "doc: open <path-to-md> | preflight"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         if len(args) < 2:
             msg = "doc open: path fehlt"

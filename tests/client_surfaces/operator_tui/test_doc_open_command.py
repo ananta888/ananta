@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import OperatorState
@@ -29,3 +30,17 @@ def test_doc_open_requires_existing_file(tmp_path: Path) -> None:
     result = execute_command(f"doc open {missing}", state)
     assert result.handled is False
     assert "nicht gefunden" in str(result.state.status_message).lower()
+
+
+def test_doc_preflight_returns_structured_report() -> None:
+    state = OperatorState(endpoint="http://hub")
+    result = execute_command("doc preflight", state)
+    assert result.handled is True
+    assert "doc preflight" in str(result.state.status_message).lower()
+    payload = json.loads(result.message)
+    assert payload["status"] == "ok"
+    assert isinstance(payload.get("report"), dict)
+    assert isinstance(payload.get("hints"), list)
+    report = dict(payload["report"])
+    for key in ("mmdc_path", "node_path", "chafa_path", "playwright_installed", "wsl2_detected"):
+        assert key in report
