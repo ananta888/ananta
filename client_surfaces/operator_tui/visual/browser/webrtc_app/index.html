@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ananta WebRTC Session</title>
+  <!-- No remote fetches. All assets are local. -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>&#9632; Ananta WebRTC Session</h1>
+
+  <div class="panel">
+    <div class="panel-title">Identity</div>
+    <div class="status-row">
+      <span class="status-label">OIDC State</span>
+      <span class="status-value" id="oidc-state"><span class="dot dot-grey"></span><span class="state-unknown">unknown</span></span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Subject Hash</span>
+      <span class="status-value" id="subject-hash" class="state-unknown">—</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Connection</div>
+    <div class="status-row">
+      <span class="status-label">Signaling State</span>
+      <span class="status-value" id="signaling-state"><span class="dot dot-grey"></span><span class="state-unknown">disconnected</span></span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">ICE State</span>
+      <span class="status-value" id="ice-state"><span class="dot dot-grey"></span><span class="state-unknown">new</span></span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">DataChannel State</span>
+      <span class="status-value" id="datachannel-state"><span class="dot dot-grey"></span><span class="state-unknown">closed</span></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Peer</div>
+    <div class="status-row">
+      <span class="status-label">Peer ID</span>
+      <span id="peer-id" class="state-unknown">—</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Event Log</div>
+    <div id="log"></div>
+  </div>
+
+  <!-- No camera/microphone requested by default. media_probe.js loaded only on explicit trigger. -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
