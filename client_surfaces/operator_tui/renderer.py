@@ -2313,9 +2313,18 @@ def _chat_timeout_progress_text(game: dict[str, object]) -> str:
 
 
 def _command_line(state: OperatorState, width: int) -> str:
-    if state.mode.value != "command":
-        return _clip(f" {state.command_line}", width)
+    import time as _time
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    if state.mode.value != "command":
+        # Show last command feedback for 4 seconds after executing a command
+        feedback = str(game.get("_cmd_feedback") or "")
+        feedback_at = float(game.get("_cmd_feedback_at") or 0.0)
+        if feedback and (_time.monotonic() - feedback_at) < 4.0:
+            age = _time.monotonic() - feedback_at
+            # Fade: bright for first 2s, dim for next 2s
+            col = "\x1b[38;2;180;220;255m" if age < 2.0 else "\x1b[2;38;2;120;150;180m"
+            return _clip(f"{col}» {feedback}\x1b[0m", width)
+        return _clip(f" {state.command_line}", width)
     buf = str(state.command_line or "")
     cursor = int(game.get("command_input_cursor") or len(buf))
     # History indicator: show ▲N if command history available (↑/↓ to navigate)

@@ -212,6 +212,9 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             pass
         self._command_buffer = str(self.state.command_line or "") if self.state.mode is OperatorMode.COMMAND else ""
         self._command_cursor = len(self._command_buffer)
+        self._last_command_feedback: str = ""
+        self._last_command_feedback_at: float = 0.0
+        self._browser_controller: object | None = None
         self._command_history: list[str] = []
         self._command_history_index: int | None = None
         self._command_saved_draft = ""
@@ -261,9 +264,89 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         delay = 1.0 / fps
         while True:
             self._tick_header_snake()
+            self._tick_center_browser()
             self._rendered_text = self._render()
             self._app.invalidate()
             await asyncio.sleep(delay)
+
+    def _tick_center_browser(self) -> None:
+        """Drive the BrowserModeController each frame when browser mode is active."""
+        game = dict(self.state.header_logo_game or {})
+        if not bool(game.get("center_browser_active")):
+            # Browser deactivated — stop controller if running
+            if self._browser_controller is not None:
+                try:
+                    self._browser_controller.exit_browser_mode()  # type: ignore[union-attr]
+                except Exception:
+                    pass
+                self._browser_controller = None
+            return
+
+        url = str(game.get("center_browser_url") or "")
+        status = str(game.get("center_browser_status") or "")
+
+        # First activation: start the controller
+        if self._browser_controller is None and status == "requested":
+            try:
+                from client_surfaces.operator_tui.visual.browser.browser_mode_controller import BrowserModeController
+                import shutil as _sh
+                size = _sh.get_terminal_size((120, 32))
+                left_w, detail_w = 22, 34
+                center_w = max(20, size.columns - left_w - detail_w - 6)
+                body_h = max(8, size.lines - 8)
+                ctrl = BrowserModeController()
+                if url:
+                    ctrl.enter_url(url, cols=center_w, rows=body_h, allow_remote=True)
+                else:
+                    from client_surfaces.operator_tui.visual.browser.center_content_snapshot import CenterContentSnapshot
+                    snap = CenterContentSnapshot(
+                        content_type="plain_text", title="Browser",
+                        source_text="(kein Inhalt)", html_text="", metadata={},
+                        scroll_position=0, unsupported_reason="",
+                    )
+                    ctrl.enter_browser_mode(snap, cols=center_w, rows=body_h)
+                self._browser_controller = ctrl
+                game["center_browser_status"] = "active"
+                game["center_browser_error"] = str(ctrl.error_message) if hasattr(ctrl, "error_message") else ""
+                self._set_state(self.state.with_updates(header_logo_game=game))
+            except Exception as exc:
+                game["center_browser_active"] = False
+                game["center_browser_status"] = "error"
+                game["center_browser_error"] = str(exc)
+                game["_cmd_feedback"] = f"browser error: {exc}"
+                import time as _t
+                game["_cmd_feedback_at"] = _t.monotonic()
+                self._browser_controller = None
+                self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+
+        # Running: read output and store in game for content renderer
+        if self._browser_controller is not None:
+            try:
+                chunk = self._browser_controller.tick()  # type: ignore[union-attr]
+                if chunk:
+                    existing = bytes(game.get("_browser_frame_bytes") or b"")
+                    # Keep last 64 KB of output for rendering
+                    combined = (existing + chunk)[-65536:]
+                    game["_browser_frame_bytes"] = combined
+                    self._set_state(self.state.with_updates(header_logo_game=game))
+                # Check if controller exited unexpectedly
+                if not self._browser_controller.is_running():  # type: ignore[union-attr]
+                    game["center_browser_active"] = False
+                    game["center_browser_status"] = "stopped"
+                    game["_cmd_feedback"] = "browser: beendet"
+                    import time as _t
+                    game["_cmd_feedback_at"] = _t.monotonic()
+                    self._browser_controller = None
+                    self._set_state(self.state.with_updates(header_logo_game=game))
+            except Exception as exc:
+                game["center_browser_active"] = False
+                game["center_browser_status"] = "error"
+                game["_cmd_feedback"] = f"browser error: {exc}"
+                import time as _t
+                game["_cmd_feedback_at"] = _t.monotonic()
+                self._browser_controller = None
+                self._set_state(self.state.with_updates(header_logo_game=game))
 
     async def _splash_loop(self) -> None:
         while self._splash is not None:
