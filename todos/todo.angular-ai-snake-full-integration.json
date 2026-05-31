@@ -1,0 +1,1049 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Krusty / ananta",
+  "track": "todo.angular-ai-snake-full-integration",
+  "title": "Angular AI-Snake: Vollständige TUI-Parität (Config, Session Sharing, Keycloak, WebRTC)",
+  "purpose": "Die Angular-App soll in allen für den AI-Snake-Chat relevanten Bereichen vollständige Parität zur Ananta TUI erreichen: dieselbe Konfigurierbarkeit (Ctrl+A-Äquivalent), dasselbe Session-Sharing-Modell, denselben Keycloak-OIDC-Auth-Flow und dieselbe WebRTC-Transportschicht.",
+  "goal": "Ein Nutzer soll von der Angular-App aus eine AI-Snake-Chat-Session konfigurieren, starten, teilen und über WebRTC oder Hub-Relay an ein Gegenüber senden können – identisch zum TUI-Workflow mit keycloak.ananta.de und webrtc.ananta.de.",
+  "status": "todo",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "source_code_audit": {
+    "baseline_date": "2026-05-31",
+    "scope": "frontend-angular/src/app/, agent/routes/, agent/services/, client_surfaces/operator_tui/realtime/, client_surfaces/operator_tui/auth/",
+    "already_implemented": [
+      {
+        "id": "AI-A01",
+        "path": "agent/routes/share_sessions.py + agent/services/share_session_service.py",
+        "finding": "Vollständiges Session-Sharing-Backend: create, join, list, permissions, view-push/poll, chat, revoke.",
+        "risk": "low",
+        "notes": "Rate-Limiting, In-Memory-Fallback und SQLModel-Persistenz vorhanden. Invite-Code-Generierung funktioniert."
+      },
+      {
+        "id": "AI-A02",
+        "path": "agent/routes/webrtc_signaling.py",
+        "finding": "WebRTC-Signaling-Endpunkte (SDP Offer/Answer, ICE Candidates) mit Rate-Limiting und Audit vorhanden.",
+        "risk": "low",
+        "notes": "Nur Signaling; tatsächliche RTCPeerConnection liegt clientseitig. Angular-Client fehlt komplett."
+      },
+      {
+        "id": "AI-A03",
+        "path": "client_surfaces/operator_tui/realtime/",
+        "finding": "Vollständiger WebRTC-Stack in Python: signaling_client.py, webrtc_session_controller.py, datachannel_protocol.py, ice_probe.py, webrtc_policy.py, webrtc_audit.py.",
+        "risk": "low",
+        "notes": "TypeScript-Portierung möglich; Protokoll ist dokumentiert in datachannel_protocol.py."
+      },
+      {
+        "id": "AI-A04",
+        "path": "client_surfaces/operator_tui/auth/oidc_auth_controller.py + network_profile.py",
+        "finding": "OIDC PKCE-Flow, Device-Flow (RFC 8628), Token-Refresh, Nonce/State-Validierung vollständig in TUI.",
+        "risk": "medium",
+        "notes": "Angular-App nutzt nur localStorage JWT ohne echten OIDC-Client. keycloak.ananta.de/realms/ananta als Issuer konfiguriert."
+      },
+      {
+        "id": "AI-A05",
+        "path": "agent/routes/rendezvous.py + agent/services/rendezvous_service.py",
+        "finding": "Public-Rendezvous-Service mit OIDC-Issuer-Binding (keycloak.ananta.de) und Invite-Code-Generierung vorhanden.",
+        "risk": "low",
+        "notes": "Wird für öffentliche Session-Shares über keycloak.ananta.de genutzt."
+      },
+      {
+        "id": "AI-A06",
+        "path": "ananta_network_profiles.default.json",
+        "finding": "Netzwerkprofil 'public-ananta' definiert STUN/TURN, Signaling-URL, OIDC-Issuer, ICE-Server, E2E-Encryption-Flag.",
+        "risk": "low",
+        "notes": "Muss in Angular-App geladen und zur Laufzeit verwendet werden."
+      },
+      {
+        "id": "AI-A07",
+        "path": "client_surfaces/operator_tui/ai_snake_config_view.py",
+        "finding": "40+ konfigurierbare Felder für AI-Snake: chat_backend, chat_model, visual_provider, history, tokens, timeouts, worker_mode, rag.",
+        "risk": "low",
+        "notes": "Felder sind vollständig dokumentiert mit Optionen, Defaults und Persistenz-Keys. Angular-UI fehlt vollständig."
+      },
+      {
+        "id": "AI-A08",
+        "path": "frontend-angular/src/app/services/window-bridge.service.ts",
+        "finding": "Bridge-Service zum TUI (state polling, action sending) bereits implementiert und in AI-Snake-Chat integriert.",
+        "risk": "low",
+        "notes": "Basis für Snake-Canvas-Rendering vorhanden. Erweiterbar für Config-Sync."
+      },
+      {
+        "id": "AI-A09",
+        "path": "frontend-angular/src/app/components/ai-assistant.component.ts",
+        "finding": "AI-Snake-Dock mit Snake-Canvas, TUI-Dark-Theme und Bridge-Anbindung bereits umgebaut.",
+        "risk": "low",
+        "notes": "Config-Panel, Session-Sharing und WebRTC-Transport fehlen als nächste Integrationsschicht."
+      }
+    ],
+    "gaps_to_close": [
+      "Kein Keycloak-OIDC-Client in Angular (kein PKCE-Flow, kein Token-Refresh gegen keycloak.ananta.de).",
+      "Kein WebRTC-Stack in Angular (0% implementiert; nur Hub-Relay genutzt).",
+      "Kein AI-Snake-Config-Panel in Angular (Ctrl+A-Äquivalent fehlt vollständig).",
+      "Keine Session-Sharing-UI in Angular (kein Invite-Code-Dialog, keine Teilnehmerliste, kein Join-Flow).",
+      "Kein Netzwerkprofil-Loader in Angular (public-ananta-Profil wird nicht geladen).",
+      "Kein DataChannel-Protokoll in TypeScript (Python-Implementierung nicht portiert).",
+      "Keine E2E-Payload-Verschlüsselung in Angular (Public-Key-Import/-Export fehlt).",
+      "Kein Hub-API-Endpoint für AI-Snake-Config-Read/Write (Frontend-seitig abrufbar)."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "AI-Snake Config Panel (Ctrl+A-Äquivalent in Angular)",
+      "status": "done",
+      "estimated_h": 8,
+      "target_date": "2026-06-07",
+      "acceptance_criteria": [
+        "Config-Panel öffnet sich über Zahnrad-Button im AI-Snake-Dock.",
+        "Alle 40+ Felder aus ai_snake_config_view.py sind konfigurierbar (chat_backend, chat_model, visual_provider, history, tokens, timeouts, rag, worker_mode).",
+        "Änderungen werden via Hub-API in user.json persistiert.",
+        "Config-Panel zeigt aktuell gespeicherte Werte beim Öffnen an.",
+        "Suchfilter für schnelles Finden von Feldern vorhanden."
+      ],
+      "risk": "low",
+      "notes": "Backend-Logik vollständig vorhanden. Reiner Frontend-Aufwand."
+    },
+    {
+      "id": "M2",
+      "title": "Session Sharing UI im AI-Snake Chat",
+      "status": "done",
+      "estimated_h": 10,
+      "target_date": "2026-06-14",
+      "acceptance_criteria": [
+        "Share-Button im AI-Snake-Dock-Footer öffnet Share-Dialog.",
+        "Session erstellen: Titel, Permissions (chat, view, cursor), Ablaufzeit.",
+        "Invite-Code wird angezeigt und ist kopierbar.",
+        "Session beitreten per Invite-Code-Eingabe.",
+        "Teilnehmerliste mit Online-Status (online / offline Xs / revoked).",
+        "Teilnehmer entfernen (Revoke) funktioniert.",
+        "Geteilter Chat-Kanal in der laufenden Session sichtbar.",
+        "Session beenden beendet für alle Teilnehmer."
+      ],
+      "risk": "medium",
+      "notes": "Backend 90% fertig. Haupt-Aufwand: UI-Fluss, Polling-Loop, Status-Sync."
+    },
+    {
+      "id": "M3",
+      "title": "Keycloak OIDC Full Integration in Angular",
+      "status": "todo",
+      "estimated_h": 12,
+      "target_date": "2026-06-21",
+      "acceptance_criteria": [
+        "Angular-App führt OIDC-PKCE-Flow gegen keycloak.ananta.de/realms/ananta durch.",
+        "Token-Refresh läuft automatisch vor Ablauf (refresh_token).",
+        "Login-Page leitet zu Keycloak weiter; Callback landet korrekt in Angular.",
+        "Logout invalidiert Token auf Keycloak-Seite (end_session_endpoint).",
+        "Device-Flow funktioniert: Angular zeigt QR-Code / URL für TUI-Cross-Login.",
+        "Auth-Guard prüft Keycloak-Token-Validity (nicht nur localStorage-Existenz).",
+        "OIDC-Session-Nonce wird für WebRTC-Signaling-Auth genutzt."
+      ],
+      "risk": "medium",
+      "notes": "TUI hat vollständige PKCE-Referenzimplementierung in oidc_auth_controller.py."
+    },
+    {
+      "id": "M4",
+      "title": "WebRTC Transport in Angular",
+      "status": "todo",
+      "estimated_h": 28,
+      "target_date": "2026-07-05",
+      "acceptance_criteria": [
+        "Angular verbindet sich zum Signaling-Server wss://webrtc.ananta.de/signaling.",
+        "SDP Offer/Answer-Austausch über Hub-Relay-Signaling-Endpunkt funktioniert.",
+        "ICE-Candidates werden korrekt gesammelt und ausgetauscht (STUN/TURN aus Netzwerkprofil).",
+        "RTCDataChannel öffnet sich und DataChannel-Protokoll (identisch zu Python) ist implementiert.",
+        "Fallback auf Hub-Relay wenn WebRTC-Verbindung fehlschlägt (transport_order aus Profil).",
+        "Policy-Gate verhindert unerlaubte DataChannel-Nachrichtentypen.",
+        "Audit-Events für WebRTC-Lifecycle werden geloggt.",
+        "Angular ↔ TUI P2P-Verbindung über WebRTC funktioniert End-to-End."
+      ],
+      "risk": "high",
+      "notes": "Größter Einzelblock. Browserkompatibilität (Firefox/Chrome), ICE-Traversal und NAT-Handling sind komplexe Variablen."
+    },
+    {
+      "id": "M5",
+      "title": "Netzwerkprofil-Loader und E2E-Verschlüsselung",
+      "status": "todo",
+      "estimated_h": 6,
+      "target_date": "2026-07-12",
+      "acceptance_criteria": [
+        "Angular lädt ananta_network_profiles.default.json oder ein API-Äquivalent.",
+        "Profil 'public-ananta' wird korrekt geparst (ICE-Server, Signaling-URL, OIDC-Issuer, E2E-Flag).",
+        "Public-Key-Import für Peer-Verschlüsselung funktioniert (SubtleCrypto API).",
+        "Share-Session-Payloads werden E2E-verschlüsselt wenn require_e2e_payload_encryption=true.",
+        "Key-Fingerprint-Anzeige in der Teilnehmerliste vorhanden."
+      ],
+      "risk": "medium",
+      "notes": "SubtleCrypto (Web Crypto API) ist in Browsern nativ verfügbar. Protokoll ist in TUI dokumentiert."
+    },
+    {
+      "id": "M6",
+      "title": "Integration & End-to-End Tests",
+      "status": "todo",
+      "estimated_h": 8,
+      "target_date": "2026-07-19",
+      "acceptance_criteria": [
+        "E2E-Test: Angular-Login via Keycloak → AI-Snake Chat → Session erstellen → TUI tritt bei.",
+        "E2E-Test: WebRTC DataChannel Roundtrip Angular ↔ TUI.",
+        "E2E-Test: Config-Panel Änderung wird in user.json persistiert und nach Reload wiederhergestellt.",
+        "E2E-Test: Session-Invite-Code von Angular aus funktioniert vom TUI aus.",
+        "Smoke-Test: Hub-Relay-Fallback wenn WebRTC-Verbindung nicht aufgebaut werden kann."
+      ],
+      "risk": "medium",
+      "notes": "Playwright für Browser-E2E. TUI-seitige Tests über bestehende e2e-Infrastruktur."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "milestone_id": "M1",
+      "title": "Hub-API Endpoint: AI-Snake Config Read/Write",
+      "type": "backend",
+      "status": "done",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 1.5,
+      "description": "Neuer Hub-Endpoint GET /config/ai-snake liefert aktuellen AI-Snake-Config-Block aus user.json. PATCH /config/ai-snake speichert einzelne oder mehrere Felder. Nutzt bestehende UserConfigManager-Infrastruktur.",
+      "acceptance_criteria": [
+        "GET /config/ai-snake gibt alle ai-snake-relevanten Keys aus user.json zurück.",
+        "PATCH /config/ai-snake mit {key: value} Pairs persistiert korrekt.",
+        "Auth-Check via @check_user_auth Decorator.",
+        "Unbekannte Keys werden mit 422 abgewiesen."
+      ],
+      "files_affected": [
+        "agent/routes/config.py (oder neues ai_snake_config.py)",
+        "agent/services/user_config_manager.py"
+      ],
+      "notes": "Alternativ: bestehenden /config-Endpoint erweitern falls schon vorhanden."
+    },
+    {
+      "id": "T02",
+      "milestone_id": "M1",
+      "title": "Angular Service: AiSnakeConfigService",
+      "type": "frontend",
+      "status": "done",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "blocked_by": [
+        "T01"
+      ],
+      "description": "Injectable Service der GET /config/ai-snake und PATCH /config/ai-snake aufruft. BehaviorSubject für lokalen Config-State. Methode updateField(key, value) mit Debounce-Persistierung.",
+      "acceptance_criteria": [
+        "config$ Observable liefert aktuellen Config-State.",
+        "loadConfig() lädt vom Hub.",
+        "updateField(key, value) patcht sofort lokal und sendet nach 500ms Debounce an Hub.",
+        "Fehlerbehandlung wenn Hub nicht erreichbar (lokaler State bleibt)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/ai-snake-config.service.ts (neu)"
+      ]
+    },
+    {
+      "id": "T03",
+      "milestone_id": "M1",
+      "title": "Angular Component: AiSnakeConfigPanelComponent (40+ Felder)",
+      "type": "frontend",
+      "status": "done",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 3.5,
+      "blocked_by": [
+        "T02"
+      ],
+      "description": "Scrollbares Config-Panel mit allen 40+ Feldern aus ai_snake_config_view.py. TUI-Dark-Theme. Felder gruppiert nach Kategorie: Chat-Backend, Modell, Kontext/Tokens, History/Memory, Visual, Worker, Input-History. Select-Felder für Enum-Optionen, Toggle für Bool-Felder, Number-Inputs für numerische Werte. Suchfilter oben.",
+      "acceptance_criteria": [
+        "Alle Felder aus ai_snake_config_view.py als konfigurierbare UI-Elemente vorhanden.",
+        "Felder: chat_backend (choice), chat_model (choice), chat_api_base (text), chat_ask_timeout_s (number), chat_context_chars (number), chat_max_tokens (number), chat_rag_top_k (number), chat_answer_chars (number), chat_use_history (bool), chat_history_turns (number), chat_history_chars (number), chat_use_summary (bool), chat_summary_chars (number), chat_summary_update_every_turns (number), chat_pass_memory_to_worker (bool), chat_include_runtime_status (bool), chat_worker_mode (choice), chat_backend_fallback (choice), chat_use_codecompass (bool), chat_include_local_project (bool), chat_include_wikipedia (bool), chat_source_pack_id (choice), visual_enabled (bool), visual_provider (choice), visual_codecompass (bool), input_history_chat_enabled (bool), input_history_command_enabled (bool), input_history_max_entries (number).",
+        "Suchfilter filtert live nach Feldname.",
+        "TUI-Dark-Theme (Monospace, #0b1220 Hintergrund).",
+        "Geänderte Felder werden sofort gespeichert (Debounce)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-snake-config-panel.component.ts (neu)"
+      ],
+      "notes": "Optionslisten für chat_backend, chat_model etc. müssen entweder hardcoded (aus ai_snake_config_view.py) oder dynamisch vom Hub geladen werden."
+    },
+    {
+      "id": "T04",
+      "milestone_id": "M1",
+      "title": "Config-Panel in AI-Snake Dock integrieren",
+      "type": "frontend",
+      "status": "done",
+      "priority": "high",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "blocked_by": [
+        "T03"
+      ],
+      "description": "Zahnrad-Button (⚙) im AI-Snake Dock-Footer neben ◈ Snake Button. Klick öffnet/schließt Config-Panel. Panel erscheint als Overlay über dem Chat-Content (nicht als separate Route).",
+      "acceptance_criteria": [
+        "⚙-Button im Footer togglet Config-Panel.",
+        "Config-Panel überlagert Chat-Content mit klarem Close-Button.",
+        "State (offen/geschlossen) wird in localStorage persistiert."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-assistant.component.ts"
+      ]
+    },
+    {
+      "id": "T05",
+      "milestone_id": "M1",
+      "title": "Config-Optionslisten dynamisch vom Hub laden",
+      "type": "frontend",
+      "status": "done",
+      "priority": "medium",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "blocked_by": [
+        "T01"
+      ],
+      "description": "Endpoint GET /config/ai-snake/options liefert verfügbare Optionen für Enum-Felder (chat_backend, chat_model, visual_provider, chat_source_pack_id). Modelliste kommt von konfigurierten LLM-Backends.",
+      "acceptance_criteria": [
+        "Optionslisten für alle Choice-Felder werden vom Hub dynamisch geladen.",
+        "Fallback auf hardcodierte Defaults wenn Hub nicht antwortet."
+      ],
+      "files_affected": [
+        "agent/routes/config.py",
+        "frontend-angular/src/app/services/ai-snake-config.service.ts"
+      ]
+    },
+    {
+      "id": "T06",
+      "milestone_id": "M2",
+      "title": "Angular Service: ShareSessionService",
+      "type": "frontend",
+      "status": "done",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 2.0,
+      "description": "Service kapselt alle Share-Session Hub-API-Calls: createSession, listSessions, joinSession, getParticipants, sendChatMessage, pollChatMessages, revokeParticipant, endSession. Polling-Loop für Teilnehmerstatus (alle 3s). BehaviorSubjects für activeSessions$, participants$, chatMessages$.",
+      "acceptance_criteria": [
+        "createSession(title, permissions, expiresIn) gibt session_id + invite_code zurück.",
+        "joinSession(inviteCode) verbindet mit bestehender Session.",
+        "participants$ wird alle 3s aktualisiert mit Online-Status.",
+        "chatMessages$ akkumuliert neue Messages (Polling alle 1s wenn Session aktiv).",
+        "revokeParticipant(participantId) funktioniert für Session-Owner.",
+        "endSession() beendet Session für alle."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/share-session.service.ts (neu)"
+      ]
+    },
+    {
+      "id": "T07",
+      "milestone_id": "M2",
+      "title": "Session erstellen: Dialog + Invite-Code-Anzeige",
+      "type": "frontend",
+      "status": "done",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 1.5,
+      "blocked_by": [
+        "T06"
+      ],
+      "description": "Share-Button (⇄) im AI-Snake Dock-Footer. Öffnet Inline-Dialog: Session-Titel, Permissions-Checkboxen (chat, view_tui, remote_cursor), Ablaufzeit-Auswahl. Nach Erstellen: Invite-Code groß angezeigt, Copy-Button, QR-Code optional.",
+      "acceptance_criteria": [
+        "Share-Dialog öffnet sich im Dock.",
+        "Alle Permission-Optionen konfigurierbar.",
+        "Invite-Code nach Erstellen sofort sichtbar und kopierbar.",
+        "Session erscheint in aktiven Sessions."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-snake-share-dialog.component.ts (neu)",
+        "frontend-angular/src/app/components/ai-assistant.component.ts"
+      ]
+    },
+    {
+      "id": "T08",
+      "milestone_id": "M2",
+      "title": "Session beitreten per Invite-Code",
+      "type": "frontend",
+      "status": "done",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "blocked_by": [
+        "T06"
+      ],
+      "description": "Join-Button im Share-Dialog oder im Footer. Invite-Code-Eingabefeld (12 Zeichen). Nach Join: Session erscheint in 'Beigetreten'-Liste, Chat-Kanal öffnet sich.",
+      "acceptance_criteria": [
+        "Invite-Code-Eingabe mit Validierung (Format).",
+        "Fehler-Feedback bei ungültigem/abgelaufenem Code.",
+        "Nach erfolgreichem Join: Chat-Kanal automatisch aktiv."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-snake-share-dialog.component.ts"
+      ]
+    },
+    {
+      "id": "T09",
+      "milestone_id": "M2",
+      "title": "Teilnehmerliste mit Online-Status und Revoke",
+      "type": "frontend",
+      "status": "done",
+      "priority": "high",
+      "risk": "low",
+      "estimated_h": 1.5,
+      "blocked_by": [
+        "T06",
+        "T07"
+      ],
+      "description": "Teilnehmerliste im Share-Panel: Name/Device-ID, letzter Kontakt (online / offline Xs), Permissions, Revoke-Button (nur für Owner). Audit-Events der letzten 5 Aktionen.",
+      "acceptance_criteria": [
+        "Teilnehmerliste aktualisiert sich alle 3s.",
+        "Online-Status korrekt (< 10s = online, sonst offline + Zeit).",
+        "Revoke-Button für Owner sichtbar; Bestätigungs-Dialog vor Revoke.",
+        "Eigener Eintrag hervorgehoben.",
+        "Revoked Teilnehmer grau markiert (nicht entfernt aus Liste)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-snake-share-participants.component.ts (neu)"
+      ]
+    },
+    {
+      "id": "T10",
+      "milestone_id": "M2",
+      "title": "Geteilter Chat-Kanal in Session",
+      "type": "frontend",
+      "status": "done",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 2.0,
+      "blocked_by": [
+        "T06",
+        "T08"
+      ],
+      "description": "Wenn Session aktiv: Chat-Nachrichten werden über /share-sessions/{id}/chat/messages gesendet und empfangen (Polling 1s). Nachrichten-Sender als Prefix anzeigen. Session-Chat getrennt vom normalen LLM-Chat (eigener Tab oder eigener Channel-Indicator).",
+      "acceptance_criteria": [
+        "Nachrichten erscheinen bei allen Session-Teilnehmern.",
+        "Sender-Name/ID wird angezeigt.",
+        "Eigene Nachrichten optisch unterschieden (rechts, andere Farbe).",
+        "Session-Chat-Kanal klar als 'Geteilt' markiert.",
+        "Polling pausiert wenn Session inaktiv."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-assistant.component.ts",
+        "frontend-angular/src/app/services/share-session.service.ts"
+      ]
+    },
+    {
+      "id": "T11",
+      "milestone_id": "M2",
+      "title": "Session beenden + Cleanup",
+      "type": "frontend",
+      "status": "done",
+      "priority": "medium",
+      "risk": "low",
+      "estimated_h": 0.5,
+      "blocked_by": [
+        "T06"
+      ],
+      "description": "Session-Ende-Button für Owner. Bestätigungs-Dialog. Nach Ende: Alle Polling-Loops stoppen, Chat-Kanal schließen, Share-Dialog zeigt 'Session beendet'.",
+      "acceptance_criteria": [
+        "Bestätigung vor Session-Ende.",
+        "Alle Ressourcen sauber aufgeräumt (Subscriptions, Polling-Intervals).",
+        "Teilnehmer erhalten beim nächsten Poll Status 'session_ended'."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/share-session.service.ts",
+        "frontend-angular/src/app/components/ai-snake-share-dialog.component.ts"
+      ]
+    },
+    {
+      "id": "T12",
+      "milestone_id": "M3",
+      "title": "OIDC PKCE Auth-Flow gegen keycloak.ananta.de",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 3.0,
+      "description": "Angular-Service OidcAuthService implementiert Authorization Code Flow mit PKCE (RFC 7636). Redirect zu https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/auth. Callback-Handler parst code + state. Token-Exchange via /token-Endpoint. Nonce + State gegen CSRF validiert.",
+      "acceptance_criteria": [
+        "Login-Flow startet PKCE-Challenge (code_verifier, code_challenge, state, nonce).",
+        "Redirect zurück zu Angular-App nach Login.",
+        "Token-Exchange liefert access_token + refresh_token.",
+        "State und Nonce korrekt validiert.",
+        "Tokens in localStorage gespeichert (ananta.user.token, ananta.user.refresh_token).",
+        "Bestehende UserAuthService-Schnittstelle wird weiterhin bedient."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/oidc-auth.service.ts (neu)",
+        "frontend-angular/src/app/services/user-auth.service.ts (erweitern)",
+        "frontend-angular/src/app/auth.guard.ts (anpassen)"
+      ],
+      "notes": "Referenz: client_surfaces/operator_tui/auth/oidc_auth_controller.py. Kein externer OIDC-Client nötig – vanilla PKCE ist überschaubar."
+    },
+    {
+      "id": "T13",
+      "milestone_id": "M3",
+      "title": "Token-Refresh Koordination (Silent Refresh)",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 2.0,
+      "blocked_by": [
+        "T12"
+      ],
+      "description": "HTTP-Interceptor prüft access_token-Ablauf (exp Claim). Wenn < 60s bis Ablauf: silent refresh gegen /token mit grant_type=refresh_token. Wenn refresh fehlschlägt: Logout + Redirect zu Login.",
+      "acceptance_criteria": [
+        "Access-Token wird automatisch refreshed bevor er abläuft.",
+        "HTTP-Requests werden während Refresh gequeuet und danach wiederholt.",
+        "Bei fehlgeschlagenem Refresh: sauberer Logout.",
+        "Refresh-Interval ist konfigurierbar (ENV oder Netzwerkprofil)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/auth-refresh-coordinator.service.ts (erweitern)",
+        "frontend-angular/src/app/services/auth.interceptor.ts (erweitern)"
+      ]
+    },
+    {
+      "id": "T14",
+      "milestone_id": "M3",
+      "title": "Logout mit Keycloak End-Session",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "estimated_h": 0.5,
+      "blocked_by": [
+        "T12"
+      ],
+      "description": "Logout ruft https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/logout mit id_token_hint auf. Danach lokale Token-Löschung und Redirect zu Login.",
+      "acceptance_criteria": [
+        "Keycloak-SSO-Session wird beim Logout invalidiert.",
+        "Lokale Tokens werden vollständig gelöscht.",
+        "Redirect zu /login nach Logout."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/oidc-auth.service.ts"
+      ]
+    },
+    {
+      "id": "T15",
+      "milestone_id": "M3",
+      "title": "Device Flow für TUI-Cross-Device-Login",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "estimated_h": 2.0,
+      "blocked_by": [
+        "T12"
+      ],
+      "description": "Angular kann als Device-Flow-Client agieren (RFC 8628): Startet Device-Authorization-Request, zeigt user_code + verification_uri an. Pollt Token-Endpoint bis Nutzer den Code auf einem anderen Gerät (TUI) bestätigt. Nutzt https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/auth/device.",
+      "acceptance_criteria": [
+        "Device-Flow-Button auf Login-Seite.",
+        "user_code und QR-Code werden angezeigt.",
+        "Polling-Loop fragt Token ab bis granted oder abgelaufen.",
+        "Nach Grant: normaler Login-State hergestellt."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/oidc-auth.service.ts",
+        "frontend-angular/src/app/features/login/ (Login-Seite anpassen)"
+      ]
+    },
+    {
+      "id": "T16",
+      "milestone_id": "M3",
+      "title": "OIDC-Session-Nonce für WebRTC-Signaling-Auth",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 1.0,
+      "blocked_by": [
+        "T12"
+      ],
+      "description": "OIDC-Nonce aus dem ID-Token für WebRTC-Signaling-Authentifizierung verwenden (identisch zur TUI-Implementierung in signaling_client.py). Nonce wird als Authentifizierungstoken beim Verbinden zum Signaling-Server mitgegeben.",
+      "acceptance_criteria": [
+        "Nonce aus ID-Token wird extrahiert und sicher gespeichert.",
+        "WebRTC-Signaling-Client nutzt Nonce als Auth-Credential.",
+        "Nonce wird nach Session-Ende ungültig."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/oidc-auth.service.ts",
+        "frontend-angular/src/app/services/webrtc-signaling.service.ts (neu, M4)"
+      ]
+    },
+    {
+      "id": "T17",
+      "milestone_id": "M4",
+      "title": "Netzwerkprofil-Loader Service",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "description": "NetworkProfileService lädt ananta_network_profiles.default.json (über Hub-API oder direkt als Asset). Liefert das 'public-ananta'-Profil mit STUN/TURN-Servern, Signaling-URL, OIDC-Issuer und E2E-Flag. Profil-Override per ENV möglich.",
+      "acceptance_criteria": [
+        "getProfile('public-ananta') liefert vollständiges Profil-Objekt.",
+        "ICE-Server-Liste wird korrekt geparst.",
+        "Fallback auf Hardcoded-Defaults wenn Datei nicht erreichbar.",
+        "Profil-Änderung zur Laufzeit möglich (für Test-Environments)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/network-profile.service.ts (neu)"
+      ]
+    },
+    {
+      "id": "T18",
+      "milestone_id": "M4",
+      "title": "WebRTC Signaling Client (TypeScript)",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 4.0,
+      "blocked_by": [
+        "T16",
+        "T17"
+      ],
+      "description": "WebSocketSignalingClient verbindet zu wss://webrtc.ananta.de/signaling mit OIDC-Nonce-Auth. Sendet und empfängt Signal-Nachrichten (SDP Offer/Answer, ICE Candidates). Reconnect-Logik mit exponential backoff. Fallback auf Hub-Relay-Polling (/webrtc/sessions/{id}/signal) wenn WebSocket nicht verfügbar.",
+      "acceptance_criteria": [
+        "WebSocket-Verbindung zu Signaling-Server mit Auth.",
+        "Signal-Nachrichten korrekt serialisiert/deserialisiert (identisch zu signaling_models.py).",
+        "Reconnect nach Verbindungsabbruch (max 5 Versuche, exponential backoff).",
+        "Fallback auf HTTP-Polling wenn WebSocket fails.",
+        "Verbindungsstatus-Observable (connecting / connected / disconnected / failed)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/webrtc-signaling.service.ts (neu)"
+      ],
+      "notes": "Referenz: client_surfaces/operator_tui/realtime/signaling_client.py"
+    },
+    {
+      "id": "T19",
+      "milestone_id": "M4",
+      "title": "RTCPeerConnection Lifecycle Management",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 5.0,
+      "blocked_by": [
+        "T18"
+      ],
+      "description": "WebRtcSessionService kapselt RTCPeerConnection Lifecycle: Offer erstellen, Answer verarbeiten, ICE-Candidates sammeln und austauschen, Connection-State-Monitoring, Cleanup. ICE-Server aus Netzwerkprofil. TURN-Credential-Fetch wenn ephemeral_from_rendezvous_or_test_env.",
+      "acceptance_criteria": [
+        "createOffer() erzeugt SDP Offer und startet ICE-Gathering.",
+        "handleAnswer(sdp) setzt Remote Description korrekt.",
+        "addIceCandidate(candidate) funktioniert korrekt.",
+        "onconnected / ondisconnected Callbacks feuern zuverlässig.",
+        "Connection-Cleanup bei Session-Ende (alle Tracks + Channels geschlossen).",
+        "TURN-Credential-Refresh vor Ablauf (ephemeral tokens)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/webrtc-session.service.ts (neu)"
+      ],
+      "notes": "Referenz: client_surfaces/operator_tui/realtime/webrtc_session_controller.py"
+    },
+    {
+      "id": "T20",
+      "milestone_id": "M4",
+      "title": "DataChannel Protocol (TypeScript-Port)",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 3.0,
+      "blocked_by": [
+        "T19"
+      ],
+      "description": "Vollständige TypeScript-Portierung von datachannel_protocol.py: Nachrichtentypen (chat, view_payload, cursor, artifact, control), Serialisierung/Deserialisierung, Framing (length-prefix oder JSON-Newline), Chunk-Reassembly für große Payloads.",
+      "acceptance_criteria": [
+        "Alle Nachrichtentypen aus datachannel_protocol.py implementiert.",
+        "Nachrichten-Format binär-kompatibel mit Python-Implementierung.",
+        "Chunk-Reassembly funktioniert für Payloads > 64KB.",
+        "Nachrichtentyp-Validierung (unbekannte Typen werden verworfen, nicht gecrasht)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/webrtc-datachannel.service.ts (neu)"
+      ],
+      "notes": "Referenz: client_surfaces/operator_tui/realtime/datachannel_protocol.py"
+    },
+    {
+      "id": "T21",
+      "milestone_id": "M4",
+      "title": "Hub-Relay Fallback Transport",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 2.0,
+      "blocked_by": [
+        "T19"
+      ],
+      "description": "Wenn WebRTC-Verbindung nicht zustande kommt (ICE failed, Timeout), automatischer Fallback auf Hub-Relay-Transport: POST /webrtc/sessions/{id}/signal zum Senden, GET /webrtc/sessions/{id}/signal zum Empfangen via Polling. Transport-Wahl gemäß transport_order aus Netzwerkprofil.",
+      "acceptance_criteria": [
+        "Fallback auf Hub-Relay startet automatisch nach 15s WebRTC-Timeout.",
+        "Transport-Mode (webrtc / hub_relay) wird im UI angezeigt.",
+        "Wechsel zurück zu WebRTC wenn Verbindung wiederhergestellt.",
+        "DataChannel-Protokoll funktioniert identisch über Hub-Relay (JSON-Wrapping)."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/webrtc-transport.service.ts (neu)"
+      ],
+      "notes": "Referenz: client_surfaces/operator_tui/webrtc_transport.py"
+    },
+    {
+      "id": "T22",
+      "milestone_id": "M4",
+      "title": "WebRTC Policy Gates",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 1.5,
+      "blocked_by": [
+        "T20"
+      ],
+      "description": "WebRtcPolicyService validiert eingehende DataChannel-Nachrichten gegen erlaubte Typen und Session-Permissions. Unerlaubte Nachrichten werden dropped und geloggt. Identisch zu webrtc_policy.py in TUI.",
+      "acceptance_criteria": [
+        "Nachrichtentypen gegen Session-Permissions validiert.",
+        "Unbekannte oder verbotene Typen werden silent dropped.",
+        "Rate-Limiting pro Nachrichtentyp (identisch zu Hub-Relay-Limits).",
+        "Policy-Verletzungen werden als Audit-Event geloggt."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/webrtc-policy.service.ts (neu)"
+      ]
+    },
+    {
+      "id": "T23",
+      "milestone_id": "M4",
+      "title": "WebRTC Audit Logging",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "blocked_by": [
+        "T19"
+      ],
+      "description": "WebRtcAuditService loggt WebRTC-Lifecycle-Events: connection_established, connection_failed, ice_failed, datachannel_opened, datachannel_closed, policy_violation, transport_fallback. Events werden an Hub-Audit-Endpoint gesendet wenn verfügbar.",
+      "acceptance_criteria": [
+        "Alle definierten Events werden geloggt.",
+        "Events enthalten: timestamp, session_id, event_type, details.",
+        "Audit-Log im Share-Session-Panel als letzte 10 Events anzeigbar."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/webrtc-audit.service.ts (neu)"
+      ]
+    },
+    {
+      "id": "T24",
+      "milestone_id": "M4",
+      "title": "WebRTC in Session Sharing integrieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 3.0,
+      "blocked_by": [
+        "T21",
+        "T22",
+        "T23"
+      ],
+      "description": "ShareSessionService nutzt WebRtcTransportService als primäres Transport-Backend wenn transport='webrtc' in der Session. Chat-Nachrichten und View-Payloads werden über DataChannel gesendet. Fallback auf Hub-Relay automatisch.",
+      "acceptance_criteria": [
+        "Session-Erstellung mit transport='webrtc' oder transport='hub_relay' möglich.",
+        "WebRTC-Verbindung zwischen zwei Session-Teilnehmern funktioniert.",
+        "Chat-Nachrichten kommen in < 200ms an (WebRTC) vs < 1s (Hub-Relay).",
+        "Transport-Typ im UI sichtbar."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/share-session.service.ts",
+        "frontend-angular/src/app/services/webrtc-transport.service.ts"
+      ]
+    },
+    {
+      "id": "T25",
+      "milestone_id": "M5",
+      "title": "Netzwerkprofil API-Endpoint im Hub",
+      "type": "backend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "description": "GET /network-profiles/{profile_id} liefert das Netzwerkprofil (ICE-Server, Signaling-URL, OIDC-Issuer etc.) an die Angular-App. Liest aus ananta_network_profiles.default.json. STUN/TURN-Credentials werden ephemeral generiert wenn credential_mode='ephemeral_from_rendezvous_or_test_env'.",
+      "acceptance_criteria": [
+        "GET /network-profiles/public-ananta liefert vollständiges Profil.",
+        "Ephemeral TURN-Credentials werden mit TTL generiert.",
+        "Endpoint ist authentifiziert (@check_user_auth)."
+      ],
+      "files_affected": [
+        "agent/routes/network_profiles.py (neu)"
+      ]
+    },
+    {
+      "id": "T26",
+      "milestone_id": "M5",
+      "title": "E2E-Payload-Verschlüsselung (Web Crypto API)",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "estimated_h": 3.0,
+      "blocked_by": [
+        "T12"
+      ],
+      "description": "E2eEncryptionService nutzt Web Crypto API (SubtleCrypto) für Payload-Verschlüsselung. ECDH-Schlüsselpaar generieren, Public-Key-Fingerprint berechnen, Public-Key-Exchange über Hub. Payload-Verschlüsselung: AES-GCM mit aus ECDH abgeleitetem Key. Identisch zum Python-Protokoll in share_session_service.py.",
+      "acceptance_criteria": [
+        "ECDH P-256 Schlüsselpaar wird generiert und im localStorage gespeichert.",
+        "Public-Key-Fingerprint stimmt mit Python-Implementierung überein.",
+        "Payload-Encryption/-Decryption funktioniert Cross-Platform (Python ↔ TypeScript).",
+        "E2E-Flag aus Netzwerkprofil aktiviert Verschlüsselung automatisch."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/e2e-encryption.service.ts (neu)"
+      ]
+    },
+    {
+      "id": "T27",
+      "milestone_id": "M6",
+      "title": "E2E-Test: Login → Session → Join (Angular ↔ TUI)",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 2.5,
+      "blocked_by": [
+        "T12",
+        "T06",
+        "T08"
+      ],
+      "description": "Playwright E2E-Test: Angular-App öffnet, Keycloak-Login, AI-Snake Chat öffnen, Session erstellen, Invite-Code kopieren. TUI-seitig: :share join {code} ausführen. Beide Seiten sehen dieselben Chat-Nachrichten.",
+      "acceptance_criteria": [
+        "Test ist deterministisch und läuft in < 60s.",
+        "Angular-Login via Mock-Keycloak (test realm) oder echter Keycloak.",
+        "Session-Join von TUI-Seite funktioniert mit Angular-generiertem Code.",
+        "Chat-Nachricht von Angular erscheint in TUI-Chat und umgekehrt."
+      ],
+      "files_affected": [
+        "frontend-angular/tests/e2e/ai-snake-session-sharing.spec.ts (neu)"
+      ]
+    },
+    {
+      "id": "T28",
+      "milestone_id": "M6",
+      "title": "E2E-Test: WebRTC DataChannel Roundtrip",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "estimated_h": 2.0,
+      "blocked_by": [
+        "T24"
+      ],
+      "description": "Playwright E2E-Test: Zwei Angular-Browser-Instanzen verbinden sich über WebRTC DataChannel (loopback). Chat-Nachricht von Instanz A erscheint bei Instanz B in < 200ms. Fallback-Test: WebRTC-Verbindung wird manuell geblockt, Fallback auf Hub-Relay tritt ein.",
+      "acceptance_criteria": [
+        "WebRTC DataChannel Roundtrip < 200ms.",
+        "Fallback auf Hub-Relay bei geblockte Verbindung automatisch.",
+        "Keine Memory-Leaks nach Session-Ende."
+      ],
+      "files_affected": [
+        "frontend-angular/tests/e2e/webrtc-datachannel.spec.ts (neu)"
+      ]
+    },
+    {
+      "id": "T29",
+      "milestone_id": "M6",
+      "title": "E2E-Test: Config-Panel Persistenz",
+      "type": "test",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "estimated_h": 1.0,
+      "blocked_by": [
+        "T03"
+      ],
+      "description": "Playwright E2E-Test: Config-Panel öffnen, chat_backend ändern, Seite neu laden, Wert bleibt erhalten (in user.json via Hub).",
+      "acceptance_criteria": [
+        "Wertänderung wird persistiert (nicht nur im lokalen Component-State).",
+        "Nach Page-Reload korrekte Werte angezeigt.",
+        "Ungültige Werte werden nicht gespeichert."
+      ],
+      "files_affected": [
+        "frontend-angular/tests/e2e/ai-snake-config-panel.spec.ts (neu)"
+      ]
+    },
+    {
+      "id": "T30",
+      "milestone_id": "M6",
+      "title": "Security Audit: E2E-Verschlüsselung und Auth-Token-Handling",
+      "type": "security",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "estimated_h": 2.0,
+      "blocked_by": [
+        "T26",
+        "T12"
+      ],
+      "description": "Manuelle Security-Review: PKCE-State/Nonce-Validierung korrekt? Token in localStorage sicher (XSS-Risk)? E2E-Verschlüsselung Cross-Platform kompatibel und angreifbar? WebRTC ICE-Leak-Prävention (IP-Leak via STUN)?",
+      "acceptance_criteria": [
+        "PKCE-Flow korrekt gegen CSRF und Code-Injection gesichert.",
+        "Token-Storage-Strategie dokumentiert und vertretbar.",
+        "E2E-Schlüsseltausch gegen MitM gesichert (Key-Fingerprint-Bestätigung).",
+        "ICE-IP-Leak-Prävention konfiguriert (iceTransportPolicy optional)."
+      ],
+      "files_affected": [
+        "docs/security/angular-ai-snake-security-review.md (neu)"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "T01",
+    "T02",
+    "T03",
+    "T04",
+    "T06",
+    "T07",
+    "T08",
+    "T10",
+    "T12",
+    "T13",
+    "T16",
+    "T17",
+    "T18",
+    "T19",
+    "T20",
+    "T21",
+    "T24"
+  ],
+  "tasks_status_summary": {
+    "todo": 19,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 11
+  },
+  "tasks_type_summary": {
+    "backend": 3,
+    "frontend": 22,
+    "test": 3,
+    "security": 1,
+    "infra": 0,
+    "docs": 1
+  },
+  "progress_summary": {
+    "total_tasks": 30,
+    "completed_tasks": 11,
+    "completion_percent": 37,
+    "total_estimated_h": 72.0,
+    "milestones_done": 2,
+    "milestones_total": 6,
+    "phase_breakdown": {
+      "M1_config_panel": {
+        "tasks": 5,
+        "estimated_h": 8.0,
+        "status": "todo"
+      },
+      "M2_session_sharing": {
+        "tasks": 6,
+        "estimated_h": 8.5,
+        "status": "todo"
+      },
+      "M3_keycloak_oidc": {
+        "tasks": 5,
+        "estimated_h": 8.5,
+        "status": "todo"
+      },
+      "M4_webrtc": {
+        "tasks": 8,
+        "estimated_h": 20.5,
+        "status": "todo"
+      },
+      "M5_network_profile_e2e_crypto": {
+        "tasks": 2,
+        "estimated_h": 4.0,
+        "status": "todo"
+      },
+      "M6_integration_tests": {
+        "tasks": 4,
+        "estimated_h": 7.5,
+        "status": "todo"
+      }
+    }
+  },
+  "risk_assessment": {
+    "highest_risk_tasks": [
+      "T18",
+      "T19",
+      "T26",
+      "T24"
+    ],
+    "rationale": "WebRTC-ICE-Traversal (NAT, Firewall), Browser-Kompatibilität und Cross-Platform E2E-Verschlüsselung (Python ↔ TypeScript) sind die technisch riskantesten Einzelpunkte.",
+    "mitigations": [
+      "Hub-Relay-Fallback für WebRTC sichert Funktionalität unabhängig von ICE-Erfolg.",
+      "E2E-Crypto zunächst mit reinen AES-GCM-Tests gegen Python-Referenz validieren bevor Share-Session-Integration.",
+      "Keycloak im Dev-Environment mit eigenem Test-Realm betreiben um Auth-Flow ohne Produktions-Keycloak zu testen."
+    ]
+  },
+  "dependencies_external": [
+    {
+      "name": "keycloak.ananta.de",
+      "type": "auth",
+      "required_by": [
+        "M3",
+        "M4",
+        "M5"
+      ]
+    },
+    {
+      "name": "webrtc.ananta.de",
+      "type": "signaling + stun/turn",
+      "required_by": [
+        "M4"
+      ]
+    },
+    {
+      "name": "wss://webrtc.ananta.de/signaling",
+      "type": "websocket",
+      "required_by": [
+        "T18"
+      ]
+    },
+    {
+      "name": "stun:webrtc.ananta.de:3478",
+      "type": "stun",
+      "required_by": [
+        "T19"
+      ]
+    },
+    {
+      "name": "turn:webrtc.ananta.de:3478",
+      "type": "turn",
+      "required_by": [
+        "T19"
+      ]
+    }
+  ],
+  "implementation_order": [
+    "Start: M1 (Config Panel) — reiner Frontend-Aufwand, sofort ohne externe Abhängigkeiten startbar.",
+    "Dann: M2 (Session Sharing UI) — Backend 90% fertig, hoher Nutzwert.",
+    "Dann: M3 (Keycloak) — Voraussetzung für echte Session-Sharing-Auth und WebRTC-Nonce.",
+    "Dann: M5 (Netzwerkprofil + E2E-Crypto) — kurz, Voraussetzung für M4.",
+    "Zuletzt: M4 (WebRTC) + M6 (Tests) — größter Block, abhängig von allem anderen."
+  ]
+}
