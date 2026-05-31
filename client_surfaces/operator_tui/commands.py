@@ -4108,7 +4108,7 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
         from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
         cap = detect_carbonyl_browser()
         if not cap.available:
-            msg = f"browser: carbonyl nicht gefunden — {cap.unavailable_reason} | npm install -g @fathym/carbonyl"
+            msg = f"browser: carbonyl nicht gefunden — {cap.unavailable_reason} | npm install -g carbonyl"
             return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         # Normalise: add https:// if no scheme given
         if not url.startswith(("http://", "https://", "file://", "data:")):
