@@ -634,9 +634,16 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
                 ch = str(getattr(cell, "data", " ") or " ")
                 if ch == " ":
                     # Carbonyl often paints with colored background spaces.
-                    # Preserve visibility by showing a block for non-default bg.
+                    # Preserve visibility by showing a block for styled spaces.
                     bg = str(getattr(cell, "bg", "default") or "default").lower()
-                    if bg not in {"default", "black", "000000", "#000000"}:
+                    fg = str(getattr(cell, "fg", "default") or "default").lower()
+                    reverse = bool(getattr(cell, "reverse", False))
+                    styled_space = (
+                        bg not in {"default", "black", "000000", "#000000"}
+                        or fg not in {"default"}
+                        or reverse
+                    )
+                    if styled_space:
                         ch = "█"
                 cells.append(ch)
             line = "".join(cells).rstrip()
