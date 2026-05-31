@@ -17,27 +17,38 @@ import config as cfg
 
 log = logging.getLogger(__name__)
 
-_jwks_cache: dict[str, Any] = {}
-_jwks_fetched_at: float = 0.0
+_jwks_cache: dict[str, dict[str, Any]] = {}  # issuer → jwks
+_jwks_fetched_at: dict[str, float] = {}       # issuer → timestamp
 
 
-def _fetch_jwks() -> dict[str, Any]:
-    global _jwks_cache, _jwks_fetched_at
+def _fetch_jwks(issuer: str) -> dict[str, Any]:
     now = time.time()
-    if _jwks_cache and (now - _jwks_fetched_at) < cfg.OIDC_JWKS_TTL:
-        return _jwks_cache
-    url = f"{cfg.OIDC_ISSUER.rstrip('/')}/protocol/openid-connect/certs"
+    cached = _jwks_cache.get(issuer)
+    if cached and (now - _jwks_fetched_at.get(issuer, 0)) < cfg.OIDC_JWKS_TTL:
+        return cached
+    url = f"{issuer.rstrip('/')}/protocol/openid-connect/certs"
     try:
         resp = requests.get(url, timeout=5)
         resp.raise_for_status()
-        _jwks_cache = resp.json()
-        _jwks_fetched_at = now
+        data = resp.json()
+        _jwks_cache[issuer] = data
+        _jwks_fetched_at[issuer] = now
         log.debug("JWKS refreshed from %s", url)
+        return data
     except Exception as exc:
-        log.warning("JWKS fetch failed: %s", exc)
-        if not _jwks_cache:
-            raise ValueError(f"JWKS not available: {exc}") from exc
-    return _jwks_cache
+        log.warning("JWKS fetch failed for %s: %s", issuer, exc)
+        if cached:
+            return cached
+        raise ValueError(f"JWKS not available for {issuer}: {exc}") from exc
+
+
+def _trusted_issuers() -> list[str]:
+    issuers = [cfg.OIDC_ISSUER]
+    for extra in cfg.OIDC_ISSUERS_EXTRA:
+        extra = extra.strip()
+        if extra and extra not in issuers:
+            issuers.append(extra)
+    return issuers
 
 
 @dataclass(frozen=True)
@@ -49,43 +60,47 @@ class AuthContext:
 
 
 def verify_bearer_token(authorization_header: str) -> AuthContext:
-    """Verifiziert einen Bearer-Token. Wirft ValueError bei ungültigem Token."""
+    """Verifiziert einen Bearer-Token gegen alle konfigurierten Issuer. Wirft ValueError wenn keiner passt."""
     if not authorization_header or not authorization_header.startswith("Bearer "):
         raise ValueError("Missing or malformed Authorization header")
     raw_token = authorization_header[7:].strip()
     if not raw_token:
         raise ValueError("Empty token")
 
-    jwks = _fetch_jwks()
-    jwks_client = jwt.PyJWKClient.__new__(jwt.PyJWKClient)
-    # Use PyJWT's JWKS key lookup
-    signing_key = _get_signing_key(jwks, raw_token)
-
     options: dict[str, Any] = {"verify_exp": True, "verify_aud": bool(cfg.OIDC_AUDIENCE)}
-    try:
-        payload = jwt.decode(
-            raw_token,
-            signing_key,
-            algorithms=["RS256", "ES256", "RS384", "RS512"],
-            audience=cfg.OIDC_AUDIENCE or None,
-            issuer=cfg.OIDC_ISSUER or None,
-            options=options,
+    last_error: Exception | None = None
+    for issuer in _trusted_issuers():
+        try:
+            jwks = _fetch_jwks(issuer)
+        except ValueError:
+            continue
+        try:
+            signing_key = _get_signing_key(jwks, raw_token)
+            payload = jwt.decode(
+                raw_token,
+                signing_key,
+                algorithms=["RS256", "ES256", "RS384", "RS512"],
+                audience=cfg.OIDC_AUDIENCE or None,
+                issuer=issuer or None,
+                options=options,
+            )
+        except jwt.ExpiredSignatureError as exc:
+            raise ValueError("Token expired") from exc
+        except jwt.InvalidTokenError as exc:
+            last_error = exc
+            continue
+
+        sub = str(payload.get("sub") or "").strip()
+        if not sub:
+            raise ValueError("Token missing sub claim")
+        username = (
+            str(payload.get("preferred_username") or "")
+            or str(payload.get("email") or "")
+            or sub
         )
-    except jwt.ExpiredSignatureError as exc:
-        raise ValueError("Token expired") from exc
-    except jwt.InvalidTokenError as exc:
-        raise ValueError(f"Invalid token: {exc}") from exc
+        return AuthContext(sub=sub, username=username, issuer=str(payload.get("iss") or ""), raw=payload)
 
-    sub = str(payload.get("sub") or "").strip()
-    if not sub:
-        raise ValueError("Token missing sub claim")
-
-    username = (
-        str(payload.get("preferred_username") or "")
-        or str(payload.get("email") or "")
-        or sub
-    )
-    return AuthContext(sub=sub, username=username, issuer=str(payload.get("iss") or ""), raw=payload)
+    raise ValueError(f"Invalid token: {last_error}")
 
 
 def _get_signing_key(jwks: dict[str, Any], token: str) -> Any:

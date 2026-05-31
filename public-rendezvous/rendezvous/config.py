@@ -9,6 +9,7 @@ def _env(key: str, default: str = "") -> str:
 
 
 OIDC_ISSUER = _env("OIDC_ISSUER", "https://keycloak.ananta.de/realms/ananta")
+OIDC_ISSUERS_EXTRA = [i for i in _env("OIDC_ISSUERS_EXTRA", "").split(",") if i.strip()]
 OIDC_AUDIENCE = _env("OIDC_AUDIENCE", "ananta-hub")
 OIDC_JWKS_TTL = int(_env("OIDC_JWKS_TTL", "300"))  # Sekunden
 
