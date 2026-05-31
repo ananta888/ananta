@@ -848,7 +848,21 @@ class SnakeTickMixin:
         game.pop("share_pending_action", None)
         action = str(action_info.get("action") or "")
         _bg = self._get_snake_bg_executor()
-        oidc_token = str(game.get("oidc_token") or "")
+        oidc_token = str(game.get("oidc_token") or "").strip()
+        if not oidc_token:
+            oidc_token = str(
+                os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN")
+                or os.environ.get("ANANTA_TUI_OIDC_TOKEN")
+                or ""
+            ).strip()
+            if oidc_token:
+                game["oidc_token"] = oidc_token
+                try:
+                    from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
+                    from client_surfaces.operator_tui.network_profile import rendezvous_base_url
+                    set_share_oidc_token(oidc_token, rendezvous_base_url())
+                except Exception:
+                    pass
         endpoint = str(self.state.endpoint or "")
         # Hub-Passwort aus Env oder .env lesen — JWT-Auflösung erfolgt im bg-Thread
         import os as _os

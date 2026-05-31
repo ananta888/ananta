@@ -112,7 +112,13 @@ def _list_rendezvous_titles(base_url: str, token: str) -> list[str]:
         payload = json.loads(response.read().decode("utf-8"))
     if not isinstance(payload, dict):
         return []
-    items = list(payload.get("data") or payload.get("items") or [])
+    data = payload.get("data")
+    if isinstance(data, dict):
+        items = list(data.get("items") or [])
+    elif isinstance(data, list):
+        items = list(data)
+    else:
+        items = list(payload.get("items") or [])
     titles: list[str] = []
     for item in items:
         if not isinstance(item, dict):
