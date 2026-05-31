@@ -734,9 +734,16 @@ def _fetch_share(timeout: float, *, hub_base: str = "", hub_jwt: str = "") -> Se
         try:
             from client_surfaces.operator_tui.share_client import list_sessions
             rdv_sessions = list_sessions(token=oidc_token, base_url=rdv_url)
-            me = str(oidc_status.get("sub") or oidc_status.get("username") or "")
+            me_sub = str(oidc_status.get("sub") or "")
+            me_username = str(oidc_status.get("username") or "")
             for s in rdv_sessions:
-                if me and str(s.get("owner_user_id") or s.get("owner_user_sub") or "") == me:
+                owner_id = str(s.get("owner_user_id") or "")
+                owner_sub = str(s.get("owner_user_sub") or s.get("owner_user_sub_hash") or "")
+                is_mine = bool(
+                    (me_username and owner_id == me_username)
+                    or (me_sub and (owner_sub == me_sub or owner_id == me_sub))
+                )
+                if is_mine:
                     sessions_mine.append(s)
                 else:
                     sessions_joined.append(s)
