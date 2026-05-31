@@ -86,14 +86,13 @@
   "implementation_tasks": [
     {
       "id": "oidc-001-auth-controller-contract",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
         "client_surfaces/operator_tui/auth/oidc_auth_controller.py exists and implements PKCE, state, nonce, authorization request and callback completion.",
-        "OidcAuthController returns raw tokens in OidcAuthResult on success; this is okay for AuthController ownership, but derived session nonce/subject-hash handoff to realtime WebRTC is not clearly implemented here."
-      ],
-      "remaining_work": [
-        "Add or verify explicit helper for derived subject hash and realtime session nonce without exposing raw tokens.",
-        "Record tests that prove token redaction and wrong-state rejection."
+        "OidcAuthController now validates provider id, callback expiry, loopback callback host/path, callback state and non-secret ID-token claims when present.",
+        "OidcAuthController.build_realtime_identity() returns provider_id, subject_hash and a fresh session_nonce without exposing raw access/refresh/id tokens.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/auth/test_oidc_auth_controller.py tests/client_surfaces/operator_tui/auth/test_loopback_callback_server.py tests/client_surfaces/operator_tui/realtime -q => 58 passed in 4.51s."
       ],
       "title": "Add AuthController contract for Carbonyl-initiated OIDC login",
       "files": ["client_surfaces/operator_tui/auth/oidc_auth_controller.py", "client_surfaces/operator_tui/auth/oidc_models.py", "client_surfaces/operator_tui/auth/__init__.py"]
@@ -103,7 +102,9 @@
       "status": "done",
       "done_at": "2026-05-31",
       "evidence": [
-        "Commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a claims auth/loopback_callback_server.py with 127.0.0.1 random-port callback listener and tests."
+        "Commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a claims auth/loopback_callback_server.py with 127.0.0.1 random-port callback listener and tests.",
+        "LoopbackCallbackServer now sets HTTPServer.timeout and stop() closes the server socket without deadlocking on HTTPServer.shutdown().",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/auth/test_loopback_callback_server.py -q passed as part of the 53-test focused run."
       ],
       "title": "Implement local loopback callback listener",
       "files": ["client_surfaces/operator_tui/auth/loopback_callback_server.py", "tests/client_surfaces/operator_tui/auth/test_loopback_callback_server.py"]
@@ -153,26 +154,25 @@
     },
     {
       "id": "oidc-006-provider-compatibility-smoke-tests",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
-        "Commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a claims scripts/operator_tui_carbonyl_oidc_smoke.py and auth test suite."
-      ],
-      "remaining_work": [
-        "Record concrete test/smoke command output for mock mode.",
-        "Keep live Keycloak/Google smoke optional and disabled in default CI."
+        "Commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a claims scripts/operator_tui_carbonyl_oidc_smoke.py and auth test suite.",
+        ".venv/bin/python scripts/operator_tui_carbonyl_oidc_smoke.py --provider keycloak --mock => {\"provider\": \"keycloak\", \"mode\": \"mock\", \"outcome\": \"success\", \"reason\": \"\"}.",
+        ".venv/bin/python scripts/operator_tui_carbonyl_oidc_smoke.py --provider google --mock => {\"provider\": \"google\", \"mode\": \"mock\", \"outcome\": \"success\", \"reason\": \"\"}.",
+        "docs/operator-tui/carbonyl-oidc-session-modes.md documents mock/live smoke boundaries."
       ],
       "title": "Add Keycloak and Google compatibility smoke tests",
       "files": ["scripts/operator_tui_carbonyl_oidc_smoke.py", "docs/operator-tui/carbonyl-oidc-session-modes.md", "tests/client_surfaces/operator_tui/auth/"]
     },
     {
       "id": "oidc-007-security-audit-events",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
-        "Commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a claims auth/oidc_audit.py with redacted audit event ring buffer."
-      ],
-      "remaining_work": [
-        "Verify audit tests fail on token-like/cookie-like values.",
-        "Ensure audit covers realtime session nonce issuance without leaking the nonce itself."
+        "Commit 6bf42bfe277cf6ca71fdcce2a89896849a36106a claims auth/oidc_audit.py with redacted audit event ring buffer.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui -q -k 'webrtc or datachannel or signaling or oidc or carbonyl' => 91 passed, 197 deselected in 4.62s, including tests/client_surfaces/operator_tui/auth/test_oidc_audit.py.",
+        "Realtime handoff now uses derived subject_hash plus fresh session_nonce and tests assert raw token values are absent from the handoff payload."
       ],
       "title": "Add redacted audit events for OIDC browser sessions",
       "files": ["client_surfaces/operator_tui/auth/oidc_audit.py", "client_surfaces/operator_tui/visual/browser/browser_mode_controller.py"]

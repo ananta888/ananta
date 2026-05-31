@@ -129,13 +129,12 @@
     },
     {
       "id": "carbonyl-007-tests-and-smoke-script",
-      "status": "in_progress",
+      "status": "done",
+      "done_at": "2026-05-31",
       "evidence": [
-        "Commit d24c1ec57ceaff81bc200e6b5183c59f93176e18 claims 61 new tests and scripts/operator_tui_carbonyl_smoke.py."
-      ],
-      "remaining_work": [
-        "Run or inspect the relevant tests instead of relying only on commit text.",
-        "Record concrete test command and result in evidence before marking done."
+        "Commit d24c1ec57ceaff81bc200e6b5183c59f93176e18 claims 61 new tests and scripts/operator_tui_carbonyl_smoke.py.",
+        ".venv/bin/python -m pytest tests/client_surfaces/operator_tui/visual/browser -q => 77 passed in 4.34s.",
+        ".venv/bin/python scripts/operator_tui_carbonyl_smoke.py => adapter pipeline OK; Carbonyl binary absent on PATH, degraded mode reported correctly."
       ],
       "title": "Add tests and a smoke command for browser mode",
       "files": ["scripts/operator_tui_carbonyl_smoke.py", "tests/client_surfaces/operator_tui/visual/browser/", "tests/client_surfaces/operator_tui/visual/test_viewport_region.py"]

@@ -152,6 +152,7 @@ class LoopbackCallbackServer:
 
         # Bind to port 0 to get a random free port
         httpd = _CallbackHTTPServer((_BIND_HOST, 0), _CallbackHandler)
+        httpd.timeout = min(0.25, max(0.05, timeout_seconds))
         httpd._callback_server = self
         self._httpd = httpd
         self._port = httpd.server_address[1]
@@ -186,10 +187,6 @@ class LoopbackCallbackServer:
         """Stop the server and release the port."""
         self._stopped.set()
         if self._httpd is not None:
-            try:
-                self._httpd.shutdown()
-            except Exception:
-                pass
             try:
                 self._httpd.server_close()
             except Exception:

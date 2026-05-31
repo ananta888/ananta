@@ -58,12 +58,14 @@ class WebRtcSessionController:
         self,
         signaling_client: SignalingClient,
         policy: WebRtcPolicy,
+        *,
+        session_id: str = "default",
     ) -> None:
         self._signaling = signaling_client
         self._policy = policy
         self._lock = threading.Lock()
 
-        self._session_id: str = ""
+        self._session_id: str = session_id.strip() or "default"
         self._oidc_subject_hash: str = ""
         self._session_nonce: str = ""
         self._peer_id: str | None = None
@@ -96,6 +98,10 @@ class WebRtcSessionController:
         with self._lock:
             if self._started:
                 return
+            if self._policy.require_oidc_session and not oidc_subject_hash:
+                raise ValueError("OIDC session is required before starting WebRTC.")
+            if self._policy.require_session_nonce and not session_nonce:
+                raise ValueError("Session nonce is required before starting WebRTC.")
             self._oidc_subject_hash = oidc_subject_hash
             self._session_nonce = session_nonce
             self._auth_state = "authenticated" if oidc_subject_hash else "unauthenticated"
@@ -204,14 +210,33 @@ class WebRtcSessionController:
                 self._error = str(exc)
 
     def _handle_signal(self, msg: SignalingMessage) -> None:
+        if msg.session_id and msg.session_id != self._session_id:
+            with self._lock:
+                self._error = "signaling message rejected: session_id mismatch"
+            return
+        if self._policy.require_session_nonce and msg.session_nonce != self._session_nonce:
+            with self._lock:
+                self._error = "signaling message rejected: session_nonce mismatch"
+            return
+
         t = msg.type
         if t == "join":
+            if self._policy.reject_unknown_peers and not msg.sender_id:
+                with self._lock:
+                    self._error = "signaling message rejected: unknown peer"
+                return
             with self._lock:
                 self._peer_id = msg.sender_id
                 self._ice_state = "checking"
         elif t == "offer":
+            if self._policy.reject_unknown_peers and self._peer_id and msg.sender_id != self._peer_id:
+                with self._lock:
+                    self._error = "signaling message rejected: peer mismatch"
+                return
             offer_id = msg.payload.get("offer_id", msg.message_id)
             with self._lock:
+                if msg.sender_id:
+                    self._peer_id = msg.sender_id
                 self._pending_offers[offer_id] = msg.payload
                 self._transfer_state = _TransferState.OFFER_PENDING
         elif t == "error":

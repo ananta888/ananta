@@ -4116,7 +4116,7 @@ def _handle_webrtc_command(command: str, args: list[str], state: OperatorState) 
     """
     try:
         from client_surfaces.operator_tui.realtime.webrtc_session_controller import WebRtcSessionController
-        from client_surfaces.operator_tui.realtime.signaling_client import SignalingClient, SignalingNotAllowedError
+        from client_surfaces.operator_tui.realtime.signaling_client import SignalingClient
         from client_surfaces.operator_tui.realtime.webrtc_policy import WebRtcPolicy
         from client_surfaces.operator_tui.realtime.webrtc_audit import WebRtcAuditLog, WebRtcAuditEvent, EVENT_SESSION_START, EVENT_SESSION_CLOSED, EVENT_ERROR
     except ImportError as exc:
@@ -4146,9 +4146,6 @@ def _handle_webrtc_command(command: str, args: list[str], state: OperatorState) 
         # Read signaling config from game dict
         signaling_url = str(game.get("webrtc_signaling_url") or "")
         allowed_servers = list(game.get("webrtc_allowed_servers") or [])
-        if signaling_url and signaling_url not in allowed_servers:
-            allowed_servers.append(signaling_url)
-
         session_nonce = str(game.get("webrtc_session_nonce") or game.get("_share_session_nonce") or "")
 
         policy = WebRtcPolicy()
@@ -4157,12 +4154,17 @@ def _handle_webrtc_command(command: str, args: list[str], state: OperatorState) 
             allowed_servers=allowed_servers or ["wss://webrtc.ananta.de"],
             session_nonce=session_nonce,
         )
-        ctrl = WebRtcSessionController(signaling_client=signaling, policy=policy)
+        ctrl = WebRtcSessionController(signaling_client=signaling, policy=policy, session_id=session_id)
         _webrtc_controllers[session_id] = ctrl
 
         if oidc_subject_hash and session_nonce:
-            ctrl.start_session(oidc_subject_hash=oidc_subject_hash, session_nonce=session_nonce)
-            msg = f"WebRTC session {session_id!r} starting (signaling: {signaling_url or 'not configured'})"
+            try:
+                ctrl.start_session(oidc_subject_hash=oidc_subject_hash, session_nonce=session_nonce)
+                msg = f"WebRTC session {session_id!r} starting (signaling: {signaling_url or 'not configured'})"
+            except ValueError as exc:
+                del _webrtc_controllers[session_id]
+                msg = f"WebRTC session {session_id!r} not started: {exc}"
+                return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
         else:
             msg = f"WebRTC session {session_id!r} created (OIDC/nonce not set — call 'oidc login' first)"
 
