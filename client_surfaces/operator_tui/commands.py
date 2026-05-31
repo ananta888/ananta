@@ -28,6 +28,7 @@ from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
 from client_surfaces.operator_tui.ai_snake_config_view import chat_model_option_label, refresh_chat_backend_models
 from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+from client_surfaces.operator_tui.keybindings_config import display_for_action
 from client_surfaces.operator_tui.goal_artifact_filters import (
     filter_goal_artifact_view,
     normalize_goal_artifact_filters,
@@ -4304,7 +4305,10 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
                 header_logo_game=game,
                 mode=OperatorMode.NORMAL,
                 command_line="",
-                status_message=f"browser: öffne {url} | F5 toggle | Esc exit",
+                status_message=(
+                    f"browser: öffne {url} | "
+                    f"{display_for_action('center_browser_toggle', 'Ctrl+2')} toggle | Esc exit"
+                ),
             ),
             "center.browser.url",
         )
@@ -4321,7 +4325,10 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
                 header_logo_game=game,
                 mode=OperatorMode.NORMAL,
                 command_line="",
-                status_message="browser mode: activating | F5 toggle | Esc exit",
+                status_message=(
+                    "browser mode: activating | "
+                    f"{display_for_action('center_browser_toggle', 'Ctrl+2')} toggle | Esc exit"
+                ),
             ),
             "center.browser.open_current",
         )

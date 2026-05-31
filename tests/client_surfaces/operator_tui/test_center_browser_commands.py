@@ -25,7 +25,7 @@ class TestCenterBrowserCommands(unittest.TestCase):
         self.assertEqual(game.get("center_browser_status"), "exited")
 
     def test_default_browser_keybinding_has_no_footer_conflict(self):
-        self.assertEqual(key_for_action("center_browser_toggle", "f5"), "f5")
+        self.assertEqual(key_for_action("center_browser_toggle", "c-2"), "c-2")
         self.assertEqual(area_keybinding_conflicts("footer-normal"), [])
 
 
