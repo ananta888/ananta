@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import re
-
-import pytest
-
 from client_surfaces.operator_tui.models import OperatorState, TuiTab
 from client_surfaces.operator_tui.tab_manager import (
     activate_tab,
@@ -74,13 +70,25 @@ def test_open_duplicate_section_tab_activates_existing() -> None:
 def test_open_chat_viewport_tab_allows_multiple() -> None:
     s = _state()
     s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Hallo…",
-                              viewport_state={"scroll_offset": 0})
-    import time; time.sleep(0.01)
+                              viewport_state={"scroll_offset": 0, "preview": "Hallo erste Nachricht"})
     s2 = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Welt…",
-                               viewport_state={"scroll_offset": 0})
-    # second chat_viewport tab should be new (different label = different preview)
-    # but open_or_activate matches by section_id+kind, so same section → activates existing
-    assert len(s2.open_tabs) >= 1
+                               viewport_state={"scroll_offset": 0, "preview": "Welt zweite Nachricht"})
+    assert len(s2.open_tabs) == 2
+    assert s2.open_tabs[0].id != s2.open_tabs[1].id
+    assert s2.active_tab_id == s2.open_tabs[1].id
+
+
+def test_open_duplicate_chat_viewport_tab_activates_existing() -> None:
+    s = _state()
+    viewport_state = {"scroll_offset": 0, "preview": "Dieselbe lange Nachricht"}
+    s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Dieselbe…",
+                             viewport_state=viewport_state)
+    first_tab_id = s.active_tab_id
+    s = s.with_updates(active_tab_id="")
+    s2 = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Dieselbe…",
+                              viewport_state=viewport_state)
+    assert len(s2.open_tabs) == 1
+    assert s2.active_tab_id == first_tab_id
 
 
 # ── close_tab ───────────────────────────────────────────────────────────────
@@ -175,14 +183,10 @@ def test_save_scroll_does_not_affect_section_tab() -> None:
 
 def test_two_chat_viewport_tabs_independent_scroll() -> None:
     s = _state()
-    import time
     s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="A…",
-                              viewport_state={"scroll_offset": 0})
+                              viewport_state={"scroll_offset": 0, "preview": "A"})
     tab_a = s.active_tab_id
-    # Simulate second message opening a new chat viewport tab with different id
-    # Since open_or_activate finds by section_id+kind, we manually craft a second tab
-    from dataclasses import replace
-    from client_surfaces.operator_tui.models import TuiTab
+    # Simulate a second message tab with an independent scroll state.
     tab_b_id = "chat:99999"
     tab_b = TuiTab(id=tab_b_id, kind="chat_viewport", section_id="dashboard",  # type: ignore[arg-type]
                    label="B…", viewport_state={"scroll_offset": 0})
@@ -268,7 +272,16 @@ def test_seed_template_catalog_all_team_types_covered() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
     cat = get_seed_template_catalog()
     types = set(cat.known_team_types())
-    expected = {"Scrum", "Kanban", "Research", "Code-Repair", "TDD", "Security-Review", "Release-Prep", "Research-Evolution"}
+    expected = {
+        "Scrum",
+        "Kanban",
+        "Research",
+        "Code-Repair",
+        "TDD",
+        "Security-Review",
+        "Release-Prep",
+        "Research-Evolution",
+    }
     assert expected == types
 
 
