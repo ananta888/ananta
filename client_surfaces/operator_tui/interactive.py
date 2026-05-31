@@ -756,7 +756,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
             if self.state.mode is OperatorMode.COMMAND:
                 data = event.key_sequence[0].data
-                if data in {"\b", "\x7f"}:
+                if data == "\x7f":
+                    # \x7f (DEL) is not bound by the specific backspace/c-h binding,
+                    # so handle it here. \x08 (c-h) is already handled by the specific
+                    # binding and must NOT be handled here too (double-fire in pt3).
                     self._command_backspace()
                     return
                 if data and data.isprintable():

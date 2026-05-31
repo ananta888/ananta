@@ -4053,7 +4053,20 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
         return None
 
     cmd = parts[0].lower().replace("-", ".").replace("_", ".")
-    if cmd not in {"center.browser.toggle", "center.browser.open_current", "center.browser.exit"}:
+    # :cb <url> — short alias for center.browser.url
+    if cmd == "cb" and len(parts) > 1:
+        parts = ["center.browser.url"] + parts[1:]
+        cmd = "center.browser.url"
+
+    known = {
+        "center.browser.toggle",
+        "center.browser.open_current",
+        "center.browser.exit",
+        "center.browser.url",
+        "center.browser.open",
+        "cb",
+    }
+    if cmd not in known:
         return None
 
     game = dict(state.header_logo_game or {})
@@ -4062,6 +4075,7 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
     if cmd == "center.browser.exit" or (cmd == "center.browser.toggle" and browser_active):
         game["center_browser_active"] = False
         game["center_browser_status"] = "exited"
+        game.pop("center_browser_url", None)
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
@@ -4072,15 +4086,44 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
             "center.browser.exit",
         )
 
-    if cmd in {"center.browser.open_current", "center.browser.toggle"}:
+    # :center.browser.url <url>  or  :browser <url>
+    if cmd in {"center.browser.url", "center.browser.open"} or (
+        cmd == "center.browser.toggle" and len(parts) > 1
+    ):
+        url = parts[1] if len(parts) > 1 else ""
+        if not url:
+            return CommandResult(
+                state.with_updates(status_message="Usage: :center.browser.url <url>"),
+                "center.browser.url",
+                handled=False,
+            )
+        # Normalise: add https:// if no scheme given
+        if not url.startswith(("http://", "https://", "file://", "data:")):
+            url = "https://" + url
         game["center_browser_active"] = True
         game["center_browser_status"] = "requested"
+        game["center_browser_url"] = url
+        game["center_browser_allow_remote"] = True
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
                 mode=OperatorMode.NORMAL,
                 command_line="",
-                status_message="browser mode: activating | F7 toggle | Esc exit",
+                status_message=f"browser: öffne {url} | F5 toggle | Esc exit",
+            ),
+            "center.browser.url",
+        )
+
+    if cmd in {"center.browser.open_current", "center.browser.toggle"}:
+        game["center_browser_active"] = True
+        game["center_browser_status"] = "requested"
+        game.pop("center_browser_url", None)
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message="browser mode: activating | F5 toggle | Esc exit",
             ),
             "center.browser.open_current",
         )
