@@ -291,7 +291,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
                 from client_surfaces.operator_tui.visual.browser.browser_mode_controller import BrowserModeController
                 import shutil as _sh
                 size = _sh.get_terminal_size((120, 32))
-                left_w, detail_w = 22, 34
+                left_w, detail_w = (12, 18) if size.columns >= 100 else (10, 14)
                 center_w = max(20, size.columns - left_w - detail_w - 6)
                 body_h = max(8, size.lines - 8)
                 ctrl = BrowserModeController()
