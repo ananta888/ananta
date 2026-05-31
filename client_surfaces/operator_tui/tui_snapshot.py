@@ -3,14 +3,70 @@ from __future__ import annotations
 import os
 import re
 import time
+import unicodedata
 from pathlib import Path
 
 _ANSI_STRIP = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-9;?]*[ -/]*[@-~])")
+_ASCII_FALLBACK_MAP = str.maketrans(
+    {
+        "─": "-",
+        "━": "-",
+        "│": "|",
+        "┃": "|",
+        "┌": "+",
+        "┐": "+",
+        "└": "+",
+        "┘": "+",
+        "├": "+",
+        "┤": "+",
+        "┬": "+",
+        "┴": "+",
+        "┼": "+",
+        "═": "=",
+        "║": "|",
+        "╔": "+",
+        "╗": "+",
+        "╚": "+",
+        "╝": "+",
+        "╠": "+",
+        "╣": "+",
+        "╦": "+",
+        "╩": "+",
+        "╬": "+",
+        "•": "*",
+        "●": "*",
+        "◉": "*",
+        "✓": "v",
+        "✔": "v",
+        "✗": "x",
+        "✘": "x",
+        "▶": ">",
+        "→": "->",
+        "←": "<-",
+        "…": "...",
+        "ä": "ae",
+        "ö": "oe",
+        "ü": "ue",
+        "Ä": "Ae",
+        "Ö": "Oe",
+        "Ü": "Ue",
+        "ß": "ss",
+    }
+)
 
 
 def rendered_tui_snapshot_text(rendered_text: str) -> str:
     lines = _ANSI_STRIP.sub("", str(rendered_text or "")).splitlines()
     body = "\n".join(line.rstrip() for line in lines).rstrip()
+    return f"{body}\n" if body else ""
+
+
+def clipboard_safe_text(text: str) -> str:
+    """Normalize text for robust copy/paste across terminals and web UIs."""
+    normalized = _ANSI_STRIP.sub("", str(text or "")).translate(_ASCII_FALLBACK_MAP)
+    normalized = unicodedata.normalize("NFKD", normalized)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    body = "\n".join(line.rstrip() for line in ascii_text.splitlines()).rstrip()
     return f"{body}\n" if body else ""
 
 

@@ -840,7 +840,48 @@ class SnakeTickMixin:
 
         game["_e2e_share_autorun"] = state
 
+    def _get_share_action_futures(self) -> list[Future]:
+        futures: list[Future] | None = getattr(self, "_share_action_futures", None)
+        if futures is None:
+            futures = []
+            self._share_action_futures = futures
+        return futures
+
+    def _collect_share_action_results(self, game: dict) -> None:
+        futures = self._get_share_action_futures()
+        if not futures:
+            return
+        pending: list[Future] = []
+        for future in futures:
+            if not future.done():
+                pending.append(future)
+                continue
+            try:
+                result = future.result()
+            except Exception as exc:
+                game["share_status_message"] = f"Share-Aktion fehlgeschlagen: {exc}"
+                continue
+            if not isinstance(result, dict):
+                continue
+            for key in ("share_status_message", "share_active_session", "share_joined_as", "share_audit_items"):
+                if key in result:
+                    game[key] = result[key]
+        self._share_action_futures = pending
+
+    def _run_share_action(
+        self,
+        action: Any,
+        oidc_token: str,
+        hub_raw: str,
+        endpoint: str,
+        *args: Any,
+    ) -> dict[str, Any]:
+        result_game: dict[str, Any] = {}
+        action(result_game, oidc_token, hub_raw, endpoint, *args)
+        return result_game
+
     def _tick_share_pending_action(self, game: dict, *, now: float) -> None:
+        self._collect_share_action_results(game)
         action_info = game.get("share_pending_action")
         if not action_info or not isinstance(action_info, dict):
             return
@@ -885,21 +926,39 @@ class SnakeTickMixin:
 
         if action == "create":
             title = str(action_info.get("title") or "Shared Session")
-            _bg.submit(self._share_action_create, game, oidc_token, hub_raw, endpoint, title)
+            self._get_share_action_futures().append(
+                _bg.submit(self._run_share_action, self._share_action_create, oidc_token, hub_raw, endpoint, title)
+            )
         elif action == "join":
             code = str(action_info.get("invite_code") or "")
-            _bg.submit(self._share_action_join, game, oidc_token, hub_raw, endpoint, code)
+            self._get_share_action_futures().append(
+                _bg.submit(self._run_share_action, self._share_action_join, oidc_token, hub_raw, endpoint, code)
+            )
         elif action == "set_view":
             session_id = str((game.get("share_active_session") or {}).get("id") or "")
             view_enabled = bool(action_info.get("view_tui"))
             if session_id:
-                _bg.submit(self._share_action_set_view, game, oidc_token, hub_raw, endpoint, session_id, view_enabled)
+                self._get_share_action_futures().append(
+                    _bg.submit(
+                        self._run_share_action,
+                        self._share_action_set_view,
+                        oidc_token,
+                        hub_raw,
+                        endpoint,
+                        session_id,
+                        view_enabled,
+                    )
+                )
         elif action == "list":
-            _bg.submit(self._share_action_list, game, oidc_token, hub_raw, endpoint)
+            self._get_share_action_futures().append(
+                _bg.submit(self._run_share_action, self._share_action_list, oidc_token, hub_raw, endpoint)
+            )
         elif action == "stop":
             session_id = str((game.get("share_active_session") or {}).get("id") or "")
             if session_id:
-                _bg.submit(self._share_action_stop, game, oidc_token, hub_raw, endpoint, session_id)
+                self._get_share_action_futures().append(
+                    _bg.submit(self._run_share_action, self._share_action_stop, oidc_token, hub_raw, endpoint, session_id)
+                )
 
     @staticmethod
     def _resolve_hub_jwt(hub_raw: str, endpoint: str) -> str:
