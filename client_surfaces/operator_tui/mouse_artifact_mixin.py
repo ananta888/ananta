@@ -1046,6 +1046,10 @@ class MouseArtifactMixin:
             state = load_active_section(state, self._registry)
         if hasattr(self, "_apply_visual_command_requests"):
             state = self._apply_visual_command_requests(state)  # type: ignore[assignment]
+        if hasattr(self, "_tick_external_window"):
+            self.state = state  # type: ignore[assignment]
+            self._tick_external_window()  # type: ignore[misc]
+            state = self.state  # type: ignore[assignment]
         self._command_buffer = ""
         if hasattr(self, "_command_cursor"):
             self._command_cursor = 0

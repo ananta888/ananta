@@ -5,7 +5,7 @@
   "title": "Operator TUI: Externes WSLg-Fenster (Hybrid-UI) mit voll steuerbarer AI-Snake",
   "purpose": "Ein robustes, externes GUI-Fenster unter WSL2/Windows 11 bereitstellen, das den mittleren Inhalt der TUI hochwertig darstellt und gleichzeitig voll durch die bestehende TUI-Steuerlogik bedient wird.",
   "goal": "Center-Bereich optional als separates Fenster (WSLg/X11) betreiben; AI-Snake im Fenster sichtbar und steuerbar; TUI bleibt Single Source of Truth fuer State, Policy und Orchestrierung.",
-  "status": "todo",
+  "status": "in_progress",
   "status_scale": [
     "todo",
     "in_progress",
@@ -91,7 +91,7 @@
     {
       "id": "EW-M1",
       "title": "External-Window Fundament und Runtime-Contracts",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "EW-001",
         "EW-002",
@@ -101,7 +101,7 @@
     {
       "id": "EW-M2",
       "title": "Bidirektionale Bridge und AI-Snake Sichtbarkeit",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "EW-004",
         "EW-005",
@@ -135,7 +135,7 @@
       "id": "EW-001",
       "title": "WindowSurface Interface und Controller-Skeleton einziehen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -155,7 +155,7 @@
       "id": "EW-002",
       "title": "Externer Fensterprozess fuer WSLg/X11 startbar machen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -175,7 +175,7 @@
       "id": "EW-003",
       "title": "Neue Commands fuer External Window Lifecycle",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -195,7 +195,7 @@
       "id": "EW-004",
       "title": "Localhost Event Bridge (TUI -> Fenster) implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -215,7 +215,7 @@
       "id": "EW-005",
       "title": "Input Bridge (Fenster -> TUI Actions) anbinden",
       "type": "implementation",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -235,7 +235,7 @@
       "id": "EW-006",
       "title": "AI-Snake View Model fuer Fenster definieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "partial",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -401,13 +401,13 @@
   "tasks_status_summary": {
     "total": 13,
     "by_status": {
-      "todo": 13,
+      "todo": 7,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 3,
       "blocked": 0,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 23,
     "by_priority": {
       "critical": 6,
       "high": 5,
@@ -422,15 +422,15 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 0,
-      "remaining": 7
+      "done": 2,
+      "remaining": 5
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -442,12 +442,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 13,
+    "state": "in_progress",
+    "todo_remaining": 7,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 3,
     "blocked": 0,
-    "done": 0
+    "done": 3
   },
   "summary_notes": [
     "Plan setzt explizit auf vorhandene Browser-/Realtime-Bausteine auf und fuehrt ein separates External-Window-Subsystem ein.",

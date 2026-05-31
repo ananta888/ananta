@@ -4346,8 +4346,13 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
         "center.browser.open",
         "center.webview.open",
         "center.webview.snake",
+        "center.window.open",
+        "center.window.close",
+        "center.window.status",
+        "center.window.restart",
         "cwv",
         "cb",
+        "cwo",
     }
     if cmd not in known:
         return None
@@ -4438,6 +4443,26 @@ body{{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1220;color
 
     if cmd == "cwv":
         cmd = "center.webview.open"
+    if cmd == "cwo":
+        cmd = "center.window.open"
+
+    if cmd in {"center.window.open", "center.window.close", "center.window.status", "center.window.restart"}:
+        game["center_window_command"] = cmd
+        status_text = {
+            "center.window.open": "center window: open angefordert",
+            "center.window.close": "center window: close angefordert",
+            "center.window.status": "center window: status angefordert",
+            "center.window.restart": "center window: restart angefordert",
+        }[cmd]
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=status_text,
+            ),
+            cmd,
+        )
 
     if cmd in {"center.webview.open", "center.webview.snake"}:
         from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser

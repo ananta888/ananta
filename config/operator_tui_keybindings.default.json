@@ -28,6 +28,7 @@
     { "action": "focus_right", "key": "c-d", "display": "Ctrl+D", "label": "Fokus rechts", "areas": ["footer-normal", "shortcuts"] },
     { "action": "center_browser_toggle", "key": "c-2", "display": "Ctrl+2", "label": "Browser", "areas": ["footer-normal", "shortcuts"] },
     { "action": "open_center_webview", "key": "c-0", "display": "Ctrl+0", "label": "Center-WebView", "areas": ["footer-normal", "shortcuts"] },
+    { "action": "open_center_window", "key": "c-9", "display": "Ctrl+9", "label": "Center-Window", "areas": ["footer-normal", "shortcuts"] },
     { "action": "switch_center_to_doc_view", "key": "c-3", "display": "Ctrl+3", "label": "Center→Doc", "areas": ["footer-normal", "shortcuts"] },
     { "action": "refresh", "key": "c-r", "display": "Ctrl+R", "label": "Refresh", "areas": ["footer-normal", "shortcuts"] },
     { "action": "help", "key": "c-y", "display": "Ctrl+Y", "label": "Help", "areas": ["footer-normal", "shortcuts"] },
