@@ -5,10 +5,26 @@
   "title": "Operator TUI: hochwertige Markdown- und Mermaid-Darstellung unter WSL2",
   "purpose": "Eine robuste, reproduzierbare Render-Pipeline bereitstellen, die unter WSL2/Ubuntu ohne Browser-Abhaengigkeit eine deutlich bessere Darstellung fuer Markdown und Mermaid liefert (Text + Diagramm), mit klaren Fallbacks und messbarer Qualitaet.",
   "goal": "Markdown/Mermaid im Center-Viewport standardmaessig lesbar und stabil darstellen; Browser/Carbonyl nicht als Hauptpfad fuer Docs/Diagramme verwenden; Rendering-Qualitaet ueber E2E-Casts und Snapshot-Metriken absichern.",
-  "status": "todo",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status": "in_progress",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "source_code_audit": {
     "baseline_date": "2026-05-31",
     "scope": "client_surfaces/operator_tui/visual/markdown/*, visual views/runtime wiring, markdown docs/tests, center-browser integration",
@@ -75,32 +91,53 @@
     {
       "id": "M1",
       "title": "Runtime-Policy und Render-Strategie fuer WSL2 stabilisieren",
-      "status": "todo",
-      "task_ids": ["MMQ-001", "MMQ-002", "MMQ-003"]
+      "status": "done",
+      "task_ids": [
+        "MMQ-001",
+        "MMQ-002",
+        "MMQ-003"
+      ]
     },
     {
       "id": "M2",
       "title": "Markdown-Qualitaet im ANSI/Viewport-Pfad verbessern",
       "status": "todo",
-      "task_ids": ["MMQ-004", "MMQ-005", "MMQ-006"]
+      "task_ids": [
+        "MMQ-004",
+        "MMQ-005",
+        "MMQ-006"
+      ]
     },
     {
       "id": "M3",
       "title": "Mermaid-Rendering robust machen (WSL2-first)",
       "status": "todo",
-      "task_ids": ["MMQ-007", "MMQ-008", "MMQ-009", "MMQ-010"]
+      "task_ids": [
+        "MMQ-007",
+        "MMQ-008",
+        "MMQ-009",
+        "MMQ-010"
+      ]
     },
     {
       "id": "M4",
       "title": "Observability, Troubleshooting und UX-Hinweise",
-      "status": "todo",
-      "task_ids": ["MMQ-011", "MMQ-012", "MMQ-013"]
+      "status": "partial",
+      "task_ids": [
+        "MMQ-011",
+        "MMQ-012",
+        "MMQ-013"
+      ]
     },
     {
       "id": "M5",
       "title": "E2E-Qualitaetsgates und Release-Guard",
       "status": "todo",
-      "task_ids": ["MMQ-014", "MMQ-015", "MMQ-016"]
+      "task_ids": [
+        "MMQ-014",
+        "MMQ-015",
+        "MMQ-016"
+      ]
     }
   ],
   "tasks": [
@@ -108,7 +145,7 @@
       "id": "MMQ-001",
       "title": "WSL2 Render Policy einfuehren (docs_graphics_profile)",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "target_files": [
@@ -128,7 +165,7 @@
       "id": "MMQ-002",
       "title": "Browser-Pfad fuer Markdown/Mermaid explizit entkoppeln",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -148,7 +185,7 @@
       "id": "MMQ-003",
       "title": "SOLID-Refactor: Render-Policy aus View extrahieren",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -321,7 +358,7 @@
       "id": "MMQ-012",
       "title": "Dependency preflight command fuer Grafikpfad",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "target_files": [
@@ -340,7 +377,7 @@
       "id": "MMQ-013",
       "title": "Dokumentation: Recommended WSL2 Stack fuer Markdown/Mermaid",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "target_files": [
@@ -413,15 +450,46 @@
       ]
     }
   ],
-  "critical_path_tasks": ["MMQ-001", "MMQ-007", "MMQ-008", "MMQ-009", "MMQ-014", "MMQ-016"],
+  "critical_path_tasks": [
+    "MMQ-001",
+    "MMQ-007",
+    "MMQ-008",
+    "MMQ-009",
+    "MMQ-014",
+    "MMQ-016"
+  ],
   "tasks_status_summary": {
     "total": 16,
-    "by_status": { "todo": 16, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0 },
-    "progress_percent_done": 0,
-    "by_priority": { "critical": 4, "high": 9, "medium": 3, "low": 0 },
-    "by_risk": { "low": 4, "medium": 8, "high": 4, "critical": 0 },
-    "critical_path": { "total": 6, "done": 0, "remaining": 6 },
-    "milestones": { "total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0 }
+    "by_status": {
+      "todo": 11,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 5
+    },
+    "progress_percent_done": 31.25,
+    "by_priority": {
+      "critical": 4,
+      "high": 9,
+      "medium": 3
+    },
+    "by_risk": {
+      "high": 2,
+      "medium": 9,
+      "low": 5
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 1,
+      "remaining": 5
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 3,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 1
+    }
   },
   "tasks_type_summary": {
     "total": 16,
@@ -429,17 +497,17 @@
       "architecture": 1,
       "implementation": 10,
       "refactor": 1,
-      "test": 3,
-      "docs": 1
+      "docs": 1,
+      "test": 3
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 16,
+    "state": "in_progress",
+    "todo_remaining": 11,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 5
   },
   "summary_notes": [
     "Der Plan nutzt vorhandene Markdown/Mermaid-Module als Basis und fokussiert auf Qualitaet + WSL2-Operationalisierung statt Greenfield-Neubau.",
