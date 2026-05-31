@@ -4117,6 +4117,8 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
         game["center_browser_status"] = "requested"
         game["center_browser_url"] = url
         game["center_browser_allow_remote"] = True
+        game.pop("center_browser_error", None)
+        game.pop("_browser_frame_bytes", None)
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
@@ -4131,6 +4133,8 @@ def execute_center_browser_command(raw_command: str, state: OperatorState) -> Co
         game["center_browser_active"] = True
         game["center_browser_status"] = "requested"
         game.pop("center_browser_url", None)
+        game.pop("center_browser_error", None)
+        game.pop("_browser_frame_bytes", None)
         return CommandResult(
             state.with_updates(
                 header_logo_game=game,
