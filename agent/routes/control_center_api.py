@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import time
 import uuid
+import json
 from typing import Any
 
-from flask import Blueprint, g, request
+from flask import Blueprint, Response, g, request
 
 from agent.auth import check_auth
 from agent.common.audit import log_audit
@@ -24,6 +25,7 @@ control_center_api_bp = Blueprint("control_center_api", __name__, url_prefix="/a
 # B08 mapping for task->session relation until a dedicated persisted session model is introduced.
 _TASK_SESSION_LINKS: dict[str, str] = {}  # session_id -> task_id
 _APPROVAL_EVENTS: list[dict[str, Any]] = []
+_EVENT_SEQUENCE: int = 0
 
 
 def _repos():
@@ -78,6 +80,12 @@ def _session_item(session: dict[str, Any]) -> dict[str, Any]:
         "expires_at": session.get("expires_at"),
         "revoked_at": session.get("revoked_at"),
     }
+
+
+def _next_event_id() -> str:
+    global _EVENT_SEQUENCE
+    _EVENT_SEQUENCE += 1
+    return f"cc-{int(time.time() * 1000)}-{_EVENT_SEQUENCE}"
 
 
 @control_center_api_bp.route("/projects", methods=["GET"])
@@ -380,3 +388,123 @@ def list_workers():
             }
         )
     return api_response(data={"items": items, "count": len(items)})
+
+
+@control_center_api_bp.route("/policies", methods=["GET"])
+@check_auth
+def list_policies():
+    """B13: GET /api/policies with versions and active flag."""
+    rows = _repos().context_access_policy_repo.find_by_scope("system_default") or []
+    latest_by_policy_id: dict[str, int] = {}
+    for row in rows:
+        pid = str(getattr(row, "policy_id", "") or "")
+        ver = int(getattr(row, "version", 0) or 0)
+        if pid and ver > latest_by_policy_id.get(pid, 0):
+            latest_by_policy_id[pid] = ver
+
+    items = []
+    for row in rows:
+        policy_id = str(getattr(row, "policy_id", "") or "")
+        version = int(getattr(row, "version", 0) or 0)
+        items.append(
+            {
+                "id": str(getattr(row, "id", "") or ""),
+                "policy_id": policy_id,
+                "version": version,
+                "scope": str(getattr(row, "scope", "") or ""),
+                "state": "active" if version == latest_by_policy_id.get(policy_id, -1) else "inactive",
+                "active": version == latest_by_policy_id.get(policy_id, -1),
+                "updated_at": float(getattr(row, "updated_at", 0.0) or 0.0),
+            }
+        )
+    items.sort(key=lambda x: (str(x.get("policy_id") or ""), int(x.get("version") or 0)), reverse=True)
+    return api_response(data={"items": items, "count": len(items)})
+
+
+@control_center_api_bp.route("/codecompass/context-scopes", methods=["GET"])
+@check_auth
+def list_context_scopes():
+    """B15: GET /api/codecompass/context-scopes"""
+    defaults = [
+        {"id": "repo_all", "label": "Repository (alles)", "include": ["/"], "exclude": []},
+        {"id": "source_only", "label": "Nur Source", "include": ["/agent/**", "/frontend-angular/**"], "exclude": ["/tests/**"]},
+        {"id": "safe_local", "label": "Safe Local", "include": ["/agent/**", "/frontend-angular/**"], "exclude": ["/.env", "/secrets/**", "/data/**"]},
+    ]
+    return api_response(data={"items": defaults, "count": len(defaults)})
+
+
+@control_center_api_bp.route("/codecompass/context-scopes/preview", methods=["POST"])
+@check_auth
+def preview_context_scope():
+    """B16: POST /api/codecompass/context-scopes/preview"""
+    body = request.get_json(silent=True) or {}
+    include = [str(item).strip() for item in list(body.get("include") or []) if str(item).strip()]
+    exclude = [str(item).strip() for item in list(body.get("exclude") or []) if str(item).strip()]
+    if not include:
+        include = ["/"]
+    sensitive = ["/.env", "/secrets/**", "/data/**", "/**/*.pem", "/**/*.key"]
+    excluded_sensitive = [item for item in sensitive if item in exclude or item.startswith("/.env")]
+    return api_response(
+        data={
+            "scope_preview": {
+                "include": include,
+                "exclude": exclude,
+                "excluded_sensitive_paths": sorted(set(excluded_sensitive)),
+                "cloud_boundary_hint": "local-only recommended when sensitive paths are in scope",
+            }
+        }
+    )
+
+
+@control_center_api_bp.route("/events/stream", methods=["GET"])
+@check_auth
+def stream_control_center_events():
+    """B17: GET /api/events/stream central SSE feed."""
+    def generate():
+        last_task_ts = 0.0
+        last_policy_ts = 0.0
+        while True:
+            now = time.time()
+            task_rows = _repos().task_repo.get_all() or []
+            for task in task_rows:
+                updated_at = float(getattr(task, "updated_at", 0.0) or 0.0)
+                if updated_at <= last_task_ts:
+                    continue
+                event = {
+                    "id": _next_event_id(),
+                    "channel": "task",
+                    "type": "task_updated",
+                    "timestamp": updated_at,
+                    "payload": _task_item(task),
+                }
+                yield f"data: {json.dumps(event)}\n\n"
+                if updated_at > last_task_ts:
+                    last_task_ts = updated_at
+
+            policy_rows = _repos().policy_decision_repo.get_all() or []
+            for decision in policy_rows:
+                created_at = float(getattr(decision, "created_at", 0.0) or 0.0)
+                if created_at <= last_policy_ts:
+                    continue
+                details = dict(getattr(decision, "details", None) or {})
+                event = {
+                    "id": _next_event_id(),
+                    "channel": "policy",
+                    "type": "policy_decision",
+                    "timestamp": created_at,
+                    "payload": {
+                        "decision_id": str(getattr(decision, "id", "") or ""),
+                        "status": str(getattr(decision, "status", "") or ""),
+                        "decision_type": str(getattr(decision, "decision_type", "") or ""),
+                        "task_id": str(getattr(decision, "task_id", "") or ""),
+                        "session_id": str(details.get("session_id") or ""),
+                    },
+                }
+                yield f"data: {json.dumps(event)}\n\n"
+                if created_at > last_policy_ts:
+                    last_policy_ts = created_at
+
+            yield f": heartbeat {now}\n\n"
+            time.sleep(5)
+
+    return Response(generate(), mimetype="text/event-stream")

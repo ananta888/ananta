@@ -6,9 +6,25 @@
   "purpose": "Alle verbleibenden Lücken für ein produktionsreifes, sicheres Ananta Control Center schließen.",
   "goal": "Ein durchgängig funktionsfähiges Control Center, das Task-/Session-/Policy-/Artifact-/Verification-Flows live, nachvollziehbar und backend-autoritativ abbildet.",
   "status": "in_progress",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "architecture_guards": {
     "must_hold": [
       "Hub bleibt zentrale Control Plane",
@@ -27,12 +43,54 @@
     "core_gap": "Einheitliche, belastbare Backend-Read-Model- und Action-Endpoints fehlen oder sind nur indirekt/adapterbasiert nutzbar."
   },
   "milestones": [
-    { "id": "M1", "title": "Backend Read Models & Actions", "status": "in_progress", "estimated_h": 30, "target_date": "2026-06-15", "risk": "high" },
-    { "id": "M2", "title": "Frontend Domain-Integration", "status": "todo", "estimated_h": 24, "target_date": "2026-06-22", "risk": "medium" },
-    { "id": "M3", "title": "Policy/Approval Hardening", "status": "todo", "estimated_h": 16, "target_date": "2026-06-26", "risk": "high" },
-    { "id": "M4", "title": "Live-Events & Realtime Konsistenz", "status": "todo", "estimated_h": 14, "target_date": "2026-06-30", "risk": "high" },
-    { "id": "M5", "title": "Verification-/Artifact-Closure", "status": "todo", "estimated_h": 12, "target_date": "2026-07-03", "risk": "medium" },
-    { "id": "M6", "title": "Tests, Security, Rollout", "status": "todo", "estimated_h": 18, "target_date": "2026-07-07", "risk": "high" }
+    {
+      "id": "M1",
+      "title": "Backend Read Models & Actions",
+      "status": "done",
+      "estimated_h": 30,
+      "target_date": "2026-06-15",
+      "risk": "high"
+    },
+    {
+      "id": "M2",
+      "title": "Frontend Domain-Integration",
+      "status": "done",
+      "estimated_h": 24,
+      "target_date": "2026-06-22",
+      "risk": "medium"
+    },
+    {
+      "id": "M3",
+      "title": "Policy/Approval Hardening",
+      "status": "todo",
+      "estimated_h": 16,
+      "target_date": "2026-06-26",
+      "risk": "high"
+    },
+    {
+      "id": "M4",
+      "title": "Live-Events & Realtime Konsistenz",
+      "status": "todo",
+      "estimated_h": 14,
+      "target_date": "2026-06-30",
+      "risk": "high"
+    },
+    {
+      "id": "M5",
+      "title": "Verification-/Artifact-Closure",
+      "status": "todo",
+      "estimated_h": 12,
+      "target_date": "2026-07-03",
+      "risk": "medium"
+    },
+    {
+      "id": "M6",
+      "title": "Tests, Security, Rollout",
+      "status": "todo",
+      "estimated_h": 18,
+      "target_date": "2026-07-07",
+      "risk": "high"
+    }
   ],
   "tasks": [
     {
@@ -44,8 +102,15 @@
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "files_affected": ["agent/routes/projects.py", "agent/services/*project*"],
-      "acceptance_criteria": ["Projektliste mit stabiler ID/Name/Root/Status", "Auth erforderlich", "Leere Liste statt Fehler bei 0 Projekten"]
+      "files_affected": [
+        "agent/routes/projects.py",
+        "agent/services/*project*"
+      ],
+      "acceptance_criteria": [
+        "Projektliste mit stabiler ID/Name/Root/Status",
+        "Auth erforderlich",
+        "Leere Liste statt Fehler bei 0 Projekten"
+      ]
     },
     {
       "id": "B02",
@@ -56,9 +121,18 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
-      "blocked_by": ["B01"],
-      "files_affected": ["agent/routes/tasks/*.py", "agent/services/task_*"],
-      "acceptance_criteria": ["Task-Liste projektspezifisch", "Status normalisiert auf Board-Spalten", "Pagination + sort"]
+      "blocked_by": [
+        "B01"
+      ],
+      "files_affected": [
+        "agent/routes/tasks/*.py",
+        "agent/services/task_*"
+      ],
+      "acceptance_criteria": [
+        "Task-Liste projektspezifisch",
+        "Status normalisiert auf Board-Spalten",
+        "Pagination + sort"
+      ]
     },
     {
       "id": "B03",
@@ -69,9 +143,18 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 5,
-      "blocked_by": ["B02"],
-      "files_affected": ["agent/routes/tasks/*.py", "agent/services/task_management_service.py"],
-      "acceptance_criteria": ["Task + Sessions + Artifacts + Verification in einem Payload", "Schema versioniert", "Keine breaking changes bestehender APIs"]
+      "blocked_by": [
+        "B02"
+      ],
+      "files_affected": [
+        "agent/routes/tasks/*.py",
+        "agent/services/task_management_service.py"
+      ],
+      "acceptance_criteria": [
+        "Task + Sessions + Artifacts + Verification in einem Payload",
+        "Schema versioniert",
+        "Keine breaking changes bestehender APIs"
+      ]
     },
     {
       "id": "B04",
@@ -82,8 +165,13 @@
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
-      "files_affected": ["agent/routes/tasks/*.py"],
-      "acceptance_criteria": ["Erzeugt Task mit risk/context Draft", "Validierung 422 bei fehlerhaftem Payload"]
+      "files_affected": [
+        "agent/routes/tasks/*.py"
+      ],
+      "acceptance_criteria": [
+        "Erzeugt Task mit risk/context Draft",
+        "Validierung 422 bei fehlerhaftem Payload"
+      ]
     },
     {
       "id": "B05",
@@ -94,9 +182,17 @@
       "priority": "high",
       "risk": "high",
       "estimated_h": 4,
-      "blocked_by": ["B03"],
-      "files_affected": ["agent/routes/tasks/*.py", "agent/routes/tasks/orchestration_policy/*"],
-      "acceptance_criteria": ["Nur erlaubte Transitionen", "Audit-Event je Änderung"]
+      "blocked_by": [
+        "B03"
+      ],
+      "files_affected": [
+        "agent/routes/tasks/*.py",
+        "agent/routes/tasks/orchestration_policy/*"
+      ],
+      "acceptance_criteria": [
+        "Nur erlaubte Transitionen",
+        "Audit-Event je Änderung"
+      ]
     },
     {
       "id": "B06",
@@ -107,8 +203,14 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
-      "files_affected": ["agent/routes/sessions.py (neu)", "agent/services/*session*"],
-      "acceptance_criteria": ["Filter nach project/task/status", "Worker/Model/Runtime enthalten"]
+      "files_affected": [
+        "agent/routes/sessions.py (neu)",
+        "agent/services/*session*"
+      ],
+      "acceptance_criteria": [
+        "Filter nach project/task/status",
+        "Worker/Model/Runtime enthalten"
+      ]
     },
     {
       "id": "B07",
@@ -119,9 +221,17 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
-      "blocked_by": ["B06"],
-      "files_affected": ["agent/routes/sessions.py", "agent/services/*session*"],
-      "acceptance_criteria": ["ToolCalls/PolicySnapshot/Artifacts/Events vollständig", "Not-found 404"]
+      "blocked_by": [
+        "B06"
+      ],
+      "files_affected": [
+        "agent/routes/sessions.py",
+        "agent/services/*session*"
+      ],
+      "acceptance_criteria": [
+        "ToolCalls/PolicySnapshot/Artifacts/Events vollständig",
+        "Not-found 404"
+      ]
     },
     {
       "id": "B08",
@@ -132,9 +242,18 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 5,
-      "blocked_by": ["B03", "B06"],
-      "files_affected": ["agent/routes/sessions.py", "agent/services/task_orchestration_service.py"],
-      "acceptance_criteria": ["Start nur über Hub-Policy", "Session erhält initialen PolicySnapshot"]
+      "blocked_by": [
+        "B03",
+        "B06"
+      ],
+      "files_affected": [
+        "agent/routes/sessions.py",
+        "agent/services/task_orchestration_service.py"
+      ],
+      "acceptance_criteria": [
+        "Start nur über Hub-Policy",
+        "Session erhält initialen PolicySnapshot"
+      ]
     },
     {
       "id": "B09",
@@ -145,9 +264,16 @@
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["B07"],
-      "files_affected": ["agent/routes/sessions.py"],
-      "acceptance_criteria": ["Idempotent cancel", "Audit-Event erzeugt"]
+      "blocked_by": [
+        "B07"
+      ],
+      "files_affected": [
+        "agent/routes/sessions.py"
+      ],
+      "acceptance_criteria": [
+        "Idempotent cancel",
+        "Audit-Event erzeugt"
+      ]
     },
     {
       "id": "B10",
@@ -158,9 +284,17 @@
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["B07"],
-      "files_affected": ["agent/routes/policy*.py", "agent/services/platform_governance_service.py"],
-      "acceptance_criteria": ["allow/deny/require_approval inkl. reason/ruleIds", "sort by timestamp"]
+      "blocked_by": [
+        "B07"
+      ],
+      "files_affected": [
+        "agent/routes/policy*.py",
+        "agent/services/platform_governance_service.py"
+      ],
+      "acceptance_criteria": [
+        "allow/deny/require_approval inkl. reason/ruleIds",
+        "sort by timestamp"
+      ]
     },
     {
       "id": "B11",
@@ -171,9 +305,17 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
-      "blocked_by": ["B10"],
-      "files_affected": ["agent/routes/policy*.py", "agent/routes/tasks/orchestration_policy/*"],
-      "acceptance_criteria": ["Approval nur für konkrete action_id/tool_call_id", "Wildcard-Approval abgelehnt"]
+      "blocked_by": [
+        "B10"
+      ],
+      "files_affected": [
+        "agent/routes/policy*.py",
+        "agent/routes/tasks/orchestration_policy/*"
+      ],
+      "acceptance_criteria": [
+        "Approval nur für konkrete action_id/tool_call_id",
+        "Wildcard-Approval abgelehnt"
+      ]
     },
     {
       "id": "B12",
@@ -184,150 +326,236 @@
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
-      "files_affected": ["agent/routes/system.py", "agent/services/agent_registry_service.py"],
-      "acceptance_criteria": ["health/runtime/capabilities/boundary konsistent", "degraded/offline klar markiert"]
+      "files_affected": [
+        "agent/routes/system.py",
+        "agent/services/agent_registry_service.py"
+      ],
+      "acceptance_criteria": [
+        "health/runtime/capabilities/boundary konsistent",
+        "degraded/offline klar markiert"
+      ]
     },
     {
       "id": "B13",
       "milestone_id": "M1",
       "title": "GET /api/policies (Versionen + Active Policy)",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "estimated_h": 2,
-      "files_affected": ["agent/routes/context_access_policy.py"],
-      "acceptance_criteria": ["Liste enthält version/state/updatedAt", "active policy eindeutig"]
+      "files_affected": [
+        "agent/routes/context_access_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Liste enthält version/state/updatedAt",
+        "active policy eindeutig"
+      ]
     },
     {
       "id": "B14",
       "milestone_id": "M1",
       "title": "GET /api/artifacts/{artifactId}/content normalisieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
-      "files_affected": ["agent/routes/artifacts.py"],
-      "acceptance_criteria": ["type + encoding + payload konsistent", "Große Inhalte paginierbar/chunkbar"]
+      "files_affected": [
+        "agent/routes/artifacts.py"
+      ],
+      "acceptance_criteria": [
+        "type + encoding + payload konsistent",
+        "Große Inhalte paginierbar/chunkbar"
+      ]
     },
     {
       "id": "B15",
       "milestone_id": "M1",
       "title": "GET /api/codecompass/context-scopes",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "estimated_h": 2,
-      "files_affected": ["agent/routes/context_access_policy.py", "agent/routes/knowledge.py"],
-      "acceptance_criteria": ["Scopeliste mit include/exclude-Feldern", "Auth erforderlich"]
+      "files_affected": [
+        "agent/routes/context_access_policy.py",
+        "agent/routes/knowledge.py"
+      ],
+      "acceptance_criteria": [
+        "Scopeliste mit include/exclude-Feldern",
+        "Auth erforderlich"
+      ]
     },
     {
       "id": "B16",
       "milestone_id": "M1",
       "title": "POST /api/codecompass/context-scopes/preview",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "estimated_h": 3,
-      "blocked_by": ["B15"],
-      "files_affected": ["agent/routes/knowledge.py", "agent/services/*context*"],
-      "acceptance_criteria": ["Preview zeigt inkludierte Quellen und ausgeschlossene Secrets", "Cloud-boundary-Hinweise"]
+      "blocked_by": [
+        "B15"
+      ],
+      "files_affected": [
+        "agent/routes/knowledge.py",
+        "agent/services/*context*"
+      ],
+      "acceptance_criteria": [
+        "Preview zeigt inkludierte Quellen und ausgeschlossene Secrets",
+        "Cloud-boundary-Hinweise"
+      ]
     },
     {
       "id": "B17",
       "milestone_id": "M4",
       "title": "GET /api/events/stream als zentraler Event-Feed",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 5,
-      "files_affected": ["agent/routes/events.py (neu)", "agent/services/*event*"],
-      "acceptance_criteria": ["SSE heartbeat + reconnect support", "Events für task/session/tool/policy/verification"]
+      "files_affected": [
+        "agent/routes/events.py (neu)",
+        "agent/services/*event*"
+      ],
+      "acceptance_criteria": [
+        "SSE heartbeat + reconnect support",
+        "Events für task/session/tool/policy/verification"
+      ]
     },
-
     {
       "id": "F01",
       "milestone_id": "M2",
       "title": "Control-Center API Clients (typed) für neue Endpoints",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 4,
-      "blocked_by": ["B01", "B02", "B03", "B06", "B07"],
-      "files_affected": ["frontend-angular/src/app/services/hub-*.client.ts", "frontend-angular/src/app/core/api/**"],
-      "acceptance_criteria": ["Keine any-lastigen Payloads", "Error-Mapping standardisiert"]
+      "blocked_by": [
+        "B01",
+        "B02",
+        "B03",
+        "B06",
+        "B07"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/services/hub-*.client.ts",
+        "frontend-angular/src/app/core/api/**"
+      ],
+      "acceptance_criteria": [
+        "Keine any-lastigen Payloads",
+        "Error-Mapping standardisiert"
+      ]
     },
     {
       "id": "F02",
       "milestone_id": "M2",
       "title": "Control-Center State Facade (selectedProject/task/session/artifact)",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["F01"],
-      "files_affected": ["frontend-angular/src/app/core/state/**", "frontend-angular/src/app/features/control-center/**"],
-      "acceptance_criteria": ["Zentraler, testbarer UI-State", "kein duplizierter Zustand in Komponenten"]
+      "blocked_by": [
+        "F01"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/core/state/**",
+        "frontend-angular/src/app/features/control-center/**"
+      ],
+      "acceptance_criteria": [
+        "Zentraler, testbarer UI-State",
+        "kein duplizierter Zustand in Komponenten"
+      ]
     },
     {
       "id": "F03",
       "milestone_id": "M2",
       "title": "TaskBoard mit echten Projektdaten statt Mock",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["F01", "F02"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-task-board.component.ts"],
-      "acceptance_criteria": ["Board-Spalten live aus API", "Loading/Empty/Error States"]
+      "blocked_by": [
+        "F01",
+        "F02"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-task-board.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Board-Spalten live aus API",
+        "Loading/Empty/Error States"
+      ]
     },
     {
       "id": "F04",
       "milestone_id": "M2",
       "title": "Session-Liste/Detail auf echte Session-Read-Models umstellen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
-      "blocked_by": ["F01", "B06", "B07"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-sessions.component.ts"],
-      "acceptance_criteria": ["ToolTimeline + SecurityInspector beziehen API-Daten", "Cancel-Action verdrahtet"]
+      "blocked_by": [
+        "F01",
+        "B06",
+        "B07"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-sessions.component.ts"
+      ],
+      "acceptance_criteria": [
+        "ToolTimeline + SecurityInspector beziehen API-Daten",
+        "Cancel-Action verdrahtet"
+      ]
     },
     {
       "id": "F05",
       "milestone_id": "M2",
       "title": "Project-Navigation im linken Panel anbinden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "estimated_h": 2,
-      "blocked_by": ["F01", "B01"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-shell.component.ts"],
-      "acceptance_criteria": ["Projektwechsel aktualisiert Board/Sessions/Artifacts"]
+      "blocked_by": [
+        "F01",
+        "B01"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-shell.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Projektwechsel aktualisiert Board/Sessions/Artifacts"
+      ]
     },
     {
       "id": "F06",
       "milestone_id": "M2",
       "title": "WorkerRegistry/CapabilityMatrix auf echte Worker-API",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["F01", "B12"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-workers.component.ts"],
-      "acceptance_criteria": ["online/degraded/offline korrekt", "Boundary local/cloud sichtbar"]
+      "blocked_by": [
+        "F01",
+        "B12"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-workers.component.ts"
+      ],
+      "acceptance_criteria": [
+        "online/degraded/offline korrekt",
+        "Boundary local/cloud sichtbar"
+      ]
     },
-
     {
       "id": "F07",
       "milestone_id": "M3",
@@ -337,9 +565,17 @@
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["F01", "B10"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts"],
-      "acceptance_criteria": ["matched rule IDs + reason sichtbar", "Zeitliche Sortierung"]
+      "blocked_by": [
+        "F01",
+        "B10"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts"
+      ],
+      "acceptance_criteria": [
+        "matched rule IDs + reason sichtbar",
+        "Zeitliche Sortierung"
+      ]
     },
     {
       "id": "F08",
@@ -350,9 +586,17 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 3,
-      "blocked_by": ["F01", "B11"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts"],
-      "acceptance_criteria": ["Payload enthält action_id + tool_call_id", "UI zeigt success/deny/failure transparent"]
+      "blocked_by": [
+        "F01",
+        "B11"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Payload enthält action_id + tool_call_id",
+        "UI zeigt success/deny/failure transparent"
+      ]
     },
     {
       "id": "F09",
@@ -363,11 +607,17 @@
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["F04"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-security-inspector.component.ts"],
-      "acceptance_criteria": [".env/secrets/** klar markiert", "cloudAllowed boundary sichtbar"]
+      "blocked_by": [
+        "F04"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-security-inspector.component.ts"
+      ],
+      "acceptance_criteria": [
+        ".env/secrets/** klar markiert",
+        "cloudAllowed boundary sichtbar"
+      ]
     },
-
     {
       "id": "F10",
       "milestone_id": "M4",
@@ -377,9 +627,16 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 3,
-      "blocked_by": ["B17"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/services/control-center-event-stream.service.ts"],
-      "acceptance_criteria": ["Reconnect robust", "Heartbeat/Liveness im UI"]
+      "blocked_by": [
+        "B17"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/services/control-center-event-stream.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Reconnect robust",
+        "Heartbeat/Liveness im UI"
+      ]
     },
     {
       "id": "F11",
@@ -390,11 +647,18 @@
       "priority": "high",
       "risk": "high",
       "estimated_h": 4,
-      "blocked_by": ["F02", "F10"],
-      "files_affected": ["frontend-angular/src/app/core/state/**"],
-      "acceptance_criteria": ["Keine Doppelereignisse", "Out-of-order-Events konsistent behandelt"]
+      "blocked_by": [
+        "F02",
+        "F10"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/core/state/**"
+      ],
+      "acceptance_criteria": [
+        "Keine Doppelereignisse",
+        "Out-of-order-Events konsistent behandelt"
+      ]
     },
-
     {
       "id": "F12",
       "milestone_id": "M5",
@@ -404,9 +668,17 @@
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["F01", "B14"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts"],
-      "acceptance_criteria": ["Filter project/task/session/type", "Loading/Error/Empty konsistent"]
+      "blocked_by": [
+        "F01",
+        "B14"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Filter project/task/session/type",
+        "Loading/Error/Empty konsistent"
+      ]
     },
     {
       "id": "F13",
@@ -417,9 +689,16 @@
       "priority": "high",
       "risk": "high",
       "estimated_h": 2,
-      "blocked_by": ["F12"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts"],
-      "acceptance_criteria": ["XSS-Tests grün", "Kein unsafe bypass außerhalb streng kontrollierter Pfade"]
+      "blocked_by": [
+        "F12"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts"
+      ],
+      "acceptance_criteria": [
+        "XSS-Tests grün",
+        "Kein unsafe bypass außerhalb streng kontrollierter Pfade"
+      ]
     },
     {
       "id": "F14",
@@ -430,11 +709,18 @@
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["F03", "B03"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/components/control-center-verification-panel.component.ts"],
-      "acceptance_criteria": ["Task close nur wenn policykonform", "Testreport-Artifact verlinkt"]
+      "blocked_by": [
+        "F03",
+        "B03"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/components/control-center-verification-panel.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Task close nur wenn policykonform",
+        "Testreport-Artifact verlinkt"
+      ]
     },
-
     {
       "id": "Q01",
       "milestone_id": "M6",
@@ -444,8 +730,12 @@
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
-      "files_affected": ["frontend-angular/src/app/features/control-center/**/*.spec.ts"],
-      "acceptance_criteria": ["Statusmapping + Rendering + Guardrails getestet"]
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/**/*.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Statusmapping + Rendering + Guardrails getestet"
+      ]
     },
     {
       "id": "Q02",
@@ -456,9 +746,16 @@
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["F04", "F08"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/**/*.spec.ts"],
-      "acceptance_criteria": ["Narrow-Approval nur mit vollständiger ID-Kombination"]
+      "blocked_by": [
+        "F04",
+        "F08"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/**/*.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Narrow-Approval nur mit vollständiger ID-Kombination"
+      ]
     },
     {
       "id": "Q03",
@@ -469,9 +766,16 @@
       "priority": "high",
       "risk": "high",
       "estimated_h": 3,
-      "blocked_by": ["F04", "F07"],
-      "files_affected": ["frontend-angular/tests/control-center-*.spec.ts"],
-      "acceptance_criteria": ["Denied-Flow ohne manuelles Polling nachvollziehbar"]
+      "blocked_by": [
+        "F04",
+        "F07"
+      ],
+      "files_affected": [
+        "frontend-angular/tests/control-center-*.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Denied-Flow ohne manuelles Polling nachvollziehbar"
+      ]
     },
     {
       "id": "Q04",
@@ -482,9 +786,16 @@
       "priority": "medium",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["F12", "F14"],
-      "files_affected": ["frontend-angular/tests/control-center-*.spec.ts"],
-      "acceptance_criteria": ["Artefakt geöffnet, Diff sichtbar, Verification nachvollziehbar"]
+      "blocked_by": [
+        "F12",
+        "F14"
+      ],
+      "files_affected": [
+        "frontend-angular/tests/control-center-*.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Artefakt geöffnet, Diff sichtbar, Verification nachvollziehbar"
+      ]
     },
     {
       "id": "Q05",
@@ -495,9 +806,15 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 2,
-      "blocked_by": ["F13"],
-      "files_affected": ["frontend-angular/src/app/features/control-center/**/*.spec.ts"],
-      "acceptance_criteria": ["script/event-handler payloads werden neutralisiert"]
+      "blocked_by": [
+        "F13"
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/control-center/**/*.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "script/event-handler payloads werden neutralisiert"
+      ]
     },
     {
       "id": "Q06",
@@ -508,8 +825,14 @@
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
-      "files_affected": ["tests/test_*control_center*.py", "tests/test_routes_*.py"],
-      "acceptance_criteria": ["Schema-Versionen fixiert", "Fehlercodes/validations stabil"]
+      "files_affected": [
+        "tests/test_*control_center*.py",
+        "tests/test_routes_*.py"
+      ],
+      "acceptance_criteria": [
+        "Schema-Versionen fixiert",
+        "Fehlercodes/validations stabil"
+      ]
     },
     {
       "id": "Q07",
@@ -520,19 +843,43 @@
       "priority": "medium",
       "risk": "medium",
       "estimated_h": 1,
-      "files_affected": ["docs/control-center-rollout.md"],
-      "acceptance_criteria": ["Staging->Prod Schritte", "Fallback-Plan bei Eventstream/API-Problemen"]
+      "files_affected": [
+        "docs/control-center-rollout.md"
+      ],
+      "acceptance_criteria": [
+        "Staging->Prod Schritte",
+        "Fallback-Plan bei Eventstream/API-Problemen"
+      ]
     }
   ],
   "critical_path_tasks": [
-    "B01", "B02", "B03", "B06", "B07", "B08", "B10", "B11", "B17", "F01", "F02", "F03", "F04", "F07", "F08", "F10", "F11", "F12", "F14", "Q06"
+    "B01",
+    "B02",
+    "B03",
+    "B06",
+    "B07",
+    "B08",
+    "B10",
+    "B11",
+    "B17",
+    "F01",
+    "F02",
+    "F03",
+    "F04",
+    "F07",
+    "F08",
+    "F10",
+    "F11",
+    "F12",
+    "F14",
+    "Q06"
   ],
   "tasks_status_summary": {
-    "todo": 25,
+    "todo": 14,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 12
+    "done": 23
   },
   "tasks_type_summary": {
     "backend": 17,
@@ -544,18 +891,42 @@
   },
   "progress_summary": {
     "total_tasks": 37,
-    "completed_tasks": 12,
-    "completion_percent": 32,
+    "completed_tasks": 23,
+    "completion_percent": 62,
     "total_estimated_h": 114,
-    "milestones_done": 0,
+    "milestones_done": 2,
     "milestones_total": 6,
     "phase_breakdown": {
-      "M1_backend_read_models_actions": { "tasks": 17, "estimated_h": 59, "status": "todo" },
-      "M2_frontend_domain_integration": { "tasks": 6, "estimated_h": 18, "status": "todo" },
-      "M3_policy_approval_hardening": { "tasks": 3, "estimated_h": 8, "status": "todo" },
-      "M4_live_events_realtime": { "tasks": 3, "estimated_h": 12, "status": "todo" },
-      "M5_verification_artifact_closure": { "tasks": 3, "estimated_h": 7, "status": "todo" },
-      "M6_tests_security_rollout": { "tasks": 5, "estimated_h": 10, "status": "todo" }
+      "M1_backend_read_models_actions": {
+        "tasks": 17,
+        "estimated_h": 59,
+        "status": "done"
+      },
+      "M2_frontend_domain_integration": {
+        "tasks": 6,
+        "estimated_h": 18,
+        "status": "done"
+      },
+      "M3_policy_approval_hardening": {
+        "tasks": 3,
+        "estimated_h": 8,
+        "status": "todo"
+      },
+      "M4_live_events_realtime": {
+        "tasks": 3,
+        "estimated_h": 12,
+        "status": "todo"
+      },
+      "M5_verification_artifact_closure": {
+        "tasks": 3,
+        "estimated_h": 7,
+        "status": "todo"
+      },
+      "M6_tests_security_rollout": {
+        "tasks": 5,
+        "estimated_h": 10,
+        "status": "todo"
+      }
     }
   },
   "open_questions": [

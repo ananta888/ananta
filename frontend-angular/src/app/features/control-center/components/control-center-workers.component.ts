@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { NgFor } from '@angular/common';
 import { StatusChipComponent } from './status-chip.component';
+import { ControlCenterStateFacade } from '../services/control-center-state.facade';
 
 interface WorkerRow {
   id: string;
@@ -44,16 +45,38 @@ interface WorkerRow {
   `,
   styles: [`.grid{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:10px}.card{border:1px solid #1f2937;border-radius:10px;padding:10px;background:#0f172a}header{display:flex;justify-content:space-between}.muted{color:#94a3b8;font-size:12px}.matrix{width:100%;border-collapse:collapse;margin-top:8px}.matrix th,.matrix td{border:1px solid #1f2937;padding:6px}.matrix th{background:#111827}@media (max-width:900px){.grid{grid-template-columns:1fr}}`]
 })
-export class ControlCenterWorkersComponent {
-  workers: WorkerRow[] = [
-    { id: 'alpha', runtime: 'docker', health: 'online', capabilities: ['fs', 'terminal', 'tool_exec'], localOnly: true },
-    { id: 'beta', runtime: 'remote', health: 'degraded', capabilities: ['fs', 'tool_exec'], localOnly: false },
-    { id: 'gamma', runtime: 'local', health: 'offline', capabilities: ['tool_exec'], localOnly: true },
-  ];
+export class ControlCenterWorkersComponent implements OnInit {
+  readonly state = inject(ControlCenterStateFacade);
+  workers: WorkerRow[] = [];
+
+  ngOnInit(): void {
+    this.state.workers$.subscribe((rows) => {
+      this.workers = rows.map((row) => ({
+        id: row.id,
+        runtime: this.toRuntime(row.runtime),
+        health: this.toHealth(row.health),
+        capabilities: row.capabilities || [],
+        localOnly: row.boundary !== 'cloud-allowed',
+      }));
+    });
+    this.state.loadWorkers();
+  }
 
   tone(s: WorkerRow['health']): 'neutral'|'ok'|'warn'|'danger'|'info' {
     if (s === 'online') return 'ok';
     if (s === 'degraded') return 'warn';
     return 'danger';
+  }
+
+  private toRuntime(v: string): WorkerRow['runtime'] {
+    const x = String(v || '').toLowerCase();
+    if (x === 'docker' || x === 'remote' || x === 'cloud') return x as WorkerRow['runtime'];
+    return 'local';
+  }
+
+  private toHealth(v: string): WorkerRow['health'] {
+    const x = String(v || '').toLowerCase();
+    if (x === 'online' || x === 'degraded' || x === 'offline') return x as WorkerRow['health'];
+    return 'offline';
   }
 }

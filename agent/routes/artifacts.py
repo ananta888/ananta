@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 from flask import Blueprint, current_app, g, request, send_file
@@ -315,7 +316,7 @@ def get_artifact_rag_status(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/content", methods=["GET"])
 @check_auth
 def get_artifact_content(artifact_id: str):
-    """Serve raw artifact bytes. Used by workers to materialize predecessor artifacts."""
+    """Serve raw artifact bytes or normalized JSON payload (compatible adapter)."""
     version_repo = _artifact_version_repo()
     versions = version_repo.get_by_artifact(artifact_id)
     if not versions:
@@ -324,6 +325,30 @@ def get_artifact_content(artifact_id: str):
     storage_path = Path(latest.storage_path)
     if not storage_path.exists():
         raise NotFoundError("artifact_file_not_found")
+
+    normalized = str(request.args.get("normalized") or "").strip().lower() in {"1", "true", "yes"}
+    if normalized:
+        offset = max(0, int(request.args.get("offset", default=0, type=int) or 0))
+        limit = int(request.args.get("limit", default=262144, type=int) or 262144)
+        limit = max(1024, min(limit, 1024 * 1024))
+        content = storage_path.read_bytes()
+        chunk = content[offset: offset + limit]
+        next_offset = offset + len(chunk)
+        return api_response(
+            data={
+                "artifact_id": artifact_id,
+                "type": str(latest.media_type or "application/octet-stream"),
+                "encoding": "base64",
+                "payload": base64.b64encode(chunk).decode("ascii"),
+                "size_bytes": int(latest.size_bytes or len(content)),
+                "offset": offset,
+                "limit": limit,
+                "next_offset": next_offset if next_offset < len(content) else None,
+                "has_more": next_offset < len(content),
+                "filename": str(latest.original_filename or "artifact.bin"),
+            }
+        )
+
     return send_file(
         str(storage_path),
         mimetype=latest.media_type or "application/octet-stream",
