@@ -60,7 +60,7 @@ class ArtifactKnowledgeSourceAdapter(RetrievalSourceAdapter):
             top_k=top_k,
             task_kind=task_kind,
             retrieval_intent=retrieval_intent,
-            source_scopes={"artifact"},
+            source_scopes={"artifact", "repo_path"},
         )
 
 
