@@ -7,6 +7,7 @@ import {
   CcPolicyDecisionReadModel,
   CcSessionReadModel,
   CcTaskReadModel,
+  CcToolCallReadModel,
   CcWorkerReadModel,
   HubControlCenterApiClient,
 } from './hub-control-center-api.client';
@@ -22,6 +23,7 @@ export class ControlCenterStateFacade {
   readonly tasks$ = new BehaviorSubject<CcTaskReadModel[]>([]);
   readonly sessions$ = new BehaviorSubject<CcSessionReadModel[]>([]);
   readonly workers$ = new BehaviorSubject<CcWorkerReadModel[]>([]);
+  readonly toolCallsBySessionId$ = new BehaviorSubject<Record<string, CcToolCallReadModel[]>>({});
   readonly policyDecisions$ = new BehaviorSubject<CcPolicyDecisionReadModel[]>([]);
   readonly taskVerificationById$ = new BehaviorSubject<Record<string, { status: string; test_count: number; passed_count: number; failed_count: number }>>({});
   readonly selectedProjectId$ = new BehaviorSubject<string>('');
@@ -139,6 +141,17 @@ export class ControlCenterStateFacade {
         return of({ items: [], count: 0 });
       }),
     ).subscribe((res) => this.policyDecisions$.next(res.items || []));
+  }
+
+  loadSessionToolCalls(sessionId: string): void {
+    const baseUrl = this.hubBaseUrl();
+    if (!baseUrl || !sessionId) return;
+    this.api.listSessionToolCalls(baseUrl, sessionId).pipe(
+      catchError(() => of({ items: [], count: 0 })),
+    ).subscribe((res) => {
+      const next = { ...this.toolCallsBySessionId$.value, [sessionId]: res.items || [] };
+      this.toolCallsBySessionId$.next(next);
+    });
   }
 
   approveAction(payload: { action_id: string; tool_call_id: string; session_id: string }): ReturnType<HubControlCenterApiClient['approvePolicyAction']> | null {

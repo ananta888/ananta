@@ -15,14 +15,13 @@ from flask import Blueprint, Response, g, request
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.db_models import AgentSessionDB, TaskDB
+from agent.db_models import AgentSessionDB, PolicySnapshotDB, TaskDB, ToolCallDB
 from agent.routes.tasks.status import normalize_task_status
 from agent.services.repository_registry import get_repository_registry
 from agent.services.share_session_service import get_share_session_service
 
 control_center_api_bp = Blueprint("control_center_api", __name__, url_prefix="/api")
 
-_APPROVAL_EVENTS: list[dict[str, Any]] = []
 _EVENT_SEQUENCE: int = 0
 
 
@@ -63,23 +62,6 @@ def _task_item(task: Any) -> dict[str, Any]:
     }
 
 
-def _session_item(session: dict[str, Any]) -> dict[str, Any]:
-    sid = str(session.get("id") or "")
-    return {
-        "id": sid,
-        "task_id": _TASK_SESSION_LINKS.get(sid),
-        "title": str(session.get("title") or "Shared Session"),
-        "mode": str(session.get("mode") or "relay"),
-        "transport": str(session.get("transport") or "hub_relay"),
-        "owner_user_id": str(session.get("owner_user_id") or ""),
-        "permissions": dict(session.get("permissions") or {}),
-        "status": "running" if session.get("revoked_at") is None else "cancelled",
-        "created_at": float(session.get("created_at") or 0.0),
-        "expires_at": session.get("expires_at"),
-        "revoked_at": session.get("revoked_at"),
-    }
-
-
 _ALLOWED_AGENT_SESSION_STATUSES = {
     "idle",
     "proposed",
@@ -104,6 +86,7 @@ def _normalize_agent_session_status(raw: str | None) -> str:
 
 
 def _agent_session_item(session: AgentSessionDB) -> dict[str, Any]:
+    snapshot = _repos().policy_snapshot_repo.get_by_id(str(session.policy_snapshot_id or "")) if session.policy_snapshot_id else None
     return {
         "id": str(session.id or ""),
         "task_id": str(session.task_id or "") or None,
@@ -122,6 +105,43 @@ def _agent_session_item(session: AgentSessionDB) -> dict[str, Any]:
         "created_at": float(session.created_at or 0.0),
         "updated_at": float(session.updated_at or 0.0),
         "cancelled_at": session.cancelled_at,
+        "policy_snapshot": _policy_snapshot_item(snapshot) if snapshot else None,
+    }
+
+
+def _tool_call_item(row: ToolCallDB) -> dict[str, Any]:
+    return {
+        "id": str(row.id or ""),
+        "session_id": str(row.session_id or ""),
+        "task_id": str(row.task_id or "") or None,
+        "action_id": str(row.action_id or ""),
+        "tool_name": str(row.tool_name or ""),
+        "status": str(row.status or ""),
+        "risk_level": str(row.risk_level or "medium"),
+        "target_path": str(row.target_path or "") or None,
+        "created_at": float(row.created_at or 0.0),
+        "started_at": row.started_at,
+        "finished_at": row.finished_at,
+        "error_message": row.error_message,
+    }
+
+
+def _policy_snapshot_item(snapshot: PolicySnapshotDB) -> dict[str, Any]:
+    return {
+        "id": str(snapshot.id or ""),
+        "session_id": str(snapshot.session_id or ""),
+        "task_id": str(snapshot.task_id or "") or None,
+        "policy_version": str(snapshot.policy_version or "v1"),
+        "risk_level": str(snapshot.risk_level or "medium"),
+        "allowed_tools": list(snapshot.allowed_tools_json or []),
+        "denied_tools": list(snapshot.denied_tools_json or []),
+        "allowed_paths": list(snapshot.allowed_paths_json or []),
+        "denied_paths": list(snapshot.denied_paths_json or []),
+        "cloud_allowed": bool(snapshot.cloud_allowed),
+        "runtime_boundary": str(snapshot.runtime_boundary or "unknown"),
+        "requires_human_approval": bool(snapshot.requires_human_approval),
+        "approval_reason": snapshot.approval_reason,
+        "created_at": float(snapshot.created_at or 0.0),
     }
 
 
@@ -275,7 +295,20 @@ def get_session(session_id: str):
         if str((getattr(p, "details", None) or {}).get("session_id") or "") == session_id
     ]
 
-    return api_response(data={"session": _agent_session_item(persisted), "participants": participants, "policy_decisions": decisions})
+    tool_calls = [_tool_call_item(item) for item in _repos().tool_call_repo.get_by_session_id(session_id)]
+    return api_response(data={"session": _agent_session_item(persisted), "participants": participants, "policy_decisions": decisions, "tool_calls": tool_calls})
+
+
+@control_center_api_bp.route("/sessions/<session_id>/tool-calls", methods=["GET"])
+@check_auth
+def list_session_tool_calls(session_id: str):
+    persisted = _repos().agent_session_repo.get_by_id(session_id)
+    if persisted is None:
+        return api_response(status="error", message="not_found", code=404)
+    if str(persisted.owner_user_id or "") != _user_id():
+        return api_response(status="error", message="forbidden", code=403)
+    items = [_tool_call_item(item) for item in _repos().tool_call_repo.get_by_session_id(session_id)]
+    return api_response(data={"items": items, "count": len(items)})
 
 
 @control_center_api_bp.route("/tasks/<task_id>/sessions", methods=["POST"])
@@ -322,6 +355,39 @@ def create_task_session(task_id: str):
         expires_at=session.get("expires_at"),
     )
     saved = _repos().agent_session_repo.save(row)
+    snapshot = PolicySnapshotDB(
+        session_id=str(saved.id),
+        task_id=task_id,
+        policy_version="v1",
+        risk_level="medium",
+        allowed_tools_json=["read_file"],
+        denied_tools_json=["network_write", "shell_root"],
+        allowed_paths_json=["/agent/**", "/frontend-angular/**"],
+        denied_paths_json=["/.env", "/secrets/**", "/**/*.pem", "/**/*.key"],
+        cloud_allowed=False,
+        runtime_boundary="local-only",
+        requires_human_approval=True,
+        approval_reason="bootstrap_session_requires_explicit_approval",
+        created_at=now,
+        updated_at=now,
+    )
+    persisted_snapshot = _repos().policy_snapshot_repo.save(snapshot)
+    saved.policy_snapshot_id = str(persisted_snapshot.id)
+    saved.updated_at = now
+    saved = _repos().agent_session_repo.save(saved)
+    bootstrap_tool_call = ToolCallDB(
+        session_id=str(saved.id),
+        task_id=task_id,
+        action_id=f"approve:{saved.id}",
+        tool_name="session_bootstrap",
+        status="require_approval",
+        risk_level="medium",
+        target_path=None,
+        created_at=now,
+        updated_at=now,
+        arguments_preview="bootstrap action for newly created session",
+    )
+    _repos().tool_call_repo.save(bootstrap_tool_call)
 
     log_audit("control_center_task_session_created", {"task_id": task_id, "session_id": saved.id, "actor": user_id})
     return api_response(data={"session": _agent_session_item(saved)}, code=201)
@@ -373,21 +439,23 @@ def list_session_policy_decisions(session_id: str):
             }
         )
 
-    # Include explicit narrow approvals captured via B11
-    items.extend([
-        {
-            "id": str(entry.get("id") or ""),
-            "decision": "allow",
-            "decision_type": "manual_approval",
-            "reason": "narrow_approval",
-            "matched_rule_ids": [],
-            "created_at": float(entry.get("created_at") or 0.0),
-            "action_id": entry.get("action_id"),
-            "tool_call_id": entry.get("tool_call_id"),
-        }
-        for entry in _APPROVAL_EVENTS
-        if str(entry.get("session_id") or "") == session_id
-    ])
+    tool_calls = _repos().tool_call_repo.get_by_session_id(session_id)
+    for tc in tool_calls:
+        status = str(getattr(tc, "status", "") or "").strip().lower()
+        if status not in {"require_approval", "denied", "allowed"}:
+            continue
+        items.append(
+            {
+                "id": str(getattr(tc, "id", "") or ""),
+                "decision": "require_approval" if status == "require_approval" else ("deny" if status == "denied" else "allow"),
+                "decision_type": "tool_call_gate",
+                "reason": f"tool_call:{getattr(tc, 'tool_name', '')}",
+                "matched_rule_ids": [],
+                "created_at": float(getattr(tc, "created_at", 0.0) or 0.0),
+                "action_id": str(getattr(tc, "action_id", "") or ""),
+                "tool_call_id": str(getattr(tc, "id", "") or ""),
+            }
+        )
 
     items.sort(key=lambda x: float(x.get("created_at") or 0.0), reverse=True)
     return api_response(data={"items": items, "count": len(items)})
@@ -406,16 +474,40 @@ def approve_policy_action():
         return api_response(status="error", message="action_id_and_tool_call_id_required", code=400)
     if str(body.get("scope") or "single_action") != "single_action":
         return api_response(status="error", message="wildcard_approval_forbidden", code=403)
+    if not session_id:
+        return api_response(status="error", message="session_id_required", code=400)
 
+    actor = _user_id()
+    session = _repos().agent_session_repo.get_by_id(session_id)
+    if session is None:
+        return api_response(status="error", message="session_not_found", code=404)
+    if str(session.owner_user_id or "") != actor:
+        return api_response(status="error", message="forbidden", code=403)
+
+    tool_call = _repos().tool_call_repo.get_by_id(tool_call_id)
+    if tool_call is None or str(tool_call.session_id or "") != session_id:
+        return api_response(status="error", message="pending_action_not_found", code=404)
+    if str(tool_call.action_id or "") != action_id:
+        return api_response(status="error", message="pending_action_not_found", code=404)
+    current_status = str(tool_call.status or "").strip().lower()
+    if current_status in {"completed", "denied", "cancelled", "failed"}:
+        return api_response(status="error", message="pending_action_not_approvable", code=409)
+    if current_status not in {"require_approval", "proposed"}:
+        return api_response(status="error", message="pending_action_not_approvable", code=409)
+
+    approved_at = time.time()
+    tool_call.status = "allowed"
+    tool_call.approved_by_user_id = actor
+    tool_call.updated_at = float(approved_at)
+    _repos().tool_call_repo.save(tool_call)
     event = {
         "id": str(uuid.uuid4()),
         "session_id": session_id,
         "action_id": action_id,
         "tool_call_id": tool_call_id,
-        "actor": _user_id(),
-        "created_at": time.time(),
+        "actor": actor,
+        "created_at": approved_at,
     }
-    _APPROVAL_EVENTS.append(event)
     log_audit("control_center_policy_approved", event)
     return api_response(data={"approved": True, "scope": "single_action", **event})
 

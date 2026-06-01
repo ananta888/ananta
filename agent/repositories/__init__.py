@@ -38,7 +38,7 @@ from .organization import (
     TeamTypeRepository,
     TeamTypeRoleLinkRepository,
 )
-from .tasks import AgentSessionRepository, ArchivedTaskRepository, TaskRepository
+from .tasks import AgentSessionRepository, ArchivedTaskRepository, PolicySnapshotRepository, TaskRepository, ToolCallRepository
 from .worker_slot_lease import WorkerSlotLeaseRepository
 from .terminal import TerminalSessionRepository, TerminalEventRepository
 from .planning_learning import (
@@ -86,6 +86,8 @@ __all__ = [
     "ScheduledTaskRepository",
     "StatsRepository",
     "TaskRepository",
+    "ToolCallRepository",
+    "PolicySnapshotRepository",
     "TeamBlueprintRepository",
     "TeamMemberRepository",
     "TeamRepository",

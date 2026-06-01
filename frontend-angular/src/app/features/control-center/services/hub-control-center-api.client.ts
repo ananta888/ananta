@@ -34,6 +34,18 @@ export interface CcSessionReadModel {
   model?: string | null;
   runtime?: string | null;
   policy_snapshot_id?: string | null;
+  policy_snapshot?: {
+    policy_version: string;
+    risk_level: string;
+    allowed_tools: string[];
+    denied_tools: string[];
+    allowed_paths: string[];
+    denied_paths: string[];
+    cloud_allowed: boolean;
+    runtime_boundary: 'local-only' | 'cloud-allowed' | 'remote' | 'unknown' | string;
+    requires_human_approval: boolean;
+    approval_reason?: string | null;
+  } | null;
 }
 
 export interface CcWorkerReadModel {
@@ -53,6 +65,21 @@ export interface CcPolicyDecisionReadModel {
   created_at: number;
   action_id?: string;
   tool_call_id?: string;
+}
+
+export interface CcToolCallReadModel {
+  id: string;
+  session_id: string;
+  task_id?: string | null;
+  action_id: string;
+  tool_name: string;
+  status: string;
+  risk_level: string;
+  target_path?: string | null;
+  created_at: number;
+  started_at?: number | null;
+  finished_at?: number | null;
+  error_message?: string | null;
 }
 
 export interface CcTaskDetailReadModel {
@@ -102,6 +129,15 @@ export class HubControlCenterApiClient {
     );
   }
 
+  listSessionToolCalls(baseUrl: string, sessionId: string, token?: string): Observable<{ items: CcToolCallReadModel[]; count: number }> {
+    return this.core.get<{ items: CcToolCallReadModel[]; count: number }>(
+      `${baseUrl}/api/sessions/${encodeURIComponent(sessionId)}/tool-calls`,
+      baseUrl,
+      token,
+      false,
+    );
+  }
+
   approvePolicyAction(
     baseUrl: string,
     payload: { action_id: string; tool_call_id: string; session_id: string; scope: 'single_action' },
@@ -110,8 +146,21 @@ export class HubControlCenterApiClient {
     return this.core.post<Record<string, unknown>>(`${baseUrl}/api/policy/approve`, payload, baseUrl, token, false);
   }
 
-  listArtifacts(baseUrl: string, token?: string): Observable<CcArtifactReadModel[]> {
-    return this.core.get<CcArtifactReadModel[]>(`${baseUrl}/artifacts`, baseUrl, token, false);
+  listArtifacts(
+    baseUrl: string,
+    filters?: { project_id?: string; task_id?: string; session_id?: string; type?: string; limit?: number; offset?: number },
+    token?: string,
+  ): Observable<CcArtifactReadModel[]> {
+    const params = new URLSearchParams();
+    if (filters?.project_id) params.set('project_id', filters.project_id);
+    if (filters?.task_id) params.set('task_id', filters.task_id);
+    if (filters?.session_id) params.set('session_id', filters.session_id);
+    if (filters?.type && filters.type !== 'all') params.set('type', filters.type);
+    if (typeof filters?.limit === 'number') params.set('limit', String(filters.limit));
+    if (typeof filters?.offset === 'number') params.set('offset', String(filters.offset));
+    const query = params.toString();
+    const url = `${baseUrl}/artifacts${query ? `?${query}` : ''}`;
+    return this.core.get<CcArtifactReadModel[]>(url, baseUrl, token, false);
   }
 
   getArtifactContentNormalized(

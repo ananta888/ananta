@@ -10,6 +10,7 @@ interface DecisionRow {
   decision: 'allow' | 'deny' | 'require_approval';
   reason: string;
   matchedRuleIds: string[];
+  toolCallId?: string;
 }
 
 @Component({
@@ -37,9 +38,19 @@ interface DecisionRow {
             <option *ngFor="let s of (state.sessions$ | async) || []" [value]="s.id">{{ s.id }}</option>
           </select>
         </label>
-        <label>Action ID <input [(ngModel)]="pendingActionId" placeholder="z.B. tc-103" /></label>
-        <label>Tool Call ID <input [(ngModel)]="pendingToolCallId" placeholder="z.B. tool-77" /></label>
-        <button (click)="approve()" [disabled]="!pendingActionId || !pendingToolCallId">Narrow Approval senden</button>
+        <div *ngIf="pendingRows.length; else noPending">
+          <label>Pending Action
+            <select [(ngModel)]="selectedPendingId">
+              <option *ngFor="let p of pendingRows" [value]="p.id">
+                {{ p.actionId }} · {{ p.reason }} · {{ p.toolCallId || p.id }}
+              </option>
+            </select>
+          </label>
+          <button (click)="approveSelected()" [disabled]="!selectedPendingId">Narrow Approval senden</button>
+        </div>
+        <ng-template #noPending>
+          <p class="muted">Keine pending approvals für diese Session.</p>
+        </ng-template>
         <p class="muted">Es wird nur die konkrete Aktion freigegeben, keine Wildcard.</p>
         <p class="muted" *ngIf="resultMessage">{{ resultMessage }}</p>
         <pre *ngIf="lastPayload" class="raw">{{ lastPayload }}</pre>
@@ -52,9 +63,8 @@ export class ControlCenterPolicyApprovalComponent implements OnInit {
   readonly state = inject(ControlCenterStateFacade);
   decisions: DecisionRow[] = [];
   selectedSessionId = '';
-
-  pendingActionId = '';
-  pendingToolCallId = '';
+  pendingRows: DecisionRow[] = [];
+  selectedPendingId = '';
   lastPayload = '';
   resultMessage = '';
 
@@ -74,7 +84,12 @@ export class ControlCenterPolicyApprovalComponent implements OnInit {
         decision: (row.decision as 'allow' | 'deny' | 'require_approval'),
         reason: row.reason,
         matchedRuleIds: row.matched_rule_ids || [],
+        toolCallId: row.tool_call_id,
       }));
+      this.pendingRows = this.decisions.filter((d) => d.decision === 'require_approval' && !!d.toolCallId);
+      if (!this.selectedPendingId || !this.pendingRows.some((d) => d.id === this.selectedPendingId)) {
+        this.selectedPendingId = this.pendingRows[0]?.id || '';
+      }
     });
     this.state.loadSessions();
   }
@@ -85,10 +100,12 @@ export class ControlCenterPolicyApprovalComponent implements OnInit {
     return 'warn';
   }
 
-  approve(): void {
+  approveSelected(): void {
+    const pending = this.pendingRows.find((row) => row.id === this.selectedPendingId);
+    if (!pending || !pending.toolCallId) return;
     const payload = {
-      action_id: this.pendingActionId,
-      tool_call_id: this.pendingToolCallId,
+      action_id: pending.actionId,
+      tool_call_id: pending.toolCallId,
       scope: 'single_action',
       session_id: this.selectedSessionId,
     };
