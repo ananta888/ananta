@@ -137,7 +137,15 @@ export class ControlCenterArtifactBrowserComponent implements OnInit {
     const base = this.state.hubBaseUrl();
     if (!base) return;
     this.loading = true;
-    this.api.listArtifacts(base).subscribe({
+    this.api.listArtifacts(
+      base,
+      {
+        project_id: this.selectedProject.trim() || undefined,
+        task_id: this.selectedTask.trim() || undefined,
+        session_id: this.selectedSession.trim() || undefined,
+        type: this.selectedType === 'all' ? undefined : this.selectedType,
+      },
+    ).subscribe({
       next: (rows) => {
         this.artifacts = rows.map((row) => ({
           id: row.id,
@@ -188,16 +196,9 @@ export class ControlCenterArtifactBrowserComponent implements OnInit {
   }
 
   get filteredArtifacts(): CcArtifact[] {
-    const projectQ = this.selectedProject.trim().toLowerCase();
-    const taskQ = this.selectedTask.trim().toLowerCase();
-    const sessionQ = this.selectedSession.trim().toLowerCase();
     return this.artifacts.filter((a) => {
       const typeOk = this.selectedType === 'all' || a.type === this.selectedType;
-      const hay = `${a.id} ${a.title}`.toLowerCase();
-      const projectOk = !projectQ || hay.includes(projectQ);
-      const taskOk = !taskQ || hay.includes(taskQ);
-      const sessionOk = !sessionQ || hay.includes(sessionQ);
-      return typeOk && projectOk && taskOk && sessionOk;
+      return typeOk;
     });
   }
 
