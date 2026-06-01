@@ -30,7 +30,6 @@ describe('ControlCenterMarkdownMermaidViewerComponent security', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('graph TD');
   });
-});
 
   it('neutralizes inline event handlers in markdown output', async () => {
     await TestBed.configureTestingModule({
@@ -46,4 +45,4 @@ describe('ControlCenterMarkdownMermaidViewerComponent security', () => {
     expect(html.toLowerCase()).not.toContain('onerror');
     expect(html.toLowerCase()).not.toContain('onclick');
   });
-
+});
