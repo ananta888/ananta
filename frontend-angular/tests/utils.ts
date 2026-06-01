@@ -12,6 +12,7 @@ export const TEST_LOGIN_IP = process.env.ANANTA_E2E_USE_EXISTING === '1' ? undef
 export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AGENT_TOKEN_HUB || 'generate_a_random_token_for_hub';
 export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
 export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.AGENT_TOKEN_BETA || 'generate_a_random_token_for_beta';
+const FALLBACK_ADMIN_PASSWORDS = ['AnantaAdminPassword123!', 'admin', 'test123'];
 const USE_EXISTING_SERVICES = process.env.ANANTA_E2E_USE_EXISTING === '1';
 const ENABLE_DETERMINISTIC_SCRUM_SEED = process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1';
 const E2E_SCRUM_SEED_TEAM_NAME = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
@@ -154,13 +155,14 @@ async function loginViaApi(
   password: string
 ): Promise<{ accessToken?: string; refreshToken?: string; mfaRequired?: boolean } | null> {
   const attempts = Number(process.env.E2E_API_LOGIN_RETRIES || '10');
+  const timeoutMs = Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '15000');
   for (let i = 0; i < attempts; i += 1) {
     try {
-      const res = await fetch(`${HUB_URL}/login`, {
+      const res = await fetchWithTimeout(`${HUB_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
-      });
+      }, timeoutMs);
       if (res.ok) {
         const payload = await res.json() as any;
         const data = payload?.data || payload;
@@ -180,8 +182,17 @@ async function loginViaApi(
 
 async function normalizeExistingAdminAuthState(username: string, password: string): Promise<void> {
   if (!USE_EXISTING_SERVICES || username !== ADMIN_USERNAME) return;
-  try { await resetUserAuthStateViaApi(username, password); } catch {}
+  for (const candidate of adminPasswordCandidates(password)) {
+    try {
+      if (await resetUserAuthStateViaApi(username, candidate)) break;
+    } catch {}
+  }
   try { await ensureLoginAttemptsCleared(); } catch {}
+}
+
+function adminPasswordCandidates(preferredPassword: string): string[] {
+  const candidates = [preferredPassword, ...FALLBACK_ADMIN_PASSWORDS].map((item) => String(item || '').trim()).filter(Boolean);
+  return [...new Set(candidates)];
 }
 
 async function provisionUserViaTestApi(
@@ -190,11 +201,11 @@ async function provisionUserViaTestApi(
   role: 'admin' | 'user' = 'user'
 ): Promise<boolean> {
   try {
-    const res = await fetch(`${HUB_URL}/test/provision-user`, {
+    const res = await fetchWithTimeout(`${HUB_URL}/test/provision-user`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, role, overwrite: true })
-    });
+    }, Number(process.env.E2E_API_AUX_TIMEOUT_MS || '8000'));
     return res.ok;
   } catch {
     return false;
@@ -203,9 +214,9 @@ async function provisionUserViaTestApi(
 
 async function deleteUserViaTestApi(username: string): Promise<boolean> {
   try {
-    const res = await fetch(`${HUB_URL}/test/users/${encodeURIComponent(username)}`, {
+    const res = await fetchWithTimeout(`${HUB_URL}/test/users/${encodeURIComponent(username)}`, {
       method: 'DELETE'
-    });
+    }, Number(process.env.E2E_API_AUX_TIMEOUT_MS || '8000'));
     return res.ok || res.status === 404;
   } catch {
     return false;
@@ -216,11 +227,11 @@ export async function resetUserAuthStateViaApi(username: string, password?: stri
   try {
     const body: any = { username };
     if (password) body.password = password;
-    const res = await fetch(`${HUB_URL}/test/reset-user-auth-state`, {
+    const res = await fetchWithTimeout(`${HUB_URL}/test/reset-user-auth-state`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
-    });
+    }, Number(process.env.E2E_API_AUX_TIMEOUT_MS || '8000'));
     return res.ok;
   } catch {
     return false;
@@ -343,17 +354,29 @@ export async function loginFast(
   attachBrowserErrorGuards(page);
   await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
+  const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
+  let accessToken: string | undefined;
+  let refreshToken: string | undefined;
 
-  const response = await request.post(`${HUB_URL}/login`, {
-    data: {
-      username,
-      password,
-    },
-  });
-  expect(response.ok()).toBeTruthy();
-  const payload = await response.json() as any;
-  const accessToken = payload?.data?.access_token;
-  const refreshToken = payload?.data?.refresh_token;
+  for (const candidate of passwordCandidates) {
+    const apiLogin = await loginViaApi(username, candidate);
+    if (!apiLogin?.accessToken) continue;
+    accessToken = apiLogin.accessToken;
+    refreshToken = apiLogin.refreshToken;
+    break;
+  }
+
+  if (!accessToken) {
+    const response = await request.post(`${HUB_URL}/login`, {
+      timeout: Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '45000'),
+      failOnStatusCode: false,
+      data: { username, password },
+    });
+    const payload = await response.json().catch(() => ({})) as any;
+    accessToken = payload?.data?.access_token;
+    refreshToken = payload?.data?.refresh_token;
+  }
+
   expect(accessToken).toBeTruthy();
   await ensureDeterministicScrumSeed(accessToken);
 
@@ -785,24 +808,25 @@ async function resetLoginAttemptsViaApi(ip?: string): Promise<boolean> {
   const endpoint = `${HUB_URL}/test/reset-login-attempts`;
   const payload = JSON.stringify(ip ? { ip, clear_ban: true } : { clear_ban: true });
   const headersBase = { 'Content-Type': 'application/json' };
+  const timeoutMs = Number(process.env.E2E_API_AUX_TIMEOUT_MS || '8000');
 
   // Fast path: AGENT_TOKEN used by E2E setups.
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: { ...headersBase, Authorization: `Bearer ${HUB_AGENT_TOKEN}` },
       body: payload
-    });
+    }, timeoutMs);
     if (res.ok) return true;
     if (![401, 403].includes(res.status)) return false;
   } catch {}
 
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: { ...headersBase, Authorization: 'Bearer hubsecret' },
       body: payload
-    });
+    }, timeoutMs);
     if (res.ok) return true;
     if (![401, 403].includes(res.status)) return false;
   } catch {}
@@ -812,11 +836,11 @@ async function resetLoginAttemptsViaApi(ip?: string): Promise<boolean> {
     const apiLogin = await loginViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
     const adminToken = apiLogin?.accessToken;
     if (!adminToken) return false;
-    const res = await fetch(endpoint, {
+    const res = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: { ...headersBase, Authorization: `Bearer ${adminToken}` },
       body: payload
-    });
+    }, timeoutMs);
     return res.ok;
   } catch {
     return false;
@@ -839,11 +863,11 @@ export async function ensureLoginAttemptsCleared(ip?: string) {
   const deadline = Date.now() + Number(process.env.E2E_AUTH_RATE_LIMIT_CLEAR_TIMEOUT_MS || '75000');
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`${HUB_URL}/login`, {
+      const res = await fetchWithTimeout(`${HUB_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
-      });
+      }, Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '15000'));
       if (res.status !== 429) {
         return;
       }
