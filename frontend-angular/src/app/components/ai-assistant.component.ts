@@ -6,6 +6,7 @@ import { filter, forkJoin } from 'rxjs';
 import { WindowBridgeService } from '../services/window-bridge.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
+import { AiSnakeChatPanelComponent } from './ai-snake-chat-panel.component';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
@@ -21,7 +22,7 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
 @Component({
   standalone: true,
   selector: 'app-ai-assistant',
-  imports: [CommonModule, AiAssistantMessageListComponent, AiAssistantControlsComponent, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent],
+  imports: [CommonModule, AiAssistantMessageListComponent, AiAssistantControlsComponent, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeChatPanelComponent],
   template: `
     @if (hidden) {
       <button
@@ -67,7 +68,12 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
               <app-ai-snake-share-panel />
             </div>
           }
-          <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen">
+          @if (snakeChatPanelOpen) {
+            <div class="overlay-panel">
+              <app-ai-snake-chat-panel />
+            </div>
+          }
+          <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen || snakeChatPanelOpen">
             @if (snakeVisible) {
               <div class="snake-panel">
                 <canvas #snakeCanvas class="snake-canvas"></canvas>
@@ -118,6 +124,9 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
               </button>
               <button type="button" class="mini-footer-btn share-btn" (click)="toggleSharePanel()" [class.active]="sharePanelOpen" title="Session Sharing">
                 ⇄ Share
+              </button>
+              <button type="button" class="mini-footer-btn snake-chat-btn" (click)="toggleSnakeChatPanel()" [class.active]="snakeChatPanelOpen" title="AI-Snake Chat">
+                💬 Snake Chat
               </button>
               <button type="button" class="mini-footer-btn config-btn" (click)="toggleConfigPanel()" [class.active]="configPanelOpen" title="AI-Snake Konfiguration">
                 ⚙
@@ -214,6 +223,8 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
       .snake-btn:hover, .snake-btn.active { color: #7fffd4; border-color: #7fffd4; background: #0f1e34; }
       .share-btn { color: #4a6a9a; border-color: #1a2d4a; }
       .share-btn:hover, .share-btn.active { color: #a8c7ff; border-color: #2a4070; background: #0f1e34; }
+      .snake-chat-btn { color: #4a6a9a; border-color: #1a2d4a; }
+      .snake-chat-btn:hover, .snake-chat-btn.active { color: #7fffd4; border-color: #2a4070; background: #0f1e34; }
       .config-btn { color: #4a6a9a; border-color: #1a2d4a; }
       .config-btn:hover, .config-btn.active { color: #fbbf24; border-color: #7a5a10; background: #0f1e34; }
       .overlay-panel {
@@ -256,6 +267,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   snakeVisible = false;
   configPanelOpen = false;
   sharePanelOpen = false;
+  snakeChatPanelOpen = false;
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -1005,12 +1017,26 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
   toggleConfigPanel(): void {
     this.configPanelOpen = !this.configPanelOpen;
-    if (this.configPanelOpen) this.sharePanelOpen = false;
+    if (this.configPanelOpen) {
+      this.sharePanelOpen = false;
+      this.snakeChatPanelOpen = false;
+    }
   }
 
   toggleSharePanel(): void {
     this.sharePanelOpen = !this.sharePanelOpen;
-    if (this.sharePanelOpen) this.configPanelOpen = false;
+    if (this.sharePanelOpen) {
+      this.configPanelOpen = false;
+      this.snakeChatPanelOpen = false;
+    }
+  }
+
+  toggleSnakeChatPanel(): void {
+    this.snakeChatPanelOpen = !this.snakeChatPanelOpen;
+    if (this.snakeChatPanelOpen) {
+      this.configPanelOpen = false;
+      this.sharePanelOpen = false;
+    }
   }
 
   toggleSnakeCanvas(): void {
