@@ -1,0 +1,2637 @@
+{
+  "meta": {
+    "title": "Angular E2E Failure Backlog",
+    "generated_at": "2026-06-01T22:51:47.365074+00:00",
+    "source": "/tmp/angular-failed-tests-last-complete.txt",
+    "total_failed_tests": 97,
+    "default_workflow": [
+      "triage",
+      "reproduce",
+      "fix",
+      "verify-isolated",
+      "verify-full-suite",
+      "close"
+    ]
+  },
+  "todos": [
+    {
+      "id": "angular-e2e-001",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/a11y.spec.ts:6:7 › Accessibility Smoke Tests › Login page should not have automatically detectable accessibility issues",
+      "spec_file": "tests/a11y.spec.ts",
+      "spec_line": 6,
+      "spec_column": 7,
+      "suite": "Accessibility Smoke Tests",
+      "test_name": "Login page should not have automatically detectable accessibility issues",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-002",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/a11y.spec.ts:16:7 › Accessibility Smoke Tests › Dashboard should not have automatically detectable accessibility issues",
+      "spec_file": "tests/a11y.spec.ts",
+      "spec_line": 16,
+      "spec_column": 7,
+      "suite": "Accessibility Smoke Tests",
+      "test_name": "Dashboard should not have automatically detectable accessibility issues",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-003",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/admin-core-journey.spec.ts:5:7 › Admin Core Journey › navigates core areas",
+      "spec_file": "tests/admin-core-journey.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Admin Core Journey",
+      "test_name": "navigates core areas",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-004",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/agent-registration.spec.ts:9:7 › Agent Registration › shows registered worker in dashboard",
+      "spec_file": "tests/agent-registration.spec.ts",
+      "spec_line": 9,
+      "spec_column": 7,
+      "suite": "Agent Registration",
+      "test_name": "shows registered worker in dashboard",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-005",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/agents.spec.ts:5:7 › Agents Panel › open panel and edit manual command on worker",
+      "spec_file": "tests/agents.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Agents Panel",
+      "test_name": "open panel and edit manual command on worker",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-006",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/agents.spec.ts:22:7 › Agents Panel › show proposal controls on agent panel",
+      "spec_file": "tests/agents.spec.ts",
+      "spec_line": 22,
+      "spec_column": 7,
+      "suite": "Agents Panel",
+      "test_name": "show proposal controls on agent panel",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-007",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-assistant-global-dock.spec.ts:6:7 › AI Assistant Global Dock › is available across main routes and can interact on each page",
+      "spec_file": "tests/ai-assistant-global-dock.spec.ts",
+      "spec_line": 6,
+      "spec_column": 7,
+      "suite": "AI Assistant Global Dock",
+      "test_name": "is available across main routes and can interact on each page",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-008",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-assistant-global-dock.spec.ts:52:7 › AI Assistant Global Dock › uses fullscreen overlay behavior on mobile when expanded",
+      "spec_file": "tests/ai-assistant-global-dock.spec.ts",
+      "spec_line": 52,
+      "spec_column": 7,
+      "suite": "AI Assistant Global Dock",
+      "test_name": "uses fullscreen overlay behavior on mobile when expanded",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-009",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-assistant-global-dock.spec.ts:64:7 › AI Assistant Global Dock › sends template summary in assistant context for llm requests",
+      "spec_file": "tests/ai-assistant-global-dock.spec.ts",
+      "spec_line": 64,
+      "spec_column": 7,
+      "suite": "AI Assistant Global Dock",
+      "test_name": "sends template summary in assistant context for llm requests",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-010",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-assistant-hybrid.spec.ts:7:7 › AI Assistant Hybrid Context › renders context debug and citation preview in hybrid mode",
+      "spec_file": "tests/ai-assistant-hybrid.spec.ts",
+      "spec_line": 7,
+      "spec_column": 7,
+      "suite": "AI Assistant Hybrid Context",
+      "test_name": "renders context debug and citation preview in hybrid mode",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-011",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-assistant-opencode.spec.ts:6:7 › AI Assistant OpenCode Backend › sends hybrid execute request with backend opencode",
+      "spec_file": "tests/ai-assistant-opencode.spec.ts",
+      "spec_line": 6,
+      "spec_column": 7,
+      "suite": "AI Assistant OpenCode Backend",
+      "test_name": "sends hybrid execute request with backend opencode",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-012",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-assistant-settings-mutations.spec.ts:18:7 › AI Assistant Settings Mutations › requires explicit confirmation and sends confirmed tool calls",
+      "spec_file": "tests/ai-assistant-settings-mutations.spec.ts",
+      "spec_line": 18,
+      "spec_column": 7,
+      "suite": "AI Assistant Settings Mutations",
+      "test_name": "requires explicit confirmation and sends confirmed tool calls",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-013",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-assistant-settings-mutations.spec.ts:62:7 › AI Assistant Settings Mutations › sends settings context for auto-planner mutation tool call",
+      "spec_file": "tests/ai-assistant-settings-mutations.spec.ts",
+      "spec_line": 62,
+      "spec_column": 7,
+      "suite": "AI Assistant Settings Mutations",
+      "test_name": "sends settings context for auto-planner mutation tool call",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-014",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ai-snake-session-sharing.spec.ts:5:7 › AI Snake Session Sharing › creates and joins session via invite code",
+      "spec_file": "tests/ai-snake-session-sharing.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "AI Snake Session Sharing",
+      "test_name": "creates and joins session via invite code",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-015",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/audit-logs.spec.ts:6:7 › Audit Logs › paginates and filters logs",
+      "spec_file": "tests/audit-logs.spec.ts",
+      "spec_line": 6,
+      "spec_column": 7,
+      "suite": "Audit Logs",
+      "test_name": "paginates and filters logs",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-016",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auth-lockout.spec.ts:5:7 › Auth Lockout › locked account shows error message",
+      "spec_file": "tests/auth-lockout.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Auth Lockout",
+      "test_name": "locked account shows error message",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-017",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auth-mfa.spec.ts:40:7 › MFA Flow › should enable and disable MFA",
+      "spec_file": "tests/auth-mfa.spec.ts",
+      "spec_line": 40,
+      "spec_column": 7,
+      "suite": "MFA Flow",
+      "test_name": "should enable and disable MFA",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-018",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auth-password.spec.ts:5:7 › Password Change › should change password and login with new password",
+      "spec_file": "tests/auth-password.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Password Change",
+      "test_name": "should change password and login with new password",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-019",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auth.spec.ts:23:7 › Auth › login and logout redirects to login",
+      "spec_file": "tests/auth.spec.ts",
+      "spec_line": 23,
+      "spec_column": 7,
+      "suite": "Auth",
+      "test_name": "login and logout redirects to login",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-020",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auth.spec.ts:40:7 › Auth › session persists after reload",
+      "spec_file": "tests/auth.spec.ts",
+      "spec_line": 40,
+      "spec_column": 7,
+      "suite": "Auth",
+      "test_name": "session persists after reload",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-021",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auth.spec.ts:50:7 › Auth › accessing protected route without login redirects to login",
+      "spec_file": "tests/auth.spec.ts",
+      "spec_line": 50,
+      "spec_column": 7,
+      "suite": "Auth",
+      "test_name": "accessing protected route without login redirects to login",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-022",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:11:7 › Auto-Planner › displays auto-planner page",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 11,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "displays auto-planner page",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-023",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:16:7 › Auto-Planner › shows status cards",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 16,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "shows status cards",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-024",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:23:7 › Auto-Planner › has configuration form",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 23,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "has configuration form",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-025",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:31:7 › Auto-Planner › has goal input form",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 31,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "has goal input form",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-026",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:37:7 › Auto-Planner › can enter goal text",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 37,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "can enter goal text",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-027",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:44:7 › Auto-Planner › plan button is disabled without goal",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 44,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "plan button is disabled without goal",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-028",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:50:7 › Auto-Planner › plan button enables with goal text",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 50,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "plan button enables with goal text",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-029",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:57:7 › Auto-Planner › shows advanced goal fields on demand",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 57,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "shows advanced goal fields on demand",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-030",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:64:7 › Auto-Planner › renders goal detail drilldown panels",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 64,
+      "spec_column": 7,
+      "suite": "Auto-Planner",
+      "test_name": "renders goal detail drilldown panels",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-031",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:127:7 › Webhooks › displays webhooks page",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 127,
+      "spec_column": 7,
+      "suite": "Webhooks",
+      "test_name": "displays webhooks page",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-032",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:132:7 › Webhooks › shows status cards",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 132,
+      "spec_column": 7,
+      "suite": "Webhooks",
+      "test_name": "shows status cards",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-033",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:138:7 › Webhooks › shows webhook URLs",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 138,
+      "spec_column": 7,
+      "suite": "Webhooks",
+      "test_name": "shows webhook URLs",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-034",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:145:7 › Webhooks › shows test form",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 145,
+      "spec_column": 7,
+      "suite": "Webhooks",
+      "test_name": "shows test form",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-035",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:150:7 › Webhooks › can test webhook",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 150,
+      "spec_column": 7,
+      "suite": "Webhooks",
+      "test_name": "can test webhook",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-036",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/auto-planner.spec.ts:159:7 › Webhooks › shows GitHub integration guide",
+      "spec_file": "tests/auto-planner.spec.ts",
+      "spec_line": 159,
+      "spec_column": 7,
+      "suite": "Webhooks",
+      "test_name": "shows GitHub integration guide",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-037",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/config-ui-control-hardening.spec.ts:54:7 › Config + UI Control Hardening › settings enforces validation and persists system+quality controls",
+      "spec_file": "tests/config-ui-control-hardening.spec.ts",
+      "spec_line": 54,
+      "spec_column": 7,
+      "suite": "Config + UI Control Hardening",
+      "test_name": "settings enforces validation and persists system+quality controls",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-038",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/config-ui-control-hardening.spec.ts:126:7 › Config + UI Control Hardening › template creation controls in UI persist reliably to API",
+      "spec_file": "tests/config-ui-control-hardening.spec.ts",
+      "spec_line": 126,
+      "spec_column": 7,
+      "suite": "Config + UI Control Hardening",
+      "test_name": "template creation controls in UI persist reliably to API",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-039",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/config-ui-control-hardening.spec.ts:175:7 › Config + UI Control Hardening › auto-planner config and advanced goal steering are end-to-end controllable",
+      "spec_file": "tests/config-ui-control-hardening.spec.ts",
+      "spec_line": 175,
+      "spec_column": 7,
+      "suite": "Config + UI Control Hardening",
+      "test_name": "auto-planner config and advanced goal steering are end-to-end controllable",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-040",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/control-center-denied-flow.spec.ts:5:7 › Control Center denied flow › shows denied tool call in timeline and policy log without manual polling",
+      "spec_file": "tests/control-center-denied-flow.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Control Center denied flow",
+      "test_name": "shows denied tool call in timeline and policy log without manual polling",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-041",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/control-center-policies.spec.ts:5:7 › Control Center Policy View › shows denied actions and narrow approval payload",
+      "spec_file": "tests/control-center-policies.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Control Center Policy View",
+      "test_name": "shows denied actions and narrow approval payload",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-042",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/control-center-review-flow.spec.ts:5:7 › Control Center review flow › opens artifacts area and shows verification linkage",
+      "spec_file": "tests/control-center-review-flow.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Control Center review flow",
+      "test_name": "opens artifacts area and shows verification linkage",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-043",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/first-goal-e2e.spec.ts:217:7 › First Goal E2E › uses local LLM, creates subtasks, assigns to team members, and monitors execution",
+      "spec_file": "tests/first-goal-e2e.spec.ts",
+      "spec_line": 217,
+      "spec_column": 7,
+      "suite": "First Goal E2E",
+      "test_name": "uses local LLM, creates subtasks, assigns to team members, and monitors execution",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-044",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/hub-flow.spec.ts:22:7 › Hub Flow › create task and execute via hub locally (no worker assignment)",
+      "spec_file": "tests/hub-flow.spec.ts",
+      "spec_line": 22,
+      "spec_column": 7,
+      "suite": "Hub Flow",
+      "test_name": "create task and execute via hub locally (no worker assignment)",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-045",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/lite-compose-connectivity.spec.ts:5:7 › Lite Compose Connectivity › frontend can reach hub and worker agents",
+      "spec_file": "tests/lite-compose-connectivity.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Lite Compose Connectivity",
+      "test_name": "frontend can reach hub and worker agents",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-046",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/live-click-critical-paths.spec.ts:98:7 › Live click critical paths › clicks dashboard, goal start and result reading path with stable selectors",
+      "spec_file": "tests/live-click-critical-paths.spec.ts",
+      "spec_line": 98,
+      "spec_column": 7,
+      "suite": "Live click critical paths",
+      "test_name": "clicks dashboard, goal start and result reading path with stable selectors",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-047",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/live-click-critical-paths.spec.ts:123:7 › Live click critical paths › surfaces blocked quick-goal submission and recovers on retry",
+      "spec_file": "tests/live-click-critical-paths.spec.ts",
+      "spec_line": 123,
+      "spec_column": 7,
+      "suite": "Live click critical paths",
+      "test_name": "surfaces blocked quick-goal submission and recovers on retry",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-048",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/llm-config.spec.ts:15:7 › LLM Config › switch provider and save LM Studio mode",
+      "spec_file": "tests/llm-config.spec.ts",
+      "spec_line": 15,
+      "spec_column": 7,
+      "suite": "LLM Config",
+      "test_name": "switch provider and save LM Studio mode",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-049",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/llm-config.spec.ts:33:7 › LLM Config › save codex provider defaults",
+      "spec_file": "tests/llm-config.spec.ts",
+      "spec_line": 33,
+      "spec_column": 7,
+      "suite": "LLM Config",
+      "test_name": "save codex provider defaults",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-050",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/llm-config.spec.ts:44:7 › LLM Config › saves per-agent context_limit and shows catalog context lengths",
+      "spec_file": "tests/llm-config.spec.ts",
+      "spec_line": 44,
+      "spec_column": 7,
+      "suite": "LLM Config",
+      "test_name": "saves per-agent context_limit and shows catalog context lengths",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-051",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/llm-generate.spec.ts:73:7 › LLM Generate › shows assistant response from LLM",
+      "spec_file": "tests/llm-generate.spec.ts",
+      "spec_line": 73,
+      "spec_column": 7,
+      "suite": "LLM Generate",
+      "test_name": "shows assistant response from LLM",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-052",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/llm-generate.spec.ts:92:7 › LLM Generate › shows error toast on empty response",
+      "spec_file": "tests/llm-generate.spec.ts",
+      "spec_line": 92,
+      "spec_column": 7,
+      "suite": "LLM Generate",
+      "test_name": "shows error toast on empty response",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-053",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/llm-generate.spec.ts:111:7 › LLM Generate › requires confirmation for tool calls",
+      "spec_file": "tests/llm-generate.spec.ts",
+      "spec_line": 111,
+      "spec_column": 7,
+      "suite": "LLM Generate",
+      "test_name": "requires confirmation for tool calls",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-054",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/llm-generate.spec.ts:136:7 › LLM Generate › runs confirmed tool plan and sends confirm payload",
+      "spec_file": "tests/llm-generate.spec.ts",
+      "spec_line": 136,
+      "spec_column": 7,
+      "suite": "LLM Generate",
+      "test_name": "runs confirmed tool plan and sends confirm payload",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-055",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/main-goal-execution.spec.ts:75:7 › Main Goal Execution Journey › runs goal-derived tasks with two workers and exposes progress in UI",
+      "spec_file": "tests/main-goal-execution.spec.ts",
+      "spec_line": 75,
+      "spec_column": 7,
+      "suite": "Main Goal Execution Journey",
+      "test_name": "runs goal-derived tasks with two workers and exposes progress in UI",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-056",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/main-goal-foundation.spec.ts:67:7 › Main Goal UI Foundation › canonical UI control points are present",
+      "spec_file": "tests/main-goal-foundation.spec.ts",
+      "spec_line": 67,
+      "spec_column": 7,
+      "suite": "Main Goal UI Foundation",
+      "test_name": "canonical UI control points are present",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-057",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/main-goal-foundation.spec.ts:81:7 › Main Goal UI Foundation › foundation journey creates template + blueprint + team with two workers via UI",
+      "spec_file": "tests/main-goal-foundation.spec.ts",
+      "spec_line": 81,
+      "spec_column": 7,
+      "suite": "Main Goal UI Foundation",
+      "test_name": "foundation journey creates template + blueprint + team with two workers via UI",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-058",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/main-goal-observability.spec.ts:49:7 › Main Goal Observability Journey › keeps board/task detail/log tabs analysable and controllable",
+      "spec_file": "tests/main-goal-observability.spec.ts",
+      "spec_line": 49,
+      "spec_column": 7,
+      "suite": "Main Goal Observability Journey",
+      "test_name": "keeps board/task detail/log tabs analysable and controllable",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-059",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/main-goal-observability.spec.ts:130:7 › Main Goal Observability Journey › covers artifacts controls with deterministic API interactions",
+      "spec_file": "tests/main-goal-observability.spec.ts",
+      "spec_line": 130,
+      "spec_column": 7,
+      "suite": "Main Goal Observability Journey",
+      "test_name": "covers artifacts controls with deterministic API interactions",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-060",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/main-goal-planning.spec.ts:22:7 › Main Goal UI Planning › plans goal via UI with explicit team mapping",
+      "spec_file": "tests/main-goal-planning.spec.ts",
+      "spec_line": 22,
+      "spec_column": 7,
+      "suite": "Main Goal UI Planning",
+      "test_name": "plans goal via UI with explicit team mapping",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-061",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/notifications.spec.ts:5:7 › Notifications › does not submit invalid raw config",
+      "spec_file": "tests/notifications.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Notifications",
+      "test_name": "does not submit invalid raw config",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-062",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/permissions.spec.ts:5:7 › Permissions › non-admin cannot manage templates, roles, or team types",
+      "spec_file": "tests/permissions.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Permissions",
+      "test_name": "non-admin cannot manage templates, roles, or team types",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-063",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/release-goal-smoke.spec.ts:117:7 › Release goal smoke E2E › logs in, creates the first quick goal and opens the result summary",
+      "spec_file": "tests/release-goal-smoke.spec.ts",
+      "spec_line": 117,
+      "spec_column": 7,
+      "suite": "Release goal smoke E2E",
+      "test_name": "logs in, creates the first quick goal and opens the result summary",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-064",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/release-goal-smoke.spec.ts:136:7 › Release goal smoke E2E › runs guided goal creation and exposes safety plus review notices",
+      "spec_file": "tests/release-goal-smoke.spec.ts",
+      "spec_line": 136,
+      "spec_column": 7,
+      "suite": "Release goal smoke E2E",
+      "test_name": "runs guided goal creation and exposes safety plus review notices",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-065",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/settings-config.spec.ts:44:7 › Settings Config › loads, saves, and validates raw config",
+      "spec_file": "tests/settings-config.spec.ts",
+      "spec_line": 44,
+      "spec_column": 7,
+      "suite": "Settings Config",
+      "test_name": "loads, saves, and validates raw config",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-066",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/settings-config.spec.ts:97:7 › Settings Config › switches settings sections and persists quality/system changes",
+      "spec_file": "tests/settings-config.spec.ts",
+      "spec_line": 97,
+      "spec_column": 7,
+      "suite": "Settings Config",
+      "test_name": "switches settings sections and persists quality/system changes",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-067",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/settings-config.spec.ts:163:7 › Settings Config › keeps API/UI config roundtrip consistent across refresh and reload",
+      "spec_file": "tests/settings-config.spec.ts",
+      "spec_line": 163,
+      "spec_column": 7,
+      "suite": "Settings Config",
+      "test_name": "keeps API/UI config roundtrip consistent across refresh and reload",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-068",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/sse-events.spec.ts:5:7 › SSE Events › updates agent token from system events stream",
+      "spec_file": "tests/sse-events.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "SSE Events",
+      "test_name": "updates agent token from system events stream",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-069",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/stress.spec.ts:10:7 › Stress & Load Tests › Rapid navigation stress test",
+      "spec_file": "tests/stress.spec.ts",
+      "spec_line": 10,
+      "spec_column": 7,
+      "suite": "Stress & Load Tests",
+      "test_name": "Rapid navigation stress test",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-070",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/stress.spec.ts:33:7 › Stress & Load Tests › Concurrent data loading stress",
+      "spec_file": "tests/stress.spec.ts",
+      "spec_line": 33,
+      "spec_column": 7,
+      "suite": "Stress & Load Tests",
+      "test_name": "Concurrent data loading stress",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-071",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/stress.spec.ts:46:7 › Stress & Load Tests › Heavy component interaction",
+      "spec_file": "tests/stress.spec.ts",
+      "spec_line": 46,
+      "spec_column": 7,
+      "suite": "Stress & Load Tests",
+      "test_name": "Heavy component interaction",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-072",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/task-cleanup-ui.spec.ts:5:7 › Task Cleanup UI › graph actions call archive/delete cleanup endpoints",
+      "spec_file": "tests/task-cleanup-ui.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Task Cleanup UI",
+      "test_name": "graph actions call archive/delete cleanup endpoints",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-073",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/task-cleanup-ui.spec.ts:94:7 › Task Cleanup UI › archived page supports single and filtered delete actions",
+      "spec_file": "tests/task-cleanup-ui.spec.ts",
+      "spec_line": 94,
+      "spec_column": 7,
+      "suite": "Task Cleanup UI",
+      "test_name": "archived page supports single and filtered delete actions",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-074",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/team-types-roles.spec.ts:5:7 › Team Types and Roles › create type, role, link role, map template, cleanup",
+      "spec_file": "tests/team-types-roles.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Team Types and Roles",
+      "test_name": "create type, role, link role, map template, cleanup",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-075",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/teams.spec.ts:22:7 › Teams CRUD › create, update, activate, delete team via API",
+      "spec_file": "tests/teams.spec.ts",
+      "spec_line": 22,
+      "spec_column": 7,
+      "suite": "Teams CRUD",
+      "test_name": "create, update, activate, delete team via API",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-076",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/teams.spec.ts:73:7 › Teams CRUD › blueprint-first page shows blueprint and advanced flows",
+      "spec_file": "tests/teams.spec.ts",
+      "spec_line": 73,
+      "spec_column": 7,
+      "suite": "Teams CRUD",
+      "test_name": "blueprint-first page shows blueprint and advanced flows",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-077",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/teams.spec.ts:102:7 › Teams CRUD › delete missing team returns not found",
+      "spec_file": "tests/teams.spec.ts",
+      "spec_line": 102,
+      "spec_column": 7,
+      "suite": "Teams CRUD",
+      "test_name": "delete missing team returns not found",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-078",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/teams.spec.ts:112:7 › Teams CRUD › blueprint editor shows validation errors and can instantiate a custom blueprint",
+      "spec_file": "tests/teams.spec.ts",
+      "spec_line": 112,
+      "spec_column": 7,
+      "suite": "Teams CRUD",
+      "test_name": "blueprint editor shows validation errors and can instantiate a custom blueprint",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-079",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-ai-live.spec.ts:74:7 › Templates AI (Live LLM) › responds on templates route via live LLM @requires-llm",
+      "spec_file": "tests/templates-ai-live.spec.ts",
+      "spec_line": 74,
+      "spec_column": 7,
+      "suite": "Templates AI (Live LLM)",
+      "test_name": "responds on templates route via live LLM @requires-llm",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-080",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-ai-live.spec.ts:95:7 › Templates AI (Live LLM) › assistant responds on dashboard and can confirm template plan when proposed @requires-llm",
+      "spec_file": "tests/templates-ai-live.spec.ts",
+      "spec_line": 95,
+      "spec_column": 7,
+      "suite": "Templates AI (Live LLM)",
+      "test_name": "assistant responds on dashboard and can confirm template plan when proposed @requires-llm",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-081",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-ai.spec.ts:5:7 › Templates AI › shows error toast when LLM fails",
+      "spec_file": "tests/templates-ai.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Templates AI",
+      "test_name": "shows error toast when LLM fails",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-082",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-ai.spec.ts:35:7 › Templates AI › generates template draft when LLM responds",
+      "spec_file": "tests/templates-ai.spec.ts",
+      "spec_line": 35,
+      "spec_column": 7,
+      "suite": "Templates AI",
+      "test_name": "generates template draft when LLM responds",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-083",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-crud.spec.ts:22:7 › Templates CRUD › create, update, delete template via API",
+      "spec_file": "tests/templates-crud.spec.ts",
+      "spec_line": 22,
+      "spec_column": 7,
+      "suite": "Templates CRUD",
+      "test_name": "create, update, delete template via API",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-084",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-crud.spec.ts:67:7 › Templates CRUD › delete missing template returns not found",
+      "spec_file": "tests/templates-crud.spec.ts",
+      "spec_line": 67,
+      "spec_column": 7,
+      "suite": "Templates CRUD",
+      "test_name": "delete missing template returns not found",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-085",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-crud.spec.ts:77:7 › Templates CRUD › delete clears references when template is in use",
+      "spec_file": "tests/templates-crud.spec.ts",
+      "spec_line": 77,
+      "spec_column": 7,
+      "suite": "Templates CRUD",
+      "test_name": "delete clears references when template is in use",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-086",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/templates-crud.spec.ts:116:7 › Templates CRUD › template editor surfaces strict variable validation errors",
+      "spec_file": "tests/templates-crud.spec.ts",
+      "spec_line": 116,
+      "spec_column": 7,
+      "suite": "Templates CRUD",
+      "test_name": "template editor surfaces strict variable validation errors",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-087",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/terminal.spec.ts:5:7 › Terminal › open hub terminal and keep live tracking across reconnect",
+      "spec_file": "tests/terminal.spec.ts",
+      "spec_line": 5,
+      "spec_column": 7,
+      "suite": "Terminal",
+      "test_name": "open hub terminal and keep live tracking across reconnect",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-088",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/terminal.spec.ts:29:7 › Terminal › terminal is reachable for hub alpha and beta",
+      "spec_file": "tests/terminal.spec.ts",
+      "spec_line": 29,
+      "spec_column": 7,
+      "suite": "Terminal",
+      "test_name": "terminal is reachable for hub alpha and beta",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-089",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-console.spec.ts:11:7 › UI UX console and visibility › core navigation has no browser console/page errors",
+      "spec_file": "tests/ui-ux-console.spec.ts",
+      "spec_line": 11,
+      "spec_column": 7,
+      "suite": "UI UX console and visibility",
+      "test_name": "core navigation has no browser console/page errors",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-090",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-console.spec.ts:33:7 › UI UX console and visibility › error notification is visible in viewport and closeable",
+      "spec_file": "tests/ui-ux-console.spec.ts",
+      "spec_line": 33,
+      "spec_column": 7,
+      "suite": "UI UX console and visibility",
+      "test_name": "error notification is visible in viewport and closeable",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-091",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-console.spec.ts:51:7 › UI UX console and visibility › templates form stays editable when usage lookups fail",
+      "spec_file": "tests/ui-ux-console.spec.ts",
+      "spec_line": 51,
+      "spec_column": 7,
+      "suite": "UI UX console and visibility",
+      "test_name": "templates form stays editable when usage lookups fail",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-092",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-console.spec.ts:79:7 › UI UX console and visibility › dashboard, templates, and teams settle without stuck loading states",
+      "spec_file": "tests/ui-ux-console.spec.ts",
+      "spec_line": 79,
+      "spec_column": 7,
+      "suite": "UI UX console and visibility",
+      "test_name": "dashboard, templates, and teams settle without stuck loading states",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-093",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-workflows.spec.ts:29:7 › UI UX Workflows › goal flow remains interactive and renders details",
+      "spec_file": "tests/ui-ux-workflows.spec.ts",
+      "spec_line": 29,
+      "spec_column": 7,
+      "suite": "UI UX Workflows",
+      "test_name": "goal flow remains interactive and renders details",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-094",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-workflows.spec.ts:123:7 › UI UX Workflows › template creation works via UI and remains responsive",
+      "spec_file": "tests/ui-ux-workflows.spec.ts",
+      "spec_line": 123,
+      "spec_column": 7,
+      "suite": "UI UX Workflows",
+      "test_name": "template creation works via UI and remains responsive",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-095",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-workflows.spec.ts:161:7 › UI UX Workflows › blueprint + team creation works via UI",
+      "spec_file": "tests/ui-ux-workflows.spec.ts",
+      "spec_line": 161,
+      "spec_column": 7,
+      "suite": "UI UX Workflows",
+      "test_name": "blueprint + team creation works via UI",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-096",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/ui-ux-workflows.spec.ts:247:7 › UI UX Workflows › teams page unlocks even when one backend call hangs",
+      "spec_file": "tests/ui-ux-workflows.spec.ts",
+      "spec_line": 247,
+      "spec_column": 7,
+      "suite": "UI UX Workflows",
+      "test_name": "teams page unlocks even when one backend call hangs",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "angular-e2e-097",
+      "status": "pending",
+      "priority": "high",
+      "category": "frontend-e2e",
+      "owner": "unassigned",
+      "test_ref": "tests/webrtc-datachannel.spec.ts:13:7 › WebRTC DataChannel Protocol › reassembles chunked payloads",
+      "spec_file": "tests/webrtc-datachannel.spec.ts",
+      "spec_line": 13,
+      "spec_column": 7,
+      "suite": "WebRTC DataChannel Protocol",
+      "test_name": "reassembles chunked payloads",
+      "failure_summary": null,
+      "likely_root_cause": null,
+      "fix_plan": [
+        "Reproduce failure in isolation with Playwright grep",
+        "Identify backend/frontend contract mismatch or selector/timing issue",
+        "Implement minimal fix in app or test helper",
+        "Re-run isolated test and then full suite regression"
+      ],
+      "acceptance_criteria": [
+        "Test passes reliably in at least 2 consecutive local runs",
+        "No new regressions in related feature specs",
+        "No auth/ready-check errors in compose live stack logs"
+      ],
+      "notes": ""
+    }
+  ]
+}
