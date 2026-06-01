@@ -87,11 +87,25 @@ const FIELDS: ConfigField[] = [
                     <span class="cfg-toggle-track"></span>
                   </label>
                 } @else if (field.type === 'choice') {
-                  <select class="cfg-select" [value]="getStr(field.key)" (change)="setStr(field.key, $any($event.target).value)">
-                    @for (opt of getOptions(field); track opt) {
-                      <option [value]="opt" [selected]="getStr(field.key) === opt">{{ opt }}</option>
-                    }
-                  </select>
+                  @if (field.key === 'chat_backend_api_base') {
+                    <input
+                      class="cfg-input"
+                      type="text"
+                      [value]="getStr(field.key)"
+                      [attr.list]="'opts-' + field.key"
+                      (change)="setStr(field.key, $any($event.target).value)" />
+                    <datalist [id]="'opts-' + field.key">
+                      @for (opt of getOptions(field); track opt) {
+                        <option [value]="opt">{{ opt }}</option>
+                      }
+                    </datalist>
+                  } @else {
+                    <select class="cfg-select" [value]="getStr(field.key)" (change)="setStr(field.key, $any($event.target).value)">
+                      @for (opt of getOptions(field); track opt) {
+                        <option [value]="opt" [selected]="getStr(field.key) === opt">{{ opt }}</option>
+                      }
+                    </select>
+                  }
                 } @else {
                   <input class="cfg-input" type="text" [value]="getStr(field.key)" (change)="setStr(field.key, $any($event.target).value)">
                 }
