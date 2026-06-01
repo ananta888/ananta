@@ -1,14 +1,16 @@
-import { Component } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { CcTaskCard, CcTaskStatus } from '../models/control-center.models';
 import { StatusChipComponent } from './status-chip.component';
+import { ControlCenterStateFacade } from '../services/control-center-state.facade';
 
 @Component({
   standalone: true,
   selector: 'app-control-center-task-board',
-  imports: [NgFor, NgIf, StatusChipComponent],
+  imports: [NgFor, NgIf, StatusChipComponent, AsyncPipe],
   template: `
     <h2>Task Board</h2>
+    <p *ngIf="state.loading$ | async" class="muted">Lade Tasks ...</p>
     <div class="board">
       <section class="col" *ngFor="let col of cols">
         <h3>{{ col }}</h3>
@@ -23,6 +25,7 @@ import { StatusChipComponent } from './status-chip.component';
         <p *ngIf="!byStatus(col).length" class="muted">Keine Eintraege</p>
       </section>
     </div>
+    <p *ngIf="!(tasks.length) && !(state.loading$ | async)" class="muted">Keine Tasks im ausgewaehlten Projekt.</p>
   `,
   styles: [`
     .board{display:grid; grid-template-columns: repeat(4,minmax(180px,1fr)); gap:10px;}
@@ -34,15 +37,44 @@ import { StatusChipComponent } from './status-chip.component';
     @media (max-width: 700px){ .board{grid-template-columns: 1fr;} }
   `]
 })
-export class ControlCenterTaskBoardComponent {
+export class ControlCenterTaskBoardComponent implements OnInit {
+  readonly state = inject(ControlCenterStateFacade);
   cols: CcTaskStatus[] = ['backlog', 'proposed', 'running', 'blocked', 'review', 'verified', 'done', 'failed'];
-  tasks: CcTaskCard[] = [
-    { id:'t1', title:'Policy Inspector verdrahten', description:'', status:'running', riskLevel:'high', assignedWorkerId:'alpha', preferredModel:'qwen2.5-coder:7b', artifactIds:['a1'], verificationSummary:{status:'running',testCount:12,passedCount:6,failedCount:0}},
-    { id:'t2', title:'Artifact Viewer hardening', description:'', status:'review', riskLevel:'medium', assignedWorkerId:'beta', preferredModel:'gpt-4.1-mini', artifactIds:['a2'], verificationSummary:{status:'passed',testCount:18,passedCount:18,failedCount:0}},
-    { id:'t3', title:'Approval Gate MVP', description:'', status:'blocked', riskLevel:'critical', assignedWorkerId:null, preferredModel:null, artifactIds:[], verificationSummary:null},
-  ];
+  tasks: CcTaskCard[] = [];
+
+  ngOnInit(): void {
+    this.state.tasks$.subscribe((rows) => {
+      this.tasks = rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description || '',
+        status: this.toStatus(row.status),
+        riskLevel: this.toRisk(row.priority),
+        assignedWorkerId: null,
+        preferredModel: null,
+        artifactIds: [],
+        verificationSummary: null,
+      }));
+    });
+    this.state.loadTasks();
+  }
 
   byStatus(s: CcTaskStatus): CcTaskCard[] { return this.tasks.filter(t => t.status === s); }
+  private toStatus(status: string): CcTaskStatus {
+    const v = String(status || '').toLowerCase();
+    if (v === 'todo') return 'backlog';
+    if (v === 'in_progress') return 'running';
+    if (v === 'completed') return 'done';
+    if (['backlog', 'proposed', 'running', 'blocked', 'review', 'verified', 'done', 'failed'].includes(v)) return v as CcTaskStatus;
+    return 'backlog';
+  }
+  private toRisk(priority: string): 'low' | 'medium' | 'high' | 'critical' {
+    const p = String(priority || '').toLowerCase();
+    if (p === 'critical') return 'critical';
+    if (p === 'high') return 'high';
+    if (p === 'low') return 'low';
+    return 'medium';
+  }
   riskTone(r: string): 'neutral'|'ok'|'warn'|'danger'|'info' { return r === 'low' ? 'ok' : r === 'medium' ? 'info' : r === 'high' ? 'warn' : 'danger'; }
   verificationTone(s: string): 'neutral'|'ok'|'warn'|'danger'|'info' { return s === 'passed' ? 'ok' : s === 'failed' ? 'danger' : s === 'running' ? 'info' : 'neutral'; }
 }
