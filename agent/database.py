@@ -234,6 +234,9 @@ def _ensure_schema_compat() -> None:
         "planning_model_profiles": {
             "learning_state": "TEXT NOT NULL DEFAULT '{}'",
         },
+        "templates": {
+            "is_seed": "INTEGER NOT NULL DEFAULT 0",
+        },
     }
 
     table_names = set(inspector.get_table_names())
