@@ -225,7 +225,35 @@ def list_artifacts():
     blocked = _enforce_remote_artifact_access("artifact")
     if blocked:
         return blocked
-    return api_response(data=[item.model_dump() for item in _artifact_repo().get_all()])
+    project_id = str(request.args.get("project_id") or "").strip()
+    task_id = str(request.args.get("task_id") or "").strip()
+    session_id = str(request.args.get("session_id") or "").strip()
+    artifact_type = str(request.args.get("type") or "").strip().lower()
+    limit = max(1, min(int(request.args.get("limit", type=int) or 200), 1000))
+    offset = max(0, int(request.args.get("offset", type=int) or 0))
+
+    rows = _artifact_repo().get_all()
+    filtered = []
+    for item in rows:
+        metadata = dict(getattr(item, "artifact_metadata", None) or {})
+        if project_id and str(metadata.get("project_id") or "") != project_id:
+            continue
+        if task_id and str(metadata.get("task_id") or "") != task_id:
+            continue
+        if session_id and str(metadata.get("session_id") or "") != session_id:
+            continue
+        if artifact_type:
+            media_type = str(getattr(item, "latest_media_type", "") or "").lower()
+            meta_type = str(metadata.get("type") or "").lower()
+            if artifact_type not in media_type and artifact_type != meta_type:
+                continue
+        filtered.append(item)
+
+    paged = filtered[offset: offset + limit]
+    return api_response(
+        data=[item.model_dump() for item in paged],
+        message=None,
+    )
 
 
 @artifacts_bp.route("/artifacts/<artifact_id>", methods=["GET"])
