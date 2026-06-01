@@ -1,0 +1,4 @@
+services:
+  angular-frontend:
+    ports:
+      - "4200:4200"
