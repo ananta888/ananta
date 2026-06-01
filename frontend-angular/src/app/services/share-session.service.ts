@@ -49,6 +49,8 @@ export interface ActiveShareState {
 export class ShareSessionService implements OnDestroy {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
+  private transport = inject(WebrtcTransportService);
+  private profiles = inject(NetworkProfileService);
 
   readonly state$ = new BehaviorSubject<ActiveShareState>({
     session: null, participants: [], messages: [], cursor: '0', role: null,
@@ -56,26 +58,57 @@ export class ShareSessionService implements OnDestroy {
 
   private pollHandle: ReturnType<typeof setInterval> | null = null;
 
+  constructor() {
+    this.transport.message$.subscribe((msg) => {
+      if (msg.type !== 'chat') return;
+      const payload = (msg.payload || {}) as any;
+      const item: ShareChatMessage = {
+        id: String(payload.id || `webrtc-${Date.now()}-${Math.random()}`),
+        session_id: String(payload.session_id || this.state$.value.session?.id || ''),
+        sender_id: String(payload.sender_id || 'peer'),
+        text: String(payload.text || ''),
+        created_at: Number(payload.created_at || Date.now() / 1000),
+        visibility: 'room',
+      };
+      if (!item.text) return;
+      const existing = this.state$.value.messages;
+      const known = new Set(existing.map((m) => m.id));
+      if (known.has(item.id)) return;
+      this.state$.next({ ...this.state$.value, messages: [...existing, item].slice(-200) });
+    });
+  }
+
   get isActive(): boolean { return !!this.state$.value.session; }
 
   private get hubUrl(): string {
-    return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
+    return this.dir.list().find((a) => a.role === 'hub')?.url ?? '';
+  }
+
+  private preferredTransport(): 'webrtc' | 'hub_relay' {
+    const first = this.profiles.current.transport_order?.[0];
+    return first === 'webrtc' ? 'webrtc' : 'hub_relay';
   }
 
   createSession(title: string, permissions: Record<string, boolean>, expiresInSeconds: number | null): Promise<ShareSession> {
     return new Promise((resolve, reject) => {
       const url = this.hubUrl;
       if (!url) { reject(new Error('no hub')); return; }
+      const transport = this.preferredTransport();
       const body = {
-        title, permissions,
-        mode: 'relay', transport: 'hub_relay',
+        title,
+        permissions,
+        mode: transport === 'webrtc' ? 'p2p' : 'relay',
+        transport,
         expires_at: expiresInSeconds ? Date.now() / 1000 + expiresInSeconds : null,
       };
       this.core.post<{ ok: boolean; session: ShareSession }>(`${url}/share-sessions`, body, url).subscribe({
-        next: r => {
+        next: (r) => {
           if (r?.session) {
             this.state$.next({ ...this.state$.value, session: r.session, role: 'owner' });
             this.startPolling();
+            if (r.session.transport === 'webrtc') {
+              void this.transport.open(r.session.id, true);
+            }
             resolve(r.session);
           } else reject(new Error('no session in response'));
         },
@@ -89,12 +122,15 @@ export class ShareSessionService implements OnDestroy {
       const url = this.hubUrl;
       if (!url) { reject(new Error('no hub')); return; }
       this.core.post<{ ok: boolean; session: ShareSession }>(
-        `${url}/share-sessions/join`, { invite_code: inviteCode }, url
+        `${url}/share-sessions/join`, { invite_code: inviteCode }, url,
       ).subscribe({
-        next: r => {
+        next: (r) => {
           if (r?.session) {
             this.state$.next({ ...this.state$.value, session: r.session, role: 'participant' });
             this.startPolling();
+            if (r.session.transport === 'webrtc') {
+              void this.transport.open(r.session.id, false);
+            }
             resolve(r.session);
           } else reject(new Error(String((r as any)?.error ?? 'join failed')));
         },
@@ -106,6 +142,18 @@ export class ShareSessionService implements OnDestroy {
   sendMessage(text: string): void {
     const { session } = this.state$.value;
     if (!session || !text.trim()) return;
+
+    if (session.transport === 'webrtc' && this.transport.mode$.value !== 'idle') {
+      this.transport.send('chat', {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        session_id: session.id,
+        text: text.trim(),
+        sender_id: 'self',
+        created_at: Date.now() / 1000,
+      });
+      return;
+    }
+
     const url = this.hubUrl;
     this.core.post(`${url}/share-sessions/${session.id}/chat/messages`, {
       text: text.trim(), visibility: 'room', channel_type: 'room',
@@ -129,11 +177,13 @@ export class ShareSessionService implements OnDestroy {
     const url = this.hubUrl;
     this.core.delete(`${url}/share-sessions/${session.id}`, url).subscribe({ error: () => {} });
     this.stopPolling();
+    this.transport.close();
     this.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
   }
 
   leaveSession(): void {
     this.stopPolling();
+    this.transport.close();
     this.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
   }
 
@@ -157,9 +207,9 @@ export class ShareSessionService implements OnDestroy {
     if (!session) return;
     const url = this.hubUrl;
     this.core.get<{ ok: boolean; participants: ShareParticipant[] }>(
-      `${url}/share-sessions/${session.id}/participants`, url
+      `${url}/share-sessions/${session.id}/participants`, url,
     ).subscribe({
-      next: r => {
+      next: (r) => {
         if (r?.participants) this.state$.next({ ...this.state$.value, participants: r.participants });
       },
       error: () => {},
@@ -168,16 +218,16 @@ export class ShareSessionService implements OnDestroy {
 
   private fetchMessages(): void {
     const { session, cursor } = this.state$.value;
-    if (!session) return;
+    if (!session || session.transport === 'webrtc') return;
     const url = this.hubUrl;
     this.core.get<{ ok: boolean; messages: ShareChatMessage[]; cursor: string }>(
-      `${url}/share-sessions/${session.id}/chat/messages?since=${cursor}`, url
+      `${url}/share-sessions/${session.id}/chat/messages?since=${cursor}`, url,
     ).subscribe({
-      next: r => {
+      next: (r) => {
         if (!r?.messages?.length) return;
         const existing = this.state$.value.messages;
-        const known = new Set(existing.map(m => m.id));
-        const fresh = r.messages.filter(m => !known.has(m.id));
+        const known = new Set(existing.map((m) => m.id));
+        const fresh = r.messages.filter((m) => !known.has(m.id));
         if (fresh.length) {
           this.state$.next({
             ...this.state$.value,
@@ -197,5 +247,5 @@ export class ShareSessionService implements OnDestroy {
     return secs < 12 ? 'online' : `offline ${secs}s`;
   }
 
-  ngOnDestroy(): void { this.stopPolling(); }
+  ngOnDestroy(): void { this.stopPolling(); this.transport.close(); }
 }
