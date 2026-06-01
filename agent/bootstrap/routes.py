@@ -8,6 +8,7 @@ from agent.routes.codecompass_graph import codecompass_graph_bp
 from agent.routes.auth import auth_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.context_policy import context_policy_bp
+from agent.routes.control_center_api import control_center_api_bp
 from agent.routes.demo import demo_bp
 from agent.routes.evolution import evolution_bp
 from agent.routes.blender_client_surface import blender_client_surface_bp
@@ -68,6 +69,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(context_policy_bp)
+    app.register_blueprint(control_center_api_bp)
     app.register_blueprint(instruction_layers_bp)
     app.register_blueprint(blender_client_surface_bp, url_prefix="/api/client-surfaces/blender")
     app.register_blueprint(freecad_client_surface_bp, url_prefix="/api/client-surfaces/freecad")
