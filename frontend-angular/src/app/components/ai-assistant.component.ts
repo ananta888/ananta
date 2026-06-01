@@ -70,7 +70,7 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
           }
           @if (snakeChatPanelOpen) {
             <div class="overlay-panel">
-              <app-ai-snake-chat-panel />
+              <app-ai-snake-chat-panel [tab]="snakeChatPanelTab" (tabChange)="snakeChatPanelTab = $event" />
             </div>
           }
           <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen || snakeChatPanelOpen">
@@ -128,6 +128,11 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
               <button type="button" class="mini-footer-btn snake-chat-btn" (click)="toggleSnakeChatPanel()" [class.active]="snakeChatPanelOpen" title="AI-Snake Chat">
                 💬 Snake Chat
               </button>
+              <div class="snake-chat-tabs" aria-label="AI-Snake Chat Tabs">
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'chat'" (click)="openSnakeChatPanelTab('chat')">Chat</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'mode'" (click)="openSnakeChatPanelTab('mode')">Modus</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'settings'" (click)="openSnakeChatPanelTab('settings')">Einstellungen</button>
+              </div>
               <button type="button" class="mini-footer-btn config-btn" (click)="toggleConfigPanel()" [class.active]="configPanelOpen" title="AI-Snake Konfiguration">
                 ⚙
               </button>
@@ -225,6 +230,15 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
       .share-btn:hover, .share-btn.active { color: #a8c7ff; border-color: #2a4070; background: #0f1e34; }
       .snake-chat-btn { color: #4a6a9a; border-color: #1a2d4a; }
       .snake-chat-btn:hover, .snake-chat-btn.active { color: #7fffd4; border-color: #2a4070; background: #0f1e34; }
+      .snake-chat-tabs { display: inline-flex; border: 1px solid #1a2d4a; border-radius: 3px; overflow: hidden; }
+      .snake-chat-tab {
+        border: 0; border-right: 1px solid #1a2d4a;
+        background: #0f1e34; color: #6b8ab8; cursor: pointer;
+        font-size: 11px; font-family: inherit; padding: 3px 8px;
+      }
+      .snake-chat-tab:last-child { border-right: 0; }
+      .snake-chat-tab:hover { color: #c8d8f8; background: #162848; }
+      .snake-chat-tab.active { color: #7fffd4; background: #173055; }
       .config-btn { color: #4a6a9a; border-color: #1a2d4a; }
       .config-btn:hover, .config-btn.active { color: #fbbf24; border-color: #7a5a10; background: #0f1e34; }
       .overlay-panel {
@@ -268,6 +282,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   configPanelOpen = false;
   sharePanelOpen = false;
   snakeChatPanelOpen = false;
+  snakeChatPanelTab: 'chat' | 'mode' | 'settings' = 'chat';
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -1037,6 +1052,13 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       this.configPanelOpen = false;
       this.sharePanelOpen = false;
     }
+  }
+
+  openSnakeChatPanelTab(tab: 'chat' | 'mode' | 'settings'): void {
+    this.snakeChatPanelTab = tab;
+    this.snakeChatPanelOpen = true;
+    this.configPanelOpen = false;
+    this.sharePanelOpen = false;
   }
 
   toggleSnakeCanvas(): void {

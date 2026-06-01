@@ -15,7 +15,9 @@ Endpunkte:
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
+import threading
 import time
 import uuid
 from ipaddress import ip_address
@@ -25,6 +27,7 @@ import jwt
 from flask import Blueprint, jsonify, request
 
 from agent.config import settings
+from agent.llm_integration import generate_text
 
 snakes_bp = Blueprint("snakes", __name__)
 
@@ -45,6 +48,82 @@ _VALID_VISIBILITY = {"room", "direct", "ai_context", "system"}  # local_only is 
 
 _VALID_ROLES = {"player", "tutor", "critic", "coach", "viewer"}
 _VALID_COLORS = {"mint", "amber", "rose", "violet", "sky", "coral", "lime", "ice", "cyan"}
+
+
+_SNAKE_CHAT_PROMPT = (
+    "Du bist AI-Snake im Ananta Hub. Antworte kurz, konkret und auf Deutsch. "
+    "Wenn technische Schritte noetig sind, gib sie als klare Reihenfolge aus."
+)
+
+
+def _resolve_ai_snake_chat_provider() -> tuple[str, str | None]:
+    provider = "lmstudio"
+    model: str | None = None
+    try:
+        from agent.routes.ai_snake_config import _current_config  # local import avoids route init coupling
+
+        cfg = _current_config()
+        backend = str(cfg.get("chat_backend") or "").strip().lower()
+        fallback = str(cfg.get("chat_backend_fallback") or "").strip().lower()
+        configured_model = str(cfg.get("chat_backend_model") or "").strip() or None
+        if configured_model:
+            model = configured_model
+        if backend == "lmstudio":
+            provider = "lmstudio"
+        elif backend in {"ananta-worker", "opencode", "hermes"}:
+            provider = "lmstudio" if fallback in {"", "none", "lmstudio"} else "lmstudio"
+    except Exception:
+        pass
+    return provider, model
+
+
+def _append_room_ai_message(*, text: str) -> None:
+    if not text:
+        return
+    msg: dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "created_at": time.time(),
+        "channel_id": "room:main",
+        "channel_type": "room",
+        "sender_id": "ai-snake",
+        "sender_kind": "assistant",
+        "target_ids": [],
+        "text": text[:6000],
+        "visibility": "room",
+        "delivery_state": "received",
+        "policy_decision_ref": None,
+    }
+    global _room_messages
+    _room_messages.append(msg)
+    if len(_room_messages) > _MAX_ROOM_MSGS:
+        _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
+
+
+def _spawn_ai_chat_reply(*, user_text: str) -> None:
+    prompt = str(user_text or "").strip()
+    if not prompt:
+        return
+
+    def _runner() -> None:
+        try:
+            provider, model = _resolve_ai_snake_chat_provider()
+            answer = generate_text(
+                prompt=prompt,
+                provider=provider,
+                model=model,
+                history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+                timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+            )
+            text = str(answer or "").strip()
+            if not text:
+                text = "AI-Snake konnte gerade keine Antwort erzeugen."
+            _append_room_ai_message(text=text)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("ai-snake-chat-reply failed: %s", exc)
+            _append_room_ai_message(text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.")
+
+    thread = threading.Thread(target=_runner, name="snake-chat-reply", daemon=True)
+    thread.start()
 
 
 def _is_local_request() -> bool:
@@ -290,6 +369,7 @@ def chat_send(snake_id: str):
             _room_messages.append(msg)
             if len(_room_messages) > _MAX_ROOM_MSGS:
                 _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
+            _spawn_ai_chat_reply(user_text=text)
     elif channel_type == "direct":
         target_ids = msg["target_ids"]
         if not target_ids:

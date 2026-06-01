@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
@@ -87,9 +87,9 @@ import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
         </div>
       }
       <div class="bottom-tabs">
-        <button [class.active]="tab==='chat'" (click)="tab='chat'">Chat</button>
-        <button [class.active]="tab==='mode'" (click)="tab='mode'">Modus</button>
-        <button [class.active]="tab==='settings'" (click)="tab='settings'">Einstellungen</button>
+        <button [class.active]="tab==='chat'" (click)="setTab('chat')">Chat</button>
+        <button [class.active]="tab==='mode'" (click)="setTab('mode')">Modus</button>
+        <button [class.active]="tab==='settings'" (click)="setTab('settings')">Einstellungen</button>
       </div>
       @if (svc.error$ | async; as e) {
         @if (e) { <div class="error">{{ e }}</div> }
@@ -143,7 +143,8 @@ export class AiSnakeChatPanelComponent {
   name = 'web-ai-snake';
   role = 'viewer';
   draft = '';
-  tab: 'chat' | 'mode' | 'settings' = 'chat';
+  @Input() tab: 'chat' | 'mode' | 'settings' = 'chat';
+  @Output() tabChange = new EventEmitter<'chat' | 'mode' | 'settings'>();
 
   constructor() {
     this.cfg.load();
@@ -186,5 +187,10 @@ export class AiSnakeChatPanelComponent {
 
   setUseCodeCompass(enabled: boolean): void {
     this.cfg.updateField('chat_use_codecompass', enabled);
+  }
+
+  setTab(tab: 'chat' | 'mode' | 'settings'): void {
+    this.tab = tab;
+    this.tabChange.emit(tab);
   }
 }

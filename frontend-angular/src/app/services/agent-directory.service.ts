@@ -73,6 +73,17 @@ export class AgentDirectoryService {
     return this.currentHostname() === 'angular-frontend';
   }
 
+  private isLoopbackHost(host: string): boolean {
+    const h = String(host || '').toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1' || h === '::1';
+  }
+
+  private hostBasedUrl(port: number): string {
+    const host = this.currentHostname();
+    const safeHost = host || '127.0.0.1';
+    return `http://${safeHost}:${port}`;
+  }
+
   private defaultAgentsForCurrentHost(): AgentEntry[] {
     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
       return [
@@ -85,6 +96,15 @@ export class AgentDirectoryService {
         { name: 'hub', url: 'http://ai-agent-hub:5000', token: '', role: 'hub' },
         { name: 'alpha', url: 'http://ai-agent-alpha:5000', token: '', role: 'worker' },
         { name: 'beta', url: 'http://ai-agent-beta:5000', token: '', role: 'worker' }
+      ];
+    }
+    const host = this.currentHostname();
+    const useHostAddress = host && !this.isLoopbackHost(host);
+    if (useHostAddress) {
+      return [
+        { name: 'hub', url: this.hostBasedUrl(5000), token: '', role: 'hub' },
+        { name: 'alpha', url: this.hostBasedUrl(5001), token: '', role: 'worker' },
+        { name: 'beta', url: this.hostBasedUrl(5002), token: '', role: 'worker' }
       ];
     }
     // sensible defaults for host/browser usage
@@ -161,5 +181,24 @@ export class AgentDirectoryService {
       return agent;
     });
     if (changed) this.save();
+
+    const host = this.currentHostname();
+    if (!host || this.isLoopbackHost(host) || this.isComposeInternalFrontendHost()) return;
+    let rewritten = false;
+    this.agents = this.agents.map((a) => {
+      const raw = String(a.url || '').trim();
+      if (!raw) return a;
+      try {
+        const parsed = new URL(raw);
+        if (!this.isLoopbackHost(parsed.hostname)) return a;
+        const preferredPort = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+        const next = `http://${host}:${preferredPort}`;
+        rewritten = true;
+        return { ...a, url: next, token: '' };
+      } catch {
+        return a;
+      }
+    });
+    if (rewritten) this.save();
   }
 }
