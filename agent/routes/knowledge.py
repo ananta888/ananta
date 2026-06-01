@@ -722,6 +722,7 @@ def get_knowledge_retrieval_preflight():
 
 
 @knowledge_bp.route("/knowledge/indices", methods=["GET"])
+@knowledge_bp.route("/knowledge/indexes", methods=["GET"])
 @check_auth
 def list_knowledge_indices():
     source_scope = str(request.args.get("source_scope") or "").strip().lower() or None

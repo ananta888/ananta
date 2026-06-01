@@ -729,6 +729,11 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._exit_command_mode_for_global_shortcut()
             self._copy_tui_snapshot()
 
+        @bindings.add(key_for_action("save_tui_snapshot", "c-_"))
+        def _(event) -> None:
+            self._exit_command_mode_for_global_shortcut()
+            self._save_tui_snapshot()
+
         @bindings.add(key_for_action("clear_chat_input", "c-l"))
         def _(event) -> None:
             if self._chat_focus_active():
