@@ -28,6 +28,7 @@ from flask import Blueprint, jsonify, request
 
 from agent.config import settings
 from agent.llm_integration import generate_text
+from agent.services.rag_service import get_rag_service
 
 snakes_bp = Blueprint("snakes", __name__)
 
@@ -51,8 +52,15 @@ _VALID_COLORS = {"mint", "amber", "rose", "violet", "sky", "coral", "lime", "ice
 
 
 _SNAKE_CHAT_PROMPT = (
-    "Du bist AI-Snake im Ananta Hub. Antworte kurz, konkret und auf Deutsch. "
-    "Wenn technische Schritte noetig sind, gib sie als klare Reihenfolge aus."
+    "Du bist AI-Snake im Ananta Hub.\n"
+    "Regeln (streng):\n"
+    "1) Antworte nur auf Basis des Ananta-Kontexts und der Nutzerfrage.\n"
+    "2) Erfinde keine Produkte, URLs, Features, Befehle oder Fakten.\n"
+    "3) Wenn Informationen fehlen oder unsicher sind, sage explizit: "
+    "\"Unklar, bitte Kontext pruefen\".\n"
+    "4) Gib keine externen Links aus, ausser der Nutzer hat explizit danach gefragt.\n"
+    "5) Halte Antworten kurz, konkret, technisch nutzbar, auf Deutsch.\n"
+    "6) Wenn Schrittfolge noetig ist, gib maximal 5 nummerierte Schritte.\n"
 )
 
 
@@ -75,6 +83,35 @@ def _resolve_ai_snake_chat_provider() -> tuple[str, str | None]:
     except Exception:
         pass
     return provider, model
+
+
+def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool]:
+    prompt = str(user_text or "").strip()
+    if not prompt:
+        return prompt
+    try:
+        from agent.routes.ai_snake_config import _current_config  # local import avoids route init coupling
+
+        cfg = _current_config()
+        use_codecompass = bool(cfg.get("chat_use_codecompass"))
+        include_wiki = bool(cfg.get("chat_include_wikipedia"))
+        source_types: list[str] = []
+        if use_codecompass:
+            source_types.append("artifact")
+        if include_wiki:
+            source_types.append("wiki")
+        bundle, grounded = get_rag_service().build_execution_context(
+            prompt,
+            task_kind="chat",
+            retrieval_intent="chat_codecompass",
+            source_types=source_types or None,
+        )
+        chunks = list(bundle.get("chunks") or [])
+        if chunks:
+            return grounded, True
+    except Exception:
+        pass
+    return prompt, False
 
 
 def _append_room_ai_message(*, text: str) -> None:
@@ -107,14 +144,30 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
     def _runner() -> None:
         try:
             provider, model = _resolve_ai_snake_chat_provider()
+            grounded_prompt, has_context = _build_grounded_snake_prompt(prompt)
+            q = prompt.lower()
+            asks_for_concrete_local_facts = any(
+                token in q for token in (
+                    "konkret", "datei", "dateien", "artefakt", "artefakte", "welche", "verfuegbar", "verfügbar"
+                )
+            )
+            if asks_for_concrete_local_facts and not has_context:
+                _append_room_ai_message(text="Unklar, bitte Kontext pruefen.")
+                return
             answer = generate_text(
-                prompt=prompt,
+                prompt=grounded_prompt,
                 provider=provider,
                 model=model,
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
                 timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
             )
             text = str(answer or "").strip()
+            asked_for_link = any(token in prompt.lower() for token in ("link", "url", "quelle", "source"))
+            if text and not asked_for_link:
+                # Remove likely external links unless explicitly requested.
+                text = text.replace("http://", "").replace("https://", "")
+            if len(text) > 2200:
+                text = text[:2200].rstrip() + "\n\n[gekuerzt]"
             if not text:
                 text = "AI-Snake konnte gerade keine Antwort erzeugen."
             _append_room_ai_message(text=text)
