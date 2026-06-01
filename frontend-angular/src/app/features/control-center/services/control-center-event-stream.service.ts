@@ -14,11 +14,14 @@ export class ControlCenterEventStreamService implements OnDestroy {
   private reconnectAttempts = 0;
   private reconnectHandle: ReturnType<typeof setTimeout> | null = null;
 
-  connect(url: string): void {
+  connect(url: string, token?: string): void {
     this.disconnect();
     this.state$.next('connecting');
     try {
-      this.es = new EventSource(url);
+      const connectUrl = token
+        ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+        : url;
+      this.es = new EventSource(connectUrl);
       this.es.onopen = () => {
         this.reconnectAttempts = 0;
         this.state$.next('connected');
@@ -26,16 +29,14 @@ export class ControlCenterEventStreamService implements OnDestroy {
       this.es.onmessage = (evt) => {
         const raw = evt.data || 'event';
         this.lastEvent$.next(raw);
+        this.lastHeartbeatAt$.next(Date.now());
         try {
           this.lastEventObject$.next(JSON.parse(raw) as Record<string, unknown>);
         } catch {
           this.lastEventObject$.next(null);
         }
       };
-      this.es.onerror = () => this.scheduleReconnect(url);
-      this.es.addEventListener('message', () => {
-        this.lastHeartbeatAt$.next(Date.now());
-      });
+      this.es.onerror = () => this.scheduleReconnect(url, token);
     } catch {
       this.state$.next('failed');
     }
@@ -47,12 +48,12 @@ export class ControlCenterEventStreamService implements OnDestroy {
     this.state$.next('disconnected');
   }
 
-  private scheduleReconnect(url: string): void {
+  private scheduleReconnect(url: string, token?: string): void {
     if (this.reconnectAttempts >= 5) { this.state$.next('failed'); return; }
     this.reconnectAttempts += 1;
     this.state$.next('reconnecting');
     const delayMs = Math.min(1000 * (2 ** (this.reconnectAttempts - 1)), 10000);
-    this.reconnectHandle = setTimeout(() => this.connect(url), delayMs);
+    this.reconnectHandle = setTimeout(() => this.connect(url, token), delayMs);
   }
 
   ngOnDestroy(): void { this.disconnect(); }

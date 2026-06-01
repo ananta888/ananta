@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, catchError, of } from 'rxjs';
+import { Subscription } from 'rxjs';
 
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import {
@@ -30,6 +31,8 @@ export class ControlCenterStateFacade {
   readonly loading$ = new BehaviorSubject<boolean>(false);
   readonly error$ = new BehaviorSubject<string>('');
   private lastEventTsByEntity = new Map<string, number>();
+  private eventSub: Subscription | null = null;
+  private connectingEvents = false;
 
   constructor() {
     const initial = localStorage.getItem('ananta.cc.selectedProjectId') || '';
@@ -117,16 +120,33 @@ export class ControlCenterStateFacade {
 
   connectEvents(): void {
     const base = this.hubBaseUrl();
-    if (!base) return;
-    this.stream.connect(`${base}/api/events/stream`);
-    this.stream.lastEventObject$.subscribe((evt) => {
-      if (!evt) return;
-      this.mergeEvent(evt);
+    if (!base || this.connectingEvents) return;
+    this.connectingEvents = true;
+    this.api.createEventStreamToken(base, { project_id: this.selectedProjectId$.value || undefined }).pipe(
+      catchError(() => of(null)),
+    ).subscribe((tokenRes) => {
+      if (!tokenRes?.token) {
+        this.connectingEvents = false;
+        return;
+      }
+      this.stream.connect(`${base}/api/events/stream`, tokenRes.token);
+      if (!this.eventSub) {
+        this.eventSub = this.stream.lastEventObject$.subscribe((evt) => {
+          if (!evt) return;
+          this.mergeEvent(evt);
+        });
+      }
+      this.connectingEvents = false;
     });
   }
 
   disconnectEvents(): void {
     this.stream.disconnect();
+    if (this.eventSub) {
+      this.eventSub.unsubscribe();
+      this.eventSub = null;
+    }
+    this.connectingEvents = false;
   }
 
   loadPolicyDecisions(sessionId: string): void {

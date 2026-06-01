@@ -1,4 +1,5 @@
 from io import BytesIO
+from urllib.parse import quote
 from agent.repository import artifact_repo
 
 
@@ -73,6 +74,8 @@ def test_control_center_policy_and_scope_contract(client, admin_auth_header):
     assert preview_res.status_code == 200
     preview = preview_res.get_json()['data']['scope_preview']
     assert 'excluded_sensitive_paths' in preview
+    assert '/.env' in preview['excluded_sensitive_paths']
+    assert '/secrets/**' in preview['excluded_sensitive_paths']
 
 
 def test_control_center_narrow_approval_contract(client, admin_auth_header):
@@ -155,10 +158,26 @@ def test_artifact_content_normalized_contract(client, admin_auth_header):
 
 
 def test_artifact_filters_contract(client, admin_auth_header):
+    create_task_res = client.post(
+        '/api/tasks',
+        headers=admin_auth_header,
+        json={'title': 'Artifact relation task', 'description': 'contract test'},
+    )
+    assert create_task_res.status_code == 201
+    task_id = create_task_res.get_json()['data']['task']['id']
+
+    create_session_res = client.post(
+        f'/api/tasks/{task_id}/sessions',
+        headers=admin_auth_header,
+        json={'title': 'Artifact relation session'},
+    )
+    assert create_session_res.status_code == 201
+    session_id = create_session_res.get_json()['data']['session']['id']
+
     upload_a = client.post(
         '/artifacts/upload',
         headers=admin_auth_header,
-        data={'file': (BytesIO(b'a1'), 'a1.txt')},
+        data={'file': (BytesIO(b'a1'), 'a1.txt'), 'task_id': task_id, 'session_id': session_id, 'project_id': '', 'type': 'log'},
         content_type='multipart/form-data',
     )
     upload_b = client.post(
@@ -176,20 +195,58 @@ def test_artifact_filters_contract(client, admin_auth_header):
     row_b = artifact_repo.get_by_id(str(artifact_b['id']))
     assert row_a is not None
     assert row_b is not None
-    row_a.artifact_metadata = {'project_id': 'p1', 'task_id': 't1', 'session_id': 's1', 'type': 'log'}
+    row_a.artifact_metadata = {'project_id': 'p1', 'task_id': task_id, 'session_id': session_id, 'type': 'log'}
     row_b.artifact_metadata = {'project_id': 'p2', 'task_id': 't2', 'session_id': 's2', 'type': 'text'}
     artifact_repo.save(row_a)
     artifact_repo.save(row_b)
 
-    filtered = client.get('/artifacts?task_id=t1&session_id=s1&type=log', headers=admin_auth_header)
+    filtered = client.get(f'/artifacts?task_id={task_id}&session_id={session_id}&type=log', headers=admin_auth_header)
     assert filtered.status_code == 200
     filtered_rows = filtered.get_json()['data']
     ids = {row['id'] for row in filtered_rows}
     assert artifact_a['id'] in ids
     assert artifact_b['id'] not in ids
 
+    task_detail = client.get(f'/api/tasks/{task_id}', headers=admin_auth_header)
+    assert task_detail.status_code == 200
+    detail_artifact_ids = {row['id'] for row in task_detail.get_json()['data']['artifacts']}
+    assert artifact_a['id'] in detail_artifact_ids
+
 
 def test_control_center_event_stream_contract(client, admin_auth_header):
     response = client.get('/api/events/stream', headers=admin_auth_header)
     assert response.status_code == 200
     assert response.mimetype == 'text/event-stream'
+
+    create_task_res = client.post(
+        '/api/tasks',
+        headers=admin_auth_header,
+        json={'title': 'SSE filter task', 'description': 'contract test'},
+    )
+    assert create_task_res.status_code == 201
+    task_id = create_task_res.get_json()['data']['task']['id']
+    create_session_res = client.post(
+        f'/api/tasks/{task_id}/sessions',
+        headers=admin_auth_header,
+        json={'title': 'SSE filter session'},
+    )
+    assert create_session_res.status_code == 201
+    session_id = create_session_res.get_json()['data']['session']['id']
+    filtered = client.get(f'/api/events/stream?session_id={session_id}', headers=admin_auth_header)
+    assert filtered.status_code == 200
+    assert filtered.mimetype == 'text/event-stream'
+
+    token_res = client.post(
+        '/api/events/stream-token',
+        headers=admin_auth_header,
+        json={'session_id': session_id},
+    )
+    assert token_res.status_code == 200
+    stream_token = token_res.get_json()['data']['token']
+    assert stream_token
+
+    # Query-token transport is implemented for browser EventSource usage.
+    # Flask test-client stream context handling differs from browser EventSource;
+    # contract here validates token issuance shape.
+    assert isinstance(stream_token, str)
+    assert len(stream_token) >= 8

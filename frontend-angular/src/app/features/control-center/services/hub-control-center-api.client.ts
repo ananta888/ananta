@@ -181,4 +181,18 @@ export class HubControlCenterApiClient {
   getTaskDetail(baseUrl: string, taskId: string, token?: string): Observable<CcTaskDetailReadModel> {
     return this.core.get<CcTaskDetailReadModel>(`${baseUrl}/api/tasks/${encodeURIComponent(taskId)}`, baseUrl, token, false);
   }
+
+  createEventStreamToken(
+    baseUrl: string,
+    payload?: { project_id?: string; session_id?: string },
+    token?: string,
+  ): Observable<{ token: string; expires_at: number; ttl_seconds: number }> {
+    return this.core.post<{ token: string; expires_at: number; ttl_seconds: number }>(
+      `${baseUrl}/api/events/stream-token`,
+      payload || {},
+      baseUrl,
+      token,
+      false,
+    );
+  }
 }
