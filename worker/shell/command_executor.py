@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -123,7 +124,7 @@ def execute_command_plan(
 
     # T009: Gate through WorkerToolRegistry — run_shell must be registered
     if tool_registry is not None and not tool_registry.is_registered("run_shell"):
-        return ToolResult.denied("run_shell", exec_id, "tool_not_registered")
+        return ToolResult.denied("run_shell", exec_id, "tool_not_registered", task_id=task_id, command=command)
 
     # T008: Build ToolInvocationEnvelope to carry resource limits per call
     registry_limits = (
@@ -183,7 +184,13 @@ def execute_command_plan(
         stdout_val, truncated = invocation.apply_output_limit(raw_stdout)
         stderr_val, _ = invocation.apply_output_limit(raw_stderr)
     except subprocess.TimeoutExpired as exc:
-        return ToolResult.timeout("run_shell", exec_id, partial_stdout=str(exc.stdout or ""))
+        return ToolResult.timeout(
+            "run_shell",
+            exec_id,
+            partial_stdout=str(exc.stdout or ""),
+            task_id=task_id,
+            command=command,
+        )
     duration_s = time.monotonic() - start
     # T010: return ToolResult (callers use .to_test_result_artifact() for legacy dict format)
     return ToolResult(
@@ -195,4 +202,6 @@ def execute_command_plan(
         exit_code=exit_code,
         truncated=truncated,
         duration_seconds=round(duration_s, 3),
+        task_id=task_id,
+        command=command,
     )
