@@ -24,6 +24,7 @@ services:
       REDIS_URL: ${REDIS_URL:-}
       HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
       DATABASE_URL: ${HUB_DATABASE_URL:-sqlite:////app/data/ananta-hub.db}
+      AGENT_TOKEN: ${AGENT_TOKEN_HUB:-}
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     ports:
       - "5000:5000"
@@ -58,6 +59,7 @@ services:
       DATABASE_URL: ${ALPHA_DATABASE_URL:-sqlite:////app/data/ananta-alpha.db}
       HUB_URL: http://ai-agent-hub:5000
       AGENT_URL: http://ai-agent-alpha:5000
+      AGENT_TOKEN: ${AGENT_TOKEN_ALPHA:-}
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     volumes:
       - alpha-data:/app/data
@@ -87,6 +89,7 @@ services:
       DATABASE_URL: ${BETA_DATABASE_URL:-sqlite:////app/data/ananta-beta.db}
       HUB_URL: http://ai-agent-hub:5000
       AGENT_URL: http://ai-agent-beta:5000
+      AGENT_TOKEN: ${AGENT_TOKEN_BETA:-}
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     volumes:
       - beta-data:/app/data
