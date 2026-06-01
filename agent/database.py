@@ -6,7 +6,7 @@ import portalocker
 from sqlalchemy import text
 from sqlalchemy import event, inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.config import settings
@@ -26,6 +26,10 @@ if DATABASE_URL.startswith("sqlite"):
     if DATABASE_URL == "sqlite:///:memory:":
         # Share the in-memory test database across repository sessions.
         engine_kwargs["poolclass"] = StaticPool
+    else:
+        # SQLite file DBs under high parallel E2E load can exhaust QueuePool and return 500s.
+        # NullPool avoids connection checkout starvation by opening short-lived connections.
+        engine_kwargs["poolclass"] = NullPool
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
 
