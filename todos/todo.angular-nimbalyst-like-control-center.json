@@ -1,7 +1,7 @@
 {
   "id": "todo.angular-nimbalyst-like-control-center",
   "title": "Angular Control Center UI inspired by Nimbalyst, adapted for Ananta security, workers, policies and artifacts",
-  "status": "open",
+  "status": "reference",
   "created_at": "2026-06-01",
   "summary": {
     "short": "Build a Nimbalyst-like Angular control center for Ananta, but centered around worker governance, policy visibility, context control, artifacts, diffs, verification and safe agent orchestration.",

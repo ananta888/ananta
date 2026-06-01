@@ -1,0 +1,435 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Krusty / ananta",
+  "track": "todo.angular-nimbalyst-like-control-center.execution",
+  "title": "Angular Control Center (Nimbalyst-inspirierter Stil) — ausführbares MVP-Backlog",
+  "purpose": "Die bestehende Vision in ein konkret umsetzbares, priorisiertes und abhängiges Umsetzungs-Backlog überführen.",
+  "goal": "Ein sicheres, nachvollziehbares Control-Center in Angular, das Hub-gestützte Orchestrierung, Worker-Status, Policy-Entscheidungen und Artefakt-Review als primäre Arbeitsoberfläche bereitstellt.",
+  "status": "todo",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "scope_policy": {
+    "mvp_included": [
+      "3-Spalten-Shell (Navigation, Workspace, Inspector)",
+      "Task-Board mit Statusspalten und Risiko-Chips",
+      "Session-Detail mit Tool-Call-Timeline",
+      "Security-Inspector (Worker/Modell/Runtime/Policy-Snapshot)",
+      "Artefakt-Browser + Viewer (Markdown, Diff, JSON, Logs)",
+      "Policy-Decision-Log + enger Approval-Flow",
+      "Live-Updates via SSE (mit Reconnect)",
+      "Verification-Panel als Abschlusskriterium"
+    ],
+    "mvp_excluded": [
+      "Komplette Worktree-/Branch-Orchestrierung im UI",
+      "Unkontrollierte Terminal-Ausführung",
+      "UI-seitige Security-Entscheidungen"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Shell, Routen und Kernmodelle",
+      "status": "todo",
+      "estimated_h": 12,
+      "target_date": "2026-06-08",
+      "risk": "low"
+    },
+    {
+      "id": "M2",
+      "title": "Task- und Session-MVP",
+      "status": "todo",
+      "estimated_h": 16,
+      "target_date": "2026-06-15",
+      "risk": "medium"
+    },
+    {
+      "id": "M3",
+      "title": "Artefakt-Review und Verification",
+      "status": "todo",
+      "estimated_h": 14,
+      "target_date": "2026-06-22",
+      "risk": "medium"
+    },
+    {
+      "id": "M4",
+      "title": "Policy/Approval + Live-Events",
+      "status": "todo",
+      "estimated_h": 14,
+      "target_date": "2026-06-29",
+      "risk": "high"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "milestone_id": "M1",
+      "title": "ShellLayoutComponent (3-Spalten, responsive) einführen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 3,
+      "acceptance_criteria": [
+        "Desktop: linke Navigation, mittlerer Workspace, rechter Inspector sichtbar.",
+        "Mobil: rechter Inspector als Drawer, linke Navigation einklappbar.",
+        "Kein Bruch bestehender Routen."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/shared/ui/shell-layout/**",
+        "frontend-angular/src/app/components/**"
+      ]
+    },
+    {
+      "id": "T02",
+      "milestone_id": "M1",
+      "title": "Routenstruktur für Dashboard/Tasks/Sessions/Artifacts/Workers/Policies/CodeCompass erweitern",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 2,
+      "blocked_by": ["T01"],
+      "acceptance_criteria": [
+        "Alle Zielrouten sind navigierbar.",
+        "Platzhalterseiten mit konsistenter Shell eingebunden."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/**/*.routes.ts"
+      ]
+    },
+    {
+      "id": "T03",
+      "milestone_id": "M1",
+      "title": "UI-Datenmodelle (TaskCard, AgentSession, ContextScope, PolicySnapshot, ArtifactRef, VerificationSummary) konsolidieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "estimated_h": 2,
+      "acceptance_criteria": [
+        "Modelle zentral abgelegt und wiederverwendbar.",
+        "Bestehende Komponenten kompilieren ohne Typ-Konflikte."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/models/**"
+      ]
+    },
+    {
+      "id": "T04",
+      "milestone_id": "M1",
+      "title": "Status-/Risiko-/Verification-Chips als Shared UI-Komponenten vereinheitlichen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "estimated_h": 2,
+      "blocked_by": ["T03"],
+      "acceptance_criteria": [
+        "Task-, Session- und Tool-Status nutzen konsistente Chips.",
+        "Nicht nur Farbe, sondern auch Text/Icon für Accessibility."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/shared/ui/**"
+      ]
+    },
+    {
+      "id": "T05",
+      "milestone_id": "M1",
+      "title": "Backend-Endpoint-Matrix Ist/Soll dokumentieren (UI-relevant)",
+      "type": "docs",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 3,
+      "acceptance_criteria": [
+        "Für jeden benötigten Endpoint: exists/adapter_needed/missing markiert.",
+        "API-Gaps sind auf konkrete Folge-Tasks gemappt."
+      ],
+      "files_affected": [
+        "docs/frontend-control-center-endpoint-matrix.md"
+      ]
+    },
+    {
+      "id": "T06",
+      "milestone_id": "M2",
+      "title": "TaskBoardComponent mit Statusspalten implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 4,
+      "blocked_by": ["T02", "T03"],
+      "acceptance_criteria": [
+        "Spalten: backlog/proposed/running/blocked/review/verified/done/failed.",
+        "Karten zeigen Worker, Modell, Risiko, Artefaktanzahl, Verification-State."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/tasks/**"
+      ]
+    },
+    {
+      "id": "T07",
+      "milestone_id": "M2",
+      "title": "AgentSessionList + AgentSessionDetail implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 4,
+      "blocked_by": ["T02", "T03"],
+      "acceptance_criteria": [
+        "Sessions zeigen status/worker/model/runtime/task-bezug.",
+        "Detailseite zeigt Events, aktuelle Phase und Kontextbezug."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/sessions/**"
+      ]
+    },
+    {
+      "id": "T08",
+      "milestone_id": "M2",
+      "title": "ToolCallTimeline mit denied/approval-Zuständen integrieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 2,
+      "blocked_by": ["T07"],
+      "acceptance_criteria": [
+        "Zustände: proposed/allowed/denied/running/completed/failed.",
+        "Denied-Events sind prominent sichtbar, nicht im Fehler-Toast versteckt."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/sessions/**"
+      ]
+    },
+    {
+      "id": "T09",
+      "milestone_id": "M2",
+      "title": "AgentSecurityInspector (Worker/Modell/Runtime/Policy/Paths/Tools) anbinden",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 3,
+      "blocked_by": ["T07"],
+      "acceptance_criteria": [
+        "Allowed/Denied Tools und Paths werden getrennt dargestellt.",
+        "Cloud-/Local-Grenze und Risikostufe sind immer sichtbar."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/sessions/components/agent-security-inspector/**"
+      ]
+    },
+    {
+      "id": "T10",
+      "milestone_id": "M3",
+      "title": "ArtifactBrowser + ArtifactViewer-Dispatcher implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 4,
+      "blocked_by": ["T02", "T03"],
+      "acceptance_criteria": [
+        "Artefakte filterbar nach project/task/session/type.",
+        "Viewer dispatcht korrekt für markdown/mermaid/diff/json/log/text."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/artifacts/**",
+        "frontend-angular/src/app/shared/viewers/**"
+      ]
+    },
+    {
+      "id": "T11",
+      "milestone_id": "M3",
+      "title": "Markdown/Mermaid-Viewer härten (Sanitization + Fallback)",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "estimated_h": 3,
+      "blocked_by": ["T10"],
+      "acceptance_criteria": [
+        "Kein Script-Exec aus Artefaktinhalten möglich.",
+        "Ungültiges Mermaid erzeugt lesbare Fehlermeldung statt UI-Absturz."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/shared/viewers/markdown-mermaid-viewer/**"
+      ]
+    },
+    {
+      "id": "T12",
+      "milestone_id": "M3",
+      "title": "DiffViewer (unified + side-by-side) inkl. Mobile-Fallback",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 2,
+      "blocked_by": ["T10"],
+      "acceptance_criteria": [
+        "Desktop: unified und side-by-side.",
+        "Mobile: automatische Rückfallansicht auf unified."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/shared/viewers/diff-viewer/**"
+      ]
+    },
+    {
+      "id": "T13",
+      "milestone_id": "M3",
+      "title": "VerificationPanel in Task-Detail integrieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 3,
+      "blocked_by": ["T06", "T10"],
+      "acceptance_criteria": [
+        "Test-/Verification-Ergebnisse als Abschlusskriterium sichtbar.",
+        "Task-Abschluss ohne erforderliche Verification wird klar blockiert/markiert."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/tasks/**"
+      ]
+    },
+    {
+      "id": "T14",
+      "milestone_id": "M4",
+      "title": "PolicyDecisionLogComponent implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 3,
+      "blocked_by": ["T09"],
+      "acceptance_criteria": [
+        "Allow/Deny/Require-Approval inkl. Grund und Rule-IDs angezeigt.",
+        "Denied-Aktionen sind auditierbar im Verlauf sichtbar."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/policies/**"
+      ]
+    },
+    {
+      "id": "T15",
+      "milestone_id": "M4",
+      "title": "ApprovalGate für enge Einzelaktion-Freigaben",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 3,
+      "blocked_by": ["T14"],
+      "acceptance_criteria": [
+        "Approval bezieht sich auf konkrete action/tool_call_id.",
+        "Keine breite Session- oder Wildcard-Freigabe möglich."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/policies/components/approval-gate/**"
+      ]
+    },
+    {
+      "id": "T16",
+      "milestone_id": "M4",
+      "title": "Live-Event-Adapter (SSE) mit Reconnect und Status-Propagation",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "estimated_h": 4,
+      "blocked_by": ["T07", "T14"],
+      "acceptance_criteria": [
+        "Session-/Task-/Tool-/Policy-Status aktualisieren ohne Reload.",
+        "Bei Disconnect: automatischer Reconnect mit sichtbarem Zustand."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/core/**",
+        "frontend-angular/src/app/features/**"
+      ]
+    },
+    {
+      "id": "T17",
+      "milestone_id": "M4",
+      "title": "WorkerRegistry + CapabilityMatrix anbinden",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "estimated_h": 2,
+      "blocked_by": ["T16"],
+      "acceptance_criteria": [
+        "Worker-Zustand (online/degraded/offline) sichtbar.",
+        "Capabilities (runtime/tools/local-cloud-boundary) vergleichbar."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/features/workers/**"
+      ]
+    },
+    {
+      "id": "T18",
+      "milestone_id": "M4",
+      "title": "Testpaket (Unit/Component/E2E/Security) für Control-Center-MVP",
+      "type": "test",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 4,
+      "blocked_by": ["T06", "T09", "T10", "T11", "T14", "T15", "T16"],
+      "acceptance_criteria": [
+        "Unit: Board-Gruppierung, Inspector-Anzeige, Viewer-Dispatch.",
+        "Component: Session-Detail + ApprovalGate-Validierung.",
+        "E2E: denied tool call sichtbar + Diff/Report-Review-Flow.",
+        "Security: kein Script-Exec in Markdown/Mermaid."
+      ],
+      "files_affected": [
+        "frontend-angular/src/app/**/*.spec.ts",
+        "frontend-angular/tests/**/*.spec.ts"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "T01", "T02", "T03", "T06", "T07", "T09", "T10", "T11", "T13", "T14", "T15", "T16", "T18"
+  ],
+  "tasks_status_summary": {
+    "todo": 18,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "tasks_type_summary": {
+    "backend": 0,
+    "frontend": 16,
+    "test": 1,
+    "security": 0,
+    "infra": 0,
+    "docs": 1
+  },
+  "progress_summary": {
+    "total_tasks": 18,
+    "completed_tasks": 0,
+    "completion_percent": 0,
+    "total_estimated_h": 56,
+    "milestones_done": 0,
+    "milestones_total": 4,
+    "phase_breakdown": {
+      "M1_shell_und_modelle": { "tasks": 5, "estimated_h": 12, "status": "todo" },
+      "M2_task_session_mvp": { "tasks": 4, "estimated_h": 13, "status": "todo" },
+      "M3_artifacts_verification": { "tasks": 4, "estimated_h": 12, "status": "todo" },
+      "M4_policy_events_worker": { "tasks": 5, "estimated_h": 19, "status": "todo" }
+    }
+  },
+  "immediate_next_actions": [
+    "T05 zuerst umsetzen (Endpoint-Matrix), damit API-Gaps explizit sind.",
+    "Dann T01-T04 als UI-Grundlage abschließen.",
+    "Danach T06-T09 für das erste nutzbare Session/Task-Control-Center."
+  ],
+  "notes": [
+    "Diese Datei ist die ausführbare Ergänzung zur Vision-Datei todo.angular-nimbalyst-like-control-center.json.",
+    "Sicherheitsentscheidungen bleiben backend-autoritativ (Hub/Policy).",
+    "Hub-Worker-Architektur bleibt unverändert; keine Worker-zu-Worker-Orchestrierung."
+  ]
+}
