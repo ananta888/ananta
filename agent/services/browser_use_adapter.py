@@ -58,7 +58,14 @@ class BrowserUseExecutionAdapter:
 
         traces: list[dict[str, Any]] = []
         extracted: dict[str, Any] = {}
-        runner = action_executor or (lambda a: {"ok": True, "output": a.get("value")})
+        def _default_runner(action: dict[str, Any]) -> dict[str, Any]:
+            action_type = str((action or {}).get("type") or "").strip().lower()
+            if action_type == "extract":
+                target = str((action or {}).get("target") or "").strip() or "<unknown>"
+                return {"ok": True, "output": {"target": target, "text": "mock_extracted"}}
+            return {"ok": True, "output": (action or {}).get("value")}
+
+        runner = action_executor or _default_runner
 
         deadline = time.time() + contract.timeout_seconds
         for idx, action in enumerate(actions, start=1):

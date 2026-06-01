@@ -150,6 +150,7 @@ def _delete_snake(snake_id: str, user_token: str) -> None:
 
 def test_hub_is_reachable() -> None:
     """Smoke: Hub antwortet auf /health."""
+    _require_live()
     result = _api("/health")
     assert result.get("status") in {"ok", "success", "healthy"} or result.get("ok"), \
         f"Hub /health returned unexpected: {result}"
