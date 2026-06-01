@@ -119,6 +119,9 @@ def render_operator_shell(
             )
         )
     body_end = len(lines)
+    tutorial_dock_lines = _tutorial_propose_dock_lines(state, width)
+    if tutorial_dock_lines:
+        lines.extend(tutorial_dock_lines)
 
     lines.append(_rule(width))
     lines.append(_status_line(state, width, splash_state=splash_state))

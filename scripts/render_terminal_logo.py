@@ -100,9 +100,9 @@ def svg_to_png(svg_path: str, png_path: str, width: int = 800) -> None:
         return
     except FileNotFoundError:
         pass
-    print("Error: No SVG renderer found. Install cairosvg (`pip install cairosvg`), rsvg-convert, or inkscape.",
-          file=sys.stderr)
-    sys.exit(1)
+    raise RuntimeError(
+        "No SVG renderer found. Install cairosvg (`pip install cairosvg`), rsvg-convert, or inkscape."
+    )
 
 
 def _trim_image(img, cfg: RenderConfig):
