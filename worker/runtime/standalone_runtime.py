@@ -7,6 +7,7 @@ from typing import Any
 from worker.core.execution_envelope import (
     ApprovalRef,
     CapabilityGrant,
+    CONFIRM_REQUIRED_CAPABILITIES,
     ExecutionEnvelope,
     LegacyEnvelopeAdapter,
     ModelPolicy,
@@ -222,6 +223,21 @@ class StandaloneRuntime:
             context_envelope_ref=str(control_manifest.get("context_ref") or f"todo:{task_id}"),
             audit_correlation_id=trace_id,
         )
+        if hub_decision == "allow" and not bool(policy.get("required_approval", False)):
+            existing_operations = {str(ref.operation) for ref in envelope.approval_refs}
+            for capability in envelope.capability_grant.capabilities:
+                if capability not in CONFIRM_REQUIRED_CAPABILITIES:
+                    continue
+                if capability in existing_operations:
+                    continue
+                envelope.approval_refs.append(
+                    ApprovalRef(
+                        ref_id=f"standalone-todo-auto:{task_id}:{capability}",
+                        operation=capability,
+                        granted_at=time.time(),
+                        granted_by="standalone_runtime:policy_port",
+                    )
+                )
 
         # T005: capability snapshot hash
         snapshot_hash = envelope.capability_grant.snapshot_hash

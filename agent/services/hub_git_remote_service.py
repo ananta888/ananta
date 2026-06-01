@@ -51,12 +51,12 @@ class HubGitRemoteService:
         if not repo.exists():
             return []
         res = subprocess.run(
-            ["git", "branch", "--list"],
-            cwd=str(repo), capture_output=True, text=True, timeout=30,
+            ["git", "--git-dir", str(repo), "for-each-ref", "--format=%(refname:short)", "refs/heads"],
+            capture_output=True, text=True, timeout=30,
         )
         if res.returncode != 0:
             return []
-        return [line.strip().lstrip("* ") for line in res.stdout.splitlines() if line.strip()]
+        return [line.strip() for line in res.stdout.splitlines() if line.strip()]
 
     def merge_worker_branch(
         self,

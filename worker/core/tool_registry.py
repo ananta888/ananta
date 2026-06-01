@@ -20,33 +20,115 @@ TOOL_RISK_CLASSES = frozenset({"low", "medium", "high", "critical"})
 
 # ── ToolResult ────────────────────────────────────────────────────────────────
 
-class ToolResult(BaseModel):
-    """Structured output from a single tool invocation. EW-T014."""
-    tool_id: str
-    execution_id: str
-    success: bool
-    stdout: str = ""
-    stderr: str = ""
-    exit_code: int | None = None
-    files_read: list[str] = Field(default_factory=list)
-    files_written: list[str] = Field(default_factory=list)
-    patches: list[dict[str, Any]] = Field(default_factory=list)
-    artifacts: list[dict[str, Any]] = Field(default_factory=list)
-    reason_code: str | None = None
-    truncated: bool = False
-    duration_seconds: float | None = None
+class ToolResult(dict):
+    """Structured output from a single tool invocation with legacy dict compatibility."""
+
+    _CORE_FIELDS = (
+        "tool_id",
+        "execution_id",
+        "success",
+        "stdout",
+        "stderr",
+        "exit_code",
+        "files_read",
+        "files_written",
+        "patches",
+        "artifacts",
+        "reason_code",
+        "truncated",
+        "duration_seconds",
+        "task_id",
+        "command",
+    )
+
+    def __init__(self, **data: Any) -> None:
+        payload: dict[str, Any] = {
+            "tool_id": "",
+            "execution_id": "",
+            "success": False,
+            "stdout": "",
+            "stderr": "",
+            "exit_code": None,
+            "files_read": [],
+            "files_written": [],
+            "patches": [],
+            "artifacts": [],
+            "reason_code": None,
+            "truncated": False,
+            "duration_seconds": None,
+            "task_id": "",
+            "command": "",
+        }
+        payload.update(data)
+        super().__init__(payload)
+        self._refresh_legacy_projection()
+
+    def __getattr__(self, item: str) -> Any:
+        if item in self:
+            return self[item]
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {item!r}")
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        if key.startswith("_"):
+            object.__setattr__(self, key, value)
+            return
+        self[key] = value
+        if key in self._CORE_FIELDS:
+            self._refresh_legacy_projection()
+
+    def _legacy_status(self) -> str:
+        if bool(self.get("success")):
+            return "passed"
+        if self.get("reason_code") == "tool_timeout":
+            return "degraded"
+        return "failed"
+
+    def _refresh_legacy_projection(self) -> None:
+        status = self._legacy_status()
+        duration_ms = int((float(self.get("duration_seconds") or 0.0)) * 1000)
+        stdout = str(self.get("stdout") or "")
+        stderr = str(self.get("stderr") or "")
+        self["schema"] = "test_result_artifact.v1"
+        self["status"] = status
+        self["stdout_ref"] = stdout or "<empty>"
+        self["stderr_ref"] = stderr or "<empty>"
+        self["output_summary"] = (
+            f"Execution status={status}, duration_ms={duration_ms}, "
+            f"tool_id={self.get('tool_id')}, execution_id={self.get('execution_id')}"
+        )
+        self["failure_hints"] = ([self["reason_code"]] if self.get("reason_code") else [])
+        if self.get("exit_code") is None:
+            self["exit_code"] = 0 if bool(self.get("success")) else 1
 
     @classmethod
-    def denied(cls, tool_id: str, execution_id: str, reason_code: str) -> "ToolResult":
+    def denied(
+        cls,
+        tool_id: str,
+        execution_id: str,
+        reason_code: str,
+        *,
+        task_id: str = "",
+        command: str = "",
+    ) -> "ToolResult":
         return cls(
             tool_id=tool_id,
             execution_id=execution_id,
             success=False,
             reason_code=reason_code,
+            task_id=task_id,
+            command=command,
         )
 
     @classmethod
-    def timeout(cls, tool_id: str, execution_id: str, partial_stdout: str = "") -> "ToolResult":
+    def timeout(
+        cls,
+        tool_id: str,
+        execution_id: str,
+        partial_stdout: str = "",
+        *,
+        task_id: str = "",
+        command: str = "",
+    ) -> "ToolResult":
         return cls(
             tool_id=tool_id,
             execution_id=execution_id,
@@ -54,30 +136,27 @@ class ToolResult(BaseModel):
             stdout=partial_stdout,
             reason_code="tool_timeout",
             truncated=bool(partial_stdout),
+            task_id=task_id,
+            command=command,
         )
 
     def to_test_result_artifact(self, *, task_id: str, command: str) -> dict[str, Any]:
         """Convert to legacy test_result_artifact.v1 dict for consumers that predate ToolResult. T010."""
-        if self.success:
-            status = "passed"
-        elif self.reason_code == "tool_timeout":
-            status = "degraded"
-        else:
-            status = "failed"
-        duration_ms = int((self.duration_seconds or 0.0) * 1000)
+        status = self._legacy_status()
+        duration_ms = int((float(self.get("duration_seconds") or 0.0)) * 1000)
         return {
             "schema": "test_result_artifact.v1",
             "task_id": task_id,
             "command": command,
-            "exit_code": self.exit_code if self.exit_code is not None else (0 if self.success else 1),
+            "exit_code": self.get("exit_code") if self.get("exit_code") is not None else (0 if self.get("success") else 1),
             "status": status,
-            "stdout_ref": self.stdout or "<empty>",
-            "stderr_ref": self.stderr or "<empty>",
+            "stdout_ref": str(self.get("stdout") or "") or "<empty>",
+            "stderr_ref": str(self.get("stderr") or "") or "<empty>",
             "output_summary": (
                 f"Execution status={status}, duration_ms={duration_ms}, "
-                f"tool_id={self.tool_id}, execution_id={self.execution_id}"
+                f"tool_id={self.get('tool_id')}, execution_id={self.get('execution_id')}"
             ),
-            "failure_hints": ([self.reason_code] if self.reason_code else []),
+            "failure_hints": ([self["reason_code"]] if self.get("reason_code") else []),
         }
 
 

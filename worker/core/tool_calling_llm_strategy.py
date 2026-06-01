@@ -19,10 +19,6 @@ def _build_system_prompt(context: ProposeContext) -> str:
     task = context.task or {}
     task_desc = (task.get("description") or task.get("prompt") or "").strip()
     governed_context_summary = None
-    if task_desc and len(task_desc) > 20:
-        parts.append("")
-        parts.append("Task description:")
-        parts.append(task_desc)
     rc = context.research_context if isinstance(context.research_context, dict) else {}
     if rc:
         bundle = ContextBundler.build_bundle(
