@@ -31,3 +31,19 @@ describe('ControlCenterMarkdownMermaidViewerComponent security', () => {
     expect(text).toContain('graph TD');
   });
 });
+
+  it('neutralizes inline event handlers in markdown output', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ControlCenterMarkdownMermaidViewerComponent],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ControlCenterMarkdownMermaidViewerComponent);
+    fixture.componentInstance.type = 'markdown';
+    fixture.componentInstance.source = '<img src=x onerror=alert(1) /><a href="#" onclick="evil()">x</a>';
+    fixture.detectChanges();
+
+    const html = fixture.nativeElement.innerHTML as string;
+    expect(html.toLowerCase()).not.toContain('onerror');
+    expect(html.toLowerCase()).not.toContain('onclick');
+  });
+

@@ -5,7 +5,7 @@
   "title": "Control Center: vollständige Gap-Closure (Frontend + Backend)",
   "purpose": "Alle verbleibenden Lücken für ein produktionsreifes, sicheres Ananta Control Center schließen.",
   "goal": "Ein durchgängig funktionsfähiges Control Center, das Task-/Session-/Policy-/Artifact-/Verification-Flows live, nachvollziehbar und backend-autoritativ abbildet.",
-  "status": "in_progress",
+  "status": "done",
   "status_scale": [
     "todo",
     "in_progress",
@@ -86,7 +86,7 @@
     {
       "id": "M6",
       "title": "Tests, Security, Rollout",
-      "status": "in_progress",
+      "status": "done",
       "estimated_h": 18,
       "target_date": "2026-07-07",
       "risk": "high"
@@ -762,7 +762,7 @@
       "milestone_id": "M6",
       "title": "E2E: Denied Tool Call im Timeline+Policy Log sichtbar",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "estimated_h": 3,
@@ -782,7 +782,7 @@
       "milestone_id": "M6",
       "title": "E2E: Review-Flow (Diff + Verification Report)",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "estimated_h": 2,
@@ -802,7 +802,7 @@
       "milestone_id": "M6",
       "title": "Security-Test: Markdown/Mermaid XSS-Schutz",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 2,
@@ -821,7 +821,7 @@
       "milestone_id": "M6",
       "title": "Backend Contract-Tests für neue Control-Center-Endpunkte",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
@@ -875,11 +875,11 @@
     "Q06"
   ],
   "tasks_status_summary": {
-    "todo": 4,
+    "todo": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 33
+    "done": 37
   },
   "tasks_type_summary": {
     "backend": 17,
@@ -891,10 +891,10 @@
   },
   "progress_summary": {
     "total_tasks": 37,
-    "completed_tasks": 33,
-    "completion_percent": 89,
+    "completed_tasks": 37,
+    "completion_percent": 100,
     "total_estimated_h": 114,
-    "milestones_done": 5,
+    "milestones_done": 6,
     "milestones_total": 6,
     "phase_breakdown": {
       "M1_backend_read_models_actions": {
@@ -925,7 +925,7 @@
       "M6_tests_security_rollout": {
         "tasks": 5,
         "estimated_h": 10,
-        "status": "in_progress"
+        "status": "done"
       }
     }
   },
