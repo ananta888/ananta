@@ -5,6 +5,7 @@ import { NotFoundComponent } from './components/not-found.component';
 import { authGuard } from './auth.guard';
 import { adminRoutes } from './features/admin/admin.routes';
 import { controlPlaneRoutes } from './features/control-plane/control-plane.routes';
+import { controlCenterRoutes } from './features/control-center/control-center.routes';
 import { systemRoutes } from './features/system/system.routes';
 import { taskRoutes } from './features/tasks/task.routes';
 import { contextAccessPolicyRoutes } from './features/context-access-policy/context-access-policy.routes';
@@ -20,6 +21,7 @@ export const routes: Routes = [
       { path: 'workspace', data: { breadcrumb: 'Arbeitsbereich', area: 'Operate' }, loadComponent: () => import('./components/personal-workspace.component').then(m => m.PersonalWorkspaceComponent) },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
       ...controlPlaneRoutes,
+      ...controlCenterRoutes,
       ...adminRoutes,
       ...systemRoutes,
       ...taskRoutes,

@@ -5,10 +5,26 @@
   "title": "Angular Control Center (Nimbalyst-inspirierter Stil) — ausführbares MVP-Backlog",
   "purpose": "Die bestehende Vision in ein konkret umsetzbares, priorisiertes und abhängiges Umsetzungs-Backlog überführen.",
   "goal": "Ein sicheres, nachvollziehbares Control-Center in Angular, das Hub-gestützte Orchestrierung, Worker-Status, Policy-Entscheidungen und Artefakt-Review als primäre Arbeitsoberfläche bereitstellt.",
-  "status": "todo",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status": "done",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "scope_policy": {
     "mvp_included": [
       "3-Spalten-Shell (Navigation, Workspace, Inspector)",
@@ -30,7 +46,7 @@
     {
       "id": "M1",
       "title": "Shell, Routen und Kernmodelle",
-      "status": "todo",
+      "status": "done",
       "estimated_h": 12,
       "target_date": "2026-06-08",
       "risk": "low"
@@ -38,7 +54,7 @@
     {
       "id": "M2",
       "title": "Task- und Session-MVP",
-      "status": "todo",
+      "status": "done",
       "estimated_h": 16,
       "target_date": "2026-06-15",
       "risk": "medium"
@@ -46,7 +62,7 @@
     {
       "id": "M3",
       "title": "Artefakt-Review und Verification",
-      "status": "todo",
+      "status": "done",
       "estimated_h": 14,
       "target_date": "2026-06-22",
       "risk": "medium"
@@ -54,7 +70,7 @@
     {
       "id": "M4",
       "title": "Policy/Approval + Live-Events",
-      "status": "todo",
+      "status": "done",
       "estimated_h": 14,
       "target_date": "2026-06-29",
       "risk": "high"
@@ -66,7 +82,7 @@
       "milestone_id": "M1",
       "title": "ShellLayoutComponent (3-Spalten, responsive) einführen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "estimated_h": 3,
@@ -85,11 +101,13 @@
       "milestone_id": "M1",
       "title": "Routenstruktur für Dashboard/Tasks/Sessions/Artifacts/Workers/Policies/CodeCompass erweitern",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "estimated_h": 2,
-      "blocked_by": ["T01"],
+      "blocked_by": [
+        "T01"
+      ],
       "acceptance_criteria": [
         "Alle Zielrouten sind navigierbar.",
         "Platzhalterseiten mit konsistenter Shell eingebunden."
@@ -103,7 +121,7 @@
       "milestone_id": "M1",
       "title": "UI-Datenmodelle (TaskCard, AgentSession, ContextScope, PolicySnapshot, ArtifactRef, VerificationSummary) konsolidieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "low",
       "estimated_h": 2,
@@ -120,11 +138,13 @@
       "milestone_id": "M1",
       "title": "Status-/Risiko-/Verification-Chips als Shared UI-Komponenten vereinheitlichen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "estimated_h": 2,
-      "blocked_by": ["T03"],
+      "blocked_by": [
+        "T03"
+      ],
       "acceptance_criteria": [
         "Task-, Session- und Tool-Status nutzen konsistente Chips.",
         "Nicht nur Farbe, sondern auch Text/Icon für Accessibility."
@@ -138,7 +158,7 @@
       "milestone_id": "M1",
       "title": "Backend-Endpoint-Matrix Ist/Soll dokumentieren (UI-relevant)",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
@@ -155,11 +175,14 @@
       "milestone_id": "M2",
       "title": "TaskBoardComponent mit Statusspalten implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 4,
-      "blocked_by": ["T02", "T03"],
+      "blocked_by": [
+        "T02",
+        "T03"
+      ],
       "acceptance_criteria": [
         "Spalten: backlog/proposed/running/blocked/review/verified/done/failed.",
         "Karten zeigen Worker, Modell, Risiko, Artefaktanzahl, Verification-State."
@@ -173,11 +196,14 @@
       "milestone_id": "M2",
       "title": "AgentSessionList + AgentSessionDetail implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 4,
-      "blocked_by": ["T02", "T03"],
+      "blocked_by": [
+        "T02",
+        "T03"
+      ],
       "acceptance_criteria": [
         "Sessions zeigen status/worker/model/runtime/task-bezug.",
         "Detailseite zeigt Events, aktuelle Phase und Kontextbezug."
@@ -191,11 +217,13 @@
       "milestone_id": "M2",
       "title": "ToolCallTimeline mit denied/approval-Zuständen integrieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["T07"],
+      "blocked_by": [
+        "T07"
+      ],
       "acceptance_criteria": [
         "Zustände: proposed/allowed/denied/running/completed/failed.",
         "Denied-Events sind prominent sichtbar, nicht im Fehler-Toast versteckt."
@@ -209,11 +237,13 @@
       "milestone_id": "M2",
       "title": "AgentSecurityInspector (Worker/Modell/Runtime/Policy/Paths/Tools) anbinden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["T07"],
+      "blocked_by": [
+        "T07"
+      ],
       "acceptance_criteria": [
         "Allowed/Denied Tools und Paths werden getrennt dargestellt.",
         "Cloud-/Local-Grenze und Risikostufe sind immer sichtbar."
@@ -227,11 +257,14 @@
       "milestone_id": "M3",
       "title": "ArtifactBrowser + ArtifactViewer-Dispatcher implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 4,
-      "blocked_by": ["T02", "T03"],
+      "blocked_by": [
+        "T02",
+        "T03"
+      ],
       "acceptance_criteria": [
         "Artefakte filterbar nach project/task/session/type.",
         "Viewer dispatcht korrekt für markdown/mermaid/diff/json/log/text."
@@ -246,11 +279,13 @@
       "milestone_id": "M3",
       "title": "Markdown/Mermaid-Viewer härten (Sanitization + Fallback)",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "estimated_h": 3,
-      "blocked_by": ["T10"],
+      "blocked_by": [
+        "T10"
+      ],
       "acceptance_criteria": [
         "Kein Script-Exec aus Artefaktinhalten möglich.",
         "Ungültiges Mermaid erzeugt lesbare Fehlermeldung statt UI-Absturz."
@@ -264,11 +299,13 @@
       "milestone_id": "M3",
       "title": "DiffViewer (unified + side-by-side) inkl. Mobile-Fallback",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["T10"],
+      "blocked_by": [
+        "T10"
+      ],
       "acceptance_criteria": [
         "Desktop: unified und side-by-side.",
         "Mobile: automatische Rückfallansicht auf unified."
@@ -282,11 +319,14 @@
       "milestone_id": "M3",
       "title": "VerificationPanel in Task-Detail integrieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["T06", "T10"],
+      "blocked_by": [
+        "T06",
+        "T10"
+      ],
       "acceptance_criteria": [
         "Test-/Verification-Ergebnisse als Abschlusskriterium sichtbar.",
         "Task-Abschluss ohne erforderliche Verification wird klar blockiert/markiert."
@@ -300,11 +340,13 @@
       "milestone_id": "M4",
       "title": "PolicyDecisionLogComponent implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
-      "blocked_by": ["T09"],
+      "blocked_by": [
+        "T09"
+      ],
       "acceptance_criteria": [
         "Allow/Deny/Require-Approval inkl. Grund und Rule-IDs angezeigt.",
         "Denied-Aktionen sind auditierbar im Verlauf sichtbar."
@@ -318,11 +360,13 @@
       "milestone_id": "M4",
       "title": "ApprovalGate für enge Einzelaktion-Freigaben",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 3,
-      "blocked_by": ["T14"],
+      "blocked_by": [
+        "T14"
+      ],
       "acceptance_criteria": [
         "Approval bezieht sich auf konkrete action/tool_call_id.",
         "Keine breite Session- oder Wildcard-Freigabe möglich."
@@ -336,11 +380,14 @@
       "milestone_id": "M4",
       "title": "Live-Event-Adapter (SSE) mit Reconnect und Status-Propagation",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "estimated_h": 4,
-      "blocked_by": ["T07", "T14"],
+      "blocked_by": [
+        "T07",
+        "T14"
+      ],
       "acceptance_criteria": [
         "Session-/Task-/Tool-/Policy-Status aktualisieren ohne Reload.",
         "Bei Disconnect: automatischer Reconnect mit sichtbarem Zustand."
@@ -355,11 +402,13 @@
       "milestone_id": "M4",
       "title": "WorkerRegistry + CapabilityMatrix anbinden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "estimated_h": 2,
-      "blocked_by": ["T16"],
+      "blocked_by": [
+        "T16"
+      ],
       "acceptance_criteria": [
         "Worker-Zustand (online/degraded/offline) sichtbar.",
         "Capabilities (runtime/tools/local-cloud-boundary) vergleichbar."
@@ -373,11 +422,19 @@
       "milestone_id": "M4",
       "title": "Testpaket (Unit/Component/E2E/Security) für Control-Center-MVP",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 4,
-      "blocked_by": ["T06", "T09", "T10", "T11", "T14", "T15", "T16"],
+      "blocked_by": [
+        "T06",
+        "T09",
+        "T10",
+        "T11",
+        "T14",
+        "T15",
+        "T16"
+      ],
       "acceptance_criteria": [
         "Unit: Board-Gruppierung, Inspector-Anzeige, Viewer-Dispatch.",
         "Component: Session-Detail + ApprovalGate-Validierung.",
@@ -391,14 +448,26 @@
     }
   ],
   "critical_path_tasks": [
-    "T01", "T02", "T03", "T06", "T07", "T09", "T10", "T11", "T13", "T14", "T15", "T16", "T18"
+    "T01",
+    "T02",
+    "T03",
+    "T06",
+    "T07",
+    "T09",
+    "T10",
+    "T11",
+    "T13",
+    "T14",
+    "T15",
+    "T16",
+    "T18"
   ],
   "tasks_status_summary": {
-    "todo": 18,
+    "todo": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 18
   },
   "tasks_type_summary": {
     "backend": 0,
@@ -410,16 +479,32 @@
   },
   "progress_summary": {
     "total_tasks": 18,
-    "completed_tasks": 0,
-    "completion_percent": 0,
+    "completed_tasks": 18,
+    "completion_percent": 100,
     "total_estimated_h": 56,
-    "milestones_done": 0,
+    "milestones_done": 4,
     "milestones_total": 4,
     "phase_breakdown": {
-      "M1_shell_und_modelle": { "tasks": 5, "estimated_h": 12, "status": "todo" },
-      "M2_task_session_mvp": { "tasks": 4, "estimated_h": 13, "status": "todo" },
-      "M3_artifacts_verification": { "tasks": 4, "estimated_h": 12, "status": "todo" },
-      "M4_policy_events_worker": { "tasks": 5, "estimated_h": 19, "status": "todo" }
+      "M1_shell_und_modelle": {
+        "tasks": 5,
+        "estimated_h": 12,
+        "status": "done"
+      },
+      "M2_task_session_mvp": {
+        "tasks": 4,
+        "estimated_h": 13,
+        "status": "done"
+      },
+      "M3_artifacts_verification": {
+        "tasks": 4,
+        "estimated_h": 12,
+        "status": "done"
+      },
+      "M4_policy_events_worker": {
+        "tasks": 5,
+        "estimated_h": 19,
+        "status": "done"
+      }
     }
   },
   "immediate_next_actions": [
