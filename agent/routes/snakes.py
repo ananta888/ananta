@@ -21,6 +21,7 @@ import threading
 import time
 import uuid
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Any
 
 import jwt
@@ -94,10 +95,13 @@ def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool, str]:
 
         cfg = _current_config()
         use_codecompass = bool(cfg.get("chat_use_codecompass"))
+        include_local_project = bool(cfg.get("chat_include_local_project"))
         include_wiki = bool(cfg.get("chat_include_wikipedia"))
         source_types: list[str] = []
         if use_codecompass:
             source_types.append("artifact")
+        if include_local_project:
+            source_types.append("repo")
         if include_wiki:
             source_types.append("wiki")
         bundle, grounded = get_rag_service().build_execution_context(
@@ -117,7 +121,39 @@ def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool, str]:
             return grounded, True, summary
     except Exception:
         pass
+    local_fallback = _build_local_repo_fallback_context(prompt)
+    if local_fallback:
+        grounded = (
+            f"{prompt}\n\n"
+            "Lokaler Projektkontext (Fallback, wenn RAG leer ist):\n"
+            f"{local_fallback}"
+        )
+        return grounded, True, "Kontext: 1 Treffer (repo_fallback:1)"
     return prompt, False, "Kontext: 0 Treffer"
+
+
+def _build_local_repo_fallback_context(prompt: str) -> str:
+    text = str(prompt or "").lower()
+    repo_root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
+    if "_build_grounded_snake_prompt" in text or "snakes.py" in text:
+        snakes_file = repo_root / "agent" / "routes" / "snakes.py"
+        if snakes_file.exists():
+            try:
+                lines = snakes_file.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                return ""
+            for idx, line in enumerate(lines):
+                if "def _build_grounded_snake_prompt" in line:
+                    start = max(0, idx - 4)
+                    end = min(len(lines), idx + 24)
+                    return "\n".join(lines[start:end]).strip()
+    if "agent/routes" in text or "routes" in text:
+        routes_dir = repo_root / "agent" / "routes"
+        if routes_dir.exists() and routes_dir.is_dir():
+            names = sorted(path.name for path in routes_dir.glob("*.py") if path.is_file())
+            if names:
+                return "Dateien in agent/routes:\n" + "\n".join(f"- {name}" for name in names[:24])
+    return ""
 
 
 def _append_room_ai_message(*, text: str) -> None:
