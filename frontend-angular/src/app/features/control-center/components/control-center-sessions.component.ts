@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, NgFor, NgIf } from '@angular/common';
 import { CcAgentSession } from '../models/control-center.models';
 import { StatusChipComponent } from './status-chip.component';
 import { ControlCenterToolTimelineComponent } from './control-center-tool-timeline.component';
@@ -11,10 +11,11 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
 @Component({
   standalone: true,
   selector: 'app-control-center-sessions',
-  imports: [NgFor, NgIf, AsyncPipe, StatusChipComponent, ControlCenterToolTimelineComponent, ControlCenterSecurityInspectorComponent, ControlCenterVerificationPanelComponent],
+  imports: [NgFor, NgIf, AsyncPipe, DatePipe, StatusChipComponent, ControlCenterToolTimelineComponent, ControlCenterSecurityInspectorComponent, ControlCenterVerificationPanelComponent],
   template: `
     <h2>Sessions</h2>
     <p class="muted">Event Stream: <app-status-chip [label]="(stream.state$ | async) || 'disconnected'" [tone]="streamTone((stream.state$ | async) || 'disconnected')" /></p>
+    <p class="muted">Letztes Event: {{ (stream.lastHeartbeatAt$ | async) ? ((stream.lastHeartbeatAt$ | async)! | date:'HH:mm:ss') : 'n/a' }}</p>
     <div class="grid">
       <article class="session" *ngFor="let s of sessions">
         <header>
@@ -25,7 +26,7 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
         <p class="muted">Policy {{ s.policySnapshot.policyVersion }} · Risk: {{ s.policySnapshot.riskLevel }}</p>
         <app-control-center-tool-timeline [items]="s.toolCalls"></app-control-center-tool-timeline>
         <app-control-center-security-inspector [policy]="s.policySnapshot"></app-control-center-security-inspector>
-        <app-control-center-verification-panel [verification]="{status:'running',testCount:12,passedCount:6,failedCount:0}"></app-control-center-verification-panel>
+        <app-control-center-verification-panel [verification]="verificationFor(s.taskId)"></app-control-center-verification-panel>
       </article>
     </div>
     <p *ngIf="!sessions.length" class="muted">Keine Sessions gefunden.</p>
@@ -61,14 +62,16 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
         },
         toolCalls: [],
       }));
+      for (const session of this.sessions) {
+        if (session.taskId) this.state.loadTaskDetailVerification(session.taskId);
+      }
     });
     this.state.loadSessions();
-    const base = this.state.hubBaseUrl();
-    if (base) this.stream.connect(`${base}/api/events/stream`);
+    this.state.connectEvents();
   }
 
   ngOnDestroy(): void {
-    this.stream.disconnect();
+    this.state.disconnectEvents();
   }
 
   sessionTone(s: CcAgentSession['status']): 'neutral'|'ok'|'warn'|'danger'|'info' {
@@ -92,5 +95,17 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
     if (status === 'cancelled') return 'cancelled';
     if (status === 'running') return 'running';
     return 'idle';
+  }
+
+  verificationFor(taskId: string | null) {
+    if (!taskId) return null;
+    const entry = this.state.taskVerificationById$.value[taskId];
+    if (!entry) return null;
+    return {
+      status: (entry.status as 'not_run' | 'running' | 'passed' | 'failed' | 'partial' | 'skipped'),
+      testCount: entry.test_count,
+      passedCount: entry.passed_count,
+      failedCount: entry.failed_count,
+    };
   }
 }

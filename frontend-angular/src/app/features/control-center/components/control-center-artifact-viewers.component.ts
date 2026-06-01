@@ -1,8 +1,11 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { FormsModule } from '@angular/forms';
+import { ControlCenterStateFacade } from '../services/control-center-state.facade';
+import { HubControlCenterApiClient } from '../services/hub-control-center-api.client';
 
 export type CcArtifactType = 'markdown' | 'mermaid' | 'diff' | 'json' | 'log' | 'text';
 export interface CcArtifact {
@@ -31,8 +34,12 @@ export class ControlCenterMarkdownMermaidViewerComponent {
   private sanitizer = inject(DomSanitizer);
 
   get safeMarkdown(): SafeHtml {
-    const html = marked.parse(this.source || '') as string;
-    const sanitized = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+    const html = marked.parse(this.source || '', { breaks: true }) as string;
+    const sanitized = DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'style'],
+    });
     return this.sanitizer.bypassSecurityTrustHtml(sanitized);
   }
 
@@ -65,12 +72,29 @@ export class ControlCenterDiffViewerComponent {
 @Component({
   standalone: true,
   selector: 'app-control-center-artifact-browser',
-  imports: [NgFor, NgIf, ControlCenterMarkdownMermaidViewerComponent, ControlCenterDiffViewerComponent],
+  imports: [NgFor, NgIf, FormsModule, ControlCenterMarkdownMermaidViewerComponent, ControlCenterDiffViewerComponent],
   template: `
     <h2>Artifacts</h2>
+    <div class="filters">
+      <label>Project <input [(ngModel)]="selectedProject" placeholder="project id" /></label>
+      <label>Task <input [(ngModel)]="selectedTask" placeholder="task id" /></label>
+      <label>Session <input [(ngModel)]="selectedSession" placeholder="session id" /></label>
+      <label>Type
+        <select [(ngModel)]="selectedType">
+          <option value="all">all</option>
+          <option value="markdown">markdown</option>
+          <option value="mermaid">mermaid</option>
+          <option value="diff">diff</option>
+          <option value="json">json</option>
+          <option value="log">log</option>
+          <option value="text">text</option>
+        </select>
+      </label>
+      <button type="button" (click)="loadArtifacts()">Reload</button>
+    </div>
     <div class="grid">
       <aside class="list">
-        <button *ngFor="let a of artifacts" (click)="select(a.id)" [class.active]="a.id===selectedId">{{ a.title }} <small>({{ a.type }})</small></button>
+        <button *ngFor="let a of filteredArtifacts" (click)="select(a.id)" [class.active]="a.id===selectedId">{{ a.title }} <small>({{ a.type }})</small></button>
       </aside>
       <section class="view" *ngIf="selected as a">
         <h3>{{ a.title }}</h3>
@@ -80,16 +104,94 @@ export class ControlCenterDiffViewerComponent {
       </section>
     </div>
   `,
-  styles: [`.grid{display:grid;grid-template-columns:280px 1fr;gap:10px}.list{display:flex;flex-direction:column;gap:6px}.list button{border:1px solid #1f2937;background:#0f172a;color:#e5e7eb;border-radius:8px;padding:8px;text-align:left}.list button.active{border-color:#2563eb}.raw{border:1px solid #1f2937;border-radius:8px;padding:10px;background:#111827;white-space:pre-wrap}@media (max-width:900px){.grid{grid-template-columns:1fr}}`]
+  styles: [`.filters{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px;margin-bottom:10px}.filters input,.filters select{background:#111827;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px}.grid{display:grid;grid-template-columns:280px 1fr;gap:10px}.list{display:flex;flex-direction:column;gap:6px}.list button{border:1px solid #1f2937;background:#0f172a;color:#e5e7eb;border-radius:8px;padding:8px;text-align:left}.list button.active{border-color:#2563eb}.raw{border:1px solid #1f2937;border-radius:8px;padding:10px;background:#111827;white-space:pre-wrap}@media (max-width:900px){.filters{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}}`]
 })
-export class ControlCenterArtifactBrowserComponent {
-  artifacts: CcArtifact[] = [
-    { id:'a1', title:'Plan', type:'markdown', content:'# Plan\n- Session prüfen\n- Policies anzeigen' },
-    { id:'a2', title:'Flow', type:'mermaid', content:'graph TD\nA[Task]-->B[Session]\nB-->C[Artifacts]' },
-    { id:'a3', title:'Patch', type:'diff', content:'--- a/file.ts\n+++ b/file.ts\n@@\n-const old=true;\n+const old=false;' },
-    { id:'a4', title:'Verification JSON', type:'json', content:'{"status":"passed","tests":18}' },
-  ];
-  selectedId = 'a1';
+export class ControlCenterArtifactBrowserComponent implements OnInit {
+  private state = inject(ControlCenterStateFacade);
+  private api = inject(HubControlCenterApiClient);
+  artifacts: CcArtifact[] = [];
+  selectedId = '';
+  selectedProject = '';
+  selectedTask = '';
+  selectedSession = '';
+  selectedType: 'all' | CcArtifactType = 'all';
+  loading = false;
+
+  ngOnInit(): void {
+    this.state.projects$.subscribe((rows) => {
+      if (!this.selectedProject && rows.length) this.selectedProject = rows[0].id;
+    });
+    this.state.loadProjects();
+    this.loadArtifacts();
+  }
+
+  loadArtifacts(): void {
+    const base = this.state.hubBaseUrl();
+    if (!base) return;
+    this.loading = true;
+    this.api.listArtifacts(base).subscribe({
+      next: (rows) => {
+        this.artifacts = rows.map((row) => ({
+          id: row.id,
+          title: row.latest_filename || row.id,
+          type: this.mapType(String(row.latest_media_type || 'text/plain')),
+          content: '',
+        }));
+        this.selectedId = this.artifacts[0]?.id || '';
+        if (this.selectedId) this.loadContent(this.selectedId);
+      },
+      error: () => {
+        this.artifacts = [];
+      },
+      complete: () => {
+        this.loading = false;
+      },
+    });
+  }
+
+  loadContent(id: string): void {
+    const base = this.state.hubBaseUrl();
+    if (!base) return;
+    this.api.getArtifactContentNormalized(base, id).subscribe({
+      next: (content) => {
+        const idx = this.artifacts.findIndex((a) => a.id === id);
+        if (idx < 0) return;
+        const decoded = content.encoding === 'base64'
+          ? atob(content.payload || '')
+          : String(content.payload || '');
+        this.artifacts[idx] = { ...this.artifacts[idx], content: decoded };
+      },
+    });
+  }
+
   select(id: string): void { this.selectedId = id; }
-  get selected(): CcArtifact | undefined { return this.artifacts.find(a => a.id === this.selectedId); }
+  get selected(): CcArtifact | undefined {
+    const item = this.filteredArtifacts.find((a) => a.id === this.selectedId) || this.filteredArtifacts[0];
+    if (item && !item.content) this.loadContent(item.id);
+    return item;
+  }
+
+  get filteredArtifacts(): CcArtifact[] {
+    const projectQ = this.selectedProject.trim().toLowerCase();
+    const taskQ = this.selectedTask.trim().toLowerCase();
+    const sessionQ = this.selectedSession.trim().toLowerCase();
+    return this.artifacts.filter((a) => {
+      const typeOk = this.selectedType === 'all' || a.type === this.selectedType;
+      const hay = `${a.id} ${a.title}`.toLowerCase();
+      const projectOk = !projectQ || hay.includes(projectQ);
+      const taskOk = !taskQ || hay.includes(taskQ);
+      const sessionOk = !sessionQ || hay.includes(sessionQ);
+      return typeOk && projectOk && taskOk && sessionOk;
+    });
+  }
+
+  private mapType(mediaType: string): CcArtifactType {
+    const m = mediaType.toLowerCase();
+    if (m.includes('markdown')) return 'markdown';
+    if (m.includes('mermaid')) return 'mermaid';
+    if (m.includes('diff') || m.includes('patch')) return 'diff';
+    if (m.includes('json')) return 'json';
+    if (m.includes('log')) return 'log';
+    return 'text';
+  }
 }

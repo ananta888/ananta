@@ -7,6 +7,8 @@ export type StreamState = 'disconnected' | 'connecting' | 'connected' | 'reconne
 export class ControlCenterEventStreamService implements OnDestroy {
   readonly state$ = new BehaviorSubject<StreamState>('disconnected');
   readonly lastEvent$ = new BehaviorSubject<string>('');
+  readonly lastEventObject$ = new BehaviorSubject<Record<string, unknown> | null>(null);
+  readonly lastHeartbeatAt$ = new BehaviorSubject<number>(0);
 
   private es: EventSource | null = null;
   private reconnectAttempts = 0;
@@ -21,8 +23,19 @@ export class ControlCenterEventStreamService implements OnDestroy {
         this.reconnectAttempts = 0;
         this.state$.next('connected');
       };
-      this.es.onmessage = (evt) => this.lastEvent$.next(evt.data || 'event');
+      this.es.onmessage = (evt) => {
+        const raw = evt.data || 'event';
+        this.lastEvent$.next(raw);
+        try {
+          this.lastEventObject$.next(JSON.parse(raw) as Record<string, unknown>);
+        } catch {
+          this.lastEventObject$.next(null);
+        }
+      };
       this.es.onerror = () => this.scheduleReconnect(url);
+      this.es.addEventListener('message', () => {
+        this.lastHeartbeatAt$.next(Date.now());
+      });
     } catch {
       this.state$.next('failed');
     }

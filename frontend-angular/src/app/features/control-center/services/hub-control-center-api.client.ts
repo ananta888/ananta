@@ -38,6 +38,34 @@ export interface CcWorkerReadModel {
   boundary: string;
 }
 
+export interface CcPolicyDecisionReadModel {
+  id: string;
+  decision: 'allow' | 'deny' | 'require_approval' | string;
+  decision_type: string;
+  reason: string;
+  matched_rule_ids: string[];
+  created_at: number;
+  action_id?: string;
+  tool_call_id?: string;
+}
+
+export interface CcTaskDetailReadModel {
+  task: Record<string, unknown>;
+  verification?: {
+    status?: string;
+    test_count?: number;
+    passed_count?: number;
+    failed_count?: number;
+  };
+}
+
+export interface CcArtifactReadModel {
+  id: string;
+  latest_media_type?: string | null;
+  latest_filename?: string | null;
+  artifact_metadata?: Record<string, unknown>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class HubControlCenterApiClient {
   private core = inject(HubApiCoreService);
@@ -57,5 +85,45 @@ export class HubControlCenterApiClient {
 
   listWorkers(baseUrl: string, token?: string): Observable<{ items: CcWorkerReadModel[]; count: number }> {
     return this.core.get<{ items: CcWorkerReadModel[]; count: number }>(`${baseUrl}/api/workers`, baseUrl, token, false);
+  }
+
+  listSessionPolicyDecisions(baseUrl: string, sessionId: string, token?: string): Observable<{ items: CcPolicyDecisionReadModel[]; count: number }> {
+    return this.core.get<{ items: CcPolicyDecisionReadModel[]; count: number }>(
+      `${baseUrl}/api/sessions/${encodeURIComponent(sessionId)}/policy-decisions`,
+      baseUrl,
+      token,
+      false,
+    );
+  }
+
+  approvePolicyAction(
+    baseUrl: string,
+    payload: { action_id: string; tool_call_id: string; session_id: string; scope: 'single_action' },
+    token?: string,
+  ): Observable<Record<string, unknown>> {
+    return this.core.post<Record<string, unknown>>(`${baseUrl}/api/policy/approve`, payload, baseUrl, token, false);
+  }
+
+  listArtifacts(baseUrl: string, token?: string): Observable<CcArtifactReadModel[]> {
+    return this.core.get<CcArtifactReadModel[]>(`${baseUrl}/artifacts`, baseUrl, token, false);
+  }
+
+  getArtifactContentNormalized(
+    baseUrl: string,
+    artifactId: string,
+    offset = 0,
+    limit = 131072,
+    token?: string,
+  ): Observable<{ type: string; encoding: string; payload: string; has_more: boolean; next_offset: number | null }> {
+    return this.core.get<{ type: string; encoding: string; payload: string; has_more: boolean; next_offset: number | null }>(
+      `${baseUrl}/artifacts/${encodeURIComponent(artifactId)}/content?normalized=true&offset=${offset}&limit=${limit}`,
+      baseUrl,
+      token,
+      false,
+    );
+  }
+
+  getTaskDetail(baseUrl: string, taskId: string, token?: string): Observable<CcTaskDetailReadModel> {
+    return this.core.get<CcTaskDetailReadModel>(`${baseUrl}/api/tasks/${encodeURIComponent(taskId)}`, baseUrl, token, false);
   }
 }
