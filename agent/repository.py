@@ -7,6 +7,7 @@ The concrete classes now live in `agent.repositories.*` split by domain.
 from agent.repositories import (
     ActionPackRepository,
     AgentRepository,
+    AgentSessionRepository,
     ArtifactRepository,
     ArtifactVersionRepository,
     ArchivedTaskRepository,
@@ -118,6 +119,7 @@ planning_pattern_cluster_repo = PlanningPatternClusterRepository()
 planning_review_item_repo = PlanningReviewItemRepository()
 terminal_session_repo = TerminalSessionRepository()
 terminal_event_repo = TerminalEventRepository()
+agent_session_repo = AgentSessionRepository()
 
 __all__ = [
     "ActionPackRepository",
@@ -153,6 +155,7 @@ __all__ = [
     "ScheduledTaskRepository",
     "StatsRepository",
     "TaskRepository",
+    "AgentSessionRepository",
     "TeamBlueprintRepository",
     "TeamMemberRepository",
     "TeamRepository",
@@ -209,6 +212,7 @@ __all__ = [
     "scheduled_task_repo",
     "stats_repo",
     "task_repo",
+    "agent_session_repo",
     "team_blueprint_repo",
     "team_member_repo",
     "team_repo",

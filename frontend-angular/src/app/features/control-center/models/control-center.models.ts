@@ -26,9 +26,12 @@ export interface CcPolicySnapshot {
   deniedTools: string[];
   allowedPaths: string[];
   deniedPaths: string[];
+  cloudAllowed: boolean | null;
+  runtimeBoundary: 'local-only' | 'cloud-allowed' | 'remote' | 'unknown';
   requiresHumanApproval: boolean;
   approvalReason: string | null;
   policyVersion: string;
+  isPlaceholder?: boolean;
 }
 
 export interface CcToolCall {

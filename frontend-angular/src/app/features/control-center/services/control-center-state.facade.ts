@@ -35,7 +35,7 @@ export class ControlCenterStateFacade {
   }
 
   hubBaseUrl(): string | null {
-    const hub = this.directory.list().find((a) => a.role === 'hub');
+    const hub = this.directory.list().find((a) => a.role === 'hub') || this.directory.list().find((a) => a.name === 'hub');
     return hub?.url || null;
   }
 

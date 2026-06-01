@@ -13,6 +13,8 @@ import { StatusChipComponent } from './status-chip.component';
       <div class="row"><span>Policy</span><strong>{{ policy.policyVersion }}</strong></div>
       <div class="row"><span>Risk</span><app-status-chip [label]="policy.riskLevel" [tone]="riskTone(policy.riskLevel)" /></div>
       <div class="row"><span>Approval</span><app-status-chip [label]="policy.requiresHumanApproval ? 'required' : 'none'" [tone]="policy.requiresHumanApproval ? 'warn':'ok'" /></div>
+      <div class="row"><span>Cloud Allowed</span><strong>{{ policy.cloudAllowed === null ? 'unknown' : (policy.cloudAllowed ? 'yes' : 'no') }}</strong></div>
+      <div class="row"><span>Runtime Boundary</span><strong>{{ policy.runtimeBoundary }}</strong></div>
 
       <h5>Allowed Tools</h5>
       <ul><li *ngFor="let t of policy.allowedTools">{{ t }}</li></ul>
@@ -25,7 +27,7 @@ import { StatusChipComponent } from './status-chip.component';
 
       <h5>Denied Paths</h5>
       <ul><li *ngFor="let p of policy.deniedPaths">{{ p }} <span *ngIf="isSensitivePath(p)" class="warn">[secret path]</span></li></ul>
-      <p class="warn" *ngIf="cloudBoundaryWarning()">Cloud-Warnung: Sensitive Pfade erkannt, Boundary sollte local-only sein.</p>
+      <p class="warn" *ngIf="cloudBoundaryWarning()">Cloud-Warnung: Sensitive erlaubte Pfade erkannt und Cloud ist erlaubt.</p>
 
       <p class="muted" *ngIf="policy.approvalReason">Grund: {{ policy.approvalReason }}</p>
     </section>
@@ -44,7 +46,9 @@ export class ControlCenterSecurityInspectorComponent {
   }
 
   cloudBoundaryWarning(): boolean {
-    const allPaths = [...(this.policy?.allowedPaths || []), ...(this.policy?.deniedPaths || [])];
-    return allPaths.some((p) => this.isSensitivePath(p));
+    const cloudAllowed = this.policy?.cloudAllowed === true || this.policy?.runtimeBoundary === 'cloud-allowed';
+    if (!cloudAllowed) return false;
+    const allowedPaths = this.policy?.allowedPaths || [];
+    return allowedPaths.some((p) => this.isSensitivePath(p));
   }
 }

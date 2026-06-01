@@ -753,5 +753,21 @@
     "The current Angular Control Center looks more complete than its backend truth currently is; placeholder state must be clearly marked or removed.",
     "Native EventSource auth must be solved before relying on live events in a secured deployment.",
     "Artifact rendering security is on the right path with DOMPurify, but Mermaid rendering should remain sandboxed/sanitized when real rendering is introduced."
-  ]
+  ],
+  "execution_progress": {
+    "updated_at": "2026-06-01",
+    "first_batch_summary": "First 10 tasks started and implemented as done/partial across backend persistence and frontend quick-fixes.",
+    "items": [
+      { "id": "QF-001", "status": "done", "note": "Placeholder values are now shown as unknown/unavailable in sessions and policy snapshot marked as placeholder." },
+      { "id": "QF-002", "status": "done", "note": "Security inspector cloud warning now triggers only for sensitive allowed paths when cloud is allowed." },
+      { "id": "QF-003", "status": "done", "note": "Artifact browser getter is pure; loading moved to explicit select/load lifecycle." },
+      { "id": "P1-T01", "status": "done", "note": "Added persistent AgentSessionDB model and repository wiring." },
+      { "id": "P1-T02", "status": "done", "note": "Removed in-memory task-session mapping usage from control_center_api and switched to AgentSession persistence." },
+      { "id": "P1-T03", "status": "done", "note": "Introduced normalized AgentSession status lifecycle handling in backend." },
+      { "id": "P7-T01", "status": "done", "note": "Removed HTTP side effect from selected getter in artifact browser." },
+      { "id": "P7-T02", "status": "partial", "note": "Added subscription cleanup in artifact browser; broader facade/component cleanup still pending." },
+      { "id": "P3-T02", "status": "partial", "note": "Extended policy model with cloud/runtime boundary and updated security inspector rendering/warning logic; tests still pending." },
+      { "id": "P3-T03", "status": "partial", "note": "Sessions now map worker/model/runtime from backend when present, with unknown fallback." }
+    ]
+  }
 }

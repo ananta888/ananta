@@ -15,15 +15,13 @@ from flask import Blueprint, Response, g, request
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.db_models import TaskDB
+from agent.db_models import AgentSessionDB, TaskDB
 from agent.routes.tasks.status import normalize_task_status
 from agent.services.repository_registry import get_repository_registry
 from agent.services.share_session_service import get_share_session_service
 
 control_center_api_bp = Blueprint("control_center_api", __name__, url_prefix="/api")
 
-# B08 mapping for task->session relation until a dedicated persisted session model is introduced.
-_TASK_SESSION_LINKS: dict[str, str] = {}  # session_id -> task_id
 _APPROVAL_EVENTS: list[dict[str, Any]] = []
 _EVENT_SEQUENCE: int = 0
 
@@ -82,6 +80,51 @@ def _session_item(session: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_ALLOWED_AGENT_SESSION_STATUSES = {
+    "idle",
+    "proposed",
+    "running",
+    "waiting_for_approval",
+    "blocked",
+    "review",
+    "verified",
+    "done",
+    "failed",
+    "cancelled",
+}
+
+
+def _normalize_agent_session_status(raw: str | None) -> str:
+    status = str(raw or "").strip().lower()
+    if status in _ALLOWED_AGENT_SESSION_STATUSES:
+        return status
+    if status in {"canceled"}:
+        return "cancelled"
+    return "idle"
+
+
+def _agent_session_item(session: AgentSessionDB) -> dict[str, Any]:
+    return {
+        "id": str(session.id or ""),
+        "task_id": str(session.task_id or "") or None,
+        "title": str(session.title or "Agent Session"),
+        "status": _normalize_agent_session_status(session.status),
+        "transport": str(session.transport or "hub_relay"),
+        "mode": str(session.mode or "relay"),
+        "owner_user_id": str(session.owner_user_id or ""),
+        "session_kind": str(session.session_kind or "agent_execution"),
+        "worker_id": str(session.worker_id or "") or None,
+        "worker_type": str(session.worker_type or "") or None,
+        "model": str(session.model or "") or None,
+        "runtime": str(session.runtime or "") or None,
+        "policy_snapshot_id": str(session.policy_snapshot_id or "") or None,
+        "context_scope_id": str(session.context_scope_id or "") or None,
+        "created_at": float(session.created_at or 0.0),
+        "updated_at": float(session.updated_at or 0.0),
+        "cancelled_at": session.cancelled_at,
+    }
+
+
 def _next_event_id() -> str:
     global _EVENT_SEQUENCE
     _EVENT_SEQUENCE += 1
@@ -115,12 +158,9 @@ def get_task_detail(task_id: str):
         return api_response(status="error", message="not_found", code=404)
 
     t = _task_item(task)
-    sid = next((session_id for session_id, linked_task_id in _TASK_SESSION_LINKS.items() if linked_task_id == task_id), None)
-    session_payload = None
-    if sid:
-        raw = get_share_session_service().get_session(sid)
-        if isinstance(raw, dict):
-            session_payload = _session_item(raw)
+    linked_sessions = _repos().agent_session_repo.get_by_task_id(task_id)
+    primary_session = linked_sessions[0] if linked_sessions else None
+    session_payload = _agent_session_item(primary_session) if primary_session else None
 
     policy_decisions = [
         {
@@ -141,6 +181,7 @@ def get_task_detail(task_id: str):
             "session": session_payload,
             "policy_decisions": policy_decisions,
             "artifacts": [],
+            "sessions": [_agent_session_item(s) for s in linked_sessions],
             "verification": dict(getattr(task, "verification_status", None) or {}),
         }
     )
@@ -201,18 +242,10 @@ def list_sessions():
     if not user_id:
         return api_response(status="error", message="not_authenticated", code=401)
 
-    service = get_share_session_service()
-    owned = service.list_sessions_for_owner(user_id)
-    joined = service.list_sessions_as_participant(user_id)
-    merged: dict[str, dict[str, Any]] = {}
-    for item in [*owned, *joined]:
-        sid = str(item.get("id") or "")
-        if not sid:
-            continue
-        merged[sid] = _session_item(item)
-
+    persisted = _repos().agent_session_repo.get_all() or []
+    owned_rows = [row for row in persisted if str(getattr(row, "owner_user_id", "") or "") == user_id]
     task_id = str(request.args.get("task_id") or "").strip()
-    items = list(merged.values())
+    items = [_agent_session_item(row) for row in owned_rows]
     if task_id:
         items = [it for it in items if str(it.get("task_id") or "") == task_id]
 
@@ -223,11 +256,12 @@ def list_sessions():
 @check_auth
 def get_session(session_id: str):
     """B07: GET /api/sessions/{sessionId}"""
-    raw = get_share_session_service().get_session(session_id)
-    if not isinstance(raw, dict):
+    persisted = _repos().agent_session_repo.get_by_id(session_id)
+    if persisted is None:
         return api_response(status="error", message="not_found", code=404)
-
-    participants = get_share_session_service().get_participants(session_id)
+    participants: list[dict[str, Any]] = []
+    if persisted.share_session_id:
+        participants = get_share_session_service().get_participants(str(persisted.share_session_id))
     decisions = [
         {
             "id": str(getattr(p, "id", "") or ""),
@@ -241,7 +275,7 @@ def get_session(session_id: str):
         if str((getattr(p, "details", None) or {}).get("session_id") or "") == session_id
     ]
 
-    return api_response(data={"session": _session_item(raw), "participants": participants, "policy_decisions": decisions})
+    return api_response(data={"session": _agent_session_item(persisted), "participants": participants, "policy_decisions": decisions})
 
 
 @control_center_api_bp.route("/tasks/<task_id>/sessions", methods=["POST"])
@@ -269,11 +303,28 @@ def create_task_session(task_id: str):
         expires_at=body.get("expires_at") if isinstance(body.get("expires_at"), (int, float)) else None,
     )
     sid = str(session.get("id") or "")
-    if sid:
-        _TASK_SESSION_LINKS[sid] = task_id
+    now = time.time()
+    row = AgentSessionDB(
+        id=sid or str(uuid.uuid4()),
+        task_id=task_id,
+        team_id=str(getattr(task, "team_id", "") or "") or None,
+        share_session_id=sid or None,
+        session_kind="agent_execution",
+        title=str(session.get("title") or task.title or "Task Session").strip() or "Task Session",
+        mode=str(session.get("mode") or "relay"),
+        transport=str(session.get("transport") or "hub_relay"),
+        owner_user_id=user_id,
+        permissions=dict(session.get("permissions") or permissions or {}),
+        status="running",
+        created_at=float(session.get("created_at") or now),
+        updated_at=now,
+        started_at=now,
+        expires_at=session.get("expires_at"),
+    )
+    saved = _repos().agent_session_repo.save(row)
 
-    log_audit("control_center_task_session_created", {"task_id": task_id, "session_id": sid, "actor": user_id})
-    return api_response(data={"session": _session_item(session)}, code=201)
+    log_audit("control_center_task_session_created", {"task_id": task_id, "session_id": saved.id, "actor": user_id})
+    return api_response(data={"session": _agent_session_item(saved)}, code=201)
 
 
 @control_center_api_bp.route("/sessions/<session_id>/cancel", methods=["POST"])
@@ -281,15 +332,24 @@ def create_task_session(task_id: str):
 def cancel_session(session_id: str):
     """B09: POST /api/sessions/{sessionId}/cancel"""
     user_id = _user_id()
-    ok, reason = get_share_session_service().revoke_session(session_id=session_id, actor_user_id=user_id)
-    if not ok:
-        if reason == "forbidden":
-            return api_response(status="error", message=reason, code=403)
-        if reason == "session_not_found":
-            return api_response(status="error", message=reason, code=404)
-        return api_response(status="error", message=reason or "cancel_failed", code=400)
+    persisted = _repos().agent_session_repo.get_by_id(session_id)
+    if persisted is None:
+        return api_response(status="error", message="session_not_found", code=404)
+    if str(persisted.owner_user_id or "") != user_id:
+        return api_response(status="error", message="forbidden", code=403)
+
+    if persisted.share_session_id:
+        ok, reason = get_share_session_service().revoke_session(session_id=str(persisted.share_session_id), actor_user_id=user_id)
+        if not ok and reason not in {"session_not_found"}:
+            return api_response(status="error", message=reason or "cancel_failed", code=400)
+
+    now = time.time()
+    persisted.status = "cancelled"
+    persisted.cancelled_at = now
+    persisted.updated_at = now
+    _repos().agent_session_repo.save(persisted)
     log_audit("control_center_session_cancelled", {"session_id": session_id, "actor": user_id})
-    return api_response(data={"session_id": session_id, "status": "cancelled"})
+    return api_response(data={"session_id": session_id, "status": "cancelled", "cancelled_at": now})
 
 
 @control_center_api_bp.route("/sessions/<session_id>/policy-decisions", methods=["GET"])
