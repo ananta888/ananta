@@ -281,6 +281,36 @@ class ShareSessionService:
                 if str(p.get("session_id") or "") == session_id
             ]
 
+    def get_session_by_invite_code(self, invite_code: str) -> dict[str, Any] | None:
+        try:
+            with Session(engine) as session:
+                row = session.exec(
+                    select(ShareSessionDB).where(ShareSessionDB.invite_code == invite_code)
+                ).first()
+                return _session_to_dict(row) if row else None
+        except SQLAlchemyError:
+            for item in _FALLBACK_SESSIONS.values():
+                if str(item.get("invite_code") or "") == invite_code:
+                    return dict(item)
+            return None
+
+    def revoke_session(self, *, session_id: str, actor_user_id: str) -> bool:
+        try:
+            with Session(engine) as session:
+                row = session.get(ShareSessionDB, session_id)
+                if row is None or str(row.owner_user_id or "") != actor_user_id:
+                    return False
+                row.revoked_at = _now()
+                session.add(row)
+                session.commit()
+                return True
+        except SQLAlchemyError:
+            cached = _FALLBACK_SESSIONS.get(session_id)
+            if isinstance(cached, dict) and str(cached.get("owner_user_id") or "") == actor_user_id:
+                cached["revoked_at"] = _now()
+                return True
+            return False
+
     def update_session_permissions(
         self, *, session_id: str, actor_user_id: str, permissions: dict[str, Any]
     ) -> tuple[bool, str, dict[str, Any] | None]:

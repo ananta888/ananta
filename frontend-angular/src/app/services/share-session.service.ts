@@ -2,6 +2,7 @@ import { Injectable, inject, OnDestroy } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
+import { UserAuthService } from './user-auth.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
 import { NetworkProfileService } from './network-profile.service';
 
@@ -49,6 +50,7 @@ export interface ActiveShareState {
 export class ShareSessionService implements OnDestroy {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
+  private userAuth = inject(UserAuthService);
   private transport = inject(WebrtcTransportService);
   private profiles = inject(NetworkProfileService);
 
@@ -80,6 +82,11 @@ export class ShareSessionService implements OnDestroy {
 
   get isActive(): boolean { return !!this.state$.value.session; }
 
+  get currentUserId(): string {
+    const p = this.userAuth.userPayload;
+    return String(p?.sub || p?.preferred_username || p?.email || '');
+  }
+
   private get hubUrl(): string {
     return this.dir.list().find((a) => a.role === 'hub')?.url ?? '';
   }
@@ -101,15 +108,16 @@ export class ShareSessionService implements OnDestroy {
         transport,
         expires_at: expiresInSeconds ? Date.now() / 1000 + expiresInSeconds : null,
       };
-      this.core.post<{ ok: boolean; session: ShareSession }>(`${url}/share-sessions`, body, url).subscribe({
+      this.core.post<{ ok: boolean; session: ShareSession; data: ShareSession }>(`${url}/share-sessions`, body, url).subscribe({
         next: (r) => {
-          if (r?.session) {
-            this.state$.next({ ...this.state$.value, session: r.session, role: 'owner' });
+          const sess = r?.session ?? r?.data;
+          if (sess) {
+            this.state$.next({ ...this.state$.value, session: sess, role: 'owner' });
             this.startPolling();
-            if (r.session.transport === 'webrtc') {
-              void this.transport.open(r.session.id, true);
+            if (sess.transport === 'webrtc') {
+              void this.transport.open(sess.id, true);
             }
-            resolve(r.session);
+            resolve(sess);
           } else reject(new Error('no session in response'));
         },
         error: reject,
@@ -121,17 +129,18 @@ export class ShareSessionService implements OnDestroy {
     return new Promise((resolve, reject) => {
       const url = this.hubUrl;
       if (!url) { reject(new Error('no hub')); return; }
-      this.core.post<{ ok: boolean; session: ShareSession }>(
-        `${url}/share-sessions/join`, { invite_code: inviteCode }, url,
+      this.core.post<{ ok: boolean; session: ShareSession; data: ShareSession }>(
+        `${url}/share-sessions/join-by-code`, { invite_code: inviteCode }, url,
       ).subscribe({
         next: (r) => {
-          if (r?.session) {
-            this.state$.next({ ...this.state$.value, session: r.session, role: 'participant' });
+          const sess = r?.session ?? r?.data;
+          if (sess) {
+            this.state$.next({ ...this.state$.value, session: sess, role: 'participant' });
             this.startPolling();
-            if (r.session.transport === 'webrtc') {
-              void this.transport.open(r.session.id, false);
+            if (sess.transport === 'webrtc') {
+              void this.transport.open(sess.id, false);
             }
-            resolve(r.session);
+            resolve(sess);
           } else reject(new Error(String((r as any)?.error ?? 'join failed')));
         },
         error: reject,
@@ -200,6 +209,15 @@ export class ShareSessionService implements OnDestroy {
   private tick(): void {
     this.fetchParticipants();
     this.fetchMessages();
+    this.sendHeartbeat();
+  }
+
+  private sendHeartbeat(): void {
+    const { session } = this.state$.value;
+    if (!session) return;
+    const url = this.hubUrl;
+    this.core.post(`${url}/share-sessions/${session.id}/heartbeat`, {}, url)
+      .subscribe({ error: () => {} });
   }
 
   private fetchParticipants(): void {
