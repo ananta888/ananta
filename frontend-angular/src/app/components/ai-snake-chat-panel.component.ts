@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
+import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, AiSnakeConfigPanelComponent],
+  imports: [CommonModule, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -47,8 +48,40 @@ import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
             <label><input type="checkbox" [checked]="useCodeCompass()" (change)="setUseCodeCompass($any($event.target).checked)" /> CodeCompass nutzen</label>
           </div>
         </div>
-      } @else if (!(svc.active$ | async)) {
+      } @else if (tab === 'pair') {
+        <div class="settings-shell">
+          <app-ai-snake-share-panel />
+        </div>
+      } @else if (tab === 'deprecated') {
+        <div class="mode-shell">
+          <div class="mode-group">
+            <div class="title">Deprecated Ansicht</div>
+            <div class="muted">Altansicht bleibt verfuegbar. Bitte neue Tabs unten nutzen.</div>
+          </div>
+          <div class="mode-group">
+            <button (click)="setTab('chat')">Zur neuen Chat-Ansicht</button>
+            <button (click)="setTab('settings')">Zur neuen Einstellungen-Ansicht</button>
+            <button (click)="setTab('pair')">Zu Pair Development</button>
+          </div>
+        </div>
+      } @else if (tab === 'login') {
         <div class="connect">
+          <label>Keycloak URL
+            <input [(ngModel)]="keycloakBaseUrl" [attr.list]="'snake-keycloak-presets'" (change)="persistRuntimeEndpoints()" />
+            <datalist id="snake-keycloak-presets">
+              @for (p of keycloakPresets; track p) {
+                <option [value]="p">{{ p }}</option>
+              }
+            </datalist>
+          </label>
+          <label>WebRTC URL
+            <input [(ngModel)]="webrtcBaseUrl" [attr.list]="'snake-webrtc-presets'" (change)="persistRuntimeEndpoints()" />
+            <datalist id="snake-webrtc-presets">
+              @for (p of webrtcPresets; track p) {
+                <option [value]="p">{{ p }}</option>
+              }
+            </datalist>
+          </label>
           <label>Name <input [(ngModel)]="name" /></label>
           <label>Rolle
             <select [(ngModel)]="role">
@@ -60,6 +93,12 @@ import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
             </select>
           </label>
           <button (click)="connect()">Verbinden</button>
+          <button class="ghost" (click)="disconnect()" [disabled]="!(svc.active$ | async)">Trennen</button>
+        </div>
+      } @else if (!(svc.active$ | async)) {
+        <div class="connect">
+          <div class="muted">Nicht verbunden. Nutze den Tab "Login".</div>
+          <button (click)="setTab('login')">Zum Login</button>
         </div>
       } @else {
         <div class="body">
@@ -88,6 +127,8 @@ import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
       }
       <div class="bottom-tabs">
         <button [class.active]="tab==='chat'" (click)="setTab('chat')">Chat</button>
+        <button [class.active]="tab==='login'" (click)="setTab('login')">AI-Snake</button>
+        <button [class.active]="tab==='pair'" (click)="setTab('pair')">Pair Dev</button>
         <button [class.active]="tab==='mode'" (click)="setTab('mode')">Modus</button>
         <button [class.active]="tab==='settings'" (click)="setTab('settings')">Einstellungen</button>
       </div>
@@ -143,11 +184,16 @@ export class AiSnakeChatPanelComponent {
   name = 'web-ai-snake';
   role = 'viewer';
   draft = '';
-  @Input() tab: 'chat' | 'mode' | 'settings' = 'chat';
-  @Output() tabChange = new EventEmitter<'chat' | 'mode' | 'settings'>();
+  keycloakBaseUrl = 'https://keycloak.ananta.de';
+  webrtcBaseUrl = 'https://webrtc.ananta.de';
+  readonly keycloakPresets = ['https://keycloak.ananta.de', 'http://keycloak.ananta.de'];
+  readonly webrtcPresets = ['https://webrtc.ananta.de', 'http://webrtc.ananta.de'];
+  @Input() tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
+  @Output() tabChange = new EventEmitter<'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
 
   constructor() {
     this.cfg.load();
+    this.restoreRuntimeEndpoints();
   }
 
   connect(): void {
@@ -189,8 +235,32 @@ export class AiSnakeChatPanelComponent {
     this.cfg.updateField('chat_use_codecompass', enabled);
   }
 
-  setTab(tab: 'chat' | 'mode' | 'settings'): void {
+  setTab(tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
     this.tab = tab;
     this.tabChange.emit(tab);
+  }
+
+  private restoreRuntimeEndpoints(): void {
+    try {
+      const raw = localStorage.getItem('ananta.ai-snake.runtime-endpoints.v1');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const keycloak = String(parsed?.keycloakBaseUrl || '').trim();
+      const webrtc = String(parsed?.webrtcBaseUrl || '').trim();
+      if (keycloak) this.keycloakBaseUrl = keycloak;
+      if (webrtc) this.webrtcBaseUrl = webrtc;
+    } catch {}
+  }
+
+  persistRuntimeEndpoints(): void {
+    try {
+      localStorage.setItem(
+        'ananta.ai-snake.runtime-endpoints.v1',
+        JSON.stringify({
+          keycloakBaseUrl: this.keycloakBaseUrl.trim(),
+          webrtcBaseUrl: this.webrtcBaseUrl.trim(),
+        }),
+      );
+    } catch {}
   }
 }

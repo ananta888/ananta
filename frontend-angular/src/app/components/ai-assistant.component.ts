@@ -130,6 +130,8 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
               </button>
               <div class="snake-chat-tabs" aria-label="AI-Snake Chat Tabs">
                 <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'chat'" (click)="openSnakeChatPanelTab('chat')">Chat</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'login'" (click)="openSnakeChatPanelTab('login')">AI-Snake</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'pair'" (click)="openSnakeChatPanelTab('pair')">Pair Dev</button>
                 <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'mode'" (click)="openSnakeChatPanelTab('mode')">Modus</button>
                 <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'settings'" (click)="openSnakeChatPanelTab('settings')">Einstellungen</button>
               </div>
@@ -167,7 +169,7 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
       }
       .assistant-launcher:hover { background: #122040; border-color: #7fffd4; }
       .ai-assistant-container {
-        position: fixed; bottom: 0; right: 20px; width: 400px;
+        position: fixed; bottom: 0; right: 20px; width: min(760px, 94vw);
         background: #0b1220; border: 1px solid #1a2d4a; border-bottom: none;
         border-radius: 6px 6px 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
         z-index: 1000; display: flex; flex-direction: column;
@@ -282,7 +284,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   configPanelOpen = false;
   sharePanelOpen = false;
   snakeChatPanelOpen = false;
-  snakeChatPanelTab: 'chat' | 'mode' | 'settings' = 'chat';
+  snakeChatPanelTab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -1054,7 +1056,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     }
   }
 
-  openSnakeChatPanelTab(tab: 'chat' | 'mode' | 'settings'): void {
+  openSnakeChatPanelTab(tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
     this.snakeChatPanelTab = tab;
     this.snakeChatPanelOpen = true;
     this.configPanelOpen = false;
