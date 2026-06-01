@@ -8,14 +8,15 @@ import { Subject, BehaviorSubject } from 'rxjs';
 import { NetworkProfileService } from './network-profile.service';
 import { WebrtcSignalingService, SignalMessage } from './webrtc-signaling.service';
 import { OidcAuthService } from './oidc-auth.service';
-import { dcMake, dcDecode, dcEncode, DcMessage } from './webrtc-datachannel.service';
+import { dcMake, dcDecode, dcEncode, dcEncodeChunked, dcTryReassembleChunk, DcMessage } from './webrtc-datachannel.service';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 
 export type PeerState = 'idle' | 'connecting' | 'connected' | 'failed' | 'closed';
 
-// T22: Allowed DataChannel message types for policy gate
-const ALLOWED_DC_TYPES = new Set(['hello', 'hello_ack', 'ping', 'pong', 'error']);
+const ALLOWED_DC_TYPES = new Set([
+  'hello', 'hello_ack', 'ping', 'pong', 'chat', 'view_payload', 'cursor', 'artifact', 'control', 'chunk', 'error',
+]);
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = 30;
 
@@ -45,10 +46,8 @@ export class WebrtcSessionService {
   private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private get hubUrl(): string {
-    return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
+    return this.dir.list().find((a) => a.role === 'hub')?.url ?? '';
   }
-
-  // ── Session lifecycle ────────────────────────────────────────────────
 
   async startSession(sessionId: string, isInitiator: boolean): Promise<void> {
     this.sessionId = sessionId;
@@ -56,21 +55,22 @@ export class WebrtcSessionService {
     this.audit('session_start', `initiator=${isInitiator}`);
 
     const profile = this.profiles.current;
-    const config: RTCConfiguration = { iceServers: profile.ice_servers };
+    const config: RTCConfiguration = {
+      iceServers: profile.ice_servers,
+      iceTransportPolicy: profile.require_e2e_payload_encryption ? 'all' : 'all',
+    };
 
     this.pc = new RTCPeerConnection(config);
     this.wirePeerConnection(isInitiator);
 
-    // Start signaling
     this.signaling.connect(profile.signaling_url, sessionId);
-    this.signaling.message$.subscribe(msg => this.handleSignal(msg));
+    this.signaling.message$.subscribe((msg) => { void this.handleSignal(msg); });
 
-    // Connection timeout (T19: 15s)
     this.connectionTimeout = setTimeout(() => {
       if (this.state$.value === 'connecting') {
         this.audit('ice_failed', 'timeout after 15s');
         this.signaling.fallbackToHubRelay();
-        this.state$.next('connected'); // hub_relay connected
+        this.state$.next('connected');
       }
     }, 15_000);
   }
@@ -86,15 +86,17 @@ export class WebrtcSessionService {
     this.audit('session_closed');
   }
 
-  sendDc(type: Parameters<typeof dcMake>[0], payload: Record<string, unknown> = {}): void {
+  sendDc(type: string, payload: Record<string, unknown> = {}): void {
     if (!this.dc || this.dc.readyState !== 'open') return;
     const nonce = this.oidc.sessionNonce;
     try {
-      this.dc.send(dcEncode(dcMake(type, nonce, payload)));
-    } catch { /* ignore */ }
+      const msg = dcMake(type as any, nonce, payload);
+      const chunks = dcEncodeChunked(msg);
+      for (const part of chunks) this.dc.send(dcEncode(part));
+    } catch {
+      this.audit('send_error', `type=${type}`);
+    }
   }
-
-  // ── Peer connection wiring ───────────────────────────────────────────
 
   private wirePeerConnection(isInitiator: boolean): void {
     const pc = this.pc!;
@@ -102,7 +104,8 @@ export class WebrtcSessionService {
     pc.onicecandidate = (evt) => {
       if (!evt.candidate) return;
       this.signaling.send({
-        type: 'ice_candidate', session_id: this.sessionId,
+        type: 'ice_candidate',
+        session_id: this.sessionId,
         payload: evt.candidate.toJSON(),
       });
     };
@@ -121,7 +124,6 @@ export class WebrtcSessionService {
     };
 
     if (isInitiator) {
-      // T19: Create data channel on initiator side
       this.dc = pc.createDataChannel('ananta', { ordered: true });
       this.wireDc(this.dc);
       void this.createOffer();
@@ -154,8 +156,6 @@ export class WebrtcSessionService {
     }
   }
 
-  // ── DataChannel wiring ───────────────────────────────────────────────
-
   private wireDc(dc: RTCDataChannel): void {
     dc.onopen = () => {
       this.audit('datachannel_opened');
@@ -166,9 +166,8 @@ export class WebrtcSessionService {
   }
 
   private handleDcMessage(raw: string): void {
-    // T22: Policy gate — rate limit
     const now = Date.now();
-    this.rateTs = this.rateTs.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+    this.rateTs = this.rateTs.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
     if (this.rateTs.length >= RATE_LIMIT_MAX) {
       this.audit('policy_violation', 'rate_limit_exceeded');
       return;
@@ -176,8 +175,9 @@ export class WebrtcSessionService {
     this.rateTs.push(now);
 
     try {
-      const msg = dcDecode(raw);
-      // T22: Type whitelist
+      const parsed = dcDecode(raw);
+      const msg = dcTryReassembleChunk(parsed);
+      if (!msg) return;
       if (!ALLOWED_DC_TYPES.has(msg.type)) {
         this.audit('policy_violation', `disallowed_type:${msg.type}`);
         return;
@@ -189,14 +189,11 @@ export class WebrtcSessionService {
     }
   }
 
-  // ── T23: Audit logging ───────────────────────────────────────────────
-
   private audit(type: string, detail?: string): void {
     const event: AuditEvent = { ts: Date.now() / 1000, type, session_id: this.sessionId, detail };
     this.auditLog.push(event);
     if (this.auditLog.length > 200) this.auditLog.shift();
 
-    // Send to Hub audit endpoint (best effort)
     const url = this.hubUrl;
     if (url) {
       this.core.post(`${url}/api/audit/webrtc`, event, url).subscribe({ error: () => {} });
