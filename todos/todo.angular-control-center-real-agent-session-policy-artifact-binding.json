@@ -1,0 +1,757 @@
+{
+  "id": "todo.angular-control-center-real-agent-session-policy-artifact-binding",
+  "title": "Make Angular Control Center use real AgentSessions, PolicySnapshots, ToolCalls, Artifact links and authenticated live events",
+  "status": "open",
+  "created_at": "2026-06-01",
+  "source_analysis": {
+    "base_todo": "todos/archiv/todo.angular-nimbalyst-like-control-center.json",
+    "current_head_analyzed": "be471003ed7f3b36383559635732cb4b482e005a",
+    "comparison_base": "e80f511628b7f470cdefcd69fdc9b66cfe07b4df",
+    "summary": "The Control Center UI and adapter API exist now, but several important parts are still MVP/adapters/mocks: sessions are backed by share-session data and in-memory task links, Angular session cards synthesize worker/model/policy/tool-call data, artifact filtering is local and text-based, SSE uses browser EventSource without auth headers, and the backend event stream polls all tasks/policy decisions repeatedly.",
+    "reviewed_files": [
+      "agent/routes/control_center_api.py",
+      "agent/bootstrap/routes.py",
+      "frontend-angular/src/app/app.routes.ts",
+      "frontend-angular/src/app/features/control-center/control-center.routes.ts",
+      "frontend-angular/src/app/features/control-center/services/hub-control-center-api.client.ts",
+      "frontend-angular/src/app/features/control-center/services/control-center-state.facade.ts",
+      "frontend-angular/src/app/features/control-center/services/control-center-event-stream.service.ts",
+      "frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts",
+      "frontend-angular/src/app/features/control-center/components/control-center-security-inspector.component.ts",
+      "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts",
+      "frontend-angular/src/app/features/control-center/components/control-center-sessions.component.ts",
+      "tests/test_control_center_api_contracts.py"
+    ]
+  },
+  "problem_statement": {
+    "short": "The Control Center has a good Angular/API skeleton, but it must be bound to real backend execution state instead of synthesized placeholder state.",
+    "details": [
+      "agent/routes/control_center_api.py currently stores task-session links in process memory via _TASK_SESSION_LINKS, which is lost on restart and cannot represent real AgentSession lifecycle.",
+      "agent/routes/control_center_api.py currently stores manual approval events in process memory via _APPROVAL_EVENTS, which is not auditable/persistent enough for security-sensitive approvals.",
+      "frontend-angular/src/app/features/control-center/components/control-center-sessions.component.ts maps share sessions into CcAgentSession with hardcoded workerType, model, riskLevel, allowedPaths and empty toolCalls.",
+      "frontend-angular/src/app/features/control-center/components/control-center-security-inspector.component.ts cannot accurately reason about cloud boundaries because PolicySnapshot has no explicit cloudAllowed/runtime boundary field in the rendered model.",
+      "frontend-angular/src/app/features/control-center/services/control-center-event-stream.service.ts uses native EventSource, which cannot attach custom Authorization headers and may fail with header-token auth.",
+      "agent/routes/control_center_api.py implements SSE by polling task_repo.get_all() and policy_decision_repo.get_all() in a loop, which is acceptable as MVP but weak for scaling and per-user/per-project filtering.",
+      "frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts filters project/task/session by local string matching against id/title instead of real API-backed relations.",
+      "The diff viewer is intentionally simple and does not yet parse real unified diffs or align side-by-side hunks correctly.",
+      "The CodeCompass route exists only as placeholder and is not yet tied to real context scope selection and preview for agent runs."
+    ]
+  },
+  "goal": {
+    "primary": "Convert the Control Center from a Nimbalyst-like UI skeleton into an Ananta-native control plane for real agent execution state, policy decisions, context scopes, artifacts and verification evidence.",
+    "outcomes": [
+      "Task -> AgentSession -> Worker -> ToolCall -> PolicyDecision -> Artifact -> Verification relationships are persistent and queryable.",
+      "Angular displays real worker/model/runtime/policy/tool-call/artifact data from the backend instead of hardcoded defaults.",
+      "Narrow approvals are persisted, auditable and attached to exact pending actions/tool calls.",
+      "Artifacts can be filtered by project_id, task_id, session_id and type server-side.",
+      "SSE/WebSocket live events are authenticated and filtered by user/project where appropriate.",
+      "Cloud/local/security boundaries are explicit in both backend contracts and Angular inspector.",
+      "Tests prove the contracts and the security behavior instead of only checking that endpoints return items."
+    ]
+  },
+  "non_goals": [
+    "Do not remove the existing share-session/WebRTC feature; it can coexist with AgentSession but must not be confused with an agent execution session.",
+    "Do not make Angular the source of truth for policy decisions.",
+    "Do not add broad approvals such as all_actions, all_tools or unrestricted_shell.",
+    "Do not allow artifact rendering to execute scripts or unsafe HTML.",
+    "Do not block incremental delivery; this todo should be implemented in phases."
+  ],
+  "design_principles": [
+    "Backend/hub is authoritative for session state, policy state, tool permissions, context scope and approval validity.",
+    "Angular is an inspector and operator UI, not a security boundary.",
+    "Every high-risk action must be represented as a concrete ToolCall or PendingAction with a stable id before approval is possible.",
+    "Every task completion should be evidence-based: artifacts, diffs, tests and verification reports should be visible.",
+    "Real state should replace placeholders gradually, but every placeholder must be easy to identify in code and UI.",
+    "Default deny must remain visible: denied tools, denied paths and cloud restrictions are first-class display data."
+  ],
+  "phases": [
+    {
+      "id": "P1",
+      "title": "Introduce persistent AgentSession model and remove in-memory task-session linkage",
+      "priority": "critical",
+      "current_code_findings": [
+        "agent/routes/control_center_api.py uses _TASK_SESSION_LINKS: dict[str, str] = {} for session_id -> task_id.",
+        "create_task_session() currently calls get_share_session_service().create_session(...) and then stores _TASK_SESSION_LINKS[sid] = task_id.",
+        "list_sessions() and get_task_detail() depend on this in-memory map to relate sessions to tasks."
+      ],
+      "files_to_change": [
+        "agent/database.py",
+        "agent/db_models.py",
+        "agent/services/repository_registry.py",
+        "agent/routes/control_center_api.py",
+        "tests/test_control_center_api_contracts.py"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P1-T01",
+          "title": "Add AgentSessionDB persistence model",
+          "description": "Create a persistent table/model for real agent execution sessions, separate from share-session/WebRTC collaboration sessions.",
+          "suggested_fields": [
+            "id",
+            "project_id/team_id",
+            "task_id",
+            "worker_id",
+            "worker_type",
+            "worker_url",
+            "model",
+            "runtime",
+            "status",
+            "context_scope_id",
+            "policy_snapshot_id",
+            "created_by_user_id",
+            "created_at",
+            "updated_at",
+            "started_at",
+            "finished_at",
+            "cancelled_at",
+            "failure_reason"
+          ],
+          "acceptance_criteria": [
+            "A new AgentSessionDB or equivalent persisted model exists and is registered in the repository registry.",
+            "Task-session relation survives process restart because it is stored in the database, not in _TASK_SESSION_LINKS.",
+            "Share-session collaboration records remain separate and are not renamed into agent sessions.",
+            "A migration/schema update is included in agent/database.py or the existing schema setup mechanism.",
+            "Tests can create a task session, reload it through GET /api/sessions and GET /api/tasks/{taskId}, and still receive task_id from persisted state."
+          ]
+        },
+        {
+          "id": "P1-T02",
+          "title": "Replace _TASK_SESSION_LINKS in control_center_api.py",
+          "description": "Remove process-local task-session state and use AgentSessionDB queries instead.",
+          "acceptance_criteria": [
+            "_TASK_SESSION_LINKS is removed from agent/routes/control_center_api.py.",
+            "GET /api/sessions?task_id=... filters using persisted session.task_id.",
+            "GET /api/tasks/{taskId} returns latest or active AgentSession from persisted data.",
+            "POST /api/tasks/{taskId}/sessions creates an AgentSessionDB row instead of only a share session link.",
+            "The endpoint response clearly identifies whether a returned session is an agent_execution session or a share/collaboration session."
+          ]
+        },
+        {
+          "id": "P1-T03",
+          "title": "Define AgentSession status lifecycle",
+          "description": "Normalize the lifecycle states used by backend and Angular.",
+          "allowed_statuses": [
+            "idle",
+            "proposed",
+            "running",
+            "waiting_for_approval",
+            "blocked",
+            "review",
+            "verified",
+            "done",
+            "failed",
+            "cancelled"
+          ],
+          "acceptance_criteria": [
+            "Backend rejects or normalizes unknown session statuses.",
+            "Angular CcAgentSession status union matches backend statuses.",
+            "Cancel endpoint sets status=cancelled and cancelled_at/updated_at persistently.",
+            "Failed execution records failure_reason."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "Persist ToolCalls and PendingActions for real policy/approval flow",
+      "priority": "critical",
+      "current_code_findings": [
+        "frontend-angular/src/app/features/control-center/components/control-center-sessions.component.ts currently maps toolCalls: [] for every session.",
+        "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts lets the user manually type Action ID and Tool Call ID.",
+        "agent/routes/control_center_api.py accepts action_id and tool_call_id but does not verify that the pending action exists."
+      ],
+      "files_to_change": [
+        "agent/database.py",
+        "agent/db_models.py",
+        "agent/routes/control_center_api.py",
+        "frontend-angular/src/app/features/control-center/models/control-center.models.ts",
+        "frontend-angular/src/app/features/control-center/services/hub-control-center-api.client.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-tool-timeline.component.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts",
+        "tests/test_control_center_api_contracts.py"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P2-T01",
+          "title": "Add ToolCallDB / PendingActionDB",
+          "description": "Persist proposed, allowed, denied, running and completed tool calls. Every approval must reference one concrete pending action/tool call.",
+          "suggested_fields": [
+            "id",
+            "session_id",
+            "task_id",
+            "tool_name",
+            "arguments_preview",
+            "arguments_hash",
+            "target_path",
+            "status",
+            "risk_level",
+            "policy_decision_id",
+            "created_at",
+            "started_at",
+            "finished_at",
+            "error_message"
+          ],
+          "acceptance_criteria": [
+            "Tool calls are stored persistently and can be queried by session_id.",
+            "Tool call arguments are not blindly exposed if they may contain secrets; store preview/hash separately where needed.",
+            "A tool call can be in statuses proposed, require_approval, allowed, denied, running, completed or failed.",
+            "GET /api/sessions/{sessionId} includes toolCalls or exposes a separate /api/sessions/{sessionId}/tool-calls endpoint.",
+            "Angular ToolCallTimeline displays real backend tool calls instead of an empty array."
+          ]
+        },
+        {
+          "id": "P2-T02",
+          "title": "Approval endpoint must validate pending action existence",
+          "description": "POST /api/policy/approve must only approve a real pending action/tool call that belongs to the given session and is still approval-eligible.",
+          "acceptance_criteria": [
+            "POST /api/policy/approve returns 404 or 400 when action_id/tool_call_id does not exist.",
+            "POST /api/policy/approve returns 409 when the tool call is already completed, denied-final, cancelled or expired.",
+            "POST /api/policy/approve returns 403 when the authenticated user is not allowed to approve that action.",
+            "POST /api/policy/approve still rejects scope != single_action.",
+            "A successful approval updates the ToolCall/PendingAction status and writes an auditable approval record."
+          ]
+        },
+        {
+          "id": "P2-T03",
+          "title": "Remove manual free-text approval workflow from Angular",
+          "description": "The approval UI should list actual pending actions instead of asking the operator to manually type ids.",
+          "acceptance_criteria": [
+            "ControlCenterPolicyApprovalComponent renders pending approval rows received from backend.",
+            "The approve button is attached to a concrete pending action row.",
+            "Action ID and Tool Call ID inputs are removed or hidden behind a development-only diagnostic mode.",
+            "Approval payload is generated from backend data, not user-typed ids.",
+            "UI shows tool name, target path, risk level, reason and matched policy rules before approval."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "title": "Persist PolicySnapshot and bind real policy data into Security Inspector",
+      "priority": "critical",
+      "current_code_findings": [
+        "ControlCenterSessionsComponent currently creates policySnapshot with hardcoded riskLevel='medium', allowedPaths=['/'], deniedPaths=[], allowedTools=[], deniedTools=[], policyVersion='v1'.",
+        "ControlCenterSecurityInspectorComponent only receives CcPolicySnapshot input and cannot display cloudAllowed/runtime boundary accurately.",
+        "control_center_api.py list_workers() guesses boundary from runtime string only."
+      ],
+      "files_to_change": [
+        "agent/database.py",
+        "agent/db_models.py",
+        "agent/routes/control_center_api.py",
+        "agent/routes/context_policy.py",
+        "frontend-angular/src/app/features/control-center/models/control-center.models.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-security-inspector.component.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-sessions.component.ts",
+        "tests/test_control_center_api_contracts.py"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P3-T01",
+          "title": "Add PolicySnapshotDB for session-time policy state",
+          "description": "Persist the policy state that was active when an AgentSession was created or evaluated.",
+          "suggested_fields": [
+            "id",
+            "session_id",
+            "task_id",
+            "policy_version",
+            "risk_level",
+            "allowed_tools_json",
+            "denied_tools_json",
+            "allowed_paths_json",
+            "denied_paths_json",
+            "cloud_allowed",
+            "runtime_boundary",
+            "requires_human_approval",
+            "approval_reason",
+            "created_at"
+          ],
+          "acceptance_criteria": [
+            "Every AgentSession has either a policy_snapshot_id or an embedded policy snapshot response generated by backend.",
+            "GET /api/sessions/{sessionId} returns real policySnapshot data from persisted backend state.",
+            "Allowed and denied tools come from actual policy/capability evaluation, not hardcoded Angular defaults.",
+            "Allowed and denied paths come from actual ContextScope/policy evaluation, not hardcoded ['/'].",
+            "cloud_allowed and runtime_boundary are explicit backend fields."
+          ]
+        },
+        {
+          "id": "P3-T02",
+          "title": "Update Angular policy model and inspector",
+          "description": "Extend CcPolicySnapshot and Security Inspector to show real cloud/local and context boundaries.",
+          "acceptance_criteria": [
+            "CcPolicySnapshot includes cloudAllowed:boolean and runtimeBoundary:'local-only'|'cloud-allowed'|'remote'|'unknown' or equivalent.",
+            "Security Inspector shows cloudAllowed/runtimeBoundary explicitly.",
+            "cloudBoundaryWarning only triggers when cloudAllowed is true and sensitive allowed paths exist.",
+            "Denied sensitive paths are shown as successfully blocked, not as generic cloud risk.",
+            "Unit tests cover sensitive allowed paths vs sensitive denied paths."
+          ]
+        },
+        {
+          "id": "P3-T03",
+          "title": "Bind worker/model/runtime to real session data",
+          "description": "Sessions page must show the actual worker/model/runtime selected by backend/hub.",
+          "acceptance_criteria": [
+            "ControlCenterSessionsComponent no longer hardcodes workerType='ananta-worker' for every row.",
+            "ControlCenterSessionsComponent no longer hardcodes model='n/a'.",
+            "ControlCenterSessionsComponent maps workerId, workerType, model and runtime from backend read model.",
+            "If backend lacks a value, UI displays 'unknown' and a diagnostic hint instead of pretending a default is real."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "Artifact relationships, server-side filters and stronger review flow",
+      "priority": "high",
+      "current_code_findings": [
+        "HubControlCenterApiClient.listArtifacts() currently calls `${baseUrl}/artifacts` without project/task/session filters.",
+        "ControlCenterArtifactBrowserComponent filters project/task/session locally by checking whether id/title contains the typed value.",
+        "GET /api/tasks/{taskId} currently returns artifacts: [] in control_center_api.py."
+      ],
+      "files_to_change": [
+        "agent/routes/artifacts.py",
+        "agent/routes/control_center_api.py",
+        "agent/database.py",
+        "agent/db_models.py",
+        "frontend-angular/src/app/features/control-center/services/hub-control-center-api.client.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-verification-panel.component.ts",
+        "tests/test_control_center_api_contracts.py"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P4-T01",
+          "title": "Add artifact relationship metadata",
+          "description": "Artifacts must be queryable by project_id, task_id, session_id, tool_call_id and artifact type.",
+          "acceptance_criteria": [
+            "Artifact metadata/model supports project_id, task_id, session_id and tool_call_id fields.",
+            "Artifacts created by agent sessions are automatically linked to the current AgentSession and task.",
+            "GET /api/tasks/{taskId} returns related artifacts instead of always artifacts: [].",
+            "Artifact links are preserved after restart."
+          ]
+        },
+        {
+          "id": "P4-T02",
+          "title": "Implement API-side artifact filters",
+          "description": "Add query params for artifact listing so Angular does not rely on local id/title search.",
+          "recommended_contract": "GET /api/artifacts?project_id=&task_id=&session_id=&type=&limit=&offset=",
+          "acceptance_criteria": [
+            "Artifact list endpoint accepts project_id filter.",
+            "Artifact list endpoint accepts task_id filter.",
+            "Artifact list endpoint accepts session_id filter.",
+            "Artifact list endpoint accepts type/media type filter.",
+            "Angular ArtifactBrowser passes selected filters to the API instead of only filtering local rows.",
+            "Tests prove that artifacts from another task/session are not returned when a filter is set."
+          ]
+        },
+        {
+          "id": "P4-T03",
+          "title": "Improve diff viewer correctness",
+          "description": "Replace the naive '+'/'-' split mode with a real unified diff parser or a safer clearly-labeled preview.",
+          "acceptance_criteria": [
+            "Side-by-side diff mode correctly handles file headers, hunks, context lines, additions and deletions.",
+            "If no real parser is added yet, side-by-side mode is labeled as experimental and tests cover current limitations.",
+            "Large diffs remain scrollable and do not freeze the UI for typical project changes.",
+            "Diff viewer still escapes all content and never renders diff content as HTML."
+          ]
+        },
+        {
+          "id": "P4-T04",
+          "title": "Review flow must be artifact-first",
+          "description": "Task review should show changed files, diffs, test reports and verification evidence directly.",
+          "acceptance_criteria": [
+            "Task detail page or review page shows related diff artifacts.",
+            "Verification panel links to test report artifacts through real artifact ids.",
+            "A task cannot be marked verified in UI unless backend verification status allows it.",
+            "Review page distinguishes generated files, modified files, logs and test reports."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "title": "Authenticated live events without unsafe EventSource assumptions",
+      "priority": "high",
+      "current_code_findings": [
+        "ControlCenterEventStreamService uses new EventSource(url), which cannot attach Authorization headers.",
+        "ControlCenterStateFacade connects to `${base}/api/events/stream` without passing token information.",
+        "Backend /api/events/stream uses @check_auth, so the browser auth mechanism must be verified."
+      ],
+      "files_to_change": [
+        "frontend-angular/src/app/features/control-center/services/control-center-event-stream.service.ts",
+        "frontend-angular/src/app/features/control-center/services/control-center-state.facade.ts",
+        "frontend-angular/src/app/services/hub-api-core.service.ts",
+        "agent/routes/control_center_api.py",
+        "tests/test_control_center_api_contracts.py",
+        "frontend-angular/tests/control-center-denied-flow.spec.ts",
+        "frontend-angular/tests/control-center-review-flow.spec.ts"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P5-T01",
+          "title": "Decide and implement SSE auth strategy",
+          "options": [
+            "Cookie/session based auth for EventSource",
+            "Short-lived stream token in query param generated by authenticated POST endpoint",
+            "EventSource polyfill/fetch stream with Authorization header support",
+            "WebSocket with explicit auth message/token"
+          ],
+          "acceptance_criteria": [
+            "The chosen strategy is documented in docs/frontend-control-center-endpoint-matrix.md or a dedicated live-events doc.",
+            "A logged-in Angular user can connect to /api/events/stream in the browser without dropping auth.",
+            "An unauthenticated browser cannot read the event stream.",
+            "Tokens are not long-lived broad API tokens placed permanently in URLs.",
+            "Playwright/E2E test covers successful connection and unauthorized rejection where practical."
+          ]
+        },
+        {
+          "id": "P5-T02",
+          "title": "Filter event stream by user/project/session",
+          "description": "The current stream loops over all tasks and policy decisions. Add filters and authorization checks.",
+          "acceptance_criteria": [
+            "Event stream supports project_id and/or session_id filters where appropriate.",
+            "Backend verifies the authenticated user can see the requested project/session stream.",
+            "Events from unrelated projects/users are not emitted to the client.",
+            "Tests cover at least one negative access case."
+          ]
+        },
+        {
+          "id": "P5-T03",
+          "title": "Replace full-scan polling with event source abstraction",
+          "description": "Keep polling only as fallback. Introduce an internal event bus or persisted event log abstraction.",
+          "acceptance_criteria": [
+            "control_center_api.py does not directly call task_repo.get_all() and policy_decision_repo.get_all() forever for every connected client in the final implementation.",
+            "Task/session/policy/tool/artifact changes emit ControlCenterEvent objects through a shared service.",
+            "SSE can resume from last event id or at least avoid duplicate stale events per connection.",
+            "Heartbeat remains present for connection health."
+          ]
+        },
+        {
+          "id": "P5-T04",
+          "title": "Fix heartbeat timestamp semantics in Angular",
+          "description": "ControlCenterEventStreamService currently updates lastHeartbeatAt on message events, but SSE heartbeat comments do not trigger onmessage in native EventSource.",
+          "acceptance_criteria": [
+            "Angular correctly distinguishes last data event from last heartbeat/connection health.",
+            "If native EventSource cannot observe comment heartbeats, backend emits typed heartbeat data events or Angular uses connection state only.",
+            "UI label does not claim 'Letztes Event' when it actually means heartbeat or vice versa."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "title": "CodeCompass context scope UI and backend binding",
+      "priority": "high",
+      "current_code_findings": [
+        "control-center.routes.ts routes /control-center/codecompass to ControlCenterPlaceholderComponent.",
+        "control_center_api.py currently returns hardcoded context scopes repo_all, source_only and safe_local.",
+        "preview_context_scope() currently returns include/exclude and a simple sensitive path list, not real CodeCompass/RAG graph preview."
+      ],
+      "files_to_change": [
+        "agent/routes/control_center_api.py",
+        "agent/routes/codecompass_graph.py",
+        "agent/services/codecompass*",
+        "frontend-angular/src/app/features/control-center/control-center.routes.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-codecompass.component.ts",
+        "frontend-angular/src/app/features/control-center/services/hub-control-center-api.client.ts",
+        "tests/test_control_center_api_contracts.py"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P6-T01",
+          "title": "Replace CodeCompass placeholder with real component",
+          "description": "Build a basic context scope selection UI for source paths, docs, tests and graph nodes.",
+          "acceptance_criteria": [
+            "/control-center/codecompass no longer renders only ControlCenterPlaceholderComponent.",
+            "UI lists available context scopes from backend.",
+            "UI allows selecting include/exclude paths and shows denied secret paths.",
+            "UI can attach a selected context scope to a task/session draft."
+          ]
+        },
+        {
+          "id": "P6-T02",
+          "title": "Make context scope preview real",
+          "description": "Preview should estimate what would be sent to the worker/model and what is excluded by policy.",
+          "acceptance_criteria": [
+            "POST /api/codecompass/context-scopes/preview returns included files/nodes count, excluded files/nodes count and sensitive exclusions.",
+            "Preview distinguishes local-only safe context from cloud-eligible context.",
+            "Preview never returns raw secret values.",
+            "Preview response includes warnings when include patterns are too broad, such as '/'.",
+            "Tests cover that /.env, /secrets/**, *.pem and *.key are excluded by default in safe scopes."
+          ]
+        },
+        {
+          "id": "P6-T03",
+          "title": "Bind context scope to AgentSession creation",
+          "description": "POST /api/tasks/{taskId}/sessions should accept or derive a context_scope_id and persist it on AgentSessionDB.",
+          "acceptance_criteria": [
+            "AgentSessionDB stores context_scope_id or a frozen context snapshot id.",
+            "Session detail response returns the selected context scope/snapshot.",
+            "Security Inspector displays context include/exclude summary.",
+            "Cloud model/session creation is denied or requires approval when context scope is not cloud-safe."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P7",
+      "title": "Angular state cleanup, real contracts and memory safety",
+      "priority": "medium",
+      "current_code_findings": [
+        "ControlCenterStateFacade uses BehaviorSubjects directly and subscribes to stream.lastEventObject$ inside connectEvents without explicit unsubscribe management.",
+        "ControlCenterArtifactBrowserComponent subscribes in ngOnInit without cleanup and calls loadContent from a getter, which can trigger repeated calls during change detection.",
+        "Several components subscribe manually without takeUntil/destroy handling."
+      ],
+      "files_to_change": [
+        "frontend-angular/src/app/features/control-center/services/control-center-state.facade.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-artifact-viewers.component.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-sessions.component.ts",
+        "frontend-angular/src/app/features/control-center/components/control-center-task-board.component.ts",
+        "frontend-angular/src/app/features/control-center/services/hub-control-center-api.client.ts"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P7-T01",
+          "title": "Avoid API calls from getters",
+          "description": "ControlCenterArtifactBrowserComponent.selected currently calls loadContent(item.id) when item.content is empty. Move this into explicit select/load lifecycle.",
+          "acceptance_criteria": [
+            "No component getter triggers HTTP calls.",
+            "Selecting an artifact loads content once unless reload is requested.",
+            "Repeated Angular change detection does not repeatedly call artifact content endpoint.",
+            "Unit test or component test verifies content is not loaded more than once for same selection."
+          ]
+        },
+        {
+          "id": "P7-T02",
+          "title": "Use takeUntilDestroyed or equivalent cleanup",
+          "description": "Clean up subscriptions in components and services that subscribe manually.",
+          "acceptance_criteria": [
+            "Components using manual subscribe also use takeUntilDestroyed, DestroyRef, async pipe or an equivalent cleanup pattern.",
+            "ControlCenterStateFacade does not create duplicate event subscriptions when connectEvents is called multiple times.",
+            "Navigating away from /control-center/sessions closes event connections and avoids duplicate reconnect loops."
+          ]
+        },
+        {
+          "id": "P7-T03",
+          "title": "Make API client contracts match backend envelopes consistently",
+          "description": "Some endpoints use /api prefix while artifacts currently use /artifacts. Normalize or document intentionally.",
+          "acceptance_criteria": [
+            "docs/frontend-control-center-endpoint-matrix.md lists every Angular API call and its backend route.",
+            "HubControlCenterApiClient return types match api_response envelope unwrapping behavior of HubApiCoreService.",
+            "Artifact endpoints are either exposed under /api/artifacts aliases or documented as legacy /artifacts endpoints.",
+            "Contract tests cover the exact shapes consumed by Angular, not only status codes."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P8",
+      "title": "Testing hardening and CI confidence",
+      "priority": "medium",
+      "current_code_findings": [
+        "tests/test_control_center_api_contracts.py checks endpoint existence and basic fields but does not yet assert full semantics such as persistence after restart, unauthorized access, real policy binding or artifact relation filtering.",
+        "No GitHub combined status was found for the analyzed head, so CI signal is unclear."
+      ],
+      "files_to_change": [
+        "tests/test_control_center_api_contracts.py",
+        "frontend-angular/tests/control-center-denied-flow.spec.ts",
+        "frontend-angular/tests/control-center-review-flow.spec.ts",
+        "frontend-angular/src/app/features/control-center/components/*.spec.ts",
+        ".github/workflows/*"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P8-T01",
+          "title": "Expand backend API contract tests",
+          "acceptance_criteria": [
+            "Test proves AgentSession task relation persists through repository reload or equivalent persistence boundary.",
+            "Test proves wildcard approval is rejected and unknown pending action cannot be approved.",
+            "Test proves artifact filters by task_id/session_id exclude unrelated artifacts.",
+            "Test proves unauthenticated access to Control Center endpoints is rejected.",
+            "Test proves context preview excludes known secret patterns by default."
+          ]
+        },
+        {
+          "id": "P8-T02",
+          "title": "Expand Angular component tests",
+          "acceptance_criteria": [
+            "Security Inspector test covers cloudAllowed=true with sensitive allowed path -> warning.",
+            "Security Inspector test covers sensitive denied path only -> no cloud warning, but blocked secret shown.",
+            "Policy Approval test uses backend-provided pending action row instead of typed ids.",
+            "Artifact Browser test verifies filter params are sent to API.",
+            "Sessions test verifies worker/model/runtime/policy values are rendered from backend data."
+          ]
+        },
+        {
+          "id": "P8-T03",
+          "title": "Add or verify CI checks",
+          "acceptance_criteria": [
+            "CI runs backend tests relevant to Control Center API.",
+            "CI runs Angular unit tests for Control Center components/services.",
+            "CI runs Playwright smoke tests for key Control Center flows when environment supports it.",
+            "CI status is visible for commits or documented if intentionally not enabled."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P9",
+      "title": "Documentation and operator-facing clarity",
+      "priority": "medium",
+      "files_to_change": [
+        "docs/frontend-control-center-endpoint-matrix.md",
+        "docs/security/angular-ai-snake-security-review.md",
+        "docs/control-center-architecture.md",
+        "README.md"
+      ],
+      "implementation_tasks": [
+        {
+          "id": "P9-T01",
+          "title": "Document Control Center architecture",
+          "acceptance_criteria": [
+            "A doc explains the difference between AgentSession, ShareSession/WebRTC session, Task and Artifact.",
+            "A Mermaid diagram shows Task -> AgentSession -> ToolCall -> PolicyDecision -> Artifact -> Verification.",
+            "A Mermaid diagram shows Angular -> Hub API -> Policy/Worker/Artifact/Event services.",
+            "Docs explicitly state that Angular is not the security authority."
+          ]
+        },
+        {
+          "id": "P9-T02",
+          "title": "Document endpoint matrix with real status",
+          "acceptance_criteria": [
+            "Every endpoint used by HubControlCenterApiClient is listed with method, path, auth requirement and response shape.",
+            "Endpoints still using placeholder/mock/default state are marked as MVP/adapter.",
+            "Endpoints that are authoritative for security decisions are marked as backend-enforced."
+          ]
+        }
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Control Center can display real persisted AgentSessions related to tasks.",
+    "Control Center can display real worker id, worker type, model and runtime from backend state.",
+    "Control Center can display real ToolCalls for a session.",
+    "Control Center can display real PolicySnapshot data including allowed tools, denied tools, allowed paths, denied paths, risk level and cloud/runtime boundary.",
+    "Manual approval is possible only for a concrete pending action/tool call and is persisted/audited.",
+    "Artifact relationships to task/session/project exist and can be filtered server-side.",
+    "Task review surfaces artifact evidence and verification state instead of relying on chat/session text.",
+    "SSE or live event transport is authenticated and does not leak cross-project/cross-user events.",
+    "Angular no longer presents placeholder worker/model/policy/tool-call values as if they were real.",
+    "Security-related UI warnings distinguish allowed-sensitive risk from denied-sensitive safety.",
+    "Tests cover both happy paths and security-relevant negative paths."
+  ],
+  "recommended_commit_plan": [
+    {
+      "commit": "backend: add persistent agent sessions for control center",
+      "contains": [
+        "AgentSessionDB",
+        "repository registration",
+        "schema update",
+        "task-session persistence tests"
+      ]
+    },
+    {
+      "commit": "backend: persist tool calls and narrow approvals",
+      "contains": [
+        "ToolCallDB/PendingActionDB",
+        "approval validation",
+        "approval audit persistence",
+        "negative tests"
+      ]
+    },
+    {
+      "commit": "backend: expose real policy snapshots to control center",
+      "contains": [
+        "PolicySnapshotDB",
+        "session policy payloads",
+        "cloudAllowed/runtimeBoundary fields"
+      ]
+    },
+    {
+      "commit": "frontend: bind sessions to real backend state",
+      "contains": [
+        "updated models",
+        "sessions component real mapping",
+        "security inspector cloud boundary fix",
+        "tool timeline real data"
+      ]
+    },
+    {
+      "commit": "backend: add artifact relations and filters",
+      "contains": [
+        "artifact metadata links",
+        "task/session/project filters",
+        "task detail artifacts"
+      ]
+    },
+    {
+      "commit": "frontend: make artifact browser API-filtered and review-focused",
+      "contains": [
+        "API filter params",
+        "artifact loading cleanup",
+        "review/verification links"
+      ]
+    },
+    {
+      "commit": "control-center: harden live event authentication",
+      "contains": [
+        "SSE/WebSocket auth strategy",
+        "event filtering",
+        "heartbeat semantics",
+        "tests"
+      ]
+    },
+    {
+      "commit": "frontend: add real CodeCompass context scope panel",
+      "contains": [
+        "CodeCompass component",
+        "context preview",
+        "context scope attach flow"
+      ]
+    },
+    {
+      "commit": "docs: document control center architecture and contracts",
+      "contains": [
+        "architecture doc",
+        "endpoint matrix update",
+        "Mermaid diagrams"
+      ]
+    }
+  ],
+  "quick_fixes_before_large_refactor": [
+    {
+      "id": "QF-001",
+      "title": "Mark placeholder session values visually",
+      "description": "Until real backend values exist, Angular should display unknown/placeholder labels so the operator does not trust fake policy/model values.",
+      "acceptance_criteria": [
+        "Hardcoded model='n/a' is displayed as unknown/unavailable, not as a real model choice.",
+        "Hardcoded allowedPaths=['/'] is removed or clearly marked as placeholder.",
+        "Policy inspector shows 'Policy data not yet bound' when backend did not provide policySnapshot."
+      ]
+    },
+    {
+      "id": "QF-002",
+      "title": "Fix Security Inspector cloud warning logic",
+      "acceptance_criteria": [
+        "Denied secret paths do not trigger cloud risk warning by themselves.",
+        "Allowed secret paths trigger warning only when cloudAllowed/runtimeBoundary makes it relevant.",
+        "Unit tests cover both cases."
+      ]
+    },
+    {
+      "id": "QF-003",
+      "title": "Remove HTTP call from ArtifactBrowser getter",
+      "acceptance_criteria": [
+        "selected getter becomes pure and has no side effects.",
+        "select(id) performs loading if needed.",
+        "No repeated content loads during change detection."
+      ]
+    }
+  ],
+  "risk_notes": [
+    "The current MVP API is useful, but using in-memory _TASK_SESSION_LINKS and _APPROVAL_EVENTS for security-relevant workflow can mislead future implementation if not replaced soon.",
+    "The current Angular Control Center looks more complete than its backend truth currently is; placeholder state must be clearly marked or removed.",
+    "Native EventSource auth must be solved before relying on live events in a secured deployment.",
+    "Artifact rendering security is on the right path with DOMPurify, but Mermaid rendering should remain sandboxed/sanitized when real rendering is introduced."
+  ]
+}
