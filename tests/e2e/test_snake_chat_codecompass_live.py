@@ -68,10 +68,32 @@ def _api(path: str, method: str = "GET", body: dict | None = None, token: str = 
 
 
 def _login() -> str:
-    result = _api("/login", "POST", {"username": ADMIN_USER, "password": ADMIN_PASSWORD})
-    token = str((result.get("data") or {}).get("access_token") or "")
-    assert token, f"Login failed: {result}"
-    return token
+    dotenv: dict[str, str] = {}
+    dotenv_path = ROOT / ".env"
+    if dotenv_path.exists():
+        for line in dotenv_path.read_text(encoding="utf-8").splitlines():
+            raw = line.strip()
+            if not raw or raw.startswith("#") or "=" not in raw:
+                continue
+            key, _, value = raw.partition("=")
+            dotenv[key.strip()] = value.strip().strip('"').strip("'")
+    user_candidates = [ADMIN_USER, dotenv.get("INITIAL_ADMIN_USER"), "admin"]
+    password_candidates = [ADMIN_PASSWORD, os.environ.get("ANANTA_PASSWORD"), dotenv.get("INITIAL_ADMIN_PASSWORD"), "test123", "admin"]
+    seen: set[tuple[str, str]] = set()
+    for user in [str(u or "").strip() for u in user_candidates if str(u or "").strip()]:
+        for password in [str(p or "").strip() for p in password_candidates if str(p or "").strip()]:
+            pair = (user, password)
+            if pair in seen:
+                continue
+            seen.add(pair)
+            try:
+                result = _api("/login", "POST", {"username": user, "password": password})
+            except AssertionError:
+                continue
+            token = str((result.get("data") or {}).get("access_token") or "")
+            if token:
+                return token
+    raise AssertionError("Login failed for all credential candidates")
 
 
 def _index_probe_files(token: str) -> str:
@@ -99,6 +121,16 @@ def _index_probe_files(token: str) -> str:
 
     assert result.get("status") == "success", f"Indexing failed: {result}"
     return source_id
+
+
+def _ensure_codecompass_index(token: str) -> None:
+    preflight = _api("/knowledge/retrieval-preflight", token=token)
+    sources = (preflight.get("data") or {}).get("sources") or {}
+    artifact_info = sources.get("artifact") if isinstance(sources, dict) else {}
+    completed = int((artifact_info or {}).get("completed_indices") or 0)
+    if completed > 0:
+        return
+    _index_probe_files(token)
 
 
 def _register_snake(token: str) -> tuple[str, str]:
@@ -161,14 +193,9 @@ def test_knowledge_index_is_populated_after_setup(tmp_path: Path) -> None:
     _require_live()
     token = _login()
 
-    # Try to find existing indexes
+    _ensure_codecompass_index(token)
     result = _api("/knowledge/indexes", token=token)
     items = (result.get("data") or {}).get("items") or result.get("items") or []
-    if not items:
-        # Index probe files ourselves
-        _index_probe_files(token)
-        result = _api("/knowledge/indexes", token=token)
-        items = (result.get("data") or {}).get("items") or result.get("items") or []
 
     assert len(items) >= 1, (
         "No knowledge indexes found. Run: python scripts/setup_codecompass_index.py"
@@ -180,11 +207,7 @@ def test_snake_chat_codecompass_returns_project_context() -> None:
     _require_live()
     token = _login()
 
-    # Ensure index exists
-    result = _api("/knowledge/indexes", token=token)
-    items = (result.get("data") or {}).get("items") or result.get("items") or []
-    if not items:
-        _index_probe_files(token)
+    _ensure_codecompass_index(token)
 
     snake_id, snake_token = _register_snake(token)
     try:
@@ -214,10 +237,7 @@ def test_snake_chat_codecompass_ananta_folder_structure() -> None:
     _require_live()
     token = _login()
 
-    result = _api("/knowledge/indexes", token=token)
-    items = (result.get("data") or {}).get("items") or result.get("items") or []
-    if not items:
-        _index_probe_files(token)
+    _ensure_codecompass_index(token)
 
     snake_id, snake_token = _register_snake(token)
     try:

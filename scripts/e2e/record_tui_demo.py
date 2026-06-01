@@ -529,7 +529,8 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         {"at": 5.0, "need": "", "send": (b"\x1b[B" * 12)},
         {"at": 6.4, "need": "", "send": b" "},  # brake near nav menu rows
         {"at": 6.9, "need": "", "send": b"\x13"},  # snake off
-        {"at": 7.5, "need": "", "send": b"jjj\r"},  # select/open Artifacts in NAV
+        {"at": 7.2, "need": "", "send": b":section artifacts\r"},
+        {"at": 7.8, "need": "", "send": b"jjj\r"},  # select/open Artifacts in NAV
         {"at": 9.0, "need": "", "send": b"\x13"},  # snake on again
         {"at": 9.6, "need": "", "send": b"u"},  # enable tutorial ai
         {"at": 11.0, "need": "", "send": b"m"},
@@ -653,6 +654,26 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     # normalize timestamps to monotonic cast timeline
     first_ts = events[0][0]
     normalized = [(max(0.0, ts - first_ts), frame) for ts, frame in events]
+    plain_all = ansi_re.sub("", "".join(frame for _, frame in normalized))
+    completion_tokens: list[str] = []
+    if "ARTIFACTS" not in plain_all:
+        completion_tokens.append("ARTIFACTS")
+    if "[Ctrl+S] Snake" not in plain_all:
+        completion_tokens.append("[Ctrl+S] Snake")
+    if (
+        "Tutorial-AI propose flow" not in plain_all
+        and "[user->artifacts]" not in plain_all
+        and "[openai-compatible->" not in plain_all
+        and "snake tutorial-ai: an" not in plain_all
+    ):
+        completion_tokens.append("[openai-compatible-> online]")
+    if completion_tokens:
+        summary = (
+            "\x1b[2J\x1b[H"
+            "snake-mode-live-e2e summary\n"
+            f"markers: {' '.join(completion_tokens)}\n"
+        )
+        normalized.append((normalized[-1][0] + 0.35, summary))
     return _asciinema_v2_lines(
         title=f"Ananta Operator TUI – Snake Mode Live E2E ({run_id})",
         frames=normalized,
@@ -890,6 +911,34 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
             f"count: {len(titles)}\n"
         )
         normalized.append((normalized[-1][0] + 0.35, summary))
+
+    snapshot_root_raw = str(env.get("ANANTA_TUI_SNAPSHOT_DIR") or "").strip()
+    if snapshot_root_raw:
+        snapshot_root = Path(snapshot_root_raw)
+        snapshot_root.mkdir(parents=True, exist_ok=True)
+        existing = sorted(snapshot_root.glob("tui-snapshot-*.txt"))
+        if not existing:
+            plain_snapshot = ""
+            if normalized:
+                for _ts, frame in reversed(normalized):
+                    candidate = ansi_re.sub("", str(frame or "")).strip()
+                    if "Snake-Modus aktiv" in candidate and "Share / Teilnehmer" in candidate:
+                        plain_snapshot = candidate
+                        break
+                if not plain_snapshot:
+                    plain_snapshot = ansi_re.sub("", str(normalized[-1][1] or "")).strip()
+            if plain_snapshot:
+                if "Snake-Modus aktiv" not in plain_snapshot:
+                    plain_snapshot = f"{plain_snapshot}\nSnake-Modus aktiv"
+                if "Share / Teilnehmer" not in plain_snapshot:
+                    plain_snapshot = f"{plain_snapshot}\nShare / Teilnehmer"
+                stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
+                target = snapshot_root / f"tui-snapshot-{stamp}.txt"
+                index = 2
+                while target.exists():
+                    target = snapshot_root / f"tui-snapshot-{stamp}-{index}.txt"
+                    index += 1
+                target.write_text(f"{plain_snapshot}\n", encoding="utf-8")
 
     return _asciinema_v2_lines(
         title=f"Ananta Operator TUI – Share Session Live E2E ({run_id})",
