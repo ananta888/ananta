@@ -125,9 +125,10 @@ export class AgentDirectoryService {
       const expectedUrl = byName[a.name || ''];
       if (!expectedUrl) return a;
       const current = (a.url || '').toLowerCase();
-      if (current.includes('localhost') || current.includes('127.0.0.1')) {
+      const mustResetToken = Boolean(a.token);
+      if (current.includes('localhost') || current.includes('127.0.0.1') || mustResetToken) {
         changed = true;
-        return { ...a, url: expectedUrl };
+        return { ...a, url: expectedUrl, token: '' };
       }
       return a;
     });
