@@ -125,11 +125,12 @@ export class ControlCenterStateFacade {
     this.api.createEventStreamToken(base, { project_id: this.selectedProjectId$.value || undefined }).pipe(
       catchError(() => of(null)),
     ).subscribe((tokenRes) => {
-      if (!tokenRes?.token) {
+      const streamToken = String(tokenRes?.stream_token || tokenRes?.token || '');
+      if (!streamToken) {
         this.connectingEvents = false;
         return;
       }
-      this.stream.connect(`${base}/api/events/stream`, tokenRes.token);
+      this.stream.connect(`${base}/api/events/stream`, streamToken);
       if (!this.eventSub) {
         this.eventSub = this.stream.lastEventObject$.subscribe((evt) => {
           if (!evt) return;

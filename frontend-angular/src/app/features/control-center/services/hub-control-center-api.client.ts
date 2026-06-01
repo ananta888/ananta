@@ -186,8 +186,8 @@ export class HubControlCenterApiClient {
     baseUrl: string,
     payload?: { project_id?: string; session_id?: string },
     token?: string,
-  ): Observable<{ token: string; expires_at: number; ttl_seconds: number }> {
-    return this.core.post<{ token: string; expires_at: number; ttl_seconds: number }>(
+  ): Observable<{ stream_token?: string; token?: string; expires_at: number; ttl_seconds: number }> {
+    return this.core.post<{ stream_token?: string; token?: string; expires_at: number; ttl_seconds: number }>(
       `${baseUrl}/api/events/stream-token`,
       payload || {},
       baseUrl,

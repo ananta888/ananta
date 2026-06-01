@@ -8,7 +8,7 @@ from agent.common.redaction import VisibilityLevel, redact
 def _restore_auth_response_tokens(original: Any, redacted: Any) -> Any:
     if not isinstance(original, dict) or not isinstance(redacted, dict):
         return redacted
-    token_keys = {"access_token", "refresh_token"}
+    token_keys = {"access_token", "refresh_token", "stream_token"}
     if not token_keys.intersection(original):
         return redacted
     restored = dict(redacted)

@@ -57,6 +57,14 @@ def _knowledge_link_repo():
     return get_repository_registry().knowledge_link_repo
 
 
+def _agent_session_repo():
+    return get_repository_registry().agent_session_repo
+
+
+def _task_repo():
+    return get_repository_registry().task_repo
+
+
 def _artifact_upload_request() -> ArtifactUploadRequest:
     return ArtifactUploadRequest(collection_name=str(request.form.get("collection_name") or "").strip() or None)
 
@@ -215,6 +223,17 @@ def upload_artifact():
     session_id = str(request.form.get("session_id") or "").strip()
     artifact_type = str(request.form.get("type") or "").strip()
     tool_call_id = str(request.form.get("tool_call_id") or "").strip()
+    if session_id and (not task_id or not project_id):
+        linked_session = _agent_session_repo().get_by_id(session_id)
+        if linked_session is not None:
+            if not task_id:
+                task_id = str(getattr(linked_session, "task_id", "") or "").strip()
+            if not project_id:
+                project_id = str(getattr(linked_session, "team_id", "") or "").strip()
+    if task_id and not project_id:
+        linked_task = _task_repo().get_by_id(task_id)
+        if linked_task is not None:
+            project_id = str(getattr(linked_task, "team_id", "") or "").strip()
     if project_id:
         metadata["project_id"] = project_id
     if task_id:

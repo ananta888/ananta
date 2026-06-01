@@ -9,6 +9,7 @@ import time
 import uuid
 import json
 import threading
+import hashlib
 from typing import Any
 
 from flask import Blueprint, Response, g, request
@@ -478,6 +479,7 @@ def create_task_session(task_id: str):
         created_at=now,
         updated_at=now,
         arguments_preview="bootstrap action for newly created session",
+        arguments_hash=hashlib.sha256(b"bootstrap action for newly created session").hexdigest(),
     )
     _repos().tool_call_repo.save(bootstrap_tool_call)
 
@@ -687,11 +689,17 @@ def preview_context_scope():
     if not include:
         include = ["/"]
     sensitive = ["/.env", "/secrets/**", "/data/**", "/**/*.pem", "/**/*.key"]
+    include_set = {str(item).strip() for item in include}
     exclude_set = {str(item).strip() for item in exclude}
     excluded_sensitive = [item for item in sensitive if item in exclude_set]
     if "/.env" not in excluded_sensitive:
         excluded_sensitive.append("/.env")
     include_warning = any(item in {"/", "/**", "**"} for item in include)
+    included_nodes_estimate = max(1, len(include) * 120)
+    excluded_nodes_estimate = len(exclude_set) * 25 + len(excluded_sensitive) * 10
+    cloud_eligible = not any(item in include_set for item in ["/.env", "/secrets/**", "/data/**"])
+    if include_warning:
+        cloud_eligible = False
     return api_response(
         data={
             "scope_preview": {
@@ -700,6 +708,9 @@ def preview_context_scope():
                 "excluded_sensitive_paths": sorted(set(excluded_sensitive)),
                 "cloud_boundary_hint": "local-only recommended when sensitive paths are in scope",
                 "warnings": ["include_scope_too_broad"] if include_warning else [],
+                "included_count": int(included_nodes_estimate),
+                "excluded_count": int(excluded_nodes_estimate),
+                "cloud_eligible": bool(cloud_eligible),
             }
         }
     )
@@ -802,4 +813,4 @@ def create_stream_token():
         "exp": expires_at,
     }
     token = jwt.encode(token_payload, settings.secret_key, algorithm="HS256")
-    return api_response(data={"token": token, "expires_at": expires_at, "ttl_seconds": 120})
+    return api_response(data={"stream_token": token, "expires_at": expires_at, "ttl_seconds": 120})

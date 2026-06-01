@@ -1,5 +1,4 @@
 from io import BytesIO
-from urllib.parse import quote
 from agent.repository import artifact_repo
 
 
@@ -55,6 +54,12 @@ def test_control_center_projects_tasks_sessions_workers_contract(client, admin_a
     assert 'items' in workers_payload
 
 
+def test_control_center_unauthenticated_rejected(client):
+    assert client.get('/api/projects').status_code == 401
+    assert client.get('/api/sessions').status_code == 401
+    assert client.get('/api/events/stream').status_code == 401
+
+
 def test_control_center_policy_and_scope_contract(client, admin_auth_header):
     policies_res = client.get('/api/policies', headers=admin_auth_header)
     assert policies_res.status_code == 200
@@ -76,6 +81,9 @@ def test_control_center_policy_and_scope_contract(client, admin_auth_header):
     assert 'excluded_sensitive_paths' in preview
     assert '/.env' in preview['excluded_sensitive_paths']
     assert '/secrets/**' in preview['excluded_sensitive_paths']
+    assert isinstance(preview.get('included_count'), int)
+    assert isinstance(preview.get('excluded_count'), int)
+    assert isinstance(preview.get('cloud_eligible'), bool)
 
 
 def test_control_center_narrow_approval_contract(client, admin_auth_header):
@@ -177,7 +185,7 @@ def test_artifact_filters_contract(client, admin_auth_header):
     upload_a = client.post(
         '/artifacts/upload',
         headers=admin_auth_header,
-        data={'file': (BytesIO(b'a1'), 'a1.txt'), 'task_id': task_id, 'session_id': session_id, 'project_id': '', 'type': 'log'},
+        data={'file': (BytesIO(b'a1'), 'a1.txt'), 'session_id': session_id, 'project_id': '', 'type': 'log'},
         content_type='multipart/form-data',
     )
     upload_b = client.post(
@@ -195,6 +203,7 @@ def test_artifact_filters_contract(client, admin_auth_header):
     row_b = artifact_repo.get_by_id(str(artifact_b['id']))
     assert row_a is not None
     assert row_b is not None
+    assert str((row_a.artifact_metadata or {}).get('task_id') or '') == task_id
     row_a.artifact_metadata = {'project_id': 'p1', 'task_id': task_id, 'session_id': session_id, 'type': 'log'}
     row_b.artifact_metadata = {'project_id': 'p2', 'task_id': 't2', 'session_id': 's2', 'type': 'text'}
     artifact_repo.save(row_a)
@@ -242,7 +251,7 @@ def test_control_center_event_stream_contract(client, admin_auth_header):
         json={'session_id': session_id},
     )
     assert token_res.status_code == 200
-    stream_token = token_res.get_json()['data']['token']
+    stream_token = token_res.get_json()['data']['stream_token']
     assert stream_token
 
     # Query-token transport is implemented for browser EventSource usage.
