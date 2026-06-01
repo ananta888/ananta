@@ -183,7 +183,7 @@ export class WebhooksComponent implements OnInit {
 
   ngOnInit() {
     this.testForm.payload = this.defaultPayload;
-    this.refresh();
+    setTimeout(() => this.refresh(), 0);
   }
 
   refresh() {
