@@ -113,7 +113,13 @@ export class AiSnakeChatService implements OnDestroy {
         const own: SnakeChatMessage = { id, sender_id: snakeId, text: content, created_at: Date.now() / 1000, channel_type: 'room' };
         this.messages$.next([...this.messages$.value, own].slice(-300));
       },
-      error: () => this.error$.next('Senden fehlgeschlagen'),
+      error: (err) => {
+        if (this.isSessionGoneError(err)) {
+          this.resetSessionState('Snake-Session abgelaufen. Bitte neu verbinden.');
+          return;
+        }
+        this.error$.next('Senden fehlgeschlagen');
+      },
     });
   }
 
@@ -139,7 +145,15 @@ export class AiSnakeChatService implements OnDestroy {
       `${base}/snakes/${encodeURIComponent(snakeId)}/heartbeat`,
       {},
       { headers: this.withUserHeaders() },
-    ).subscribe({ error: () => this.error$.next('Heartbeat fehlgeschlagen') });
+    ).subscribe({
+      error: (err) => {
+        if (this.isSessionGoneError(err)) {
+          this.resetSessionState('Snake-Session abgelaufen. Bitte neu verbinden.');
+          return;
+        }
+        this.error$.next('Heartbeat fehlgeschlagen');
+      },
+    });
   }
 
   private tick(): void {
@@ -176,12 +190,33 @@ export class AiSnakeChatService implements OnDestroy {
         this.messages$.next([...this.messages$.value, ...fresh].slice(-300));
         this.messageCursor = String(res.cursor || this.messageCursor);
       },
-      error: () => this.error$.next('Chat konnte nicht geladen werden'),
+      error: (err) => {
+        if (this.isSessionGoneError(err)) {
+          this.resetSessionState('Snake-Session abgelaufen. Bitte neu verbinden.');
+          return;
+        }
+        this.error$.next('Chat konnte nicht geladen werden');
+      },
     });
+  }
+
+  private isSessionGoneError(err: any): boolean {
+    const status = Number(err?.status || 0);
+    return status === 404 || status === 401 || status === 403;
+  }
+
+  private resetSessionState(message: string): void {
+    this.stopLoops();
+    this.snakeToken = '';
+    this.messageCursor = '0';
+    this.snakeId$.next('');
+    this.active$.next(false);
+    this.participants$.next([]);
+    this.messages$.next([]);
+    this.error$.next(message);
   }
 
   ngOnDestroy(): void {
     this.stopLoops();
   }
 }
-

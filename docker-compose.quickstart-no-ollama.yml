@@ -106,6 +106,8 @@ services:
       ANANTA_QUICKSTART_ROLE: frontend
       FRONTEND_PORT: ${FRONTEND_PORT:-4200}
       FRONTEND_POLL_MS: ${FRONTEND_POLL_MS:-2000}
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
     depends_on:
       ai-agent-hub:
         condition: service_healthy
