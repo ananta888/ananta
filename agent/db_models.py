@@ -1132,3 +1132,24 @@ class DecisionTraceDB(SQLModel, table=True):
     started_at: float = Field(default_factory=time.time, index=True)
     resolved_at: Optional[float] = Field(default=None, index=True)
     reason_codes: List[str] = Field(default=[], sa_column=Column(JSON))
+
+
+class PairGroupDB(SQLModel, table=True):
+    __tablename__ = "pair_groups"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    owner_user_id: str = Field(index=True)
+    name: str = Field(index=True)
+    description: str = Field(default="")
+    default_permissions: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PairGroupMemberDB(SQLModel, table=True):
+    __tablename__ = "pair_group_members"
+    __table_args__ = (sa.UniqueConstraint("group_id", "user_id", name="uq_pair_group_member"),)
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    group_id: str = Field(index=True, foreign_key="pair_groups.id")
+    user_id: str = Field(index=True)
+    display_name: str = Field(default="")
+    added_at: float = Field(default_factory=time.time, index=True)
