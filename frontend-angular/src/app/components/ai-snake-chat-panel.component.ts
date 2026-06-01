@@ -1,15 +1,17 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
+import { OidcAuthService } from '../services/oidc-auth.service';
+import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -49,9 +51,22 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
           </div>
         </div>
       } @else if (tab === 'pair') {
-        <div class="settings-shell">
-          <app-ai-snake-share-panel />
-        </div>
+        @if (oidc.loggedIn$ | async) {
+          <div class="pair-header">
+            <span class="pair-user">{{ oidc.currentUsername }}</span>
+            <span class="pair-sig-status" [class.on]="(signaling.status$ | async) === 'connected'">
+              WebRTC: {{ signaling.status$ | async }}
+            </span>
+          </div>
+          <div class="settings-shell">
+            <app-ai-snake-share-panel />
+          </div>
+        } @else {
+          <div class="connect">
+            <div class="muted">Pair Dev erfordert Keycloak-Login.</div>
+            <button (click)="setTab('login')">Zum Login</button>
+          </div>
+        }
       } @else if (tab === 'deprecated') {
         <div class="mode-shell">
           <div class="mode-group">
@@ -66,22 +81,36 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
         </div>
       } @else if (tab === 'login') {
         <div class="connect">
-          <label>Keycloak URL
-            <input [(ngModel)]="keycloakBaseUrl" [attr.list]="'snake-keycloak-presets'" (change)="persistRuntimeEndpoints()" />
-            <datalist id="snake-keycloak-presets">
-              @for (p of keycloakPresets; track p) {
-                <option [value]="p">{{ p }}</option>
-              }
-            </datalist>
-          </label>
-          <label>WebRTC URL
-            <input [(ngModel)]="webrtcBaseUrl" [attr.list]="'snake-webrtc-presets'" (change)="persistRuntimeEndpoints()" />
-            <datalist id="snake-webrtc-presets">
-              @for (p of webrtcPresets; track p) {
-                <option [value]="p">{{ p }}</option>
-              }
-            </datalist>
-          </label>
+          @if (oidc.loggedIn$ | async) {
+            <div class="login-status ok">
+              <span class="login-dot">●</span>
+              <span>{{ oidc.currentUsername || 'Angemeldet' }}</span>
+            </div>
+            <div class="muted">Keycloak: {{ keycloakIssuer }}</div>
+            <button class="ghost" (click)="keycloakLogout()">Abmelden</button>
+            <hr class="divider" />
+          } @else {
+            <div class="login-status off">
+              <span class="login-dot">○</span>
+              <span>Nicht angemeldet</span>
+            </div>
+            <label>Keycloak URL
+              <input [(ngModel)]="keycloakBaseUrl" [attr.list]="'snake-keycloak-presets'" (change)="onKeycloakUrlChange()" />
+              <datalist id="snake-keycloak-presets">
+                @for (p of keycloakPresets; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </datalist>
+            </label>
+            <label>Realm
+              <input [(ngModel)]="keycloakRealm" (change)="onKeycloakUrlChange()" placeholder="ananta" />
+            </label>
+            <button (click)="keycloakLogin()" [disabled]="loginBusy">
+              {{ loginBusy ? 'Öffne Login…' : 'Mit Keycloak anmelden' }}
+            </button>
+            @if (loginError) { <div class="error">{{ loginError }}</div> }
+          }
+          <hr class="divider" />
           <label>Name <input [(ngModel)]="name" /></label>
           <label>Rolle
             <select [(ngModel)]="role">
@@ -92,7 +121,7 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
               <option value="critic">critic</option>
             </select>
           </label>
-          <button (click)="connect()">Verbinden</button>
+          <button (click)="connect()">Mit AI-Snake verbinden</button>
           <button class="ghost" (click)="disconnect()" [disabled]="!(svc.active$ | async)">Trennen</button>
         </div>
       } @else if (!(svc.active$ | async)) {
@@ -161,6 +190,15 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
     .msg { margin-bottom: 5px; font-size: 12px; word-break: break-word; }
     .send { border-top: 1px solid #1a2d4a; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
     .ghost { color: #6b8ab8; }
+    .divider { border: none; border-top: 1px solid #1a2d4a; margin: 6px 0; }
+    .login-status { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; }
+    .login-status.ok { color: #7fffd4; }
+    .login-status.off { color: #4a6a9a; }
+    .login-dot { font-size: 10px; }
+    .pair-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #1a2d4a; font-size: 11px; background: #0d1828; flex-shrink: 0; }
+    .pair-user { color: #7fffd4; }
+    .pair-sig-status { color: #4a6a9a; }
+    .pair-sig-status.on { color: #7fffd4; }
     .bottom-tabs {
       margin-top: auto;
       border-top: 1px solid #1a2d4a;
@@ -181,19 +219,45 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 export class AiSnakeChatPanelComponent {
   readonly svc = inject(AiSnakeChatService);
   readonly cfg = inject(AiSnakeConfigService);
+  readonly oidc = inject(OidcAuthService);
+  readonly signaling = inject(WebrtcSignalingService);
+
   name = 'web-ai-snake';
   role = 'viewer';
   draft = '';
   keycloakBaseUrl = 'https://keycloak.ananta.de';
+  keycloakRealm = 'ananta';
   webrtcBaseUrl = 'https://webrtc.ananta.de';
-  readonly keycloakPresets = ['https://keycloak.ananta.de', 'http://keycloak.ananta.de'];
-  readonly webrtcPresets = ['https://webrtc.ananta.de', 'http://webrtc.ananta.de'];
+  loginBusy = false;
+  loginError = '';
+  readonly keycloakPresets = ['https://keycloak.ananta.de'];
+
   @Input() tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   @Output() tabChange = new EventEmitter<'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
+
+  get keycloakIssuer(): string {
+    return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta'}`;
+  }
 
   constructor() {
     this.cfg.load();
     this.restoreRuntimeEndpoints();
+  }
+
+  async keycloakLogin(): Promise<void> {
+    this.loginError = '';
+    this.loginBusy = true;
+    try {
+      await this.oidc.startLoginPopup(this.keycloakIssuer);
+    } catch (e: any) {
+      this.loginError = String(e?.message ?? 'Login fehlgeschlagen');
+    } finally {
+      this.loginBusy = false;
+    }
+  }
+
+  async keycloakLogout(): Promise<void> {
+    await this.oidc.logout();
   }
 
   connect(): void {
@@ -240,14 +304,20 @@ export class AiSnakeChatPanelComponent {
     this.tabChange.emit(tab);
   }
 
+  onKeycloakUrlChange(): void {
+    this.persistRuntimeEndpoints();
+  }
+
   private restoreRuntimeEndpoints(): void {
     try {
       const raw = localStorage.getItem('ananta.ai-snake.runtime-endpoints.v1');
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const keycloak = String(parsed?.keycloakBaseUrl || '').trim();
+      const realm = String(parsed?.keycloakRealm || '').trim();
       const webrtc = String(parsed?.webrtcBaseUrl || '').trim();
       if (keycloak) this.keycloakBaseUrl = keycloak;
+      if (realm) this.keycloakRealm = realm;
       if (webrtc) this.webrtcBaseUrl = webrtc;
     } catch {}
   }
@@ -258,6 +328,7 @@ export class AiSnakeChatPanelComponent {
         'ananta.ai-snake.runtime-endpoints.v1',
         JSON.stringify({
           keycloakBaseUrl: this.keycloakBaseUrl.trim(),
+          keycloakRealm: this.keycloakRealm.trim(),
           webrtcBaseUrl: this.webrtcBaseUrl.trim(),
         }),
       );
