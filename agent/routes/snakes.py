@@ -85,7 +85,7 @@ def _resolve_ai_snake_chat_provider() -> tuple[str, str | None]:
     return provider, model
 
 
-def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool]:
+def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool, str]:
     prompt = str(user_text or "").strip()
     if not prompt:
         return prompt
@@ -108,10 +108,16 @@ def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool]:
         )
         chunks = list(bundle.get("chunks") or [])
         if chunks:
-            return grounded, True
+            src_counts: dict[str, int] = {}
+            for chunk in chunks:
+                source = str((chunk or {}).get("source") or "unknown").strip().lower() or "unknown"
+                src_counts[source] = int(src_counts.get(source, 0)) + 1
+            summary_parts = [f"{k}:{v}" for k, v in sorted(src_counts.items())]
+            summary = f"Kontext: {len(chunks)} Treffer ({', '.join(summary_parts)})"
+            return grounded, True, summary
     except Exception:
         pass
-    return prompt, False
+    return prompt, False, "Kontext: 0 Treffer"
 
 
 def _append_room_ai_message(*, text: str) -> None:
@@ -144,7 +150,7 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
     def _runner() -> None:
         try:
             provider, model = _resolve_ai_snake_chat_provider()
-            grounded_prompt, has_context = _build_grounded_snake_prompt(prompt)
+            grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(prompt)
             q = prompt.lower()
             asks_for_concrete_local_facts = any(
                 token in q for token in (
@@ -152,7 +158,7 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
                 )
             )
             if asks_for_concrete_local_facts and not has_context:
-                _append_room_ai_message(text="Unklar, bitte Kontext pruefen.")
+                _append_room_ai_message(text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]")
                 return
             answer = generate_text(
                 prompt=grounded_prompt,
@@ -170,6 +176,7 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
                 text = text[:2200].rstrip() + "\n\n[gekuerzt]"
             if not text:
                 text = "AI-Snake konnte gerade keine Antwort erzeugen."
+            text = f"{text}\n\n[{context_summary}]"
             _append_room_ai_message(text=text)
         except Exception as exc:
             logging.getLogger(__name__).warning("ai-snake-chat-reply failed: %s", exc)
