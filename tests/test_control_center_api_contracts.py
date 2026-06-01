@@ -1,0 +1,101 @@
+from io import BytesIO
+
+
+def test_control_center_projects_tasks_sessions_workers_contract(client, admin_auth_header):
+    projects_res = client.get('/api/projects', headers=admin_auth_header)
+    assert projects_res.status_code == 200
+    payload = projects_res.get_json()
+    assert payload['status'] == 'success'
+    assert 'items' in payload['data']
+
+    create_task_res = client.post(
+        '/api/tasks',
+        headers=admin_auth_header,
+        json={'title': 'CC Contract Task', 'description': 'contract test', 'status': 'backlog', 'priority': 'High'},
+    )
+    assert create_task_res.status_code == 201
+    task = create_task_res.get_json()['data']['task']
+    assert task['id']
+
+    task_detail_res = client.get(f"/api/tasks/{task['id']}", headers=admin_auth_header)
+    assert task_detail_res.status_code == 200
+    detail = task_detail_res.get_json()['data']
+    assert 'task' in detail
+    assert 'verification' in detail
+
+    sessions_res = client.get('/api/sessions', headers=admin_auth_header)
+    assert sessions_res.status_code == 200
+    sessions_payload = sessions_res.get_json()['data']
+    assert 'items' in sessions_payload
+
+    workers_res = client.get('/api/workers', headers=admin_auth_header)
+    assert workers_res.status_code == 200
+    workers_payload = workers_res.get_json()['data']
+    assert 'items' in workers_payload
+
+
+def test_control_center_policy_and_scope_contract(client, admin_auth_header):
+    policies_res = client.get('/api/policies', headers=admin_auth_header)
+    assert policies_res.status_code == 200
+    policies = policies_res.get_json()['data']
+    assert 'items' in policies
+
+    scopes_res = client.get('/api/codecompass/context-scopes', headers=admin_auth_header)
+    assert scopes_res.status_code == 200
+    scopes = scopes_res.get_json()['data']
+    assert scopes['count'] >= 1
+
+    preview_res = client.post(
+        '/api/codecompass/context-scopes/preview',
+        headers=admin_auth_header,
+        json={'include': ['/agent/**'], 'exclude': ['/.env', '/secrets/**']},
+    )
+    assert preview_res.status_code == 200
+    preview = preview_res.get_json()['data']['scope_preview']
+    assert 'excluded_sensitive_paths' in preview
+
+
+def test_control_center_narrow_approval_contract(client, admin_auth_header):
+    bad_res = client.post(
+        '/api/policy/approve',
+        headers=admin_auth_header,
+        json={'action_id': 'a1', 'tool_call_id': 't1', 'scope': 'all_actions'},
+    )
+    assert bad_res.status_code == 403
+
+    ok_res = client.post(
+        '/api/policy/approve',
+        headers=admin_auth_header,
+        json={'action_id': 'a1', 'tool_call_id': 't1', 'session_id': 'sess-1', 'scope': 'single_action'},
+    )
+    assert ok_res.status_code == 200
+    data = ok_res.get_json()['data']
+    assert data['approved'] is True
+    assert data['scope'] == 'single_action'
+
+
+def test_artifact_content_normalized_contract(client, admin_auth_header):
+    upload_res = client.post(
+        '/artifacts/upload',
+        headers=admin_auth_header,
+        data={'file': (BytesIO(b'hello artifact content'), 'hello.txt')},
+        content_type='multipart/form-data',
+    )
+    assert upload_res.status_code == 201
+    artifact_id = upload_res.get_json()['data']['artifact']['id']
+
+    content_res = client.get(
+        f'/artifacts/{artifact_id}/content?normalized=true&offset=0&limit=1024',
+        headers=admin_auth_header,
+    )
+    assert content_res.status_code == 200
+    data = content_res.get_json()['data']
+    assert data['encoding'] == 'base64'
+    assert data['type']
+    assert 'payload' in data
+
+
+def test_control_center_event_stream_contract(client, admin_auth_header):
+    response = client.get('/api/events/stream', headers=admin_auth_header)
+    assert response.status_code == 200
+    assert response.mimetype == 'text/event-stream'
