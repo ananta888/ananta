@@ -434,7 +434,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private workspaceViewModel = inject(DashboardWorkspaceViewModelService);
   readonly liveState = this.hubApi;
 
-  hub = this.dir.list().find(a => a.role === 'hub');
+  hub = this.resolveHubAgent();
 
   // Daten-/ViewState-Felder delegieren an DashboardFacade.
   get stats(): DashboardStatsBlock | null { return this.facade.stats; }
@@ -541,7 +541,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   refresh() {
     if (!this.hub) {
-      this.hub = this.dir.list().find(a => a.role === 'hub');
+      this.hub = this.resolveHubAgent();
     }
     if (!this.hub) return;
     this.liveState.ensureSystemEvents(this.hub.url);
@@ -945,6 +945,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.liveState.ensureSystemEvents(this.hub.url);
     this.taskFacade.connectTaskCollection(this.hub.url, 10000);
     this.connectedTaskCollectionHubUrl = this.hub.url;
+  }
+
+  private resolveHubAgent() {
+    const agents = this.dir.list();
+    return agents.find(a => a.role === 'hub') || agents.find(a => a.name === 'hub');
   }
 
   refreshGoalReporting(goalId?: string) {
