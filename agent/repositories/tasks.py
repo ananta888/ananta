@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import AgentSessionDB, ArchivedTaskDB, TaskDB
+from agent.db_models import AgentSessionDB, ArchivedTaskDB, PolicySnapshotDB, TaskDB, ToolCallDB
 
 
 class TaskRepository:
@@ -135,6 +135,50 @@ class AgentSessionRepository:
     def save(self, agent_session: AgentSessionDB) -> AgentSessionDB:
         with Session(engine) as session:
             merged = session.merge(agent_session)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+
+class ToolCallRepository:
+    def get_by_id(self, tool_call_id: str) -> Optional[ToolCallDB]:
+        with Session(engine) as session:
+            return session.get(ToolCallDB, tool_call_id)
+
+    def get_by_session_id(self, session_id: str) -> List[ToolCallDB]:
+        with Session(engine) as session:
+            statement = (
+                select(ToolCallDB)
+                .where(ToolCallDB.session_id == session_id)
+                .order_by(ToolCallDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, tool_call: ToolCallDB) -> ToolCallDB:
+        with Session(engine) as session:
+            merged = session.merge(tool_call)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+
+class PolicySnapshotRepository:
+    def get_by_id(self, snapshot_id: str) -> Optional[PolicySnapshotDB]:
+        with Session(engine) as session:
+            return session.get(PolicySnapshotDB, snapshot_id)
+
+    def get_by_session_id(self, session_id: str) -> Optional[PolicySnapshotDB]:
+        with Session(engine) as session:
+            statement = (
+                select(PolicySnapshotDB)
+                .where(PolicySnapshotDB.session_id == session_id)
+                .order_by(PolicySnapshotDB.created_at.desc())
+            )
+            return session.exec(statement).first()
+
+    def save(self, snapshot: PolicySnapshotDB) -> PolicySnapshotDB:
+        with Session(engine) as session:
+            merged = session.merge(snapshot)
             session.commit()
             session.refresh(merged)
             return merged

@@ -50,7 +50,18 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
         runtime: this.toRuntime(row.runtime, row.transport),
         status: this.toSessionStatus(row.status),
         updatedAt: new Date().toISOString(),
-        policySnapshot: {
+        policySnapshot: row.policy_snapshot ? {
+          riskLevel: this.toRiskLevel(row.policy_snapshot.risk_level),
+          allowedTools: row.policy_snapshot.allowed_tools || [],
+          deniedTools: row.policy_snapshot.denied_tools || [],
+          allowedPaths: row.policy_snapshot.allowed_paths || [],
+          deniedPaths: row.policy_snapshot.denied_paths || [],
+          cloudAllowed: row.policy_snapshot.cloud_allowed,
+          runtimeBoundary: this.toRuntimeBoundary(row.policy_snapshot.runtime_boundary),
+          requiresHumanApproval: !!row.policy_snapshot.requires_human_approval,
+          approvalReason: row.policy_snapshot.approval_reason || null,
+          policyVersion: row.policy_snapshot.policy_version || row.policy_snapshot_id || 'v1',
+        } : {
           riskLevel: 'medium',
           allowedTools: [],
           deniedTools: [],
@@ -63,10 +74,17 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
           policyVersion: row.policy_snapshot_id || 'unavailable',
           isPlaceholder: true,
         },
-        toolCalls: [],
+        toolCalls: (this.state.toolCallsBySessionId$.value[row.id] || []).map((tc) => ({
+          id: tc.id,
+          toolName: tc.tool_name || 'unknown',
+          status: this.toToolCallStatus(tc.status),
+          startedAt: tc.started_at ? new Date(Number(tc.started_at) * 1000).toISOString() : null,
+          finishedAt: tc.finished_at ? new Date(Number(tc.finished_at) * 1000).toISOString() : null,
+        })),
       }));
       for (const session of this.sessions) {
         if (session.taskId) this.state.loadTaskDetailVerification(session.taskId);
+        this.state.loadSessionToolCalls(session.id);
       }
     });
     this.state.loadSessions();
@@ -95,8 +113,8 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
 
   private toSessionStatus(raw: string): CcAgentSession['status'] {
     const status = String(raw || '').toLowerCase();
-    if (status === 'cancelled') return 'cancelled';
-    if (status === 'running') return 'running';
+    if (status === 'idle' || status === 'proposed' || status === 'running' || status === 'waiting_for_approval' || status === 'blocked' || status === 'review' || status === 'done' || status === 'failed' || status === 'cancelled') return status;
+    if (status === 'verified') return 'review';
     return 'idle';
   }
 
@@ -114,6 +132,27 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
     const fallback = String(transport || '').trim().toLowerCase();
     if (fallback === 'hub_relay') return 'remote';
     return 'local';
+  }
+
+  private toRiskLevel(raw: string | null | undefined): 'low' | 'medium' | 'high' | 'critical' {
+    const value = String(raw || '').trim().toLowerCase();
+    if (value === 'low' || value === 'medium' || value === 'high' || value === 'critical') return value;
+    return 'medium';
+  }
+
+  private toRuntimeBoundary(raw: string | null | undefined): 'local-only' | 'cloud-allowed' | 'remote' | 'unknown' {
+    const value = String(raw || '').trim().toLowerCase();
+    if (value === 'local-only' || value === 'cloud-allowed' || value === 'remote' || value === 'unknown') return value;
+    return 'unknown';
+  }
+
+  private toToolCallStatus(raw: string): 'proposed' | 'allowed' | 'denied' | 'running' | 'completed' | 'failed' {
+    const v = String(raw || '').trim().toLowerCase();
+    if (v === 'allowed' || v === 'denied' || v === 'running' || v === 'completed' || v === 'failed' || v === 'proposed') {
+      return v;
+    }
+    if (v === 'require_approval') return 'proposed';
+    return 'proposed';
   }
 
   verificationFor(taskId: string | null) {

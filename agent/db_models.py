@@ -983,6 +983,46 @@ class AgentSessionDB(SQLModel, table=True):
     expires_at: Optional[float] = None
 
 
+class ToolCallDB(SQLModel, table=True):
+    __tablename__ = "tool_calls"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    session_id: str = Field(index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    action_id: str = Field(index=True)
+    tool_name: str = Field(index=True)
+    arguments_preview: Optional[str] = None
+    arguments_hash: Optional[str] = None
+    target_path: Optional[str] = None
+    status: str = Field(default="proposed", index=True)
+    risk_level: str = Field(default="medium", index=True)
+    policy_decision_id: Optional[str] = Field(default=None, index=True)
+    created_at: float = Field(default_factory=time.time, index=True)
+    started_at: Optional[float] = None
+    finished_at: Optional[float] = None
+    error_message: Optional[str] = None
+    approved_by_user_id: Optional[str] = Field(default=None, index=True)
+    updated_at: float = Field(default_factory=time.time, index=True)
+
+
+class PolicySnapshotDB(SQLModel, table=True):
+    __tablename__ = "policy_snapshots"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    session_id: str = Field(index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    policy_version: str = Field(default="v1", index=True)
+    risk_level: str = Field(default="medium", index=True)
+    allowed_tools_json: List[str] = Field(default=[], sa_column=Column(JSON))
+    denied_tools_json: List[str] = Field(default=[], sa_column=Column(JSON))
+    allowed_paths_json: List[str] = Field(default=[], sa_column=Column(JSON))
+    denied_paths_json: List[str] = Field(default=[], sa_column=Column(JSON))
+    cloud_allowed: bool = False
+    runtime_boundary: str = Field(default="local-only", index=True)
+    requires_human_approval: bool = False
+    approval_reason: Optional[str] = None
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time, index=True)
+
+
 class PolicyDecisionDB(SQLModel, table=True):
     __tablename__ = "policy_decisions"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

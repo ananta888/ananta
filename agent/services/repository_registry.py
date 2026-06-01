@@ -34,6 +34,7 @@ from agent.repository import (
     playbook_repo,
     plan_repo,
     policy_decision_repo,
+    policy_snapshot_repo,
     refresh_token_repo,
     retrieval_run_repo,
     role_repo,
@@ -47,6 +48,7 @@ from agent.repository import (
     scheduled_task_repo,
     stats_repo,
     task_repo,
+    tool_call_repo,
     team_blueprint_repo,
     team_member_repo,
     team_repo,
@@ -94,12 +96,14 @@ class RepositoryRegistry:
     playbook_repo: object
     plan_repo: object
     policy_decision_repo: object
+    policy_snapshot_repo: object
     refresh_token_repo: object
     retrieval_run_repo: object
     role_repo: object
     scheduled_task_repo: object
     stats_repo: object
     task_repo: object
+    tool_call_repo: object
     team_blueprint_repo: object
     team_member_repo: object
     team_repo: object
@@ -153,12 +157,14 @@ def build_repository_registry() -> RepositoryRegistry:
         playbook_repo=playbook_repo,
         plan_repo=plan_repo,
         policy_decision_repo=policy_decision_repo,
+        policy_snapshot_repo=policy_snapshot_repo,
         refresh_token_repo=refresh_token_repo,
         retrieval_run_repo=retrieval_run_repo,
         role_repo=role_repo,
         scheduled_task_repo=scheduled_task_repo,
         stats_repo=stats_repo,
         task_repo=task_repo,
+        tool_call_repo=tool_call_repo,
         team_blueprint_repo=team_blueprint_repo,
         team_member_repo=team_member_repo,
         team_repo=team_repo,

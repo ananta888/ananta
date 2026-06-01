@@ -34,11 +34,13 @@ from agent.repositories import (
     PlanRepository,
     PlaybookRepository,
     PolicyDecisionRepository,
+    PolicySnapshotRepository,
     RefreshTokenRepository,
     RoleRepository,
     ScheduledTaskRepository,
     StatsRepository,
     TaskRepository,
+    ToolCallRepository,
     TeamBlueprintRepository,
     TeamMemberRepository,
     TeamRepository,
@@ -120,6 +122,8 @@ planning_review_item_repo = PlanningReviewItemRepository()
 terminal_session_repo = TerminalSessionRepository()
 terminal_event_repo = TerminalEventRepository()
 agent_session_repo = AgentSessionRepository()
+tool_call_repo = ToolCallRepository()
+policy_snapshot_repo = PolicySnapshotRepository()
 
 __all__ = [
     "ActionPackRepository",
@@ -156,6 +160,8 @@ __all__ = [
     "StatsRepository",
     "TaskRepository",
     "AgentSessionRepository",
+    "ToolCallRepository",
+    "PolicySnapshotRepository",
     "TeamBlueprintRepository",
     "TeamMemberRepository",
     "TeamRepository",
@@ -213,6 +219,8 @@ __all__ = [
     "stats_repo",
     "task_repo",
     "agent_session_repo",
+    "tool_call_repo",
+    "policy_snapshot_repo",
     "team_blueprint_repo",
     "team_member_repo",
     "team_repo",
