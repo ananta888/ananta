@@ -8,13 +8,16 @@ from __future__ import annotations
 import time
 import uuid
 import json
+import threading
 from typing import Any
 
 from flask import Blueprint, Response, g, request
+import jwt
 
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.config import settings
 from agent.db_models import AgentSessionDB, PolicySnapshotDB, TaskDB, ToolCallDB
 from agent.routes.tasks.status import normalize_task_status
 from agent.services.repository_registry import get_repository_registry
@@ -23,6 +26,13 @@ from agent.services.share_session_service import get_share_session_service
 control_center_api_bp = Blueprint("control_center_api", __name__, url_prefix="/api")
 
 _EVENT_SEQUENCE: int = 0
+_EVENT_LOCK = threading.Lock()
+_EVENT_COND = threading.Condition(_EVENT_LOCK)
+_EVENT_LOG: list[dict[str, Any]] = []
+_EVENT_MAX = 2000
+_EVENT_POLL_THREAD: threading.Thread | None = None
+_EVENT_LAST_TASK_TS = 0.0
+_EVENT_LAST_POLICY_TS = 0.0
 
 
 def _repos():
@@ -145,10 +155,86 @@ def _policy_snapshot_item(snapshot: PolicySnapshotDB) -> dict[str, Any]:
     }
 
 
+def _artifact_item(artifact: Any) -> dict[str, Any]:
+    metadata = dict(getattr(artifact, "artifact_metadata", None) or {})
+    return {
+        "id": str(getattr(artifact, "id", "") or ""),
+        "latest_media_type": str(getattr(artifact, "latest_media_type", "") or "") or None,
+        "latest_filename": str(getattr(artifact, "latest_filename", "") or "") or None,
+        "artifact_metadata": metadata,
+        "created_at": float(getattr(artifact, "created_at", 0.0) or 0.0),
+        "updated_at": float(getattr(artifact, "updated_at", 0.0) or 0.0),
+    }
+
+
 def _next_event_id() -> str:
     global _EVENT_SEQUENCE
     _EVENT_SEQUENCE += 1
     return f"cc-{int(time.time() * 1000)}-{_EVENT_SEQUENCE}"
+
+
+def _append_event(channel: str, event_type: str, timestamp: float, payload: dict[str, Any]) -> None:
+    event = {
+        "id": _next_event_id(),
+        "channel": channel,
+        "type": event_type,
+        "timestamp": float(timestamp),
+        "payload": payload,
+    }
+    with _EVENT_COND:
+        _EVENT_LOG.append(event)
+        if len(_EVENT_LOG) > _EVENT_MAX:
+            del _EVENT_LOG[0:len(_EVENT_LOG) - _EVENT_MAX]
+        _EVENT_COND.notify_all()
+
+
+def _event_poll_loop() -> None:
+    global _EVENT_LAST_TASK_TS, _EVENT_LAST_POLICY_TS
+    while True:
+        try:
+            repos = _repos()
+            task_rows = repos.task_repo.get_all() or []
+            for task in task_rows:
+                updated_at = float(getattr(task, "updated_at", 0.0) or 0.0)
+                if updated_at <= _EVENT_LAST_TASK_TS:
+                    continue
+                _append_event("task", "task_updated", updated_at, _task_item(task))
+                if updated_at > _EVENT_LAST_TASK_TS:
+                    _EVENT_LAST_TASK_TS = updated_at
+
+            policy_rows = repos.policy_decision_repo.get_all() or []
+            for decision in policy_rows:
+                created_at = float(getattr(decision, "created_at", 0.0) or 0.0)
+                if created_at <= _EVENT_LAST_POLICY_TS:
+                    continue
+                details = dict(getattr(decision, "details", None) or {})
+                _append_event(
+                    "policy",
+                    "policy_decision",
+                    created_at,
+                    {
+                        "decision_id": str(getattr(decision, "id", "") or ""),
+                        "status": str(getattr(decision, "status", "") or ""),
+                        "decision_type": str(getattr(decision, "decision_type", "") or ""),
+                        "task_id": str(getattr(decision, "task_id", "") or ""),
+                        "session_id": str(details.get("session_id") or ""),
+                    },
+                )
+                if created_at > _EVENT_LAST_POLICY_TS:
+                    _EVENT_LAST_POLICY_TS = created_at
+        except Exception:
+            # Keep stream infrastructure alive even if one poll cycle fails.
+            pass
+        time.sleep(2)
+
+
+def _ensure_event_poller() -> None:
+    global _EVENT_POLL_THREAD
+    with _EVENT_LOCK:
+        if _EVENT_POLL_THREAD and _EVENT_POLL_THREAD.is_alive():
+            return
+        _EVENT_POLL_THREAD = threading.Thread(target=_event_poll_loop, daemon=True, name="control-center-event-poller")
+        _EVENT_POLL_THREAD.start()
 
 
 @control_center_api_bp.route("/projects", methods=["GET"])
@@ -194,13 +280,19 @@ def get_task_detail(task_id: str):
         for p in (_repos().policy_decision_repo.get_all() or [])
         if str(getattr(p, "task_id", "") or "") == task_id
     ]
+    artifacts = []
+    for artifact in (_repos().artifact_repo.get_all() or []):
+        metadata = dict(getattr(artifact, "artifact_metadata", None) or {})
+        if str(metadata.get("task_id") or "") != task_id:
+            continue
+        artifacts.append(_artifact_item(artifact))
 
     return api_response(
         data={
             "task": t,
             "session": session_payload,
             "policy_decisions": policy_decisions,
-            "artifacts": [],
+            "artifacts": artifacts,
             "sessions": [_agent_session_item(s) for s in linked_sessions],
             "verification": dict(getattr(task, "verification_status", None) or {}),
         }
@@ -595,7 +687,11 @@ def preview_context_scope():
     if not include:
         include = ["/"]
     sensitive = ["/.env", "/secrets/**", "/data/**", "/**/*.pem", "/**/*.key"]
-    excluded_sensitive = [item for item in sensitive if item in exclude or item.startswith("/.env")]
+    exclude_set = {str(item).strip() for item in exclude}
+    excluded_sensitive = [item for item in sensitive if item in exclude_set]
+    if "/.env" not in excluded_sensitive:
+        excluded_sensitive.append("/.env")
+    include_warning = any(item in {"/", "/**", "**"} for item in include)
     return api_response(
         data={
             "scope_preview": {
@@ -603,6 +699,7 @@ def preview_context_scope():
                 "exclude": exclude,
                 "excluded_sensitive_paths": sorted(set(excluded_sensitive)),
                 "cloud_boundary_hint": "local-only recommended when sensitive paths are in scope",
+                "warnings": ["include_scope_too_broad"] if include_warning else [],
             }
         }
     )
@@ -612,51 +709,97 @@ def preview_context_scope():
 @check_auth
 def stream_control_center_events():
     """B17: GET /api/events/stream central SSE feed."""
+    _ensure_event_poller()
+    actor = _user_id()
+    project_id_filter = str(request.args.get("project_id") or "").strip()
+    session_id_filter = str(request.args.get("session_id") or "").strip()
+    claim_project = str((getattr(g, "user", {}) or {}).get("stream_project_id") or "").strip()
+    claim_session = str((getattr(g, "user", {}) or {}).get("stream_session_id") or "").strip()
+    claim_is_stream = bool((getattr(g, "user", {}) or {}).get("cc_stream") is True)
+    if claim_is_stream:
+        if project_id_filter and claim_project and project_id_filter != claim_project:
+            return api_response(status="error", message="forbidden", code=403)
+        if session_id_filter and claim_session and session_id_filter != claim_session:
+            return api_response(status="error", message="forbidden", code=403)
+        if not project_id_filter and claim_project:
+            project_id_filter = claim_project
+        if not session_id_filter and claim_session:
+            session_id_filter = claim_session
+    if session_id_filter:
+        session = _repos().agent_session_repo.get_by_id(session_id_filter)
+        if session is None:
+            return api_response(status="error", message="session_not_found", code=404)
+        if str(getattr(session, "owner_user_id", "") or "") != actor:
+            return api_response(status="error", message="forbidden", code=403)
+    last_event_id_req = str(request.headers.get("Last-Event-ID") or request.args.get("last_event_id") or "").strip()
+
     def generate():
-        last_task_ts = 0.0
-        last_policy_ts = 0.0
+        last_event_id = last_event_id_req
+        cursor = 0
+        with _EVENT_LOCK:
+            if last_event_id:
+                for idx, item in enumerate(_EVENT_LOG):
+                    if str(item.get("id") or "") == last_event_id:
+                        cursor = idx + 1
+                        break
+            else:
+                cursor = len(_EVENT_LOG)
         while True:
             now = time.time()
-            task_rows = _repos().task_repo.get_all() or []
-            for task in task_rows:
-                updated_at = float(getattr(task, "updated_at", 0.0) or 0.0)
-                if updated_at <= last_task_ts:
+            batch: list[dict[str, Any]] = []
+            with _EVENT_COND:
+                if cursor >= len(_EVENT_LOG):
+                    _EVENT_COND.wait(timeout=5.0)
+                if cursor < len(_EVENT_LOG):
+                    batch = _EVENT_LOG[cursor:]
+                    cursor = len(_EVENT_LOG)
+            for event in batch:
+                payload = dict(event.get("payload") or {})
+                if project_id_filter:
+                    if str(event.get("type") or "") == "task_updated":
+                        if str(payload.get("project_id") or "") != project_id_filter:
+                            continue
+                    elif str(event.get("type") or "") == "policy_decision":
+                        decision_task_id = str(payload.get("task_id") or "")
+                        if decision_task_id:
+                            linked_task = _repos().task_repo.get_by_id(decision_task_id)
+                            if linked_task is None or str(getattr(linked_task, "team_id", "") or "") != project_id_filter:
+                                continue
+                if session_id_filter and str(payload.get("session_id") or "") != session_id_filter:
                     continue
-                event = {
-                    "id": _next_event_id(),
-                    "channel": "task",
-                    "type": "task_updated",
-                    "timestamp": updated_at,
-                    "payload": _task_item(task),
-                }
+                yield f"id: {event['id']}\n"
                 yield f"data: {json.dumps(event)}\n\n"
-                if updated_at > last_task_ts:
-                    last_task_ts = updated_at
-
-            policy_rows = _repos().policy_decision_repo.get_all() or []
-            for decision in policy_rows:
-                created_at = float(getattr(decision, "created_at", 0.0) or 0.0)
-                if created_at <= last_policy_ts:
-                    continue
-                details = dict(getattr(decision, "details", None) or {})
-                event = {
-                    "id": _next_event_id(),
-                    "channel": "policy",
-                    "type": "policy_decision",
-                    "timestamp": created_at,
-                    "payload": {
-                        "decision_id": str(getattr(decision, "id", "") or ""),
-                        "status": str(getattr(decision, "status", "") or ""),
-                        "decision_type": str(getattr(decision, "decision_type", "") or ""),
-                        "task_id": str(getattr(decision, "task_id", "") or ""),
-                        "session_id": str(details.get("session_id") or ""),
-                    },
-                }
-                yield f"data: {json.dumps(event)}\n\n"
-                if created_at > last_policy_ts:
-                    last_policy_ts = created_at
-
-            yield f": heartbeat {now}\n\n"
-            time.sleep(5)
+            yield f"data: {json.dumps({'id': _next_event_id(), 'channel': 'system', 'type': 'heartbeat', 'timestamp': now, 'payload': {}})}\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
+
+
+@control_center_api_bp.route("/events/stream-token", methods=["POST"])
+@check_auth
+def create_stream_token():
+    body = request.get_json(silent=True) or {}
+    actor = _user_id()
+    user_payload = dict(getattr(g, "user", {}) or {})
+    if not actor or not user_payload:
+        return api_response(status="error", message="forbidden", code=403)
+    project_id = str(body.get("project_id") or "").strip() or None
+    session_id = str(body.get("session_id") or "").strip() or None
+    if session_id:
+        session = _repos().agent_session_repo.get_by_id(session_id)
+        if session is None:
+            return api_response(status="error", message="session_not_found", code=404)
+        if str(getattr(session, "owner_user_id", "") or "") != actor:
+            return api_response(status="error", message="forbidden", code=403)
+    issued_at = int(time.time())
+    expires_at = issued_at + 120
+    token_payload = {
+        "sub": actor,
+        "role": str(user_payload.get("role") or "user"),
+        "cc_stream": True,
+        "stream_project_id": project_id,
+        "stream_session_id": session_id,
+        "iat": issued_at,
+        "exp": expires_at,
+    }
+    token = jwt.encode(token_payload, settings.secret_key, algorithm="HS256")
+    return api_response(data={"token": token, "expires_at": expires_at, "ttl_seconds": 120})

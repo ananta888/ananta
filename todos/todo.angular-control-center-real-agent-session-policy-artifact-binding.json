@@ -768,13 +768,18 @@
       { "id": "P7-T01", "status": "done", "note": "Removed HTTP side effect from selected getter in artifact browser." },
       { "id": "P7-T02", "status": "partial", "note": "Added subscription cleanup in artifact browser; broader facade/component cleanup still pending." },
       { "id": "P3-T02", "status": "partial", "note": "Extended policy model with cloud/runtime boundary and updated security inspector rendering/warning logic; tests still pending." },
-      { "id": "P3-T03", "status": "partial", "note": "Sessions now map worker/model/runtime from backend when present, with unknown fallback." },
+      { "id": "P3-T03", "status": "done", "note": "Sessions now map worker/model/runtime from backend and apply full backend lifecycle status mapping with unknown-safe fallbacks." },
       { "id": "P2-T01", "status": "partial", "note": "Added persistent ToolCallDB, repository and session tool-call endpoint; full secrecy/redaction model still pending." },
       { "id": "P2-T02", "status": "done", "note": "Approval now validates ownership + pending action and updates auditable ToolCall state (allowed + approved_by_user_id) without in-memory approval cache." },
       { "id": "P2-T03", "status": "partial", "note": "Angular approval component now selects real pending rows (require_approval) instead of free-text ids." }
       ,{ "id": "P3-T01", "status": "done", "note": "Added persistent PolicySnapshotDB and bound it to AgentSession via policy_snapshot_id; session responses include real policy snapshot fields." }
-      ,{ "id": "P3-T03", "status": "done", "note": "Sessions view now maps real worker/model/runtime and full backend session status lifecycle instead of hardcoded defaults." }
       ,{ "id": "P4-T02", "status": "partial", "note": "Added API-side artifact filters (project_id/task_id/session_id/type/limit/offset) and Angular now sends filter params to backend." }
+      ,{ "id": "P4-T01", "status": "partial", "note": "Artifact upload now accepts/stores task_id/session_id/project_id/tool_call_id/type metadata and task detail returns related artifacts by task_id." }
+      ,{ "id": "P5-T01", "status": "partial", "note": "Added short-lived stream-token endpoint for EventSource usage and frontend requests token before connecting." }
+      ,{ "id": "P5-T02", "status": "partial", "note": "Event stream supports project_id/session_id filters with session ownership enforcement and stream-claim scope checks." }
+      ,{ "id": "P5-T03", "status": "partial", "note": "Per-client full-scan loop replaced with shared background poller + in-memory event log/cursor delivery." }
+      ,{ "id": "P5-T04", "status": "done", "note": "Heartbeat semantics clarified: backend emits typed heartbeat events and frontend updates heartbeat timestamp on every received event payload." }
+      ,{ "id": "P6-T02", "status": "partial", "note": "Context-scope preview now guarantees sensitive exclusions (/.env baseline), and emits broad-include warning for '/'. " }
       ,{ "id": "P8-T01", "status": "partial", "note": "Extended backend API contract tests with approval negative cases and artifact filter semantics." }
     ]
   }

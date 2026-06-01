@@ -209,6 +209,26 @@ def upload_artifact():
         media_type=uploaded.mimetype,
         collection_name=upload_request.collection_name,
     )
+    metadata = dict(getattr(artifact, "artifact_metadata", None) or {})
+    project_id = str(request.form.get("project_id") or "").strip()
+    task_id = str(request.form.get("task_id") or "").strip()
+    session_id = str(request.form.get("session_id") or "").strip()
+    artifact_type = str(request.form.get("type") or "").strip()
+    tool_call_id = str(request.form.get("tool_call_id") or "").strip()
+    if project_id:
+        metadata["project_id"] = project_id
+    if task_id:
+        metadata["task_id"] = task_id
+    if session_id:
+        metadata["session_id"] = session_id
+    if artifact_type:
+        metadata["type"] = artifact_type
+    if tool_call_id:
+        metadata["tool_call_id"] = tool_call_id
+    if metadata:
+        artifact.artifact_metadata = metadata
+        artifact.updated_at = artifact.updated_at or artifact.created_at
+        artifact = _artifact_repo().save(artifact)
     return api_response(
         data={
             "artifact": artifact.model_dump(),
