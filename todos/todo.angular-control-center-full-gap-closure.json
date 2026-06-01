@@ -62,7 +62,7 @@
     {
       "id": "M3",
       "title": "Policy/Approval Hardening",
-      "status": "todo",
+      "status": "done",
       "estimated_h": 16,
       "target_date": "2026-06-26",
       "risk": "high"
@@ -70,7 +70,7 @@
     {
       "id": "M4",
       "title": "Live-Events & Realtime Konsistenz",
-      "status": "todo",
+      "status": "done",
       "estimated_h": 14,
       "target_date": "2026-06-30",
       "risk": "high"
@@ -78,7 +78,7 @@
     {
       "id": "M5",
       "title": "Verification-/Artifact-Closure",
-      "status": "todo",
+      "status": "done",
       "estimated_h": 12,
       "target_date": "2026-07-03",
       "risk": "medium"
@@ -86,7 +86,7 @@
     {
       "id": "M6",
       "title": "Tests, Security, Rollout",
-      "status": "todo",
+      "status": "in_progress",
       "estimated_h": 18,
       "target_date": "2026-07-07",
       "risk": "high"
@@ -561,7 +561,7 @@
       "milestone_id": "M3",
       "title": "PolicyDecisionLog auf /api/sessions/{id}/policy-decisions",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
@@ -582,7 +582,7 @@
       "milestone_id": "M3",
       "title": "ApprovalGate mit echtem narrow-approval Backend-Call",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 3,
@@ -603,7 +603,7 @@
       "milestone_id": "M3",
       "title": "Security Inspector: Secret-Pfad-Markierung und Cloud-Warnungen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
@@ -623,7 +623,7 @@
       "milestone_id": "M4",
       "title": "SSE-Service auf zentralen Backend-Eventstream umstellen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 3,
@@ -643,7 +643,7 @@
       "milestone_id": "M4",
       "title": "Live-State-Merging (task/session/tool/policy) implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "estimated_h": 4,
@@ -664,7 +664,7 @@
       "milestone_id": "M5",
       "title": "Artifact Browser auf echte APIs + Filter",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
@@ -685,7 +685,7 @@
       "milestone_id": "M5",
       "title": "Markdown/Mermaid Sanitization-Policy finalisieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "estimated_h": 2,
@@ -705,7 +705,7 @@
       "milestone_id": "M5",
       "title": "VerificationPanel an echtes VerificationSummary koppeln",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 2,
@@ -726,7 +726,7 @@
       "milestone_id": "M6",
       "title": "Unit-Tests für Board/Inspector/Policy/Workers vervollständigen",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
@@ -742,7 +742,7 @@
       "milestone_id": "M6",
       "title": "Component-Integrationstests SessionDetail + ApprovalGate",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
@@ -875,11 +875,11 @@
     "Q06"
   ],
   "tasks_status_summary": {
-    "todo": 14,
+    "todo": 4,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 23
+    "done": 33
   },
   "tasks_type_summary": {
     "backend": 17,
@@ -891,10 +891,10 @@
   },
   "progress_summary": {
     "total_tasks": 37,
-    "completed_tasks": 23,
-    "completion_percent": 62,
+    "completed_tasks": 33,
+    "completion_percent": 89,
     "total_estimated_h": 114,
-    "milestones_done": 2,
+    "milestones_done": 5,
     "milestones_total": 6,
     "phase_breakdown": {
       "M1_backend_read_models_actions": {
@@ -910,22 +910,22 @@
       "M3_policy_approval_hardening": {
         "tasks": 3,
         "estimated_h": 8,
-        "status": "todo"
+        "status": "done"
       },
       "M4_live_events_realtime": {
         "tasks": 3,
         "estimated_h": 12,
-        "status": "todo"
+        "status": "done"
       },
       "M5_verification_artifact_closure": {
         "tasks": 3,
         "estimated_h": 7,
-        "status": "todo"
+        "status": "done"
       },
       "M6_tests_security_rollout": {
         "tasks": 5,
         "estimated_h": 10,
-        "status": "todo"
+        "status": "in_progress"
       }
     }
   },
