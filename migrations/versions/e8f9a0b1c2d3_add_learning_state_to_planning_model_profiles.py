@@ -17,17 +17,18 @@ depends_on = None
 
 
 def upgrade() -> None:
+    dialect = op.get_bind().dialect.name
+    server_default = sa.text("'{}'::json") if dialect == "postgresql" else sa.text("'{}'")
     op.add_column(
         "planning_model_profiles",
         sa.Column(
             "learning_state",
             sa.JSON(),
             nullable=False,
-            server_default=sa.text("'{}'::json"),
+            server_default=server_default,
         ),
     )
 
 
 def downgrade() -> None:
     op.drop_column("planning_model_profiles", "learning_state")
-
