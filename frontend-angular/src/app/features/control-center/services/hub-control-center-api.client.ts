@@ -28,6 +28,12 @@ export interface CcSessionReadModel {
   transport: string;
   mode: string;
   owner_user_id: string;
+  session_kind?: string;
+  worker_id?: string | null;
+  worker_type?: string | null;
+  model?: string | null;
+  runtime?: string | null;
+  policy_snapshot_id?: string | null;
 }
 
 export interface CcWorkerReadModel {

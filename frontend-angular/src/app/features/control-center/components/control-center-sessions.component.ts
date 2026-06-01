@@ -44,21 +44,24 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
       this.sessions = rows.map((row) => ({
         id: row.id,
         taskId: row.task_id || null,
-        workerId: row.owner_user_id || 'unknown',
-        workerType: 'ananta-worker',
-        model: 'n/a',
-        runtime: row.transport === 'hub_relay' ? 'remote' : 'local',
+        workerId: row.worker_id || row.owner_user_id || 'unknown',
+        workerType: this.toWorkerType(row.worker_type),
+        model: row.model || 'unknown',
+        runtime: this.toRuntime(row.runtime, row.transport),
         status: this.toSessionStatus(row.status),
         updatedAt: new Date().toISOString(),
         policySnapshot: {
           riskLevel: 'medium',
           allowedTools: [],
           deniedTools: [],
-          allowedPaths: ['/'],
+          allowedPaths: [],
           deniedPaths: [],
+          cloudAllowed: null,
+          runtimeBoundary: 'unknown',
           requiresHumanApproval: false,
-          approvalReason: null,
-          policyVersion: 'v1',
+          approvalReason: 'Policy data not yet bound',
+          policyVersion: row.policy_snapshot_id || 'unavailable',
+          isPlaceholder: true,
         },
         toolCalls: [],
       }));
@@ -95,6 +98,22 @@ export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
     if (status === 'cancelled') return 'cancelled';
     if (status === 'running') return 'running';
     return 'idle';
+  }
+
+  private toWorkerType(raw: string | null | undefined): CcAgentSession['workerType'] {
+    const value = String(raw || '').trim().toLowerCase();
+    if (value === 'ananta-worker' || value === 'opencode' || value === 'hermes' || value === 'codex' || value === 'claude-code') {
+      return value;
+    }
+    return 'custom';
+  }
+
+  private toRuntime(runtime: string | null | undefined, transport: string | null | undefined): CcAgentSession['runtime'] {
+    const value = String(runtime || '').trim().toLowerCase();
+    if (value === 'local' || value === 'docker' || value === 'remote' || value === 'cloud') return value;
+    const fallback = String(transport || '').trim().toLowerCase();
+    if (fallback === 'hub_relay') return 'remote';
+    return 'local';
   }
 
   verificationFor(taskId: string | null) {

@@ -22,11 +22,28 @@ def test_control_center_projects_tasks_sessions_workers_contract(client, admin_a
     detail = task_detail_res.get_json()['data']
     assert 'task' in detail
     assert 'verification' in detail
+    assert 'sessions' in detail
+
+    create_session_res = client.post(
+        f"/api/tasks/{task['id']}/sessions",
+        headers=admin_auth_header,
+        json={'title': 'CC Agent Session'},
+    )
+    assert create_session_res.status_code == 201
+    created_session = create_session_res.get_json()['data']['session']
+    assert created_session['task_id'] == task['id']
+    assert created_session['session_kind'] == 'agent_execution'
 
     sessions_res = client.get('/api/sessions', headers=admin_auth_header)
     assert sessions_res.status_code == 200
     sessions_payload = sessions_res.get_json()['data']
     assert 'items' in sessions_payload
+    assert any(str(item.get('id') or '') == str(created_session['id']) for item in sessions_payload['items'])
+
+    sessions_filtered_res = client.get(f"/api/sessions?task_id={task['id']}", headers=admin_auth_header)
+    assert sessions_filtered_res.status_code == 200
+    filtered_items = sessions_filtered_res.get_json()['data']['items']
+    assert any(str(item.get('task_id') or '') == str(task['id']) for item in filtered_items)
 
     workers_res = client.get('/api/workers', headers=admin_auth_header)
     assert workers_res.status_code == 200

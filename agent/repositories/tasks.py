@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import ArchivedTaskDB, TaskDB
+from agent.db_models import AgentSessionDB, ArchivedTaskDB, TaskDB
 
 
 class TaskRepository:
@@ -111,3 +111,30 @@ class ArchivedTaskRepository:
             statement = delete(ArchivedTaskDB).where(ArchivedTaskDB.archived_at < cutoff)
             session.exec(statement)
             session.commit()
+
+
+class AgentSessionRepository:
+    def get_all(self) -> List[AgentSessionDB]:
+        with Session(engine) as session:
+            statement = select(AgentSessionDB).order_by(AgentSessionDB.updated_at.desc())
+            return session.exec(statement).all()
+
+    def get_by_id(self, session_id: str) -> Optional[AgentSessionDB]:
+        with Session(engine) as session:
+            return session.get(AgentSessionDB, session_id)
+
+    def get_by_task_id(self, task_id: str) -> List[AgentSessionDB]:
+        with Session(engine) as session:
+            statement = (
+                select(AgentSessionDB)
+                .where(AgentSessionDB.task_id == task_id)
+                .order_by(AgentSessionDB.updated_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, agent_session: AgentSessionDB) -> AgentSessionDB:
+        with Session(engine) as session:
+            merged = session.merge(agent_session)
+            session.commit()
+            session.refresh(merged)
+            return merged

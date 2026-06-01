@@ -1,9 +1,10 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { FormsModule } from '@angular/forms';
+import { Subject, takeUntil } from 'rxjs';
 import { ControlCenterStateFacade } from '../services/control-center-state.facade';
 import { HubControlCenterApiClient } from '../services/hub-control-center-api.client';
 
@@ -116,13 +117,20 @@ export class ControlCenterArtifactBrowserComponent implements OnInit {
   selectedSession = '';
   selectedType: 'all' | CcArtifactType = 'all';
   loading = false;
+  private readonly destroy$ = new Subject<void>();
+  private readonly loadedContentIds = new Set<string>();
 
   ngOnInit(): void {
-    this.state.projects$.subscribe((rows) => {
+    this.state.projects$.pipe(takeUntil(this.destroy$)).subscribe((rows) => {
       if (!this.selectedProject && rows.length) this.selectedProject = rows[0].id;
     });
     this.state.loadProjects();
     this.loadArtifacts();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadArtifacts(): void {
@@ -137,6 +145,7 @@ export class ControlCenterArtifactBrowserComponent implements OnInit {
           type: this.mapType(String(row.latest_media_type || 'text/plain')),
           content: '',
         }));
+        this.loadedContentIds.clear();
         this.selectedId = this.artifacts[0]?.id || '';
         if (this.selectedId) this.loadContent(this.selectedId);
       },
@@ -150,8 +159,10 @@ export class ControlCenterArtifactBrowserComponent implements OnInit {
   }
 
   loadContent(id: string): void {
+    if (this.loadedContentIds.has(id)) return;
     const base = this.state.hubBaseUrl();
     if (!base) return;
+    this.loadedContentIds.add(id);
     this.api.getArtifactContentNormalized(base, id).subscribe({
       next: (content) => {
         const idx = this.artifacts.findIndex((a) => a.id === id);
@@ -161,14 +172,19 @@ export class ControlCenterArtifactBrowserComponent implements OnInit {
           : String(content.payload || '');
         this.artifacts[idx] = { ...this.artifacts[idx], content: decoded };
       },
+      error: () => {
+        this.loadedContentIds.delete(id);
+      },
     });
   }
 
-  select(id: string): void { this.selectedId = id; }
+  select(id: string): void {
+    this.selectedId = id;
+    const selected = this.artifacts.find((a) => a.id === id);
+    if (selected && !selected.content) this.loadContent(id);
+  }
   get selected(): CcArtifact | undefined {
-    const item = this.filteredArtifacts.find((a) => a.id === this.selectedId) || this.filteredArtifacts[0];
-    if (item && !item.content) this.loadContent(item.id);
-    return item;
+    return this.filteredArtifacts.find((a) => a.id === this.selectedId) || this.filteredArtifacts[0];
   }
 
   get filteredArtifacts(): CcArtifact[] {

@@ -955,6 +955,34 @@ class ShareParticipantDB(SQLModel, table=True):
     participant_metadata: dict = Field(default={}, sa_column=Column(JSON))
 
 
+class AgentSessionDB(SQLModel, table=True):
+    __tablename__ = "agent_sessions"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    team_id: Optional[str] = Field(default=None, index=True)
+    share_session_id: Optional[str] = Field(default=None, index=True)
+    session_kind: str = Field(default="agent_execution", index=True)
+    title: str = "Agent Session"
+    mode: str = Field(default="relay", index=True)
+    transport: str = Field(default="hub_relay", index=True)
+    owner_user_id: str = Field(index=True)
+    worker_id: Optional[str] = Field(default=None, index=True)
+    worker_type: Optional[str] = None
+    model: Optional[str] = None
+    runtime: Optional[str] = None
+    policy_snapshot_id: Optional[str] = Field(default=None, index=True)
+    context_scope_id: Optional[str] = Field(default=None, index=True)
+    permissions: dict = Field(default={}, sa_column=Column(JSON))
+    status: str = Field(default="idle", index=True)
+    failure_reason: Optional[str] = None
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time, index=True)
+    started_at: Optional[float] = None
+    finished_at: Optional[float] = None
+    cancelled_at: Optional[float] = None
+    expires_at: Optional[float] = None
+
+
 class PolicyDecisionDB(SQLModel, table=True):
     __tablename__ = "policy_decisions"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

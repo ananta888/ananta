@@ -7,6 +7,7 @@ from flask import Flask, current_app
 from agent.repository import (
     action_pack_repo,
     agent_repo,
+    agent_session_repo,
     audit_repo,
     artifact_repo,
     artifact_version_repo,
@@ -66,6 +67,7 @@ from agent.repository import (
 class RepositoryRegistry:
     action_pack_repo: object
     agent_repo: object
+    agent_session_repo: object
     audit_repo: object
     artifact_repo: object
     artifact_version_repo: object
@@ -124,6 +126,7 @@ def build_repository_registry() -> RepositoryRegistry:
     return RepositoryRegistry(
         action_pack_repo=action_pack_repo,
         agent_repo=agent_repo,
+        agent_session_repo=agent_session_repo,
         audit_repo=audit_repo,
         artifact_repo=artifact_repo,
         artifact_version_repo=artifact_version_repo,
