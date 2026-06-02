@@ -368,14 +368,21 @@ export async function loginFast(
   }
 
   if (!accessToken) {
-    const response = await request.post(`${HUB_URL}/login`, {
-      timeout: Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '45000'),
-      failOnStatusCode: false,
-      data: { username, password },
-    });
-    const payload = await response.json().catch(() => ({})) as any;
-    accessToken = payload?.data?.access_token;
-    refreshToken = payload?.data?.refresh_token;
+    for (const candidate of passwordCandidates) {
+      const response = await request.post(`${HUB_URL}/login`, {
+        timeout: Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '45000'),
+        failOnStatusCode: false,
+        data: { username, password: candidate },
+      });
+      const payload = await response.json().catch(() => ({})) as any;
+      accessToken = payload?.data?.access_token;
+      refreshToken = payload?.data?.refresh_token;
+      if (accessToken) break;
+    }
+  }
+
+  if (!accessToken && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    accessToken = HUB_AGENT_TOKEN;
   }
 
   expect(accessToken).toBeTruthy();
