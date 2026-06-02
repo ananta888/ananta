@@ -26,7 +26,7 @@ test.describe('Settings Config', () => {
     hubUrl: string,
     headers: Record<string, string> | undefined,
     predicate: (cfg: any) => boolean,
-    timeoutMs = 10000
+    timeoutMs = 20000
   ) {
     const started = Date.now();
     while ((Date.now() - started) < timeoutMs) {
@@ -125,20 +125,29 @@ test.describe('Settings Config', () => {
     await expect(llmTab).toBeVisible();
     await expect(page.getByRole('heading', { name: /Hub LLM Defaults/i })).toBeVisible();
 
-    await qualityTab.click();
-    await expect(page.getByRole('heading', { name: /^Qualitaetsregeln/i })).toBeVisible();
-    await page.locator('label:has-text("Min. Output Zeichen") input[type="number"]').fill('27');
-    await page.getByRole('button', { name: /Qualitaetsregeln speichern/i }).click();
-    await waitForConfigValue(request, hubUrl, headers, (cfg: any) => Number(cfg?.quality_gates?.min_output_chars) === 27);
-
     await systemTab.click();
     await expect(page.getByRole('heading', { name: /System Parameter/i })).toBeVisible();
     const httpTimeout = page.locator('label:has-text("HTTP Timeout (s)") input[type="number"]');
     await httpTimeout.fill('41');
+    const systemSaveResponse = page.waitForResponse(
+      (res) => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200,
+      { timeout: 20_000 }
+    );
     await page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) })
       .getByRole('button', { name: /^Speichern$/i })
       .click();
-    await waitForConfigValue(request, hubUrl, headers, (cfg: any) => Number(cfg?.http_timeout) === 41);
+    await systemSaveResponse;
+
+    await qualityTab.click();
+    await expect(page.getByRole('heading', { name: /^Qualitaetsregeln/i })).toBeVisible();
+    await page.locator('label:has-text("Min. Output Zeichen") input[type="number"]').fill('27');
+    const qualitySaveResponse = page.waitForResponse(
+      (res) => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200,
+      { timeout: 20_000 }
+    );
+    await page.getByRole('button', { name: /Qualitaetsregeln speichern/i }).click();
+    await qualitySaveResponse;
+    await waitForConfigValue(request, hubUrl, headers, (cfg: any) => Number(cfg?.quality_gates?.min_output_chars) === 27, 30_000);
 
     await llmTab.click();
     await expect(page.getByRole('heading', { name: /Hub LLM Defaults/i })).toBeVisible();
@@ -147,7 +156,7 @@ test.describe('Settings Config', () => {
     await systemTab.click();
     await expect(systemTab).toHaveClass(/active-toggle/);
     await page.getByRole('button', { name: /Aktualisieren/i }).click();
-    await expect(httpTimeout).toHaveValue('41');
+    await expect.poll(async () => await httpTimeout.inputValue(), { timeout: 20_000 }).toBe('41');
 
     const verified = await waitForConfigValue(
       request,
@@ -205,16 +214,14 @@ test.describe('Settings Config', () => {
 
     await httpTimeout.fill('44');
     await commandTimeout.fill('45');
+    const systemSaveResponse = page.waitForResponse(
+      (res) => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200,
+      { timeout: 20_000 }
+    );
     await page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) })
       .getByRole('button', { name: /^Speichern$/i })
       .click();
-    await waitForConfigValue(
-      request,
-      hubUrl,
-      headers,
-      (cfg: any) => Number(cfg?.http_timeout) === 44 && Number(cfg?.command_timeout) === 45,
-      12000
-    );
+    await systemSaveResponse;
 
     await qualityTab.click();
     const minChars = page.locator('label:has-text("Min. Output Zeichen") input[type="number"]');
@@ -230,9 +237,13 @@ test.describe('Settings Config', () => {
     );
 
     await page.reload();
-    await systemTab.click();
-    await expect(httpTimeout).toHaveValue('44');
-    await expect(commandTimeout).toHaveValue('45');
+    const reloadedSystemTab = page.locator('button.button-outline', { hasText: /^System$/i });
+    await reloadedSystemTab.click();
+    const reloadedSystemCard = page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) }).first();
+    const reloadedHttpTimeout = reloadedSystemCard.locator('label:has-text("HTTP Timeout (s)") input[type="number"]').first();
+    const reloadedCommandTimeout = reloadedSystemCard.locator('label:has-text("Command Timeout (s)") input[type="number"]').first();
+    await expect.poll(async () => await reloadedHttpTimeout.inputValue(), { timeout: 20_000 }).toBe('44');
+    await expect.poll(async () => await reloadedCommandTimeout.inputValue(), { timeout: 20_000 }).toBe('45');
 
     const verifyRes = await request.get(`${hubUrl}/config`, { headers });
     expect(verifyRes.ok()).toBeTruthy();

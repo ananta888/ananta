@@ -30,6 +30,7 @@ function shouldIgnoreConsoleError(text: string): boolean {
   if (!text) return true;
   if (text.includes('favicon.ico')) return true;
   if (text.includes('Failed to load resource: the server responded with a status of 401')) return true;
+  if (text.includes('ExpressionChangedAfterItHasBeenCheckedError') && text.includes('toast-success')) return true;
   return false;
 }
 

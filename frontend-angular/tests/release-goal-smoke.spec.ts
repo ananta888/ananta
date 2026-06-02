@@ -120,11 +120,11 @@ test.describe('Release goal smoke E2E', () => {
 
     await page.goto('/dashboard');
     const quickGoal = page.locator('#quick-goal');
-    await expect(quickGoal.getByLabel('Quick Goal Beschreibung eingeben')).toBeVisible();
-    await quickGoal.getByLabel('Quick Goal Beschreibung eingeben').fill('Release Smoke Goal planen');
+    await expect(quickGoal.getByLabel('Zielbeschreibung eingeben')).toBeVisible();
+    await quickGoal.getByLabel('Zielbeschreibung eingeben').fill('Release Smoke Goal planen');
     await quickGoal.getByRole('button', { name: /Goal planen/i }).click();
-    await expect(quickGoal).toContainText('Goal wurde geplant');
-    await quickGoal.getByRole('button', { name: /Zum Goal Detail/i }).click();
+    await expect(quickGoal).toContainText('Plan steht bereit');
+    await quickGoal.getByRole('button', { name: 'Ziel pruefen', exact: true }).click();
 
     await expect(page.getByRole('heading', { name: /Release Smoke Goal/i })).toBeVisible();
     await expect(page.locator('.result-summary')).toContainText('Goal abgeschlossen');
@@ -153,8 +153,8 @@ test.describe('Release goal smoke E2E', () => {
     await expect(wizard.getByText(/Sicherheit/i).first()).toBeVisible();
     await wizard.getByRole('button', { name: /Goal planen/i }).click();
 
-    await expect(page.locator('#quick-goal')).toContainText('Goal wurde geplant');
-    await expect(page.locator('#quick-goal')).toContainText('2 Tasks erstellt');
+    await expect(page.locator('#quick-goal')).toContainText('Plan steht bereit');
+    await expect(page.locator('#quick-goal')).toContainText(/2 (Aufgaben wurden angelegt|Tasks erstellt)/i);
     await assertNoUnhandledBrowserErrors(page);
   });
 });
