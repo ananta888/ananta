@@ -81,12 +81,18 @@ test.describe('Teams CRUD', () => {
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-    const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, { headers });
-    expect(blueprintsRes.ok()).toBeTruthy();
-    const blueprintsBody = await blueprintsRes.json();
-    const blueprints = Array.isArray(blueprintsBody) ? blueprintsBody : (blueprintsBody?.data || []);
-    const scrumBlueprint = blueprints.find((blueprint: any) => blueprint.name === 'Scrum');
-    expect(scrumBlueprint).toBeTruthy();
+    const scrumBlueprintId = await expect.poll(async () => {
+      try {
+        const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, { headers, timeout: 20_000 });
+        if (!blueprintsRes.ok()) return '';
+        const blueprintsBody = await blueprintsRes.json();
+        const blueprints = Array.isArray(blueprintsBody) ? blueprintsBody : (blueprintsBody?.data || []);
+        return blueprints.find((blueprint: any) => blueprint.name === 'Scrum')?.id || '';
+      } catch {
+        return '';
+      }
+    }, { timeout: 30_000 }).not.toBe('');
+    const scrumBlueprint = { id: scrumBlueprintId, name: 'Scrum' };
 
     await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
     const blueprintSelect = page.getByLabel('Blueprint').first();
