@@ -34,6 +34,8 @@ const expectTimeoutMs = Number(process.env.E2E_EXPECT_TIMEOUT_MS || '15000');
 const actionTimeoutMs = Number(process.env.E2E_ACTION_TIMEOUT_MS || '15000');
 const navigationTimeoutMs = Number(process.env.E2E_NAV_TIMEOUT_MS || '30000');
 const webServerEnv = process.env.CI ? { CI: 'true' } : {};
+const configuredWorkers = Number(process.env.E2E_WORKERS || '1');
+const workerCount = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 1;
 const reporters = compactReporter
   ? [['dot'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any
   : [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any;
@@ -54,7 +56,7 @@ export default defineConfig({
   expect: { timeout: expectTimeoutMs },
   fullyParallel: false,
   retries: isLiveLlmRun ? 0 : (process.env.CI ? 2 : 1),
-  workers: process.env.CI ? 2 : 1,
+  workers: workerCount,
   reporter: reporters,
   use: {
     baseURL: baseUrl,
