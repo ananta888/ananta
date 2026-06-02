@@ -19,7 +19,7 @@ export interface NetworkProfile {
 const FALLBACK: NetworkProfile = {
   profile_id: 'public-ananta',
   label: 'Public Ananta (fallback)',
-  oidc: { issuer: 'https://keycloak.ananta.de/realms/ananta', client_id: 'ananta-tui', audience: 'ananta-hub', pkce_required: true },
+  oidc: { issuer: 'https://keycloak.ananta.de/realms/ananta-e2e', client_id: 'ananta-tui', audience: 'ananta-hub', pkce_required: true },
   rendezvous: { base_url: 'https://webrtc.ananta.de', signaling_url: 'wss://webrtc.ananta.de/signaling', transport_order: ['webrtc', 'hub_relay'] },
   ice_servers: [{ urls: 'stun:webrtc.ananta.de:3478' }],
   require_e2e_payload_encryption: true,
