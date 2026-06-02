@@ -21,7 +21,7 @@ test.describe('AI Snake Session Sharing', () => {
     expect(sessionId).toBeTruthy();
     expect(inviteCode).toBeTruthy();
 
-    const join = await request.post(`${HUB_URL}/share-sessions/join`, {
+    const join = await request.post(`${HUB_URL}/share-sessions/join-by-code`, {
       headers: { Authorization: `Bearer ${token}` },
       data: { invite_code: inviteCode },
     });
