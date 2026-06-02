@@ -34,8 +34,8 @@ test.describe('Control Center denied flow', () => {
     await expect(page.getByText('tool blocked')).toBeVisible();
 
     await page.goto('/control-center/sessions', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Sessions')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sessions' })).toBeVisible();
     await expect(page.getByText('Event Stream:')).toBeVisible();
-    await expect(page.getByText('failed')).toBeVisible();
+    await expect(page.getByText('failed', { exact: true })).toBeVisible();
   });
 });
