@@ -320,14 +320,16 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   await page.locator('input[name="username"]').fill(username);
-  await page.locator('input[name="password"]').fill(password);
+  await page.locator('input[name="password"]').fill(passwordCandidates[0] || password);
 
   const submit = page.locator('button.primary');
   const error = page.locator('.error-msg');
 
   const maxAttempts = Number(process.env.E2E_LOGIN_RETRY_ATTEMPTS || '4');
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const attemptPassword = passwordCandidates[attempt % passwordCandidates.length] || password;
     try {
+      await page.locator('input[name="password"]').fill(attemptPassword);
       await expect(submit).toBeEnabled({ timeout: 5000 });
       await submit.click();
       await expect(dashboard).toBeVisible({ timeout: 30000 });
@@ -347,7 +349,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       if (page.isClosed()) break;
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.locator('input[name="username"]').fill(username);
-      await page.locator('input[name="password"]').fill(password);
+      await page.locator('input[name="password"]').fill(attemptPassword);
     }
   }
 
