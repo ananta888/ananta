@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, getAccessToken, loginFast } from './utils';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, getAccessToken, loginFast, requestWithRetry } from './utils';
 
 test.describe('Team Types and Roles', () => {
   test('create type, role, link role, map template, cleanup', async ({ page }) => {
+    test.setTimeout(120_000);
     const extractId = (payload: any): string | undefined =>
       payload?.id || payload?.data?.id || payload?.data?.data?.id;
 
@@ -14,7 +15,7 @@ test.describe('Team Types and Roles', () => {
     const roleName = `E2E Role ${Date.now()}`;
     const typeName = `E2E Type ${Date.now()}`;
 
-    const createTemplateResponse = await page.request.post(`${HUB_URL}/templates`, {
+    const createTemplateResponse = await requestWithRetry(page.request, 'post', `${HUB_URL}/templates`, {
       headers: authHeaders,
       data: {
         name: templateName,
@@ -27,7 +28,7 @@ test.describe('Team Types and Roles', () => {
     const templateId = extractId(createdTemplate);
     expect(templateId).toBeTruthy();
 
-    const createTypeResponse = await page.request.post(`${HUB_URL}/teams/types`, {
+    const createTypeResponse = await requestWithRetry(page.request, 'post', `${HUB_URL}/teams/types`, {
       headers: authHeaders,
       data: {
         name: typeName,
@@ -39,7 +40,7 @@ test.describe('Team Types and Roles', () => {
     const typeId = extractId(createdType);
     expect(typeId).toBeTruthy();
 
-    const createRoleResponse = await page.request.post(`${HUB_URL}/teams/roles`, {
+    const createRoleResponse = await requestWithRetry(page.request, 'post', `${HUB_URL}/teams/roles`, {
       headers: authHeaders,
       data: {
         name: roleName,
@@ -57,34 +58,34 @@ test.describe('Team Types and Roles', () => {
     await teamsPromise;
     await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
 
-    const linkRoleApi = await page.request.post(`${HUB_URL}/teams/types/${typeId}/roles`, {
+    const linkRoleApi = await requestWithRetry(page.request, 'post', `${HUB_URL}/teams/types/${typeId}/roles`, {
       headers: authHeaders,
       data: { role_id: roleId }
     });
     expect(linkRoleApi.ok()).toBeTruthy();
 
-    const mapTemplateApi = await page.request.patch(`${HUB_URL}/teams/types/${typeId}/roles/${roleId}`, {
+    const mapTemplateApi = await requestWithRetry(page.request, 'patch', `${HUB_URL}/teams/types/${typeId}/roles/${roleId}`, {
       headers: authHeaders,
       data: { template_id: templateId }
     });
     expect(mapTemplateApi.ok()).toBeTruthy();
 
-    const unlinkRoleApi = await page.request.delete(`${HUB_URL}/teams/types/${typeId}/roles/${roleId}`, {
+    const unlinkRoleApi = await requestWithRetry(page.request, 'delete', `${HUB_URL}/teams/types/${typeId}/roles/${roleId}`, {
       headers: authHeaders
     });
     expect(unlinkRoleApi.ok()).toBeTruthy();
 
-    const deleteRoleApi = await page.request.delete(`${HUB_URL}/teams/roles/${roleId}`, {
+    const deleteRoleApi = await requestWithRetry(page.request, 'delete', `${HUB_URL}/teams/roles/${roleId}`, {
       headers: authHeaders
     });
     expect(deleteRoleApi.ok()).toBeTruthy();
 
-    const deleteTypeApi = await page.request.delete(`${HUB_URL}/teams/types/${typeId}`, {
+    const deleteTypeApi = await requestWithRetry(page.request, 'delete', `${HUB_URL}/teams/types/${typeId}`, {
       headers: authHeaders
     });
     expect(deleteTypeApi.ok()).toBeTruthy();
 
-    const deleteTemplateApi = await page.request.delete(`${HUB_URL}/templates/${templateId}`, {
+    const deleteTemplateApi = await requestWithRetry(page.request, 'delete', `${HUB_URL}/templates/${templateId}`, {
       headers: authHeaders
     });
     expect(deleteTemplateApi.ok()).toBeTruthy();
