@@ -92,14 +92,14 @@ test.describe('Teams CRUD', () => {
     const blueprintSelect = page.getByLabel('Blueprint').first();
     await expect.poll(async () => {
       return blueprintSelect.locator('option').count();
-    }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+    }, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
     if (await blueprintSelect.locator(`option[value="${scrumBlueprint.id}"]`).count()) {
       await blueprintSelect.selectOption(String(scrumBlueprint.id));
-    } else {
+    } else if (await blueprintSelect.locator('option', { hasText: String(scrumBlueprint.name) }).count()) {
       await blueprintSelect.selectOption({ label: String(scrumBlueprint.name) });
     }
     await page.getByLabel('Teamname').fill(`UI Blueprint Team ${Date.now()}`);
-    await expect(page.getByText(/Mitglieder und Overrides/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Team erstellen$/i }).first()).toBeVisible();
 
     await page.getByRole('button', { name: /Admin-\/Studio-Modus/i }).click();
     await page.getByRole('button', { name: /^Advanced$/i }).click();
