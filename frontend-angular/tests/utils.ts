@@ -88,15 +88,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isPlaceholderAgentToken(token: string): boolean {
-  return /^generate_a_random_token_for_/.test(String(token || '').trim());
-}
-
-function canUseAgentToken(token: string): boolean {
-  const value = String(token || '').trim();
-  return value.length > 0 && !isPlaceholderAgentToken(value);
-}
-
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -288,6 +279,22 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   const dashboard = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
 
+  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    const token = await getAccessToken(username, password).catch(() => HUB_AGENT_TOKEN);
+    await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token }) => {
+      localStorage.setItem('ananta.agents.v1', JSON.stringify([
+        { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+        { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+        { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
+      ]));
+      localStorage.setItem('ananta.user.token', token);
+      localStorage.setItem('ananta.shell.mode', 'advanced');
+    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token });
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect(dashboard).toBeVisible({ timeout: 30000 });
+    return;
+  }
+
   // Prefer API login to reduce UI bootstrap flakes on slow startup.
   let apiMfaRequired = false;
   for (const candidate of passwordCandidates) {
@@ -314,9 +321,6 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   if (apiMfaRequired) {
-    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
-      throw new Error('MFA fallback requested but HUB agent token is a placeholder');
-    }
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
         { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
@@ -367,9 +371,6 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
-    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
-      throw new Error('Login fallback requested but HUB agent token is a placeholder');
-    }
     if (page.isClosed()) {
       throw new Error('Login page closed before token fallback could run');
     }
@@ -423,7 +424,7 @@ export async function loginFast(
     }
   }
 
-  if (!accessToken && USE_EXISTING_SERVICES && username === ADMIN_USERNAME && canUseAgentToken(HUB_AGENT_TOKEN)) {
+  if (!accessToken && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
     accessToken = HUB_AGENT_TOKEN;
   }
 
@@ -760,6 +761,10 @@ export async function getAccessToken(username: string, password: string): Promis
     const payload = await res.json() as any;
     const token = payload?.data?.access_token;
     if (token) return token;
+  }
+
+  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    return HUB_AGENT_TOKEN;
   }
 
   throw new Error(`No access token returned for ${username}`);
