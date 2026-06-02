@@ -6,6 +6,21 @@ services:
   autoimport:
     profiles: ["ollama"]
 
+  postgres:
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ananta}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-replace_this_with_a_secure_password_123!}"
+      POSTGRES_DB: ${POSTGRES_DB:-ananta}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ananta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Ein auslieferbares Image fuer Hub, Worker und Frontend.
   ai-agent-hub:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
@@ -23,9 +38,13 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
       HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
-      DATABASE_URL: ${HUB_DATABASE_URL:-sqlite:////app/data/ananta-hub.db}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-replace_this_with_a_secure_password_123!}@postgres:5432/${POSTGRES_DB:-ananta}"
       AGENT_TOKEN: ${AGENT_TOKEN_HUB:-}
       ANANTA_WORKSPACE_ROOT: /project-workspaces
+    ulimits:
+      nofile:
+        soft: ${HUB_NOFILE_SOFT:-8192}
+        hard: ${HUB_NOFILE_HARD:-65535}
     ports:
       - "5000:5000"
     volumes:
@@ -37,6 +56,9 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   ai-agent-alpha:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
@@ -116,6 +138,7 @@ services:
         condition: service_healthy
 
 volumes:
+  postgres-data:
   hub-data:
   alpha-data:
   beta-data:
