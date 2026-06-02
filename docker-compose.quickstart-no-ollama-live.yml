@@ -2,6 +2,10 @@ services:
   # Live-code overlay for quickstart-no-ollama:
   # - Source code is bind-mounted into /app for hub/workers/frontend.
   # - Data is kept in local ./data/* folders for transparent persistence.
+  postgres:
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
   ai-agent-hub:
     environment:
       FLASK_DEBUG: 0
