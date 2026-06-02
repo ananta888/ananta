@@ -1,4 +1,4 @@
-import { expect, Page, type APIRequestContext } from '@playwright/test';
+import { expect, Page, type APIRequestContext, type APIResponse } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -86,6 +86,15 @@ export async function assertErrorOverlaysInViewport(page: Page): Promise<void> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isPlaceholderAgentToken(token: string): boolean {
+  return /^generate_a_random_token_for_/.test(String(token || '').trim());
+}
+
+function canUseAgentToken(token: string): boolean {
+  const value = String(token || '').trim();
+  return value.length > 0 && !isPlaceholderAgentToken(value);
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
@@ -305,6 +314,9 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   if (apiMfaRequired) {
+    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
+      throw new Error('MFA fallback requested but HUB agent token is a placeholder');
+    }
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
         { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
@@ -355,6 +367,9 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
+      throw new Error('Login fallback requested but HUB agent token is a placeholder');
+    }
     if (page.isClosed()) {
       throw new Error('Login page closed before token fallback could run');
     }
@@ -408,7 +423,7 @@ export async function loginFast(
     }
   }
 
-  if (!accessToken && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+  if (!accessToken && USE_EXISTING_SERVICES && username === ADMIN_USERNAME && canUseAgentToken(HUB_AGENT_TOKEN)) {
     accessToken = HUB_AGENT_TOKEN;
   }
 
@@ -461,6 +476,55 @@ export async function loginFast(
     if (/\/login(?:[?#]|$)/.test(url) || hasLogin) return 'login';
     return 'pending';
   }, { timeout: 30000, intervals: [500, 1000, 2000] }).toBe('authenticated');
+}
+
+const RETRYABLE_API_STATUSES = new Set([408, 409, 423, 425, 429, 500, 502, 503, 504]);
+
+type RequestMethod = 'get' | 'post' | 'patch' | 'delete';
+
+type RequestWithRetryOptions = {
+  headers?: Record<string, string>;
+  data?: any;
+  attempts?: number;
+  timeoutMs?: number;
+  retryOnStatuses?: number[];
+};
+
+export async function requestWithRetry(
+  request: APIRequestContext,
+  method: RequestMethod,
+  url: string,
+  options: RequestWithRetryOptions = {},
+): Promise<APIResponse> {
+  const attempts = Math.max(1, options.attempts ?? Number(process.env.E2E_API_REQUEST_RETRIES || '4'));
+  const timeoutMs = Math.max(1, options.timeoutMs ?? Number(process.env.E2E_API_REQUEST_TIMEOUT_MS || '30000'));
+  const retryStatuses = new Set(options.retryOnStatuses ?? [...RETRYABLE_API_STATUSES]);
+  let lastError: unknown;
+
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      const response = await request[method](url, {
+        headers: options.headers,
+        data: options.data,
+        timeout: timeoutMs,
+        failOnStatusCode: false,
+      } as any);
+      if (response.ok()) {
+        return response;
+      }
+      if (!retryStatuses.has(response.status()) || index === attempts - 1) {
+        return response;
+      }
+    } catch (error) {
+      lastError = error;
+      if (index === attempts - 1) {
+        throw error;
+      }
+    }
+    await sleep(Math.min(300 * (index + 1), 1500));
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`requestWithRetry failed: ${method.toUpperCase()} ${url}`);
 }
 
 async function postJson(url: string, body: any, token?: string): Promise<Response> {

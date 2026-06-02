@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, loginFast, openTeamsAdminStudio } from './utils';
+import { HUB_URL, loginFast, openTeamsAdminStudio, requestWithRetry } from './utils';
 
 test.describe('Teams CRUD', () => {
   async function getHubInfo(page: any) {
@@ -30,7 +30,7 @@ test.describe('Teams CRUD', () => {
     const name = `E2E Team ${Date.now()}`;
     const updatedDescription = 'E2E Team Beschreibung aktualisiert';
 
-    const createRes = await request.post(`${hubUrl}/teams`, {
+    const createRes = await requestWithRetry(request, 'post', `${hubUrl}/teams`, {
       headers,
       data: { name, description: 'E2E Team Beschreibung', members: [] }
     });
@@ -39,19 +39,19 @@ test.describe('Teams CRUD', () => {
     const created = createBody?.data || createBody;
     expect(created?.id).toBeTruthy();
 
-    const patchRes = await request.patch(`${hubUrl}/teams/${created.id}`, {
+    const patchRes = await requestWithRetry(request, 'patch', `${hubUrl}/teams/${created.id}`, {
       headers,
       data: { description: updatedDescription }
     });
     expect(patchRes.ok()).toBeTruthy();
 
-    const activateRes = await request.post(`${hubUrl}/teams/${created.id}/activate`, {
+    const activateRes = await requestWithRetry(request, 'post', `${hubUrl}/teams/${created.id}/activate`, {
       headers,
       data: {}
     });
     expect(activateRes.ok()).toBeTruthy();
 
-    const listRes = await request.get(`${hubUrl}/teams`, { headers });
+    const listRes = await requestWithRetry(request, 'get', `${hubUrl}/teams`, { headers });
     expect(listRes.ok()).toBeTruthy();
     const listBody = await listRes.json();
     const teams = Array.isArray(listBody) ? listBody : (listBody?.data || []);
@@ -60,10 +60,10 @@ test.describe('Teams CRUD', () => {
     expect(found.description).toBe(updatedDescription);
     expect(found.is_active).toBeTruthy();
 
-    const delRes = await request.delete(`${hubUrl}/teams/${created.id}`, { headers });
+    const delRes = await requestWithRetry(request, 'delete', `${hubUrl}/teams/${created.id}`, { headers });
     expect(delRes.ok()).toBeTruthy();
 
-    const afterRes = await request.get(`${hubUrl}/teams`, { headers });
+    const afterRes = await requestWithRetry(request, 'get', `${hubUrl}/teams`, { headers });
     expect(afterRes.ok()).toBeTruthy();
     const afterBody = await afterRes.json();
     const afterTeams = Array.isArray(afterBody) ? afterBody : (afterBody?.data || []);
@@ -83,7 +83,10 @@ test.describe('Teams CRUD', () => {
 
     const scrumBlueprintId = await expect.poll(async () => {
       try {
-        const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, { headers, timeout: 20_000 });
+        const blueprintsRes = await requestWithRetry(request, 'get', `${hubUrl}/teams/blueprints`, {
+          headers,
+          timeoutMs: 20_000,
+        });
         if (!blueprintsRes.ok()) return '';
         const blueprintsBody = await blueprintsRes.json();
         const blueprints = Array.isArray(blueprintsBody) ? blueprintsBody : (blueprintsBody?.data || []);
@@ -119,7 +122,10 @@ test.describe('Teams CRUD', () => {
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
     const missingId = `team-missing-${Date.now()}`;
-    const res = await request.delete(`${hubUrl}/teams/${missingId}`, { headers });
+    const res = await requestWithRetry(request, 'delete', `${hubUrl}/teams/${missingId}`, {
+      headers,
+      attempts: 1,
+    });
     expect(res.status()).toBe(404);
   });
 
@@ -157,7 +163,7 @@ test.describe('Teams CRUD', () => {
       await blueprintEditor.getByRole('button', { name: /^Erstellen$/i }).click();
       await expect(page.locator('.notification.success .notification-message')).toHaveText(/Blueprint erstellt/i);
 
-      const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, { headers });
+      const blueprintsRes = await requestWithRetry(request, 'get', `${hubUrl}/teams/blueprints`, { headers });
       expect(blueprintsRes.ok()).toBeTruthy();
       const blueprintsBody = await blueprintsRes.json();
       const blueprints = Array.isArray(blueprintsBody) ? blueprintsBody : (blueprintsBody?.data || []);
@@ -174,7 +180,7 @@ test.describe('Teams CRUD', () => {
       await instantiatePanel.getByRole('button', { name: /^Team erstellen$/i }).click();
       await expect(page.getByText('Team aus Blueprint erstellt', { exact: true })).toBeVisible();
 
-      const teamsRes = await request.get(`${hubUrl}/teams`, { headers });
+      const teamsRes = await requestWithRetry(request, 'get', `${hubUrl}/teams`, { headers });
       expect(teamsRes.ok()).toBeTruthy();
       const teamsBody = await teamsRes.json();
       const teams = Array.isArray(teamsBody) ? teamsBody : (teamsBody?.data || []);
@@ -184,10 +190,10 @@ test.describe('Teams CRUD', () => {
       createdTeamId = createdTeam.id;
     } finally {
       if (createdTeamId) {
-        await request.delete(`${hubUrl}/teams/${createdTeamId}`, { headers });
+        await requestWithRetry(request, 'delete', `${hubUrl}/teams/${createdTeamId}`, { headers, attempts: 2 });
       }
       if (createdBlueprintId) {
-        await request.delete(`${hubUrl}/teams/blueprints/${createdBlueprintId}`, { headers });
+        await requestWithRetry(request, 'delete', `${hubUrl}/teams/blueprints/${createdBlueprintId}`, { headers, attempts: 2 });
       }
     }
   });

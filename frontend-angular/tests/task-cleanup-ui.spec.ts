@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { ALPHA_URL, BETA_URL, HUB_AGENT_TOKEN, ALPHA_AGENT_TOKEN, BETA_AGENT_TOKEN, HUB_URL, login } from './utils';
+import { ALPHA_URL, BETA_URL, HUB_AGENT_TOKEN, ALPHA_AGENT_TOKEN, BETA_AGENT_TOKEN, HUB_URL, loginFast } from './utils';
 
 test.describe('Task Cleanup UI', () => {
   test('graph actions call archive/delete cleanup endpoints', async ({ page }) => {
-    await login(page);
+    await loginFast(page, page.request);
 
     const tasksPayload = [
       { id: 'DONE-1', title: 'done item', status: 'completed' },
@@ -93,7 +93,7 @@ test.describe('Task Cleanup UI', () => {
 
   test('archived page supports single and filtered delete actions', async ({ page }) => {
     test.skip(true, 'Archived table rows still not rendered in compose E2E despite mocked /tasks/archived responses; follow-up task open.');
-    await login(page);
+    await loginFast(page, page.request);
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
         { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
