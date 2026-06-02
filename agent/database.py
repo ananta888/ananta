@@ -104,7 +104,12 @@ def init_db():
     last_exception = None
 
     if _is_postgresql(DATABASE_URL):
+        # In shared PostgreSQL setups the hub is responsible for creating/upgrading
+        # tables so workers can wait for a ready schema without racing DDL.
+        if settings.role == "hub":
+            SQLModel.metadata.create_all(engine)
         _wait_for_required_schema(max_retries=max_retries, retry_delay=retry_delay)
+        _ensure_schema_compat()
         ensure_default_user()
         return
 
@@ -213,6 +218,16 @@ def ensure_default_user():
 
 
 def _ensure_schema_compat() -> None:
+    if DATABASE_URL.startswith("postgresql"):
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE IF EXISTS templates "
+                    "ADD COLUMN IF NOT EXISTS is_seed BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+        return
+
     if not DATABASE_URL.startswith("sqlite"):
         return
 
