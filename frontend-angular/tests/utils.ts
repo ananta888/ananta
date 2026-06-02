@@ -277,26 +277,34 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
   const dashboard = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
+  const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
 
   // Prefer API login to reduce UI bootstrap flakes on slow startup.
-  const apiLogin = await loginViaApi(username, password);
-  if (apiLogin?.accessToken) {
-    await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token, refreshToken }) => {
-      localStorage.setItem('ananta.agents.v1', JSON.stringify([
-        { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
-        { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
-        { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
-      ]));
-      localStorage.setItem('ananta.user.token', token);
-      if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
-      localStorage.setItem('ananta.shell.mode', 'advanced');
-    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(dashboard).toBeVisible({ timeout: 30000 });
-    return;
+  let apiMfaRequired = false;
+  for (const candidate of passwordCandidates) {
+    const apiLogin = await loginViaApi(username, candidate);
+    if (apiLogin?.accessToken) {
+      await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token, refreshToken }) => {
+        localStorage.setItem('ananta.agents.v1', JSON.stringify([
+          { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+          { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+          { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
+        ]));
+        localStorage.setItem('ananta.user.token', token);
+        if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
+        localStorage.setItem('ananta.shell.mode', 'advanced');
+      }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+      await expect(dashboard).toBeVisible({ timeout: 30000 });
+      return;
+    }
+    if (apiLogin?.mfaRequired) {
+      apiMfaRequired = true;
+      break;
+    }
   }
-  if (apiLogin?.mfaRequired) {
-    // In shared/local compose test mode, bypass interactive MFA by using static AGENT_TOKEN auth.
+
+  if (apiMfaRequired) {
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
         { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
@@ -341,6 +349,19 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       await page.locator('input[name="username"]').fill(username);
       await page.locator('input[name="password"]').fill(password);
     }
+  }
+
+  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
+      localStorage.setItem('ananta.agents.v1', JSON.stringify([
+        { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+        { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+        { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
+      ]));
+      localStorage.setItem('ananta.user.token', hubToken);
+      localStorage.setItem('ananta.shell.mode', 'advanced');
+    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
   }
 
   await expect(dashboard).toBeVisible({ timeout: 30000 });
@@ -653,9 +674,6 @@ export async function getAccessToken(username: string, password: string): Promis
   for (const candidate of passwordCandidates) {
     const apiLogin = await loginViaApi(username, candidate);
     if (apiLogin?.accessToken) return apiLogin.accessToken;
-    if (apiLogin?.mfaRequired && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
-      return HUB_AGENT_TOKEN;
-    }
   }
 
   try { await ensureLoginAttemptsCleared(); } catch {}
@@ -672,10 +690,6 @@ export async function getAccessToken(username: string, password: string): Promis
     const payload = await res.json() as any;
     const token = payload?.data?.access_token;
     if (token) return token;
-  }
-
-  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
-    return HUB_AGENT_TOKEN;
   }
 
   throw new Error(`No access token returned for ${username}`);
