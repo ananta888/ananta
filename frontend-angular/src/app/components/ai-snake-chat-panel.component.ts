@@ -103,7 +103,7 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
               </datalist>
             </label>
             <label>Realm
-              <input [(ngModel)]="keycloakRealm" (change)="onKeycloakUrlChange()" placeholder="ananta" />
+              <input [(ngModel)]="keycloakRealm" (change)="onKeycloakUrlChange()" placeholder="ananta-e2e" />
             </label>
             <button (click)="keycloakLogin()" [disabled]="loginBusy">
               {{ loginBusy ? 'Öffne Login…' : 'Mit Keycloak anmelden' }}
@@ -226,7 +226,7 @@ export class AiSnakeChatPanelComponent {
   role = 'viewer';
   draft = '';
   keycloakBaseUrl = 'https://keycloak.ananta.de';
-  keycloakRealm = 'ananta';
+  keycloakRealm = 'ananta-e2e';
   webrtcBaseUrl = 'https://webrtc.ananta.de';
   loginBusy = false;
   loginError = '';
@@ -236,7 +236,7 @@ export class AiSnakeChatPanelComponent {
   @Output() tabChange = new EventEmitter<'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
 
   get keycloakIssuer(): string {
-    return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta'}`;
+    return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta-e2e'}`;
   }
 
   constructor() {

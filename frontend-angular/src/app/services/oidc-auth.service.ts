@@ -1,13 +1,13 @@
 /**
  * T12 / T13 / T14 / T15 / T16: OIDC PKCE + Device Flow + Refresh + Logout + Nonce
- * Issuer: keycloak.ananta.de/realms/ananta  client_id: ananta-tui
+ * Issuer: keycloak.ananta.de/realms/ananta-e2e  client_id: ananta-tui
  */
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { map } from 'rxjs';
 import { UserAuthService } from './user-auth.service';
 
-const ISSUER = 'https://keycloak.ananta.de/realms/ananta';
+const ISSUER = 'https://keycloak.ananta.de/realms/ananta-e2e';
 const CLIENT_ID = 'ananta-tui';
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
