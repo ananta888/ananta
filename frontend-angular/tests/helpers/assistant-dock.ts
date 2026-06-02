@@ -14,12 +14,12 @@ export function assistantInput(page: Page) {
 
 export async function hasAssistantDock(page: Page): Promise<boolean> {
   if ((await dockContainer(page).count()) > 0) return true;
-  return (await page.getByText(/AI Assistant/i).first().count()) > 0;
+  return (await page.getByText(/AI (Assistant|Snake)/i).first().count()) > 0;
 }
 
 export async function ensureAssistantExpanded(page: Page): Promise<boolean> {
   if (await dockContainer(page).count() === 0) {
-    const opener = page.getByText(/AI Assistant/i).first();
+    const opener = page.getByText(/AI (Assistant|Snake)/i).first();
     if (await opener.count()) {
       await opener.click();
     }
