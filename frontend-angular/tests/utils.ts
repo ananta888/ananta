@@ -326,13 +326,14 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   const error = page.locator('.error-msg');
 
   const maxAttempts = Number(process.env.E2E_LOGIN_RETRY_ATTEMPTS || '4');
+  const loginAttemptTimeoutMs = Number(process.env.E2E_LOGIN_ATTEMPT_TIMEOUT_MS || '12000');
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const attemptPassword = passwordCandidates[attempt % passwordCandidates.length] || password;
     try {
       await page.locator('input[name="password"]').fill(attemptPassword);
       await expect(submit).toBeEnabled({ timeout: 5000 });
       await submit.click();
-      await expect(dashboard).toBeVisible({ timeout: 30000 });
+      await expect(dashboard).toBeVisible({ timeout: loginAttemptTimeoutMs });
       return;
     } catch (e: any) {
       console.warn(`Login attempt ${attempt + 1} failed: ${e.message}`);
@@ -354,6 +355,9 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    if (page.isClosed()) {
+      throw new Error('Login page closed before token fallback could run');
+    }
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
         { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
