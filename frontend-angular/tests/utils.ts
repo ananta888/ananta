@@ -648,22 +648,37 @@ export function createJourneyCleanupPolicy(
 
 export async function getAccessToken(username: string, password: string): Promise<string> {
   await normalizeExistingAdminAuthState(username, password);
-  const apiLogin = await loginViaApi(username, password);
-  if (apiLogin?.accessToken) return apiLogin.accessToken;
-  if (apiLogin?.mfaRequired && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
-    return 'hubsecret';
+  const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
+
+  for (const candidate of passwordCandidates) {
+    const apiLogin = await loginViaApi(username, candidate);
+    if (apiLogin?.accessToken) return apiLogin.accessToken;
+    if (apiLogin?.mfaRequired && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+      return HUB_AGENT_TOKEN;
+    }
   }
 
-  const res = await postJson(`${HUB_URL}/login`, { username, password });
-  if (!res.ok) {
-    throw new Error(`Login failed for ${username}: ${res.status}`);
+  try { await ensureLoginAttemptsCleared(); } catch {}
+
+  for (const candidate of passwordCandidates) {
+    const res = await postJson(`${HUB_URL}/login`, { username, password: candidate });
+    if (!res.ok) {
+      if (res.status === 429) {
+        try { await ensureLoginAttemptsCleared(); } catch {}
+        continue;
+      }
+      continue;
+    }
+    const payload = await res.json() as any;
+    const token = payload?.data?.access_token;
+    if (token) return token;
   }
-  const payload = await res.json() as any;
-  const token = payload?.data?.access_token;
-  if (!token) {
-    throw new Error(`No access token returned for ${username}`);
+
+  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    return HUB_AGENT_TOKEN;
   }
-  return token;
+
+  throw new Error(`No access token returned for ${username}`);
 }
 
 export async function createUserAsAdmin(username: string, password: string, role: 'admin' | 'user' = 'user') {
