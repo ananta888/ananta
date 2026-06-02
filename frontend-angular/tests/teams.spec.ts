@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login, openTeamsAdminStudio } from './utils';
+import { HUB_URL, loginFast, openTeamsAdminStudio } from './utils';
 
 test.describe('Teams CRUD', () => {
   async function getHubInfo(page: any) {
@@ -20,7 +20,7 @@ test.describe('Teams CRUD', () => {
   }
 
   test('create, update, activate, delete team via API', async ({ page, request }) => {
-    await login(page);
+    await loginFast(page, request);
     await page.goto('/teams');
     await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
 
@@ -71,7 +71,7 @@ test.describe('Teams CRUD', () => {
   });
 
   test('blueprint-first page shows blueprint and advanced flows', async ({ page, request }) => {
-    await login(page);
+    await loginFast(page, request);
     await page.goto('/teams');
 
     await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
@@ -89,7 +89,15 @@ test.describe('Teams CRUD', () => {
     expect(scrumBlueprint).toBeTruthy();
 
     await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
-    await page.locator('select').first().selectOption(scrumBlueprint.id);
+    const blueprintSelect = page.getByLabel('Blueprint').first();
+    await expect.poll(async () => {
+      return blueprintSelect.locator('option').count();
+    }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+    if (await blueprintSelect.locator(`option[value="${scrumBlueprint.id}"]`).count()) {
+      await blueprintSelect.selectOption(String(scrumBlueprint.id));
+    } else {
+      await blueprintSelect.selectOption({ label: String(scrumBlueprint.name) });
+    }
     await page.getByLabel('Teamname').fill(`UI Blueprint Team ${Date.now()}`);
     await expect(page.getByText(/Mitglieder und Overrides/i)).toBeVisible();
 
@@ -100,7 +108,7 @@ test.describe('Teams CRUD', () => {
   });
 
   test('delete missing team returns not found', async ({ page, request }) => {
-    await login(page);
+    await loginFast(page, request);
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -110,7 +118,7 @@ test.describe('Teams CRUD', () => {
   });
 
   test('blueprint editor shows validation errors and can instantiate a custom blueprint', async ({ page, request }) => {
-    await login(page);
+    await loginFast(page, request);
     await openTeamsAdminStudio(page);
 
     const { hubUrl, token } = await getHubInfo(page);
