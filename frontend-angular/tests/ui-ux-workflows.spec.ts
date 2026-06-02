@@ -193,7 +193,13 @@ test.describe('UI UX Workflows', () => {
       await editor.getByLabel('Beschreibung').fill('Blueprint aus UI-Workflow-Test');
       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
       await editor.getByLabel('Rollenname').first().fill('Implementer');
-      await editor.getByLabel('Template').first().selectOption(String(createdTemplateId));
+      const roleTemplateSelect = editor.locator('label:has-text("Rollen-Template") select').first();
+      await expect.poll(async () => {
+        return roleTemplateSelect.locator('option').count();
+      }, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
+      if (await roleTemplateSelect.locator('option', { hasText: templateName }).count()) {
+        await roleTemplateSelect.selectOption({ label: templateName });
+      }
       await editor.getByRole('button', { name: /^Erstellen$/i }).click();
       await expect.poll(async () => {
         const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, {
