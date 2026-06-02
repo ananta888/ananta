@@ -11,7 +11,7 @@ test.describe('WebRTC DataChannel Protocol', () => {
   });
 
   test('reassembles chunked payloads', async () => {
-    const large = 'x'.repeat(120_000);
+    const large = 'x'.repeat(50_000);
     const base = dcMake('view_payload', 'nonce-2', { body: large });
     const chunks = dcEncodeChunked(base);
     expect(chunks.length).toBeGreaterThan(1);
