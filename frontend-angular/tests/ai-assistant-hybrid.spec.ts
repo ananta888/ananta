@@ -83,7 +83,9 @@ test.describe('AI Assistant Hybrid Context', () => {
       test.skip(true, 'Assistant dock not available in this environment.');
     }
 
-    await page.getByLabel(/Hybrid Context/i).check();
+    const hybridToggle = page.getByTestId('assistant-hybrid-toggle');
+    await expect(hybridToggle).toBeVisible({ timeout: 30_000 });
+    await hybridToggle.check();
     await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('where is timeout handling?');
     await page.getByRole('button', { name: /Send|Senden/i }).click();
 

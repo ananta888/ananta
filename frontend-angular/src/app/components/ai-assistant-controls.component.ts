@@ -23,7 +23,13 @@ import { AssistantRuntimeContext, CliBackend } from './ai-assistant.types';
       }
     </div>
     <label class="hybrid-toggle">
-      <input type="checkbox" [ngModel]="useHybridContext" (ngModelChange)="useHybridContextChange.emit($event)" [disabled]="busy">
+      <input
+        type="checkbox"
+        data-testid="assistant-hybrid-toggle"
+        aria-label="Hybrid Context"
+        [ngModel]="useHybridContext"
+        (ngModelChange)="useHybridContextChange.emit($event)"
+        [disabled]="busy">
       Hybrid Context (Aider + Vibe + LlamaIndex)
     </label>
     <div class="muted context-info">Route: {{ runtimeContext.route }} | User: {{ runtimeContext.userName || 'n/a' }} ({{ runtimeContext.userRole || 'n/a' }}) | Agents: {{ runtimeContext.agents.length }} | Teams: {{ runtimeContext.teamsCount }} | Templates: {{ runtimeContext.templatesCount }}</div>

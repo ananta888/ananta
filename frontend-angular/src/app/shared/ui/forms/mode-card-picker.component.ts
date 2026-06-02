@@ -12,7 +12,7 @@ export interface ModeCardOption {
   standalone: true,
   selector: 'app-mode-card-picker',
   template: `
-    <div class="shared-mode-picker" [class.cols-2]="columns === 2" [class.cols-3]="columns === 3" [class.cols-4]="columns === 4" [attr.aria-label]="ariaLabel">
+    <div class="shared-mode-picker" role="group" [class.cols-2]="columns === 2" [class.cols-3]="columns === 3" [class.cols-4]="columns === 4" [attr.aria-label]="ariaLabel">
       @for (option of options; track option.id) {
         <button
           type="button"
