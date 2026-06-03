@@ -86,7 +86,7 @@ def verify_bearer_token(authorization_header: str) -> AuthContext:
             )
         except jwt.ExpiredSignatureError as exc:
             raise ValueError("Token expired") from exc
-        except jwt.InvalidTokenError as exc:
+        except (jwt.InvalidTokenError, ValueError) as exc:
             last_error = exc
             continue
 
