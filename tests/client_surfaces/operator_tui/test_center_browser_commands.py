@@ -27,7 +27,8 @@ class TestCenterBrowserCommands(unittest.TestCase):
         self.assertEqual(game.get("center_browser_status"), "exited")
 
     def test_default_browser_keybinding_has_no_footer_conflict(self):
-        self.assertEqual(key_for_action("center_browser_toggle", "c-2"), "c-2")
+        # Default keybinding for center_browser_toggle is c-b (set in default.json)
+        self.assertEqual(key_for_action("center_browser_toggle", "c-2"), "c-b")
         self.assertEqual(area_keybinding_conflicts("footer-normal"), [])
 
     def test_center_webview_open_sets_data_url_requested(self):

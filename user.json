@@ -141,5 +141,7 @@
     "chat_summary_chars": 2500,
     "chat_backend_api_base": "http://192.168.178.100:1234/v1",
     "input_history_command_enabled": true
-  }
+  },
+  "chat_backend": "lmstudio",
+  "_updated_at": 1780495976.6594732
 }
