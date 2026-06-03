@@ -1,5 +1,7 @@
 import json
 from typing import List, Optional, Dict, Any
+from agent.db_models import ContextAccessPolicyDB
+from agent.repositories.context_access_policy_repo import get_context_access_policy_repo
 from agent.services.source_classification_service import get_source_classification_service
 from worker.core.context_access_policy import (
     ContextAccessPolicy,
@@ -19,6 +21,27 @@ class ContextAccessPolicyService:
     def __init__(self):
         self._policies: Dict[str, ContextAccessPolicy] = {}
         self._classification_service = get_source_classification_service()
+        self._repo = get_context_access_policy_repo()
+
+    def list_policies(self, *, project_id: str | None = None) -> List[ContextAccessPolicyDB]:
+        if project_id:
+            return self._repo.find_by_project(project_id)
+        return self._repo.find_by_scope("system_default")
+
+    def create_policy_record(self, *, payload: dict[str, Any], now_ts: float) -> ContextAccessPolicyDB:
+        policy_db = ContextAccessPolicyDB(
+            policy_id=payload["policy_id"],
+            version=payload.get("version", 1),
+            project_id=payload.get("project_id"),
+            scope=payload.get("scope", "project"),
+            policy_json=payload,
+            created_at=now_ts,
+            updated_at=now_ts,
+        )
+        return self._repo.save(policy_db)
+
+    def get_latest_policy(self, policy_id: str) -> ContextAccessPolicyDB | None:
+        return self._repo.get_latest_version(policy_id)
 
     def validate_policy(self, policy: ContextAccessPolicy) -> List[str]:
         errors = []

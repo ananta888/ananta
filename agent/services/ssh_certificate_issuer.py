@@ -22,6 +22,7 @@ from typing import Any
 
 from agent.common.audit import log_audit
 from agent.config import settings
+from agent.services.oidc_claims_mapper import map_claims_to_auth
 from agent.services.ssh_principal_mapper import get_ssh_principal_mapper
 from agent.services.terminal_policy_service import get_terminal_policy_service
 
@@ -147,8 +148,7 @@ class SshCertificateIssuer:
             self._audit_denied(reason, id_token_claims, decision_id, target_type)
             return self._deny(reason, decision_id, target_type, "")
 
-        from agent.routes.auth_oidc import _map_claims_to_auth
-        user_ctx = _map_claims_to_auth(id_token_claims)
+        user_ctx = map_claims_to_auth(id_token_claims)
         user_id = user_ctx.get("sub") or user_ctx.get("username") or ""
 
         mapper = get_ssh_principal_mapper()

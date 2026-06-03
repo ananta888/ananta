@@ -2,19 +2,35 @@
 from __future__ import annotations
 
 import time
-from typing import List
+from typing import List, Protocol
 
 from sqlmodel import Session, delete, select
 
 from agent.database import engine
 from agent.db_models import DecisionTraceDB
-from agent.services.heuristic_runtime.decision_trace import DecisionTrace
 
 _SECONDS_PER_DAY = 86_400.0
 
 
+class DecisionTraceLike(Protocol):
+    event_id: str
+    surface: str
+    context_hash: str
+    lease_id: str | None
+    heuristic_id: str | None
+    strategy_id: str | None
+    rule_id: str | None
+    confidence: float
+    fallback_reason: str | None
+    source: str
+    action_kind: str
+    started_at: float
+    resolved_at: float | None
+    reason_codes: list[str]
+
+
 class DecisionTraceRepository:
-    def save(self, trace: DecisionTrace) -> DecisionTraceDB:
+    def save(self, trace: DecisionTraceLike) -> DecisionTraceDB:
         row = DecisionTraceDB(
             id=trace.event_id,
             surface=trace.surface,

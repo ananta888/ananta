@@ -7,6 +7,7 @@ from agent.db_models import GoalDB
 from agent.repository import goal_repo, task_repo
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.goal_planning_recovery_service import get_goal_planning_recovery_service
 from agent.services.request_cancellation_service import get_request_cancellation_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
@@ -338,8 +339,7 @@ class GoalLifecycleService:
         goal = goal_repo.save(goal)
         try:
             effective = dict(getattr(goal, "workflow_effective", None) or {})
-            from agent.routes.tasks.auto_planner import auto_planner
-            result = auto_planner.plan_goal(
+            result = get_goal_planning_recovery_service().plan_goal(
                 goal=str(getattr(goal, "goal", "") or ""),
                 context=str(getattr(goal, "context", "") or "") or None,
                 team_id=effective.get("routing", {}).get("team_id"),
