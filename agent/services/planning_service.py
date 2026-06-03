@@ -980,7 +980,7 @@ class PlanningService:
         )
         enforce_quality_gate = (
             mode == "new_software_project"
-            or has_explicit_validation_profiles
+            or (has_explicit_validation_profiles and bool(str(goal_id or "").strip()))
         )
         perform_quality_repairs = bool(create_tasks and enforce_quality_gate)
         repair_context = dict(mode_data_dict.get("planning_repair_context") or {})
