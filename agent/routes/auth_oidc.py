@@ -219,7 +219,7 @@ def _validate_id_token(token: str, *, issuer: str, audience: str, nonce: str | N
         algorithms=["RS256", "ES256"],
         audience=audience,
         issuer=issuer,
-        options={"require": ["sub", "iss", "aud", "exp", "iat"]},
+        options={"require": ["sub", "iss", "aud", "exp", "iat"], "leeway": 60},
     )
     if nonce and claims.get("nonce") != nonce:
         raise ValueError("oidc_nonce_mismatch")
