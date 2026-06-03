@@ -22,7 +22,7 @@ def configure_cors(app: Flask) -> None:
         origins = settings.cors_origins
         if "," in origins:
             origins = [o.strip() for o in origins.split(",")]
-        CORS(app, resources={r"*": {"origins": origins}})
+        CORS(app, resources={r"*": {"origins": origins, "supports_credentials": True}})
     except Exception as e:
         logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 

@@ -229,7 +229,7 @@ export class OidcAuthService {
     const exchangeParams = new URLSearchParams({ code });
     if (state) exchangeParams.set('state', state);
     const exchangeUrl = `${hubUrl.replace(/\/$/, '')}/auth/oidc/exchange?${exchangeParams}`;
-    const r = await fetch(exchangeUrl, { method: 'GET', credentials: 'include' });
+    const r = await fetch(exchangeUrl, { method: 'GET', credentials: 'omit' });
     if (!r.ok) return false;
     const payload = await r.json() as any;
     const data = payload?.data || payload;
