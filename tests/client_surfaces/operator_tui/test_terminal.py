@@ -29,7 +29,11 @@ def test_get_tty_size_falls_back_when_no_tty(monkeypatch):
         yield  # pragma: no cover
 
     monkeypatch.setattr(terminal, "_open_dev_tty", _open)
-    monkeypatch.setattr(terminal.shutil, "get_terminal_size", lambda fb: os.terminal_size((101, 29)))
+    monkeypatch.setattr(
+        terminal.shutil,
+        "get_terminal_size",
+        lambda *args, **kwargs: os.terminal_size((101, 29)),
+    )
 
     cols, rows = terminal.get_tty_size((120, 32))
     assert (cols, rows) == (101, 29)
@@ -46,7 +50,11 @@ def test_get_tty_size_falls_back_when_ioctl_returns_invalid(monkeypatch):
 
     monkeypatch.setattr(terminal, "_open_dev_tty", _open)
     monkeypatch.setattr(terminal, "_tty_ioctl_size", lambda fd: (0, 0))
-    monkeypatch.setattr(terminal.shutil, "get_terminal_size", lambda fb: os.terminal_size((88, 27)))
+    monkeypatch.setattr(
+        terminal.shutil,
+        "get_terminal_size",
+        lambda *args, **kwargs: os.terminal_size((88, 27)),
+    )
 
     cols, rows = terminal.get_tty_size((120, 32))
     assert (cols, rows) == (88, 27)

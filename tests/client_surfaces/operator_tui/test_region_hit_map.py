@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
 from client_surfaces.operator_tui.models import OperatorState
 from client_surfaces.operator_tui.region_index import build_region_index
 
@@ -66,8 +67,11 @@ def test_ai_snake_config_combobox_option_rows_are_clickable() -> None:
             },
         },
     )
-    # body_start=9; options begin at row index 8 + len(items=16) => y=33 for first option.
-    hit = build_region_index(state, width=120, height=40).get_target_at(28, 33)
+    # body_start=9; options begin at body_y1 + 8 + len(items) (+1 on filter error).
+    cfg_items = ai_snake_config_items(dict(state.header_logo_game or {}))
+    first_option_y = 9 + 8 + len(cfg_items)
+    min_height = first_option_y + 6
+    hit = build_region_index(state, width=120, height=min_height).get_target_at(28, first_option_y)
     assert hit is not None
     assert hit.pane == "content"
     assert str(hit.payload.get("ai_snake_combo_option_value") or "") in {"AN", "AUS"}
