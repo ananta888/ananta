@@ -13,6 +13,7 @@ export class UserAuthService {
   token$ = this._token.asObservable();
 
   private _refreshToken = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.refresh_token'));
+  private _oidcAccessToken = new BehaviorSubject<string | null>(localStorage.getItem('ananta.oidc.access_token'));
 
   private _user = new BehaviorSubject<any>(this.decodeTokenPayload(this.token));
   user$ = this._user.asObservable();
@@ -23,6 +24,7 @@ export class UserAuthService {
 
   get token() { return this._token.value; }
   get refreshTokenValue() { return this._refreshToken.value; }
+  get oidcAccessTokenValue() { return this._oidcAccessToken.value; }
   get userPayload() { return this._user.value; }
 
   setTokens(token: string | null, refreshToken?: string | null) {
@@ -43,10 +45,21 @@ export class UserAuthService {
     this._user.next(this.decodeTokenPayload(token));
   }
 
+  setOidcAccessToken(token: string | null) {
+    if (token) {
+      localStorage.setItem('ananta.oidc.access_token', token);
+    } else {
+      localStorage.removeItem('ananta.oidc.access_token');
+    }
+
+    this._oidcAccessToken.next(token);
+  }
+
   isLoggedIn() { return !!this.token; }
 
   logout() {
     this.setTokens(null, null);
+    this.setOidcAccessToken(null);
   }
 
   refreshToken(): Observable<any> {

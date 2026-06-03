@@ -290,16 +290,72 @@ async function waitForPublicOidcToken(page: Page, timeoutMs = 60_000): Promise<v
   ).toBeTruthy();
 }
 
+async function waitForPublicOidcAccessToken(page: Page, timeoutMs = 60_000): Promise<void> {
+  await expect.poll(
+    async () => page.evaluate(() => localStorage.getItem('ananta.oidc.access_token')),
+    { timeout: timeoutMs }
+  ).toBeTruthy();
+}
+
 async function loginViaPublicOidcUi(page: Page): Promise<void> {
   const creds = resolvePublicOidcCredentials();
   const keycloakLogin = page.getByRole('button', { name: /Mit Keycloak anmelden/i });
   await expect(keycloakLogin).toBeVisible({ timeout: 30_000 });
   await keycloakLogin.click();
 
+  await page.waitForURL(/keycloak\.ananta\.de\/realms\/ananta-e2e\//i, { timeout: 120_000 });
+  await page.waitForLoadState('domcontentloaded').catch(() => undefined);
+
+  if (await page.getByText(/Invalid parameter: redirect_uri/i).isVisible().catch(() => false)) {
+    throw new Error(
+      'Keycloak rejected redirect_uri. Add http://angular-frontend:4200/oidc-callback to the ' +
+      'valid redirect URIs of client ananta-tui in realm ananta-e2e.'
+    );
+  }
+
+  if (creds.register) {
+    const registerLink = await firstVisibleLocator(page, [
+      '#kc-registration',
+      'a[href*="registration"]',
+      'a[href*="register"]',
+      'a:has-text("Register")',
+      'a:has-text("Create account")',
+      'a:has-text("Registrieren")',
+    ]);
+    if (registerLink) {
+      await registerLink.click();
+      await page.waitForLoadState('domcontentloaded').catch(() => undefined);
+    }
+  }
+
+  const filledUsername = await fillFirstVisible(page, ['#username', 'input[name="username"]', 'input[type="text"]'], creds.username);
+  const filledPassword = await fillFirstVisible(page, ['#password', 'input[name="password"]', 'input[type="password"]'], creds.password);
+  if (!filledUsername || !filledPassword) {
+    throw new Error('Keycloak login form is missing username/password fields');
+  }
+  await fillFirstVisible(page, ['#email', 'input[name="email"]', 'input[type="email"]'], creds.email);
+  await fillFirstVisible(page, ['#firstName', 'input[name="firstName"]'], 'E2E');
+  await fillFirstVisible(page, ['#lastName', 'input[name="lastName"]'], 'Runner');
+  await fillFirstVisible(page, ['#password-confirm', 'input[name="password-confirm"]', 'input[name="password-confirmation"]'], creds.password);
+
+  const submitted = await clickFirstVisible(page, [
+    '#kc-login',
+    '#kc-register',
+    'button[type="submit"]',
+    'input[type="submit"]',
+    'button:has-text("Sign in")',
+    'button:has-text("Anmelden")',
+    'button:has-text("Login")',
+  ]);
+  if (!submitted) {
+    throw new Error('Keycloak submit button not found in public OIDC flow');
+  }
+
   await expect.poll(
     async () => page.evaluate(() => localStorage.getItem('ananta.user.token')),
     { timeout: 180_000 }
   ).toBeTruthy();
+  await waitForPublicOidcAccessToken(page, 180_000);
 
   await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
   await page.waitForURL(/\/(workspace|dashboard|help)(\/|$)/, { timeout: 60_000 }).catch(() => undefined);
