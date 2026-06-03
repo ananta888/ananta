@@ -118,6 +118,10 @@ async function main() {
   env.ANANTA_E2E_USE_EXISTING = env.ANANTA_E2E_USE_EXISTING || '1';
   env.E2E_REUSE_SERVER = '1';
   env.E2E_REPORTER_MODE = env.E2E_REPORTER_MODE || 'compact';
+  env.ANANTA_NETWORK_PROFILE = env.ANANTA_NETWORK_PROFILE || 'public-ananta';
+  env.E2E_AUTH_MODE = env.E2E_AUTH_MODE || 'local';
+  env.E2E_OIDC_ISSUER = env.E2E_OIDC_ISSUER || 'https://keycloak.ananta.de/realms/ananta-e2e';
+  env.E2E_OIDC_CLIENT_ID = env.E2E_OIDC_CLIENT_ID || 'ananta-tui';
   env.LIVE_LLM_PROVIDER = env.LIVE_LLM_PROVIDER || 'ollama';
   env.LMSTUDIO_URL = env.LMSTUDIO_URL || 'http://192.168.56.1:1234/v1';
 

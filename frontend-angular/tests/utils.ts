@@ -1,13 +1,28 @@
 import { expect, Page, type APIRequestContext, type APIResponse } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  PUBLIC_KEYCLOAK_BASE_URL,
+  PUBLIC_OIDC_CLIENT_ID as DEFAULT_PUBLIC_OIDC_CLIENT_ID,
+  PUBLIC_OIDC_ISSUER as DEFAULT_PUBLIC_OIDC_ISSUER,
+  PUBLIC_OIDC_REALM,
+} from '../src/app/services/public-ananta-endpoints';
 
 export const ADMIN_USERNAME = process.env.E2E_ADMIN_USER || 'admin';
 export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
 export const HUB_URL = process.env.E2E_HUB_URL || 'http://127.0.0.1:5500';
 export const ALPHA_URL = process.env.E2E_ALPHA_URL || 'http://127.0.0.1:5501';
 export const BETA_URL = process.env.E2E_BETA_URL || 'http://127.0.0.1:5502';
+export const PUBLIC_OIDC_ISSUER = process.env.E2E_OIDC_ISSUER || DEFAULT_PUBLIC_OIDC_ISSUER;
+export const PUBLIC_OIDC_CLIENT_ID = process.env.E2E_OIDC_CLIENT_ID || DEFAULT_PUBLIC_OIDC_CLIENT_ID;
+export const PUBLIC_OIDC_USERNAME = process.env.E2E_OIDC_USERNAME || 'e2e';
+export const PUBLIC_OIDC_PASSWORD = process.env.E2E_OIDC_PASSWORD || '';
+export const PUBLIC_OIDC_CLIENT_SECRET = process.env.E2E_OIDC_CLIENT_SECRET || '';
+export const PUBLIC_OIDC_AUTH_MODE = (process.env.E2E_AUTH_MODE || 'local').toLowerCase();
+export const PUBLIC_KEYCLOAK_HOST = PUBLIC_KEYCLOAK_BASE_URL.replace(/^https?:\/\//, '');
+export const PUBLIC_OIDC_REALM_NAME = PUBLIC_OIDC_REALM;
 export const TEST_LOGIN_IP = process.env.ANANTA_E2E_USE_EXISTING === '1' ? undefined : '127.0.0.1';
 export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AGENT_TOKEN_HUB || 'generate_a_random_token_for_hub';
 export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
@@ -16,6 +31,7 @@ const FALLBACK_ADMIN_PASSWORDS = ['AnantaAdminPassword123!', 'admin', 'test123']
 const USE_EXISTING_SERVICES = process.env.ANANTA_E2E_USE_EXISTING === '1';
 const ENABLE_DETERMINISTIC_SCRUM_SEED = process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1';
 const E2E_SCRUM_SEED_TEAM_NAME = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+const PUBLIC_OIDC_SCOPES = 'openid profile email';
 let hubHealthReady = false;
 let hubHealthWarningLogged = false;
 let deterministicScrumSeedReady = false;
@@ -86,6 +102,207 @@ export async function assertErrorOverlaysInViewport(page: Page): Promise<void> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isPlaceholderAgentToken(token: string): boolean {
+  return /^generate_a_random_token_for_/.test(String(token || '').trim());
+}
+
+function canUseAgentToken(token: string): boolean {
+  const value = String(token || '').trim();
+  return value.length > 0 && !isPlaceholderAgentToken(value);
+}
+
+function isPublicOidcUiMode(): boolean {
+  return PUBLIC_OIDC_AUTH_MODE === 'oidc-ui';
+}
+
+type PublicOidcCredentials = {
+  username: string;
+  password: string;
+  email: string;
+  register: boolean;
+};
+
+type PublicOidcMetadata = {
+  authorization_endpoint: string;
+  token_endpoint: string;
+  device_authorization_endpoint?: string;
+};
+
+type PublicDeviceAuthResponse = {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  verification_uri_complete?: string;
+  expires_in: number;
+  interval: number;
+};
+
+function resolvePublicOidcCredentials(): PublicOidcCredentials {
+  const explicitPassword = String(process.env.E2E_OIDC_PASSWORD || '').trim();
+  const explicitUsername = String(process.env.E2E_OIDC_USERNAME || '').trim();
+  if (explicitPassword) {
+    const username = explicitUsername || PUBLIC_OIDC_USERNAME;
+    return {
+      username,
+      password: explicitPassword,
+      email: username.includes('@') ? username : `${username}@example.invalid`,
+      register: false,
+    };
+  }
+
+  const suffix = `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+  const username = `e2e-${suffix}`;
+  const password = `Ananta!${randomUUID().replace(/-/g, '').slice(0, 18)}1`;
+  return {
+    username,
+    password,
+    email: `${username}@example.invalid`,
+    register: true,
+  };
+}
+
+async function firstVisibleLocator(page: Page, selectors: string[]): Promise<ReturnType<Page['locator']> | null> {
+  for (const selector of selectors) {
+    const candidate = page.locator(selector).first();
+    if (await candidate.count().catch(() => 0) === 0) continue;
+    if (await candidate.isVisible().catch(() => false)) return candidate;
+  }
+  return null;
+}
+
+async function fillFirstVisible(page: Page, selectors: string[], value: string): Promise<boolean> {
+  const target = await firstVisibleLocator(page, selectors);
+  if (!target) return false;
+  await target.fill(value);
+  return true;
+}
+
+async function clickFirstVisible(page: Page, selectors: string[]): Promise<boolean> {
+  const target = await firstVisibleLocator(page, selectors);
+  if (!target) return false;
+  await target.click();
+  return true;
+}
+
+async function loadPublicOidcMetadata(issuer = PUBLIC_OIDC_ISSUER): Promise<PublicOidcMetadata> {
+  const normalizedIssuer = issuer.replace(/\/$/, '');
+  const response = await retryFetch(
+    `${normalizedIssuer}/.well-known/openid-configuration`,
+    {},
+    5,
+    500
+  );
+  if (!response.ok) {
+    throw new Error(`OIDC discovery failed for ${normalizedIssuer}: ${response.status}`);
+  }
+  return response.json() as Promise<PublicOidcMetadata>;
+}
+
+async function startPublicOidcDeviceFlow(): Promise<PublicDeviceAuthResponse> {
+  const metadata = await loadPublicOidcMetadata();
+  const endpoint = metadata.device_authorization_endpoint
+    ?? `${PUBLIC_OIDC_ISSUER.replace(/\/$/, '')}/protocol/openid-connect/auth/device`;
+  const response = await retryFetch(
+    endpoint,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: PUBLIC_OIDC_CLIENT_ID,
+        scope: PUBLIC_OIDC_SCOPES,
+      }).toString(),
+    },
+    5,
+    750
+  );
+  if (!response.ok) {
+    throw new Error(`Public OIDC device flow start failed: ${response.status}`);
+  }
+  return response.json() as Promise<PublicDeviceAuthResponse>;
+}
+
+async function pollPublicOidcDeviceToken(deviceCode: string, intervalSec: number): Promise<{ accessToken: string; refreshToken?: string }> {
+  const metadata = await loadPublicOidcMetadata();
+  const deadlineMs = Number(process.env.E2E_PUBLIC_OIDC_DEVICE_FLOW_TIMEOUT_MS || '180000');
+  const started = Date.now();
+  let delayMs = Math.max(1000, intervalSec * 1000);
+
+  while ((Date.now() - started) < deadlineMs) {
+    const response = await fetchWithTimeout(
+      metadata.token_endpoint,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+          client_id: PUBLIC_OIDC_CLIENT_ID,
+          device_code: deviceCode,
+        }).toString(),
+      },
+      Math.max(5000, delayMs + 5000)
+    );
+
+    if (response.ok) {
+      const tokens = await response.json() as any;
+      const accessToken = String(tokens?.access_token || '').trim();
+      if (!accessToken) {
+        throw new Error('Public OIDC device flow returned no access token');
+      }
+      return {
+        accessToken,
+        refreshToken: tokens?.refresh_token ? String(tokens.refresh_token) : undefined,
+      };
+    }
+
+    if (response.status === 400) {
+      const payload = await response.json().catch(() => ({})) as any;
+      const error = String(payload?.error || '').trim();
+      if (error === 'authorization_pending') {
+        await sleep(delayMs);
+        continue;
+      }
+      if (error === 'slow_down') {
+        delayMs += 5000;
+        await sleep(delayMs);
+        continue;
+      }
+      throw new Error(`Public OIDC device flow failed: ${error || response.status}`);
+    }
+
+    if (response.status >= 500 || response.status === 429) {
+      await sleep(delayMs);
+      delayMs = Math.min(delayMs + 2000, 15000);
+      continue;
+    }
+
+    throw new Error(`Public OIDC device flow token poll failed: ${response.status}`);
+  }
+
+  throw new Error('Public OIDC device flow timed out');
+}
+
+async function waitForPublicOidcToken(page: Page, timeoutMs = 60_000): Promise<void> {
+  await expect.poll(
+    async () => page.evaluate(() => localStorage.getItem('ananta.user.token')),
+    { timeout: timeoutMs }
+  ).toBeTruthy();
+}
+
+async function loginViaPublicOidcUi(page: Page): Promise<void> {
+  const creds = resolvePublicOidcCredentials();
+  const keycloakLogin = page.getByRole('button', { name: /Mit Keycloak anmelden/i });
+  await expect(keycloakLogin).toBeVisible({ timeout: 30_000 });
+  await keycloakLogin.click();
+
+  await expect.poll(
+    async () => page.evaluate(() => localStorage.getItem('ananta.user.token')),
+    { timeout: 180_000 }
+  ).toBeTruthy();
+
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  await page.waitForURL(/\/(workspace|dashboard|help)(\/|$)/, { timeout: 60_000 }).catch(() => undefined);
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
@@ -273,6 +490,11 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
   try { await ensureLoginAttemptsCleared(); } catch {}
+  if (isPublicOidcUiMode()) {
+    await prepareLoginPage(page);
+    await loginViaPublicOidcUi(page);
+    return;
+  }
   // Try to normalize admin auth state in shared compose-lite runs.
   await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
@@ -280,6 +502,9 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
 
   if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
+      throw new Error('Login fallback requested but HUB agent token is a placeholder');
+    }
     const token = await getAccessToken(username, password).catch(() => HUB_AGENT_TOKEN);
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
@@ -321,6 +546,9 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   if (apiMfaRequired) {
+    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
+      throw new Error('MFA fallback requested but HUB agent token is a placeholder');
+    }
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
         { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
@@ -371,6 +599,9 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
+      throw new Error('Login fallback requested but HUB agent token is a placeholder');
+    }
     if (page.isClosed()) {
       throw new Error('Login page closed before token fallback could run');
     }
@@ -424,11 +655,19 @@ export async function loginFast(
     }
   }
 
-  if (!accessToken && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+  if (!accessToken && USE_EXISTING_SERVICES && username === ADMIN_USERNAME && canUseAgentToken(HUB_AGENT_TOKEN)) {
     accessToken = HUB_AGENT_TOKEN;
   }
 
   expect(accessToken).toBeTruthy();
+  if (!accessToken) {
+    throw new Error(`No access token returned for ${username}`);
+  }
+
+  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME && !canUseAgentToken(HUB_AGENT_TOKEN)) {
+    throw new Error('Login fallback requested but HUB agent token is a placeholder');
+  }
+
   await ensureDeterministicScrumSeed(accessToken);
 
   await page.evaluate(
@@ -480,6 +719,7 @@ export async function loginFast(
 }
 
 const RETRYABLE_API_STATUSES = new Set([408, 409, 423, 425, 429, 500, 502, 503, 504]);
+const IDEMPOTENT_REQUEST_METHODS = new Set<RequestMethod>(['get', 'delete']);
 
 type RequestMethod = 'get' | 'post' | 'patch' | 'delete';
 
@@ -497,7 +737,8 @@ export async function requestWithRetry(
   url: string,
   options: RequestWithRetryOptions = {},
 ): Promise<APIResponse> {
-  const attempts = Math.max(1, options.attempts ?? Number(process.env.E2E_API_REQUEST_RETRIES || '4'));
+  const isIdempotent = IDEMPOTENT_REQUEST_METHODS.has(method);
+  const attempts = Math.max(1, options.attempts ?? (isIdempotent ? Number(process.env.E2E_API_REQUEST_RETRIES || '4') : 1));
   const timeoutMs = Math.max(1, options.timeoutMs ?? Number(process.env.E2E_API_REQUEST_TIMEOUT_MS || '30000'));
   const retryStatuses = new Set(options.retryOnStatuses ?? [...RETRYABLE_API_STATUSES]);
   let lastError: unknown;
@@ -763,7 +1004,7 @@ export async function getAccessToken(username: string, password: string): Promis
     if (token) return token;
   }
 
-  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME && canUseAgentToken(HUB_AGENT_TOKEN)) {
     return HUB_AGENT_TOKEN;
   }
 

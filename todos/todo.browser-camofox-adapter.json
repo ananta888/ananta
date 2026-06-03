@@ -1,0 +1,325 @@
+{
+  "id": "todo.browser-camofox-adapter",
+  "title": "Camofox/Camoufox Browser Backend in Ananta integrieren",
+  "status": "planned",
+  "priority": "high",
+  "context": {
+    "summary": "Ananta besitzt bereits Browser-Grundstruktur mit browser_use_adapter, browser_task_contract und browser_policy_service. Camofox/Camoufox ist aber noch nicht als konkretes Backend integriert.",
+    "existing_relevant_files": [
+      "agent/services/browser_use_adapter.py",
+      "agent/services/browser_task_contract.py",
+      "agent/services/browser_policy_service.py",
+      "agent/services/browser_intent_mapper.py",
+      "agent/research_backend.py",
+      "tests/test_browser_use_adapter.py",
+      "tests/test_browser_backend_adapter_selection.py",
+      "tests/test_browser_task_contract.py",
+      "tests/test_browser_policy_service.py"
+    ],
+    "target_new_files": [
+      "agent/services/browser_camofox_adapter.py",
+      "tests/test_browser_camofox_adapter.py",
+      "docs/browser-camofox-adapter.md"
+    ]
+  },
+  "goals": [
+    {
+      "id": "goal.camofox.backend",
+      "title": "Camofox als optionales Browser-Backend anbinden",
+      "description": "Camofox soll nicht global aktiviert werden, sondern als explizit konfigurierbares Browser-Backend hinter dem bestehenden Browser-Contract laufen."
+    },
+    {
+      "id": "goal.policy.first",
+      "title": "Policy-Gate vor jede Browser-Aktion setzen",
+      "description": "Navigation, Klicks, Downloads, Session-Zugriff und Screenshots müssen über browser_policy_service geprüft werden."
+    },
+    {
+      "id": "goal.agent.safe.browser",
+      "title": "Sichere Nutzung durch Agenten ermöglichen",
+      "description": "Agenten dürfen Camofox nur über erlaubte Capabilities nutzen. Direkter unkontrollierter Zugriff auf Browser, Cookies, Profile oder Downloads ist verboten."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task.001.inspect.existing.browser.contract",
+      "title": "Bestehenden Browser-Contract analysieren",
+      "type": "analysis",
+      "priority": "high",
+      "files": [
+        "agent/services/browser_task_contract.py",
+        "agent/services/browser_use_adapter.py",
+        "agent/services/browser_policy_service.py",
+        "agent/research_backend.py"
+      ],
+      "steps": [
+        "Prüfen, welche Methoden der bestehende Browser-Contract erwartet.",
+        "Prüfen, wie browser_use_adapter aktuell registriert oder ausgewählt wird.",
+        "Prüfen, wo Policies bereits erzwungen werden.",
+        "Prüfen, ob research_backend.py Backend-Auswahl bereits unterstützt."
+      ],
+      "acceptance_criteria": [
+        "Alle benötigten Adapter-Methoden sind dokumentiert.",
+        "Backend-Auswahlpfad ist bekannt.",
+        "Policy-Aufrufstellen sind identifiziert.",
+        "Es ist klar, welche Methode Camofox mindestens implementieren muss."
+      ]
+    },
+    {
+      "id": "task.002.define.camofox.config",
+      "title": "Konfiguration für Camofox-Backend definieren",
+      "type": "implementation",
+      "priority": "high",
+      "files": [
+        "config.json",
+        "agent/research_backend.py"
+      ],
+      "proposed_config": {
+        "browser": {
+          "backend": "camofox",
+          "camofox_url": "http://localhost:9377",
+          "timeout_seconds": 30,
+          "policy_profile": "restricted_agent_browser",
+          "persist_session": false,
+          "allow_downloads": false,
+          "download_dir": ".ananta/browser-downloads",
+          "allowed_domains": [],
+          "blocked_domains": [
+            "localhost",
+            "127.0.0.1",
+            "169.254.169.254"
+          ]
+        }
+      },
+      "acceptance_criteria": [
+        "Browser-Backend kann per Config auf camofox gesetzt werden.",
+        "Default bleibt sicher und verändert bestehendes Verhalten nicht.",
+        "Ohne gesetztes Backend wird bestehendes Backend oder Fallback verwendet.",
+        "Camofox-URL ist nicht hart codiert."
+      ]
+    },
+    {
+      "id": "task.003.create.camofox.adapter",
+      "title": "browser_camofox_adapter.py erstellen",
+      "type": "implementation",
+      "priority": "high",
+      "files": [
+        "agent/services/browser_camofox_adapter.py"
+      ],
+      "description": "Neuer Adapter kapselt alle HTTP-Aufrufe gegen den laufenden Camofox-Server.",
+      "minimum_methods": [
+        "health_check",
+        "navigate",
+        "read_page",
+        "click",
+        "type_text",
+        "screenshot",
+        "download",
+        "close_session"
+      ],
+      "acceptance_criteria": [
+        "Adapter nutzt nur den bestehenden Browser-Contract.",
+        "Alle Requests laufen gegen konfigurierbare camofox_url.",
+        "Timeouts werden sauber behandelt.",
+        "Fehler werden als kontrollierte Adapter-Fehler zurückgegeben.",
+        "Keine Secrets, Cookies oder Profile werden geloggt."
+      ]
+    },
+    {
+      "id": "task.004.policy.enforcement",
+      "title": "Policy-Erzwingung für Camofox-Aktionen einbauen",
+      "type": "security",
+      "priority": "critical",
+      "files": [
+        "agent/services/browser_policy_service.py",
+        "agent/services/browser_camofox_adapter.py"
+      ],
+      "rules": [
+        "navigate benötigt erlaubte Domain oder explizite Freigabe.",
+        "download benötigt allow_downloads=true.",
+        "session persist benötigt persist_session=true.",
+        "localhost, private IP ranges und Metadata-IP sind default blockiert.",
+        "Screenshots dürfen keine sensiblen Profile/Cookies enthalten.",
+        "Agenten erhalten nur abstrahierte Ergebnisse, keine rohen Browser-Interna."
+      ],
+      "acceptance_criteria": [
+        "Jede Browser-Aktion wird vor Ausführung geprüft.",
+        "Verbotene URL wird nicht an Camofox gesendet.",
+        "Downloads landen nur im Sandbox-Workspace.",
+        "Policy-Verstoß erzeugt Audit-Event.",
+        "Tests beweisen Default-Deny."
+      ]
+    },
+    {
+      "id": "task.005.backend.selection",
+      "title": "Backend-Auswahl um camofox erweitern",
+      "type": "implementation",
+      "priority": "high",
+      "files": [
+        "agent/research_backend.py",
+        "tests/test_browser_backend_adapter_selection.py"
+      ],
+      "acceptance_criteria": [
+        "backend=camofox erzeugt BrowserCamofoxAdapter.",
+        "Unbekanntes Backend schlägt kontrolliert fehl.",
+        "Bestehende Tests für browser_use_adapter bleiben grün.",
+        "Config kann zwischen browser_use und camofox wechseln."
+      ]
+    },
+    {
+      "id": "task.006.audit.logging",
+      "title": "Audit-Logging für Camofox-Aktionen ergänzen",
+      "type": "security",
+      "priority": "high",
+      "events": [
+        "browser.navigate.requested",
+        "browser.navigate.allowed",
+        "browser.navigate.denied",
+        "browser.click",
+        "browser.type_text",
+        "browser.download.denied",
+        "browser.download.completed",
+        "browser.screenshot.created",
+        "browser.session.closed"
+      ],
+      "acceptance_criteria": [
+        "Jede sicherheitsrelevante Browser-Aktion erzeugt ein Audit-Event.",
+        "Audit-Log enthält Task-ID, Agent-ID, URL-Domain und Policy-Ergebnis.",
+        "Audit-Log enthält keine Passwörter, Cookies oder vollständige Formulardaten."
+      ]
+    },
+    {
+      "id": "task.007.tests.adapter.unit",
+      "title": "Unit-Tests für Camofox-Adapter schreiben",
+      "type": "test",
+      "priority": "high",
+      "files": [
+        "tests/test_browser_camofox_adapter.py"
+      ],
+      "test_cases": [
+        "health_check_success",
+        "health_check_timeout",
+        "navigate_allowed_domain",
+        "navigate_blocked_domain",
+        "download_denied_by_default",
+        "screenshot_returns_artifact_reference",
+        "server_error_is_mapped_to_adapter_error",
+        "no_sensitive_data_in_logs"
+      ],
+      "acceptance_criteria": [
+        "Tests nutzen Mock-HTTP statt echten Camofox-Server.",
+        "Policy-Deny verhindert HTTP-Aufruf.",
+        "Timeouts sind getestet.",
+        "Fehlerpfade sind getestet."
+      ]
+    },
+    {
+      "id": "task.008.tests.integration.optional",
+      "title": "Optionale Integrationstests mit echtem Camofox-Server vorbereiten",
+      "type": "test",
+      "priority": "medium",
+      "files": [
+        "tests/test_browser_camofox_integration.py"
+      ],
+      "description": "Diese Tests laufen nur, wenn CAMOFOX_TEST_URL gesetzt ist.",
+      "environment": {
+        "CAMOFOX_TEST_URL": "http://localhost:9377"
+      },
+      "acceptance_criteria": [
+        "Integrationstest wird ohne CAMOFOX_TEST_URL sauber übersprungen.",
+        "Mit laufendem Camofox-Server kann eine Testseite geöffnet werden.",
+        "Screenshot-Artefakt wird erzeugt.",
+        "Session wird am Ende geschlossen."
+      ]
+    },
+    {
+      "id": "task.009.docker.compose.optional",
+      "title": "Optionale Docker-Compose-Erweiterung für Camofox ergänzen",
+      "type": "devops",
+      "priority": "medium",
+      "files": [
+        "docker-compose.yml",
+        "docs/browser-camofox-adapter.md"
+      ],
+      "example_service": {
+        "camofox": {
+          "image": "ghcr.io/redf0x1/camofox-browser:latest",
+          "ports": [
+            "9377:9377"
+          ],
+          "restart": "unless-stopped"
+        }
+      },
+      "acceptance_criteria": [
+        "Camofox kann optional über Docker gestartet werden.",
+        "Service ist nicht zwingend für normale Tests.",
+        "Doku erklärt lokalen Start und Sicherheitsgrenzen."
+      ]
+    },
+    {
+      "id": "task.010.mcp.optional",
+      "title": "MCP-Anbindung als optionale Ausbaustufe dokumentieren",
+      "type": "documentation",
+      "priority": "low",
+      "description": "MCP soll nicht zuerst hart integriert werden. Erst REST/Adapter sauber bauen, MCP später als zusätzlicher Tool-Transport.",
+      "acceptance_criteria": [
+        "Doku erklärt REST-Adapter als bevorzugten ersten Schritt.",
+        "MCP wird als optionale spätere Tool-Schicht beschrieben.",
+        "Keine direkte MCP-Freischaltung ohne Policy-Gate."
+      ]
+    },
+    {
+      "id": "task.011.documentation",
+      "title": "Dokumentation für Camofox-Backend schreiben",
+      "type": "documentation",
+      "priority": "medium",
+      "files": [
+        "docs/browser-camofox-adapter.md"
+      ],
+      "sections": [
+        "Ziel",
+        "Architektur",
+        "Config",
+        "Security-Modell",
+        "Policy-Profile",
+        "Lokaler Start",
+        "Docker-Start",
+        "Testen",
+        "Bekannte Grenzen"
+      ],
+      "acceptance_criteria": [
+        "Doku zeigt Minimalstart.",
+        "Doku erklärt Default-Deny.",
+        "Doku warnt vor Cookies, Profilen, Downloads und internen Netzwerken.",
+        "Doku enthält Beispiel-Config."
+      ]
+    }
+  ],
+  "architecture": {
+    "flow": [
+      "Agent/Worker",
+      "BrowserIntentMapper",
+      "BrowserTaskContract",
+      "BrowserPolicyService",
+      "BrowserCamofoxAdapter",
+      "Camofox Server",
+      "Browser Session"
+    ],
+    "security_boundary": "BrowserPolicyService muss vor BrowserCamofoxAdapter liegen. Der Adapter darf niemals direkt aus einem Agent-Prompt heraus erreichbar sein."
+  },
+  "definition_of_done": [
+    "Camofox ist per Config als Browser-Backend auswählbar.",
+    "Alle Browser-Aktionen laufen über Policy-Prüfung.",
+    "Unit-Tests decken Erfolg, Fehler, Timeout und Policy-Deny ab.",
+    "Bestehende Browser-Tests bleiben grün.",
+    "Dokumentation erklärt Start, Config und Sicherheitsmodell.",
+    "Default-Verhalten von Ananta bleibt unverändert, wenn camofox nicht aktiviert ist."
+  ],
+  "security_notes": [
+    "Kein globaler Browser-Zugriff für alle Agenten.",
+    "Keine direkte Weitergabe von Cookies, lokalen Profilen oder Session-Tokens an LLMs.",
+    "Downloads nur in isolierten Workspace.",
+    "Interne Netze und Metadata-IPs default blockieren.",
+    "Jede Aktion auditierbar machen.",
+    "Camofox ist Capability, nicht Standardwerkzeug."
+  ]
+}

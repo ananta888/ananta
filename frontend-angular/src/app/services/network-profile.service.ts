@@ -3,6 +3,13 @@ import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
+import {
+  PUBLIC_OIDC_CLIENT_ID,
+  PUBLIC_OIDC_ISSUER,
+  PUBLIC_WEBRTC_BASE_URL,
+  PUBLIC_WEBRTC_SIGNALING_URL,
+  PUBLIC_WEBRTC_STUN_URL,
+} from './public-ananta-endpoints';
 
 export interface NetworkProfile {
   profile_id: string;
@@ -19,11 +26,11 @@ export interface NetworkProfile {
 const FALLBACK: NetworkProfile = {
   profile_id: 'public-ananta',
   label: 'Public Ananta (fallback)',
-  oidc: { issuer: 'https://keycloak.ananta.de/realms/ananta-e2e', client_id: 'ananta-tui', audience: 'ananta-hub', pkce_required: true },
-  rendezvous: { base_url: 'https://webrtc.ananta.de', signaling_url: 'wss://webrtc.ananta.de/signaling', transport_order: ['webrtc', 'hub_relay'] },
-  ice_servers: [{ urls: 'stun:webrtc.ananta.de:3478' }],
+  oidc: { issuer: PUBLIC_OIDC_ISSUER, client_id: PUBLIC_OIDC_CLIENT_ID, audience: 'ananta-hub', pkce_required: true },
+  rendezvous: { base_url: PUBLIC_WEBRTC_BASE_URL, signaling_url: PUBLIC_WEBRTC_SIGNALING_URL, transport_order: ['webrtc', 'hub_relay'] },
+  ice_servers: [{ urls: PUBLIC_WEBRTC_STUN_URL }],
   require_e2e_payload_encryption: true,
-  signaling_url: 'wss://webrtc.ananta.de/signaling',
+  signaling_url: PUBLIC_WEBRTC_SIGNALING_URL,
   transport_order: ['webrtc', 'hub_relay'],
   warning: '',
 };

@@ -26,6 +26,16 @@ export class OidcCallbackComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.isPopup = !!window.opener;
     try {
+      const query = new URLSearchParams(window.location.search);
+      const backendCode = query.get('oidc_code') || query.get('code');
+      if (backendCode) {
+        const ok = await this.oidc.handleBackendCallback();
+        if (!ok) {
+          this.error = 'Backend-OIDC-Austausch fehlgeschlagen.';
+        }
+        return;
+      }
+
       if (this.isPopup) {
         // Popup-PKCE flow: reads from localStorage, closes window on success
         const ok = await this.oidc.handleCallbackForPopup();

@@ -40,6 +40,12 @@ services:
       OLLAMA_URL: "http://ollama:11434/api/generate"
       ANANTA_OPENCODE_EXECUTION_MODE: "backend"
       AUTH_TEST_ENDPOINTS_ENABLED: "1"
+      TERMINAL_OIDC_ENABLED: "true"
+      TERMINAL_OIDC_ISSUER: "https://keycloak.ananta.de/realms/ananta-e2e"
+      TERMINAL_OIDC_BROWSER_ISSUER: "https://keycloak.ananta.de/realms/ananta-e2e"
+      TERMINAL_OIDC_AUDIENCE: "ananta-hub"
+      TERMINAL_OIDC_CLIENT_ID: "ananta-tui"
+      TERMINAL_OIDC_FRONTEND_REDIRECT: "http://angular-frontend:4200/oidc-callback"
     depends_on:
       ollama:
         condition: service_healthy
