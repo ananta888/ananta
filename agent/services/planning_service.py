@@ -1148,7 +1148,7 @@ class PlanningService:
                 details=quality.details,
             )
 
-        if not quality.ok:
+        if subtasks and not quality.ok:
             telemetry_run = get_planning_telemetry_service().update_run(
                 telemetry_run,
                 validation_success=False,
