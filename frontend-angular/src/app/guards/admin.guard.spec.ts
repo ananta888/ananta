@@ -5,8 +5,9 @@ import { adminGuard } from './admin.guard';
 import { PermissionService } from '../services/permission.service';
 
 function runGuard(isAdmin: boolean) {
-  const router = jasmine.createSpyObj<Router>('Router', ['parseUrl']);
-  router.parseUrl.and.returnValue({ toString: () => '/workspace' } as any);
+  const router = {
+    parseUrl: vi.fn(() => ({ toString: () => '/workspace' } as any)),
+  } as unknown as Router;
 
   TestBed.configureTestingModule({
     providers: [
@@ -22,11 +23,11 @@ function runGuard(isAdmin: boolean) {
 
 describe('adminGuard', () => {
   it('allows access for admin users', () => {
-    expect(runGuard(true)).toBeTrue();
+    expect(runGuard(true)).toBe(true);
   });
 
   it('redirects non-admin to /workspace', () => {
     const result = runGuard(false);
-    expect(result).not.toBeTrue();
+    expect(result).not.toBe(true);
   });
 });

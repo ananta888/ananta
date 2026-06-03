@@ -10,6 +10,7 @@ describe('AuthInterceptor', () => {
   let directory: { list: ReturnType<typeof vi.fn> };
   let userAuth: {
     token: string | null;
+    token$: ReturnType<typeof of>;
     refreshToken: ReturnType<typeof vi.fn>;
     logout: ReturnType<typeof vi.fn>;
   };
@@ -23,6 +24,7 @@ describe('AuthInterceptor', () => {
     };
     userAuth = {
       token: 'old-user-token',
+      token$: of('old-user-token'),
       refreshToken: vi.fn(() => of({ access_token: 'new-user-token' })),
       logout: vi.fn(),
     };

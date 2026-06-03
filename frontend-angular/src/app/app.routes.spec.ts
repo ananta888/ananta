@@ -9,7 +9,8 @@ function flattenRoutes(items: typeof routes): any[] {
 
 describe('app routes', () => {
   it('lazy-loads feature views below the authenticated shell', () => {
-    const featureRoutes = flattenRoutes(routes).filter((route: any) => [
+    const lazyRoutes = flattenRoutes(routes).filter((route: any) => typeof route.loadComponent === 'function');
+    const featureRoutes = lazyRoutes.filter((route: any) => [
       'dashboard',
       'operations',
       'auto-planner',
