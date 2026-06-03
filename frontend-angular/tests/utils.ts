@@ -357,7 +357,11 @@ async function loginViaPublicOidcUi(page: Page): Promise<void> {
   ).toBeTruthy();
   await waitForPublicOidcAccessToken(page, 180_000);
 
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  // Do NOT use page.goto() here: the OIDC redirect uses the Docker hostname
+  // (angular-frontend:4200) but Playwright's baseURL uses the resolved IP.
+  // Both are different localStorage origins, so a page.goto() to the base URL
+  // would land on empty localStorage and the auth guard would redirect to /login.
+  // Instead, wait for Angular's router to naturally navigate after the callback.
   await page.waitForURL(/\/(workspace|dashboard|help)(\/|$)/, { timeout: 60_000 }).catch(() => undefined);
 }
 
