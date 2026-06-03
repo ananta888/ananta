@@ -42,9 +42,9 @@ jobs:
       - name: Run wiki backend smoke tests
         working-directory: .
         run: |
-          python -m pip install -r requirements.txt
-          pytest -q tests/test_knowledge_routes.py -k "wiki"
-          pytest -q tests/e2e/test_wiki_rag_fixture_flow.py tests/test_wiki_retrieval_quality.py
+          python -m pip install -r requirements.txt pytest
+          python -m pytest -q tests/test_knowledge_routes.py -k "wiki"
+          python -m pytest -q tests/e2e/test_wiki_rag_fixture_flow.py tests/test_wiki_retrieval_quality.py
       - name: Prepare CI seed assets
         run: |
           set -euo pipefail
