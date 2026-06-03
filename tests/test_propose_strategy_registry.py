@@ -140,7 +140,7 @@ class TestFlexibleLLMNormalizationStrategy:
         from agent.services.model_invocation_service import LLMUnavailableError
         from worker.core.propose import STATUS_DECLINED
 
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke") as mock_invoke:
+        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_result") as mock_invoke:
             mock_invoke.side_effect = LLMUnavailableError("llm_connection_failed")
             result = FlexibleLLMNormalizationStrategy().run(_make_context())
 
@@ -151,7 +151,10 @@ class TestFlexibleLLMNormalizationStrategy:
         from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
         from worker.core.propose import STATUS_DECLINED
 
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke", return_value="   "):
+        with patch(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_result",
+            return_value={"content": "   ", "metadata": {}},
+        ):
             result = FlexibleLLMNormalizationStrategy().run(_make_context())
 
         assert result.status == STATUS_DECLINED
@@ -163,7 +166,10 @@ class TestFlexibleLLMNormalizationStrategy:
         from worker.core.propose import STATUS_ADVISORY
 
         raw = "Sure! Here is the command:\n```bash\nmkdir fibonacci-api && cd fibonacci-api\n```"
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke", return_value=raw):
+        with patch(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_result",
+            return_value={"content": raw, "metadata": {}},
+        ):
             result = FlexibleLLMNormalizationStrategy().run(_make_context())
 
         assert result.status == STATUS_ADVISORY
@@ -185,7 +191,10 @@ class TestFlexibleLLMNormalizationStrategy:
             policy=policy,
         )
         raw = "```bash\nmkdir fibonacci-api && cd fibonacci-api\n```"
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke", return_value=raw):
+        with patch(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_result",
+            return_value={"content": raw, "metadata": {}},
+        ):
             result = FlexibleLLMNormalizationStrategy().run(ctx)
 
         assert result.status == STATUS_EXECUTABLE
@@ -196,7 +205,10 @@ class TestFlexibleLLMNormalizationStrategy:
         from worker.core.propose import STATUS_ADVISORY
 
         raw = "To build a fibonacci API, you should start by creating a Flask app..."
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke", return_value=raw):
+        with patch(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_result",
+            return_value={"content": raw, "metadata": {}},
+        ):
             result = FlexibleLLMNormalizationStrategy().run(_make_context())
 
         assert result.status == STATUS_ADVISORY
@@ -205,7 +217,7 @@ class TestFlexibleLLMNormalizationStrategy:
         from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
         from worker.core.propose import STATUS_FAILED
 
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke") as mock_invoke:
+        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_result") as mock_invoke:
             mock_invoke.side_effect = RuntimeError("unexpected error")
             result = FlexibleLLMNormalizationStrategy().run(_make_context())
 
@@ -305,7 +317,10 @@ class TestJsonSchemaLLMStrategy:
         from worker.core.propose import STATUS_EXECUTABLE
 
         payload = _json.dumps({"command": "echo hello world", "tool_calls": []})
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result", return_value=payload):
+        with patch(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
+            return_value={"content": payload, "metadata": {}},
+        ):
             with patch("agent.config.settings") as ms:
                 ms.default_provider = "lmstudio"
                 result = JsonSchemaLLMStrategy().run(_make_context())
