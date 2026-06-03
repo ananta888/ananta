@@ -135,6 +135,9 @@ ignore_missing_imports = true
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-v"
+markers = [
+    "integration: marks tests that validate cross-component integration behavior",
+]
 filterwarnings = [
     # Background planning threads use the test's in-memory SQLite session. When a test
     # ends before its planning thread finishes, the session is already closed and the

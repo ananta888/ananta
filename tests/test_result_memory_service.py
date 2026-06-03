@@ -1,5 +1,5 @@
-from agent.repository import memory_entry_repo, task_repo, verification_record_repo, worker_job_repo
-from agent.db_models import TaskDB, WorkerJobDB
+from agent.repository import goal_repo, memory_entry_repo, task_repo, verification_record_repo, worker_job_repo
+from agent.db_models import GoalDB, TaskDB, WorkerJobDB
 from agent.services.result_memory_service import ResultMemoryService, normalize_result_memory_policy
 from agent.services.verification_service import get_verification_service
 
@@ -58,29 +58,42 @@ def test_complete_task_persists_result_memory_entry(client, admin_auth_header):
     assert isinstance((entry.memory_metadata or {}).get("bullet_points"), list)
 
 
-def test_goal_detail_exposes_memory_entries(client, admin_auth_header, monkeypatch):
-    monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
-        lambda **kwargs: '[{"title":"Plan release","description":"Prepare release artifacts","priority":"High"}]',
+def test_goal_detail_exposes_memory_entries(client, admin_auth_header):
+    goal = goal_repo.save(
+        GoalDB(
+            goal="Deliver release",
+            summary="Deliver release",
+            status="planned",
+            source="test",
+            requested_by="admin",
+        )
     )
-    create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Deliver release"})
-    goal_id = create_res.get_json()["data"]["goal"]["id"]
-    task_id = create_res.get_json()["data"]["created_task_ids"][0]
+    task = task_repo.save(
+        TaskDB(
+            id="memory-goal-task-1",
+            title="Plan release",
+            description="Prepare release artifacts",
+            status="assigned",
+            goal_id=goal.id,
+            goal_trace_id=goal.trace_id,
+            task_kind="analysis",
+        )
+    )
 
     complete_res = client.post(
         "/tasks/orchestration/complete",
         headers=admin_auth_header,
         json={
-            "task_id": task_id,
+            "task_id": task.id,
             "actor": "http://coder:5000",
             "gate_results": {"passed": True},
             "output": "Release notes ready",
-            "trace_id": "goal-trace-for-memory",
+            "trace_id": goal.trace_id,
         },
     )
     assert complete_res.status_code == 200
 
-    detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+    detail_res = client.get(f"/goals/{goal.id}/detail", headers=admin_auth_header)
     assert detail_res.status_code == 200
     payload = detail_res.get_json()["data"]
     assert payload["artifacts"]["result_summary"]["memory_entries"] >= 1
