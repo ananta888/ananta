@@ -11,9 +11,11 @@ from urllib.parse import urlencode
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Blueprint, current_app, jsonify, redirect, request, session
+from werkzeug.security import generate_password_hash
 
 from agent.common.errors import api_response
 from agent.config import settings
+from agent.db_models import UserDB
 from agent.services.user_session_tokens import issue_user_session_tokens
 
 LOGGER = logging.getLogger("agent.auth_oidc")
@@ -82,6 +84,34 @@ def _map_claims_to_auth(claims: dict[str, Any]) -> dict[str, Any]:
         "auth_source": "oidc",
         "email": email,
     }
+
+
+def _ensure_local_user_account(auth_ctx: dict[str, Any]) -> None:
+    username = str(auth_ctx.get("username") or auth_ctx.get("email") or auth_ctx.get("sub") or "").strip()
+    if not username:
+        return
+
+    from agent.services.repository_registry import get_repository_registry
+
+    user_repo = get_repository_registry().user_repo
+
+    existing = user_repo.get_by_username(username)
+    if existing:
+        return
+
+    role = str(auth_ctx.get("role") or "viewer").strip() or "viewer"
+    user_repo.save(
+        UserDB(
+            username=username,
+            password_hash=generate_password_hash(secrets.token_urlsafe(48)),
+            role=role,
+            mfa_secret=None,
+            mfa_enabled=False,
+            mfa_backup_codes=[],
+            failed_login_attempts=0,
+            lockout_until=None,
+        )
+    )
 
 
 def _fetch_oidc_discovery(issuer: str) -> dict[str, Any]:
@@ -372,6 +402,7 @@ def oidc_exchange():
 
         auth_ctx = _map_claims_to_auth(claims)
         session["user"] = auth_ctx
+        _ensure_local_user_account(auth_ctx)
         session.pop("oidc_state", None)
         session.pop("oidc_nonce", None)
         session.pop("oidc_code_verifier", None)
@@ -393,6 +424,8 @@ def oidc_exchange():
         role = str(auth_ctx.get("role") or "viewer").strip() or "viewer"
         if not username:
             return api_response(status="error", message="oidc_username_missing", code=401)
+
+        _ensure_local_user_account(auth_ctx)
 
         tokens = issue_user_session_tokens(
             username=username,
@@ -453,6 +486,7 @@ def oidc_exchange():
         claims = _validate_id_token(id_token, issuer=issuer, audience=audience, nonce=nonce)
         auth_ctx = _map_claims_to_auth(claims)
         session["user"] = auth_ctx
+        _ensure_local_user_account(auth_ctx)
         session.pop("oidc_state", None)
         session.pop("oidc_nonce", None)
         session.pop("oidc_code_verifier", None)
