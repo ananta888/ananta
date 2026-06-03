@@ -1,0 +1,563 @@
+<testsuites id="" name="" tests="102" failures="1" skipped="11" errors="0" time="608.795422">
+<testsuite name="a11y.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="0" time="3.957" errors="0">
+<testcase name="Accessibility Smoke Tests › Login page should not have automatically detectable accessibility issues" classname="a11y.spec.ts" time="0.886">
+</testcase>
+<testcase name="Accessibility Smoke Tests › Dashboard should not have automatically detectable accessibility issues" classname="a11y.spec.ts" time="3.071">
+</testcase>
+</testsuite>
+<testsuite name="admin-core-journey.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="3.265" errors="0">
+<testcase name="Admin Core Journey › navigates core areas" classname="admin-core-journey.spec.ts" time="3.265">
+</testcase>
+</testsuite>
+<testsuite name="agent-registration.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="3.095" errors="0">
+<testcase name="Agent Registration › shows registered worker in dashboard" classname="agent-registration.spec.ts" time="3.095">
+</testcase>
+</testsuite>
+<testsuite name="agents.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="0" time="6.619" errors="0">
+<testcase name="Agents Panel › open panel and edit manual command on worker" classname="agents.spec.ts" time="3.792">
+</testcase>
+<testcase name="Agents Panel › show proposal controls on agent panel" classname="agents.spec.ts" time="2.827">
+</testcase>
+</testsuite>
+<testsuite name="ai-assistant-global-dock.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="3" failures="0" skipped="1" time="10.716" errors="0">
+<testcase name="AI Assistant Global Dock › is available across main routes and can interact on each page" classname="ai-assistant-global-dock.spec.ts" time="3.589">
+<properties>
+<property name="skip" value="Assistant dock could not be expanded in this environment.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="AI Assistant Global Dock › uses fullscreen overlay behavior on mobile when expanded" classname="ai-assistant-global-dock.spec.ts" time="3.61">
+</testcase>
+<testcase name="AI Assistant Global Dock › sends template summary in assistant context for llm requests" classname="ai-assistant-global-dock.spec.ts" time="3.517">
+</testcase>
+</testsuite>
+<testsuite name="ai-assistant-hybrid.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="1" time="2.741" errors="0">
+<testcase name="AI Assistant Hybrid Context › renders context debug and citation preview in hybrid mode" classname="ai-assistant-hybrid.spec.ts" time="2.741">
+<properties>
+<property name="skip" value="Assistant dock not available in this environment.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="ai-assistant-opencode.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="2.855" errors="0">
+<testcase name="AI Assistant OpenCode Backend › sends hybrid execute request with backend opencode" classname="ai-assistant-opencode.spec.ts" time="2.855">
+</testcase>
+</testsuite>
+<testsuite name="ai-assistant-settings-mutations.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="2" time="7.227" errors="0">
+<testcase name="AI Assistant Settings Mutations › requires explicit confirmation and sends confirmed tool calls" classname="ai-assistant-settings-mutations.spec.ts" time="3.975">
+<properties>
+<property name="skip" value="Assistant dock not available in this environment.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="AI Assistant Settings Mutations › sends settings context for auto-planner mutation tool call" classname="ai-assistant-settings-mutations.spec.ts" time="3.252">
+<properties>
+<property name="skip" value="Assistant dock not available in this environment.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="ai-snake-config-panel.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="1.501" errors="0">
+<testcase name="AI Snake Config Panel Persistence › persists backend config value across reads" classname="ai-snake-config-panel.spec.ts" time="1.501">
+</testcase>
+</testsuite>
+<testsuite name="ai-snake-session-sharing.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="1.569" errors="0">
+<testcase name="AI Snake Session Sharing › creates and joins session via invite code" classname="ai-snake-session-sharing.spec.ts" time="1.569">
+</testcase>
+</testsuite>
+<testsuite name="audit-logs.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="2.35" errors="0">
+<testcase name="Audit Logs › paginates and filters logs" classname="audit-logs.spec.ts" time="2.35">
+</testcase>
+</testsuite>
+<testsuite name="auth-lockout.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.238" errors="0">
+<testcase name="Auth Lockout › locked account shows error message" classname="auth-lockout.spec.ts" time="4.238">
+</testcase>
+</testsuite>
+<testsuite name="auth-mfa.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="1" time="5.322" errors="0">
+<testcase name="MFA Flow › should enable and disable MFA" classname="auth-mfa.spec.ts" time="5.322">
+<properties>
+<property name="skip" value="MFA setup returned a masked secret in this environment.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="auth-password.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="9.921" errors="0">
+<testcase name="Password Change › should change password and login with new password" classname="auth-password.spec.ts" time="9.921">
+</testcase>
+</testsuite>
+<testsuite name="auth-rate-limit.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="5.372" errors="0">
+<testcase name="Auth Rate Limit › too many attempts returns rate limit error" classname="auth-rate-limit.spec.ts" time="5.372">
+</testcase>
+</testsuite>
+<testsuite name="auth.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="4" failures="0" skipped="0" time="5.972" errors="0">
+<testcase name="Auth › invalid login shows error" classname="auth.spec.ts" time="0.306">
+</testcase>
+<testcase name="Auth › login and logout redirects to login" classname="auth.spec.ts" time="1.841">
+</testcase>
+<testcase name="Auth › session persists after reload" classname="auth.spec.ts" time="3.434">
+</testcase>
+<testcase name="Auth › accessing protected route without login redirects to login" classname="auth.spec.ts" time="0.391">
+</testcase>
+</testsuite>
+<testsuite name="auto-planner.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="15" failures="0" skipped="0" time="49.596" errors="0">
+<testcase name="Auto-Planner › displays auto-planner page" classname="auto-planner.spec.ts" time="2.318">
+</testcase>
+<testcase name="Auto-Planner › shows status cards" classname="auto-planner.spec.ts" time="2.91">
+</testcase>
+<testcase name="Auto-Planner › has configuration form" classname="auto-planner.spec.ts" time="2.888">
+</testcase>
+<testcase name="Auto-Planner › has goal input form" classname="auto-planner.spec.ts" time="2.485">
+</testcase>
+<testcase name="Auto-Planner › can enter goal text" classname="auto-planner.spec.ts" time="2.712">
+</testcase>
+<testcase name="Auto-Planner › plan button is disabled without goal" classname="auto-planner.spec.ts" time="2.868">
+</testcase>
+<testcase name="Auto-Planner › plan button enables with goal text" classname="auto-planner.spec.ts" time="2.669">
+</testcase>
+<testcase name="Auto-Planner › shows advanced goal fields on demand" classname="auto-planner.spec.ts" time="3.013">
+</testcase>
+<testcase name="Auto-Planner › renders goal detail drilldown panels" classname="auto-planner.spec.ts" time="10.183">
+</testcase>
+<testcase name="Webhooks › displays webhooks page" classname="auto-planner.spec.ts" time="1.521">
+</testcase>
+<testcase name="Webhooks › shows status cards" classname="auto-planner.spec.ts" time="2.841">
+</testcase>
+<testcase name="Webhooks › shows webhook URLs" classname="auto-planner.spec.ts" time="4.082">
+</testcase>
+<testcase name="Webhooks › shows test form" classname="auto-planner.spec.ts" time="2.971">
+</testcase>
+<testcase name="Webhooks › can test webhook" classname="auto-planner.spec.ts" time="3.142">
+</testcase>
+<testcase name="Webhooks › shows GitHub integration guide" classname="auto-planner.spec.ts" time="2.993">
+</testcase>
+</testsuite>
+<testsuite name="config-ui-control-hardening.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="3" failures="0" skipped="0" time="23.001" errors="0">
+<testcase name="Config + UI Control Hardening › settings enforces validation and persists system+quality controls" classname="config-ui-control-hardening.spec.ts" time="8.852">
+</testcase>
+<testcase name="Config + UI Control Hardening › template creation controls in UI persist reliably to API" classname="config-ui-control-hardening.spec.ts" time="8.185">
+</testcase>
+<testcase name="Config + UI Control Hardening › auto-planner config and advanced goal steering are end-to-end controllable" classname="config-ui-control-hardening.spec.ts" time="5.964">
+</testcase>
+</testsuite>
+<testsuite name="control-center-denied-flow.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="6.466" errors="0">
+<testcase name="Control Center denied flow › shows denied tool call in timeline and policy log without manual polling" classname="control-center-denied-flow.spec.ts" time="6.466">
+</testcase>
+</testsuite>
+<testsuite name="control-center-policies.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="6.324" errors="0">
+<testcase name="Control Center Policy View › shows denied actions and narrow approval payload" classname="control-center-policies.spec.ts" time="6.324">
+</testcase>
+</testsuite>
+<testsuite name="control-center-review-flow.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="1.897" errors="0">
+<testcase name="Control Center review flow › opens artifacts area and shows verification linkage" classname="control-center-review-flow.spec.ts" time="1.897">
+</testcase>
+</testsuite>
+<testsuite name="first-goal-e2e.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="8.421" errors="0">
+<testcase name="First Goal E2E › uses local LLM, creates subtasks, assigns to team members, and monitors execution" classname="first-goal-e2e.spec.ts" time="8.421">
+<system-out>
+<![CDATA[[first-goal-e2e] -> GET http://ai-agent-hub:5000/config
+[first-goal-e2e] <- GET http://ai-agent-hub:5000/config status=200 in 9ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/config
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/config status=200 in 607ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/llm/generate
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/llm/generate status=200 in 31ms
+[first-goal-e2e] -> GET http://ai-agent-hub:5000/teams/types
+[first-goal-e2e] <- GET http://ai-agent-hub:5000/teams/types status=200 in 29ms
+[first-goal-e2e] -> GET http://ai-agent-hub:5000/teams/roles
+[first-goal-e2e] <- GET http://ai-agent-hub:5000/teams/roles status=200 in 8ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/teams
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/teams status=201 in 477ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/teams/909b1c69-c708-4a97-84e1-8021c2be007f/activate
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/teams/909b1c69-c708-4a97-84e1-8021c2be007f/activate status=200 in 602ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks/auto-planner/configure
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks/auto-planner/configure status=200 in 125ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks/auto-planner/plan
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks/auto-planner/plan status=400 in 419ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks/auto-planner/plan
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks/auto-planner/plan status=400 in 226ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks/auto-planner/plan
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks/auto-planner/plan status=400 in 406ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks/auto-planner/plan
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks/auto-planner/plan status=400 in 422ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks status=201 in 21ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks status=201 in 22ms
+[first-goal-e2e] -> PATCH http://ai-agent-hub:5000/tasks/215401e2-c0d5-4a25-a5d5-4e554df8012a
+[first-goal-e2e] <- PATCH http://ai-agent-hub:5000/tasks/215401e2-c0d5-4a25-a5d5-4e554df8012a status=200 in 22ms
+[first-goal-e2e] -> PATCH http://ai-agent-hub:5000/tasks/7d8c1350-7d5c-4b65-b790-cf50844f7767
+[first-goal-e2e] <- PATCH http://ai-agent-hub:5000/tasks/7d8c1350-7d5c-4b65-b790-cf50844f7767 status=200 in 27ms
+[first-goal-e2e] -> POST http://ai-agent-hub:5000/tasks/autopilot/tick
+[first-goal-e2e] <- POST http://ai-agent-hub:5000/tasks/autopilot/tick status=200 in 165ms
+[first-goal-e2e] tick debug: {"candidate_count":2,"team_id_scope":"909b1c69-c708-4a97-84e1-8021c2be007f","total_tasks_scoped":2,"total_tasks_unfiltered":358,"workers_available_count":2,"workers_online_count":2}
+[first-goal-e2e] -> GET http://ai-agent-hub:5000/tasks/215401e2-c0d5-4a25-a5d5-4e554df8012a
+[first-goal-e2e] <- GET http://ai-agent-hub:5000/tasks/215401e2-c0d5-4a25-a5d5-4e554df8012a status=200 in 16ms
+[first-goal-e2e] -> GET http://ai-agent-hub:5000/tasks/7d8c1350-7d5c-4b65-b790-cf50844f7767
+[first-goal-e2e] <- GET http://ai-agent-hub:5000/tasks/7d8c1350-7d5c-4b65-b790-cf50844f7767 status=200 in 9ms
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="hub-flow.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.009" errors="0">
+<testcase name="Hub Flow › create task and execute via hub locally (no worker assignment)" classname="hub-flow.spec.ts" time="4.009">
+</testcase>
+</testsuite>
+<testsuite name="lite-compose-connectivity.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.967" errors="0">
+<testcase name="Lite Compose Connectivity › frontend can reach hub and worker agents" classname="lite-compose-connectivity.spec.ts" time="4.967">
+</testcase>
+</testsuite>
+<testsuite name="live-click-critical-paths.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="0" time="18.241" errors="0">
+<testcase name="Live click critical paths › clicks dashboard, goal start and result reading path with stable selectors" classname="live-click-critical-paths.spec.ts" time="4.037">
+</testcase>
+<testcase name="Live click critical paths › surfaces blocked quick-goal submission and recovers on retry" classname="live-click-critical-paths.spec.ts" time="14.204">
+</testcase>
+</testsuite>
+<testsuite name="llm-config.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="3" failures="0" skipped="0" time="10.406" errors="0">
+<testcase name="LLM Config › switch provider and save LM Studio mode" classname="llm-config.spec.ts" time="2.224">
+</testcase>
+<testcase name="LLM Config › save codex provider defaults" classname="llm-config.spec.ts" time="4.511">
+</testcase>
+<testcase name="LLM Config › saves per-agent context_limit and shows catalog context lengths" classname="llm-config.spec.ts" time="3.671">
+</testcase>
+</testsuite>
+<testsuite name="llm-generate.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="4" failures="0" skipped="0" time="18.193" errors="0">
+<testcase name="LLM Generate › shows assistant response from LLM" classname="llm-generate.spec.ts" time="4.269">
+</testcase>
+<testcase name="LLM Generate › shows error toast on empty response" classname="llm-generate.spec.ts" time="4.924">
+</testcase>
+<testcase name="LLM Generate › requires confirmation for tool calls" classname="llm-generate.spec.ts" time="4.521">
+</testcase>
+<testcase name="LLM Generate › runs confirmed tool plan and sends confirm payload" classname="llm-generate.spec.ts" time="4.479">
+</testcase>
+</testsuite>
+<testsuite name="main-goal-execution.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="15.02" errors="0">
+<testcase name="Main Goal Execution Journey › runs goal-derived tasks with two workers and exposes progress in UI" classname="main-goal-execution.spec.ts" time="15.02">
+</testcase>
+</testsuite>
+<testsuite name="main-goal-foundation.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="1" skipped="0" time="74.589" errors="0">
+<testcase name="Main Goal UI Foundation › canonical UI control points are present" classname="main-goal-foundation.spec.ts" time="2.112">
+</testcase>
+<testcase name="Main Goal UI Foundation › foundation journey creates template + blueprint + team with two workers via UI" classname="main-goal-foundation.spec.ts" time="72.477">
+<failure message="main-goal-foundation.spec.ts:81:7 foundation journey creates template + blueprint + team with two workers via UI" type="FAILURE">
+<![CDATA[  [chromium] › main-goal-foundation.spec.ts:81:7 › Main Goal UI Foundation › foundation journey creates template + blueprint + team with two workers via UI 
+
+    TimeoutError: locator.selectOption: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('.teams-editor-panel').getByLabel('Template').first()
+        - locator resolved to <select class="ng-untouched ng-pristine ng-valid">…</select>
+      - attempting select option action
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+        - waiting 20ms
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+          - waiting 100ms
+        30 × waiting for element to be visible and enabled
+           - did not find some options
+         - retrying select option action
+           - waiting 500ms
+
+
+      131 |       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
+      132 |       await editor.getByLabel('Rollenname').first().fill('Implementer');
+    > 133 |       await editor.getByLabel('Template').first().selectOption(String(createdTemplateId));
+          |                                                   ^
+      134 |       await editor.getByRole('button', { name: /^Erstellen$/i }).click();
+      135 |
+      136 |       await expect.poll(async () => {
+        at /app/tests/main-goal-foundation.spec.ts:133:51
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.selectOption: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('.teams-editor-panel').getByLabel('Template').first()
+        - locator resolved to <select class="ng-untouched ng-pristine ng-valid">…</select>
+      - attempting select option action
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+        - waiting 20ms
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+          - waiting 100ms
+        30 × waiting for element to be visible and enabled
+           - did not find some options
+         - retrying select option action
+           - waiting 500ms
+
+
+      131 |       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
+      132 |       await editor.getByLabel('Rollenname').first().fill('Implementer');
+    > 133 |       await editor.getByLabel('Template').first().selectOption(String(createdTemplateId));
+          |                                                   ^
+      134 |       await editor.getByRole('button', { name: /^Erstellen$/i }).click();
+      135 |
+      136 |       await expect.poll(async () => {
+        at /app/tests/main-goal-foundation.spec.ts:133:51
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.selectOption: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('.teams-editor-panel').getByLabel('Template').first()
+        - locator resolved to <select class="ng-untouched ng-pristine ng-valid">…</select>
+      - attempting select option action
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+        - waiting 20ms
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+          - waiting 100ms
+        30 × waiting for element to be visible and enabled
+           - did not find some options
+         - retrying select option action
+           - waiting 500ms
+
+
+      131 |       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
+      132 |       await editor.getByLabel('Rollenname').first().fill('Implementer');
+    > 133 |       await editor.getByLabel('Template').first().selectOption(String(createdTemplateId));
+          |                                                   ^
+      134 |       await editor.getByRole('button', { name: /^Erstellen$/i }).click();
+      135 |
+      136 |       await expect.poll(async () => {
+        at /app/tests/main-goal-foundation.spec.ts:133:51
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry2/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium/video.webm]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium/error-context.md]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/video.webm]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry1/trace.zip]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry2/video.webm]]
+
+[[ATTACHMENT|main-goal-foundation-Main--c1576-eam-with-two-workers-via-UI-chromium-retry2/error-context.md]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="main-goal-observability.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="0" time="9.614" errors="0">
+<testcase name="Main Goal Observability Journey › keeps board/task detail/log tabs analysable and controllable" classname="main-goal-observability.spec.ts" time="7.427">
+</testcase>
+<testcase name="Main Goal Observability Journey › covers artifacts controls with deterministic API interactions" classname="main-goal-observability.spec.ts" time="2.187">
+</testcase>
+</testsuite>
+<testsuite name="main-goal-planning.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="11.054" errors="0">
+<testcase name="Main Goal UI Planning › plans goal via UI with explicit team mapping" classname="main-goal-planning.spec.ts" time="11.054">
+</testcase>
+</testsuite>
+<testsuite name="notifications.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="2.864" errors="0">
+<testcase name="Notifications › does not submit invalid raw config" classname="notifications.spec.ts" time="2.864">
+</testcase>
+</testsuite>
+<testsuite name="permissions.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.544" errors="0">
+<testcase name="Permissions › non-admin cannot manage templates, roles, or team types" classname="permissions.spec.ts" time="4.544">
+</testcase>
+</testsuite>
+<testsuite name="public-oidc-webrtc.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="1" time="0" errors="0">
+<testcase name="Public OIDC / WebRTC › logs in via public Keycloak and can access rendezvous auth endpoints" classname="public-oidc-webrtc.spec.ts" time="0">
+<properties>
+<property name="skip" value="Set E2E_AUTH_MODE=oidc-ui to run the public OIDC/WebRTC smoke test.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="release-goal-smoke.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="0" time="18.781" errors="0">
+<testcase name="Release goal smoke E2E › logs in, creates the first quick goal and opens the result summary" classname="release-goal-smoke.spec.ts" time="5.797">
+</testcase>
+<testcase name="Release goal smoke E2E › runs guided goal creation and exposes safety plus review notices" classname="release-goal-smoke.spec.ts" time="12.984">
+</testcase>
+</testsuite>
+<testsuite name="settings-config.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="3" failures="0" skipped="0" time="30.567" errors="0">
+<testcase name="Settings Config › loads, saves, and validates raw config" classname="settings-config.spec.ts" time="8.218">
+</testcase>
+<testcase name="Settings Config › switches settings sections and persists quality/system changes" classname="settings-config.spec.ts" time="11.27">
+</testcase>
+<testcase name="Settings Config › keeps API/UI config roundtrip consistent across refresh and reload" classname="settings-config.spec.ts" time="11.079">
+</testcase>
+</testsuite>
+<testsuite name="sse-events.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="3.759" errors="0">
+<testcase name="SSE Events › updates agent token from system events stream" classname="sse-events.spec.ts" time="3.759">
+</testcase>
+</testsuite>
+<testsuite name="stress.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="3" failures="0" skipped="0" time="16.697" errors="0">
+<testcase name="Stress &amp; Load Tests › Rapid navigation stress test" classname="stress.spec.ts" time="7.334">
+</testcase>
+<testcase name="Stress &amp; Load Tests › Concurrent data loading stress" classname="stress.spec.ts" time="3.696">
+</testcase>
+<testcase name="Stress &amp; Load Tests › Heavy component interaction" classname="stress.spec.ts" time="5.667">
+</testcase>
+</testsuite>
+<testsuite name="task-cleanup-ui.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="1" time="5.152" errors="0">
+<testcase name="Task Cleanup UI › graph actions call archive/delete cleanup endpoints" classname="task-cleanup-ui.spec.ts" time="4.993">
+</testcase>
+<testcase name="Task Cleanup UI › archived page supports single and filtered delete actions" classname="task-cleanup-ui.spec.ts" time="0.159">
+<properties>
+<property name="skip" value="Archived table rows still not rendered in compose E2E despite mocked /tasks/archived responses; follow-up task open.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="team-types-roles.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="1" failures="0" skipped="0" time="15.953" errors="0">
+<testcase name="Team Types and Roles › create type, role, link role, map template, cleanup" classname="team-types-roles.spec.ts" time="15.953">
+</testcase>
+</testsuite>
+<testsuite name="teams.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="4" failures="0" skipped="0" time="38.415" errors="0">
+<testcase name="Teams CRUD › create, update, activate, delete team via API" classname="teams.spec.ts" time="10.534">
+</testcase>
+<testcase name="Teams CRUD › blueprint-first page shows blueprint and advanced flows" classname="teams.spec.ts" time="8.994">
+</testcase>
+<testcase name="Teams CRUD › delete missing team returns not found" classname="teams.spec.ts" time="3.849">
+</testcase>
+<testcase name="Teams CRUD › blueprint editor shows validation errors and can instantiate a custom blueprint" classname="teams.spec.ts" time="15.038">
+</testcase>
+</testsuite>
+<testsuite name="templates-ai-live.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="2" time="0.28" errors="0">
+<testcase name="Templates AI (Live LLM) › responds on templates route via live LLM @requires-llm" classname="templates-ai-live.spec.ts" time="0.137">
+<properties>
+<property name="skip" value="">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Templates AI (Live LLM) › assistant responds on dashboard and can confirm template plan when proposed @requires-llm" classname="templates-ai-live.spec.ts" time="0.143">
+<properties>
+<property name="skip" value="">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="templates-ai.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="2" time="5.604" errors="0">
+<testcase name="Templates AI › shows error toast when LLM fails" classname="templates-ai.spec.ts" time="2.23">
+<properties>
+<property name="skip" value="Templates AI draft controls not available in this UI.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Templates AI › generates template draft when LLM responds" classname="templates-ai.spec.ts" time="3.374">
+<properties>
+<property name="skip" value="Templates AI draft controls not available in this UI.">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="templates-crud.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="4" failures="0" skipped="0" time="28.866" errors="0">
+<testcase name="Templates CRUD › create, update, delete template via API" classname="templates-crud.spec.ts" time="8.851">
+</testcase>
+<testcase name="Templates CRUD › delete missing template returns not found" classname="templates-crud.spec.ts" time="3.544">
+</testcase>
+<testcase name="Templates CRUD › delete clears references when template is in use" classname="templates-crud.spec.ts" time="8.63">
+</testcase>
+<testcase name="Templates CRUD › template editor surfaces strict variable validation errors" classname="templates-crud.spec.ts" time="7.841">
+</testcase>
+</testsuite>
+<testsuite name="terminal.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="0" time="7.78" errors="0">
+<testcase name="Terminal › open hub terminal and keep live tracking across reconnect" classname="terminal.spec.ts" time="2.468">
+</testcase>
+<testcase name="Terminal › terminal is reachable for hub alpha and beta" classname="terminal.spec.ts" time="5.312">
+</testcase>
+</testsuite>
+<testsuite name="ui-ux-console.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="4" failures="0" skipped="0" time="30.552" errors="0">
+<testcase name="UI UX console and visibility › core navigation has no browser console/page errors" classname="ui-ux-console.spec.ts" time="6.587">
+</testcase>
+<testcase name="UI UX console and visibility › error notification is visible in viewport and closeable" classname="ui-ux-console.spec.ts" time="4.211">
+</testcase>
+<testcase name="UI UX console and visibility › templates form stays editable when usage lookups fail" classname="ui-ux-console.spec.ts" time="4.83">
+</testcase>
+<testcase name="UI UX console and visibility › dashboard, templates, and teams settle without stuck loading states" classname="ui-ux-console.spec.ts" time="14.924">
+</testcase>
+</testsuite>
+<testsuite name="ui-ux-workflows.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="4" failures="0" skipped="0" time="31.701" errors="0">
+<testcase name="UI UX Workflows › goal flow remains interactive and renders details" classname="ui-ux-workflows.spec.ts" time="3.92">
+</testcase>
+<testcase name="UI UX Workflows › template creation works via UI and remains responsive" classname="ui-ux-workflows.spec.ts" time="9.999">
+</testcase>
+<testcase name="UI UX Workflows › blueprint + team creation works via UI" classname="ui-ux-workflows.spec.ts" time="15.734">
+</testcase>
+<testcase name="UI UX Workflows › teams page unlocks even when one backend call hangs" classname="ui-ux-workflows.spec.ts" time="2.048">
+</testcase>
+</testsuite>
+<testsuite name="webrtc-datachannel.spec.ts" timestamp="2026-06-03T14:12:13.904Z" hostname="chromium" tests="2" failures="0" skipped="0" time="0.005" errors="0">
+<testcase name="WebRTC DataChannel Protocol › encodes/decodes standard messages" classname="webrtc-datachannel.spec.ts" time="0.001">
+</testcase>
+<testcase name="WebRTC DataChannel Protocol › reassembles chunked payloads" classname="webrtc-datachannel.spec.ts" time="0.004">
+</testcase>
+</testsuite>
+</testsuites>

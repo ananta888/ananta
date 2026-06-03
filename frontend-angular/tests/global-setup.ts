@@ -206,10 +206,13 @@ async function startService(
 ): Promise<ProcInfo> {
   const dataDir = path.join(dataRoot, svc.name);
   fs.mkdirSync(dataDir, { recursive: true });
+  const serviceDatabaseUrl =
+    process.env.E2E_DATABASE_URL?.trim() || `sqlite:///${path.join(dataDir, 'ananta.db')}`;
   const env = {
     ...envBase,
     ...svc.env,
     DATA_DIR: dataDir,
+    DATABASE_URL: serviceDatabaseUrl,
     DISABLE_LLM_CHECK: '1',
     AUTH_TEST_ENDPOINTS_ENABLED: '1'
   };
