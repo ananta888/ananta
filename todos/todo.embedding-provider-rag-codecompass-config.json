@@ -1,0 +1,568 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "embedding-provider-rag-codecompass-config",
+  "purpose": "Feingranulare Verbesserungs-TODO für eine zentrale, sichere und testbare Embedding-Konfiguration in Ananta. Ziel ist, Embeddings nicht nur punktuell in semantic_output_correction, sondern sauber für Worker Retrieval, CodeCompass Vector Store, RAG Helper und spätere lokale Open-Source-Modelle konfigurierbar zu machen.",
+  "goal": "Ananta soll einen kanonischen EmbeddingProvider-Config-Pfad erhalten, der deterministische Fallbacks, echte lokale/OpenAI-kompatible Embedding-Endpunkte, Index-Versionierung, Rebuild-Regeln, Diagnostik und Tests sauber verbindet. Default muss sicher, reproduzierbar und ohne heimliche externe Calls bleiben.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "code_analysis": {
+    "summary": [
+      "worker/retrieval/embedding_provider.py enthält bereits ein Provider-Protokoll sowie FakeEmbeddingProvider, HashEmbeddingProvider und OpenAICompatibleEmbeddingProvider.",
+      "build_embedding_provider(config) unterstützt provider fake/test, local/local_hash/hash und openai/openai_compatible. Ohne Config wird aktuell fake verwendet.",
+      "worker/retrieval/index_builder.py erzeugt Chunks, ruft embedding_provider.embed_texts(...) auf und schreibt Embedding-Versionen in den Retrieval-Index.",
+      "worker/retrieval/codecompass_vector_store.py speichert Vektoren in einem JSON Vector Store und sucht per Cosine Similarity.",
+      "worker/retrieval/codecompass_vector_engine.py bekommt Store und EmbeddingProvider von außen injiziert, besitzt aber keine erkennbare zentrale Config-Auflösung.",
+      "agent/routes/config/settings.py validiert embedding_provider derzeit sichtbar nur unter worker_runtime.semantic_output_correction.",
+      "worker/coding/semantic_output_correction.py nutzt build_embedding_provider(...) zur Korrektur definierter Enum-Felder, aktuell risk_classification.",
+      "RAG Helper erzeugt embedding_text, aber die eigentliche EmbeddingProvider-Konfiguration ist nicht als zentraler Contract über RAG/CodeCompass/Worker vereinheitlicht."
+    ],
+    "relevant_files": [
+      "worker/retrieval/embedding_provider.py",
+      "worker/retrieval/index_builder.py",
+      "worker/retrieval/index_contract.py",
+      "worker/retrieval/index_state.py",
+      "worker/retrieval/codecompass_vector_store.py",
+      "worker/retrieval/codecompass_vector_engine.py",
+      "worker/retrieval/codecompass_embedding_loader.py",
+      "worker/coding/semantic_output_correction.py",
+      "agent/routes/config/settings.py",
+      "agent/config_defaults.py",
+      "agent/services/task_scoped_execution_service.py",
+      "rag-helper/rag_helper/utils/embedding_text.py",
+      "rag-helper/codecompass_rag.py",
+      "docs/worker/retrieval_and_indexing.md",
+      "docs/contracts/codecompass-output-manifest.md",
+      "tests/test_codecompass_embedding_provider.py",
+      "tests/test_codecompass_vector_store.py",
+      "tests/test_worker_codecompass_vector_channel.py",
+      "tests/worker/test_retrieval_indexing.py"
+    ],
+    "main_architecture_gap": "EmbeddingProvider existiert, aber die Konfiguration ist nicht als kanonischer, auditierbarer und wiederverwendbarer Runtime-Contract für Worker Retrieval, CodeCompass Vector Store, RAG Helper und semantic_output_correction modelliert.",
+    "security_gap": "OpenAI-kompatible Embeddings können externe Calls auslösen. Dafür fehlen sichtbare zentrale Allow/Block-Regeln, Secret-Handling, Provider-Diagnostik, Audit-Hinweise und Default-Deny-Verhalten gegen versehentliche Datenabflüsse.",
+    "quality_gap": "Hash/Fake-Embeddings sind gut für Tests und deterministische Fallbacks, liefern aber keine starke semantische Suche. Echte Embedding-Modelle müssen explizit konfiguriert, versioniert und benchmarkbar gemacht werden."
+  },
+  "architecture_principles": [
+    "Keine heimlichen externen Embedding-Calls: Default bleibt lokal, deterministisch und offline.",
+    "Ein kanonischer embedding_provider_config Contract wird von allen Embedding-Nutzern geteilt.",
+    "Semantic-Correction, Worker Retrieval und CodeCompass dürfen keine abweichenden Provider-Semantiken erfinden.",
+    "Provider, Modellname, Dimensionen, Endpoint, Scope und Rebuild-Grund müssen auditierbar sein.",
+    "Secrets dürfen nicht in Index-Dateien, Diagnostik, Logs oder Artefakte serialisiert werden.",
+    "Änderungen an Provider, Modell, Dimensionen oder embedding_text-Profil erzwingen einen sauberen Rebuild oder klaren Degraded-Status.",
+    "Hash/Fake Provider bleiben für Tests erlaubt, aber produktive Profile müssen den Unterschied sichtbar machen.",
+    "OpenAI-kompatible Provider dürfen nur über explizit erlaubte Base-URLs genutzt werden.",
+    "Lokale Open-Source-Provider wie Ollama/LM Studio sollen ohne Codeänderung konfigurierbar sein, sofern sie einen kompatiblen /embeddings-Endpunkt anbieten.",
+    "Alle Retrieval-Entscheidungen müssen erklärbar bleiben: dense/vector, lexical, symbol und finale Gewichtung müssen getrennt nachvollziehbar sein."
+  ],
+  "proposed_config_shape": {
+    "embedding_provider": {
+      "enabled": true,
+      "default_scope": "worker_retrieval",
+      "provider": "local_hash",
+      "model": null,
+      "model_version": "hash-v1",
+      "dimensions": 12,
+      "base_url": null,
+      "api_key_ref": null,
+      "timeout_seconds": 20,
+      "external_calls_allowed": false,
+      "allowed_base_urls": [],
+      "index_rebuild_policy": "on_provider_or_model_change",
+      "diagnostics_enabled": true
+    },
+    "embedding_provider_overrides": {
+      "semantic_output_correction": {
+        "provider": "local_hash",
+        "dimensions": 12
+      },
+      "codecompass_vector": {
+        "provider": "local_hash",
+        "dimensions": 12
+      },
+      "rag_helper": {
+        "provider": "local_hash",
+        "dimensions": 12
+      }
+    }
+  },
+  "expected_new_files": [
+    "agent/services/embedding_provider_config_service.py",
+    "agent/models/embedding_provider_config.py",
+    "docs/worker/embedding-provider-config.md",
+    "tests/test_embedding_provider_config_service.py",
+    "tests/test_embedding_provider_config_security.py",
+    "tests/test_codecompass_embedding_config_integration.py"
+  ],
+  "expected_modified_files": [
+    "worker/retrieval/embedding_provider.py",
+    "worker/retrieval/index_builder.py",
+    "worker/retrieval/codecompass_vector_engine.py",
+    "worker/retrieval/codecompass_vector_store.py",
+    "worker/coding/semantic_output_correction.py",
+    "agent/routes/config/settings.py",
+    "agent/config_defaults.py",
+    "agent/services/task_scoped_execution_service.py",
+    "rag-helper/codecompass_rag.py",
+    "docs/worker/retrieval_and_indexing.md",
+    "docs/contracts/codecompass-output-manifest.md"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Bestand und Ziel-Contract festziehen",
+      "task_ids": ["EPC-001", "EPC-002", "EPC-003"],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Zentrale Config und sichere Provider-Auflösung einführen",
+      "task_ids": ["EPC-004", "EPC-005", "EPC-006", "EPC-007"],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "CodeCompass, Worker Retrieval und Semantic-Correction vereinheitlichen",
+      "task_ids": ["EPC-008", "EPC-009", "EPC-010", "EPC-011"],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Index-Rebuild, Diagnostik und Security-Hardening",
+      "task_ids": ["EPC-012", "EPC-013", "EPC-014", "EPC-015"],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Tests, Doku und lokale Open-Source-Beispiele",
+      "task_ids": ["EPC-016", "EPC-017", "EPC-018", "EPC-019", "EPC-020"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "EPC-001",
+      "title": "Embedding-Nutzer im Code verbindlich inventarisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "analysis",
+      "files": [
+        "worker/retrieval/embedding_provider.py",
+        "worker/retrieval/index_builder.py",
+        "worker/retrieval/codecompass_vector_engine.py",
+        "worker/retrieval/codecompass_vector_store.py",
+        "worker/coding/semantic_output_correction.py",
+        "rag-helper/codecompass_rag.py"
+      ],
+      "description": "Alle Stellen erfassen, die Embeddings erzeugen, Provider injizieren, embedding_text erzeugen oder Vektoren speichern/suchen.",
+      "acceptance_criteria": [
+        "Dokumentierte Liste aller Embedding-Nutzer ist vorhanden.",
+        "Für jede Stelle ist klar, ob sie Provider erzeugt, Provider bekommt oder nur embedding_text liefert.",
+        "Fake/Hash/OpenAI-kompatible Nutzung ist getrennt beschrieben.",
+        "Unklare oder doppelte Provider-Auflösungen sind als Refactoring-Kandidaten markiert.",
+        "Keine Runtime-Änderung durch diese Analyse."
+      ]
+    },
+    {
+      "id": "EPC-002",
+      "title": "Kanonisches EmbeddingProviderConfig-Modell definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "data_model",
+      "files": [
+        "agent/models/embedding_provider_config.py",
+        "agent/services/embedding_provider_config_service.py"
+      ],
+      "description": "Ein serialisierbares Config-Modell für Provider, Modell, Dimensionen, Endpoint, Timeout, externe Calls, Secret-Referenzen und Rebuild-Policy definieren.",
+      "acceptance_criteria": [
+        "Schema embedding_provider_config.v1 ist definiert.",
+        "provider ist auf fake, test, local, local_hash, hash, openai, openai_compatible begrenzt.",
+        "api_key wird nicht direkt als persistierter Klartext empfohlen, sondern api_key_ref unterstützt.",
+        "external_calls_allowed ist explizit und default false.",
+        "dimensions sind begrenzt und validiert.",
+        "Config ist ohne Flask-Kontext normalisierbar."
+      ]
+    },
+    {
+      "id": "EPC-003",
+      "title": "Default-Policy für Embeddings festlegen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security_policy",
+      "files": [
+        "agent/config_defaults.py",
+        "docs/worker/embedding-provider-config.md"
+      ],
+      "description": "Sicheren Default definieren: offline, deterministisch, keine externen Calls, klare Warnung bei Fake/Hash als Qualitätsfallback.",
+      "acceptance_criteria": [
+        "Default nutzt keinen externen Endpoint.",
+        "Default erzeugt reproduzierbares Verhalten in Tests.",
+        "Produktive Profile können echte Provider explizit aktivieren.",
+        "Doku erklärt den Unterschied zwischen Hash/Fake und echten semantischen Embeddings.",
+        "Fehlende Config führt nicht zu heimlichen Cloud-Calls."
+      ]
+    },
+    {
+      "id": "EPC-004",
+      "title": "EmbeddingProviderConfigService implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "service",
+      "files": [
+        "agent/services/embedding_provider_config_service.py",
+        "worker/retrieval/embedding_provider.py"
+      ],
+      "description": "Zentralen Service bauen, der globale Config und Scope-Overrides zusammenführt und daraus eine sichere Provider-Config erzeugt.",
+      "acceptance_criteria": [
+        "Service kann globale embedding_provider Config normalisieren.",
+        "Service kann Overrides für semantic_output_correction, codecompass_vector und rag_helper auflösen.",
+        "Unbekannte Provider werden deterministisch abgelehnt.",
+        "Secrets werden in Diagnostics redacted.",
+        "Service liefert status ready, degraded oder blocked mit reason."
+      ]
+    },
+    {
+      "id": "EPC-005",
+      "title": "Config-API um embedding_provider erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "api",
+      "files": [
+        "agent/routes/config/settings.py",
+        "agent/config_defaults.py"
+      ],
+      "description": "GET/POST /config soll globale Embedding-Config und Scope-Overrides validieren und mergen können.",
+      "acceptance_criteria": [
+        "POST /config akzeptiert embedding_provider als Top-Level-Block.",
+        "POST /config akzeptiert embedding_provider_overrides als Top-Level-Block.",
+        "Ungültige dimensions, provider oder URLs liefern 400 mit sprechendem Fehlercode.",
+        "Bestehende worker_runtime.semantic_output_correction bleibt rückwärtskompatibel.",
+        "GET /config gibt redacted effective_embedding_provider_config zurück."
+      ]
+    },
+    {
+      "id": "EPC-006",
+      "title": "OpenAI-kompatiblen Provider härten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "files": [
+        "worker/retrieval/embedding_provider.py",
+        "agent/services/embedding_provider_config_service.py"
+      ],
+      "description": "Externe Embedding-Calls nur erlauben, wenn external_calls_allowed true ist und base_url explizit zugelassen wurde.",
+      "acceptance_criteria": [
+        "OpenAI-kompatibler Provider wird ohne external_calls_allowed nicht gebaut oder blockiert.",
+        "allowed_base_urls wird gegen base_url geprüft.",
+        "api_key_ref kann zur Laufzeit aufgelöst werden, ohne im Index zu landen.",
+        "Fehlender API-Key erzeugt degraded/blocked Diagnostic statt unklarer Exception.",
+        "Tests prüfen, dass Secrets nicht in Fehlertexten auftauchen."
+      ]
+    },
+    {
+      "id": "EPC-007",
+      "title": "Lokale OpenAI-kompatible Beispiele vorbereiten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "config_examples",
+      "files": [
+        "docs/worker/embedding-provider-config.md",
+        "config/examples/embedding.localhash.json",
+        "config/examples/embedding.ollama-openai-compatible.json",
+        "config/examples/embedding.lmstudio-openai-compatible.json"
+      ],
+      "description": "Beispielconfigs für local_hash, Ollama-kompatible und LM-Studio-kompatible Embeddings dokumentieren. Nur Beispiele, keine Provider-Autodetektion erzwingen.",
+      "acceptance_criteria": [
+        "local_hash Beispiel ist vollständig offline.",
+        "Ollama Beispiel nutzt explizit localhost und external_calls_allowed true nur für lokalen Endpoint.",
+        "LM Studio Beispiel nutzt explizit localhost und redacted API-Key.",
+        "Doku nennt, dass Modellname und Dimensionen zum realen Embedding-Modell passen müssen.",
+        "Beispiele enthalten keine echten Secrets."
+      ]
+    },
+    {
+      "id": "EPC-008",
+      "title": "Semantic Output Correction auf zentralen Config-Service umstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "integration",
+      "files": [
+        "worker/coding/semantic_output_correction.py",
+        "agent/routes/config/settings.py",
+        "agent/services/embedding_provider_config_service.py"
+      ],
+      "description": "Bestehende semantic_output_correction soll den zentralen Provider-Contract nutzen, aber alte Config weiter verstehen.",
+      "acceptance_criteria": [
+        "Bestehende Config unter worker_runtime.semantic_output_correction.embedding_provider funktioniert weiter.",
+        "Top-Level Override semantic_output_correction kann die Provider-Config ersetzen.",
+        "Provider-Diagnostics werden im Correction-Report sichtbar.",
+        "Bei Provider-Ausfall bleibt Payload unverändert und reason ist embedding_provider_unavailable.",
+        "Bestehende Tests bleiben grün."
+      ]
+    },
+    {
+      "id": "EPC-009",
+      "title": "CodeCompass Vector Engine an zentrale Provider-Auflösung anbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": [
+        "worker/retrieval/codecompass_vector_engine.py",
+        "worker/retrieval/codecompass_vector_store.py",
+        "agent/services/task_scoped_execution_service.py"
+      ],
+      "description": "CodeCompass soll seinen EmbeddingProvider aus derselben Config beziehen wie andere Embedding-Nutzer, inklusive Scope codecompass_vector.",
+      "acceptance_criteria": [
+        "CodeCompass Vector Engine erhält Provider über eine zentrale Factory/Resolver-Schicht.",
+        "Scope codecompass_vector wird unterstützt.",
+        "Provider-Metadaten landen im Vector-Index-State.",
+        "Fehler beim Provider führen zu degraded Retrieval statt Crash.",
+        "Tests prüfen lokale Hash-Konfiguration und OpenAI-kompatible Mock-Konfiguration."
+      ]
+    },
+    {
+      "id": "EPC-010",
+      "title": "Worker Retrieval Index Builder mit Provider-Config verbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": [
+        "worker/retrieval/index_builder.py",
+        "worker/retrieval/index_state.py",
+        "agent/services/task_scoped_execution_service.py"
+      ],
+      "description": "build_incremental_index soll nicht still auf HashEmbeddingProvider fallen, wenn eine explizite zentrale Config existiert.",
+      "acceptance_criteria": [
+        "Explizite Provider-Config wird beim Index-Aufbau verwendet.",
+        "Fehlende Provider-Config nutzt dokumentierten Default.",
+        "Index-State enthält provider_id, model_version, dimensions und config_hash ohne Secrets.",
+        "Änderung von Provider/Model/Dimensions erzwingt Rebuild oder invalidiert alte Einträge.",
+        "Tests prüfen Delta-Indexing mit unverändertem und geändertem Provider."
+      ]
+    },
+    {
+      "id": "EPC-011",
+      "title": "RAG Helper embedding_text und Provider-Config sauber trennen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "files": [
+        "rag-helper/rag_helper/utils/embedding_text.py",
+        "rag-helper/codecompass_rag.py",
+        "docs/contracts/codecompass-output-manifest.md"
+      ],
+      "description": "RAG Helper bleibt zuständig für embedding_text-Erzeugung, aber nicht für unklare Provider-Semantik. Manifest soll benötigte Embedding-Profile beschreiben können.",
+      "acceptance_criteria": [
+        "embedding_text-Erzeugung bleibt deterministisch.",
+        "Manifest kann embedding_text_profile und expected_embedding_scope ausweisen.",
+        "Provider-Selektion erfolgt außerhalb des embedding_text Builders.",
+        "Doku erklärt Trennung zwischen Textprofil und Vektorprovider.",
+        "Bestehende RAG Helper Tests bleiben kompatibel."
+      ]
+    },
+    {
+      "id": "EPC-012",
+      "title": "Index-Rebuild-Regeln für Embedding-Änderungen implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "indexing",
+      "files": [
+        "worker/retrieval/index_state.py",
+        "worker/retrieval/codecompass_vector_store.py",
+        "worker/retrieval/index_builder.py"
+      ],
+      "description": "Alte Vektoren dürfen nicht mit neuem Provider/Modell/Dimensionen gemischt werden. Rebuild/Refresh muss deterministisch erkennen, wann der Index ungültig ist.",
+      "acceptance_criteria": [
+        "Index-State enthält embedding_provider_config_hash ohne Secrets.",
+        "Provider-Wechsel erzeugt Rebuild-Grund provider_changed.",
+        "Dimensions-Wechsel erzeugt Rebuild-Grund dimensions_changed.",
+        "embedding_text_profile-Wechsel erzeugt Rebuild-Grund embedding_text_profile_changed.",
+        "Mismatch zwischen Query-Vektor-Dimension und Index-Dimension liefert degraded Diagnostic."
+      ]
+    },
+    {
+      "id": "EPC-013",
+      "title": "Provider-Diagnostik und Healthcheck ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "files": [
+        "agent/services/embedding_provider_config_service.py",
+        "worker/retrieval/codecompass_vector_engine.py",
+        "worker/retrieval/codecompass_vector_store.py"
+      ],
+      "description": "Embedding-Status muss sichtbar machen, ob Provider ready, degraded oder blocked ist, ohne Secrets offenzulegen.",
+      "acceptance_criteria": [
+        "Diagnostik enthält provider_id, model_version, dimensions, scope und status.",
+        "Diagnostik enthält keine api_key oder Authorization Header.",
+        "OpenAI-kompatible Provider können optional mit leerem Testinput geprüft werden.",
+        "CodeCompass last_diagnostic enthält Provider-Fehler verständlich.",
+        "Healthcheck unterscheidet Config-Fehler, Netzwerkfehler und Response-Formatfehler."
+      ]
+    },
+    {
+      "id": "EPC-014",
+      "title": "External-Call Audit für Embeddings einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "audit",
+      "files": [
+        "worker/retrieval/embedding_provider.py",
+        "agent/common/audit.py",
+        "agent/services/embedding_provider_config_service.py"
+      ],
+      "description": "Jeder externe Embedding-Call muss als potentieller Datenabfluss auditierbar sein. Inhalte selbst sollen nicht vollständig geloggt werden.",
+      "acceptance_criteria": [
+        "Audit-Event vor externem Embedding-Call enthält scope, provider, base_url_host, model und text_count.",
+        "Audit-Event enthält keine vollständigen Chunk-Texte.",
+        "Audit-Event enthält keine Secrets.",
+        "Blocked Calls werden ebenfalls auditierbar erfasst.",
+        "Tests prüfen Redaction und Event-Struktur."
+      ]
+    },
+    {
+      "id": "EPC-015",
+      "title": "Datenabfluss-Grenzen für Code/Docs Embeddings dokumentieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "docs_security",
+      "files": [
+        "docs/worker/embedding-provider-config.md",
+        "docs/worker/retrieval_and_indexing.md"
+      ],
+      "description": "Doku muss klar sagen, dass Embedding-Provider den Inhalt von Code-/Doc-Chunks sehen können, wenn externe Provider aktiv sind.",
+      "acceptance_criteria": [
+        "Doku nennt Embeddings als Datenübertragung, nicht als harmlose Metadaten.",
+        "Doku empfiehlt lokale Provider für private Repos.",
+        "Doku erklärt erlaubte Base-URLs und external_calls_allowed.",
+        "Doku erklärt Secret-Handling über api_key_ref.",
+        "Doku enthält Warnung vor versehentlicher Cloud-Nutzung."
+      ]
+    },
+    {
+      "id": "EPC-016",
+      "title": "Tests für Config-Normalisierung schreiben",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "tests",
+      "files": [
+        "tests/test_embedding_provider_config_service.py"
+      ],
+      "description": "Unit Tests für Default, Overrides, Provider-Validierung, Dimensionen, Timeout und Redaction.",
+      "acceptance_criteria": [
+        "Test: leere Config ergibt lokalen sicheren Default.",
+        "Test: semantic_output_correction Override gewinnt korrekt.",
+        "Test: codecompass_vector Override gewinnt korrekt.",
+        "Test: ungültige Provider werden abgelehnt.",
+        "Test: api_key wird in Diagnostics redacted."
+      ]
+    },
+    {
+      "id": "EPC-017",
+      "title": "Tests für Security-Grenzen externer Provider schreiben",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "tests",
+      "files": [
+        "tests/test_embedding_provider_config_security.py",
+        "tests/test_codecompass_embedding_provider.py"
+      ],
+      "description": "Absichern, dass externe Embedding-Provider nicht zufällig oder ohne explizite Freigabe benutzt werden.",
+      "acceptance_criteria": [
+        "Test: openai_compatible ohne external_calls_allowed wird blockiert.",
+        "Test: base_url außerhalb allowed_base_urls wird blockiert.",
+        "Test: fehlender API-Key liefert klare Diagnostic.",
+        "Test: Fehler enthalten keine Secrets.",
+        "Test: lokaler Hash-Provider benötigt keine Netzwerkverbindung."
+      ]
+    },
+    {
+      "id": "EPC-018",
+      "title": "CodeCompass-Integrationstests für Embedding-Konfiguration schreiben",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "tests",
+      "files": [
+        "tests/test_codecompass_embedding_config_integration.py",
+        "tests/test_codecompass_vector_store.py",
+        "tests/test_worker_codecompass_vector_channel.py"
+      ],
+      "description": "Nachweisen, dass CodeCompass denselben Config-Pfad nutzt und Index-State/Rebuild korrekt auf Provider-Änderungen reagieren.",
+      "acceptance_criteria": [
+        "Test: CodeCompass nutzt local_hash Default.",
+        "Test: CodeCompass nutzt Scope Override codecompass_vector.",
+        "Test: Provider-Wechsel invalidiert alten Vector-Index.",
+        "Test: Dimensions-Mismatch erzeugt degraded Diagnostic.",
+        "Test: Suche bleibt bei Provider-Ausfall ohne Crash."
+      ]
+    },
+    {
+      "id": "EPC-019",
+      "title": "Benchmark-Profil für echte vs Hash-Embeddings ergänzen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "benchmark",
+      "files": [
+        "tests/benchmarks/codecompass_worker/test_codecompass_hybrid_retrieval_benchmark.py",
+        "docs/benchmarks/codecompass-worker-retrieval.md"
+      ],
+      "description": "Qualitätsunterschied zwischen Hash/Fake und echten Embeddings sichtbar machen, ohne externe Provider in CI zwingend vorauszusetzen.",
+      "acceptance_criteria": [
+        "Benchmark kann mit local_hash offline laufen.",
+        "Benchmark kann optional mit realem Provider laufen, wenn Env/Config gesetzt ist.",
+        "Metriken enthalten Recall@k, MRR und Top-k hit-rate getrennt nach Provider.",
+        "CI bleibt ohne externe Credentials grün.",
+        "Doku erklärt, dass Hash-Benchmark nur Pipeline-Funktion, nicht semantische Qualität misst."
+      ]
+    },
+    {
+      "id": "EPC-020",
+      "title": "Embedding-Konfiguration in Retrieval-Doku final dokumentieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "docs",
+      "files": [
+        "docs/worker/embedding-provider-config.md",
+        "docs/worker/retrieval_and_indexing.md",
+        "docs/contracts/codecompass-output-manifest.md"
+      ],
+      "description": "Abschlussdoku mit Architektur, Config-Beispielen, Security-Hinweisen, Rebuild-Regeln und Troubleshooting.",
+      "acceptance_criteria": [
+        "Doku enthält Architekturdiagramm Config -> Provider -> Index -> Retrieval -> LLM.",
+        "Doku enthält vollständige JSON-Beispiele für local_hash und openai_compatible localhost.",
+        "Doku erklärt api_key_ref und Redaction.",
+        "Doku erklärt Rebuild-Gründe bei Provider-/Modell-/Dimensionswechsel.",
+        "Doku enthält Troubleshooting für missing_embedding_api_key, response_size_mismatch und dimension_mismatch."
+      ]
+    }
+  ],
+  "done_definition": [
+    "Ein Top-Level embedding_provider Config-Block existiert und wird validiert.",
+    "CodeCompass Vector Store, Worker Retrieval und semantic_output_correction nutzen denselben Provider-Contract oder dokumentierte Scope-Overrides.",
+    "Keine externen Embedding-Calls passieren ohne explizite Freigabe.",
+    "Index-State enthält Provider-/Modell-/Dimensionsinformationen ohne Secrets.",
+    "Provider-Wechsel und Dimensionswechsel lösen Rebuild oder klaren Degraded-Status aus.",
+    "Tests decken Default, Overrides, externe Blockierung, Redaction und CodeCompass-Integration ab.",
+    "Doku erklärt lokale Open-Source-Embeddings und Risiken externer Provider verständlich."
+  ]
+}
