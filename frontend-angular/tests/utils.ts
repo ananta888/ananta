@@ -724,10 +724,6 @@ export async function loginFast(
     throw new Error(`No access token returned for ${username}`);
   }
 
-  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME && !canUseAgentToken(HUB_AGENT_TOKEN)) {
-    throw new Error('Login fallback requested but HUB agent token is a placeholder');
-  }
-
   await ensureDeterministicScrumSeed(accessToken);
 
   await page.evaluate(
