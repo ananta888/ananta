@@ -24,23 +24,23 @@ describe('PermissionService', () => {
     let svc: PermissionService;
     beforeEach(() => { svc = createService('admin'); });
 
-    it('isAdmin returns true', () => expect(svc.isAdmin()).toBeTrue());
+    it('isAdmin returns true', () => expect(svc.isAdmin()).toBe(true));
 
     it('can perform all action classes', () => {
-      expect(svc.can('admin_users')).toBeTrue();
-      expect(svc.can('admin_policies')).toBeTrue();
-      expect(svc.can('terminal_access')).toBeTrue();
-      expect(svc.can('write_approvals')).toBeTrue();
-      expect(svc.can('audit_read')).toBeTrue();
-      expect(svc.can('diagnostics_read')).toBeTrue();
-      expect(svc.can('manage_templates')).toBeTrue();
-      expect(svc.can('view_any')).toBeTrue();
-      expect(svc.can('view_own')).toBeTrue();
-      expect(svc.can('operate_tasks')).toBeTrue();
+      expect(svc.can('admin_users')).toBe(true);
+      expect(svc.can('admin_policies')).toBe(true);
+      expect(svc.can('terminal_access')).toBe(true);
+      expect(svc.can('write_approvals')).toBe(true);
+      expect(svc.can('audit_read')).toBe(true);
+      expect(svc.can('diagnostics_read')).toBe(true);
+      expect(svc.can('manage_templates')).toBe(true);
+      expect(svc.can('view_any')).toBe(true);
+      expect(svc.can('view_own')).toBe(true);
+      expect(svc.can('operate_tasks')).toBe(true);
     });
 
     it('canAll returns true for multiple permissions', () => {
-      expect(svc.canAll('admin_users', 'audit_read')).toBeTrue();
+      expect(svc.canAll('admin_users', 'audit_read')).toBe(true);
     });
   });
 
@@ -48,35 +48,35 @@ describe('PermissionService', () => {
     let svc: PermissionService;
     beforeEach(() => { svc = createService('user'); });
 
-    it('isAdmin returns false', () => expect(svc.isAdmin()).toBeFalse());
+    it('isAdmin returns false', () => expect(svc.isAdmin()).toBe(false));
 
     it('can operate tasks and view own', () => {
-      expect(svc.can('view_own')).toBeTrue();
-      expect(svc.can('operate_tasks')).toBeTrue();
+      expect(svc.can('view_own')).toBe(true);
+      expect(svc.can('operate_tasks')).toBe(true);
     });
 
     it('cannot perform sensitive actions', () => {
-      expect(svc.can('admin_users')).toBeFalse();
-      expect(svc.can('admin_policies')).toBeFalse();
-      expect(svc.can('terminal_access')).toBeFalse();
-      expect(svc.can('write_approvals')).toBeFalse();
-      expect(svc.can('audit_read')).toBeFalse();
-      expect(svc.can('diagnostics_read')).toBeFalse();
-      expect(svc.can('manage_templates')).toBeFalse();
-      expect(svc.can('view_any')).toBeFalse();
+      expect(svc.can('admin_users')).toBe(false);
+      expect(svc.can('admin_policies')).toBe(false);
+      expect(svc.can('terminal_access')).toBe(false);
+      expect(svc.can('write_approvals')).toBe(false);
+      expect(svc.can('audit_read')).toBe(false);
+      expect(svc.can('diagnostics_read')).toBe(false);
+      expect(svc.can('manage_templates')).toBe(false);
+      expect(svc.can('view_any')).toBe(false);
     });
 
     it('canAll returns false when any permission missing', () => {
-      expect(svc.canAll('view_own', 'admin_users')).toBeFalse();
+      expect(svc.canAll('view_own', 'admin_users')).toBe(false);
     });
   });
 
   describe('no token / unknown role', () => {
     it('defaults to user-level permissions', () => {
       const svc = createService(null);
-      expect(svc.isAdmin()).toBeFalse();
-      expect(svc.can('admin_users')).toBeFalse();
-      expect(svc.can('operate_tasks')).toBeTrue();
+      expect(svc.isAdmin()).toBe(false);
+      expect(svc.can('admin_users')).toBe(false);
+      expect(svc.can('operate_tasks')).toBe(true);
     });
   });
 });

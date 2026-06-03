@@ -10,7 +10,7 @@ class MockStateFacade {
     { id: 't2', title: 'Task 2', description: '', status: 'in_progress', priority: 'Low' },
   ]);
   loading$ = new BehaviorSubject<boolean>(false);
-  loadTasks = jasmine.createSpy('loadTasks');
+  loadTasks = vi.fn();
 }
 
 describe('ControlCenterTaskBoardComponent', () => {

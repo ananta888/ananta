@@ -8,7 +8,7 @@ class MockStateFacade {
   workers$ = of([
     { id: 'w1', runtime: 'docker', health: 'online', capabilities: ['fs', 'terminal'], boundary: 'local-only' },
   ] as any);
-  loadWorkers = jasmine.createSpy('loadWorkers');
+  loadWorkers = vi.fn();
 }
 
 describe('ControlCenterWorkersComponent', () => {
@@ -36,6 +36,6 @@ describe('ControlCenterWorkersComponent', () => {
     const cmp = fixture.componentInstance;
 
     expect(cmp.workers.length).toBeGreaterThan(0);
-    expect(cmp.workers.some((w) => w.capabilities.includes('fs'))).toBeTrue();
+    expect(cmp.workers.some((w) => w.capabilities.includes('fs'))).toBe(true);
   });
 });

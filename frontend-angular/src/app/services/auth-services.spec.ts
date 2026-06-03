@@ -29,6 +29,7 @@ describe('agent auth services', () => {
 
   it('refreshes a user token once and retries the original request with the new token', async () => {
     const userAuth = {
+      token$: of(null),
       refreshToken: vi.fn(() => of({ access_token: 'new-token' })),
       logout: vi.fn(),
     };
@@ -58,6 +59,7 @@ describe('agent auth services', () => {
   it('shares one in-flight refresh for concurrent 401 handlers', async () => {
     const refresh$ = new Subject<{ access_token: string }>();
     const userAuth = {
+      token$: of(null),
       refreshToken: vi.fn(() => refresh$),
       logout: vi.fn(),
     };
@@ -91,6 +93,7 @@ describe('agent auth services', () => {
   it('logs out and propagates refresh failures', async () => {
     const refreshError = new Error('refresh failed');
     const userAuth = {
+      token$: of(null),
       refreshToken: vi.fn(() => throwError(() => refreshError)),
       logout: vi.fn(),
     };
