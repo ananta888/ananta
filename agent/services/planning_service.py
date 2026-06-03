@@ -747,6 +747,7 @@ class PlanningService:
                 repos.plan_node_repo.save(node)
                 planner._stats["tasks_created"] += 1
         except Exception as exc:
+            logging.getLogger(__name__).warning("Plan materialization failed for plan %s: %s", plan.id if plan else "ad-hoc", exc)
             self._rollback_materialization(plan=plan, nodes=nodes, created_ids=created_ids, error=str(exc))
             return [], "materialization_failed"
 
