@@ -18,6 +18,18 @@ function unwrap<T = any>(body: any): T {
   return body as T;
 }
 
+function normalizeLocalUrl(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    if (parsed.hostname === 'localhost') parsed.hostname = '127.0.0.1';
+    parsed.hash = '';
+    parsed.search = '';
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return String(raw || '').trim().replace(/\/+$/, '');
+  }
+}
+
 async function getHubInfo(page: Page): Promise<HubInfo> {
   return page.evaluate((defaultHubUrl: string) => {
     const token = localStorage.getItem('ananta.user.token');
@@ -210,8 +222,9 @@ test.describe('Main Goal Execution Journey', () => {
       }
 
       expect(assignedWorkers.size, 'at least one worker assignment expected').toBeGreaterThan(0);
+      const expectedWorkers = new Set([ALPHA_URL, BETA_URL].map((entry) => normalizeLocalUrl(entry)));
       for (const workerUrl of assignedWorkers) {
-        expect([ALPHA_URL, BETA_URL]).toContain(workerUrl);
+        expect(expectedWorkers.has(normalizeLocalUrl(workerUrl))).toBeTruthy();
       }
       expect(
         sawTerminal || assignedWorkers.size > 0,

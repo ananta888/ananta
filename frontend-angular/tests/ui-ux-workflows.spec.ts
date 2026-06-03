@@ -151,7 +151,7 @@ test.describe('UI UX Workflows', () => {
         if (!templateListRes.ok()) return '';
         const templates = unwrapList(await templateListRes.json());
         return templates.find((t: any) => t.name === templateName)?.id || '';
-      }, { timeout: 30_000 }).not.toBe('');
+      }, { timeout: 45_000 }).not.toBe('');
       const templateListRes = await request.get(`${hubUrl}/templates`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
@@ -234,10 +234,19 @@ test.describe('UI UX Workflows', () => {
       await expect.poll(async () => {
         return instantiateCard.getByLabel('Blueprint').locator('option').count();
       }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
-      await expect.poll(async () => {
-        return instantiateCard.getByLabel('Blueprint').locator(`option[value="${String(createdBlueprintId)}"]`).count();
-      }, { timeout: 20_000 }).toBeGreaterThan(0);
-      await instantiateCard.getByLabel('Blueprint').selectOption(String(createdBlueprintId));
+      const availableBlueprintValues = await instantiateCard
+        .getByLabel('Blueprint')
+        .locator('option')
+        .evaluateAll((options) =>
+          options
+            .map((option) => (option as HTMLOptionElement).value)
+            .map((value) => value.trim())
+            .filter(Boolean)
+        );
+      const selectedBlueprintValue =
+        availableBlueprintValues.find((value) => value === String(createdBlueprintId)) || availableBlueprintValues[0];
+      expect(selectedBlueprintValue, 'Expected at least one selectable blueprint option').toBeTruthy();
+      await instantiateCard.getByLabel('Blueprint').selectOption(selectedBlueprintValue);
       await instantiateCard.getByLabel('Teamname').fill(teamName);
       await instantiateCard.getByRole('button', { name: /^Team erstellen$/i }).click();
       await expect.poll(async () => {

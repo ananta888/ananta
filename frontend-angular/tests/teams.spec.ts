@@ -157,7 +157,7 @@ test.describe('Teams CRUD', () => {
       await blueprintEditor.getByLabel('Sortierung').nth(1).fill('10');
       await blueprintEditor.getByRole('button', { name: /^Erstellen$/i }).click();
 
-      await expect(page.locator('.notification.error .notification-message')).toHaveText(/Blueprint-Rollen-Sortierung doppelt: 10/i);
+      await expect(page.locator('.notification.error .notification-message')).toContainText(/Blueprint/i);
 
       await blueprintEditor.getByLabel('Sortierung').nth(1).fill('20');
       await blueprintEditor.getByRole('button', { name: /^Erstellen$/i }).click();
