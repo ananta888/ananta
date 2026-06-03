@@ -1,6 +1,26 @@
 import json
 import os
+import types
 from unittest.mock import MagicMock, patch
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _disable_snake_chat_background_threads(monkeypatch):
+    monkeypatch.setattr("agent.routes.snakes._spawn_ai_chat_reply", lambda **kwargs: None)
+
+
+@pytest.fixture(autouse=True)
+def _disable_llm_context_compaction(monkeypatch):
+    class _NoopCompactor:
+        def compact(self, **kwargs):
+            return types.SimpleNamespace(payload={}, meta={"status": "disabled"})
+
+    monkeypatch.setattr(
+        "agent.services.task_scoped_execution_service.get_planning_context_compactor_service",
+        lambda: _NoopCompactor(),
+    )
 
 
 def test_task_specific_endpoints_path(client, app, admin_auth_header):
