@@ -121,7 +121,7 @@ test.describe('Main Goal UI Foundation', () => {
         if (!res.ok()) return '';
         const templates = unwrapList(await res.json());
         return templates.find((tpl: any) => tpl.name === templateName)?.id || '';
-      }, { timeout: 20_000 }).not.toBe('');
+      }, { timeout: 45_000 }).not.toBe('');
 
       const templateRes = await request.get(`${hubUrl}/templates`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,

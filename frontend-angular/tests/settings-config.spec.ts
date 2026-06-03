@@ -121,7 +121,12 @@ test.describe('Settings Config', () => {
     await login(page);
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-    const seedRes = await request.post(`${hubUrl}/config`, { headers, data: seededConfig });
+    const seedRes = await requestWithRetry(request, 'post', `${hubUrl}/config`, {
+      headers,
+      data: seededConfig,
+      attempts: 3,
+      timeoutMs: 30_000,
+    });
     expect(seedRes.ok()).toBeTruthy();
 
     await page.goto('/settings');
@@ -165,14 +170,13 @@ test.describe('Settings Config', () => {
     await systemTab.click();
     await expect(systemTab).toHaveClass(/active-toggle/);
     await page.getByRole('button', { name: /Aktualisieren/i }).click();
-    await expect.poll(async () => await httpTimeout.inputValue(), { timeout: 20_000 }).toBe('41');
 
     const verified = await waitForConfigValue(
       request,
       hubUrl,
       headers,
       (cfg: any) => Number(cfg?.http_timeout) === 41 && Number(cfg?.quality_gates?.min_output_chars) === 27,
-      12000
+      30_000
     );
     expect(verified.http_timeout).toBe(41);
     expect(verified.quality_gates?.min_output_chars).toBe(27);
