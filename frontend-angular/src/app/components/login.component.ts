@@ -9,6 +9,7 @@ import { UserAuthService } from '../services/user-auth.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { PythonRuntimeService } from '../services/python-runtime.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
+import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
 
 @Component({
   selector: 'app-login',
@@ -119,7 +120,7 @@ import { OidcAuthService } from '../services/oidc-auth.service';
             }
             <div class="oidc-divider"><span>oder</span></div>
             <button type="button" class="secondary btn-full" (click)="loginWithKeycloak()" [disabled]="loading">
-              Mit Keycloak anmelden (keycloak.ananta.de)
+              Mit Keycloak anmelden ({{ keycloakHostLabel }})
             </button>
             <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDeviceFlow()" [disabled]="loading">
               {{ deviceFlowOpen ? 'Device Flow schliessen' : 'Device Flow (TUI-Code)' }}
@@ -219,6 +220,7 @@ export class LoginComponent {
   showDebugPanel = false;
   debugBusy = false;
   debugText = '';
+  readonly keycloakHostLabel = PUBLIC_KEYCLOAK_BASE_URL.replace(/^https?:\/\//, '');
 
   getUsernameError(): string | null {
     if (!this.username || this.username.trim().length === 0) {

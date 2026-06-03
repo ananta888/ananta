@@ -4,11 +4,15 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { map } from 'rxjs';
+import { firstValueFrom, map } from 'rxjs';
+import { AgentDirectoryService } from './agent-directory.service';
+import { NetworkProfileService } from './network-profile.service';
 import { UserAuthService } from './user-auth.service';
+import {
+  PUBLIC_OIDC_CLIENT_ID,
+  PUBLIC_OIDC_ISSUER,
+} from './public-ananta-endpoints';
 
-const ISSUER = 'https://keycloak.ananta.de/realms/ananta-e2e';
-const CLIENT_ID = 'ananta-tui';
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
 const SS_NONCE_KEY = 'oidc.nonce';
@@ -33,6 +37,8 @@ interface DeviceAuthResponse {
 @Injectable({ providedIn: 'root' })
 export class OidcAuthService {
   private userAuth = inject(UserAuthService);
+  private dir = inject(AgentDirectoryService);
+  private profiles = inject(NetworkProfileService);
   private router = inject(Router);
 
   private _meta: OidcMeta | null = null;
@@ -42,6 +48,22 @@ export class OidcAuthService {
 
   get sessionNonce(): string { return this._sessionNonce; }
   get hasNonce(): boolean { return !!this._sessionNonce; }
+
+  get issuer(): string {
+    return this.profiles.current.oidc?.issuer || PUBLIC_OIDC_ISSUER;
+  }
+
+  get clientId(): string {
+    return this.profiles.current.oidc?.client_id || PUBLIC_OIDC_CLIENT_ID;
+  }
+
+  private get hubUrl(): string {
+    return this.dir.list().find((agent) => agent.role === 'hub')?.url || '';
+  }
+
+  private get usesBackendOidcBroker(): boolean {
+    return this.profiles.current.profile_id === 'public-ananta';
+  }
 
   get currentUsername(): string {
     const p = this.userAuth.userPayload;
@@ -65,12 +87,12 @@ export class OidcAuthService {
 
   // ── Discovery ────────────────────────────────────────────────────────
 
-  private async loadMeta(issuer = ISSUER): Promise<OidcMeta> {
-    if (issuer === ISSUER && this._meta) return this._meta;
+  private async loadMeta(issuer = this.issuer): Promise<OidcMeta> {
+    if (issuer === this.issuer && this._meta) return this._meta;
     const r = await fetch(`${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
     if (!r.ok) throw new Error(`OIDC discovery failed: ${r.status}`);
     const meta = await r.json() as OidcMeta;
-    if (issuer === ISSUER) this._meta = meta;
+    if (issuer === this.issuer) this._meta = meta;
     return meta;
   }
 
@@ -91,7 +113,15 @@ export class OidcAuthService {
   // ── T12: PKCE Authorization redirect ────────────────────────────────
 
   async startLogin(redirectPath = '/'): Promise<void> {
-    const meta = await this.loadMeta(ISSUER);
+    if (this.usesBackendOidcBroker) {
+      const hubUrl = this.hubUrl;
+      if (!hubUrl) throw new Error('Hub URL is not configured for backend OIDC login');
+      const params = new URLSearchParams({ redirect_path: redirectPath || '/' });
+      location.href = `${hubUrl.replace(/\/$/, '')}/auth/oidc/login?${params}`;
+      return;
+    }
+
+    const meta = await this.loadMeta();
     const verifier = this.randomB64Url(48);
     const state = this.randomB64Url(16);
     const nonce = this.randomB64Url(16);
@@ -102,7 +132,7 @@ export class OidcAuthService {
     sessionStorage.setItem(SS_NONCE_KEY, nonce);
 
     const params = new URLSearchParams({
-      client_id: CLIENT_ID,
+      client_id: this.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: SCOPES,
@@ -130,10 +160,10 @@ export class OidcAuthService {
     if (state !== storedState) return false;
     sessionStorage.removeItem(SS_PKCE_KEY);
 
-    const meta = await this.loadMeta(ISSUER);
+    const meta = await this.loadMeta();
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: CLIENT_ID,
+      client_id: this.clientId,
       code,
       redirect_uri: `${location.origin}/oidc-callback`,
       code_verifier: verifier,
@@ -155,9 +185,32 @@ export class OidcAuthService {
     return true;
   }
 
+  async handleBackendCallback(): Promise<boolean> {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('oidc_code') || params.get('code');
+    if (!code) return false;
+    const state = params.get('state') || '';
+
+    const hubUrl = this.hubUrl;
+    if (!hubUrl) throw new Error('Hub URL is not configured for backend OIDC token exchange');
+    const exchangeParams = new URLSearchParams({ code });
+    if (state) exchangeParams.set('state', state);
+    const exchangeUrl = `${hubUrl.replace(/\/$/, '')}/auth/oidc/exchange?${exchangeParams}`;
+    const r = await fetch(exchangeUrl, { method: 'GET' });
+    if (!r.ok) return false;
+    const payload = await r.json() as any;
+    const data = payload?.data || payload;
+    const accessToken = String(data?.access_token || '').trim();
+    if (!accessToken) return false;
+    this._sessionNonce = '';
+    this.userAuth.setTokens(accessToken, data?.refresh_token || null);
+    this.router.navigateByUrl(String(data?.redirect_path || '/'));
+    return true;
+  }
+
   // ── Popup-PKCE login (browser equivalent of TUI loopback flow) ───────
 
-  async startLoginPopup(issuer = ISSUER, clientId = CLIENT_ID): Promise<void> {
+  async startLoginPopup(issuer = this.issuer, clientId = this.clientId): Promise<void> {
     const meta = await this.loadMeta(issuer);
     const verifier = this.randomB64Url(48);
     const state = this.randomB64Url(16);
@@ -200,10 +253,10 @@ export class OidcAuthService {
     if (state !== storedState) return false;
     localStorage.removeItem(LS_POPUP_KEY);
 
-    const meta = await this.loadMeta(issuer || ISSUER);
+    const meta = await this.loadMeta(issuer || this.issuer);
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: clientId || CLIENT_ID,
+      client_id: clientId || this.clientId,
       code,
       redirect_uri: `${location.origin}/oidc-callback`,
       code_verifier: verifier,
@@ -230,13 +283,22 @@ export class OidcAuthService {
   // ── T13: Silent token refresh via OIDC token endpoint ───────────────
 
   async silentRefresh(): Promise<boolean> {
+    if (this.usesBackendOidcBroker) {
+      try {
+        await firstValueFrom(this.userAuth.refreshToken());
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     const refreshToken = this.userAuth.refreshTokenValue;
     if (!refreshToken) return false;
     try {
-      const meta = await this.loadMeta(ISSUER);
+      const meta = await this.loadMeta();
       const body = new URLSearchParams({
         grant_type: 'refresh_token',
-        client_id: CLIENT_ID,
+        client_id: this.clientId,
         refresh_token: refreshToken,
       });
       const r = await fetch(meta.token_endpoint, {
@@ -256,13 +318,20 @@ export class OidcAuthService {
   // ── T14: Keycloak end-session ────────────────────────────────────────
 
   async logout(): Promise<void> {
+    if (this.usesBackendOidcBroker) {
+      this.userAuth.logout();
+      this._sessionNonce = '';
+      this.router.navigate(['/login']);
+      return;
+    }
+
     const token = this.userAuth.token;
     this.userAuth.logout();
     this._sessionNonce = '';
     try {
-      const meta = await this.loadMeta(ISSUER);
+      const meta = await this.loadMeta();
       const params = new URLSearchParams({
-        client_id: CLIENT_ID,
+        client_id: this.clientId,
         post_logout_redirect_uri: `${location.origin}/login`,
       });
       if (token) params.set('id_token_hint', token);
@@ -275,10 +344,10 @@ export class OidcAuthService {
   // ── T15: Device Flow ─────────────────────────────────────────────────
 
   async startDeviceFlow(): Promise<DeviceAuthResponse> {
-    const meta = await this.loadMeta(ISSUER);
+    const meta = await this.loadMeta();
     const endpoint = meta.device_authorization_endpoint ??
-      `${ISSUER}/protocol/openid-connect/auth/device`;
-    const body = new URLSearchParams({ client_id: CLIENT_ID, scope: SCOPES });
+      `${this.issuer}/protocol/openid-connect/auth/device`;
+    const body = new URLSearchParams({ client_id: this.clientId, scope: SCOPES });
     const r = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -289,10 +358,10 @@ export class OidcAuthService {
   }
 
   async pollDeviceToken(deviceCode: string, intervalSec: number): Promise<boolean> {
-    const meta = await this.loadMeta(ISSUER);
+    const meta = await this.loadMeta();
     const body = new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-      client_id: CLIENT_ID,
+      client_id: this.clientId,
       device_code: deviceCode,
     });
     const r = await fetch(meta.token_endpoint, {

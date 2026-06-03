@@ -4,6 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
+import {
+  PUBLIC_KEYCLOAK_BASE_URL,
+  PUBLIC_OIDC_REALM,
+  PUBLIC_WEBRTC_BASE_URL,
+} from '../services/public-ananta-endpoints';
 import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
@@ -225,12 +230,12 @@ export class AiSnakeChatPanelComponent {
   name = 'web-ai-snake';
   role = 'viewer';
   draft = '';
-  keycloakBaseUrl = 'https://keycloak.ananta.de';
-  keycloakRealm = 'ananta-e2e';
-  webrtcBaseUrl = 'https://webrtc.ananta.de';
+  keycloakBaseUrl = PUBLIC_KEYCLOAK_BASE_URL;
+  keycloakRealm = PUBLIC_OIDC_REALM;
+  webrtcBaseUrl = PUBLIC_WEBRTC_BASE_URL;
   loginBusy = false;
   loginError = '';
-  readonly keycloakPresets = ['https://keycloak.ananta.de'];
+  readonly keycloakPresets = [PUBLIC_KEYCLOAK_BASE_URL];
 
   @Input() tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   @Output() tabChange = new EventEmitter<'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();

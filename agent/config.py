@@ -103,6 +103,7 @@ class Settings(BaseSettings):
     terminal_oidc_browser_issuer: str = Field(default="", validation_alias="TERMINAL_OIDC_BROWSER_ISSUER")
     terminal_oidc_audience: str = Field(default="", validation_alias="TERMINAL_OIDC_AUDIENCE")
     terminal_oidc_client_id: str = Field(default="", validation_alias="TERMINAL_OIDC_CLIENT_ID")
+    terminal_oidc_frontend_redirect: str = Field(default="", validation_alias="TERMINAL_OIDC_FRONTEND_REDIRECT")
     # Native SSH with OIDC-backed short-lived certificates
     native_ssh_enabled: bool = Field(default=False, validation_alias="NATIVE_SSH_ENABLED")
     ssh_ca_backend: str = Field(default="none", validation_alias="SSH_CA_BACKEND")
