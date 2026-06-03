@@ -23,7 +23,11 @@ function resolveFrontendBaseUrl(rawUrl: string) {
 }
 
 const configuredBaseUrl = process.env.E2E_FRONTEND_URL || `http://127.0.0.1:${e2ePort}`;
-const baseUrl = resolveFrontendBaseUrl(configuredBaseUrl);
+// When E2E_FRONTEND_URL is explicitly set (e.g. in Docker compose with a hostname like
+// angular-frontend:4200), skip IP resolution so CORS works — the browser resolves
+// Docker service names correctly without pre-resolving to a numeric IP, which would
+// produce a different origin and trip the hub's CORS policy.
+const baseUrl = process.env.E2E_FRONTEND_URL ? configuredBaseUrl : resolveFrontendBaseUrl(configuredBaseUrl);
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
