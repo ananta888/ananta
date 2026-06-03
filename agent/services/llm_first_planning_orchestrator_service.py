@@ -13,13 +13,16 @@ class PlanningOrchestrationDecision:
 class LLMFirstPlanningOrchestratorService:
     def decide_strategy_order(self, *, mode: str, use_template: bool, use_repo_context: bool, planning_policy: dict[str, Any] | None = None) -> PlanningOrchestrationDecision:
         policy = dict(planning_policy or {})
-        llm_first = bool(policy.get("llm_first", True))
+        llm_first = bool(policy.get("llm_first", False))
         allow_template = bool(use_template)
 
         if mode == "new_software_project":
             llm_first = True
 
-        if llm_first:
+        if mode != "new_software_project" and allow_template:
+            order = ["template", "llm", "hub_copilot"]
+            rationale = "template_priority_policy"
+        elif llm_first:
             order = ["llm", "hub_copilot"]
             if allow_template:
                 order.append("template")
