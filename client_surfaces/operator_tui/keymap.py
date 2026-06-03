@@ -20,6 +20,8 @@ KEYBINDINGS: tuple[KeyBinding, ...] = (
     KeyBinding("q", "quit", "Quit operator TUI", (OperatorMode.NORMAL,)),
 )
 
+_SNAPSHOT_COPY_SHORTCUT = display_for_action("copy_tui_snapshot", "Ctrl+\\")
+_SNAPSHOT_SAVE_SHORTCUT = display_for_action("save_tui_snapshot", "Ctrl+_")
 _NORMAL_HINTS = (
     f"[{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] Focus/Kanal  "
     f"[{display_for_action('selection_down', 'Ctrl+J')}/{display_for_action('selection_up', 'Ctrl+K')}] Move  "
@@ -27,7 +29,7 @@ _NORMAL_HINTS = (
     f"[{display_for_action('next_section', 'Ctrl+N')}] Section  "
     f"[{display_for_action('toggle_ai_snake_config', 'Ctrl+A')}] AI-Config  "
     f"[{display_for_action('toggle_visual_view_switcher_overlay', 'Ctrl+4')}] {display_for_action('toggle_visual_view_switcher_overlay', 'View-Leiste')}  "
-    f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot  "
+    f"[{_SNAPSHOT_COPY_SHORTCUT}/{_SNAPSHOT_SAVE_SHORTCUT}] Snapshot  "
     f"[{display_for_action('open_long_chat_message', 'Ctrl+Space')}] Chat-Rest  "
     f"[{display_for_action('scroll_page_up', 'Ctrl+7')}/{display_for_action('scroll_page_down', 'Ctrl+8')}] Scroll  "
     f"[{display_for_action('inspect', 'Ctrl+F')}] Inspect  "
