@@ -279,7 +279,8 @@ def oidc_callback():
     issuer = settings.terminal_oidc_issuer
     client_id = settings.terminal_oidc_client_id
     client_secret = str(settings.terminal_oidc_client_secret or "").strip()
-    audience = settings.terminal_oidc_audience or client_id
+    # Keycloak id_token audience is the OIDC client itself, not the downstream hub JWT audience.
+    audience = client_id
     nonce = login_request.get("nonce") if login_request else session.pop("oidc_nonce", None)
     code_verifier = login_request.get("code_verifier") if login_request else session.pop("oidc_code_verifier", None)
     session.pop("oidc_state", None)
@@ -341,16 +342,50 @@ def oidc_callback():
         return api_response(status="error", message=str(exc), code=401)
 
 
-@oidc_bp.route("/auth/oidc/exchange", methods=["GET"])
+@oidc_bp.route("/auth/oidc/exchange", methods=["GET", "POST"])
 def oidc_exchange():
     if not settings.terminal_oidc_enabled:
         return api_response(status="error", message="oidc_not_enabled", code=404)
 
-    code = str(request.args.get("code") or "").strip()
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    code = str(request.args.get("code") or body.get("code") or "").strip()
     if not code:
         return api_response(status="error", message="oidc_code_missing", code=400)
 
-    state = str(request.args.get("state") or "").strip()
+    state = str(request.args.get("state") or body.get("state") or "").strip()
+    direct_id_token = str(request.args.get("id_token") or body.get("id_token") or "").strip()
+    direct_access_token = str(request.args.get("oidc_access_token") or body.get("oidc_access_token") or "").strip()
+    direct_redirect_path = str(request.args.get("redirect_path") or body.get("redirect_path") or "/").strip() or "/"
+
+    if direct_id_token:
+        issuer = settings.terminal_oidc_issuer
+        client_id = settings.terminal_oidc_client_id
+        audience = settings.terminal_oidc_audience or client_id
+        if not issuer or not client_id:
+            return api_response(status="error", message="oidc_not_configured", code=503)
+
+        try:
+            claims = _validate_id_token(direct_id_token, issuer=issuer, audience=audience)
+        except Exception as exc:
+            LOGGER.warning("OIDC direct-token exchange failed: %s", exc)
+            return api_response(status="error", message=str(exc), code=401)
+
+        auth_ctx = _map_claims_to_auth(claims)
+        session["user"] = auth_ctx
+        session.pop("oidc_state", None)
+        session.pop("oidc_nonce", None)
+        session.pop("oidc_code_verifier", None)
+
+        tokens = issue_user_session_tokens(
+            username=str(auth_ctx.get("username") or auth_ctx.get("email") or auth_ctx.get("sub") or "").strip(),
+            role=str(auth_ctx.get("role") or "viewer").strip() or "viewer",
+            mfa_enabled=bool(auth_ctx.get("mfa_enabled")),
+        )
+        tokens["redirect_path"] = direct_redirect_path
+        if direct_access_token:
+            tokens["oidc_access_token"] = direct_access_token
+        return jsonify({"ok": True, "data": tokens})
+
     payload = _consume_frontend_exchange_code(code)
     if payload:
         auth_ctx = payload.get("auth_ctx") or {}
@@ -373,7 +408,8 @@ def oidc_exchange():
     issuer = settings.terminal_oidc_issuer
     client_id = settings.terminal_oidc_client_id
     client_secret = str(settings.terminal_oidc_client_secret or "").strip()
-    audience = settings.terminal_oidc_audience or client_id
+    # Keycloak id_token audience is the OIDC client itself, not the downstream hub JWT audience.
+    audience = client_id
     if not issuer or not client_id:
         return api_response(status="error", message="oidc_not_configured", code=503)
 
