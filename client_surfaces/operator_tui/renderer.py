@@ -2508,6 +2508,8 @@ def _tab_bar_line(state: OperatorState, width: int) -> str:
 
 def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
+    snapshot_copy_shortcut = display_for_action("copy_tui_snapshot", "Ctrl+\\")
+    snapshot_save_shortcut = display_for_action("save_tui_snapshot", "Ctrl+_")
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
         chat_raw = game.get("chat_state")
@@ -2542,7 +2544,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('snake_toggle_selection', 'Ctrl+X')}/"
                 f"{display_for_action('snake_replace_selection', 'Ctrl+V')}] Select  "
                 f"[{display_for_action('snake_clear_marks', 'Ctrl+Z')}] Clear  "
-                f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot"
+                f"[{snapshot_copy_shortcut}/{snapshot_save_shortcut}] Snapshot"
             )
         else:
             hints = (
@@ -2552,7 +2554,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
                 f"[{display_for_action('snake_pause', 'Ctrl+P')}] Pause  "
                 f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI  "
                 f"[{display_for_action('toggle_ai_snake_config', 'Ctrl+A')}] AI-Config  "
-                f"[{display_for_action('copy_tui_snapshot', 'Ctrl+\\')}/{display_for_action('save_tui_snapshot', 'Ctrl+_')}] Snapshot  "
+                f"[{snapshot_copy_shortcut}/{snapshot_save_shortcut}] Snapshot  "
                 "[:config]"
             )
     if len(state.open_tabs) >= 2 and state.mode is OperatorMode.NORMAL and not _share_only_nav_mode():
