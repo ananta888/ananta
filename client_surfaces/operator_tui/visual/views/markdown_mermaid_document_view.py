@@ -179,7 +179,7 @@ class MarkdownMermaidDocumentView:
             wanted_h = max(_DIAGRAM_RESERVED_ROWS * 14, context.region.rows * 18)
             diagram_h = min(wanted_h, int(effective_policy.max_pixel_height))
 
-            if isinstance(self._mermaid_renderer, MermaidRenderer):
+            if type(self._mermaid_renderer) is MermaidRenderer:
                 renderer = MermaidRenderer(
                     renderer_order=effective_policy.backend_order,
                     timeout_seconds=float(effective_policy.timeout_seconds),

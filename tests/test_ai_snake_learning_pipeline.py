@@ -16,6 +16,7 @@ def test_training_recorder_writes_jsonl_event(monkeypatch, tmp_path) -> None:
         privacy_class="public_ui",
     )
     assert wrote is True
+    assert recorder.flush_queued() == 1
     line = recorder.events_path.read_text(encoding="utf-8").strip()
     payload = json.loads(line)
     assert payload["schema_version"] == "ai_snake_behavior_event.v1"
@@ -32,6 +33,7 @@ def test_training_recorder_redacts_private_value_norm(monkeypatch, tmp_path) -> 
         refs=["notes:self"],
         privacy_class="private_local",
     )
+    assert recorder.flush_queued() == 1
     payload = json.loads(recorder.events_path.read_text(encoding="utf-8").strip())
     assert payload["privacy_class"] == "private_local"
     assert payload["value_norm"] == "notes_active=true"

@@ -237,11 +237,20 @@ class VisualRuntime:
                     now=t_now,
                     message=f"render fallback unavailable: {exc}",
                 )
-            return self._scene_to_diagnostic_frame(
-                region=region,
-                now=t_now,
-                message=f"render fallback: {exc}",
-            )
+            try:
+                return self._scene_to_diagnostic_frame(
+                    region=region,
+                    now=t_now,
+                    message=f"render fallback: {exc}",
+                )
+            except Exception as diag_exc:
+                self._runtime_errors.append(f"fallback failed: {diag_exc}")
+                self._runtime_errors = self._runtime_errors[-20:]
+                return self._plain_diagnostic_frame(
+                    region=region,
+                    now=t_now,
+                    message=f"render fallback unavailable: {exc}",
+                )
 
     def draw(
         self,
