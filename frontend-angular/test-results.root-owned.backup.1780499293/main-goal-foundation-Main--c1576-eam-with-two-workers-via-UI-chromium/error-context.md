@@ -1,0 +1,189 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - link "Zum Inhalt springen" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Ananta - Agent Control" [level=1] [ref=e7]
+      - generic [ref=e8]:
+        - generic [ref=e9]: admin (admin)
+        - button "Dunkel" [ref=e10] [cursor=pointer]
+        - button "Einfach" [ref=e11] [cursor=pointer]
+        - button "Logout" [ref=e12] [cursor=pointer]: Abmelden
+    - navigation "Hauptnavigation" [ref=e13]:
+      - generic [ref=e14]: Arbeiten
+      - link "Arbeitsbereich" [ref=e15] [cursor=pointer]:
+        - /url: /workspace
+      - link "Aufgaben" [ref=e16] [cursor=pointer]:
+        - /url: /board
+      - link "Ergebnisse" [ref=e17] [cursor=pointer]:
+        - /url: /artifacts
+      - link "Vorlagen" [ref=e18] [cursor=pointer]:
+        - /url: /templates
+      - link "Voxtral Offline" [ref=e19] [cursor=pointer]:
+        - /url: /voxtral-offline
+      - link "LLM Runtime" [ref=e20] [cursor=pointer]:
+        - /url: /llama-runtime
+      - link "Hilfe" [ref=e21] [cursor=pointer]:
+        - /url: /help
+      - generic [ref=e22]: Betrieb
+      - link "Dashboard" [ref=e23] [cursor=pointer]:
+        - /url: /dashboard
+      - generic [ref=e24]: Experte
+      - link "Agenten" [ref=e25] [cursor=pointer]:
+        - /url: /agents
+      - generic [ref=e26]: Experte
+      - link "Worker Pool" [ref=e27] [cursor=pointer]:
+        - /url: /worker-pool
+      - generic [ref=e28]: Experte
+      - link "Sources" [ref=e29] [cursor=pointer]:
+        - /url: /sources
+      - generic [ref=e30]: Experte
+      - link "Goal Artifacts" [ref=e31] [cursor=pointer]:
+        - /url: /goal-artifacts
+      - generic [ref=e32]: Experte
+      - link "Strategy Game Demo" [ref=e33] [cursor=pointer]:
+        - /url: /strategy-game-demo
+      - generic [ref=e34]: Experte
+      - link "Operationen" [ref=e35] [cursor=pointer]:
+        - /url: /operations
+      - generic [ref=e36]: Experte
+      - link "Archiv" [ref=e37] [cursor=pointer]:
+        - /url: /archived
+      - generic [ref=e38]: Experte
+      - link "Graph" [ref=e39] [cursor=pointer]:
+        - /url: /graph
+      - generic [ref=e40]: Experte
+      - generic [ref=e41]: Automatisierung
+      - link "Auto-Planner" [ref=e42] [cursor=pointer]:
+        - /url: /auto-planner
+      - generic [ref=e43]: Experte
+      - link "Webhooks" [ref=e44] [cursor=pointer]:
+        - /url: /webhooks
+      - generic [ref=e45]: Experte
+      - generic [ref=e46]: Konfiguration
+      - link "Teams" [ref=e47] [cursor=pointer]:
+        - /url: /teams
+      - generic [ref=e48]: Experte
+      - link "Audit-Logs" [ref=e49] [cursor=pointer]:
+        - /url: /audit-log
+      - generic [ref=e50]: Experte
+      - link "Benutzerverwaltung" [ref=e51] [cursor=pointer]:
+        - /url: /user-management
+      - generic [ref=e52]: Experte
+      - link "Admin-Diagnose" [ref=e53] [cursor=pointer]:
+        - /url: /admin-diagnostics
+      - generic [ref=e54]: Experte
+      - link "Rollenänderungen" [ref=e55] [cursor=pointer]:
+        - /url: /role-audit
+      - generic [ref=e56]: Experte
+      - link "Instruction Layers" [ref=e57] [cursor=pointer]:
+        - /url: /instruction-layers
+      - generic [ref=e58]: Experte
+      - link "Policy" [ref=e59] [cursor=pointer]:
+        - /url: /context-access-policy
+      - generic [ref=e60]: Experte
+      - link "Einstellungen" [ref=e61] [cursor=pointer]:
+        - /url: /settings
+      - generic [ref=e62]: Experte
+      - link "Python Runtime" [ref=e63] [cursor=pointer]:
+        - /url: /python-runtime
+      - generic [ref=e64]: Experte
+      - link "Mobile Shell" [ref=e65] [cursor=pointer]:
+        - /url: /mobile-shell
+      - generic [ref=e66]: Experte
+  - navigation "Breadcrumb" [ref=e68]:
+    - list [ref=e69]:
+      - listitem [ref=e70]:
+        - link "Home" [ref=e71] [cursor=pointer]:
+          - /url: /dashboard
+          - text: 🏠
+      - listitem [ref=e72]:
+        - generic [ref=e73]: /
+        - generic [ref=e74]: Teams
+  - generic [ref=e75]: "Bereich: Configure | Modus: Experte | Route: /teams"
+  - main [ref=e76]:
+    - generic [ref=e78]:
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - generic [ref=e81]: Blueprint-first Teams
+          - heading "Starte mit einem Blueprint und instanziiere daraus ein Team." [level=2] [ref=e82]
+          - paragraph [ref=e83]: "Der Standardweg bleibt kompakt: Blueprint waehlen, Team starten, dann bei Bedarf im Advanced-Modus vertiefen."
+        - generic [ref=e84]:
+          - button "Blueprints" [ref=e85] [cursor=pointer]
+          - button "Team erstellen" [ref=e86] [cursor=pointer]
+          - button "Standard-Modus" [ref=e87] [cursor=pointer]
+          - button "Admin-/Studio-Modus" [ref=e88] [cursor=pointer]
+          - button "Aktualisieren" [ref=e89] [cursor=pointer]
+      - generic [ref=e90]:
+        - button "Blueprints" [ref=e91] [cursor=pointer]
+        - button "Teams aus Blueprint" [ref=e92] [cursor=pointer]
+        - button "Advanced" [ref=e93] [cursor=pointer]
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - heading "Standard-Blueprint-Katalog" [level=3] [ref=e112]
+            - button "Neu" [ref=e113] [cursor=pointer]
+          - paragraph [ref=e114]: "Standardweg: Blueprint waehlen und Team instanziieren."
+        - generic [ref=e115]:
+          - generic [ref=e117]:
+            - heading "Neuen Blueprint anlegen" [level=3] [ref=e118]
+            - generic [ref=e119]: Advanced-Editor fuer Rollen, Rollen-Templates und Starter-Artefakte.
+            - generic [ref=e120]:
+              - text: "Hinweis: Hier wird Team-Struktur bearbeitet. Rollenverhalten bearbeitest du separat unter"
+              - code [ref=e121]: Templates (Hub)
+              - text: .
+            - link "Zu Rollen-Templates" [ref=e123] [cursor=pointer]:
+              - /url: /templates
+          - generic [ref=e124]:
+            - generic [ref=e125]:
+              - text: Name
+              - textbox "Name" [ref=e126]: E2E Main Blueprint 1780496183039
+            - generic [ref=e127]:
+              - text: Basis-Team-Typ
+              - combobox "Basis-Team-Typ" [ref=e128]:
+                - option "-- Kein Basis-Typ --" [selected]
+          - generic [ref=e129]:
+            - text: Beschreibung
+            - textbox "Beschreibung" [ref=e130]: Blueprint fuer Main-Goal Foundation Journey
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - heading "Rollen" [level=4] [ref=e133]
+              - button "Rolle hinzufuegen" [ref=e134] [cursor=pointer]
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - generic [ref=e137]:
+                  - text: Rollenname
+                  - textbox "Rollenname" [active] [ref=e138]: Implementer
+                - generic [ref=e139]:
+                  - text: Rollen-Template
+                  - combobox "Rollen-Template" [ref=e140]:
+                    - option "-- Kein Rollen-Template --" [selected]
+                - generic [ref=e141]:
+                  - text: Beschreibung
+                  - textbox "Beschreibung" [ref=e142]
+                - generic [ref=e143]:
+                  - text: Sortierung
+                  - spinbutton "Sortierung" [ref=e144]: "10"
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - checkbox "Pflichtrolle" [checked] [ref=e147]
+                  - text: Pflichtrolle
+                - button "Entfernen" [ref=e148] [cursor=pointer]
+          - generic [ref=e150]:
+            - heading "Artefakte" [level=4] [ref=e151]
+            - button "Artefakt hinzufuegen" [ref=e152] [cursor=pointer]
+          - generic [ref=e153]:
+            - button "Erstellen" [ref=e154] [cursor=pointer]
+            - button "Zuruecksetzen" [ref=e155] [cursor=pointer]
+            - button "Fuer Team-Erstellung uebernehmen" [disabled] [ref=e156]
+  - generic [ref=e158] [cursor=pointer]:
+    - generic [ref=e159]:
+      - generic "Bridge offline" [ref=e160]: ●
+      - text: AI Snake
+    - generic [ref=e161]:
+      - button "Assistant oeffnen" [ref=e162]: ^
+      - button "Assistant ausblenden" [ref=e163]: x
+```
