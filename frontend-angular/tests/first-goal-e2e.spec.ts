@@ -13,6 +13,18 @@ import {
 
 type HubInfo = { hubUrl: string; token: string };
 
+function normalizeLocalUrl(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    if (parsed.hostname === 'localhost') parsed.hostname = '127.0.0.1';
+    parsed.hash = '';
+    parsed.search = '';
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return String(raw || '').trim().replace(/\/+$/, '');
+  }
+}
+
 function liveProvider(): string {
   return String(process.env.E2E_LIVE_LLM_PROVIDER || process.env.LIVE_LLM_PROVIDER || 'ollama').trim().toLowerCase();
 }
@@ -408,8 +420,12 @@ test.describe('First Goal E2E', () => {
 
     // Ensure assignments happened on our team worker URLs.
     expect(assignedWorkers.size, 'At least one worker should be assigned').toBeGreaterThan(0);
+    const expectedWorkers = new Set([alphaAgent.url, betaAgent.url].map((entry) => normalizeLocalUrl(entry)));
     for (const worker of assignedWorkers) {
-      expect([alphaAgent.url, betaAgent.url], `Unexpected assigned worker: ${worker}`).toContain(worker);
+      expect(
+        expectedWorkers.has(normalizeLocalUrl(worker)),
+        `Unexpected assigned worker: ${worker}`
+      ).toBeTruthy();
     }
 
       expect(

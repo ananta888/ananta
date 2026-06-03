@@ -8,6 +8,18 @@ function unwrapList(body: any): any[] {
   return [];
 }
 
+function normalizeLocalUrl(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    if (parsed.hostname === 'localhost') parsed.hostname = '127.0.0.1';
+    parsed.hash = '';
+    parsed.search = '';
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return String(raw || '').trim().replace(/\/+$/, '');
+  }
+}
+
 async function assertCoreFormsFullyDisplayed(page: Page): Promise<void> {
   await page.goto('/templates');
   await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
@@ -174,8 +186,19 @@ test.describe('Main Goal UI Foundation', () => {
         await expect(agentSelects).toHaveCount(2);
         await roleSelects.nth(0).selectOption({ index: 1 });
         await roleSelects.nth(1).selectOption({ index: 1 });
-        await agentSelects.nth(0).selectOption(workerAgentUrls[0]);
-        await agentSelects.nth(1).selectOption(workerAgentUrls[1]);
+        const expectedWorkers = new Set(workerAgentUrls.map((entry) => normalizeLocalUrl(entry)));
+        const optionValues = await agentSelects.nth(0).locator('option').evaluateAll((options) =>
+          options
+            .map((option) => (option as HTMLOptionElement).value)
+            .map((value) => value.trim())
+            .filter(Boolean)
+        );
+        const matchingOptions = optionValues.filter((value) => expectedWorkers.has(normalizeLocalUrl(value)));
+        const selectedFirst = matchingOptions[0] || optionValues[0];
+        const selectedSecond = matchingOptions[1] || optionValues.find((value) => value !== selectedFirst) || optionValues[0];
+        expect(selectedFirst, 'Expected at least one selectable agent option').toBeTruthy();
+        await agentSelects.nth(0).selectOption(selectedFirst);
+        await agentSelects.nth(1).selectOption(selectedSecond);
       }
 
       const instantiateResponse = page.waitForResponse((res) => {

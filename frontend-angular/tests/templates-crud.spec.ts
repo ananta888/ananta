@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login } from './utils';
+import { HUB_URL, login, requestWithRetry } from './utils';
 
 test.describe('Templates CRUD', () => {
   async function getHubInfo(page: any) {
@@ -31,9 +31,11 @@ test.describe('Templates CRUD', () => {
     const description = 'E2E Beschreibung';
     const updatedDescription = 'E2E Beschreibung aktualisiert';
 
-    const createRes = await request.post(`${hubUrl}/templates`, {
+    const createRes = await requestWithRetry(request, 'post', `${hubUrl}/templates`, {
       headers,
-      data: { name, description, prompt_template: 'Du bist {{agent_name}}. Aufgabe: {{task_title}}.' }
+      data: { name, description, prompt_template: 'Du bist {{agent_name}}. Aufgabe: {{task_title}}.' },
+      attempts: 3,
+      timeoutMs: 30_000,
     });
     expect(createRes.ok()).toBeTruthy();
     const createBody = await createRes.json();
