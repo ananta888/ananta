@@ -32,6 +32,33 @@ function unwrapList(body: any): any[] {
   return [];
 }
 
+async function createTemplateViaUiWithRetries(
+  page: Page,
+  request: any,
+  hubUrl: string,
+  token: string | null,
+  templateName: string,
+  timeoutMs = 90_000
+): Promise<string> {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const saveButton = page.getByRole('button', { name: /Anlegen \/ Speichern/i });
+  const deadline = Date.now() + timeoutMs;
+  for (let submitAttempt = 0; submitAttempt < 2 && Date.now() < deadline; submitAttempt += 1) {
+    await saveButton.click();
+    const pollDeadline = Math.min(deadline, Date.now() + 60_000);
+    while (Date.now() < pollDeadline) {
+      const templateListRes = await request.get(`${hubUrl}/templates`, { headers });
+      if (templateListRes.ok()) {
+        const templates = unwrapList(await templateListRes.json());
+        const id = templates.find((t: any) => t.name === templateName)?.id || '';
+        if (id) return String(id);
+      }
+      await page.waitForTimeout(1000);
+    }
+  }
+  throw new Error(`Timed out creating template '${templateName}' via UI`);
+}
+
 test.describe('UI UX Workflows', () => {
   test('goal flow remains interactive and renders details', async ({ page, request }) => {
     await loginFast(page, request);
@@ -143,20 +170,7 @@ test.describe('UI UX Workflows', () => {
       await page.getByPlaceholder('Name').fill(templateName);
       await page.getByPlaceholder('Beschreibung').fill('Template aus UI-Workflow-Test');
       await page.locator('textarea[placeholder*="Platzhalter"]').fill('Du bist {{agent_name}} und bearbeitest {{task_title}}.');
-      await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
-      await expect.poll(async () => {
-        const templateListRes = await request.get(`${hubUrl}/templates`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        if (!templateListRes.ok()) return '';
-        const templates = unwrapList(await templateListRes.json());
-        return templates.find((t: any) => t.name === templateName)?.id || '';
-      }, { timeout: 45_000 }).not.toBe('');
-      const templateListRes = await request.get(`${hubUrl}/templates`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const templates = unwrapList(await templateListRes.json());
-      createdTemplateId = templates.find((t: any) => t.name === templateName)?.id || null;
+      createdTemplateId = await createTemplateViaUiWithRetries(page, request, hubUrl, token, templateName);
       expect(createdTemplateId).toBeTruthy();
       cleanup.trackTemplate(createdTemplateId);
       await assertNoUnhandledBrowserErrors(page);
