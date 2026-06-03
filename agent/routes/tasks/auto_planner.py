@@ -322,9 +322,13 @@ class AutoPlanner:
                 try:
                     raw_response = generate_text(**llm_kwargs)
                 except TypeError as exc:
-                    if "unexpected keyword argument 'temperature'" not in str(exc):
+                    msg = str(exc)
+                    if "unexpected keyword argument" not in msg:
                         raise
-                    llm_kwargs.pop("temperature", None)
+                    # Backward-compatible call path for tests/legacy providers that
+                    # don't accept newer optional kwargs.
+                    for key in ("temperature", "max_output_tokens", "trace_goal_id", "trace_task_id"):
+                        llm_kwargs.pop(key, None)
                     raw_response = generate_text(**llm_kwargs)
                 if not isinstance(raw_response, str):
                     raw_response = str(raw_response or "")
@@ -412,7 +416,7 @@ class AutoPlanner:
             if auto_start_autopilot is not None:
                 self.auto_start_autopilot = bool(auto_start_autopilot)
             if llm_timeout is not None:
-                self.llm_timeout = max(5, min(int(llm_timeout), 900))
+                self.llm_timeout = max(5, min(int(llm_timeout), 180))
             if llm_retry_attempts is not None:
                 self.llm_retry_attempts = max(1, min(int(llm_retry_attempts), 5))
             if llm_retry_backoff is not None:

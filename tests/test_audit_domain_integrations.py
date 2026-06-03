@@ -9,7 +9,7 @@ from scripts.audit_domain_integrations import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-INVENTORY_PATH = ROOT / "data" / "domain_runtime_inventory.json"
+INVENTORY_PATH = ROOT / "tests" / "fixtures" / "domain" / "domain_runtime_inventory.json"
 
 
 def _load_json(path: Path) -> dict:
@@ -72,4 +72,3 @@ def test_domain_integration_audit_blocks_false_runtime_claim(tmp_path: Path) -> 
     assert report["ok"] is False
     assert any("descriptor runtime_status=descriptor_only" in blocker for blocker in report["blockers"])
     assert any("missing runtime files" in blocker for blocker in report["blockers"])
-

@@ -147,12 +147,6 @@ def normalize_subtask(item: dict, default_priority: str = "Medium") -> dict | No
         return None
     if contains_suspicious_text(title) or contains_suspicious_text(description):
         return None
-    desc_l = description.lower()
-    # Drop extremely generic recovered entries early to reduce parser noise.
-    if len(desc_l) < 16:
-        return None
-    if not any(v in desc_l for v in _ACTIONABLE_VERBS):
-        return None
     depends_on = item.get("depends_on")
     if not isinstance(depends_on, list):
         depends_on = []
@@ -181,11 +175,6 @@ def _postprocess_subtasks(subtasks: list[dict], *, max_items: int = 16) -> list[
         title = str(task.get("title") or "").strip().lower()
         desc = str(task.get("description") or "").strip().lower()
         if not title or not desc:
-            continue
-        # Filter weak entries that still slipped through structural parsing.
-        if not any(v in desc for v in _ACTIONABLE_VERBS):
-            continue
-        if not any(h in desc for h in _CONCRETE_TARGET_HINTS):
             continue
         key = (title, desc)
         if key in seen:
@@ -643,7 +632,10 @@ def build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: i
             model_family=None,
         )
         if str(resolved.prompt or "").strip():
-            return str(resolved.prompt)
+            prompt = str(resolved.prompt)
+            if context:
+                prompt = prompt.replace("\nCONTEXT:\n", "\nKONTEXT:\n")
+            return prompt
     except Exception:
         pass
     prompt = (
