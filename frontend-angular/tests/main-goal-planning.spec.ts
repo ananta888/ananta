@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { HUB_URL, assertNoUnhandledBrowserErrors, assertErrorOverlaysInViewport, createJourneyCleanupPolicy, loginFast } from './utils';
+import {
+  HUB_URL,
+  assertNoUnhandledBrowserErrors,
+  assertErrorOverlaysInViewport,
+  createJourneyCleanupPolicy,
+  loginFast,
+  requestWithRetry,
+} from './utils';
 
 async function getHubInfo(page: Page): Promise<{ hubUrl: string; token: string | null }> {
   return page.evaluate((defaultHubUrl: string) => {
@@ -31,9 +38,11 @@ test.describe('Main Goal UI Planning', () => {
     const cleanup = createJourneyCleanupPolicy(hubUrl, token, request);
 
     try {
-      const setupTeamRes = await request.post(`${hubUrl}/teams/setup-scrum`, {
+      const setupTeamRes = await requestWithRetry(request, 'post', `${hubUrl}/teams/setup-scrum`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         data: { name: teamName },
+        attempts: 3,
+        timeoutMs: 30_000,
       });
       expect(setupTeamRes.ok(), `setup-scrum failed: ${setupTeamRes.status()}`).toBeTruthy();
       const setupBody = await setupTeamRes.json();

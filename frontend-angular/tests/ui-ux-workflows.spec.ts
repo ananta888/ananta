@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { HUB_URL, assertNoUnhandledBrowserErrors, createJourneyCleanupPolicy, loginFast, openTeamsAdminStudio } from './utils';
+import {
+  HUB_URL,
+  assertNoUnhandledBrowserErrors,
+  createJourneyCleanupPolicy,
+  loginFast,
+  openTeamsAdminStudio,
+  requestWithRetry,
+} from './utils';
 
 async function getHubInfo(page: Page): Promise<{ hubUrl: string; token: string | null }> {
   return page.evaluate((defaultHubUrl: string) => {
@@ -144,7 +151,7 @@ test.describe('UI UX Workflows', () => {
         if (!templateListRes.ok()) return '';
         const templates = unwrapList(await templateListRes.json());
         return templates.find((t: any) => t.name === templateName)?.id || '';
-      }, { timeout: 15000 }).not.toBe('');
+      }, { timeout: 30_000 }).not.toBe('');
       const templateListRes = await request.get(`${hubUrl}/templates`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
@@ -170,9 +177,11 @@ test.describe('UI UX Workflows', () => {
     let createdTeamId: string | null = null;
     const cleanup = createJourneyCleanupPolicy(hubUrl, token, request);
     try {
-      const templateCreate = await request.post(`${hubUrl}/templates`, {
+      const templateCreate = await requestWithRetry(request, 'post', `${hubUrl}/templates`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         data: { name: templateName, description: 'Seed template for blueprint test', prompt_template: 'Du bist {{agent_name}} und bearbeitest {{task_title}}.' },
+        attempts: 3,
+        timeoutMs: 30_000,
       });
       expect(templateCreate.ok()).toBeTruthy();
       const tplBody = await templateCreate.json();
@@ -225,6 +234,9 @@ test.describe('UI UX Workflows', () => {
       await expect.poll(async () => {
         return instantiateCard.getByLabel('Blueprint').locator('option').count();
       }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+      await expect.poll(async () => {
+        return instantiateCard.getByLabel('Blueprint').locator(`option[value="${String(createdBlueprintId)}"]`).count();
+      }, { timeout: 20_000 }).toBeGreaterThan(0);
       await instantiateCard.getByLabel('Blueprint').selectOption(String(createdBlueprintId));
       await instantiateCard.getByLabel('Teamname').fill(teamName);
       await instantiateCard.getByRole('button', { name: /^Team erstellen$/i }).click();

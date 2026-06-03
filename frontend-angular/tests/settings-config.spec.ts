@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login } from './utils';
+import { HUB_URL, login, requestWithRetry } from './utils';
 
 test.describe('Settings Config', () => {
   test.setTimeout(120000);
@@ -30,7 +30,11 @@ test.describe('Settings Config', () => {
   ) {
     const started = Date.now();
     while ((Date.now() - started) < timeoutMs) {
-      const res = await request.get(`${hubUrl}/config`, { headers });
+      const res = await requestWithRetry(request, 'get', `${hubUrl}/config`, {
+        headers,
+        attempts: 3,
+        timeoutMs: 20_000,
+      });
       if (res.ok()) {
         const body = await res.json();
         const cfg = body?.data || body;
@@ -52,7 +56,12 @@ test.describe('Settings Config', () => {
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-    const seedRes = await request.post(`${hubUrl}/config`, { headers, data: seededConfig });
+    const seedRes = await requestWithRetry(request, 'post', `${hubUrl}/config`, {
+      headers,
+      data: seededConfig,
+      attempts: 3,
+      timeoutMs: 30_000,
+    });
     expect(seedRes.ok()).toBeTruthy();
 
     await page.goto('/settings');
