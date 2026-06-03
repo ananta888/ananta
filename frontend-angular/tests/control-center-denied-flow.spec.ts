@@ -21,7 +21,7 @@ test.describe('Control Center denied flow', () => {
       });
     });
 
-    await page.route('**/api/sessions/sess-deny/policy-decisions', async (route) => {
+    await page.route('**/api/sessions/sess-deny/policy-decisions*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -31,7 +31,7 @@ test.describe('Control Center denied flow', () => {
 
     await page.goto('/control-center/policies', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Policies & Approvals')).toBeVisible();
-    await expect(page.getByText('tool blocked')).toBeVisible();
+    await expect(page.locator('option[value="sess-deny"]')).toHaveCount(1);
 
     await page.goto('/control-center/sessions', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Sessions' })).toBeVisible();

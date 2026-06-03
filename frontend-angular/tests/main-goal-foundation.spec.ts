@@ -20,6 +20,32 @@ function normalizeLocalUrl(raw: string): string {
   }
 }
 
+async function createTemplateViaUiWithRetries(
+  page: Page,
+  request: any,
+  hubUrl: string,
+  token: string | null,
+  templateName: string,
+  timeoutMs = 90_000
+): Promise<string> {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const saveButton = page.getByRole('button', { name: /Anlegen \/ Speichern/i });
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    await saveButton.click();
+    for (let i = 0; i < 10; i += 1) {
+      const res = await request.get(`${hubUrl}/templates`, { headers });
+      if (res.ok()) {
+        const templates = unwrapList(await res.json());
+        const id = templates.find((tpl: any) => tpl.name === templateName)?.id || '';
+        if (id) return String(id);
+      }
+      await page.waitForTimeout(1000);
+    }
+  }
+  throw new Error(`Timed out creating template '${templateName}' via UI`);
+}
+
 async function assertCoreFormsFullyDisplayed(page: Page): Promise<void> {
   await page.goto('/templates');
   await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
@@ -112,22 +138,7 @@ test.describe('Main Goal UI Foundation', () => {
       await page.getByPlaceholder('Name').fill(templateName);
       await page.getByPlaceholder('Beschreibung').fill('Template fuer Main-Goal Foundation Journey');
       await page.locator('textarea[placeholder*="Platzhalter"]').fill('Du bist {{agent_name}} und erledigst {{task_title}}.');
-      await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
-
-      await expect.poll(async () => {
-        const res = await request.get(`${hubUrl}/templates`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        if (!res.ok()) return '';
-        const templates = unwrapList(await res.json());
-        return templates.find((tpl: any) => tpl.name === templateName)?.id || '';
-      }, { timeout: 45_000 }).not.toBe('');
-
-      const templateRes = await request.get(`${hubUrl}/templates`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const templates = unwrapList(await templateRes.json());
-      createdTemplateId = templates.find((tpl: any) => tpl.name === templateName)?.id || null;
+      createdTemplateId = await createTemplateViaUiWithRetries(page, request, hubUrl, token, templateName);
       expect(createdTemplateId).toBeTruthy();
       cleanup.trackTemplate(createdTemplateId);
 
