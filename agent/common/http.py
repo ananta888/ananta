@@ -126,7 +126,7 @@ class HttpClient:
             try:
                 # Register per-request sessions so task-/goal-level cancellation can abort
                 # all provider HTTP calls (e.g. Ollama via standard strategy).
-                from agent.services.lmstudio_request_registry import _get_current_context, register_existing_session
+                from agent.common.lmstudio_request_registry import _get_current_context, register_existing_session
 
                 goal_id, task_id = _get_current_context()
                 if goal_id or task_id:
@@ -154,7 +154,7 @@ class HttpClient:
 
                     req_thread = threading.Thread(target=_do_request, daemon=True)
                     req_thread.start()
-                    from agent.services.lmstudio_request_registry import is_cancelled
+                    from agent.common.lmstudio_request_registry import is_cancelled
 
                     while not request_box["done"]:
                         if is_cancelled(goal_id, task_id):
@@ -243,7 +243,7 @@ class HttpClient:
         finally:
             if tracked_session is not None:
                 try:
-                    from agent.services.lmstudio_request_registry import release_session
+                    from agent.common.lmstudio_request_registry import release_session
 
                     release_session(tracked_key, tracked_session)
                 except Exception:

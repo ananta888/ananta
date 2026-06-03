@@ -5,6 +5,7 @@ import logging
 import time
 
 from agent.services.repository_registry import get_repository_registry
+from agent.services.autopilot_wake_service import request_autopilot_wake
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.utils import read_json, write_json
 
@@ -55,8 +56,6 @@ class AgentHealthMonitorService:
                             agent_obj.status = effective_status
                             changed = True
                             try:
-                                from agent.routes.tasks.autopilot import request_autopilot_wake
-
                                 request_autopilot_wake(
                                     "worker_status_changed",
                                     worker_url=str(agent_obj.url or ""),

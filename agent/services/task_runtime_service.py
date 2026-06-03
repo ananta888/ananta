@@ -9,6 +9,7 @@ from typing import Any
 from agent.common.gateways.worker_gateway import get_worker_gateway
 from agent.db_models import TaskDB
 from agent.repository import task_repo
+from agent.services.autopilot_wake_service import request_autopilot_wake
 from agent.services.hub_event_service import build_task_history_event
 from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_status_service import normalize_task_status
@@ -304,8 +305,6 @@ def update_local_task_status(
         )
     notify_task_update(tid)
     try:
-        from agent.routes.tasks.autopilot import request_autopilot_wake
-
         wake_event = "task_updated"
         if normalized_status == "todo" and old_status != "todo":
             wake_event = "task_created"

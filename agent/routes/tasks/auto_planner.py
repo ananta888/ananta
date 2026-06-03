@@ -23,6 +23,7 @@ from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.llm_integration import generate_text, probe_lmstudio_runtime, probe_ollama_runtime
 from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
+from agent.services.goal_planning_recovery_service import register_recovery_planner_callback
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.planning_service import get_planning_service as get_fallback_planning_service
@@ -647,6 +648,7 @@ class AutoPlanner:
 
 
 auto_planner = AutoPlanner()
+register_recovery_planner_callback(auto_planner.plan_goal)
 
 
 def init_auto_planner():

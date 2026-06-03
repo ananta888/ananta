@@ -7,6 +7,7 @@ from typing import Any
 
 from agent.db_models import WorkerSlotLeaseDB
 from agent.repository import worker_slot_lease_repo
+from agent.services.autopilot_wake_service import request_autopilot_wake
 from agent.services.ollama_parallel_runtime_service import get_ollama_parallel_runtime_service
 
 
@@ -217,8 +218,6 @@ class WorkerPoolSchedulerService:
             self._ollama.release_slot(endpoint=lease.ollama_endpoint, model=lease.ollama_model, lease_id=str(ollama_lease_id))
         worker_slot_lease_repo.release(slot_lease_id)
         try:
-            from agent.routes.tasks.autopilot import request_autopilot_wake
-
             request_autopilot_wake(
                 "worker_capacity_released",
                 worker_url=str(lease.worker_id or ""),
