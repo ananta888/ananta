@@ -973,6 +973,15 @@ class PlanningService:
             planning_policy=planning_policy,
             team_id=team_id,
         )
+        has_explicit_validation_profiles = (
+            "validation_profiles" in planning_policy
+            and isinstance(planning_policy.get("validation_profiles"), dict)
+        )
+        enforce_quality_gate = (
+            mode == "new_software_project"
+            or has_explicit_validation_profiles
+        )
+        perform_quality_repairs = bool(create_tasks and enforce_quality_gate)
         repair_context = dict(mode_data_dict.get("planning_repair_context") or {})
         required_task_kinds = [
             str(item).strip().lower()
@@ -987,7 +996,7 @@ class PlanningService:
         _sr = planning_policy.get("selective_repair_rounds")
         selective_rounds = max(0, min(int(_sr if _sr is not None else 2), 4))
         selective_repair_applied = 0
-        while (not quality.ok) and selective_rounds > 0:
+        while perform_quality_repairs and (not quality.ok) and selective_rounds > 0:
             selective_rounds -= 1
             selective_repair_applied += 1
             repair_prompt = self._build_selective_repair_prompt(
@@ -1067,7 +1076,8 @@ class PlanningService:
         # per missing category would close both the count gap and the category gap, proceed.
         _task_gap = max(0, quality.details.get("min_total", 0) - len(subtasks)) if not quality.ok else 0
         _only_missing_cats = (
-            not quality.ok
+            perform_quality_repairs
+            and not quality.ok
             and quality.missing_categories
             and (
                 not any(r.startswith("too_few_tasks:") for r in (quality.reason or "").split("|"))
@@ -1148,7 +1158,7 @@ class PlanningService:
                 details=quality.details,
             )
 
-        if subtasks and not quality.ok:
+        if enforce_quality_gate and create_tasks and subtasks and not quality.ok:
             telemetry_run = get_planning_telemetry_service().update_run(
                 telemetry_run,
                 validation_success=False,
