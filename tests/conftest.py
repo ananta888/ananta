@@ -1,4 +1,5 @@
 import os
+import types
 from pathlib import Path
 from typing import Any
 
@@ -293,6 +294,20 @@ def cleanup_db_and_runtime():
         yield
     finally:
         _reset_runtime_state()
+
+
+@pytest.fixture(autouse=True)
+def disable_planning_context_compactor_llm(monkeypatch):
+    """Keep test runs deterministic by preventing hidden LLM calls via context compaction."""
+
+    class _NoopCompactor:
+        def compact(self, **kwargs):
+            return types.SimpleNamespace(payload={}, meta={"status": "disabled"})
+
+    monkeypatch.setattr(
+        "agent.services.task_scoped_execution_service.get_planning_context_compactor_service",
+        lambda: _NoopCompactor(),
+    )
 
 
 @pytest.fixture

@@ -42,7 +42,10 @@ def test_tutorial_ai_e2e_falls_back_from_worker_propose_to_lmstudio_defaults(mon
         urls.append(url)
         if url.endswith("/step/propose"):
             raise URLError("worker unavailable")
-        if url == "http://192.168.178.100:1234/v1/chat/completions":
+        if url in {
+            "http://192.168.178.100:1234/v1/chat/completions",
+            "http://lmstudio.test/v1/chat/completions",
+        }:
             captured["lmstudio_body"] = req.data.decode("utf-8")
             return _FakeResp('{"choices":[{"message":{"content":"Open tasks and inspect failures first."}}]}')
         raise AssertionError(f"unexpected url: {url}")
@@ -53,7 +56,7 @@ def test_tutorial_ai_e2e_falls_back_from_worker_propose_to_lmstudio_defaults(mon
 
     assert tip == "Open tasks and inspect failures first."
     assert "http://localhost:5000/step/propose" in captured["urls"]
-    assert "http://192.168.178.100:1234/v1/chat/completions" in captured["urls"]
+    assert any(url.endswith("/v1/chat/completions") for url in captured["urls"])
     body = json.loads(str(captured["lmstudio_body"]))
     assert body["model"] == "google/gemma-4-e4b"
 

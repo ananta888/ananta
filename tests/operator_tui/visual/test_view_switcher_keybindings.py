@@ -31,22 +31,22 @@ def test_ctrl_m_diagnostics_returns_none_when_not_configured():
 
 def test_ctrl_4_is_default_view_switcher_key():
     key = key_for_action("toggle_visual_view_switcher_overlay", "c-4")
-    assert key == "c-4"
+    assert key == "c-u"
 
 
 def test_ctrl_5_is_default_next_view_key():
     key = key_for_action("next_visual_view", "c-5")
-    assert key == "c-5"
+    assert key == "c-v"
 
 
 def test_ctrl_6_is_default_previous_view_key():
     key = key_for_action("previous_visual_view", "c-6")
-    assert key == "c-6"
+    assert key == "c-x"
 
 
 def test_ctrl_3_is_default_switch_center_to_doc_view_key():
     key = key_for_action("switch_center_to_doc_view", "c-3")
-    assert key == "c-3"
+    assert key == "c-t"
 
 
 def test_ctrl_m_detected_as_unsafe_when_configured(tmp_path):

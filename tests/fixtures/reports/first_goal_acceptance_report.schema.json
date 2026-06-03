@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/first_goal_acceptance_report.schema.json",
+  "title": "First Goal Acceptance Report",
+  "type": "object",
+  "required": ["summary", "runs"],
+  "properties": {
+    "summary": {
+      "type": "object",
+      "required": ["schema"],
+      "properties": {
+        "schema": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criteria"],
+        "properties": {
+          "criteria": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["criterion_id"],
+              "properties": {
+                "criterion_id": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

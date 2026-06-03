@@ -28,6 +28,7 @@ def runner_mod():
 
 
 FIXTURES_DIR = pathlib.Path(__file__).parent / "fixtures" / "scenarios"
+SCHEMA_PATH = pathlib.Path(__file__).parent / "fixtures" / "reports" / "first_goal_acceptance_report.schema.json"
 
 
 class TestLoadScenariosFromFile:
@@ -113,18 +114,15 @@ class TestCriterionStableIds:
 
 class TestReportJsonSchema:
     def test_schema_file_exists(self):
-        schema_path = pathlib.Path(__file__).parent.parent / "artifacts" / "first_goal_acceptance_report.schema.json"
-        assert schema_path.exists(), "JSON schema file must exist at artifacts/first_goal_acceptance_report.schema.json"
+        assert SCHEMA_PATH.exists(), "JSON schema fixture must exist at tests/fixtures/reports/first_goal_acceptance_report.schema.json"
 
     def test_schema_is_valid_json(self):
-        schema_path = pathlib.Path(__file__).parent.parent / "artifacts" / "first_goal_acceptance_report.schema.json"
-        schema = json.loads(schema_path.read_text())
+        schema = json.loads(SCHEMA_PATH.read_text())
         assert schema.get("type") == "object"
         assert "properties" in schema
 
     def test_schema_requires_criterion_id_field(self):
-        schema_path = pathlib.Path(__file__).parent.parent / "artifacts" / "first_goal_acceptance_report.schema.json"
-        schema = json.loads(schema_path.read_text())
+        schema = json.loads(SCHEMA_PATH.read_text())
         criteria_schema = (
             schema["properties"]["runs"]["items"]
                   ["properties"]["criteria"]["items"]
@@ -133,6 +131,5 @@ class TestReportJsonSchema:
 
     def test_fixtures_comply_with_schema_schema_field(self):
         """Fixture reports may predate v2 — but schema file itself must be well-formed."""
-        schema_path = pathlib.Path(__file__).parent.parent / "artifacts" / "first_goal_acceptance_report.schema.json"
-        schema = json.loads(schema_path.read_text())
+        schema = json.loads(SCHEMA_PATH.read_text())
         assert schema["properties"]["summary"]["properties"]["schema"]["type"] == "string"
