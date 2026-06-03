@@ -65,6 +65,14 @@ _SNAKE_CHAT_PROMPT = (
 )
 
 
+def _background_threads_disabled() -> bool:
+    return bool(
+        str(getattr(settings, "role", "")).strip().lower() == "test"
+        or os.environ.get("PYTEST_CURRENT_TEST")
+        or str(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS") or "").strip().lower() in {"1", "true", "yes", "on"}
+    )
+
+
 def _resolve_ai_snake_chat_provider() -> tuple[str, str | None]:
     provider = "lmstudio"
     model: str | None = None
@@ -181,6 +189,8 @@ def _append_room_ai_message(*, text: str) -> None:
 def _spawn_ai_chat_reply(*, user_text: str) -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
+        return
+    if _background_threads_disabled():
         return
 
     def _runner() -> None:
