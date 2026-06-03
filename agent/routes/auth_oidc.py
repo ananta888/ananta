@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import base64
 import logging
 import secrets
 import time
@@ -19,6 +20,7 @@ LOGGER = logging.getLogger("agent.auth_oidc")
 
 oidc_bp = Blueprint("auth_oidc", __name__)
 _FRONTEND_TOKEN_EXCHANGE_CODES: dict[str, dict[str, Any]] = {}
+_OIDC_LOGIN_REQUESTS: dict[str, dict[str, Any]] = {}
 
 # ── claim-to-role mapping ──────────────────────────────────────────────────────
 _DEFAULT_CLAIM_ROLE_MAP: dict[str, str] = {
@@ -116,10 +118,12 @@ def _public_authorization_endpoint(
 
 
 def _oidc_redirect_uri() -> str:
-    frontend_redirect = settings.terminal_oidc_frontend_redirect.strip()
-    if frontend_redirect:
-        return frontend_redirect
     return request.host_url.rstrip("/") + "/auth/oidc/callback"
+
+
+def _pkce_s256_challenge(code_verifier: str) -> str:
+    digest = hashlib.sha256(code_verifier.encode()).digest()
+    return base64.urlsafe_b64encode(digest).decode().rstrip("=")
 
 
 def _store_frontend_exchange_code(auth_ctx: dict[str, Any], redirect_path: str) -> str:
@@ -127,6 +131,7 @@ def _store_frontend_exchange_code(auth_ctx: dict[str, Any], redirect_path: str) 
     _FRONTEND_TOKEN_EXCHANGE_CODES[code] = {
         "auth_ctx": auth_ctx,
         "redirect_path": redirect_path or "/",
+        "oidc_access_token": "",
         "expires_at": time.time() + 120,
     }
     return code
@@ -134,6 +139,30 @@ def _store_frontend_exchange_code(auth_ctx: dict[str, Any], redirect_path: str) 
 
 def _consume_frontend_exchange_code(code: str) -> dict[str, Any] | None:
     payload = _FRONTEND_TOKEN_EXCHANGE_CODES.pop(code, None)
+    if not payload:
+        return None
+    if float(payload.get("expires_at") or 0.0) < time.time():
+        return None
+    return payload
+
+
+def _store_oidc_login_request(
+    *,
+    state: str,
+    nonce: str,
+    code_verifier: str,
+    redirect_path: str,
+) -> None:
+    _OIDC_LOGIN_REQUESTS[state] = {
+        "nonce": nonce,
+        "code_verifier": code_verifier,
+        "redirect_path": redirect_path or "/",
+        "expires_at": time.time() + 300,
+    }
+
+
+def _consume_oidc_login_request(state: str) -> dict[str, Any] | None:
+    payload = _OIDC_LOGIN_REQUESTS.pop(state, None)
     if not payload:
         return None
     if float(payload.get("expires_at") or 0.0) < time.time():
@@ -194,15 +223,18 @@ def oidc_login():
     state = secrets.token_urlsafe(24)
     nonce = secrets.token_urlsafe(24)
     code_verifier = secrets.token_urlsafe(48)
-    code_challenge = (
-        hashlib.sha256(code_verifier.encode()).digest()
-        .hex()  # raw bytes base64url would be ideal; hex is deterministic for testing
-    )
+    code_challenge = _pkce_s256_challenge(code_verifier)
 
     session["oidc_state"] = state
     session["oidc_nonce"] = nonce
     session["oidc_code_verifier"] = code_verifier
     session["oidc_redirect_path"] = request.args.get("redirect_path") or "/"
+    _store_oidc_login_request(
+        state=state,
+        nonce=nonce,
+        code_verifier=code_verifier,
+        redirect_path=str(session["oidc_redirect_path"] or "/"),
+    )
 
     redirect_uri = _oidc_redirect_uri()
     params = {
@@ -231,7 +263,14 @@ def oidc_callback():
         LOGGER.warning("OIDC error from provider: %s", error)
         return api_response(status="error", message=f"oidc_provider_error: {error}", code=401)
 
-    if not state or state != session.get("oidc_state"):
+    login_request = _consume_oidc_login_request(state) if state else None
+    session_state = str(session.get("oidc_state") or "").strip()
+    if not login_request and (not state or state != session_state):
+        LOGGER.warning(
+            "OIDC callback rejected due to state mismatch (got=%s, session_present=%s)",
+            state or "",
+            bool(session_state),
+        )
         return api_response(status="error", message="oidc_state_mismatch", code=401)
 
     if not code:
@@ -239,10 +278,14 @@ def oidc_callback():
 
     issuer = settings.terminal_oidc_issuer
     client_id = settings.terminal_oidc_client_id
+    client_secret = str(settings.terminal_oidc_client_secret or "").strip()
     audience = settings.terminal_oidc_audience or client_id
-    nonce = session.pop("oidc_nonce", None)
-    code_verifier = session.pop("oidc_code_verifier", None)
+    nonce = login_request.get("nonce") if login_request else session.pop("oidc_nonce", None)
+    code_verifier = login_request.get("code_verifier") if login_request else session.pop("oidc_code_verifier", None)
     session.pop("oidc_state", None)
+    if not code_verifier:
+        LOGGER.warning("OIDC callback rejected because code_verifier is missing from the session")
+        return api_response(status="error", message="oidc_code_verifier_missing", code=401)
 
     try:
         discovery = _fetch_oidc_discovery(issuer)
@@ -258,6 +301,7 @@ def oidc_callback():
             "code": code,
             "redirect_uri": redirect_uri,
             "client_id": client_id,
+            **({"client_secret": client_secret} if client_secret else {}),
             "code_verifier": code_verifier or "",
         }).encode()
         req = urllib.request.Request(token_endpoint, data=post_data, method="POST")
@@ -272,17 +316,27 @@ def oidc_callback():
 
         claims = _validate_id_token(id_token, issuer=issuer, audience=audience, nonce=nonce)
         auth_ctx = _map_claims_to_auth(claims)
+        oidc_access_token = str(token_response.get("access_token") or "").strip()
 
         session["user"] = auth_ctx
         LOGGER.info("OIDC login successful for sub=%s role=%s", auth_ctx.get("sub"), auth_ctx.get("role"))
         frontend_redirect = settings.terminal_oidc_frontend_redirect.strip()
         if frontend_redirect:
-            redirect_path = str(session.pop("oidc_redirect_path", "/") or "/")
+            redirect_path = str((login_request or {}).get("redirect_path") or session.pop("oidc_redirect_path", "/") or "/")
             code = _store_frontend_exchange_code(auth_ctx, redirect_path)
+            _FRONTEND_TOKEN_EXCHANGE_CODES[code]["oidc_access_token"] = oidc_access_token
             return redirect(f"{frontend_redirect}{'&' if '?' in frontend_redirect else '?'}oidc_code={code}")
         return jsonify({"ok": True, "auth": auth_ctx})
 
     except Exception as exc:
+        detail = ""
+        try:
+            from urllib.error import HTTPError
+            if isinstance(exc, HTTPError):
+                detail = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            detail = ""
+        print(f"OIDC callback exception: {exc!r} body={detail!r}", flush=True)
         LOGGER.warning("OIDC callback failed: %s", exc)
         return api_response(status="error", message=str(exc), code=401)
 
@@ -311,10 +365,14 @@ def oidc_exchange():
             mfa_enabled=bool(auth_ctx.get("mfa_enabled")),
         )
         tokens["redirect_path"] = payload.get("redirect_path") or "/"
+        oidc_access_token = str(payload.get("oidc_access_token") or "").strip()
+        if oidc_access_token:
+            tokens["oidc_access_token"] = oidc_access_token
         return jsonify({"ok": True, "data": tokens})
 
     issuer = settings.terminal_oidc_issuer
     client_id = settings.terminal_oidc_client_id
+    client_secret = str(settings.terminal_oidc_client_secret or "").strip()
     audience = settings.terminal_oidc_audience or client_id
     if not issuer or not client_id:
         return api_response(status="error", message="oidc_not_configured", code=503)
@@ -326,6 +384,7 @@ def oidc_exchange():
     nonce = session.get("oidc_nonce")
     code_verifier = session.get("oidc_code_verifier")
     if not code_verifier:
+        LOGGER.warning("OIDC exchange rejected because code_verifier is missing from the session")
         return api_response(status="error", message="oidc_code_verifier_missing", code=401)
 
     try:
@@ -342,6 +401,7 @@ def oidc_exchange():
             "code": code,
             "redirect_uri": redirect_uri,
             "client_id": client_id,
+            **({"client_secret": client_secret} if client_secret else {}),
             "code_verifier": code_verifier or "",
         }).encode()
         req = urllib.request.Request(token_endpoint, data=post_data, method="POST")
@@ -368,9 +428,18 @@ def oidc_exchange():
             mfa_enabled=bool(auth_ctx.get("mfa_enabled")),
         )
         tokens["redirect_path"] = str(session.pop("oidc_redirect_path", "/") or "/")
+        tokens["oidc_access_token"] = str(token_response.get("access_token") or "").strip()
         return jsonify({"ok": True, "data": tokens})
 
     except Exception as exc:
+        detail = ""
+        try:
+            from urllib.error import HTTPError
+            if isinstance(exc, HTTPError):
+                detail = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            detail = ""
+        print(f"OIDC exchange exception: {exc!r} body={detail!r}", flush=True)
         LOGGER.warning("OIDC exchange failed: %s", exc)
         return api_response(status="error", message=str(exc), code=401)
 

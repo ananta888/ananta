@@ -181,6 +181,7 @@ export class OidcAuthService {
 
     this._sessionNonce = nonce;
     this.userAuth.setTokens(tokens.access_token, tokens.refresh_token);
+    this.userAuth.setOidcAccessToken(tokens.access_token);
     this.router.navigateByUrl(redirectPath || '/');
     return true;
   }
@@ -196,7 +197,7 @@ export class OidcAuthService {
     const exchangeParams = new URLSearchParams({ code });
     if (state) exchangeParams.set('state', state);
     const exchangeUrl = `${hubUrl.replace(/\/$/, '')}/auth/oidc/exchange?${exchangeParams}`;
-    const r = await fetch(exchangeUrl, { method: 'GET' });
+    const r = await fetch(exchangeUrl, { method: 'GET', credentials: 'include' });
     if (!r.ok) return false;
     const payload = await r.json() as any;
     const data = payload?.data || payload;
@@ -204,6 +205,7 @@ export class OidcAuthService {
     if (!accessToken) return false;
     this._sessionNonce = '';
     this.userAuth.setTokens(accessToken, data?.refresh_token || null);
+    this.userAuth.setOidcAccessToken(String(data?.oidc_access_token || '').trim() || null);
     this.router.navigateByUrl(String(data?.redirect_path || '/'));
     return true;
   }
@@ -277,6 +279,7 @@ export class OidcAuthService {
     this._sessionNonce = nonce;
     // setTokens writes to localStorage → fires storage event in parent window
     this.userAuth.setTokens(tokens.access_token, tokens.refresh_token);
+    this.userAuth.setOidcAccessToken(tokens.access_token);
     return true;
   }
 
@@ -309,6 +312,7 @@ export class OidcAuthService {
       if (!r.ok) { this.userAuth.logout(); return false; }
       const tokens = await r.json();
       this.userAuth.setTokens(tokens.access_token, tokens.refresh_token ?? refreshToken);
+      this.userAuth.setOidcAccessToken(tokens.access_token);
       return true;
     } catch {
       return false;
@@ -379,6 +383,7 @@ export class OidcAuthService {
     const nonce = sessionStorage.getItem(SS_NONCE_KEY) ?? this.randomB64Url(16);
     this._sessionNonce = nonce;
     this.userAuth.setTokens(tokens.access_token, tokens.refresh_token);
+    this.userAuth.setOidcAccessToken(tokens.access_token);
     return true;
   }
 

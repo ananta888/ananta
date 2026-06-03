@@ -46,6 +46,7 @@ services:
       TERMINAL_OIDC_AUDIENCE: "ananta-hub"
       TERMINAL_OIDC_CLIENT_ID: "ananta-tui"
       TERMINAL_OIDC_FRONTEND_REDIRECT: "http://angular-frontend:4200/oidc-callback"
+      CORS_ORIGINS: "http://angular-frontend:4200"
     depends_on:
       ollama:
         condition: service_healthy

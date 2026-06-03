@@ -11,8 +11,8 @@ test.describe('Public OIDC / WebRTC', () => {
     await login(page);
     await expect(page).toHaveURL(/\/(workspace|dashboard|help)(\/|$)/, { timeout: 60_000 });
 
-    const token = await page.evaluate(() => localStorage.getItem('ananta.user.token'));
-    expect(token).toBeTruthy();
+    const token = await page.evaluate(() => localStorage.getItem('ananta.oidc.access_token'));
+    expect(token, 'Expected the public OIDC access token to be stored in localStorage').toBeTruthy();
 
     const healthResponse = await request.get(`${PUBLIC_WEBRTC_BASE_URL}/health`);
     expect(healthResponse.ok()).toBeTruthy();
