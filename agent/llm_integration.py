@@ -1004,9 +1004,9 @@ def _default_model_for_provider(provider: str, current_model: str | None = None)
     provider_name = str(provider or "").strip().lower()
     model_name = str(current_model or "").strip()
     if provider_name == "ollama":
-        if model_name.lower() in {"llama3", "mistral"}:
+        if model_name.lower() in {"llama3", "mistral", "ananta-default", "ananta-default:latest"}:
             return model_name
-        return "llama3"
+        return "ananta-default:latest"
     return model_name or None
 
 

@@ -26,7 +26,7 @@ CORE_COMMANDS = (
     "prompt",
     "llm-log",
 )
-COMPAT_COMMANDS = ("goals",)  # "goal" is now handled by the domain CLI
+COMPAT_COMMANDS = ("goal", "goals")
 
 # New domain groups registered under agent/cli/commands/
 DOMAIN_COMMANDS = (
@@ -340,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # Domain commands (new hierarchy)
-    if command in DOMAIN_COMMANDS or command == "goal":
+    if command in DOMAIN_COMMANDS:
         result = _run_domain(command, rest)
         if result is not None:
             return result

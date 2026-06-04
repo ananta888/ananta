@@ -1163,27 +1163,6 @@ def _dispatch_one_task_inner(  # noqa: C901
                 result.failed = latest_status != "completed"
                 result.failure_type = None if result.completed else latest_status
                 return result
-            # Task-local propose backoff to prevent rapid propose storms.
-            task_propose_backoff = getattr(loop, "_task_propose_backoff_details", None)
-            if callable(task_propose_backoff):
-                deferred, remaining_s = task_propose_backoff(task.id)
-                if deferred:
-                    append_trace_event(
-                        task.id,
-                        "autopilot_strategy_attempt_deferred_backoff",
-                        delegated_to=target_worker.url,
-                        attempt=attempt_index,
-                        backoff_remaining_seconds=round(float(remaining_s), 3),
-                    )
-                    strategy_failures.append(
-                        {
-                            "attempt": attempt_index,
-                            "reason": "task_propose_backoff_deferred",
-                            "failure_type": "task_propose_backoff",
-                            "backoff_remaining_seconds": round(float(remaining_s), 3),
-                        }
-                    )
-                    break
             elapsed = time.time() - budget_started_at
             if elapsed > max_total_seconds:
                 strategy_failures.append(
@@ -1408,6 +1387,9 @@ def _dispatch_one_task_inner(  # noqa: C901
             if schedule_repair_retry:
                 retry_status = "todo"
                 cooldown_seconds = repair_delay_seconds
+            elif terminalize_no_exec and allow_human_review:
+                retry_status = "todo"
+                cooldown_seconds = int(strategy_cfg.get("cooldown_seconds") or 20)
             elif on_declined == "failed":
                 retry_status = "failed"
             elif on_declined == "advisory":

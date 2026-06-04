@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from client_surfaces.vscode_extension.surface_map import build_vscode_frontend_api_surface_map
+
 ROOT = Path(__file__).resolve().parents[1]
 EXT_ROOT = ROOT / "client_surfaces" / "vscode_extension"
 
@@ -85,7 +87,7 @@ def test_vscode_package_manifest_declares_runtime_contributions() -> None:
 
 
 def test_vscode_frontend_api_surface_map_is_backend_reuse_focused() -> None:
-    payload = json.loads((ROOT / "data" / "vscode_frontend_api_surface_map.json").read_text(encoding="utf-8"))
+    payload = build_vscode_frontend_api_surface_map()
     assert payload["schema"] == "vscode_frontend_api_surface_map_v1"
 
     all_entries = []
