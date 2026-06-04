@@ -65,14 +65,32 @@ jobs:
             sys.stderr.write(collect.stderr)
             sys.exit(collect.returncode)
 
+          repo_root = os.path.basename(os.getcwd())
+          tree_line = re.compile(r"^(?P<indent>\s*)<(?P<kind>Dir|Package|Module) (?P<name>[^>]+)>$")
+          stack = []
           file_counts = defaultdict(int)
           for raw_line in collect.stdout.splitlines():
-            line = raw_line.strip()
-            if not line.startswith("tests/") or "::" not in line:
+            match = tree_line.match(raw_line.rstrip())
+            if not match:
               continue
-            file_path = line.split("::", 1)[0]
-            if re.fullmatch(r"tests/.+\.py", file_path):
-              file_counts[file_path] += 1
+
+            indent = len(match.group("indent"))
+            kind = match.group("kind")
+            name = match.group("name")
+
+            while stack and stack[-1][0] >= indent:
+              stack.pop()
+
+            if kind in {"Dir", "Package"}:
+              stack.append((indent, name))
+              continue
+
+            parts = [part for _, part in stack]
+            if parts and parts[0] == repo_root:
+              parts = parts[1:]
+            module_path = "/".join(parts + [name])
+            if re.fullmatch(r"tests/.+\.py", module_path):
+              file_counts[module_path] += 1
 
           files = sorted(file_counts.items(), key=lambda item: (-item[1], item[0]))
           bins = [{"files": [], "count": 0} for _ in range(shard_count)]
