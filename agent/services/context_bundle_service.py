@@ -118,7 +118,7 @@ Output ONLY valid JSON matching schema."""
         budget_tokens_by_mode: dict | None = None,
         # OHA-014: optional MemoryTree view to include alongside standard chunks
         memory_tree_retrieval_result: "Any | None" = None,
-        **_kwargs: Any,
+        **kwargs: Any,
     ) -> dict:
         """FA-T012: Build a governed context bundle with scope-aware filtering."""
         chunks = list((context_payload or {}).get("chunks") or [])
@@ -243,8 +243,20 @@ Output ONLY valid JSON matching schema."""
                 }
             )
 
+        max_chunks_raw = kwargs.get("max_chunks")
+        max_chunks = int(max_chunks_raw) if isinstance(max_chunks_raw, int) and max_chunks_raw > 0 else None
+        if max_chunks is not None:
+            filtered = filtered[:max_chunks]
+        default_budget = 12000 if policy_mode == "compact" else 32000
+        effective_budget = int(total_budget_tokens or default_budget)
+        bundle_strategy = "minimal" if policy_mode == "compact" else ("deep" if policy_mode == "full" else "balanced")
+        explainability_level = "minimal" if policy_mode == "compact" else ("detailed" if policy_mode == "full" else "balanced")
+        chunk_text_style = "compressed_snippets" if policy_mode == "compact" else ("detailed_context" if policy_mode == "full" else "balanced_snippets")
+        engines = sorted({str(chunk.get("engine") or "unknown") for chunk in filtered})
+
         bundle: dict = {
             "schema": "worker_context_bundle.v1",
+            "bundle_type": "retrieval_context",
             "query": query,
             "policy_mode": policy_mode,
             "task_kind": task_kind,
@@ -255,6 +267,15 @@ Output ONLY valid JSON matching schema."""
             "context_text": (context_payload or {}).get("context_text") if include_context_text is not False else None,
             "token_estimate": int((context_payload or {}).get("token_estimate") or 0),
             "context_policy": {
+                "mode": policy_mode,
+                "include_context_text": include_context_text is not False,
+                "max_chunks": max_chunks,
+                "total_budget_tokens": effective_budget,
+                "window_profile": "standard_32k",
+                "bundle_strategy": bundle_strategy,
+                "explainability_level": explainability_level,
+                "chunk_text_style": chunk_text_style,
+                "source_prioritization_rules": ["repo_first" if "architecture" not in effective_intent else "wiki_first"],
                 "default_deny": llm_scope in {"external_cloud_allowed", "trusted_private_cloud"},
                 "llm_scope": llm_scope,
                 "retrieval_policy_filter": "retrieval_policy_filter.v1",
@@ -266,6 +287,7 @@ Output ONLY valid JSON matching schema."""
                 "manifest_hash": retrieval_trace.get("manifest_hash"),
             },
             "explainability": {
+                "engines": engines,
                 "channel_contributions": channel_contrib,
                 "sources": sources,
             },
@@ -273,6 +295,12 @@ Output ONLY valid JSON matching schema."""
                 "total_budget_tokens": int(total_budget_tokens or 0),
                 "budget_tokens_by_mode": dict(budget_tokens_by_mode or {}),
             },
+            "why_this_context": {
+                "mode": policy_mode,
+                "summary": f"task_kind={str(task_kind or 'unknown')} | selected_chunks={len(filtered)} | mode={policy_mode}",
+                "compaction_summary": {"provenance_preserved": True},
+            },
+            "provenance_policy": {"visibility_level": str(kwargs.get("provenance_visibility") or "standard")},
             "policy_filter": {
                 "input_count": len(chunks),
                 "allowed_count": len(filtered),
@@ -292,6 +320,8 @@ Output ONLY valid JSON matching schema."""
         }
         if memory_tree_view is not None:
             bundle["memory_tree_view"] = memory_tree_view
+        if include_context_text is False:
+            bundle.pop("context_text", None)
         return bundle
 
     @staticmethod
@@ -323,6 +353,14 @@ pip install fastapi
     @staticmethod
     def resolve_context_bundle_policy(cfg: dict | None) -> dict:
         return resolve_context_bundle_policy(cfg)
+
+    @staticmethod
+    def build_grounded_prompt(*, prompt: str, context_text: str, chunks: list[dict[str, Any]] | None = None) -> str:
+        del chunks
+        effective_context = str(context_text or "").strip()
+        if not effective_context:
+            return f"Frage:\n{prompt}"
+        return f"Frage:\n{prompt}\n\nKontext:\n{effective_context}"
 
 
 _context_bundle_service = ContextBundler()

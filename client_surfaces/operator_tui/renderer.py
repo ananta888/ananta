@@ -2337,13 +2337,34 @@ def _cell(lines: list[str], index: int, width: int) -> str:
 
 def _status_line(state: OperatorState, width: int, splash_state: str = "") -> str:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    visual = dict(game.get("visual_runtime_status") or {})
+    visual_enabled = bool(dict(game.get("visual_viewport") or {}).get("enabled")) or bool(game.get("visual_viewport_enabled"))
     parts = [
         f"endpoint={state.endpoint}",
         f"auth={state.auth_state}",
         f"focus={state.focus.value}",
         f"mode={state.mode.value}",
-        str(state.status_message or "ready")[:48],
     ]
+    if visual_enabled:
+        visual_prefix = "VVP:on"
+        view = str(visual.get("active_view") or game.get("visual_viewport_active_view") or "").strip()
+        renderer = str(visual.get("active_renderer") or "").strip()
+        adapter = str(visual.get("active_adapter") or "").strip()
+        if view:
+            visual_prefix += f" vv={view}"
+        if renderer:
+            visual_prefix += f" vr={renderer}"
+        if adapter:
+            visual_prefix += f" va={adapter}"
+        parts.insert(0, visual_prefix)
+        parts.append("VVP:on")
+        if view:
+            parts.append(f"vv={view}")
+        if renderer:
+            parts.append(f"vr={renderer}")
+        if adapter:
+            parts.append(f"va={adapter}")
+    parts.append(str(state.status_message or "ready")[:48])
     active_goal_id = str(game.get("active_goal_id") or "").strip()
     if active_goal_id:
         parts.append(f"goal={active_goal_id}")
@@ -2380,19 +2401,7 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         parts.append("CFG:on")
     if bool(game.get("chat_panel_open")):
         parts.append("[C]")
-    visual = dict(game.get("visual_runtime_status") or {})
-    visual_enabled = bool(dict(game.get("visual_viewport") or {}).get("enabled")) or bool(game.get("visual_viewport_enabled"))
     if visual_enabled:
-        parts.append("VVP:on")
-        view = str(visual.get("active_view") or game.get("visual_viewport_active_view") or "").strip()
-        renderer = str(visual.get("active_renderer") or "").strip()
-        adapter = str(visual.get("active_adapter") or "").strip()
-        if view:
-            parts.append(f"vv={view}")
-        if renderer:
-            parts.append(f"vr={renderer}")
-        if adapter:
-            parts.append(f"va={adapter}")
         runtime_error = str(visual.get("runtime_error") or "").strip()
         if runtime_error:
             parts.append("vvp_err")
@@ -2548,14 +2557,14 @@ def _hints_line(state: OperatorState, width: int) -> str:
             )
         else:
             hints = (
+                "[:config]  "
                 f"[{display_for_action('toggle_snake_mode', 'Ctrl+S')}] Snake  "
                 f"[{display_for_action('toggle_chat_panel', 'Ctrl+G')}] Chat  "
                 f"[{display_for_action('chat_focus', 'Ctrl+E')}] Input  "
                 f"[{display_for_action('snake_pause', 'Ctrl+P')}] Pause  "
                 f"[{display_for_action('toggle_tutorial_ai', 'Ctrl+U')}] Tutorial-AI  "
                 f"[{display_for_action('toggle_ai_snake_config', 'Ctrl+A')}] AI-Config  "
-                f"[{snapshot_copy_shortcut}/{snapshot_save_shortcut}] Snapshot  "
-                "[:config]"
+                f"[{snapshot_copy_shortcut}/{snapshot_save_shortcut}] Snapshot"
             )
     if len(state.open_tabs) >= 2 and state.mode is OperatorMode.NORMAL and not _share_only_nav_mode():
         tab_hints = (
@@ -2563,7 +2572,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
             f"[{display_for_action('tab_next', 'Ctrl+Tab')}] Tab→  "
         )
         hints = tab_hints + hints
-    if "Commands:" not in hints:
+    if "Commands:" not in hints and not bool(game.get("active")):
         hints = f"Commands: :refresh :section <id>  {hints}"
     return _clip(hints, width)
 
@@ -2572,7 +2581,7 @@ def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
     chat = game.get("artifact_chat_state") if isinstance(game.get("artifact_chat_state"), dict) else {}
-    show_tutorial_flow = bool(game.get("tutorial_mode")) or bool(history) or bool(chat.get("active_target"))
+    show_tutorial_flow = (bool(game.get("tutorial_mode")) or bool(history) or bool(chat.get("active_target"))) and not bool(game.get("chat_panel_open"))
     if not show_tutorial_flow:
         return []
 
@@ -2753,7 +2762,7 @@ def _overlay_fullscreen_snake(
             repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
             out[y] = _overlay_at_visible_col(out[y], x, repl)
 
-        message_effect_enabled = bool(game.get("snake_message_effect_enabled")) or (
+        message_effect_enabled = bool(game.get("snake_message_effect_enabled", True)) or (
             os.environ.get("ANANTA_TUI_SNAKE_MESSAGE_EFFECT", "").strip().lower() in {"1", "true", "yes", "on"}
         )
         message = _display_message_for_snake(str(snapshot.get("message") or "")) if message_effect_enabled else ""

@@ -182,7 +182,17 @@ class ProposalReviewView:
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _candidate_path(self, proposal_id: str) -> str:
-        return os.path.join(self._service._base_path, "candidates", f"{proposal_id}.json")
+        root_path = os.path.join(self._service._base_path, "candidates", f"{proposal_id}.json")
+        if os.path.exists(root_path):
+            return root_path
+        try:
+            for domain in os.listdir(os.path.join(self._service._base_path, "candidates")):
+                candidate = os.path.join(self._service._base_path, "candidates", domain, f"{proposal_id}.json")
+                if os.path.exists(candidate):
+                    return candidate
+        except OSError:
+            pass
+        return root_path
 
     def _load_candidate(self, proposal_id: str) -> dict[str, Any] | None:
         path = self._candidate_path(proposal_id)

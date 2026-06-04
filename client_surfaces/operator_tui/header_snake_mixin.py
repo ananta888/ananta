@@ -85,7 +85,7 @@ class HeaderSnakeMixin:
         board_w, board_h = 18, 6
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
-        _snake_mode_on = os.environ.get("ANANTA_TUI_SNAKE_MODE", "0").strip().lower() not in {"0", "false", "no", "off"}
+        _snake_mode_on = os.environ.get("ANANTA_TUI_SNAKE_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
         _share_only_nav_e2e = os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV", "0").strip().lower() in {"1", "true", "yes", "on"}
         _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() not in {"0", "false", "no", "off"}
         game: dict[str, object] = {
@@ -137,11 +137,11 @@ class HeaderSnakeMixin:
             "ai_training_context_released": False,
             "ai_snake_follow_state": make_follow_state(ai_position=(3, 3), mode="off"),
             "chat_panel_open": True,
-            "chat_backend": os.environ.get("ANANTA_TUI_CHAT_BACKEND", "ananta-worker"),
+            "chat_backend": os.environ.get("ANANTA_TUI_CHAT_BACKEND", "lmstudio"),
             "chat_backend_model": os.environ.get("ANANTA_TUI_CHAT_MODEL", os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "google/gemma-4-e4b")),
             "chat_backend_api_base": os.environ.get(
                 "ANANTA_TUI_CHAT_API_BASE_URL",
-                os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://localhost:1234/v1"),
+                os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://192.168.178.100:1234/v1"),
             ),
             "chat_backends_available": [
                 item.strip()

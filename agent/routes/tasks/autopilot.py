@@ -467,7 +467,8 @@ class AutonomousLoopManager:
                 workers=filtered_workers,
                 worker_cursor=self._worker_cursor,
             )
-        return target_worker, was_assigned, reason_code
+            setattr(task, "_worker_assign_reason", reason_code)
+        return target_worker, was_assigned
 
     def _circuit_open_details(self, worker_url: str) -> tuple[float, int]:
         """Return (open_until, failure_streak) for a worker under _routing_lock."""
