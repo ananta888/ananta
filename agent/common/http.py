@@ -54,7 +54,10 @@ class HttpClient:
         headers: dict | None = None,
     ) -> Any:
         try:
-            r = self.session.get(url, params=params, timeout=timeout or self.timeout, headers=headers)
+            request_kwargs: dict[str, Any] = {"params": params, "timeout": timeout or self.timeout}
+            if headers:
+                request_kwargs["headers"] = headers
+            r = self.session.get(url, **request_kwargs)
             if return_response:
                 return r
             r.raise_for_status()

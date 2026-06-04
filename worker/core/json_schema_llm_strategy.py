@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult, ExecutableProposal
@@ -33,7 +34,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         from agent.config import settings
-        _eff_cfg = dict(context.effective_config or {})
+        _eff_cfg = dict(context.effective_config) if isinstance(context.effective_config, Mapping) else {}
         provider = (str(_eff_cfg.get("default_provider") or "") or settings.default_provider or "lmstudio").strip().lower()
 
         if provider in _MOCK_ONLY_PROVIDERS:
@@ -61,7 +62,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
 
         try:
             timeout_seconds = resolve_propose_llm_timeout_seconds(
-                effective_config=context.effective_config,
+                effective_config=_eff_cfg,
                 task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
             )
             llm_result = ModelInvocationService.invoke_with_json_schema_result(
@@ -103,10 +104,21 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                     ]
                 },
             )
-        raw_response = str((llm_result or {}).get("content") or "")
-        llm_profile = list(((llm_result or {}).get("metadata") or {}).get("llm_call_profile") or [])
-        llm_model = str((llm_result or {}).get("model") or "").strip() or None
-        llm_provider = str((llm_result or {}).get("provider") or "").strip() or provider
+        if isinstance(llm_result, str):
+            raw_response = llm_result
+            llm_profile = []
+            llm_model = None
+            llm_provider = provider
+        elif isinstance(llm_result, Mapping):
+            raw_response = str(llm_result.get("content") or "")
+            llm_profile = list((llm_result.get("metadata") or {}).get("llm_call_profile") or [])
+            llm_model = str(llm_result.get("model") or "").strip() or None
+            llm_provider = str(llm_result.get("provider") or "").strip() or provider
+        else:
+            raw_response = str(llm_result or "")
+            llm_profile = []
+            llm_model = None
+            llm_provider = provider
 
         if not raw_response or not raw_response.strip():
             return ProposeStrategyResult.declined(

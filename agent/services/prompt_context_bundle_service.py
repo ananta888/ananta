@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Mapping
 from typing import Any
 
 from agent.common.redaction import redact
@@ -30,6 +31,12 @@ class PromptContextBundle:
 
 
 class PromptContextBundleService:
+    @staticmethod
+    def _safe_dict(value: Any) -> dict[str, Any]:
+        if isinstance(value, Mapping):
+            return dict(value)
+        return {}
+
     @staticmethod
     def _safe_int(value: Any, default: int) -> int:
         try:
@@ -91,7 +98,7 @@ class PromptContextBundleService:
 
     def build_for_propose_context(self, context) -> PromptContextBundle:
         task = context.task or {}
-        worker_contract = dict(task.get("worker_execution_contract") or {})
+        worker_contract = self._safe_dict(task.get("worker_execution_contract"))
         task_kind = str(task.get("task_kind") or "unknown")
         rc = context.research_context if isinstance(context.research_context, dict) else {}
         chunks = [dict(item) for item in list(rc.get("chunks") or []) if isinstance(item, dict)]
@@ -100,12 +107,12 @@ class PromptContextBundleService:
             max_chunks=6,
             total_budget_tokens=8000,
         )
-        worker_context = dict(task.get("worker_execution_context") or {})
-        instruction_layers = dict(worker_context.get("instruction_layers") or {})
-        instruction_context = dict(worker_context.get("instruction_context") or {})
-        planning_provenance = dict(worker_context.get("planning_provenance") or {})
-        instruction_stack = dict(getattr(context, "instruction_stack", None) or {})
-        instruction_diagnostics = dict(getattr(context, "instruction_diagnostics", None) or {})
+        worker_context = self._safe_dict(task.get("worker_execution_context"))
+        instruction_layers = self._safe_dict(worker_context.get("instruction_layers"))
+        instruction_context = self._safe_dict(worker_context.get("instruction_context"))
+        planning_provenance = self._safe_dict(worker_context.get("planning_provenance"))
+        instruction_stack = self._safe_dict(getattr(context, "instruction_stack", None))
+        instruction_diagnostics = self._safe_dict(getattr(context, "instruction_diagnostics", None))
         policy = getattr(context, "policy", None)
         return PromptContextBundle(
             schema="prompt_context_bundle.v1",
@@ -131,7 +138,7 @@ class PromptContextBundleService:
                 "instruction_stack_summary": {
                     "applied_layers": [str((item or {}).get("layer") or "") for item in list(instruction_stack.get("applied_layers") or [])],
                     "suppressed_layers": [str((item or {}).get("layer") or "") for item in list(instruction_stack.get("suppressed_layers") or [])],
-                    "role_template_context": redact(dict(instruction_stack.get("role_template_context") or {})),
+                    "role_template_context": redact(self._safe_dict(instruction_stack.get("role_template_context"))),
                 }
                 if instruction_stack
                 else None,
@@ -148,7 +155,7 @@ class PromptContextBundleService:
                     "goal_id": str(planning_provenance.get("goal_id") or ""),
                     "blueprint_id": str(planning_provenance.get("blueprint_id") or ""),
                     "blueprint_role_name": str(planning_provenance.get("blueprint_role_name") or ""),
-                    "blueprint_role_defaults": redact(dict(planning_provenance.get("blueprint_role_defaults") or {})),
+                    "blueprint_role_defaults": redact(self._safe_dict(planning_provenance.get("blueprint_role_defaults"))),
                 },
             },
             policy_summary={
