@@ -14,6 +14,10 @@ SUSPICIOUS_TASK_PATTERNS = [
 _ACTIONABLE_VERBS = (
     "implement",
     "create",
+    "initialize",
+    "setup",
+    "set up",
+    "bootstrap",
     "write",
     "run",
     "test",

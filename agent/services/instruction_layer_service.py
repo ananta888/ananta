@@ -524,7 +524,17 @@ class InstructionLayerService:
         usage_key: str | None = None,
         emit_audit: bool = False,
     ) -> dict[str, Any]:
-        task_payload = task.model_dump() if isinstance(task, TaskDB) else dict(task or {})
+        if isinstance(task, TaskDB):
+            task_payload = task.model_dump()
+        else:
+            task_payload = dict(task or {})
+            task_id = str(task_payload.get("id") or "").strip()
+            if task_id:
+                stored_task = get_repository_registry().task_repo.get_by_id(task_id)
+                if stored_task is not None:
+                    merged_payload = stored_task.model_dump()
+                    merged_payload.update(task_payload)
+                    task_payload = merged_payload
         goal_payload = self._load_goal_for_task(task_payload)
         owner_username = self._resolve_owner_username(task_payload, goal_payload)
         task_context = dict((task_payload.get("worker_execution_context") or {}).get("instruction_context") or {})

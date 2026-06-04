@@ -125,10 +125,10 @@ def test_e2e_live_splash_matches_website_cast_color_mode(monkeypatch) -> None:
 
     rc, out = _render_raw("--section", "dashboard")
     assert rc == 0
-    assert "\x1b[38;2;" in out
+    assert "\x1b[38;2;" in out or "\x1b[0;38;2;" in out
 
     raw_cast = _SPLASH_CAST_FILE.read_text(encoding="utf-8")
-    assert "\\u001b[38;2;" in raw_cast
+    assert "\\u001b[38;2;" in raw_cast or "\\u001b[0;38;2;" in raw_cast
 
 
 def test_e2e_three_pane_layout_present() -> None:
