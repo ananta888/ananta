@@ -14,6 +14,7 @@ describe('DashboardRefreshRuntimeService', () => {
     const refresh = vi.fn();
 
     service.start(refresh, 3000);
+    vi.advanceTimersByTime(0);
     expect(refresh).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(3000);
