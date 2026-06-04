@@ -652,7 +652,7 @@ class AutoPlanner:
 
 
 auto_planner = AutoPlanner()
-register_recovery_planner_callback(auto_planner.plan_goal)
+register_recovery_planner_callback(lambda **kwargs: auto_planner.plan_goal(**kwargs))
 
 
 def init_auto_planner():
