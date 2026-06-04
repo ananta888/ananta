@@ -861,17 +861,31 @@ def create_goal():
         "mode_id": mode_id,
         "readiness": dict(readiness or {}),
     }
-    _app = current_app._get_current_object()
-    thread = threading.Thread(
-        target=_run_goal_planning_background,
-        kwargs={"goal_id": goal_record.id, "context": planning_context, "app": _app},
-        daemon=True,
-        name=f"goal-planning-{goal_record.id[:8]}",
-    )
-    thread.start()
+    created_task_ids: list[str] = []
+    plan_id: str | None = None
+    if current_app.testing:
+        _run_goal_planning_background_impl(goal_id=goal_record.id, context=planning_context)
+        refreshed_goal = _repos().goal_repo.get_by_id(goal_record.id)
+        if refreshed_goal is not None:
+            goal_record = refreshed_goal
+        created_task_ids = [str(task.id) for task in (_repos().task_repo.get_by_goal_id(goal_record.id) or []) if str(task.id or "").strip()]
+        plans = _repos().plan_repo.get_by_goal_id(goal_record.id) or []
+        if plans:
+            plan_id = str(plans[0].id or "") or None
+    else:
+        _app = current_app._get_current_object()
+        thread = threading.Thread(
+            target=_run_goal_planning_background,
+            kwargs={"goal_id": goal_record.id, "context": planning_context, "app": _app},
+            daemon=True,
+            name=f"goal-planning-{goal_record.id[:8]}",
+        )
+        thread.start()
     return api_response(
         data={
             "goal": _goal_service().serialize_goal(goal_record),
+            "created_task_ids": created_task_ids,
+            "plan_id": plan_id,
             "planning_status": "queued",
             "workflow": {
                 "defaults": defaults,

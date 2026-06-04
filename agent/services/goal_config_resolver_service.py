@@ -28,6 +28,7 @@ ALLOWED_GOAL_CONFIG_KEYS: frozenset[str] = frozenset({
     "workspace_context_policy",
     "llm_tool_guardrails",
     "propose_policy",
+    "action_packs",
     "autopilot_task_propose_hard_guard_status",
     "task_propose_timeout_seconds",
 })
