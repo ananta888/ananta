@@ -9,12 +9,19 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   backend-coverage:
     if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard_index: [0, 1, 2, 3]
+        shard_count: [4]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -25,15 +32,80 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
+      - name: Resolve backend coverage shard
+        id: shard
+        env:
+          SHARD_INDEX: ${{ matrix.shard_index }}
+          SHARD_COUNT: ${{ matrix.shard_count }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          from collections import defaultdict
+
+          shard_index = int(os.environ["SHARD_INDEX"])
+          shard_count = int(os.environ["SHARD_COUNT"])
+          collect = subprocess.run(
+              [
+                  sys.executable,
+                  "-m",
+                  "pytest",
+                  "tests",
+                  "--collect-only",
+                  "-q",
+                  "--ignore-glob=tests/**/fixtures/**",
+              ],
+              capture_output=True,
+              text=True,
+          )
+          if collect.returncode != 0:
+            sys.stderr.write(collect.stdout)
+            sys.stderr.write(collect.stderr)
+            sys.exit(collect.returncode)
+
+          file_counts = defaultdict(int)
+          for raw_line in collect.stdout.splitlines():
+            line = raw_line.strip()
+            if not line or "::" not in line:
+              continue
+            file_path = line.split("::", 1)[0]
+            if file_path.endswith(".py"):
+              file_counts[file_path] += 1
+
+          files = sorted(file_counts.items(), key=lambda item: (-item[1], item[0]))
+          bins = [{"files": [], "count": 0} for _ in range(shard_count)]
+          for file_path, count in files:
+            target = min(range(shard_count), key=lambda idx: bins[idx]["count"])
+            bins[target]["files"].append(file_path)
+            bins[target]["count"] += count
+
+          selected = bins[shard_index]["files"]
+          output = os.environ["GITHUB_OUTPUT"]
+          with open(output, "a", encoding="utf-8") as handle:
+            handle.write("files<<EOF\n")
+            handle.write("\n".join(selected))
+            handle.write("\nEOF\n")
+            handle.write(f"test_count={bins[shard_index]['count']}\n")
+            handle.write(f"file_count={len(selected)}\n")
+          print(f"Resolved shard {shard_index + 1}/{shard_count}: {len(selected)} files, {bins[shard_index]['count']} collected tests")
+          PY
       - name: Run backend coverage
-        run: pytest tests --ignore-glob=tests/**/fixtures/** --cov=agent --cov-report=term-missing --cov-report=xml
-      - name: Validate backend coverage thresholds
-        run: python devtools/check_backend_coverage_thresholds.py --coverage-xml coverage.xml --thresholds devtools/coverage-thresholds.backend.json
+        env:
+          COVERAGE_FILE: .coverage.${{ matrix.shard_index }}
+        run: |
+          set -euo pipefail
+          mapfile -t test_files <<< "${{ steps.shard.outputs.files }}"
+          if [[ "${#test_files[@]}" -eq 0 ]]; then
+            echo "No backend test files were assigned to this shard." >&2
+            exit 1
+          fi
+          pytest "${test_files[@]}" --cov=agent --cov-report=
       - name: Upload backend coverage artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ananta-backend-coverage
-          path: coverage.xml
+          name: ananta-backend-coverage-${{ matrix.shard_index }}
+          path: .coverage.${{ matrix.shard_index }}
           retention-days: 7
 
   frontend-coverage:
@@ -65,5 +137,85 @@ jobs:
     needs: [backend-coverage, frontend-coverage]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - name: Install coverage tooling
+        run: python -m pip install --upgrade pip coverage
+      - name: Download backend coverage artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import io
+          import json
+          import os
+          import pathlib
+          import urllib.request
+          import zipfile
+
+          repo = os.environ["GH_REPOSITORY"]
+          run_id = os.environ["GH_RUN_ID"]
+          token = os.environ["GITHUB_TOKEN"]
+          out_dir = pathlib.Path("coverage-artifacts")
+          out_dir.mkdir(parents=True, exist_ok=True)
+
+          def request_json(url: str):
+            req = urllib.request.Request(
+              url,
+              headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+            )
+            with urllib.request.urlopen(req) as response:
+              return json.load(response)
+
+          artifacts = request_json(
+            f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100"
+          ).get("artifacts", [])
+          selected = [a for a in artifacts if str(a.get("name", "")).startswith("ananta-backend-coverage-")]
+          if not selected:
+            raise SystemExit("No backend coverage artifacts found for this run.")
+
+          for artifact in selected:
+            req = urllib.request.Request(
+              artifact["archive_download_url"],
+              headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+            )
+            with urllib.request.urlopen(req) as response:
+              payload = response.read()
+            target_dir = out_dir / artifact["name"]
+            target_dir.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+              archive.extractall(target_dir)
+            print(f"Downloaded {artifact['name']}")
+          PY
+      - name: Combine backend coverage data
+        run: |
+          set -euo pipefail
+          mapfile -t coverage_files < <(find coverage-artifacts -name '.coverage*' -type f | sort)
+          if [[ "${#coverage_files[@]}" -eq 0 ]]; then
+            echo "No backend coverage data files were downloaded." >&2
+            exit 1
+          fi
+          coverage combine "${coverage_files[@]}"
+          coverage xml -o coverage.xml
+      - name: Validate backend coverage thresholds
+        run: python devtools/check_backend_coverage_thresholds.py --coverage-xml coverage.xml --thresholds devtools/coverage-thresholds.backend.json
+      - name: Upload combined backend coverage artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-backend-coverage
+          path: coverage.xml
+          retention-days: 7
       - name: Coverage summary
         run: echo "Coverage artifacts generated for backend and frontend."
