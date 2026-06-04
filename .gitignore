@@ -156,6 +156,13 @@ scripts/dyndns.conf
 /autoimport-state/logs/
 /autoimport-state/modelfiles/[!a]*.Modelfile
 /data/
+!/data/
+/data/*
+!/data/client_surface_runtime_status.json
+!/data/client_surface_runtime_inventory.json
+!/data/client_surface_merge_readiness_report.json
+!/data/client_surface_post_test_cleanup_todo.json
+!/data/domain_runtime_inventory.json
 /rag-helper/out/
 /artifacts/
 /.claude/

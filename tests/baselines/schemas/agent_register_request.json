@@ -33,6 +33,26 @@
       "title": "Role",
       "type": "string"
     },
+    "runtime_targets": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Runtime Targets",
+      "type": "array"
+    },
+    "strategy_mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Strategy Mode"
+    },
     "token": {
       "anyOf": [
         {
@@ -48,6 +68,18 @@
     "url": {
       "title": "Url",
       "type": "string"
+    },
+    "worker_kind": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Worker Kind"
     },
     "worker_roles": {
       "items": {

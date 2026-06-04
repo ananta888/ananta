@@ -1,0 +1,55 @@
+{
+  "schema": "domain_runtime_inventory_v1",
+  "status_counters": {
+    "planned": 1,
+    "foundation_only": 2,
+    "runtime_mvp": 1,
+    "runtime_complete": 0,
+    "deferred": 0,
+    "blocked": 0
+  },
+  "domains": [
+    {
+      "domain_id": "blender",
+      "descriptor_path": "domains/blender/domain.json",
+      "inventory_status": "runtime_mvp",
+      "required_runtime_files": [
+        "client_surfaces/blender/bridge/ananta_blender_bridge.py",
+        "agent/routes/blender_client_surface.py",
+        "agent/services/blender_client_surface_service.py"
+      ],
+      "smoke_commands": [
+        "python3 scripts/smoke_blender_runtime.py"
+      ],
+      "runtime_evidence_refs": [
+        "ci-artifacts/domain-runtime/blender-smoke-report.json",
+        "ci-artifacts/domain-runtime/blender-context-smoke.json",
+        "ci-artifacts/domain-runtime/blender-policy-smoke.json"
+      ]
+    },
+    {
+      "domain_id": "example",
+      "descriptor_path": "domains/example/domain.json",
+      "inventory_status": "foundation_only",
+      "required_runtime_files": [],
+      "smoke_commands": [],
+      "runtime_evidence_refs": []
+    },
+    {
+      "domain_id": "freecad",
+      "descriptor_path": "domains/freecad/domain.json",
+      "inventory_status": "foundation_only",
+      "required_runtime_files": [],
+      "smoke_commands": [],
+      "runtime_evidence_refs": []
+    },
+    {
+      "domain_id": "kicad",
+      "descriptor_path": "domains/kicad/domain.json",
+      "inventory_status": "planned",
+      "required_runtime_files": [],
+      "smoke_commands": [],
+      "runtime_evidence_refs": []
+    }
+  ]
+}

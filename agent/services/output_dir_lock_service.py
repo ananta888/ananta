@@ -51,7 +51,7 @@ class OutputDirLockService:
                 )
                 self._leases.pop(canonical, None)
                 lease = None
-            if lease and lease.owner != owner:
+            if lease:
                 self._record_event("acquire_conflict", output_dir=canonical, owner=owner, details={"held_by": lease.owner})
                 return False, lease, "output_dir_busy"
             next_lease = OutputDirLockLease(

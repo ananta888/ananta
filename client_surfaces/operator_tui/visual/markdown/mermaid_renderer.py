@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+from client_runtime import process
 
 
 @dataclass(frozen=True)
@@ -115,7 +116,7 @@ class MermaidCliBackend:
             out_file = Path(tmpdir) / "diagram.svg"
             in_file.write_text(source, encoding="utf-8")
             try:
-                proc = subprocess.run(
+                proc = process.run(
                     [mmdc, "-i", str(in_file), "-o", str(out_file), "-w", str(width), "-H", str(height)],
                     capture_output=True,
                     timeout=timeout_seconds,
@@ -141,7 +142,7 @@ class MermaidCliBackend:
                     backend_used=self.name,
                     duration_ms=round(elapsed_ms, 2),
                 )
-            except subprocess.TimeoutExpired:
+            except process.TimeoutExpired:
                 elapsed_ms = (time.perf_counter() - start) * 1000.0
                 return MermaidRenderResult(
                     success=False, image_data=None, image_format="",

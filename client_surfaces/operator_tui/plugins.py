@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from abc import ABC, abstractmethod
 from typing import Any
+
+from client_runtime import process
 
 
 class ContentPlugin(ABC):
@@ -49,7 +50,7 @@ class EditorPlugin(ContentPlugin):
     def launch(self, payload: dict[str, Any], selected: int) -> None:
         editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vim"
         path = self._resolve_path(payload, selected)
-        subprocess.run([editor] + ([path] if path else []))
+        process.run([editor] + ([path] if path else []))
 
 
 class ShellPlugin(ContentPlugin):
@@ -72,7 +73,7 @@ class ShellPlugin(ContentPlugin):
         return True
 
     def launch(self, payload: dict[str, Any], selected: int) -> None:
-        subprocess.run(self._command, shell=True)
+        process.run(self._command, shell=True)
 
 
 class PluginRegistry:

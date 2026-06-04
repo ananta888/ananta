@@ -241,6 +241,21 @@ class TaskLifecycleService:
 class GoalLifecycleService:
     """Explicit goal lifecycle transitions with consistent metadata updates."""
 
+    def _save_goal_recovery_status(self, goal: GoalDB, *, target_status: str, reason: str) -> GoalDB:
+        goal.status = str(target_status)
+        goal.updated_at = time.time()
+        current = dict(goal.execution_preferences or {})
+        current["last_status_reason"] = str(reason)
+        try:
+            scoped = get_goal_config_runtime_service().get_effective_config(
+                goal_id=str(getattr(goal, "id", "") or "").strip() or None
+            )
+            current["goal_config_source"] = str(scoped.source or "global_fallback")
+        except Exception:
+            current["goal_config_source"] = "unavailable"
+        goal.execution_preferences = current
+        return goal_repo.save(goal)
+
     def transition_goal(
         self,
         goal: GoalDB,
@@ -358,8 +373,16 @@ class GoalLifecycleService:
                 goal.execution_preferences = execution_preferences
                 goal = goal_repo.save(goal)
                 if int(recovery.get("attempts") or 0) >= 2:
-                    return self.transition_goal(goal, target_status="failed", reason=str(result.get("error") or "planning_failed"))
-                return self.transition_goal(goal, target_status="planning", reason="planning_recovery_retry_scheduled")
+                    return self._save_goal_recovery_status(
+                        goal,
+                        target_status="failed",
+                        reason=str(result.get("error") or "planning_failed"),
+                    )
+                return self._save_goal_recovery_status(
+                    goal,
+                    target_status="planning",
+                    reason="planning_recovery_retry_scheduled",
+                )
             created_task_ids = list(result.get("created_task_ids") or [])
             if not created_task_ids:
                 recovery.update({"last_error": "planning_recovery_no_tasks_created"})
@@ -367,8 +390,16 @@ class GoalLifecycleService:
                 goal.execution_preferences = execution_preferences
                 goal = goal_repo.save(goal)
                 if int(recovery.get("attempts") or 0) >= 2:
-                    return self.transition_goal(goal, target_status="failed", reason="planning_recovery_no_tasks_created")
-                return self.transition_goal(goal, target_status="planning", reason="planning_recovery_retry_scheduled")
+                    return self._save_goal_recovery_status(
+                        goal,
+                        target_status="failed",
+                        reason="planning_recovery_no_tasks_created",
+                    )
+                return self._save_goal_recovery_status(
+                    goal,
+                    target_status="planning",
+                    reason="planning_recovery_retry_scheduled",
+                )
             return self.transition_goal(goal, target_status="planned", reason="planning_recovery_completed")
         except Exception as exc:
             recovery.update({"last_error": str(exc)[:240]})

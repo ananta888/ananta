@@ -4,11 +4,11 @@ import hashlib
 import io
 import math
 import os
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from typing import Any
 
+from client_runtime import process
 from client_surfaces.operator_tui.logo_renderer.ansi_halfblock import render_halfblock_image
 
 try:
@@ -170,7 +170,7 @@ def _svg_to_png(svg_path: str, png_path: str, *, width_px: int, height_px: int) 
         pass
 
     try:
-        subprocess.run(
+        process.run(
             [
                 "rsvg-convert",
                 "--width",
@@ -187,11 +187,11 @@ def _svg_to_png(svg_path: str, png_path: str, *, width_px: int, height_px: int) 
         return True
     except FileNotFoundError:
         pass
-    except subprocess.CalledProcessError:
+    except process.CalledProcessError:
         pass
 
     try:
-        subprocess.run(
+        process.run(
             [
                 "inkscape",
                 "--export-width",
@@ -208,7 +208,7 @@ def _svg_to_png(svg_path: str, png_path: str, *, width_px: int, height_px: int) 
         return True
     except FileNotFoundError:
         return False
-    except subprocess.CalledProcessError:
+    except process.CalledProcessError:
         return False
 
 

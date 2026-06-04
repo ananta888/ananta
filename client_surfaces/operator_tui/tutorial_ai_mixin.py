@@ -17,7 +17,6 @@ import json
 import os
 import re
 import math
-import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -26,6 +25,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any
 
+from client_runtime import process
 from client_surfaces.operator_tui.keybindings_config import display_for_action
 
 def _score_rag_record(text: str, query_tokens: list[str]) -> float:
@@ -1329,7 +1329,7 @@ class TutorialAiMixin:
         ]
         timeout_seconds = max(20, min(900, int(os.environ.get("ANANTA_TUI_CODECOMPASS_BUILD_TIMEOUT", "240"))))
         try:
-            completed = subprocess.run(
+            completed = process.run(
                 command,
                 cwd=str(root_dir),
                 capture_output=True,
@@ -1337,7 +1337,7 @@ class TutorialAiMixin:
                 timeout=timeout_seconds,
                 check=False,
             )
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, process.SubprocessError):
             return None
         if completed.returncode != 0:
             return None

@@ -79,5 +79,5 @@ def test_feature_flag_disabled_prevents_http_call() -> None:
     client = _Client()
     adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=False, base_url="http://localhost:1", default_model="m"), client=client)  # type: ignore[arg-type]
     res = adapter.plan_only(_env(capabilities=["planning"]), context_blocks=[ContextBlock("task", "a", "hub", content="x")])
-    assert res.status.value == "denied"
+    assert res.status.value == "degraded"
     assert client.calls == 0

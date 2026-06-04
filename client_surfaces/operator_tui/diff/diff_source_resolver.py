@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
 from agent.artifacts.goal_artifact_service import GoalArtifactService
+from client_runtime import process
 
 
 def _run_git(args: list[str], *, cwd: Path) -> tuple[int, str, str]:
-    proc = subprocess.run(
+    proc = process.run(
         ["git", *args],
         cwd=str(cwd),
         capture_output=True,

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 import tempfile
 
+from client_runtime import process
 from client_surfaces.operator_tui.logo_renderer.base import LogoFrame, LogoRendererProbe
 from client_surfaces.operator_tui.logo_renderer.detect import detect_sixel_support
 from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame, frame_from_svg
@@ -110,9 +110,9 @@ class SixelRenderer:
             path = handle.name
             handle.write(png_bytes)
         try:
-            output = subprocess.run([self._tool, path], check=True, capture_output=True)
+            output = process.run([self._tool, path], check=True, capture_output=True)
             return output.stdout.decode("utf-8", errors="ignore")
-        except subprocess.CalledProcessError:
+        except process.CalledProcessError:
             return ""
         finally:
             try:

@@ -26,11 +26,11 @@ import math
 import os
 import re
 import shutil
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from client_runtime import process
 from prompt_toolkit.formatted_text import ANSI
 
 from client_surfaces.operator_tui.app import load_active_section
@@ -796,16 +796,16 @@ class SnakeOpsMixin:
         ]
         for command in commands:
             try:
-                completed = subprocess.run(
+                completed = process.run(
                     command,
                     input=clipboard_text,
                     text=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stdout=process.DEVNULL,
+                    stderr=process.DEVNULL,
                     timeout=1.5,
                     check=False,
                 )
-            except (OSError, subprocess.SubprocessError):
+            except (OSError, process.SubprocessError):
                 continue
             if completed.returncode == 0:
                 return True
