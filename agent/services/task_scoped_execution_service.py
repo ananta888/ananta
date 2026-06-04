@@ -747,7 +747,7 @@ class TaskScopedExecutionService:
                     cli_runner=cli_runner,
                     cfg=cfg,
                 )
-            if task_kind in legacy_cli_task_kinds:
+            if task_kind in legacy_cli_task_kinds and has_app_context():
                 return self._propose_single_task_step(
                     tid=tid,
                     task=task,
@@ -757,6 +757,7 @@ class TaskScopedExecutionService:
                     cli_runner=cli_runner,
                     cfg=cfg,
                     tool_definitions_resolver=tool_definitions_resolver,
+                    allow_legacy_path=True,
                 )
         from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
         from worker.core.propose import ExecutableProposal, validate_executable_proposal
@@ -2061,7 +2062,10 @@ class TaskScopedExecutionService:
         cli_runner: Callable,
         cfg: dict,
         tool_definitions_resolver: Callable,
+        allow_legacy_path: bool = False,
     ) -> TaskScopedRouteResponse:
+        if not allow_legacy_path:
+            raise NotImplementedError("FA-T003: legacy _propose_single_task_step is blocked for direct use.")
         task_kind = normalize_task_kind(None, base_prompt)
         required_capabilities = derive_required_capabilities(task, task_kind)
         research_specialization = derive_research_specialization(task, task_kind, required_capabilities)

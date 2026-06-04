@@ -443,7 +443,7 @@ class LLMPlanningStrategy:
         preferred_output_format: str = "json",
     ) -> str:
         prompt = (
-            "Der vorherige Plan fuer new_software_project enthaelt keinen klaren Execution-Pfad.\n"
+            "Der vorherige Plan fuer new_software_project enthaelt keinen klaren Execution-Pfad oder ist abgeschnitten.\n"
             "Erzeuge jetzt einen reparierten Plan in einer strukturierten, gut parsebaren Form.\n\n"
             f"ZIEL:\n{goal}\n\n"
         )
@@ -718,6 +718,12 @@ class LLMPlanningStrategy:
             output_shape = str(parse_diag.get("output_shape") or "")
             format_error_codes = [str(x) for x in list(parse_diag.get("format_error_codes") or [])]
             parser_trace = [dict(x) for x in list(parse_diag.get("parser_trace") or []) if isinstance(x, dict)]
+            if not subtasks:
+                legacy_subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+                if legacy_subtasks:
+                    subtasks = legacy_subtasks
+                    parse_mode = "legacy_parser_fallback"
+                    parse_confidence = "medium"
         else:
             subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
             parse_mode = "legacy_parser"
@@ -791,10 +797,32 @@ class LLMPlanningStrategy:
                         llm_config,
                         temperature=retry_temperature,
                     )
-                    repaired_subtasks = parse_subtasks_from_llm_response(
-                        repaired_response,
-                        default_priority=planner.default_priority,
-                    )
+                    if callable(parse_subtasks_with_diagnostics):
+                        repaired_subtasks, repaired_diag = parse_subtasks_with_diagnostics(
+                            repaired_response,
+                            default_priority=planner.default_priority,
+                        )
+                        parse_diag = repaired_diag
+                        parse_mode = str(repaired_diag.get("parse_mode") or parse_mode)
+                        parse_confidence = str(repaired_diag.get("confidence") or parse_confidence)
+                        warnings = list(repaired_diag.get("warnings") or warnings)
+                        output_shape = str(repaired_diag.get("output_shape") or output_shape)
+                        format_error_codes = [str(x) for x in list(repaired_diag.get("format_error_codes") or format_error_codes)]
+                        parser_trace = [dict(x) for x in list(repaired_diag.get("parser_trace") or parser_trace) if isinstance(x, dict)]
+                        if not repaired_subtasks:
+                            repaired_legacy = parse_subtasks_from_llm_response(
+                                repaired_response,
+                                default_priority=planner.default_priority,
+                            )
+                            if repaired_legacy:
+                                repaired_subtasks = repaired_legacy
+                                parse_mode = "legacy_parser_fallback"
+                                parse_confidence = "medium"
+                    else:
+                        repaired_subtasks = parse_subtasks_from_llm_response(
+                            repaired_response,
+                            default_priority=planner.default_priority,
+                        )
                     if repaired_subtasks:
                         raw_response = repaired_response
                         subtasks = repaired_subtasks
@@ -806,6 +834,8 @@ class LLMPlanningStrategy:
                         raw_response = repaired_response
                 if not subtasks:
                     is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(parse_subtasks_with_diagnostics) else None)
+                    if mode == "new_software_project" and is_truncated_response:
+                        break
         if mode == "new_software_project" and not subtasks:
             repair_prompt = (
                 self._build_new_project_truncation_repair_prompt(
@@ -839,7 +869,12 @@ class LLMPlanningStrategy:
                 planning_origin = "llm_repair"
                 repair_strategy_used = "llm_config"
                 parse_mode = "repair_llm_config"
-        if mode == "new_software_project" and subtasks and not self._has_new_project_execution_coverage(subtasks):
+        if (
+            mode == "new_software_project"
+            and subtasks
+            and not is_truncated_response
+            and not self._has_new_project_execution_coverage(subtasks)
+        ):
             repair_prompt = self._build_new_project_execution_repair_prompt(
                 goal=goal,
                 context=resolved_context,

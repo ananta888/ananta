@@ -362,13 +362,6 @@ class PlanningLearningLoopService:
                 status="canary" if auto_activate_requested else "proposed",
             )
         )
-        # Deploy canary: update profile to use the evolved prompt so planning runs
-        # actually test it during the canary window.
-        if auto_activate_requested:
-            new_version_id = str(evolved.get("new_prompt_version_id") or "").strip()
-            if new_version_id:
-                profile.preferred_prompt_version_id = new_version_id
-                repos.planning_model_profile_repo.save(profile)
         self._set_profile_learning_state(
             profile=profile,
             state="candidate",
