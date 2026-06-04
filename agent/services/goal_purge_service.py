@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import Session, delete, select
 
-from agent.database import engine
 from agent.db_models import (
     AuditLogDB,
     EvolutionProposalDB,
@@ -28,6 +27,12 @@ from agent.db_models import (
 )
 from agent.services.prompt_trace_service import get_prompt_trace_service
 from agent.services.task_admin_service import get_task_admin_service
+
+
+def _engine():
+    from agent.database import engine
+
+    return engine
 
 
 @dataclass
@@ -83,7 +88,7 @@ class GoalPurgeService:
         if not goal_id_norm:
             return None
         deleted_counts: dict[str, int] = {}
-        with Session(engine) as session:
+        with Session(_engine()) as session:
             goal = session.get(GoalDB, goal_id_norm)
             if goal is None:
                 return None
