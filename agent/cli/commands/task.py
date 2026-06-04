@@ -37,9 +37,14 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     ins_p = sub.add_parser("inspect", help="Inspect a task's prompt traces and latest response.")
     ins_p.add_argument("task_id", nargs="?", default="",
                        help="Task ID or prefix. Omit for interactive selection.")
+    ins_p.add_argument("--task-id", dest="task_id_opt", default="",
+                       help="Task ID or prefix (alias for positional task_id).")
     ins_p.add_argument("--goal-id", dest="goal_id", default="",
                        help="Filter interactive list by goal ID.")
     ins_p.add_argument("--json", action="store_true")
+    ins_p.add_argument("--base-url", default=None)
+    ins_p.add_argument("--user", default=_DEFAULT_USER)
+    ins_p.add_argument("--password", default=_DEFAULT_PASSWORD)
 
     li_p = sub.add_parser("list", help="List tasks, optionally filtered by goal.")
     li_p.add_argument("--goal-id", dest="goal_id", default="", help="Filter by goal ID.")
@@ -118,6 +123,9 @@ def _login(base: str, user: str, password: str) -> str:
 
 def _resolve_task_id(parsed) -> str | None:
     """Return a resolved task ID, showing interactive picker if needed."""
+    explicit = getattr(parsed, "task_id_opt", None) or ""
+    if explicit:
+        return explicit.strip()
     partial = getattr(parsed, "task_id", None) or ""
     if partial and len(partial) == 36 and partial.count("-") == 4:
         return partial  # full UUID

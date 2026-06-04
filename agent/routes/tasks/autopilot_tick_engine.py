@@ -49,8 +49,11 @@ class TaskDispatchResult:
 
 
 def _current_task_status(task_id: str, *, app: Any) -> str:
-    repos = get_repository_registry(app)
-    current = repos.task_repo.get_by_id(task_id)
+    try:
+        repos = get_repository_registry(app)
+        current = repos.task_repo.get_by_id(task_id)
+    except Exception:
+        return ""
     return str(getattr(current, "status", "") or "").strip().lower()
 
 
@@ -1257,7 +1260,7 @@ def _dispatch_one_task_inner(  # noqa: C901
             )
             # Guard against stale dispatch candidates: task may have reached a
             # terminal status while this strategy attempt was prepared.
-            latest_before_propose = _current_task_status(task.id, app=loop._app)
+            latest_before_propose = _current_task_status(task.id, app=getattr(loop, "_app", app_ctx) or app_ctx)
             if _is_terminal_status(latest_before_propose):
                 append_trace_event(
                     task.id,

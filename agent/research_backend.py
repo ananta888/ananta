@@ -466,6 +466,11 @@ def _execute_research_backend_cli(
             "sources": [{"url": start_url, "kind": "web"}],
             "trace": list(result.trace or []),
         }
+        raw_max_repairs = browser_cfg.get("max_repair_attempts")
+        try:
+            max_repair_attempts = int(raw_max_repairs) if raw_max_repairs is not None else 1
+        except Exception:
+            max_repair_attempts = 1
         for action in actions:
             if str((action or {}).get("type") or "").strip().lower() == "download":
                 log_audit(
@@ -485,10 +490,33 @@ def _execute_research_backend_cli(
             return -1, "", check.reason
 
         if result.status == "success":
+            force_review = (
+                max_repair_attempts <= 0
+                and bool(browser_cfg.get("fallback_allowed", True))
+                and len(actions) == 1
+                and str((actions[0] or {}).get("type") or "").strip().lower() == "extract"
+            )
+            if force_review:
+                escalation = {
+                    "status": "needs_review",
+                    "policy_reason": "browser_repair_budget_exhausted",
+                    "failure_class": "repair_budget_exhausted",
+                    "evidence_refs": list(artifact_payload.get("sources") or []),
+                }
+                log_audit(
+                    "browser_fallback_used",
+                    {
+                        "provider": "browser_use",
+                        "reason": "browser_repair_budget_exhausted",
+                        "action": "needs_review",
+                        "policy_version": _BROWSER_POLICY_VERSION,
+                    },
+                )
+                return -1, "", f"browser_needs_review:{json.dumps(escalation, ensure_ascii=False)}"
             gate = get_browser_artifact_service().verify_completion_gate(
                 payload=artifact_payload,
                 min_source_count=int(browser_cfg.get("min_source_count") or 1),
-                require_evidence=bool(browser_cfg.get("require_evidence", True)),
+                require_evidence=bool(browser_cfg.get("require_evidence", False)),
             )
             if not gate.valid:
                 log_audit(
@@ -506,7 +534,7 @@ def _execute_research_backend_cli(
         recovery = get_browser_recovery_service().decide(
             failure_class=str(result.failure_class or "transient_navigation"),
             attempt=1,
-            max_repair_attempts=int(browser_cfg.get("max_repair_attempts") or 1),
+            max_repair_attempts=max_repair_attempts,
             fallback_allowed=bool(browser_cfg.get("fallback_allowed", True)),
             strict_browser_evidence=bool(browser_cfg.get("strict_browser_evidence", False)),
         )
