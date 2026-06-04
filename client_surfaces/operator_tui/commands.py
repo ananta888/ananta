@@ -3594,6 +3594,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         game["tutor_ask_deadline_at"] = float(game["tutor_ask_at"]) + timeout_s
         game["tutor_ask_answered"] = False
         game["_ask_submitted"] = False
+        game["paused"] = True
         game["active"] = True
         game["alive"] = True
         return CommandResult(
