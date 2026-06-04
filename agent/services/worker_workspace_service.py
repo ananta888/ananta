@@ -371,7 +371,9 @@ class WorkerWorkspaceService:
             owner=owner,
             ttl_seconds=int(((cfg.get("output_dir_policy") or {}).get("stale_lock_recovery_seconds") or 1800)),
         )
-        return ok, reason
+        if not ok:
+            return False, "workspace_write_conflict"
+        return True, reason
 
     def release_output_dir_lock(self, *, task: dict, workspace_dir: Path) -> None:
         owner = str((task or {}).get("id") or "unknown-task").strip() or None

@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "ananta_worker_fixup",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "AWF-M1",
+      "title": "Worker fixup T031-T045",
+      "task_ids": [
+        "AWF-T031",
+        "AWF-T032",
+        "AWF-T033",
+        "AWF-T034",
+        "AWF-T035",
+        "AWF-T036",
+        "AWF-T037",
+        "AWF-T038",
+        "AWF-T039",
+        "AWF-T040",
+        "AWF-T041",
+        "AWF-T042",
+        "AWF-T043",
+        "AWF-T044",
+        "AWF-T045"
+      ],
+      "status": "done"
+    }
+  ],
+  "tasks": [
+    {"id": "AWF-T031", "title": "Seed minimal safe native skills", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Builtin skill manifests exist and are disabled by default."]},
+    {"id": "AWF-T032", "title": "Enforce subworker capability subsets", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Subworker envelopes reject capability escalation."]},
+    {"id": "AWF-T033", "title": "Record delegation artifacts", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Delegation artifacts preserve child execution status and refs."]},
+    {"id": "AWF-T034", "title": "Bound subworker fanout and depth", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Depth and fanout limits fail closed."]},
+    {"id": "AWF-T035", "title": "Propagate cancellation and timeout", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Subworker cancellation and timeout metadata is explicit."]},
+    {"id": "AWF-T036", "title": "Define WorkerResult v2", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["WorkerResult v2 supports structured status and artifacts."]},
+    {"id": "AWF-T037", "title": "Define TraceBundle v2", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Trace bundles preserve execution provenance."]},
+    {"id": "AWF-T038", "title": "Enforce typed artifacts", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Artifact refs carry stable type metadata."]},
+    {"id": "AWF-T039", "title": "Expose worker diagnostics read model", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Diagnostics remain read-only."]},
+    {"id": "AWF-T040", "title": "Audit sensitive worker transitions", "status": "done", "priority": "P1", "risk": "medium", "acceptance_criteria": ["Sensitive worker transitions emit audit events."]},
+    {"id": "AWF-T041", "title": "Validate safe plan review flow", "status": "done", "priority": "P2", "risk": "low", "acceptance_criteria": ["Safe plan/review worker flow is covered."]},
+    {"id": "AWF-T042", "title": "Validate command execute denial", "status": "done", "priority": "P2", "risk": "low", "acceptance_criteria": ["Command execution denial remains explicit."]},
+    {"id": "AWF-T043", "title": "Validate provider fallback and cloud block", "status": "done", "priority": "P2", "risk": "low", "acceptance_criteria": ["Provider fallback and cloud-block paths are covered."]},
+    {"id": "AWF-T044", "title": "Maintain worker security regression suite", "status": "done", "priority": "P2", "risk": "low", "acceptance_criteria": ["Worker security regressions remain covered."]},
+    {"id": "AWF-T045", "title": "Update docs and track evidence", "status": "done", "priority": "P2", "risk": "low", "acceptance_criteria": ["Track file and docs evidence are present."]}
+  ],
+  "tasks_status_summary": {
+    "total": 15,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 15},
+    "progress_percent_done": 100.0,
+    "by_priority": {"P0": 0, "P1": 10, "P2": 5},
+    "by_risk": {"low": 5, "medium": 10, "high": 0},
+    "critical_path": {"total": 15, "done": 15, "remaining": 0},
+    "milestones": {"total": 1, "todo": 0, "in_progress": 0, "blocked": 0, "done": 1}
+  }
+}

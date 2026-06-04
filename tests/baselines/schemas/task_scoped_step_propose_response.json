@@ -172,9 +172,32 @@
     "TaskCliResultContract": {
       "properties": {
         "latency_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0,
-          "title": "Latency Ms",
-          "type": "integer"
+          "title": "Latency Ms"
+        },
+        "llm_call_profile": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Call Profile"
         },
         "output_source": {
           "anyOf": [

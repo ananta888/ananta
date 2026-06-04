@@ -1,5 +1,60 @@
 {
+  "$defs": {
+    "CommitMetadata": {
+      "properties": {
+        "commit_scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Scope"
+        },
+        "commit_subject_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Subject Hint"
+        },
+        "commit_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Type"
+        }
+      },
+      "title": "CommitMetadata",
+      "type": "object"
+    }
+  },
   "properties": {
+    "commit_metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CommitMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "context_bundle_id": {
       "anyOf": [
         {

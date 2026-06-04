@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import fcntl
 import os
-import pty
 import select
 import shutil
 import signal
 import struct
-import subprocess
 import termios
+
+from client_runtime import process
 
 
 class CarbonylNotAvailableError(RuntimeError):
@@ -29,7 +29,7 @@ class CarbonylRunner:
 
     def __init__(self, *, carbonyl_binary: str = "carbonyl") -> None:
         self._binary = carbonyl_binary
-        self._proc: subprocess.Popen[bytes] | None = None
+        self._proc: process.Popen[bytes] | None = None
         self._master_fd: int = -1
         self._slave_fd: int = -1
 
@@ -54,7 +54,7 @@ class CarbonylRunner:
             raise RuntimeError("CarbonylRunner is already running; call stop() first")
 
         resolved = self._resolve_binary()
-        self._master_fd, self._slave_fd = pty.openpty()
+        self._master_fd, self._slave_fd = process.openpty()
         # Set PTY size via ioctl — carbonyl reads this via TIOCGWINSZ, not via flags
         self._set_pty_size(self._slave_fd, cols=cols, rows=rows)
         self._set_pty_size(self._master_fd, cols=cols, rows=rows)
@@ -65,7 +65,7 @@ class CarbonylRunner:
         env["TERM"] = "xterm-256color"
 
         try:
-            self._proc = subprocess.Popen(
+            self._proc = process.Popen(
                 [resolved, *(extra_args or []), html_path],
                 stdin=self._slave_fd,
                 stdout=self._slave_fd,
@@ -172,7 +172,7 @@ class CarbonylRunner:
             return
         try:
             proc.wait(timeout=2.0)
-        except subprocess.TimeoutExpired:
+        except process.TimeoutExpired:
             try:
                 proc.kill()
             except (ProcessLookupError, OSError):

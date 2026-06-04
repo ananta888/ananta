@@ -125,10 +125,10 @@ class HermesAdapter:
         requested_task_kind = task_kind or mode
         self._audit("routing_selected", envelope=envelope, mode=mode)
 
-        if not self.config.feature_flag_enabled:
-            return WorkerResult.denied(envelope.task_id, "disabled_by_feature_flag", trace)
         if not self.config.enabled:
             return self._degraded(envelope, trace, "disabled_config")
+        if not self.config.feature_flag_enabled:
+            return self._degraded(envelope, trace, "disabled_by_feature_flag")
 
         # HF-T004: enforce allowed_task_kinds before blocked check
         if mode not in self.config.allowed_task_kinds:

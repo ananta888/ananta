@@ -1,0 +1,27 @@
+{
+  "version": "1",
+  "created": "2026-06-04",
+  "updated": "2026-06-04",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "schema fixture"
+  },
+  "categories": [
+    {
+      "name": "schema",
+      "label": "Schema",
+      "items": []
+    }
+  ],
+  "meta": {
+    "total_items": 0,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 0
+    },
+    "notes": ["Deterministic category-meta schema fixture."],
+    "recommended_order": ["schema"]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "client_surface_post_test_cleanup_todo_v1",
+  "excluded_scopes": [
+    "kritis",
+    "ref-profile"
+  ],
+  "items": [
+    {
+      "id": "client-surface-missing-implementation",
+      "category": "missing_implementation",
+      "description": "Finish deferred Vim compatibility runtime once MVP surfaces are stable."
+    },
+    {
+      "id": "client-surface-weak-test-coverage",
+      "category": "weak_test_coverage",
+      "description": "Expand fixture-based client smoke tests with failure-state coverage."
+    },
+    {
+      "id": "client-surface-documentation-drift",
+      "category": "documentation_drift",
+      "description": "Keep runtime inventory and merge-readiness report aligned with active client surfaces."
+    },
+    {
+      "id": "client-surface-future-enhancement",
+      "category": "future_enhancement",
+      "description": "Add richer editor telemetry after the runtime MVP boundary is stable."
+    }
+  ]
+}

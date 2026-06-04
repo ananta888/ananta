@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
+
+from client_runtime import process
 
 
 @dataclass(frozen=True)
@@ -15,11 +16,11 @@ def run_detached(argv: list[str]) -> ProcessStartResult:
     if not argv:
         return ProcessStartResult(ok=False, pid=None, reason="empty_command")
     try:
-        proc = subprocess.Popen(
+        proc = process.Popen(
             argv,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdin=process.DEVNULL,
+            stdout=process.DEVNULL,
+            stderr=process.DEVNULL,
             start_new_session=True,
         )
         return ProcessStartResult(ok=True, pid=int(proc.pid))

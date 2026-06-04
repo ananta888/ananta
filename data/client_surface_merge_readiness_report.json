@@ -1,0 +1,49 @@
+{
+  "schema": "client_surface_merge_readiness_report_v1",
+  "surface_status": {
+    "tui_surface": {
+      "classification": "real_implementation",
+      "declared_status": "runtime_mvp"
+    },
+    "nvim_plugin": {
+      "classification": "real_implementation",
+      "declared_status": "runtime_mvp"
+    },
+    "vim_plugin": {
+      "classification": "deferred",
+      "declared_status": "deferred"
+    },
+    "eclipse_plugin": {
+      "classification": "real_implementation",
+      "declared_status": "runtime_mvp"
+    }
+  },
+  "runtime_evidence": {
+    "tui_surface": [
+      "scripts/smoke_tui_runtime.py",
+      "scripts/smoke_client_golden_paths.py"
+    ],
+    "nvim_plugin": [
+      "scripts/smoke_nvim_runtime.py"
+    ],
+    "eclipse_plugin": [
+      "scripts/smoke_eclipse_runtime_headless.py"
+    ]
+  },
+  "verification": {
+    "smoke_commands": [
+      "python3 scripts/smoke_client_golden_paths.py"
+    ],
+    "test_targets": [
+      "tests/test_client_surface_golden_path_smoke.py"
+    ]
+  },
+  "main_merge_blockers": [],
+  "later_enhancements": [
+    "Complete Vim compatibility runtime after MVP surfaces remain stable."
+  ],
+  "recommendation": {
+    "merge_safe": true,
+    "summary": "Runtime MVP evidence is present for TUI, Neovim and Eclipse; Vim compatibility remains deferred."
+  }
+}

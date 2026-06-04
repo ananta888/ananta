@@ -1,0 +1,10 @@
+{
+  "schema": "client_surface_runtime_status_v1",
+  "surface_status": {
+    "tui_surface": "runtime_mvp",
+    "nvim_plugin": "runtime_mvp",
+    "vim_plugin": "deferred",
+    "eclipse_plugin": "runtime_mvp",
+    "eclipse_views_extension": "runtime_mvp"
+  }
+}

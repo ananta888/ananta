@@ -1,0 +1,12 @@
+{
+  "todos": [
+    {
+      "id": "current-ci-stabilization",
+      "status": "in_progress",
+      "tasks": [
+        "Maintain deterministic CI contract artifacts",
+        "Keep shard failures actionable"
+      ]
+    }
+  ]
+}

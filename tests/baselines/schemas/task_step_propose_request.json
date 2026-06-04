@@ -112,6 +112,18 @@
       ],
       "default": null
     },
+    "strategy_mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Strategy Mode"
+    },
     "task_id": {
       "anyOf": [
         {

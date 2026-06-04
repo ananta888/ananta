@@ -93,6 +93,11 @@
       "title": "Registration Validated",
       "type": "boolean"
     },
+    "reported_load": {
+      "default": 0,
+      "title": "Reported Load",
+      "type": "integer"
+    },
     "role": {
       "default": "worker",
       "title": "Role",
@@ -102,6 +107,19 @@
       "additionalProperties": true,
       "title": "Routing Signals",
       "type": "object"
+    },
+    "runtime_targets": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Runtime Targets",
+      "type": "array"
+    },
+    "scheduler_load": {
+      "default": 0,
+      "title": "Scheduler Load",
+      "type": "integer"
     },
     "security_level": {
       "default": "medium",
@@ -113,9 +131,28 @@
       "title": "Status",
       "type": "string"
     },
+    "strategy_mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Strategy Mode"
+    },
     "url": {
       "title": "Url",
       "type": "string"
+    },
+    "validation_errors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Validation Errors",
+      "type": "array"
     },
     "worker_roles": {
       "items": {
