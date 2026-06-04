@@ -126,7 +126,7 @@ class HermesAdapter:
         self._audit("routing_selected", envelope=envelope, mode=mode)
 
         if not self.config.feature_flag_enabled:
-            return self._degraded(envelope, trace, "disabled_by_feature_flag")
+            return WorkerResult.denied(envelope.task_id, "disabled_by_feature_flag", trace)
         if not self.config.enabled:
             return self._degraded(envelope, trace, "disabled_config")
 

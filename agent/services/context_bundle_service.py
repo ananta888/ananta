@@ -295,6 +295,12 @@ Output ONLY valid JSON matching schema."""
                 "total_budget_tokens": int(total_budget_tokens or 0),
                 "budget_tokens_by_mode": dict(budget_tokens_by_mode or {}),
             },
+            "compaction": {
+                "version": "priority-budget-compaction-v1",
+                "provenance_preserved": True,
+                "mode": policy_mode,
+                "chunk_count": len(filtered),
+            },
             "why_this_context": {
                 "mode": policy_mode,
                 "summary": f"task_kind={str(task_kind or 'unknown')} | selected_chunks={len(filtered)} | mode={policy_mode}",
