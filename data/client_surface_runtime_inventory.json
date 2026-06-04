@@ -54,6 +54,18 @@
           "ci-artifacts/eclipse/eclipse-ui-golden-path-report.json"
         ]
       }
+    },
+    {
+      "surface": "vscode_plugin",
+      "classification": "real_implementation",
+      "evidence": {
+        "runtime": [
+          "client_surfaces/vscode_extension/package.json",
+          "client_surfaces/vscode_extension/src/extension.ts",
+          "client_surfaces/vscode_extension/src/runtime/backendClient.ts",
+          "client_surfaces/vscode_extension/test/extension.smoke.test.ts"
+        ]
+      }
     }
   ]
 }
