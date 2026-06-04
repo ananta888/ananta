@@ -26,13 +26,13 @@ class TestBinaryResolution:
 
     def test_which_fallback(self) -> None:
         runner = CarbonylRunner(carbonyl_binary="echo")
-        # 'echo' exists on PATH — should not raise CarbonylNotAvailableError
-        # We mock pty.openpty and subprocess.Popen so it doesn't actually run
-        with patch("pty.openpty", return_value=(3, 4)), \
+        # Patch client_runtime.process (not subprocess) — process.Popen is a direct
+        # module-level reference that bypasses a subprocess.Popen patch.
+        with patch("client_runtime.process.openpty", return_value=(3, 4)), \
              patch("os.close"), \
              patch("fcntl.ioctl"), \
              patch("fcntl.fcntl"), \
-             patch("subprocess.Popen") as mock_popen:
+             patch("client_runtime.process.Popen") as mock_popen:
             mock_proc = MagicMock()
             mock_proc.poll.return_value = None
             mock_popen.return_value = mock_proc
@@ -43,11 +43,11 @@ class TestBinaryResolution:
 
     def test_extra_args_are_passed_before_target(self) -> None:
         runner = CarbonylRunner(carbonyl_binary="echo")
-        with patch("pty.openpty", return_value=(3, 4)), \
+        with patch("client_runtime.process.openpty", return_value=(3, 4)), \
              patch("os.close"), \
              patch("fcntl.ioctl"), \
              patch("fcntl.fcntl"), \
-             patch("subprocess.Popen") as mock_popen:
+             patch("client_runtime.process.Popen") as mock_popen:
             mock_proc = MagicMock()
             mock_proc.poll.return_value = None
             mock_popen.return_value = mock_proc
@@ -82,11 +82,11 @@ class TestCarbonylRunnerLifecycle:
     def test_is_running_true_when_started(self) -> None:
         runner, mock_proc = self._make_runner_with_mocks()
         with patch("shutil.which", return_value="/fake/carbonyl"), \
-             patch("pty.openpty", return_value=(10, 11)), \
+             patch("client_runtime.process.openpty", return_value=(10, 11)), \
              patch("os.close"), \
              patch("fcntl.ioctl"), \
              patch("fcntl.fcntl"), \
-             patch("subprocess.Popen", return_value=mock_proc):
+             patch("client_runtime.process.Popen", return_value=mock_proc):
             runner.start("/tmp/doc.html", cols=80, rows=24)
             assert runner.is_running()
         runner._proc = None  # cleanup
@@ -96,11 +96,11 @@ class TestCarbonylRunnerLifecycle:
     def test_double_start_raises(self) -> None:
         runner, mock_proc = self._make_runner_with_mocks()
         with patch("shutil.which", return_value="/fake/carbonyl"), \
-             patch("pty.openpty", return_value=(10, 11)), \
+             patch("client_runtime.process.openpty", return_value=(10, 11)), \
              patch("os.close"), \
              patch("fcntl.ioctl"), \
              patch("fcntl.fcntl"), \
-             patch("subprocess.Popen", return_value=mock_proc):
+             patch("client_runtime.process.Popen", return_value=mock_proc):
             runner.start("/tmp/doc.html", cols=80, rows=24)
             with pytest.raises(RuntimeError, match="already running"):
                 runner.start("/tmp/doc.html", cols=80, rows=24)
@@ -111,11 +111,11 @@ class TestCarbonylRunnerLifecycle:
     def test_stop_clears_state(self) -> None:
         runner, mock_proc = self._make_runner_with_mocks()
         with patch("shutil.which", return_value="/fake/carbonyl"), \
-             patch("pty.openpty", return_value=(10, 11)), \
+             patch("client_runtime.process.openpty", return_value=(10, 11)), \
              patch("os.close") as mock_close, \
              patch("fcntl.ioctl"), \
              patch("fcntl.fcntl"), \
-             patch("subprocess.Popen", return_value=mock_proc):
+             patch("client_runtime.process.Popen", return_value=mock_proc):
             runner.start("/tmp/doc.html", cols=80, rows=24)
             runner._proc = mock_proc
             mock_proc.poll.return_value = None
