@@ -1,6 +1,6 @@
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 from flask import Blueprint, current_app, g, request
@@ -1124,14 +1124,34 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 app=current_app._get_current_object(),
                 timeout_s=max(60, planning_execute_timeout_s + 30),
             )
-            pool = ThreadPoolExecutor(max_workers=1)
+            _result_holder: dict[str, Any] = {}
+            _error_holder: dict[str, BaseException] = {}
+            _done = threading.Event()
+
+            def _planning_call_runner() -> None:
+                try:
+                    _result_holder["result"] = _run_plan_goal_with_app_context()
+                except Exception as exc:  # propagate exact planning failures to caller path
+                    _error_holder["error"] = exc
+                finally:
+                    _done.set()
+
+            planning_call_thread = threading.Thread(
+                target=_planning_call_runner,
+                daemon=True,
+                name=f"goal-planning-call-{goal_record.id[:8]}",
+            )
+            planning_call_thread.start()
             try:
-                future = pool.submit(_run_plan_goal_with_app_context)
-                result = future.result(timeout=outer_planning_timeout_s)
+                finished = _done.wait(timeout=outer_planning_timeout_s)
+                if not finished:
+                    raise FutureTimeoutError()
+                if "error" in _error_holder:
+                    raise _error_holder["error"]
+                result = _result_holder.get("result")
             finally:
                 _heartbeat_stop.set()
                 _clear_planning_lease(goal_record.id)
-                pool.shutdown(wait=False, cancel_futures=True)
             current_app.logger.warning(
                 "goal_planning_invoke_done goal_id=%s created=%s error=%s",
                 goal_record.id,
