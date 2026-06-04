@@ -1986,6 +1986,28 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         datasets = payload.get("datasets")
         raw = datasets.get(dataset_id) if isinstance(datasets, dict) else None
         raw_dict = dict(raw) if isinstance(raw, dict) else {}
+        if dataset_id.startswith("llm.requests.chat_prompt.") and isinstance(raw_dict.get("final_prompt_redacted"), str):
+            text = str(raw_dict.get("final_prompt_redacted") or "").strip() or "{}"
+            game = dict(self.state.header_logo_game or {})
+            game["audit_viewer"] = {
+                "active": True,
+                "mode": "read_only",
+                "dataset_id": dataset_id,
+                "title": str(entry.get("title") or dataset_id or "dataset"),
+                "group": str(entry.get("group") or ""),
+                "text": text,
+                "view_line_offset": 0,
+                "view_col_offset": 0,
+            }
+            self._set_state(
+                self.state.with_updates(
+                    mode=OperatorMode.NORMAL,
+                    focus=FocusPane.CONTENT,
+                    header_logo_game=game,
+                    status_message=f"audit viewer: {str(entry.get('title') or dataset_id)}",
+                )
+            )
+            return True
         raw_kind = str(raw_dict.get("kind") or "")
         if raw_kind in {"cleanup_action", "cleanup_overview"}:
             details = [str(line) for line in list(raw_dict.get("details") or []) if str(line).strip()]
