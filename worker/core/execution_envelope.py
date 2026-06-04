@@ -301,6 +301,10 @@ class ModelPolicy(BaseModel):
         if p in self._CLOUD_PROVIDERS and not self.cloud_allowed:
             return False
         if not self.allowed_providers:
+            # No explicit allowlist: non-cloud providers are always allowed;
+            # cloud providers fall back to legacy_default_allow.
+            if p not in self._CLOUD_PROVIDERS:
+                return True
             return bool(self.legacy_default_allow)
         return p in [x.lower() for x in self.allowed_providers]
 

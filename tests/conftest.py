@@ -450,5 +450,6 @@ def admin_token(client):
     return _login_token(client, username="admin", password="admin")
 
 # Pre-existing broken test files - skip collection
-collect_ignore_glob = ["e2e/fixtures/*/tests/*.py"]
+# collect_ignore_glob matches full paths, so *-prefix works regardless of cwd/explicit-arg.
+collect_ignore_glob = ["e2e/fixtures/*/tests/*.py", "*test_worker_client_adapter.py"]
 collect_ignore = ["test_worker_client_adapter.py"]
