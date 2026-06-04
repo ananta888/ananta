@@ -40,6 +40,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import re
           import subprocess
           import sys
           from collections import defaultdict
@@ -67,10 +68,10 @@ jobs:
           file_counts = defaultdict(int)
           for raw_line in collect.stdout.splitlines():
             line = raw_line.strip()
-            if not line or "::" not in line:
+            if not line.startswith("tests/") or "::" not in line:
               continue
             file_path = line.split("::", 1)[0]
-            if file_path.endswith(".py"):
+            if re.fullmatch(r"tests/.+\.py", file_path):
               file_counts[file_path] += 1
 
           files = sorted(file_counts.items(), key=lambda item: (-item[1], item[0]))
