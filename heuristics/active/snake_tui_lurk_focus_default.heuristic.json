@@ -1,0 +1,45 @@
+{
+  "heuristic_id": "snake_tui_lurk_focus_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "tui_snake",
+  "description": "Lurk near stable focus position. Activates when pointer/focus is stable for 3+ seconds.",
+  "deterministic": true,
+  "safety_class": "ui_motion_only",
+  "capabilities": ["read_local_context"],
+  "ttl_policy": {
+    "default_seconds": 7.0,
+    "min_seconds": 5.0,
+    "max_seconds": 10.0
+  },
+  "runtime": {
+    "mode": "declarative_rules",
+    "triggers": [
+      {"ai_status_is": "offline"},
+      {"ai_status_is": "timeout"},
+      {"event_type_is": "pointer_idle"}
+    ],
+    "selection": {
+      "strategy": "selected_artifacts_first",
+      "max_refs": 1
+    },
+    "action": {
+      "kind": "lurk_near",
+      "fallback": "follow_with_distance"
+    }
+  },
+  "inputs": ["pointer_position", "focus_zone", "idle_duration_seconds"],
+  "outputs": ["lurk_zone"],
+  "parameters": {
+    "idle_threshold_seconds": 3.0,
+    "motion_threshold_px": 5
+  },
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic"}
+  ]
+}

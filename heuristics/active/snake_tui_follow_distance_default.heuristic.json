@@ -1,0 +1,43 @@
+{
+  "heuristic_id": "snake_tui_follow_distance_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "tui_snake",
+  "description": "Default follow-with-distance heuristic for TUI snake. Follows active goal or selected artifact with configurable distance.",
+  "deterministic": true,
+  "safety_class": "ui_motion_only",
+  "capabilities": ["read_local_context"],
+  "ttl_policy": {
+    "default_seconds": 7.0,
+    "min_seconds": 5.0,
+    "max_seconds": 10.0
+  },
+  "runtime": {
+    "mode": "declarative_rules",
+    "triggers": [
+      {"active_panel_is": "any", "ai_status_is": "offline"},
+      {"active_panel_is": "any", "ai_status_is": "timeout"},
+      {"selected_artifact_present": true}
+    ],
+    "selection": {
+      "strategy": "selected_artifacts_first",
+      "max_refs": 1
+    },
+    "action": {
+      "kind": "follow_with_distance",
+      "distance": 4,
+      "fallback": "lurk_near"
+    }
+  },
+  "inputs": ["user_position", "snake_position", "panel_bounds", "time_delta"],
+  "outputs": ["motion_vector"],
+  "parameters": {},
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic"}
+  ]
+}

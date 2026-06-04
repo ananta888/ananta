@@ -6,6 +6,11 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from client_surfaces.operator_tui.visual.adapters.ansi_adapter import AnsiOutputAdapter
 from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext

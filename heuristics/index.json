@@ -7,7 +7,7 @@
       "version": "1.0.0",
       "domain": "snake_tui",
       "status": "active",
-      "file": "active/tui_snake/snake-follow-default-v1.json",
+      "file": "active/snake-follow-default-v1.json",
       "last_modified": "2026-05-27"
     },
     {
@@ -15,7 +15,7 @@
       "version": "1.0.0",
       "domain": "snake_tui",
       "status": "active",
-      "file": "active/tui_snake/snake-lurk-default-v1.json",
+      "file": "active/snake-lurk-default-v1.json",
       "last_modified": "2026-05-27"
     },
     {
@@ -23,7 +23,7 @@
       "version": "1.0.0",
       "domain": "snake_eclipse",
       "status": "active",
-      "file": "active/eclipse_snake/snake-eclipse-zone-default-v1.json",
+      "file": "active/snake-eclipse-zone-default-v1.json",
       "last_modified": "2026-05-27"
     },
     {
@@ -39,7 +39,7 @@
       "version": "1.0.0",
       "domain": "tui_snake",
       "status": "active",
-      "file": "active/tui_snake/snake_tui_follow_distance_default.heuristic.json",
+      "file": "active/snake_tui_follow_distance_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "declarative_rules",
       "last_modified": "2026-05-27"
@@ -49,7 +49,7 @@
       "version": "1.0.0",
       "domain": "tui_snake",
       "status": "active",
-      "file": "active/tui_snake/snake_tui_lurk_focus_default.heuristic.json",
+      "file": "active/snake_tui_lurk_focus_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "declarative_rules",
       "last_modified": "2026-05-27"
@@ -79,7 +79,7 @@
       "version": "1.0.0",
       "domain": "tui_snake",
       "status": "active",
-      "file": "active/tui_snake/snake_tui_artifact_intent_default.heuristic.json",
+      "file": "active/snake_tui_artifact_intent_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
@@ -89,7 +89,7 @@
       "version": "1.0.0",
       "domain": "tui_snake",
       "status": "active",
-      "file": "active/tui_snake/snake_tui_diff_focus_default.heuristic.json",
+      "file": "active/snake_tui_diff_focus_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
@@ -99,7 +99,7 @@
       "version": "1.0.0",
       "domain": "snake_eclipse",
       "status": "active",
-      "file": "active/eclipse_snake/snake_eclipse_editor_lurk_default.heuristic.json",
+      "file": "active/snake_eclipse_editor_lurk_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
@@ -109,7 +109,7 @@
       "version": "1.0.0",
       "domain": "snake_eclipse",
       "status": "active",
-      "file": "active/eclipse_snake/snake_eclipse_problem_view_default.heuristic.json",
+      "file": "active/snake_eclipse_problem_view_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
@@ -119,7 +119,7 @@
       "version": "1.0.0",
       "domain": "snake_eclipse",
       "status": "active",
-      "file": "active/eclipse_snake/snake_eclipse_compare_default.heuristic.json",
+      "file": "active/snake_eclipse_compare_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
@@ -129,7 +129,7 @@
       "version": "1.0.0",
       "domain": "snake_eclipse",
       "status": "active",
-      "file": "active/eclipse_snake/snake_eclipse_package_explorer_default.heuristic.json",
+      "file": "active/snake_eclipse_package_explorer_default.heuristic.json",
       "safety_class": "ui_motion_only",
       "runtime_mode": "python_strategy",
       "last_modified": "2026-05-27"
