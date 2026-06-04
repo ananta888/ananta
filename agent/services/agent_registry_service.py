@@ -8,7 +8,6 @@ from flask import current_app
 
 from agent.db_models import AgentInfoDB
 from agent.models import AgentDirectoryEntryContract, AgentLivenessContract, WorkerExecutionLimitsContract
-from agent.repository import agent_repo
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
 from worker.core.runtime_target import WorkerKind
 
@@ -202,20 +201,29 @@ class AgentRegistryService:
 
     def get_online_agents(self) -> list:
         """Fetch all online agents and return raw AgentInfoDB objects."""
-        agents = agent_repo.get_all()
+        agents = self._get_all_agents()
         return [a for a in agents if a.status == "online"]
 
     def get_online_candidates(self) -> list:
         """Fetch all online agents and return them as WorkerCandidate list."""
         from worker.core.runtime_target import WorkerCandidate
 
-        agents = agent_repo.get_all()
+        agents = self._get_all_agents()
         candidates: list[WorkerCandidate] = []
         for a in agents:
             if a.status != "online":
                 continue
             candidates.append(self.agent_to_candidate(a))
         return candidates
+
+    def _get_all_agents(self) -> list[AgentInfoDB]:
+        """Read agents via the current DB engine to avoid stale repository engine bindings in tests."""
+        from sqlmodel import Session, select
+
+        from agent.database import engine
+
+        with Session(engine) as session:
+            return session.exec(select(AgentInfoDB)).all()
 
     def build_contract_metadata(self) -> dict:
         return {
