@@ -187,11 +187,9 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
         selected_provider = str(runtime_choice.get("provider") or provider).strip().lower()
         if selected_provider and selected_provider != str(provider or "").strip().lower():
             provider = selected_provider
-            provider_source = runtime_choice.get("selection_source") or provider_source
             base_url, base_url_source = shared.resolve_provider_base_url(provider, None, {}, agent_cfg, provider_urls)
             if not requested_model:
                 model = _default_model_for_provider(provider, model) or model
-                model_source = provider_source
             api_key = shared.resolve_provider_api_key(provider, None, api_key_profile, agent_cfg)
 
     local_backend = resolve_local_openai_backend(
