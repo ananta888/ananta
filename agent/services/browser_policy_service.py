@@ -43,7 +43,11 @@ class BrowserPolicyService:
                 return BrowserPolicyDecision(False, "browser_policy_output_dir_missing")
             out = Path(output_path).resolve()
             base = Path(contract.output_dir).resolve()
-            if not str(out).startswith(str(base)):
+            try:
+                within_base = out.is_relative_to(base)
+            except Exception:
+                within_base = str(out).startswith(f"{str(base).rstrip('/')}/")
+            if not within_base:
                 return BrowserPolicyDecision(False, "browser_policy_download_outside_output_dir")
 
         return BrowserPolicyDecision(True, "ok")

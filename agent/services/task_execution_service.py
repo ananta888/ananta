@@ -291,30 +291,66 @@ class TaskExecutionService:
         # For commands with unsupported operators (pipes etc.), block early with a clear reason.
         _chain_preflight_deferred = False
         _command_analysis = None
+        _wec_for_analysis = effective_task.get("worker_execution_context") or {}
+        _shell_mode_for_analysis = str(_wec_for_analysis.get("shell_command_mode") or "").strip().lower()
+        _shell_policy_for_analysis = ShellCommandPolicy.from_agent_cfg(guard_cfg)
+        allow_complex_shell = (
+            _shell_mode_for_analysis == "pipeline"
+            and bool(_shell_policy_for_analysis.allow_complex_shell_mode)
+        )
         if command:
-            _command_analysis = ShellCommandAnalyzer().analyze(command, guard_cfg)
+            analysis_cfg = dict(guard_cfg or {})
+            if allow_complex_shell:
+                shell_cfg = dict((analysis_cfg.get("shell_command_policy") or {}))
+                deny_ops = [str(op) for op in list(shell_cfg.get("deny_operators") or [])]
+                shell_cfg["deny_operators"] = [op for op in deny_ops if op != "|"]
+                shell_cfg["allow_complex_shell_mode"] = True
+                analysis_cfg["shell_command_policy"] = shell_cfg
+            _command_analysis = ShellCommandAnalyzer().analyze(command, analysis_cfg)
             if not _command_analysis.allowed:
-                if pipeline is not None:
-                    append_stage(
-                        pipeline,
-                        name="command_chain_analysis",
+                if allow_complex_shell and _command_analysis.denied_reason == "unsupported_operator":
+                    _chain_preflight_deferred = True
+                    if pipeline is not None:
+                        append_stage(
+                            pipeline,
+                            name="command_chain_analysis",
+                            status="ok",
+                            metadata={
+                                **_command_analysis.as_dict(),
+                                "approval_preflight_deferred_to_segments": True,
+                                "allow_complex_shell_override": True,
+                            },
+                        )
+                    _command_analysis = None
+                else:
+                    if pipeline is not None:
+                        append_stage(
+                            pipeline,
+                            name="command_chain_analysis",
+                            status="blocked",
+                            metadata=_command_analysis.as_dict(),
+                        )
+                    blocked_reasons = [
+                        f"shell_operator_unsupported:{op}"
+                        if _command_analysis.denied_reason == "unsupported_operator"
+                        else (_command_analysis.denied_reason or "shell_chain_invalid")
+                        for op in (_command_analysis.unsupported_operators or ["?"])
+                    ]
+                    return LocalExecutionResult(
+                        output=f"Error: blocked by shell command policy ({', '.join(blocked_reasons)})",
+                        exit_code=-1,
+                        retries_used=0,
+                        failure_type="command_runtime_error",
+                        retry_history=[{"attempt": 0, "blocked_reasons": blocked_reasons}],
                         status="blocked",
-                        metadata=_command_analysis.as_dict(),
+                        loop_signals=[],
+                        loop_detection=None,
+                        approval_decision={
+                            "classification": "blocked",
+                            "reason_code": blocked_reasons[0] if blocked_reasons else "shell_chain_invalid",
+                        },
                     )
-                raise ToolGuardrailError(
-                    details={
-                        "blocked_tools": [],
-                        "blocked_reasons": [
-                            f"shell_operator_unsupported:{op}"
-                            if _command_analysis.denied_reason == "unsupported_operator"
-                            else (_command_analysis.denied_reason or "shell_chain_invalid")
-                            for op in (_command_analysis.unsupported_operators or ["?"])
-                        ],
-                        "shell_command_analysis": _command_analysis.as_dict(),
-                    }
-                )
-            if _command_analysis.contains_chain:
-                _chain_preflight_deferred = True
+            if _command_analysis is not None and _command_analysis.contains_chain:
                 if pipeline is not None:
                     append_stage(
                         pipeline,
@@ -325,6 +361,7 @@ class TaskExecutionService:
                             "approval_preflight_deferred_to_segments": True,
                         },
                     )
+                _chain_preflight_deferred = True
 
         approval_decision = get_approval_policy_service().evaluate(
             command=command,
@@ -768,11 +805,6 @@ class TaskExecutionService:
                 )
 
         if command:
-            _wec = effective_task.get("worker_execution_context") or {}
-            shell_mode = str(_wec.get("shell_command_mode") or "").strip().lower()
-            policy = ShellCommandPolicy.from_agent_cfg(guard_cfg)
-            # Complex shell mode requires both task intent (pipeline mode) and explicit policy allowance.
-            allow_complex_shell = shell_mode == "pipeline" and bool(policy.allow_complex_shell_mode)
             command_output, command_exit_code, retries_used, failure_type, retry_history = self._execute_shell_command_with_policy(
                 tid=tid,
                 command=command,

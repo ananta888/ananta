@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from agent.common.audit import SENSITIVE_FIELDS, _sanitize_details
+from agent.common.audit import SENSITIVE_FIELDS
 from agent.services.evolution.models import EvolutionContext
 from agent.services.repository_registry import get_repository_registry
 
@@ -254,10 +254,13 @@ class EvolutionContextBuilder:
     @classmethod
     def _redact_value(cls, value: Any) -> Any:
         if isinstance(value, dict):
-            return {
-                key: ("***REDACTED***" if isinstance(redacted, str) and redacted.startswith("***REDACTED_") else cls._redact_value(redacted))
-                for key, redacted in _sanitize_details(value).items()
-            }
+            redacted: dict[str, Any] = {}
+            for key, item in value.items():
+                if str(key or "").strip().lower() in SENSITIVE_FIELDS:
+                    redacted[key] = "***REDACTED***"
+                else:
+                    redacted[key] = cls._redact_value(item)
+            return redacted
         if isinstance(value, list):
             return [cls._redact_value(item) for item in value]
         if isinstance(value, str):
