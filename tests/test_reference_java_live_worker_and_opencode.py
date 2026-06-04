@@ -130,18 +130,24 @@ def test_live_ananta_worker_task_proposal_uses_real_llm_with_keycloak_java_refer
             ),
             tool_definitions_resolver=lambda allowlist=None: [{"name": "bash", "allowlist": allowlist or []}],
             research_context=None,
+            context_profile={
+                "compact": True,
+                "task_brief_char_limit": 600,
+                "hub_context_char_limit": 1200,
+                "research_prompt_char_limit": 900,
+            },
         )
 
         from agent.llm_integration import generate_text
 
         response = generate_text(
-            prompt=prompt + "\nReturn compact JSON only, below 180 words.",
+            prompt=prompt + "\nReturn exactly one JSON object only. No markdown fences, no tool_calls, no trailing text.",
             provider="openai",
             model=str(runtime["model"]),
             api_key=str(runtime["api_key"]),
             timeout=int(runtime["timeout"]),
             temperature=0,
-            max_output_tokens=260,
+            max_output_tokens=512,
         )
 
     payload = _parse_json_object(str(response or ""))
