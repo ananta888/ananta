@@ -7,6 +7,7 @@ import { AgentApiTransport } from './agent-api-transport.service';
 @Injectable({ providedIn: 'root' })
 export class SystemApiClient {
   private transport = inject(AgentApiTransport);
+  readonly configTimeoutMs = 45000;
 
   health(baseUrl: string, token?: string): Observable<any> {
     return this.transport.unwrap(
@@ -44,7 +45,7 @@ export class SystemApiClient {
     return this.transport.unwrap(
       this.transport.http
         .post(`${baseUrl}/config`, cfg, this.transport.getHeaders(baseUrl, token))
-        .pipe(timeout(this.transport.timeoutMs)),
+        .pipe(timeout(this.configTimeoutMs)),
     );
   }
 

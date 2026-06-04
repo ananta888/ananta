@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, finalize, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AgentDirectoryService } from './agent-directory.service';
 import { ApiResponse, unwrapApiResponse } from './api-envelope';
@@ -8,6 +8,7 @@ import { ApiResponse, unwrapApiResponse } from './api-envelope';
 export class UserAuthService {
   private http = inject(HttpClient);
   private dir = inject(AgentDirectoryService);
+  private userRefreshInFlight = false;
 
   private _token = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.token'));
   token$ = this._token.asObservable();
@@ -17,6 +18,10 @@ export class UserAuthService {
 
   private _user = new BehaviorSubject<any>(this.decodeTokenPayload(this.token));
   user$ = this._user.asObservable();
+
+  constructor() {
+    queueMicrotask(() => this.refreshUserFromHub());
+  }
 
   private unwrapResponse<T>(obs: Observable<ApiResponse<T>>): Observable<T> {
     return unwrapApiResponse<T>(obs);
@@ -43,6 +48,7 @@ export class UserAuthService {
     this._token.next(token);
     if (refreshToken !== undefined) this._refreshToken.next(refreshToken);
     this._user.next(this.decodeTokenPayload(token));
+    this.refreshUserFromHub();
   }
 
   setOidcAccessToken(token: string | null) {
@@ -111,6 +117,26 @@ export class UserAuthService {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) throw new Error('No hub found');
     return this.unwrapResponse(this.http.get(`${hub.url}/me`));
+  }
+
+  private refreshUserFromHub(): void {
+    if (this.userRefreshInFlight || !this.token) return;
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) return;
+
+    this.userRefreshInFlight = true;
+    this.getMe().pipe(
+      finalize(() => {
+        this.userRefreshInFlight = false;
+      })
+    ).subscribe({
+      next: user => {
+        if (user) {
+          this._user.next(user);
+        }
+      },
+      error: () => {},
+    });
   }
 
   getUsers(): Observable<any[]> {
