@@ -881,7 +881,7 @@ def create_goal():
             },
             "readiness": readiness,
         },
-        code=202,
+        code=201,
     )
 
 
