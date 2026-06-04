@@ -9,6 +9,7 @@ from typing import List, Optional, Dict, Any
 class Sensitivity(str, Enum):
     public = "public"
     project_internal = "project_internal"
+    internal = "project_internal"
     customer_confidential = "customer_confidential"
     security_sensitive = "security_sensitive"
     secret = "secret"

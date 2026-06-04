@@ -296,16 +296,12 @@ class ModelPolicy(BaseModel):
     _CLOUD_PROVIDERS: frozenset[str] = frozenset({
         "openai", "anthropic", "gemini", "groq", "openrouter", "bedrock", "azure",
     })
-    _LOCAL_DEFAULT_PROVIDERS: frozenset[str] = frozenset({
-        "ollama", "lmstudio", "local_mock",
-    })
-
     def is_provider_allowed(self, provider: str) -> bool:
         p = str(provider or "").strip().lower()
         if p in self._CLOUD_PROVIDERS and not self.cloud_allowed:
             return False
         if not self.allowed_providers:
-            return bool(self.legacy_default_allow or p in self._LOCAL_DEFAULT_PROVIDERS)
+            return bool(self.legacy_default_allow)
         return p in [x.lower() for x in self.allowed_providers]
 
 

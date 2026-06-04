@@ -136,7 +136,7 @@ def build_hermes_context_blocks(
             source_type="task_description",
             origin_id=str((task or {}).get("id") or "task"),
             provenance="task_scoped_execution_service:task_description",
-            sensitivity=ContextSensitivity.internal,
+            sensitivity=ContextSensitivity.project_internal,
             content=task_description,
             priority=0,
         ))
@@ -149,7 +149,7 @@ def build_hermes_context_blocks(
             source_type="research_context",
             origin_id="research_context:prompt_section",
             provenance="task_scoped_execution_service:research_context",
-            sensitivity=ContextSensitivity.internal,
+            sensitivity=ContextSensitivity.project_internal,
             content=prompt_section,
             priority=10,
         ))
@@ -162,11 +162,11 @@ def build_hermes_context_blocks(
         content = str(raw.get("content") or "").strip()
         if not content:
             continue
-        sensitivity_raw = str(raw.get("sensitivity") or ContextSensitivity.internal.value)
+        sensitivity_raw = str(raw.get("sensitivity") or ContextSensitivity.project_internal.value)
         try:
             sensitivity = ContextSensitivity(sensitivity_raw)
         except ValueError:
-            sensitivity = ContextSensitivity.internal
+            sensitivity = ContextSensitivity.project_internal
         blocks.append(ContextBlock(
             source_type=str(raw.get("source_type") or "external_context"),
             origin_id=str(raw.get("origin_id") or f"context_block_{idx}"),
