@@ -1090,7 +1090,8 @@ class TaskExecutionService:
         history.append(entry)
         get_task_runtime_service().update_local_task_status(
             tid,
-            "blocked",
+            # Guardrail violations are execution failures, not dependency blocks.
+            "failed",
             history=history,
             status_reason_code="security_or_policy_denied",
             status_reason_details={
