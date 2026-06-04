@@ -15,15 +15,6 @@ def register_recovery_planner_callback(callback: Callable[..., dict[str, Any]]) 
 
 class GoalPlanningRecoveryService:
     def plan_goal(self, **kwargs: Any) -> dict[str, Any]:
-        try:
-            from agent.routes.tasks import auto_planner as auto_planner_module
-
-            planner = getattr(auto_planner_module, "auto_planner", None)
-            plan_goal = getattr(planner, "plan_goal", None)
-            if callable(plan_goal):
-                return plan_goal(**kwargs)
-        except Exception:
-            pass
         with _lock:
             callback = _planner_callback
         if callback is None:
