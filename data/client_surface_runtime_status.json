@@ -5,6 +5,7 @@
     "nvim_plugin": "runtime_mvp",
     "vim_plugin": "deferred",
     "eclipse_plugin": "runtime_mvp",
-    "eclipse_views_extension": "runtime_mvp"
+    "eclipse_views_extension": "runtime_mvp",
+    "vscode_plugin": "runtime_mvp"
   }
 }

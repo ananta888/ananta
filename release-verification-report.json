@@ -48,9 +48,19 @@
       "detail": "apt packages are installed through fixed Debian/Ubuntu snapshot configuration"
     },
     {
-      "name": "todo-status",
+      "name": "client-surface-release-gate",
       "ok": true,
-      "detail": "todo status counters are synchronized"
+      "detail": "surface status overview: eclipse_plugin=runtime_mvp, eclipse_views_extension=runtime_mvp, nvim_plugin=runtime_mvp, tui_surface=runtime_mvp, vim_plugin=deferred, vscode_plugin=runtime_mvp"
+    },
+    {
+      "name": "runtime-path-hygiene",
+      "ok": true,
+      "detail": "no forbidden runtime paths are tracked"
+    },
+    {
+      "name": "dyndns-secret-hygiene",
+      "ok": true,
+      "detail": "DynDNS script/example enforce credential-safe behavior"
     },
     {
       "name": "compose-config",
