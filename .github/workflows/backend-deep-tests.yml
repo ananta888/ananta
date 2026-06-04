@@ -142,13 +142,24 @@ jobs:
               tests/llm_interceptor/test_repair_controller.py
 
           # ── e2e ────────────────────────────────────────────────────────────
-          - shard: e2e-planning
+          - shard: e2e-autopilot-new-project
             paths: >-
-              tests/e2e/test_autopilot_*.py
+              tests/e2e/test_autopilot_new_project_api_smoke.py
+              tests/e2e/test_autopilot_new_project_llm_first.py
+              tests/e2e/test_autopilot_new_project_fibonacci.py
+              tests/e2e/test_autopilot_new_project_fibonacci_full_flow.py
+
+          - shard: e2e-autopilot-flows
+            paths: >-
+              tests/e2e/test_autopilot_full_flow_failure_modes.py
+              tests/e2e/test_autopilot_taskscoped_persist_execute_and_verified_completion.py
+              tests/e2e/test_autopilot_verification_service_full_flow.py
+
+          - shard: e2e-planning-learning
+            paths: >-
               tests/e2e/test_planning_learning_loop.py
               tests/e2e/test_parallel_scenario_goal_scoped_config.py
               tests/e2e/test_llm_assisted_project_creation.py
-              tests/e2e/test_autopilot_verification_service_full_flow.py
 
           - shard: e2e-tui
             paths: >-
