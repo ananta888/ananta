@@ -931,7 +931,10 @@ class TaskScopedExecutionService:
                 fallback_command = str(parsed.get("command") or "").strip() or None
                 fallback_tool_calls = parsed.get("tool_calls") if isinstance(parsed.get("tool_calls"), list) else []
                 fallback_reason = str(parsed.get("reason") or result.reason or "fallback_cli_proposal").strip()
-                if rc == 0 and (fallback_command or fallback_tool_calls):
+                # Accept stderr JSON even on non-zero exit if stdout was empty and
+                # stderr contained parseable JSON with a command (stderr-fallback path).
+                _usable = rc == 0 or (rc != 0 and _output_source == "stderr" and bool(fallback_command or fallback_tool_calls))
+                if _usable and (fallback_command or fallback_tool_calls):
                     result_dict["command"] = fallback_command
                     result_dict["tool_calls"] = fallback_tool_calls
                     result_dict["reason"] = fallback_reason
@@ -1068,7 +1071,20 @@ class TaskScopedExecutionService:
                 verification_status=verification_status,
             )
 
-        return TaskScopedRouteResponse(data={**result_dict, "propose_strategy_meta": propose_strategy_meta})
+        # Flatten resolved fields into the response so that API consumers that were
+        # written against the old flat contract (command/backend/routing at top level)
+        # continue to work alongside the new nested proposal structure.
+        return TaskScopedRouteResponse(data={
+            **result_dict,
+            "propose_strategy_meta": propose_strategy_meta,
+            "command": resolved_command,
+            "backend": resolved_backend,
+            "routing": {
+                "effective_backend": resolved_backend,
+                "task_kind": task_kind,
+                "goal_config_source": scoped_resolution.source,
+            },
+        })
 
     def execute_task_step(
         self,
