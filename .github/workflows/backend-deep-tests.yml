@@ -175,7 +175,7 @@ jobs:
               tests/e2e/worker/test_*.py
               tests/e2e/test_command_chain_execution_full_flow.py
               tests/e2e/worker/test_controlled_loop_flow.py
-              tests/e2e/test_standalone_worker_flow.py
+              tests/e2e/worker/test_standalone_worker_flow.py
               tests/e2e/test_parallel_worker_ollama_saturation.py
 
           - shard: e2e-rag-runtime
