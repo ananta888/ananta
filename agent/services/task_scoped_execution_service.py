@@ -721,6 +721,21 @@ class TaskScopedExecutionService:
             research_context=rc_input,
             query=base_prompt,
         )
+        # Research proposals already have a dedicated CLI-backed research result
+        # path. Route them there directly so we do not run generic LLM proposal
+        # strategies first and risk a slow or unreachable model HTTP call.
+        if task_kind == "research" and not str(getattr(request_data, "strategy_mode", "") or "").strip():
+            return self._propose_single_task_step(
+                tid=tid,
+                task=task,
+                request_data=request_data,
+                base_prompt=base_prompt,
+                research_context=research_context_summary,
+                cli_runner=cli_runner,
+                cfg=cfg,
+                tool_definitions_resolver=tool_definitions_resolver,
+                allow_legacy_path=True,
+            )
         strategy_mode = str(getattr(request_data, "strategy_mode", "") or "").strip().lower()
         legacy_cli_task_kinds = {
             "generic",
