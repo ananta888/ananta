@@ -142,11 +142,20 @@ jobs:
               tests/llm_interceptor/test_repair_controller.py
 
           # ── e2e ────────────────────────────────────────────────────────────
-          - shard: e2e-autopilot-new-project
+          - shard: e2e-autopilot-new-project-api
             paths: >-
               tests/e2e/test_autopilot_new_project_api_smoke.py
+
+          - shard: e2e-autopilot-new-project-llm
+            paths: >-
               tests/e2e/test_autopilot_new_project_llm_first.py
+
+          - shard: e2e-autopilot-new-project-fibonacci
+            paths: >-
               tests/e2e/test_autopilot_new_project_fibonacci.py
+
+          - shard: e2e-autopilot-new-project-fibonacci-flow
+            paths: >-
               tests/e2e/test_autopilot_new_project_fibonacci_full_flow.py
 
           - shard: e2e-autopilot-flows
