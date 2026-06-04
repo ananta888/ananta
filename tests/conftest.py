@@ -1,10 +1,18 @@
 import os
+import sys
 import json
 import types
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
+
+# Stub out missing legacy module so test_worker_client_adapter.py can be collected.
+# worker_engine is not part of the current codebase; stubs prevent ImportError
+# while keeping the test file importable and runnable.
+if "worker_engine" not in sys.modules:
+    sys.modules["worker_engine"] = MagicMock()
 
 # Test environment defaults
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -450,6 +458,7 @@ def admin_token(client):
     return _login_token(client, username="admin", password="admin")
 
 # Pre-existing broken test files - skip collection
-# collect_ignore_glob matches full paths, so *-prefix works regardless of cwd/explicit-arg.
-collect_ignore_glob = ["e2e/fixtures/*/tests/*.py", "*test_worker_client_adapter.py"]
+collect_ignore_glob = ["e2e/fixtures/*/tests/*.py"]
 collect_ignore = ["test_worker_client_adapter.py"]
+
+
