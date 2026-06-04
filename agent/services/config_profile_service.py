@@ -36,14 +36,12 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "segmented_planning_enabled": False,
                 "segment_context_chars": 4000,
                 "max_segments": 1,
-                "max_output_tokens": 1600,
                 "preferred_output_format": "json",
                 "selective_repair_rounds": 1,
                 "default_runtime_profile": "lmstudio_laptop",
                 "runtime_profiles": {
                     "lmstudio_laptop": {
                         "timeout_seconds": 700,
-                        "max_output_tokens": 1600,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
                         "segmented_planning_enabled": False,
@@ -85,13 +83,11 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "timeout_seconds": 540,
                 "parallel_goal_planning_max_concurrency": 1,
                 "segment_context_chars": 6000,
-                "max_output_tokens": 1600,
                 "max_segments": 2,
                 "default_runtime_profile": "lmstudio_laptop",
                 "runtime_profiles": {
                     "lmstudio_laptop": {
                         "timeout_seconds": 700,
-                        "max_output_tokens": 1600,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
                         "segmented_planning_enabled": True,
@@ -163,14 +159,12 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "segmented_planning_enabled": True,
                 "segment_context_chars": 1400,
                 "max_segments": 2,
-                "max_output_tokens": 1600,
                 "preferred_output_format": "json",
                 "selective_repair_rounds": 2,
                 "default_runtime_profile": "lmstudio_laptop",
                 "runtime_profiles": {
                     "lmstudio_laptop": {
                         "timeout_seconds": 300,
-                        "max_output_tokens": 1600,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
                         "segmented_planning_enabled": True,
@@ -238,7 +232,6 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             },
                 "planning_policy": {
                     "timeout_seconds": 700,
-                    "max_output_tokens": 3000,
                     "segmented_planning_enabled": True,
                     "segment_context_chars": 2400,
                     "max_segments": 3,
@@ -273,7 +266,6 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "runtime_profiles": {
                     "lmstudio_laptop": {
                         "timeout_seconds": 700,
-                        "max_output_tokens": 3000,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
                         "segmented_planning_enabled": True,
