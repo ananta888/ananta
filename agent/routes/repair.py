@@ -189,10 +189,22 @@ def preview_repair():
         candidates = registry_service.get_online_candidates()
 
         runtime_targets = [rt_service.local_process_default(), rt_service.docker_default()]
+        for agent in registry_service.get_online_agents():
+            for rt_data in agent.runtime_targets or []:
+                try:
+                    runtime_targets.append(rt_service.from_config(rt_data))
+                except Exception:
+                    pass
 
-        all_required = []
-        for s in plan.steps:
-            all_required.extend(s.required_capabilities)
+        explicit_required = [
+            str(item).strip()
+            for item in list((policy_data or {}).get("required_capabilities") or [])
+            if str(item).strip()
+        ] if isinstance(policy_data, dict) else []
+        all_required = explicit_required
+        if not all_required:
+            for s in plan.steps:
+                all_required.extend(s.required_capabilities)
 
         sel_request = WorkerRuntimeSelectionRequest(
             policy=policy or WorkerSelectionPolicyService().from_config({}),

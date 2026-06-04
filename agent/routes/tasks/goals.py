@@ -901,22 +901,27 @@ def create_goal():
 
 def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
     """Mark planning_running/queued goals with an expired lease as failed (PRI-006)."""
+    from sqlmodel import Session, select
+
+    from agent.database import engine
+
     try:
-        from sqlalchemy import text
-        from agent.database import engine
         now = time.time()
-        with engine.connect() as conn:
-            result = conn.execute(
-                text(
-                    "UPDATE goals SET status = 'failed', planning_lease_expires_at = NULL, updated_at = :now"
-                    " WHERE status IN ('planning_running', 'planning_queued')"
-                    " AND planning_lease_expires_at IS NOT NULL"
-                    " AND planning_lease_expires_at < :now"
-                ),
-                {"now": now},
-            )
-            conn.commit()
-            cancelled = int(result.rowcount or 0)
+        with Session(engine) as session:
+            stale_goals = session.exec(
+                select(GoalDB).where(
+                    GoalDB.status.in_(["planning_running", "planning_queued"]),
+                    GoalDB.planning_lease_expires_at != None,  # noqa: E711
+                    GoalDB.planning_lease_expires_at < now,
+                )
+            ).all()
+            for goal in stale_goals:
+                goal.status = "failed"
+                goal.planning_lease_expires_at = None
+                goal.updated_at = now
+                session.add(goal)
+            session.commit()
+            cancelled = len(stale_goals)
         if cancelled:
             try:
                 current_app.logger.warning(
@@ -925,7 +930,11 @@ def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
             except Exception:
                 pass
         return cancelled
-    except Exception:
+    except Exception as exc:
+        try:
+            current_app.logger.exception("planning_preflight_stale_cancel_failed actor=%s error=%s", actor, exc)
+        except Exception:
+            pass
         return 0
 
 
@@ -971,37 +980,47 @@ _PLANNING_LEASE_TTL_S = 90  # seconds per heartbeat interval
 
 
 def _set_planning_lease(goal_id: str, ttl_s: int = _PLANNING_LEASE_TTL_S) -> None:
-    """Write/renew planning_lease_expires_at using a direct UPDATE to avoid session conflicts."""
+    """Write/renew planning_lease_expires_at for actively running planning goals."""
+    from sqlmodel import Session
+
+    from agent.database import engine
+
     try:
-        from sqlalchemy import text
-        from agent.database import engine
-        expires_at = time.time() + ttl_s
         now = time.time()
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "UPDATE goals SET planning_lease_expires_at = :exp, updated_at = :now"
-                    " WHERE id = :gid AND status = 'planning_running'"
-                ),
-                {"exp": expires_at, "now": now, "gid": goal_id},
-            )
-            conn.commit()
-    except Exception:
-        pass
+        with Session(engine) as session:
+            goal = session.get(GoalDB, str(goal_id))
+            if goal is None or str(getattr(goal, "status", "") or "").strip() != "planning_running":
+                return
+            goal.planning_lease_expires_at = now + ttl_s
+            goal.updated_at = now
+            session.add(goal)
+            session.commit()
+    except Exception as exc:
+        try:
+            current_app.logger.exception("planning_lease_set_failed goal_id=%s error=%s", goal_id, exc)
+        except Exception:
+            pass
 
 
 def _clear_planning_lease(goal_id: str) -> None:
+    from sqlmodel import Session
+
+    from agent.database import engine
+
     try:
-        from sqlalchemy import text
-        from agent.database import engine
-        with engine.connect() as conn:
-            conn.execute(
-                text("UPDATE goals SET planning_lease_expires_at = NULL, updated_at = :now WHERE id = :gid"),
-                {"now": time.time(), "gid": goal_id},
-            )
-            conn.commit()
-    except Exception:
-        pass
+        with Session(engine) as session:
+            goal = session.get(GoalDB, str(goal_id))
+            if goal is None:
+                return
+            goal.planning_lease_expires_at = None
+            goal.updated_at = time.time()
+            session.add(goal)
+            session.commit()
+    except Exception as exc:
+        try:
+            current_app.logger.exception("planning_lease_clear_failed goal_id=%s error=%s", goal_id, exc)
+        except Exception:
+            pass
 
 
 def _start_planning_heartbeat(*, goal_id: str, stop_event: threading.Event, interval_s: int = _PLANNING_LEASE_TTL_S // 2) -> threading.Thread:

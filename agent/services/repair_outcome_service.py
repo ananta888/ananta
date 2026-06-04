@@ -13,7 +13,7 @@ from worker.core.execution_envelope import RepairExecutionResult
 log = logging.getLogger(__name__)
 
 
-def persist_repair_execution_result(
+def _build_repair_execution_record(
     result: RepairExecutionResult,
     *,
     goal_id: str = "",
@@ -23,78 +23,116 @@ def persist_repair_execution_result(
     signature_id: str = "",
     environment_facts_hash: str = "",
 ) -> dict[str, Any]:
+    db_entry = RepairExecutionRecordDB(
+        goal_id=goal_id,
+        task_id=task_id,
+        worker_job_id=worker_job_id,
+        plan_id=result.plan_id,
+        procedure_id=result.procedure_id,
+        signature_id=signature_id,
+        problem_class=result.step_results[0].step_id if result.step_results else "",
+        platform_target=platform_target,
+        environment_facts_hash=environment_facts_hash,
+        execution_status=result.status.value,
+        outcome_label=result.outcome_label,
+        verification_evidence_refs=[],
+        artifact_refs=[a.get("artifact_id", "") for a in result.artifacts if isinstance(a, dict)],
+        trace_ref=result.trace_bundle_ref,
+        regression_flag=result.outcome_label == "regressed",
+        extra_metadata={
+            "completed_steps": result.completed_steps,
+            "skipped_steps": result.skipped_steps,
+            "failed_step_id": result.failed_step_id,
+            "approval_required_step_id": result.approval_required_step_id,
+        },
+    )
+
+    if result.selected_worker_runtime:
+        db_entry.selected_worker_id = result.selected_worker_runtime.selected_worker_id
+        db_entry.selected_worker_kind = (
+            result.selected_worker_runtime.selected_worker_kind.value
+            if result.selected_worker_runtime.selected_worker_kind
+            else None
+        )
+        db_entry.selected_runtime_target_id = result.selected_worker_runtime.selected_runtime_target_id
+        db_entry.selected_runtime_kind = (
+            result.selected_worker_runtime.selected_runtime_kind.value
+            if result.selected_worker_runtime.selected_runtime_kind
+            else None
+        )
+        db_entry.selection_decision_ref = result.selected_worker_runtime.selection_decision_ref
+        db_entry.selection_reason = result.selected_worker_runtime.selection_reason
+
+    if result.actual_worker_runtime:
+        db_entry.actual_worker_id = result.actual_worker_runtime.selected_worker_id
+        db_entry.actual_worker_kind = (
+            result.actual_worker_runtime.selected_worker_kind.value
+            if result.actual_worker_runtime.selected_worker_kind
+            else None
+        )
+        db_entry.actual_runtime_target_id = result.actual_worker_runtime.selected_runtime_target_id
+        db_entry.actual_runtime_kind = (
+            result.actual_worker_runtime.selected_runtime_kind.value
+            if result.actual_worker_runtime.selected_runtime_kind
+            else None
+        )
+
+    if result.final_verification:
+        db_entry.verification_evidence_refs = list(
+            result.final_verification.get("evidence_refs") or []
+        )
+
+    problem_class = (
+        (result.step_results[0].evidence or {}).get("problem_class")
+        if result.step_results
+        else ""
+    )
+    if problem_class:
+        db_entry.problem_class = str(problem_class)
+    return db_entry
+
+
+def persist_repair_execution_result(
+    result: RepairExecutionResult | Any,
+    maybe_result: RepairExecutionResult | None = None,
+    *,
+    goal_id: str = "",
+    task_id: str = "",
+    worker_job_id: str = "",
+    platform_target: str = "",
+    signature_id: str = "",
+    environment_facts_hash: str = "",
+) -> dict[str, Any] | RepairExecutionRecordDB:
     """Persist a RepairExecutionResult to the database.
 
-    Returns dict with persisted status and record id, or error.
+    The public API returns a status dict. Legacy tests may still pass an
+    explicit SQLModel session as the first positional argument; in that mode
+    the unsaved ORM record is added to that session and returned.
     """
-    try:
-        db_entry = RepairExecutionRecordDB(
+    if maybe_result is not None:
+        session = result
+        db_entry = _build_repair_execution_record(
+            maybe_result,
             goal_id=goal_id,
             task_id=task_id,
             worker_job_id=worker_job_id,
-            plan_id=result.plan_id,
-            procedure_id=result.procedure_id,
-            signature_id=signature_id,
-            problem_class=result.step_results[0].step_id if result.step_results else "",
             platform_target=platform_target,
+            signature_id=signature_id,
             environment_facts_hash=environment_facts_hash,
-            execution_status=result.status.value,
-            outcome_label=result.outcome_label,
-            verification_evidence_refs=[],
-            artifact_refs=[a.get("artifact_id", "") for a in result.artifacts if isinstance(a, dict)],
-            trace_ref=result.trace_bundle_ref,
-            regression_flag=result.outcome_label == "regressed",
-            extra_metadata={
-                "completed_steps": result.completed_steps,
-                "skipped_steps": result.skipped_steps,
-                "failed_step_id": result.failed_step_id,
-                "approval_required_step_id": result.approval_required_step_id,
-            },
         )
+        session.add(db_entry)
+        return db_entry
 
-        if result.selected_worker_runtime:
-            db_entry.selected_worker_id = result.selected_worker_runtime.selected_worker_id
-            db_entry.selected_worker_kind = (
-                result.selected_worker_runtime.selected_worker_kind.value
-                if result.selected_worker_runtime.selected_worker_kind
-                else None
-            )
-            db_entry.selected_runtime_target_id = result.selected_worker_runtime.selected_runtime_target_id
-            db_entry.selected_runtime_kind = (
-                result.selected_worker_runtime.selected_runtime_kind.value
-                if result.selected_worker_runtime.selected_runtime_kind
-                else None
-            )
-            db_entry.selection_decision_ref = result.selected_worker_runtime.selection_decision_ref
-            db_entry.selection_reason = result.selected_worker_runtime.selection_reason
-
-        if result.actual_worker_runtime:
-            db_entry.actual_worker_id = result.actual_worker_runtime.selected_worker_id
-            db_entry.actual_worker_kind = (
-                result.actual_worker_runtime.selected_worker_kind.value
-                if result.actual_worker_runtime.selected_worker_kind
-                else None
-            )
-            db_entry.actual_runtime_target_id = result.actual_worker_runtime.selected_runtime_target_id
-            db_entry.actual_runtime_kind = (
-                result.actual_worker_runtime.selected_runtime_kind.value
-                if result.actual_worker_runtime.selected_runtime_kind
-                else None
-            )
-
-        if result.final_verification:
-            db_entry.verification_evidence_refs = list(
-                result.final_verification.get("evidence_refs") or []
-            )
-
-        problem_class = (
-            (result.step_results[0].evidence or {}).get("problem_class")
-            if result.step_results
-            else ""
+    try:
+        db_entry = _build_repair_execution_record(
+            result,
+            goal_id=goal_id,
+            task_id=task_id,
+            worker_job_id=worker_job_id,
+            platform_target=platform_target,
+            signature_id=signature_id,
+            environment_facts_hash=environment_facts_hash,
         )
-        if problem_class:
-            db_entry.problem_class = str(problem_class)
-
         saved = get_repair_execution_record_repo().save(db_entry)
         return {"persisted": True, "id": saved.id}
     except Exception as exc:
