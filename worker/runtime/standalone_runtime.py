@@ -63,7 +63,12 @@ class StandaloneRuntime:
         hub_decision = _extract_hub_decision(task_contract)
 
         # T001: pass hub_decision through to policy port
-        policy = self._policy_port.classify_command(command=command, profile=profile, hub_decision=hub_decision)
+        policy = _classify_command_with_compatibility(
+            self._policy_port,
+            command=command,
+            profile=profile,
+            hub_decision=hub_decision,
+        )
         decision = str(policy.get("decision") or "deny").strip().lower()
 
         # T003, T004: build ExecutionEnvelope with canonical capabilities
@@ -211,7 +216,12 @@ class StandaloneRuntime:
         hub_decision = _extract_hub_decision(task_contract, control_manifest=control_manifest)
 
         # T001: pass hub_decision to policy port
-        policy = self._policy_port.classify_command(command=command_for_policy, profile=profile, hub_decision=hub_decision)
+        policy = _classify_command_with_compatibility(
+            self._policy_port,
+            command=command_for_policy,
+            profile=profile,
+            hub_decision=hub_decision,
+        )
         decision = str(policy.get("decision") or "deny").strip().lower()
 
         # T003, T004: build ExecutionEnvelope from todo mode
@@ -592,6 +602,22 @@ def _extract_hub_decision(task_contract: dict[str, Any], *, control_manifest: di
         or "allow"
     )
     return str(raw).strip().lower() or "allow"
+
+
+def _classify_command_with_compatibility(
+    policy_port: PolicyPort,
+    *,
+    command: str,
+    profile: str,
+    hub_decision: str,
+) -> dict[str, Any]:
+    """Call policy ports that may or may not accept the T001 hub_decision keyword."""
+    try:
+        return policy_port.classify_command(command=command, profile=profile, hub_decision=hub_decision)
+    except TypeError as exc:
+        if "unexpected keyword argument 'hub_decision'" not in str(exc):
+            raise
+        return policy_port.classify_command(command=command, profile=profile)
 
 
 def _todo_mode_for_executor(execution_mode: str, executor_kind: str) -> str:
