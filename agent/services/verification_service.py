@@ -5,7 +5,6 @@ from sqlmodel import Session, select
 
 from agent.common.audit import log_audit
 from agent.common.governance_codes import GovernanceReasonCode
-from agent.database import engine
 from agent.db_models import TaskDB, VerificationRecordDB
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
 from agent.services.hub_event_service import (
@@ -18,6 +17,12 @@ from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import notify_task_update
 from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
 from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
+
+
+def _engine():
+    from agent.database import engine
+
+    return engine
 
 
 class VerificationService:
@@ -78,7 +83,7 @@ class VerificationService:
         exit_code: int | None,
         gate_results: dict | None = None,
     ) -> VerificationRecordDB | None:
-        with Session(engine) as session:
+        with Session(_engine()) as session:
             task = session.get(TaskDB, task_id)
             if not task:
                 return None
