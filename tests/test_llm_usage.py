@@ -397,7 +397,7 @@ def test_generate_text_falls_back_to_ollama_when_lmstudio_is_unreachable(app):
 
     assert out == "ok"
     assert mock_call.call_args.args[0] == "ollama"
-    assert mock_call.call_args.args[1] == "llama3"
+    assert mock_call.call_args.args[1] == "ananta-default:latest"
     assert mock_call.call_args.args[3]["ollama"] == "http://ollama:11434/api/generate"
 
 
@@ -1000,4 +1000,3 @@ def test_normalize_usage_negative_values_clamped_to_zero():
 def test_normalize_usage_malformed_string_returns_empty():
     result = _normalize({"prompt_tokens": "not-a-number"})
     assert result == {}
-
