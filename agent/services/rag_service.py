@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+
+from agent.config import settings
 from agent.services.context_bundle_service import get_context_bundle_service
 from agent.services.retrieval_service import get_retrieval_service
 
@@ -10,6 +13,16 @@ class RagService:
     def __init__(self, retrieval_service=None, context_bundle_service=None) -> None:
         self._retrieval_service = retrieval_service or get_retrieval_service()
         self._context_bundle_service = context_bundle_service or get_context_bundle_service()
+
+    @staticmethod
+    def _redact_sensitive(value):
+        if isinstance(value, dict):
+            return {str(key): RagService._redact_sensitive(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [RagService._redact_sensitive(item) for item in value]
+        if isinstance(value, str):
+            return re.sub(r"sk-[A-Za-z0-9_-]+", "[REDACTED]", value)
+        return value
 
     def retrieve_context_bundle(
         self,
@@ -41,7 +54,7 @@ class RagService:
             neighbor_task_ids=neighbor_task_ids,
             source_types=source_types,
         )
-        return self._context_bundle_service.build_bundle(
+        bundle = self._context_bundle_service.build_bundle(
             query=query,
             context_payload=context_payload,
             include_context_text=include_context_text,
@@ -55,8 +68,66 @@ class RagService:
             budget_tokens_by_mode=budget_tokens_by_mode,
             window_profile=window_profile,
             provenance_visibility=provenance_visibility,
-            llm_scope=llm_scope,
+            llm_scope=llm_scope or "local_only",
         )
+        if not list(bundle.get("chunks") or []):
+            fallback_chunks = list(context_payload.get("chunks") or [])
+            if max_chunks is not None:
+                fallback_chunks = fallback_chunks[: max(1, int(max_chunks))]
+            bundle["chunks"] = fallback_chunks
+            bundle["chunk_count"] = len(fallback_chunks)
+        chunks = list(bundle.get("chunks") or [])
+        explainability = dict(bundle.get("explainability") or {})
+        engines = sorted({str(chunk.get("engine") or "unknown") for chunk in chunks})
+        explainability["engines"] = engines
+        artifact_ids: set[str] = set()
+        collection_names: set[str] = set()
+        chunk_types: set[str] = set()
+        source_types: list[str] = []
+        source_type_counts: dict[str, int] = {}
+        sources: list[dict[str, object]] = []
+        visibility = str(provenance_visibility or "standard")
+        for chunk in chunks:
+            metadata = dict(chunk.get("metadata") or {})
+            source_type = str(metadata.get("source_type") or "")
+            if source_type:
+                source_types.append(source_type)
+                source_type_counts[source_type] = int(source_type_counts.get(source_type, 0)) + 1
+            artifact_id = str(metadata.get("artifact_id") or "")
+            if artifact_id:
+                artifact_ids.add(artifact_id)
+            for name in list(metadata.get("collection_names") or []):
+                if str(name).strip():
+                    collection_names.add(str(name))
+            chunk_kind = str(metadata.get("record_kind") or "")
+            if chunk_kind:
+                chunk_types.add(chunk_kind)
+            source_row: dict[str, object] = {
+                "source": chunk.get("source"),
+                "engine": chunk.get("engine"),
+                "source_type": source_type,
+            }
+            if visibility == "admin":
+                if metadata.get("source_id"):
+                    source_row["source_id"] = metadata.get("source_id")
+                if metadata.get("chunk_id"):
+                    source_row["chunk_id"] = metadata.get("chunk_id")
+            sources.append(source_row)
+        explainability["artifact_ids"] = sorted(artifact_ids)
+        explainability["collection_names"] = sorted(collection_names)
+        explainability["chunk_types"] = sorted(chunk_types)
+        explainability["source_types"] = sorted({item for item in source_types if item})
+        explainability["source_type_counts"] = source_type_counts
+        explainability["sources"] = sources[:10]
+        bundle["explainability"] = explainability
+        bundle["provenance_policy"] = {"visibility_level": visibility}
+        if bool(getattr(settings, "rag_redact_sensitive", False)):
+            bundle["explainability"] = self._redact_sensitive(bundle.get("explainability") or {})
+            bundle["why_this_context"] = self._redact_sensitive(bundle.get("why_this_context") or {})
+            bundle["selection_trace"] = self._redact_sensitive(bundle.get("selection_trace") or {})
+        if include_context_text is False:
+            bundle.pop("context_text", None)
+        return bundle
 
     def build_execution_context(
         self,

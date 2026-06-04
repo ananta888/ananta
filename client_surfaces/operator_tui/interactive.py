@@ -145,8 +145,27 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         term_graphics = dict(self.state.terminal_graphics or {})
         term_graphics["mouse_support"] = dict(self._mouse_capabilities)
         self.state = self.state.with_updates(terminal_graphics=term_graphics)
+        created_default_header_game = False
         if self._header_snake_enabled() and not self.state.header_logo_game:
             self.state = self.state.with_updates(header_logo_game=self._default_header_snake())
+            created_default_header_game = True
+        if created_default_header_game:
+            game = dict(self.state.header_logo_game or {})
+            game["active"] = False
+            game["ui_steering"] = False
+            game["free_mode"] = False
+            game["ai_snake_config_open"] = False
+            game["ai_snake_config_combo"] = {"open": False}
+            try:
+                from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
+
+                chat = get_chat_state(game)
+                chat["chat_focus"] = False
+                chat["chat_input_history_index"] = None
+                set_chat_state(game, chat)
+            except Exception:
+                pass
+            self.state = self.state.with_updates(header_logo_game=game)
         self._restore_oidc_token()
         if not self.state.open_tabs:
             from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
@@ -1933,6 +1952,26 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _open_audit_viewer_for_selected(self) -> bool:
         game = dict(self.state.header_logo_game or {})
+        if self.state.section_id == "templates" and self.state.focus is FocusPane.CONTENT:
+            return self._open_template_editor_for_selected()
+        if self.state.focus is FocusPane.NAVIGATION:
+            history_idx = (
+                self.state.selected_index
+                - len(SECTIONS)
+                - self._template_nav_selectable_count()
+                - self._audit_nav_selectable_count()
+            )
+            rows = long_message_history_rows(game)
+            if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
+                self._set_state(
+                    self.state.with_updates(
+                        header_logo_game=game,
+                        focus=FocusPane.CONTENT,
+                        selected_index=0,
+                        status_message="Chat-History: Originalausgabe",
+                    )
+                )
+                return True
         if bool(game.get("ai_snake_config_open")):
             if self.state.focus is not FocusPane.CONTENT:
                 self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))

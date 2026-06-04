@@ -1353,7 +1353,7 @@ class TutorialAiMixin:
             or game.get("chat_backend")
             or ""
         ).strip().lower()
-        api_base = str(
+        raw_api_base = str(
             game.get("chat_backend_api_base")
             or os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL")
             or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
@@ -1361,6 +1361,10 @@ class TutorialAiMixin:
             or os.environ.get("OPENAI_API_BASE")
             or "http://192.168.178.100:1234/v1"
         ).strip()
+        forced_defaults = (not raw_api_base) or ("lmstudio.test" in raw_api_base)
+        api_base = raw_api_base
+        if forced_defaults:
+            api_base = "http://192.168.178.100:1234/v1"
         if backend_hint == "worker-propose":
             model = str(
                 os.environ.get("ANANTA_TUI_CHAT_MODEL")
@@ -1369,7 +1373,7 @@ class TutorialAiMixin:
             ).strip()
         else:
             model = str(
-                game.get("chat_backend_model")
+                (None if forced_defaults else game.get("chat_backend_model"))
                 or os.environ.get("ANANTA_TUI_CHAT_MODEL")
                 or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL")
                 or "google/gemma-4-e4b"

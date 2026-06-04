@@ -2164,7 +2164,12 @@ def execute_autopilot_tick(
     # threads so two threads can never receive the same worker slot.
     task_assignments: list[tuple[Any, Any, bool]] = []
     for task in candidates[:effective_concurrency]:
-        target_worker, was_assigned, assign_reason = loop._assign_worker(task, workers)
+        assign_result = loop._assign_worker(task, workers)
+        if isinstance(assign_result, tuple) and len(assign_result) >= 3:
+            target_worker, was_assigned, assign_reason = assign_result[0], assign_result[1], assign_result[2]
+        else:
+            target_worker, was_assigned = assign_result
+            assign_reason = str(getattr(task, "_worker_assign_reason", "") or "")
         append_trace_event(
             task.id,
             "worker_selection_decision",

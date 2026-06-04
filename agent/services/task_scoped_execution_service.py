@@ -77,6 +77,7 @@ from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
 from agent.llm_integration import build_llm_call_profile_entry, normalize_llm_call_profile_entry
 from agent.services.worker_workspace_service import get_worker_workspace_service
+from agent.services.propose_policy_service import get_propose_policy_service
 from agent.utils import _extract_reason, _log_terminal_entry
 
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
@@ -191,6 +192,8 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _allow_synthetic_llm_profile_fallback() -> bool:
+        if not has_app_context():
+            return False
         cfg = (current_app.config.get("AGENT_CONFIG", {}) or {})
         policy = dict(cfg.get("llm_profile_policy") or {})
         return bool(policy.get("allow_synthetic_fallback", False))
@@ -713,7 +716,6 @@ class TaskScopedExecutionService:
             research_context=rc_input,
             query=base_prompt,
         )
-        from agent.services.propose_policy_service import get_propose_policy_service
         from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
         from worker.core.propose import ExecutableProposal, validate_executable_proposal
         from agent.services.propose_strategy_registry import build_strategy_registry

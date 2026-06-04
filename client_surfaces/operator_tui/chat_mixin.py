@@ -712,8 +712,12 @@ class ChatMixin:
         backend = str(
             game.get("chat_backend")
             or os.environ.get("ANANTA_TUI_CHAT_BACKEND")
-            or "ananta-worker"
+            or "lmstudio"
         ).strip().lower()
+        endpoint = str(getattr(self.state, "endpoint", "") or "").strip().lower()
+        env_backend = str(os.environ.get("ANANTA_TUI_CHAT_BACKEND") or "").strip().lower()
+        if not env_backend and (":1234" in endpoint or "lmstudio" in endpoint):
+            backend = "lmstudio"
         fallback_policy = mem_settings["backend_fallback"]
         used_path = backend
         fallback_reason = ""

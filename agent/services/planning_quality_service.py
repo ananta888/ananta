@@ -145,11 +145,11 @@ class PlanningQualityService:
         has_explicit_vp = "validation_profiles" in policy
         validation_profiles_val = policy.get("validation_profiles")
         validation_profiles = dict(validation_profiles_val) if isinstance(validation_profiles_val, dict) else {}
-        if not has_explicit_vp and not validation_profiles:
+        if not validation_profiles:
             validation_profiles = dict(_DEFAULT_VALIDATION_PROFILES)
         profile_val = validation_profiles.get(str(mode or "generic"))
         profile = dict(profile_val) if isinstance(profile_val, dict) else {}
-        if not profile and not has_explicit_vp:
+        if not profile:
             if str(mode or "").strip().lower() == "new_software_project":
                 profile = dict(_DEFAULT_VALIDATION_PROFILES.get("new_software_project") or {})
             if not profile:
