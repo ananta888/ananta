@@ -245,7 +245,7 @@ def render_header_logo(
             return list(frame.text_lines)
         # All text renderers exhausted; guarantee non-None in ANSI-fallback mode.
         output_ms += (time.perf_counter() - started) * 1000.0
-        _record_metrics(env=env, backend="ansi-fallback", render_ms=render_ms, encode_ms=0.0, output_ms=output_ms, frame_width=0, frame_height=0)
+        _record_metrics(env=env, backend="ansi", render_ms=render_ms, encode_ms=0.0, output_ms=output_ms, frame_width=0, frame_height=0)
         return [""]
 
     lines = render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
