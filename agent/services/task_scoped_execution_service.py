@@ -736,7 +736,6 @@ class TaskScopedExecutionService:
                 tool_definitions_resolver=tool_definitions_resolver,
                 allow_legacy_path=True,
             )
-        strategy_mode = str(getattr(request_data, "strategy_mode", "") or "").strip().lower()
         legacy_cli_task_kinds = {
             "generic",
             "analysis",
@@ -747,6 +746,26 @@ class TaskScopedExecutionService:
             "doc",
             "review",
         }
+        if task_kind in legacy_cli_task_kinds and not str(getattr(request_data, "strategy_mode", "") or "").strip():
+            routed_backend, _routing_reason = self._resolve_cli_backend(
+                task_kind,
+                requested_backend="auto",
+                agent_cfg=cfg,
+                required_capabilities=derive_required_capabilities(task, task_kind),
+            )
+            if routed_backend in SUPPORTED_CLI_BACKENDS:
+                return self._propose_single_task_step(
+                    tid=tid,
+                    task=task,
+                    request_data=request_data,
+                    base_prompt=base_prompt,
+                    research_context=research_context_summary,
+                    cli_runner=cli_runner,
+                    cfg=cfg,
+                    tool_definitions_resolver=tool_definitions_resolver,
+                    allow_legacy_path=True,
+                )
+        strategy_mode = str(getattr(request_data, "strategy_mode", "") or "").strip().lower()
         if not strategy_mode:
             if list(getattr(request_data, "providers", None) or []):
                 worker_profile, profile_source = resolve_worker_execution_profile(

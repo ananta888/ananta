@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ContextAccessPolicyApiService } from '../../services/context-access-policy-api.service';
 
@@ -90,7 +90,7 @@ import { ContextAccessPolicyApiService } from '../../services/context-access-pol
   `,
   styles: []
 })
-export class GlobalPolicyDashboardComponent implements OnInit {
+export class GlobalPolicyDashboardComponent {
   private api = inject(ContextAccessPolicyApiService);
 
   stats = {
@@ -106,10 +106,6 @@ export class GlobalPolicyDashboardComponent implements OnInit {
     { name: 'Legacy Auth', policyActive: false, version: 0, riskLevel: 'critical', violations: 11 },
     { name: 'Internal Tools', policyActive: true, version: 2, riskLevel: 'medium', violations: 0 }
   ];
-
-  ngOnInit(): void {
-    // Fetch real stats
-  }
 
   getRiskClass(level: string): string {
     switch (level) {

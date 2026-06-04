@@ -127,9 +127,9 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
             </select>
           </label>
           <button (click)="connect()">Mit AI-Snake verbinden</button>
-          <button class="ghost" (click)="disconnect()" [disabled]="!(svc.active$ | async)">Trennen</button>
+          <button class="ghost" (click)="disconnect()" [disabled]="(svc.active$ | async) !== true">Trennen</button>
         </div>
-      } @else if (!(svc.active$ | async)) {
+      } @else if ((svc.active$ | async) === false) {
         <div class="connect">
           <div class="muted">Nicht verbunden. Nutze den Tab "Login".</div>
           <button (click)="setTab('login')">Zum Login</button>

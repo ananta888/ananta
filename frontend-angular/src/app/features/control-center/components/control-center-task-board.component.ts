@@ -25,7 +25,7 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
         <p *ngIf="!byStatus(col).length" class="muted">Keine Eintraege</p>
       </section>
     </div>
-    <p *ngIf="!(tasks.length) && !(state.loading$ | async)" class="muted">Keine Tasks im ausgewaehlten Projekt.</p>
+    <p *ngIf="!(tasks.length) && (state.loading$ | async) === false" class="muted">Keine Tasks im ausgewaehlten Projekt.</p>
   `,
   styles: [`
     .board{display:grid; grid-template-columns: repeat(4,minmax(180px,1fr)); gap:10px;}

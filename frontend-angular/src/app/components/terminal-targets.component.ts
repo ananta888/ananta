@@ -4,9 +4,7 @@ import {
   Component,
   EventEmitter,
   Input,
-  OnChanges,
   Output,
-  SimpleChanges,
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -104,7 +102,7 @@ import { TerminalTarget, TerminalApiService } from '../services/terminal-api.ser
     </div>
   `,
 })
-export class TerminalTargetsComponent implements OnChanges {
+export class TerminalTargetsComponent {
   @Input() targets: TerminalTarget[] = [];
   @Input() baseUrl = '';
   @Input() token?: string;
@@ -121,8 +119,6 @@ export class TerminalTargetsComponent implements OnChanges {
   get highRiskTargets(): TerminalTarget[] {
     return (this.targets || []).filter(t => this.isHighRisk(t));
   }
-
-  ngOnChanges(changes: SimpleChanges): void {}
 
   isHighRisk(t: TerminalTarget): boolean {
     return t.target_type === 'hub' || t.target_type === 'hub_as_worker';
