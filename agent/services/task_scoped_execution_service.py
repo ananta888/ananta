@@ -1074,6 +1074,11 @@ class TaskScopedExecutionService:
         # Flatten resolved fields into the response so that API consumers that were
         # written against the old flat contract (command/backend/routing at top level)
         # continue to work alongside the new nested proposal structure.
+        routing_dims = self._routing_dimensions(
+            backend_used=resolved_backend,
+            model=None,
+            agent_cfg=cfg,
+        )
         return TaskScopedRouteResponse(data={
             **result_dict,
             "propose_strategy_meta": propose_strategy_meta,
@@ -1083,6 +1088,7 @@ class TaskScopedExecutionService:
                 "effective_backend": resolved_backend,
                 "task_kind": task_kind,
                 "goal_config_source": scoped_resolution.source,
+                **routing_dims,
             },
         })
 
