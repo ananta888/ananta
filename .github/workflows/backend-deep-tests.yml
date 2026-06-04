@@ -41,7 +41,139 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4, 5, 6]
+        include:
+          # ── Subdirectory-based shards ───────────────────────────────────────
+          - shard: operator-tui
+            paths: tests/operator_tui
+
+          - shard: client-surfaces
+            paths: tests/client_surfaces
+
+          - shard: heuristic-llm
+            paths: "tests/heuristic_runtime tests/llm_interceptor"
+
+          - shard: e2e-worker
+            paths: "tests/e2e tests/worker tests/smoke tests/cli tests/benchmarks"
+
+          # ── Thematic shards (top-level test files) ─────────────────────────
+          - shard: tui-shell-snake
+            # TUI panels, shell surface, splash screen, snake game tests
+            paths: >-
+              tests/test_operator_tui_shell.py
+              tests/test_tui_*.py
+              tests/test_splash_*.py
+              tests/test_render_terminal_logo.py
+              tests/test_snake_*.py
+
+          - shard: awf-repair
+            # AWF worker fixups, deterministic-repair pipeline, acceptance runners
+            paths: >-
+              tests/test_awf_*.py
+              tests/test_repair_*.py
+              tests/test_deterministic_repair_*.py
+              tests/test_os_repair_flows.py
+              tests/test_acceptance_*.py
+
+          - shard: planning-goals
+            # Planning service, auto-planner, goal lifecycle, round-trip flows
+            paths: >-
+              tests/test_planning_*.py
+              tests/test_auto_planner*.py
+              tests/test_goals.py
+              tests/test_goal_*.py
+              tests/test_round*.py
+              tests/test_scheduled*.py
+              tests/test_first_goal*.py
+
+          - shard: workers-hermes
+            # Worker adapters, Hermes integration, execution envelope, Ollama/SGPT
+            paths: >-
+              tests/test_worker_*.py
+              tests/test_hermes_*.py
+              tests/test_execution_*.py
+              tests/test_subworker*.py
+              tests/test_ollama*.py
+              tests/test_sgpt*.py
+
+          - shard: security-policy
+            # Security regressions, sandbox escapes, shell policy, trigger guards
+            paths: >-
+              tests/test_security_*.py
+              tests/test_sandbox_*.py
+              tests/test_shell_*.py
+              tests/test_adversarial*.py
+              tests/test_trigger_*.py
+              tests/test_tool_guardrails.py
+              tests/test_no_policy_bypass.py
+              tests/test_no_implicit_context.py
+              tests/test_no_infinite_retry*.py
+              tests/test_no_sgpt*.py
+              tests/test_imap_security*.py
+
+          - shard: api-routes
+            # REST endpoints, route contracts, agent/task/knowledge/template APIs
+            paths: >-
+              tests/test_config_api.py
+              tests/test_evolution_api.py
+              tests/test_llm_benchmarks_api.py
+              tests/test_rendezvous_api.py
+              tests/test_snakes_chat_api.py
+              tests/test_knowledge_routes.py
+              tests/test_templates_api.py
+              tests/test_artifacts_route.py
+              tests/test_mcp_route.py
+              tests/test_api_*.py
+              tests/test_agent_*.py
+              tests/test_task_endpoints.py
+              tests/test_task_orchestration_api.py
+              tests/test_prompt_trace_api.py
+              tests/test_context_scoped_config_api.py
+              tests/test_goal_scoped_config_api.py
+              tests/test_terminal_routes.py
+              tests/test_strategy_mode_api.py
+              tests/test_sources_api.py
+              tests/test_share_sessions_api.py
+
+          - shard: memory-rag-context
+            # Memory stores, RAG pipeline, retrieval, wiki, CodeCompass, context bundles
+            paths: >-
+              tests/test_memory_*.py
+              tests/test_rag_*.py
+              tests/test_retrieval_*.py
+              tests/test_wiki_*.py
+              tests/test_codecompass_*.py
+              tests/test_context_*.py
+              tests/test_source_*.py
+              tests/test_sources_*.py
+              tests/test_ingestion_service.py
+
+          - shard: infra-contracts
+            # Tasks, LLM layer, chat, artifacts, providers, plugins, IMAP,
+            # workflows, browser, domain, blueprints, audit, CLI tooling
+            paths: >-
+              tests/test_task_*.py
+              tests/test_llm_*.py
+              tests/test_chat_*.py
+              tests/test_artifact_*.py
+              tests/test_provider*.py
+              tests/test_plugin*.py
+              tests/test_imap_*.py
+              tests/test_workflow_*.py
+              tests/test_browser_*.py
+              tests/test_domain_*.py
+              tests/test_blueprint*.py
+              tests/test_heuristic_*.py
+              tests/test_state_*.py
+              tests/test_event_bus.py
+              tests/test_commit_*.py
+              tests/test_propose_*.py
+              tests/test_audit_*.py
+              tests/test_feature_flags.py
+              tests/test_cli_*.py
+              tests/test_tool_*.py
+              tests/test_adapter_*.py
+              tests/test_reason_codes.py
+              tests/test_utils_*.py
 
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
@@ -54,16 +186,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
-          pip install pytest-split pytest-timeout
+          pip install pytest-timeout
 
-      - name: Run backend deep tests shard ${{ matrix.group }}
+      - name: Run deep tests – ${{ matrix.shard }}
         run: |
-          python -m pytest tests \
+          python -m pytest ${{ matrix.paths }} \
             -vv \
             --durations=25 \
             --timeout=180 \
-            --splits 6 \
-            --group ${{ matrix.group }} \
             -m "not live_compose" \
             -k "not test_task_evolution_apply_endpoint_is_explicitly_policy_gated and not test_task_evolution_validate_and_apply_fail_closed_for_analyze_only_evolver and not test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata" \
             --ignore-glob=tests/**/fixtures/** \
