@@ -688,7 +688,10 @@ class TaskScopedExecutionService:
             goal_id=str(task.get("goal_id") or "").strip() or None,
             task_id=tid,
         )
-        cfg = dict(scoped_resolution.config or {})
+        base_cfg = {}
+        if has_app_context():
+            base_cfg = dict((current_app.config.get("AGENT_CONFIG") or {}))
+        cfg = {**base_cfg, **dict(scoped_resolution.config or {})}
         base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
         source_catalog = self._build_source_catalog_from_execution_context(
             tid=tid,

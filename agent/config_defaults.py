@@ -127,7 +127,7 @@ def build_default_agent_config() -> dict:
             "circuit_breaker_open_seconds": 30,
         },
         "autopilot": {
-            "async_dispatch_enabled": True,
+            "async_dispatch_enabled": False,
         },
         "autopilot_worker_policy": {
             "enabled": False,
