@@ -686,6 +686,9 @@ class AutonomousLoopManager:
         if not has_app_context() and self._app is not None:
             with self._app.app_context():
                 return self.tick_once()
+        # Manual/synchronous tick should not inherit a previously requested stop signal.
+        if self._stop_event.is_set():
+            self._stop_event.clear()
         goal_key = str(self.goal or "").strip() or "__none__"
         stale_after = 300.0
         now = time.time()

@@ -691,7 +691,9 @@ class TaskScopedExecutionService:
         base_cfg = {}
         if has_app_context():
             base_cfg = dict((current_app.config.get("AGENT_CONFIG") or {}))
-        cfg = {**base_cfg, **dict(scoped_resolution.config or {})}
+        scoped_cfg = dict(scoped_resolution.config or {})
+        # Keep explicit scoped overrides, but do not erase valid app-level defaults with None values.
+        cfg = {**base_cfg, **{k: v for k, v in scoped_cfg.items() if v is not None}}
         base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
         source_catalog = self._build_source_catalog_from_execution_context(
             tid=tid,
@@ -750,7 +752,8 @@ class TaskScopedExecutionService:
                     cli_runner=cli_runner,
                     cfg=cfg,
                 )
-            if task_kind in legacy_cli_task_kinds and has_app_context():
+            legacy_enabled = bool(((cfg.get("task_scoped_execution") or {}).get("allow_legacy_single_step_path", False)))
+            if legacy_enabled and task_kind in legacy_cli_task_kinds and has_app_context():
                 return self._propose_single_task_step(
                     tid=tid,
                     task=task,
