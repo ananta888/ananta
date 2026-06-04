@@ -225,8 +225,10 @@ def render_header_logo(
 
     if decision.selected == "ansi":
         metrics_backend = "ansi"
-        # Split text fallback between halfblock and ASCII.
-        backend_name = select_graphics_backend(env=env, capabilities=detect_terminal_graphics_capabilities(env))
+        # Strip the forced renderer override so select_graphics_backend picks a
+        # real text-mode backend rather than echoing the (now-unavailable) renderer.
+        _ansi_env = {k: v for k, v in env.items() if k not in ("ANANTA_TUI_LOGO_RENDERER", "ANANTA_TUI_GRAPHICS")}
+        backend_name = select_graphics_backend(env=_ansi_env, capabilities=detect_terminal_graphics_capabilities(_ansi_env))
         if backend_name == "ascii":
             part_start = time.perf_counter()
             frame = AsciiRenderer().render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
@@ -241,6 +243,10 @@ def render_header_logo(
             output_ms += (time.perf_counter() - started) * 1000.0
             _record_metrics(env=env, backend="halfblock", render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
             return list(frame.text_lines)
+        # All text renderers exhausted; guarantee non-None in ANSI-fallback mode.
+        output_ms += (time.perf_counter() - started) * 1000.0
+        _record_metrics(env=env, backend="ansi-fallback", render_ms=render_ms, encode_ms=0.0, output_ms=output_ms, frame_width=0, frame_height=0)
+        return [""]
 
     lines = render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
     output_ms += (time.perf_counter() - started) * 1000.0
