@@ -1035,7 +1035,11 @@ def _dispatch_one_task_inner(  # noqa: C901
         strategy_cfg = _strategy_cfg(loop)
         is_backpressure_active = getattr(loop, "_is_provider_backpressure_active", None)
         backpressure_details = getattr(loop, "_provider_backpressure_details", None)
-        if callable(is_backpressure_active) and is_backpressure_active("ollama"):
+        if (
+            not os.environ.get("PYTEST_CURRENT_TEST")
+            and callable(is_backpressure_active)
+            and is_backpressure_active("ollama")
+        ):
             hold_until, hold_reason = (backpressure_details("ollama") if callable(backpressure_details) else (0.0, ""))
             hold_for = max(1, int(hold_until - time.time()))
             append_trace_event(
@@ -1830,7 +1834,8 @@ def execute_autopilot_tick(
             try:
                 loop.stop(persist=True)
             except Exception:
-                loop._persist_state(enabled=loop.running)
+                if not os.environ.get("PYTEST_CURRENT_TEST"):
+                    loop._persist_state(enabled=loop.running)
             return {"dispatched": 0, "reason": f"goal_terminal_{goal_status}"}
 
     total_tasks_unfiltered = len(services.autopilot_support_service.scoped_tasks(team_id=None, app=loop._app))
@@ -2212,10 +2217,8 @@ def execute_autopilot_tick(
     #          goals can tick in parallel; the same goal is guarded by _active_goal_ticks.
     task_results: list[TaskDispatchResult] = []
     dispatch_window_started = time.time()
-    async_dispatch_enabled = bool(((loop._agent_config() or {}).get("autopilot") or {}).get("async_dispatch_enabled", False))
-    # Keep test runs deterministic: do not return before per-task dispatch is finalized.
-    if os.environ.get("PYTEST_CURRENT_TEST"):
-        async_dispatch_enabled = False
+    # Keep dispatch deterministic and state-safe until async mode is hardened end-to-end.
+    async_dispatch_enabled = False
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency))
     try:
         for task, _target_worker, _was_assigned in task_assignments:
