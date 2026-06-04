@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ContextAccessPolicyApiService } from '../../services/context-access-policy-api.service';
 
@@ -51,7 +51,7 @@ import { ContextAccessPolicyApiService } from '../../services/context-access-pol
     .btn-xs { font-size: 0.75rem; padding: 0.1rem 0.3rem; }
   `]
 })
-export class PolicyViolationLogComponent implements OnInit {
+export class PolicyViolationLogComponent {
   private api = inject(ContextAccessPolicyApiService);
 
   @Input() baseUrl = '';
@@ -73,11 +73,6 @@ export class PolicyViolationLogComponent implements OnInit {
       reason_code: 'external_worker_blocked' 
     }
   ];
-
-  ngOnInit(): void {
-    // In real scenario, fetch from API
-    // this.api.getViolations(this.baseUrl, this.projectId).subscribe(v => this.violations = v);
-  }
 
   viewDetails(v: any): void {
     alert(`Verstoß-Details:\nQuelle: ${v.source_ref}\nGrund: ${v.reason_code}\nZiel: ${v.worker_kind}\nLLM Scope: ${v.model_scope}`);
