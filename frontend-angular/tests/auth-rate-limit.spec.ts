@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, TEST_LOGIN_IP, ensureLoginAttemptsCleared, getAccessToken } from './utils';
+import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, TEST_LOGIN_IP, ensureLoginAttemptsCleared, getAccessToken, resetUserAuthStateViaApi } from './utils';
 
 test.describe('Auth Rate Limit', () => {
   test.beforeEach(async () => {
     await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
+    await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
   });
 
   test('too many attempts returns rate limit error', async ({ request }) => {
@@ -31,6 +32,7 @@ test.describe('Auth Rate Limit', () => {
       data: TEST_LOGIN_IP ? { ip: TEST_LOGIN_IP, clear_ban: true } : { clear_ban: true }
     });
     expect(resetRes.ok()).toBeTruthy();
+    await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
     const cleanupLogin = await request.post(`${HUB_URL}/login`, {
       data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD }
     });

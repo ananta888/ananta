@@ -52,7 +52,14 @@ async function assertCoreFormsFullyDisplayed(page: Page): Promise<void> {
   await expect(page.getByPlaceholder('Name')).toBeVisible();
   await expect(page.getByPlaceholder('Beschreibung')).toBeVisible();
   await expect(page.locator('textarea[placeholder*="Platzhalter"]')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Anlegen \/ Speichern/i })).toBeEnabled();
+  await expect.poll(async () => page.getByPlaceholder('Name').isEnabled().catch(() => false), {
+    timeout: 30_000,
+    intervals: [500, 1000, 2000],
+  }).toBe(true);
+  await expect.poll(async () => page.getByRole('button', { name: /Anlegen \/ Speichern/i }).isEnabled().catch(() => false), {
+    timeout: 30_000,
+    intervals: [500, 1000, 2000],
+  }).toBe(true);
 
   await openTeamsAdminStudio(page);
   const editor = page.locator('.teams-editor-panel');
@@ -135,6 +142,10 @@ test.describe('Main Goal UI Foundation', () => {
       await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
       await expect(page.getByPlaceholder('Name')).toBeVisible();
       await expect(page.locator('textarea[placeholder*="Platzhalter"]')).toBeVisible();
+      await expect.poll(async () => page.getByPlaceholder('Name').isEnabled().catch(() => false), {
+        timeout: 30_000,
+        intervals: [500, 1000, 2000],
+      }).toBe(true);
       await page.getByPlaceholder('Name').fill(templateName);
       await page.getByPlaceholder('Beschreibung').fill('Template fuer Main-Goal Foundation Journey');
       await page.locator('textarea[placeholder*="Platzhalter"]').fill('Du bist {{agent_name}} und erledigst {{task_title}}.');

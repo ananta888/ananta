@@ -687,6 +687,7 @@ export async function loginFast(
   password = ADMIN_PASSWORD
 ) {
   attachBrowserErrorGuards(page);
+  try { await ensureLoginAttemptsCleared(TEST_LOGIN_IP); } catch {}
   await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
   const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
@@ -761,6 +762,7 @@ export async function loginFast(
 
   const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const appNav = page.locator('.app-nav');
+  const banner = page.getByRole('banner');
   const loginForm = page.locator('input[name="username"]');
 
   await expect.poll(async () => {
@@ -772,6 +774,13 @@ export async function loginFast(
     if (/\/login(?:[?#]|$)/.test(url) || hasLogin) return 'login';
     return 'pending';
   }, { timeout: 30000, intervals: [500, 1000, 2000] }).toBe('authenticated');
+
+  if (username === ADMIN_USERNAME) {
+    await expect.poll(async () => {
+      const text = await banner.textContent().catch(() => '');
+      return String(text || '');
+    }, { timeout: 30000, intervals: [500, 1000, 2000] }).toMatch(/\(admin\)/i);
+  }
 }
 
 const RETRYABLE_API_STATUSES = new Set([408, 409, 423, 425, 429, 500, 502, 503, 504]);

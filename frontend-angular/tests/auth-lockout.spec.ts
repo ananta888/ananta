@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, createUserAsAdmin, deleteUserAsAdmin, prepareLoginPage } from './utils';
+import { HUB_URL, TEST_LOGIN_IP, createUserAsAdmin, deleteUserAsAdmin, ensureLoginAttemptsCleared, prepareLoginPage } from './utils';
 
 test.describe('Auth Lockout', () => {
   test('locked account shows error message', async ({ page, request }) => {
     const username = `lockout_${Date.now()}`;
     const validPassword = 'LockoutUser1!A';
     const wrongPassword = 'WrongPassword1!A';
+    await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
     try {
       await createUserAsAdmin(username, validPassword);
     } catch (err: any) {

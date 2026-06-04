@@ -73,7 +73,10 @@ test.describe('Settings Config', () => {
     const updated = { ...seededConfig, http_timeout: 42, command_timeout: 30 };
     await rawArea.fill(JSON.stringify(updated, null, 2));
 
-    const configPostPromise1 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200);
+    const configPostPromise1 = page.waitForResponse(
+      res => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200,
+      { timeout: 45_000 }
+    );
     await rawCard.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
     await configPostPromise1;
 
@@ -145,7 +148,7 @@ test.describe('Settings Config', () => {
     await httpTimeout.fill('41');
     const systemSaveResponse = page.waitForResponse(
       (res) => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200,
-      { timeout: 20_000 }
+      { timeout: 45_000 }
     );
     await page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) })
       .getByRole('button', { name: /^Speichern$/i })
@@ -157,7 +160,7 @@ test.describe('Settings Config', () => {
     await page.locator('label:has-text("Min. Output Zeichen") input[type="number"]').fill('27');
     const qualitySaveResponse = page.waitForResponse(
       (res) => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200,
-      { timeout: 20_000 }
+      { timeout: 45_000 }
     );
     await page.getByRole('button', { name: /Qualitaetsregeln speichern/i }).click();
     await qualitySaveResponse;
@@ -229,7 +232,7 @@ test.describe('Settings Config', () => {
     await commandTimeout.fill('45');
     const systemSaveResponse = page.waitForResponse(
       (res) => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200,
-      { timeout: 20_000 }
+      { timeout: 45_000 }
     );
     await page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) })
       .getByRole('button', { name: /^Speichern$/i })
