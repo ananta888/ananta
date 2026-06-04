@@ -1231,6 +1231,8 @@ def _call_llm(
     max_output_tokens: int | None = None,
     tools: list | None = None,
     tool_choice: Any | None = None,
+    max_retries: int | None = None,
+    backoff_factor: float | None = None,
     trace_goal_id: Optional[str] = None,
     trace_task_id: Optional[str] = None,
     idempotency_key: Optional[str] = None,
@@ -1243,8 +1245,14 @@ def _call_llm(
         logging.warning("Abbruch: Rate-Limit für provider=%s überschritten.", provider)
         return ""
 
-    max_retries = getattr(settings, "retry_count", 3)
-    backoff_factor = getattr(settings, "retry_backoff", 1.5)
+    if max_retries is None:
+        max_retries = int(getattr(settings, "retry_count", 3))
+    else:
+        max_retries = int(max_retries)
+    if backoff_factor is None:
+        backoff_factor = float(getattr(settings, "retry_backoff", 1.5))
+    else:
+        backoff_factor = float(backoff_factor)
 
     # Sicherstellen, dass wir einen Key haben
     if not idempotency_key:

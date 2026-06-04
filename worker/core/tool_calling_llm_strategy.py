@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult, ExecutableProposal
@@ -49,7 +50,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         from agent.config import settings
-        _eff_cfg = dict(context.effective_config or {})
+        _eff_cfg = dict(context.effective_config) if isinstance(context.effective_config, Mapping) else {}
         provider = (str(_eff_cfg.get("default_provider") or "") or settings.default_provider or "lmstudio").strip().lower()
         pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
 
@@ -78,7 +79,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
 
         try:
             timeout_seconds = resolve_propose_llm_timeout_seconds(
-                effective_config=context.effective_config,
+                effective_config=_eff_cfg,
                 task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
             )
             llm_response = ModelInvocationService.invoke_with_tools(
@@ -161,19 +162,22 @@ class ToolCallingLLMStrategy(ProposeStrategy):
 
         # Validate tool calls: each must have a name
         valid_tcs = []
+        saw_missing_name = False
         for tc in tool_calls:
             if not isinstance(tc, dict):
                 continue
             tc_name = str(tc.get("name") or "").strip()
             if not tc_name:
+                saw_missing_name = True
                 continue
             if allowed_tool_names and tc_name not in allowed_tool_names:
                 continue
             valid_tcs.append(tc)
         if not valid_tcs:
+            reason = "tool_calls_missing_names" if saw_missing_name else "tool_calls_invalid_or_missing_names"
             return ProposeStrategyResult.declined(
                 "tool_calling_llm",
-                reason="tool_calls_invalid_or_missing_names",
+                reason=reason,
                 metadata={"llm_call_profile": llm_profile} if llm_profile else None,
             )
 

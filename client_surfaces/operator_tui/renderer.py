@@ -2563,6 +2563,8 @@ def _hints_line(state: OperatorState, width: int) -> str:
             f"[{display_for_action('tab_next', 'Ctrl+Tab')}] Tab→  "
         )
         hints = tab_hints + hints
+    if "Commands:" not in hints:
+        hints = f"Commands: :refresh :section <id>  {hints}"
     return _clip(hints, width)
 
 

@@ -1,0 +1,48 @@
+{
+  "heuristic_id": "snake_eclipse_editor_lurk_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "snake_eclipse",
+  "description": "Follow cursor in Eclipse editor zone. Default motion direction follows natural left-to-right editing flow.",
+  "deterministic": true,
+  "safety_class": "ui_motion_only",
+  "capabilities": ["read_local_context"],
+  "ttl_policy": {
+    "default_seconds": 7.0,
+    "min_seconds": 5.0,
+    "max_seconds": 10.0
+  },
+  "runtime": {
+    "mode": "python_strategy",
+    "python_strategy": {
+      "module": "agent.heuristics.strategies.snake_eclipse.editor_lurk",
+      "class": "EclipseEditorLurkStrategy",
+      "expected_inputs": ["active_panel"],
+      "expected_outputs": ["follow", "fallback"]
+    },
+    "triggers": [
+      {"active_panel_is": "editor"},
+      {"active_panel_is": "source"},
+      {"ai_status_is": "offline"}
+    ],
+    "action": {
+      "kind": "follow_with_distance",
+      "distance": 4,
+      "fallback": "lurk_near"
+    }
+  },
+  "inputs": ["active_panel", "cursor_position"],
+  "outputs": ["motion_vector"],
+  "parameters": {
+    "default_dx": 1,
+    "default_dy": 0
+  },
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic — Eclipse editor zone"}
+  ]
+}

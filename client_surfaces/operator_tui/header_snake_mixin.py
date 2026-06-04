@@ -85,7 +85,7 @@ class HeaderSnakeMixin:
         board_w, board_h = 18, 6
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
-        _snake_mode_on = os.environ.get("ANANTA_TUI_SNAKE_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+        _snake_mode_on = os.environ.get("ANANTA_TUI_SNAKE_MODE", "0").strip().lower() not in {"0", "false", "no", "off"}
         _share_only_nav_e2e = os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV", "0").strip().lower() in {"1", "true", "yes", "on"}
         _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() not in {"0", "false", "no", "off"}
         game: dict[str, object] = {

@@ -1,0 +1,44 @@
+{
+  "heuristic_id": "snake_eclipse_package_explorer_default",
+  "version": "1.0.0",
+  "status": "active",
+  "domain": "snake_eclipse",
+  "description": "Lurk near selected package or file in Eclipse Package Explorer. Stays close to tree selection rather than following editor cursor.",
+  "deterministic": true,
+  "safety_class": "ui_motion_only",
+  "capabilities": ["read_local_context", "read_artifact_refs"],
+  "ttl_policy": {
+    "default_seconds": 7.0,
+    "min_seconds": 5.0,
+    "max_seconds": 10.0
+  },
+  "runtime": {
+    "mode": "python_strategy",
+    "python_strategy": {
+      "module": "agent.heuristics.strategies.snake_eclipse.package_explorer",
+      "class": "EclipsePackageExplorerStrategy",
+      "expected_inputs": ["active_panel", "selected_artifacts"],
+      "expected_outputs": ["lurk", "fallback"]
+    },
+    "triggers": [
+      {"active_panel_is": "package_explorer"},
+      {"active_panel_is": "project_explorer"},
+      {"active_panel_is": "navigator"}
+    ],
+    "action": {
+      "kind": "lurk_near",
+      "fallback": "follow_with_distance"
+    }
+  },
+  "inputs": ["active_panel", "selected_artifacts"],
+  "outputs": ["motion_vector"],
+  "parameters": {},
+  "provenance": {
+    "created_by": "bootstrap",
+    "normalized_from": "json",
+    "schema_version": "heuristic_definition.v1"
+  },
+  "changelog": [
+    {"version": "1.0.0", "date": "2026-05-27", "note": "Bootstrap heuristic — Eclipse package explorer"}
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "owner": "fixture",
+  "track": "operator-tui-three-way-flex-diff-ai-mode",
+  "purpose": "Deterministic planning fixture used by planning-track contract tests",
+  "goal": "Deliver operator TUI three-way flex diff AI mode safely",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Core implementation",
+      "task_ids": ["T01", "T02", "T03"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Model interaction flow",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": ["Flow is documented and testable."]
+    },
+    {
+      "id": "T02",
+      "title": "Render three-way diff UI",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": ["UI shows base/current/target panes and navigation."]
+    },
+    {
+      "id": "T03",
+      "title": "Validate AI mode behavior",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "acceptance_criteria": ["Automated tests cover happy path and fallback."]
+    }
+  ],
+  "critical_path_tasks": ["T01", "T02", "T03"],
+  "tasks_status_summary": {
+    "total": 3,
+    "by_status": {
+      "todo": 3,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P1": 2,
+      "P2": 1
+    },
+    "by_risk": {
+      "medium": 2,
+      "high": 1
+    },
+    "critical_path": {
+      "total": 3,
+      "done": 0,
+      "remaining": 3
+    },
+    "milestones": {
+      "total": 1,
+      "todo": 1,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 3,
+    "by_type": {
+      "analysis": 1,
+      "coding": 1,
+      "test": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 3,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "end_summaries": [
+    {
+      "summary_id": "S01",
+      "title": "Delivery handoff",
+      "items": ["Diff mode implemented", "AI mode validated"]
+    }
+  ]
+}

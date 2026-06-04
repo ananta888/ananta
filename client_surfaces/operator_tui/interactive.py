@@ -1932,6 +1932,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self._set_state(self.state.with_updates(header_logo_game=game))
 
     def _open_audit_viewer_for_selected(self) -> bool:
+        game = dict(self.state.header_logo_game or {})
+        if bool(game.get("ai_snake_config_open")):
+            if self.state.focus is not FocusPane.CONTENT:
+                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))
+            if not self._ai_snake_config_combo_active(game):
+                self._toggle_ai_snake_config_selected()
+            return True
         selected = self._selected_audit_entry()
         if selected is None:
             return False
