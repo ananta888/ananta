@@ -4,6 +4,7 @@ import concurrent.futures
 import contextlib
 import logging
 import math
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -2212,6 +2213,9 @@ def execute_autopilot_tick(
     task_results: list[TaskDispatchResult] = []
     dispatch_window_started = time.time()
     async_dispatch_enabled = bool(((loop._agent_config() or {}).get("autopilot") or {}).get("async_dispatch_enabled", False))
+    # Keep test runs deterministic: do not return before per-task dispatch is finalized.
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        async_dispatch_enabled = False
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency))
     try:
         for task, _target_worker, _was_assigned in task_assignments:

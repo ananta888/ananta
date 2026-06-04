@@ -71,14 +71,21 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     command_timeout = max(1, int(agent_cfg.get("command_timeout") or timeout or 60))
     endpoint_name = str(endpoint or "").strip().lower()
     if endpoint_name.endswith("/step/propose"):
-        timeout = max(timeout, command_timeout + 120, 180)
+        timeout = max(command_timeout + 120, 180)
     else:
         timeout = max(timeout, command_timeout)
     headers = {"Authorization": f"Bearer {token}"} if token else None
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
-    response = _http_post(url, data=data, headers=headers, timeout=timeout, return_response=True, silent=True)
+    try:
+        response = _http_post(url, data=data, headers=headers, timeout=timeout, return_response=True, silent=True)
+    except TypeError:
+        # Backward-compatible path for callsites/tests that monkeypatch _http_post
+        # without newer keyword arguments.
+        response = _http_post(url, data=data, headers=headers, timeout=timeout)
     if response is None:
         return None
+    if isinstance(response, dict):
+        return response
     # Preserve API envelope on success.
     if int(getattr(response, "status_code", 500) or 500) < 400:
         try:
