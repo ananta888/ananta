@@ -321,9 +321,9 @@ class AutonomousLoopManager:
             provider_urls = (app_cfg.get("PROVIDER_URLS", {}) or {})
             timeout_cfg = agent_cfg.get("provider_observer_timeout_seconds", 3)
             try:
-                timeout_seconds = max(1.0, min(10.0, float(timeout_cfg) * 2.0 + 1.0))
+                timeout_seconds = max(1.0, min(10.0, float(timeout_cfg)))
             except Exception:
-                timeout_seconds = 7.0
+                timeout_seconds = 3.0
             pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
             try:
                 future = pool.submit(
