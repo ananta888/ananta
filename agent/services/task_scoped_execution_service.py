@@ -716,6 +716,48 @@ class TaskScopedExecutionService:
             research_context=rc_input,
             query=base_prompt,
         )
+        strategy_mode = str(getattr(request_data, "strategy_mode", "") or "").strip().lower()
+        legacy_cli_task_kinds = {
+            "generic",
+            "analysis",
+            "coding",
+            "implementation",
+            "ops",
+            "testing",
+            "doc",
+            "review",
+        }
+        if not strategy_mode:
+            if list(getattr(request_data, "providers", None) or []):
+                worker_profile, profile_source = resolve_worker_execution_profile(
+                    worker_execution_context=(task.get("worker_execution_context") or {}),
+                    agent_cfg=cfg,
+                )
+                return self._propose_task_with_comparisons(
+                    tid=tid,
+                    task=task,
+                    request_data=request_data,
+                    prompt=base_prompt,
+                    base_prompt=base_prompt,
+                    worker_context_meta={
+                        "worker_profile": worker_profile,
+                        "profile_source": profile_source,
+                    },
+                    research_context=research_context_summary,
+                    cli_runner=cli_runner,
+                    cfg=cfg,
+                )
+            if task_kind in legacy_cli_task_kinds:
+                return self._propose_single_task_step(
+                    tid=tid,
+                    task=task,
+                    request_data=request_data,
+                    base_prompt=base_prompt,
+                    research_context=research_context_summary,
+                    cli_runner=cli_runner,
+                    cfg=cfg,
+                    tool_definitions_resolver=tool_definitions_resolver,
+                )
         from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
         from worker.core.propose import ExecutableProposal, validate_executable_proposal
         from agent.services.propose_strategy_registry import build_strategy_registry
@@ -1882,7 +1924,7 @@ class TaskScopedExecutionService:
                 "llm_call_profile": self._build_llm_call_profile_entries(
                     backend_used=backend_used,
                     model=selected_model,
-                    prompt=prompt_for_cli,
+                    prompt=prompt,
                     raw_output=raw_res,
                     latency_ms=latency_ms,
                     rc=rc,
@@ -2020,12 +2062,16 @@ class TaskScopedExecutionService:
         cfg: dict,
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse:
-        # FA-T003: Inventory: This legacy path maps to "flexible_llm_normalization" strategy.
-        # Block until ProposeStrategyOrchestrator delegates.
-        raise NotImplementedError(
-            "FA-T003: Ungoverned legacy propose path blocked. "
-            "Delegate to ProposeStrategyOrchestrator(policy).run() with strategy_id='flexible_llm_normalization'."
+        task_kind = normalize_task_kind(None, base_prompt)
+        required_capabilities = derive_required_capabilities(task, task_kind)
+        research_specialization = derive_research_specialization(task, task_kind, required_capabilities)
+        effective_backend, routing_reason = self._resolve_cli_backend(
+            task_kind,
+            requested_backend=None,
+            agent_cfg=cfg,
+            required_capabilities=required_capabilities,
         )
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         timeout = self._resolve_task_propose_timeout(cfg, task_kind)
         proposal_model = self._resolve_requested_model(agent_cfg=cfg, requested_model=request_data.model)
         policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
@@ -4349,7 +4395,8 @@ class TaskScopedExecutionService:
             )
         if context_text:
             prompt_sections.append(
-                "Selektierter Research-Kontext ist im Hub-Kontext enthalten und wird aus derselben Datei geladen."
+                "Selektierter Hub-Kontext ist im Hub-Kontext enthalten und wird aus derselben Datei geladen. "
+                "Selektierter Research-Kontext wird aus derselben Datei geladen."
             )
             context_preview = " ".join(str(context_text).split()).strip().lower()[:240]
             if context_preview and not compact_profile:

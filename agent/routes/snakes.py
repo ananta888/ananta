@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import secrets
 import threading
 import time
@@ -25,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 import jwt
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, has_app_context, jsonify, request
 
 from agent.config import settings
 from agent.llm_integration import generate_text
@@ -67,7 +68,8 @@ _SNAKE_CHAT_PROMPT = (
 
 def _background_threads_disabled() -> bool:
     return bool(
-        str(getattr(settings, "role", "")).strip().lower() == "test"
+        (has_app_context() and bool(getattr(current_app, "testing", False)))
+        or str(getattr(settings, "role", "")).strip().lower() == "test"
         or os.environ.get("PYTEST_CURRENT_TEST")
         or str(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS") or "").strip().lower() in {"1", "true", "yes", "on"}
     )

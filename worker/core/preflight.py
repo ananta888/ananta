@@ -100,12 +100,6 @@ class PreflightGate:
 
     def check_provider(self, envelope: ExecutionEnvelope, provider: str, context_blocks: list[dict[str, Any]] | None = None) -> PreflightResult:
         """Called before any model call. Fail-closed: unknown provider → blocked."""
-        if envelope.selected_worker_runtime is None:
-            return PreflightResult(
-                decision=PreflightDecision.blocked,
-                reason_code=REASON_INVALID_REQUEST,
-                detail="selected_worker_runtime is required for provider calls",
-            )
         if not envelope.model_policy.is_provider_allowed(provider):
             return PreflightResult(
                 decision=PreflightDecision.blocked,
@@ -115,6 +109,12 @@ class PreflightGate:
 
         # CAP-BE-T022: Context Access Policy check for LLM provider
         if envelope.context_access_policy and context_blocks:
+            if envelope.selected_worker_runtime is None:
+                return PreflightResult(
+                    decision=PreflightDecision.invalid_request,
+                    reason_code=REASON_INVALID_REQUEST,
+                    detail="selected_worker_runtime is required for Context Access Policy checks",
+                )
             try:
                 policy = self._ensure_policy(envelope.context_access_policy)
                 evaluator = ContextAccessPolicyEvaluator(policy)

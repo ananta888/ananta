@@ -1,4 +1,5 @@
 import os
+import json
 import types
 from pathlib import Path
 from typing import Any
@@ -308,6 +309,38 @@ def disable_planning_context_compactor_llm(monkeypatch):
         "agent.services.task_scoped_execution_service.get_planning_context_compactor_service",
         lambda: _NoopCompactor(),
     )
+
+
+@pytest.fixture(autouse=True)
+def ensure_state_ownership_matrix_file():
+    """Keep ownership-matrix tests deterministic in clean CI environments."""
+    matrix_path = Path("data/state_ownership_matrix.json")
+    matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    if not matrix_path.exists():
+        payload = {
+            "version": "state_ownership_matrix.v1",
+            "states": [
+                {"state_type": "goal", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub"]},
+                {"state_type": "plan", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub"]},
+                {"state_type": "task", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub"]},
+                {"state_type": "execution", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub", "worker"]},
+                {"state_type": "approval", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub"]},
+                {"state_type": "artifact", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub", "worker"]},
+                {
+                    "state_type": "audit",
+                    "owner": "hub",
+                    "server_owned": True,
+                    "mutable": False,
+                    "append_only": True,
+                    "allowed_writers": ["hub"],
+                },
+                {"state_type": "verification", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub", "worker"]},
+                {"state_type": "repair", "owner": "hub", "server_owned": True, "mutable": True, "allowed_writers": ["hub"]},
+                {"state_type": "client_ui_state", "owner": "client", "server_owned": False, "mutable": True, "allowed_writers": ["client"]},
+            ],
+        }
+        matrix_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
+    yield
 
 
 @pytest.fixture

@@ -51,6 +51,7 @@ def validate_blacklist_patterns(command: str, blacklist: list[str]) -> tuple[boo
 
 def validate_tokens(command: str, *, blacklist: list[str], is_powershell: bool) -> tuple[bool, str]:
     sensitive_patterns = [r"\.git/", r"secrets/", r"\.env", r"token\.json"]
+    dangerous_literals = {"reboot", "shutdown", "poweroff", "halt", "init"}
     for pattern in sensitive_patterns:
         if re.search(pattern, command, re.IGNORECASE):
             if not any(cmd in command.lower() for cmd in ["ls ", "cat ", "type ", "dir "]):
@@ -100,6 +101,8 @@ def validate_tokens(command: str, *, blacklist: list[str], is_powershell: bool) 
             clean_token = token.strip("'\"")
             if not clean_token:
                 continue
+            if clean_token.lower() in dangerous_literals:
+                return False, f"Gefaehrlicher Token erkannt: '{clean_token}'"
             for pattern in blacklist:
                 try:
                     if re.search(pattern, clean_token, re.IGNORECASE):
