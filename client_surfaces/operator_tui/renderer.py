@@ -1623,6 +1623,11 @@ def _chat_detail_lines(
         )
     if max_height is not None:
         available = max(0, int(max_height) - len(header_lines) - len(footer_lines))
+        min_messages = 2 if bool(game.get("chat_panel_open")) else 1
+        if available < min_messages and len(header_lines) > 2:
+            trim = min(len(header_lines) - 2, min_messages - available)
+            header_lines = header_lines[:-trim]
+            available = max(0, int(max_height) - len(header_lines) - len(footer_lines))
         message_lines = message_lines[-available:] if available else []
     lines = [*header_lines, *message_lines, *footer_lines]
     if max_height is not None and bottom_align and len(lines) < int(max_height):
@@ -2762,11 +2767,16 @@ def _overlay_fullscreen_snake(
             repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
             out[y] = _overlay_at_visible_col(out[y], x, repl)
 
-        message_effect_enabled = bool(game.get("snake_message_effect_enabled", True)) or (
+        style = str(snapshot.get("message_style") or "trail")
+        explicit_effect_flag = snapshot.get("snake_message_effect_enabled", game.get("snake_message_effect_enabled"))
+        if explicit_effect_flag is None:
+            message_effect_enabled = style != "ticker"
+        else:
+            message_effect_enabled = bool(explicit_effect_flag)
+        message_effect_enabled = message_effect_enabled or (
             os.environ.get("ANANTA_TUI_SNAKE_MESSAGE_EFFECT", "").strip().lower() in {"1", "true", "yes", "on"}
         )
         message = _display_message_for_snake(str(snapshot.get("message") or "")) if message_effect_enabled else ""
-        style = str(snapshot.get("message_style") or "trail")
         trail = snapshot.get("trail_path") if isinstance(snapshot.get("trail_path"), list) else []
         if message and trail:
             trail_window = int(snapshot.get("trail_window") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10"))

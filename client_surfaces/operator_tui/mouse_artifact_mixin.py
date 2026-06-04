@@ -436,7 +436,17 @@ class MouseArtifactMixin:
                 "end_x": int(x), "end_y": int(y),
                 "mode": mode,
             }
-            return bool(self._snake_mode_active(game))
+            if self._snake_mode_active(game):
+                return True
+            if (
+                target is not None
+                and target.pane == "content"
+                and self.state.focus is FocusPane.CONTENT
+                and not self._template_editor_active()
+                and not self._audit_viewer_active()
+            ):
+                return True
+            return False
         if event_type == "move" and buttons == 1 and bool(game.get("mouse_selection_active")):
             anchor_raw = game.get("mouse_selection_anchor")
             if isinstance(anchor_raw, (list, tuple)) and len(anchor_raw) == 2:
@@ -460,6 +470,24 @@ class MouseArtifactMixin:
                 game["selection_regions"] = []
                 game["_mouse_selection_click"] = True
                 return True
+            if dragged:
+                active_range = game.get("mouse_selection_range")
+                if isinstance(active_range, dict):
+                    sx = int(active_range.get("start_x", 0))
+                    sy = int(active_range.get("start_y", 0))
+                    ex = int(active_range.get("end_x", sx))
+                    ey = int(active_range.get("end_y", sy))
+                    x1, x2 = sorted((sx, ex))
+                    y1, y2 = sorted((sy, ey))
+                    cells: list[tuple[int, int]] = []
+                    for row in range(y1, y2 + 1):
+                        for col in range(x1, x2 + 1):
+                            cells.append((col, row))
+                    game["selection_anchor"] = (sx, sy)
+                    game["selection_cells"] = cells
+                    game["selection_regions"] = [
+                        (x1, y1, x2, y2)
+                    ]
             return dragged
         return False
 
