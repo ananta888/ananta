@@ -166,7 +166,7 @@ jobs:
               tests/e2e/test_tui_*.py
               tests/e2e/test_shared_tui_view.py
               tests/e2e/test_cli_golden_path_snapshots.py
-              tests/e2e/test_scripted_smoke.py
+              tests/e2e/test_tui_scripted_smoke.py
               tests/e2e/test_web_ui_screenshots.py
               tests/e2e/test_optional_video_capture.py
 
@@ -174,7 +174,7 @@ jobs:
             paths: >-
               tests/e2e/worker/test_*.py
               tests/e2e/test_command_chain_execution_full_flow.py
-              tests/e2e/test_controlled_loop_flow.py
+              tests/e2e/worker/test_controlled_loop_flow.py
               tests/e2e/test_standalone_worker_flow.py
               tests/e2e/test_parallel_worker_ollama_saturation.py
 
@@ -205,7 +205,7 @@ jobs:
               tests/worker/test_planner_step_graph.py
               tests/worker/test_planner_state_machine.py
               tests/worker/test_planner_replan.py
-              tests/worker/test_planner_scheduler.py
+              tests/worker/test_planner_step_scheduler.py
               tests/worker/test_planner_checkpoint_resume.py
               tests/worker/test_planner_observability.py
 
