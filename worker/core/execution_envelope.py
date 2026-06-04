@@ -39,6 +39,8 @@ KNOWN_CAPABILITY_CLASSES: frozenset[str] = frozenset({
     "subworker_spawn",
     "cron_schedule",
     "artifact_publish",
+    "skill_execute",
+    "skill_propose",
     "admin_repair",
     "deterministic_repair",
     "repair.detect",

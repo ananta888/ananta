@@ -192,7 +192,7 @@ class ContextScanner:
             source_type=block.source_type,
             origin_id=block.origin_id,
             provenance="injection_scanner_stub",
-            sensitivity=ContextSensitivity.internal,
+            sensitivity=ContextSensitivity.project_internal,
             token_estimate=10,
             content=stub_content,
             priority=block.priority,
