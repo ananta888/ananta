@@ -763,7 +763,6 @@ export async function loginFast(
 
   const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const appNav = page.locator('.app-nav');
-  const banner = page.getByRole('banner');
   const loginForm = page.locator('input[name="username"]');
 
   await expect.poll(async () => {
@@ -777,11 +776,23 @@ export async function loginFast(
   }, { timeout: 30000, intervals: [500, 1000, 2000] }).toBe('authenticated');
 
   if (username === ADMIN_USERNAME) {
-    await expect.poll(async () => {
-      const text = await banner.textContent().catch(() => '');
-      return String(text || '');
-    }, { timeout: 30000, intervals: [500, 1000, 2000] }).toMatch(/\(admin\)/i);
+    await assertAdminSession(request, String(accessToken));
   }
+}
+
+async function assertAdminSession(request: APIRequestContext, accessToken: string): Promise<void> {
+  const response = await request.get(`${HUB_URL}/me`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    timeout: Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '45000'),
+    failOnStatusCode: false,
+  });
+  expect(response.ok(), `/me returned ${response.status()}`).toBeTruthy();
+  const payload = await response.json().catch(() => ({})) as any;
+  const data = payload?.data || payload;
+  expect(String(data?.role || '').toLowerCase()).toBe('admin');
+  expect(String(data?.username || '').trim()).toBe(ADMIN_USERNAME);
 }
 
 const RETRYABLE_API_STATUSES = new Set([408, 409, 423, 425, 429, 500, 502, 503, 504]);
