@@ -87,9 +87,11 @@ class ResultMemoryService:
     def __init__(
         self,
         *,
+        memory_entry_repository: Any = None,
         memory_tree_ingestion_service: Any = None,
         auto_ingest_tree: bool = False,
     ) -> None:
+        self._memory_entry_repo = memory_entry_repository if memory_entry_repository is not None else memory_entry_repo
         self._memory_tree_ingestion_svc = memory_tree_ingestion_service
         self._auto_ingest_tree = auto_ingest_tree
 
@@ -306,7 +308,7 @@ class ResultMemoryService:
             "retrieval_tags": list(retrieval_tags or []),
         } if bool(memory_policy["create_followup_artifact"]) else None
 
-        entry = memory_entry_repo.save(
+        entry = self._memory_entry_repo.save(
             MemoryEntryDB(
                 task_id=task_id,
                 goal_id=goal_id,
@@ -427,7 +429,7 @@ class ResultMemoryService:
         )
 
 
-result_memory_service = ResultMemoryService()
+result_memory_service = ResultMemoryService(memory_entry_repository=memory_entry_repo)
 
 
 def get_result_memory_service() -> ResultMemoryService:
