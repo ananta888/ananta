@@ -1,0 +1,325 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "rag-query-translation-strategies-de-en",
+  "purpose": "Ergänzung zu todo.rag-config-layer-quotas-exclusions-query-normalization.json: Query-Übersetzung und bidirektionale Sprachstrategien DE↔EN für RAG, RepositoryMap und Snake-/Chat-Kontext sauber definieren.",
+  "goal": "Deutschsprachige Nutzerfragen sollen englische Code-Symbole, Dateinamen und Doku zuverlässig finden; englische Queries sollen optional deutschsprachige Doku, Kommentare oder Artefakte finden. Originalquery bleibt immer erhalten, Übersetzung ist nur Expansion, kein Ersatz.",
+  "related_track": "todos/todo.rag-config-layer-quotas-exclusions-query-normalization.json",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "translation_strategy_contract": {
+    "principles": [
+      "Originalquery darf niemals verworfen werden.",
+      "Übersetzung erzeugt zusätzliche Suchvarianten für Retrieval.",
+      "Default muss lokal/offline ohne LLM funktionieren.",
+      "LLM-Übersetzung ist optional und muss timeout-/fallback-sicher sein.",
+      "Keine Secrets, Artefakte oder langen Projektkontexte an einen Übersetzungs-LLM senden.",
+      "Strategien müssen deduplizierbar und testbar sein."
+    ],
+    "directions": [
+      "de_to_en",
+      "en_to_de",
+      "mixed_code_query",
+      "no_translation"
+    ],
+    "modes": [
+      "off",
+      "keyword",
+      "glossary",
+      "llm"
+    ],
+    "default_mode": "keyword",
+    "default_langs": "de,en"
+  },
+  "milestones": [
+    {
+      "id": "RTS-1",
+      "title": "Sprachstrategie und Konfigurationsvertrag definieren",
+      "task_ids": ["RTS-001", "RTS-002"],
+      "status": "todo"
+    },
+    {
+      "id": "RTS-2",
+      "title": "DE↔EN Query Expansion implementieren",
+      "task_ids": ["RTS-003", "RTS-004", "RTS-005"],
+      "status": "todo"
+    },
+    {
+      "id": "RTS-3",
+      "title": "Retrieval-Integration, Ranking und Tests absichern",
+      "task_ids": ["RTS-006", "RTS-007", "RTS-008"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "RTS-001",
+      "title": "Bidirektionalen Query-Translation-Vertrag dokumentieren",
+      "type": "architecture",
+      "milestone": "RTS-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/**/rag*.md",
+        "docs/**/repository-map*.md",
+        "todos/todo.rag-config-layer-quotas-exclusions-query-normalization.json"
+      ],
+      "acceptance_criteria": [
+        "Doku beschreibt DE→EN für deutschsprachige Userqueries auf englische Code-Symbole und Dateinamen.",
+        "Doku beschreibt EN→DE für englische Userqueries auf deutschsprachige Doku, Kommentare, Aufgaben und Artefakte.",
+        "Doku beschreibt mixed_code_query: deutsch/englisch gemischte Queries mit Code-Tokens, z.B. 'wie läuft task processing im autopilot_tick_engine'.",
+        "Doku stellt klar: Originalquery bleibt immer erhalten; Übersetzung ist zusätzliche Retrieval-Expansion.",
+        "Doku stellt klar: Query-Translation ist nicht dasselbe wie Antwortübersetzung.",
+        "Doku nennt Grenzen: Keyword-/Glossary-Strategien sind bewusst grob und dürfen keine fachliche Semantik erfinden."
+      ],
+      "test_expectations": [
+        "Docs-Review prüft, dass DE→EN und EN→DE beide explizit erwähnt sind.",
+        "Docs-Review prüft, dass Originalquery-never-drop als Muss-Regel enthalten ist."
+      ]
+    },
+    {
+      "id": "RTS-002",
+      "title": "Settings für Übersetzungsrichtungen und Strategien ergänzen",
+      "type": "backend-config",
+      "milestone": "RTS-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        ".env.example",
+        "tests/**/test_*settings*.py"
+      ],
+      "acceptance_criteria": [
+        "RAG_QUERY_NORMALIZE_LANG bleibt als Sprachliste nutzbar, Default 'de,en'.",
+        "RAG_QUERY_NORMALIZE_MODE unterstützt off, keyword, glossary und llm oder dokumentiert klar, wenn glossary intern als keyword-Variante umgesetzt wird.",
+        "Optionales Setting RAG_QUERY_TRANSLATION_DIRECTIONS erlaubt de_to_en,en_to_de,mixed_code_query oder all.",
+        "Default aktiviert mindestens de_to_en, weil Codebasis und Symbole überwiegend englisch sind.",
+        "en_to_de ist aktivierbar, aber darf englische Code-Queries nicht verschlechtern.",
+        "Alle Settings sind über .env und docker-compose.yml überschreibbar."
+      ],
+      "test_expectations": [
+        "Settings-Test prüft Default de,en und keyword.",
+        "Settings-Test prüft Override auf off.",
+        "Settings-Test prüft Override für beide Richtungen de_to_en,en_to_de."
+      ]
+    },
+    {
+      "id": "RTS-003",
+      "title": "DE→EN Keyword-/Glossary-Expansion für Code-Retrieval umsetzen",
+      "type": "backend-feature",
+      "milestone": "RTS-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/**/rag_query_normalizer.py",
+        "agent/**/query_translation*.py",
+        "tests/**/test_*query*translation*.py"
+      ],
+      "acceptance_criteria": [
+        "Eine deutsche Query erzeugt mindestens eine englische/code-nahe Suchvariante.",
+        "Beispiel: 'Wie funktioniert der Autopilot-Tick-Engine?' erzeugt 'autopilot tick engine process tasks' oder eine vergleichbar code-nahe Variante.",
+        "Deutsche Verben wie funktioniert, verarbeitet, erstellt, lädt, speichert, startet, stoppt, plant und delegiert werden auf sinnvolle englische Code-Tokens gemappt.",
+        "Deutsche Substantive wie Aufgabe, Aufgaben, Datei, Dateien, Konfiguration, Quelle, Artefakt, Berechtigung und Benutzer werden auf englische Retrieval-Tokens gemappt.",
+        "Code-Tokens wie snake_chat, RepositoryMapEngine, autopilot_tick_engine.py, task_id und camelCase bleiben erhalten und werden nicht kaputtübersetzt.",
+        "Bindestriche, Unterstriche, CamelCase und Dateiendungen werden tokenisiert, ohne die Originalform zu verlieren."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft Autopilot-Tick-Engine Beispiel.",
+        "Unit-Test prüft deutsche Verben und Substantive.",
+        "Unit-Test prüft Erhalt von snake_case, CamelCase und Dateinamen.",
+        "Unit-Test prüft, dass kein LLM-/Netzwerkzugriff im Keyword-/Glossary-Modus passiert."
+      ]
+    },
+    {
+      "id": "RTS-004",
+      "title": "EN→DE Expansion für deutsche Doku, Kommentare und Artefakte umsetzen",
+      "type": "backend-feature",
+      "milestone": "RTS-2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/**/rag_query_normalizer.py",
+        "agent/**/query_translation*.py",
+        "tests/**/test_*query*translation*.py"
+      ],
+      "acceptance_criteria": [
+        "Eine englische Query kann zusätzlich eine deutsche Suchvariante erzeugen, wenn en_to_de aktiviert ist.",
+        "Beispiel: 'permission check user update field' erzeugt zusätzlich Begriffe wie 'Berechtigung prüfen Benutzer aktualisieren Feld'.",
+        "EN→DE darf englische Code-Tokens nicht entfernen oder schlechter ranken lassen.",
+        "Deutschsprachige Markdown-Doku, Kommentare, Todo-Dateien und Artefaktbeschreibungen werden dadurch besser auffindbar.",
+        "Die Strategie ist konservativ: Nur klare technische Begriffe werden expandiert, keine freie Übersetzung ganzer Sätze im Default.",
+        "Originalquery bleibt immer die erste Retrieval-Variante."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft permission/user/update/field Beispiel.",
+        "Unit-Test prüft, dass englische Code-Tokens erhalten bleiben.",
+        "Unit-Test prüft, dass EN→DE deaktivierbar ist."
+      ]
+    },
+    {
+      "id": "RTS-005",
+      "title": "Mixed-Code-Query-Erkennung ergänzen",
+      "type": "backend-feature",
+      "milestone": "RTS-2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/**/rag_query_normalizer.py",
+        "tests/**/test_*query*translation*.py"
+      ],
+      "acceptance_criteria": [
+        "Queries mit deutschen Satzteilen und englischen Code-Tokens werden als mixed_code_query behandelt.",
+        "Code-Tokens werden priorisiert und unverändert in jede Suchvariante übernommen.",
+        "Beispiel: 'wo wird repository_map in der snake initialisiert' erzeugt Varianten mit repository_map, snake, initialized/init/startup.",
+        "Beispiel: 'welche tasks verarbeitet autopilot_tick_engine.py' erzeugt Varianten mit tasks, process, autopilot_tick_engine.py.",
+        "Die Strategie vermeidet aggressive Übersetzung von Eigennamen, Dateinamen, Klassen, Methoden und Env-Variablen.",
+        "Deduplizierung verhindert doppelte Suchvarianten."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft repository_map/snake Beispiel.",
+        "Unit-Test prüft autopilot_tick_engine.py Beispiel.",
+        "Unit-Test prüft, dass Env-Variablen wie RAG_SCAN_EXCLUDE_DIRS unverändert bleiben."
+      ]
+    },
+    {
+      "id": "RTS-006",
+      "title": "Übersetzungsvarianten in Retrieval-Ranking integrieren",
+      "type": "backend-integration",
+      "milestone": "RTS-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/**/hybrid_orchestrator.py",
+        "agent/**/repository_map*.py",
+        "agent/**/rag*.py",
+        "tests/**/test_*repository*map*.py",
+        "tests/**/test_*rag*retrieval*.py"
+      ],
+      "acceptance_criteria": [
+        "RepositoryMap/RAG erhält eine deduplizierte Liste aus Originalquery und Übersetzungsvarianten.",
+        "Treffer aus Originalquery behalten einen leichten Ranking-Vorrang gegenüber reinen Übersetzungsvarianten.",
+        "Treffer aus mehreren Varianten werden stabil gemergt und können optional höher gewichtet werden.",
+        "Ranking-Metadaten zeigen, welche Query-Variante einen Treffer geliefert hat.",
+        "Der off-Modus ruft nur die Originalquery ab und entspricht dem alten Verhalten.",
+        "Bei Fehlern in der Übersetzungsstrategie fällt Retrieval auf Originalquery zurück."
+      ],
+      "test_expectations": [
+        "Integrationstest prüft Union/Deduplizierung über mehrere Sprachvarianten.",
+        "Integrationstest prüft Ranking-Vorrang der Originalquery.",
+        "Integrationstest prüft off-Modus.",
+        "Integrationstest prüft Fallback bei Exception im Translator."
+      ]
+    },
+    {
+      "id": "RTS-007",
+      "title": "LLM-Übersetzung als optionalen Modus sicher begrenzen",
+      "type": "security-design",
+      "milestone": "RTS-3",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/**/rag_query_normalizer.py",
+        "agent/**/query_translation*.py",
+        "tests/**/test_*query*translation*.py"
+      ],
+      "acceptance_criteria": [
+        "LLM-Modus sendet nur die Userquery oder eine bereits minimierte Query an das Modell, keinen Projektkontext.",
+        "Prompt fordert Keyword-Ausgabe, keine Sätze und keine Erklärung.",
+        "Timeout, Max-Tokens und Fallback auf keyword oder Originalquery sind festgelegt.",
+        "Cloud-Provider dürfen durch Security-/Privacy-Policy blockiert werden.",
+        "LLM-Modus ist nicht Default.",
+        "Fehlerhafte LLM-Ausgabe wird validiert, normalisiert oder verworfen."
+      ],
+      "test_expectations": [
+        "Security-Test prüft, dass kein Artefakt-/Codekontext an den Übersetzungs-Call geht.",
+        "Unit-Test prüft Timeout-/Exception-Fallback.",
+        "Unit-Test prüft ungültige LLM-Ausgabe."
+      ]
+    },
+    {
+      "id": "RTS-008",
+      "title": "End-to-End Tests für DE↔EN Retrieval-Verhalten ergänzen",
+      "type": "backend-test",
+      "milestone": "RTS-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "tests/test_rag_query_translation_strategies.py",
+        "tests/test_rag_retrieval_multilingual_queries.py",
+        "tests/fixtures/**"
+      ],
+      "acceptance_criteria": [
+        "Testfixture enthält englische Code-Dateien/Symbole und deutsche Doku/Todo-Texte.",
+        "Deutsche Query findet englische Code-Datei über DE→EN Expansion.",
+        "Englische Query findet deutsche Doku über EN→DE Expansion, wenn aktiviert.",
+        "Mixed Query findet Code-Tokens ohne sie zu übersetzen.",
+        "off-Modus zeigt altes Verhalten ohne zusätzliche Sprachvarianten.",
+        "Alle Tests laufen ohne Netzwerk und ohne echten LLM-Provider."
+      ],
+      "test_expectations": [
+        "pytest tests/test_rag_query_translation_strategies.py tests/test_rag_retrieval_multilingual_queries.py läuft lokal grün.",
+        "Tests prüfen nicht nur Treffer, sondern auch query_variant/source-Metadaten."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["RTS-001", "RTS-002", "RTS-003", "RTS-005", "RTS-006", "RTS-008"],
+  "tasks_status_summary": {
+    "total": 8,
+    "by_status": {"todo": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 4, "P1": 2, "P2": 1, "P3": 0},
+    "by_risk": {"low": 0, "medium": 4, "high": 4},
+    "critical_path": {"total": 6, "done": 0, "remaining": 6},
+    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 8,
+    "by_type": {
+      "architecture": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "backend-config": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "backend-feature": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "backend-integration": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "security-design": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "backend-test": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+    }
+  },
+  "progress_summary": {"state": "not_started", "todo_remaining": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "summary_notes": [
+    "Diese Datei präzisiert die Sprach-/Übersetzungsstrategie, die in der Haupt-RAG-Config-Todo nur grob als Query-Normalisierung enthalten ist.",
+    "DE→EN ist der wichtigste Default, weil Code, Symbole und Dateinamen meist englisch sind.",
+    "EN→DE ist optional wichtig für deutsche Doku, Kommentare, Todo-Dateien und Artefaktbeschreibungen.",
+    "Mixed-Code-Queries sind für echte Nutzung zentral, weil Nutzer oft Deutsch schreiben, aber englische Klassen-, Methoden- und Dateinamen nennen.",
+    "Übersetzung darf niemals das Original ersetzen, sondern nur zusätzliche Retrieval-Varianten erzeugen."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "effective_rule",
+      "title": "Effektive Regel",
+      "items": [
+        "Originalquery bleibt immer erhalten.",
+        "DE→EN verbessert Code-Retrieval.",
+        "EN→DE verbessert Retrieval deutscher Doku und Artefakte.",
+        "Code-Tokens, Dateinamen, Klassen, Methoden und Env-Variablen werden nicht kaputtübersetzt.",
+        "Default bleibt lokal/offline; LLM ist optional und security-begrenzt."
+      ]
+    }
+  ]
+}
