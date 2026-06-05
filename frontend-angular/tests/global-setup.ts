@@ -341,7 +341,7 @@ export default async function globalSetup() {
 
   const procs: ProcInfo[] = [];
   const healthTimeoutMs = Number(process.env.E2E_SERVICE_HEALTH_TIMEOUT_MS || '120000');
-  const servicesToSpawn = toStart.filter((svc) => !running.has(svc.name));
+  let servicesToSpawn = toStart.filter((svc) => !running.has(svc.name));
 
   if (servicesToSpawn.length > 0 && fs.existsSync('/.dockerenv')) {
     if (!allowExisting) {
@@ -355,6 +355,7 @@ export default async function globalSetup() {
       await waitForHealth(`http://${svc.host}:${svc.port}/health`, healthTimeoutMs);
       running.add(svc.name);
     }
+    servicesToSpawn = toStart.filter((svc) => !running.has(svc.name));
   }
 
   for (const svc of toStart) {
