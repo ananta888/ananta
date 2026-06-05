@@ -89,7 +89,7 @@ export class DashboardFacade {
       clearTimeout(this.refreshSafetyTimer);
       this.refreshSafetyTimer = undefined;
     }
-    this.viewState = { loading: true, error: null, empty: false };
+    this.viewState = { loading: this.stats === null && this.viewState.error === null, error: null, empty: false };
     this.readModelInFlight = true;
     this.refreshSafetyTimer = setTimeout(() => {
       if (this.viewState.loading) {
