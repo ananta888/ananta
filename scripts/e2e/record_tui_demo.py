@@ -503,7 +503,7 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
 def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
     height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
-    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "52"))))
+    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "78"))))
     default_cmd = _default_tui_command()
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
     command = shlex.split(run_command)
@@ -515,11 +515,25 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")
     env.setdefault("ANANTA_TUI_SNAKE_AI_BACKEND", "openai-compatible")
     env.setdefault("ANANTA_TUI_SNAKE_AI_REFRESH", "1.2")
-    env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0")
+    env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "18.0")
     env.setdefault("ANANTA_TUI_SNAKE_SELECT_DELAY", "0.30")
     env.setdefault("ANANTA_TUI_SNAKE_AI_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_TOKEN", str(env.get("ANANTA_TUI_LLM_API_TOKEN") or ""))
+    env.setdefault("ANANTA_TUI_CHAT_BACKEND", "ananta-worker")
+    env.setdefault("ANANTA_TUI_CHAT_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or env.get("ANANTA_TUI_SNAKE_AI_MODEL") or ""))
+    env.setdefault("ANANTA_TUI_CHAT_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or env.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL") or ""))
+    env.setdefault("ANANTA_TUI_CHAT_ASK_TIMEOUT", "75")
+    env.setdefault("ANANTA_TUI_CHAT_RAG_TOP_K", "16")
+    env.setdefault(
+        "ANANTA_TUI_CHAT_SYSTEM_PROMPT",
+        (
+            "Du bist die AI-Snake im Ananta Operator TUI. Wenn die Frage den Marker "
+            "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST verlangt, beginne exakt mit diesem Marker. "
+            "Beantworte knapp, aber vollstaendig, und nenne Hub, Worker, /snake/ask und CodeCompass, "
+            "wenn diese im Kontext vorkommen."
+        ),
+    )
 
     # Event-driven walkthrough:
     # wait for usable TUI frame -> snake to nav/artifacts -> tutorial AI -> user asks -> AI answers -> quit.
@@ -534,20 +548,30 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         {"at": 9.0, "need": "", "send": b"\x13"},  # snake on again
         {"at": 9.6, "need": "", "send": b"u"},  # enable tutorial ai
         {"at": 11.0, "need": "", "send": b"m"},
-        {"at": 11.3, "need": "", "send": "Erkläre den Menüpunkt Artifacts in diesem Projekt.".encode("utf-8")},
-        {"at": 11.8, "need": "", "send": b"\r"},
-        {"at": 16.0, "need": "", "send": b"m"},
         {
-            "at": 16.3,
+            "at": 11.3,
+            "need": "",
+            "send": (
+                "Antworte mit dem ersten Satz exakt: ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST. "
+                "Erkläre anhand von CodeCompass, welche Rolle client_surfaces/operator_tui/chat_mixin.py "
+                "beim AI-Snake Chat über /snake/ask hat. Nenne Hub, Worker und CodeCompass."
+            ).encode("utf-8"),
+        },
+        {"at": 11.8, "need": "", "send": b"\r"},
+        {"at": 32.0, "need": "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST", "send": b"\x00"},
+        {"at": 36.0, "need": "Chat-Nachricht", "send": b"\x00"},
+        {"at": 42.0, "need": "", "send": b"m"},
+        {
+            "at": 42.3,
             "need": "",
             "send": "[mouse-follow] [artifact-intent] [ai-fast-target] [artifact-chat-active] Welche Cast- und Bericht-Artefakte sind hier wichtig?".encode(
                 "utf-8"
             ),
         },
-        {"at": 16.8, "need": "", "send": b"\r"},
-        {"at": 24.0, "need": "", "send": (b"\x1b[C" * 4 + b"\x1b[B" * 2 + b" ")},
-        {"at": 36.0, "need": "[openai-compatible->", "send": b"q"},
-        {"at": 50.0, "need": "", "send": b"q"},
+        {"at": 42.8, "need": "", "send": b"\r"},
+        {"at": 50.0, "need": "", "send": (b"\x1b[C" * 4 + b"\x1b[B" * 2 + b" ")},
+        {"at": 62.0, "need": "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST", "send": b"q"},
+        {"at": 74.0, "need": "", "send": b"q"},
     ]
 
     master_fd, slave_fd = pty.openpty()

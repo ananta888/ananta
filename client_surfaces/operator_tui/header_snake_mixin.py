@@ -179,6 +179,20 @@ class HeaderSnakeMixin:
             value = persisted_cfg.get(key)
             if isinstance(value, (str, int, float, bool)):
                 game[key] = value
+        env_overrides = {
+            "chat_backend": os.environ.get("ANANTA_TUI_CHAT_BACKEND"),
+            "chat_backend_model": os.environ.get("ANANTA_TUI_CHAT_MODEL"),
+            "chat_backend_api_base": os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL"),
+            "chat_ask_timeout_s": os.environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT"),
+            "chat_context_chars": os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS"),
+            "chat_max_tokens": os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS"),
+            "chat_rag_top_k": os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K"),
+            "chat_answer_chars": os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS"),
+            "chat_backend_fallback": os.environ.get("ANANTA_TUI_CHAT_BACKEND_FALLBACK"),
+        }
+        for key, value in env_overrides.items():
+            if value is not None and str(value).strip():
+                game[key] = value
         if bool(game.get("active")) and bool(game.get("ui_steering")) and bool(game.get("chat_panel_open", True)):
             try:
                 from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
