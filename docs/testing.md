@@ -298,7 +298,7 @@ npm run test:e2e:lite
 
 Artifacts:
 - Local path: `frontend-angular/test-results/`
-- CI artifact: `ananta-e2e-compose-results`
+- CI artifact: `ananta-e2e-compose-<shard>`
 
 The CI artifact contract is documented in `docs/ci-artifacts.md`.
 
