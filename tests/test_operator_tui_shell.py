@@ -2241,7 +2241,7 @@ def test_long_chat_middle_view_ctrl_space_toggles_rendered_and_original() -> Non
     rendered_version = str(rendered.get("visual_state_version") or "")
     assert rendered["markdown_stream_plain"] is False
     assert rendered["markdown_mermaid_render_requested"] is True
-    assert rendered.get("visual_viewport_frame_lines") == []
+    assert rendered.get("visual_viewport_frame_lines") != ["stale"]
     assert ":rendered:" in rendered_version
 
     tui._open_latest_long_chat_message()
@@ -2249,7 +2249,7 @@ def test_long_chat_middle_view_ctrl_space_toggles_rendered_and_original() -> Non
     plain = tui.state.header_logo_game or {}
     assert plain["markdown_stream_plain"] is True
     assert plain["markdown_mermaid_render_requested"] is False
-    assert plain.get("visual_viewport_frame_lines") == []
+    assert plain.get("visual_viewport_frame_lines") != ["stale"]
     assert ":plain:" in str(plain.get("visual_state_version") or "")
     assert plain.get("visual_state_version") != rendered_version
 

@@ -560,8 +560,6 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
             ).encode("utf-8"),
         },
         {"at": 12.8, "need": "", "send": b"\r"},
-        {"at": 24.0, "need": "", "send": b"\x00"},
-        {"at": 28.0, "need": "", "send": b"\x00"},
         {"at": 50.0, "need": "", "send": (b"\x1b[C" * 4 + b"\x1b[B" * 2 + b" ")},
         {"at": 62.0, "need": "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST", "send": b"q"},
         {"at": 74.0, "need": "", "send": b"q"},
