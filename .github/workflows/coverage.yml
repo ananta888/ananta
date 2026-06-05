@@ -103,23 +103,39 @@ jobs:
           python - <<'PY'
           import json, os, subprocess, sys
 
+          shard = os.environ["SHARD_NAME"].strip()
+          cwd = os.getcwd()
+          data_file = os.path.join(cwd, f"backend-coverage-{shard}")
+
+          print(f"[dbg] shard={repr(shard)}")
+          print(f"[dbg] cwd={cwd}")
+          print(f"[dbg] data_file={data_file}")
+          print(f"[dbg] python={sys.executable}")
+
           files = json.loads(os.environ["TEST_FILES_JSON"])
-          shard = os.environ["SHARD_NAME"]
-          data_file = f".coverage.{shard}"
+          print(f"[dbg] files={len(files)} first={files[:2] if files else []}")
 
           if not files:
               sys.stderr.write(f"::error::Shard {shard} has no test files.\n")
               sys.exit(1)
 
-          print(f"[coverage] shard={shard} files={len(files)} data_file={data_file}")
-
           result = subprocess.run(
-              ["coverage", "run", f"--data-file={data_file}", "--source=agent", "-m", "pytest"] + files,
+              [sys.executable, "-m", "coverage", "run",
+               f"--data-file={data_file}", "--source=agent",
+               "-m", "pytest", "-p", "no:cov"] + files,
               check=False,
           )
 
+          print(f"[dbg] pytest exit={result.returncode}")
+          coverage_files = [f for f in os.listdir(cwd) if "backend-coverage" in f or ".coverage" in f]
+          print(f"[dbg] coverage files in cwd: {coverage_files}")
+          print(f"[dbg] data_file exists: {os.path.exists(data_file)}")
+
           if not os.path.exists(data_file):
-              sys.stderr.write(f"::error::Coverage file {data_file} was not written (pytest exit={result.returncode}).\n")
+              sys.stderr.write(
+                  f"::error::Coverage file {data_file} was not written "
+                  f"(pytest exit={result.returncode}, found={coverage_files}).\n"
+              )
               sys.exit(1)
 
           sys.exit(result.returncode)
@@ -128,7 +144,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ananta-backend-coverage-${{ matrix.shard_name }}
-          path: .coverage.${{ matrix.shard_name }}
+          path: backend-coverage-${{ matrix.shard_name }}
           retention-days: 7
           if-no-files-found: error
 
@@ -226,7 +242,7 @@ jobs:
       - name: Combine backend coverage data
         run: |
           set -euo pipefail
-          mapfile -t coverage_files < <(find coverage-artifacts -name '.coverage*' -type f | sort)
+          mapfile -t coverage_files < <(find coverage-artifacts -name 'backend-coverage-*' -type f | sort)
           if [[ "${#coverage_files[@]}" -eq 0 ]]; then
             echo "No backend coverage data files were downloaded." >&2
             exit 1
