@@ -21,6 +21,8 @@ os.environ["AGENT_NAME"] = "test-agent"
 os.environ["INITIAL_ADMIN_USER"] = "admin"
 os.environ["INITIAL_ADMIN_PASSWORD"] = "admin"
 
+from tests_support import admin_login_token, reset_auth_state
+
 _TEST_DB_READY = False
 
 
@@ -223,6 +225,7 @@ def cleanup_db_and_runtime():
     """Ensure every test leaves DB + runtime state clean."""
 
     def _reset_runtime_state():
+        reset_auth_state()
         try:
             _settings().shell_path = "sh"
         except Exception:
@@ -430,8 +433,7 @@ def client(app):
 @pytest.fixture
 def auth_header(client):
     """Returns a valid auth header for a regular user."""
-    _upsert_test_user("admin", "admin", "admin")
-    token = _login_token(client, username="admin", password="admin")
+    token = admin_login_token(client)
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -446,19 +448,15 @@ def user_auth_header(client, app):
 @pytest.fixture
 def admin_auth_header(client):
     """Returns a valid auth header for an admin user."""
-    _upsert_test_user("admin", "admin", "admin")
-    token = _login_token(client, username="admin", password="admin")
+    token = admin_login_token(client)
     return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
 def admin_token(client):
     """Compatibility fixture for older API tests that expect a raw admin token."""
-    _upsert_test_user("admin", "admin", "admin")
-    return _login_token(client, username="admin", password="admin")
+    return admin_login_token(client)
 
 # Pre-existing broken test files - skip collection
 collect_ignore_glob = ["e2e/fixtures/*/tests/*.py"]
 collect_ignore = ["test_worker_client_adapter.py"]
-
-

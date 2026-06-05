@@ -13,12 +13,7 @@ from agent.db_models import (
     TeamTypeRoleLink,
     TemplateDB,
 )
-
-
-def _login_admin(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    return response.json["data"]["access_token"]
+from tests_support import admin_login_token as _login_admin
 
 
 def _clear_team_data():

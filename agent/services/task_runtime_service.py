@@ -62,6 +62,38 @@ def _goal_requires_fibonacci_artifacts(goal: Any) -> bool:
     return mode == "new_software_project" and "fibonacci" in goal_text
 
 
+def _workspace_has_file_matching(path: Path, predicate) -> bool:
+    if not str(path) or not path.exists() or not path.is_dir():
+        return False
+    for item in path.rglob("*"):
+        if item.is_file() and predicate(item):
+            return True
+    return False
+
+
+def _goal_has_required_fibonacci_evidence(resolved_output_dir: Path) -> tuple[bool, dict[str, bool]]:
+    source_dir = resolved_output_dir / "src" / "fibonacci"
+    tests_dir = resolved_output_dir / "tests"
+    has_source_file = _workspace_has_file_matching(
+        source_dir,
+        lambda item: item.suffix == ".py",
+    )
+    has_pytest_style_test = _workspace_has_file_matching(
+        tests_dir,
+        lambda item: item.suffix == ".py" and item.name.startswith("test_"),
+    )
+    has_pytest_evidence = _workspace_has_file_matching(
+        resolved_output_dir,
+        lambda item: "pytest" in item.name.lower() or "pytest" in str(item).lower(),
+    )
+    evidence = {
+        "has_source_file": has_source_file,
+        "has_pytest_style_test": has_pytest_style_test,
+        "has_pytest_evidence": has_pytest_evidence,
+    }
+    return all(evidence.values()), evidence
+
+
 def _maybe_finalize_goal(goal_id: str) -> None:
     try:
         from agent.repository import goal_repo
@@ -87,6 +119,13 @@ def _maybe_finalize_goal(goal_id: str) -> None:
                     "resolved_output_dir": str(resolved_output_dir),
                     "workspace_file_count": file_count,
                 }
+                if _goal_requires_fibonacci_artifacts(goal):
+                    has_required_evidence, fibonacci_evidence = _goal_has_required_fibonacci_evidence(resolved_output_dir)
+                    diagnostics["fibonacci_evidence"] = fibonacci_evidence
+                    if not has_required_evidence:
+                        new_status = "failed"
+                        current_preferences["last_status_reason"] = "missing_required_fibonacci_artifacts"
+                        current_preferences["failure_classification"] = "missing_required_fibonacci_artifacts"
                 current_preferences["finalization_diagnostics"] = diagnostics
                 if file_count <= 0:
                     new_status = "failed"

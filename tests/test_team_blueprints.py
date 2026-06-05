@@ -5,12 +5,7 @@ from sqlmodel import Session, select
 from agent.database import engine
 from agent.db_models import BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
 from agent.repository import audit_repo
-
-
-def _login_admin(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    return response.json["data"]["access_token"]
+from tests_support import admin_login_token as _login_admin
 
 
 def test_seed_blueprints_are_listed(client):

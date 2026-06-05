@@ -1,7 +1,4 @@
-def _login_admin(client) -> str:
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    return response.json["data"]["access_token"]
+from tests_support import admin_login_token as _login_admin
 
 
 def test_template_create_warns_for_unknown_variables_by_default(client):

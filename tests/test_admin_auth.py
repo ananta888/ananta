@@ -7,6 +7,7 @@ from agent.ai_agent import create_app
 from agent.common.audit import log_audit
 from agent.database import engine
 from agent.repository import audit_repo, login_attempt_repo
+from tests_support import admin_login_token as _login_admin
 
 
 @pytest.fixture
@@ -64,9 +65,7 @@ def test_login_rate_limiting(client):
 
 def test_admin_user_management(client):
     # 1. Login als Admin (Default Passwort ist "admin" laut agent/routes/auth.py)
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    token = response.json["data"]["access_token"]
+    token = _login_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
 
     # 2. User Liste abrufen
@@ -134,9 +133,7 @@ def test_account_lockout(client):
 
 
 def test_admin_routes_create_audit_entries(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    token = response.json["data"]["access_token"]
+    token = _login_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
 
     before_count = len(audit_repo.get_all(limit=500))
@@ -152,9 +149,7 @@ def test_admin_routes_create_audit_entries(client):
 
 
 def test_audit_logs_query_filters_and_summary(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    token = response.json["data"]["access_token"]
+    token = _login_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
 
     log_audit(
@@ -197,9 +192,7 @@ def test_audit_logs_query_filters_and_summary(client):
 
 
 def test_audit_logs_integrity_report(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    token = response.json["data"]["access_token"]
+    token = _login_admin(client)
     headers = {"Authorization": f"Bearer {token}"}
 
     log_audit("kritis_integrity_probe_a", {"trace_id": "integrity-trace-a"})

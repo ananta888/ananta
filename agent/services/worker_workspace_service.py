@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from flask import current_app, g as flask_g, has_request_context
+from flask import current_app, g as flask_g, has_app_context, has_request_context
 
 from agent.config import settings
 from agent.services.ingestion_service import get_ingestion_service
@@ -223,13 +223,14 @@ class WorkerWorkspaceService:
         workspace_cfg = dict(execution_context.get("workspace") or {})
         artifact_sync_cfg = dict(execution_context.get("artifact_sync") or {})
 
-        runtime_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("worker_runtime")
+        agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+        runtime_cfg = agent_cfg.get("worker_runtime")
         runtime_cfg = runtime_cfg if isinstance(runtime_cfg, dict) else {}
         workspace_root = str(runtime_cfg.get("workspace_root") or "").strip()
         if not workspace_root:
             workspace_root = str(Path(settings.data_dir) / "worker-runtime")
 
-        agent_name = _safe_segment(current_app.config.get("AGENT_NAME"), fallback="worker")
+        agent_name = _safe_segment(current_app.config.get("AGENT_NAME") if has_app_context() else settings.agent_name, fallback="worker")
         task_id = _safe_segment(workspace_cfg.get("task_id") or task.get("id"), fallback="task")
         worker_job_id = _safe_segment(
             workspace_cfg.get("worker_job_id") or (task or {}).get("current_worker_job_id"),
@@ -325,9 +326,10 @@ class WorkerWorkspaceService:
             execution_context = dict((task or {}).get("worker_execution_context") or {})
             effective_config = dict((task or {}).get("effective_config") or {})
             runtime_sync_mode = str((effective_config.get("worker_runtime") or {}).get("workspace_sync_mode") or "").strip().lower()
+            agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
             sync_mode = str(
                 (execution_context.get("workspace") or {}).get("sync_mode")
-                or (current_app.config.get("AGENT_CONFIG", {}) or {}).get("workspace", {}).get("sync_mode")
+                or agent_cfg.get("workspace", {}).get("sync_mode")
                 or runtime_sync_mode
                 or ""
             ).strip().lower()

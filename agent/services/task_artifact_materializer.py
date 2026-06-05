@@ -42,6 +42,12 @@ class TaskArtifactMaterializer:
                 continue
             vs = dict(getattr(task, "verification_status", None) or {})
             refs = list(vs.get("execution_artifacts") or [])
+            if not refs:
+                refs = [
+                    ref
+                    for ref in list(getattr(task, "artifact_refs", None) or [])
+                    if isinstance(ref, dict)
+                ]
             source_agent_url = str(task.assigned_agent_url or "").strip()
             for ref in refs:
                 if ref.get("kind") != "workspace_file":

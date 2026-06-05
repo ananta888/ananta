@@ -2,6 +2,7 @@ import json
 import os
 
 import pytest
+from tests_support import admin_login_token as _login_admin
 
 # Environment setzen bevor imports
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -19,18 +20,7 @@ def client():
 
 
 def get_auth_header(client):
-    resp = client.post("/auth/login", json={"username": "admin", "password": "admin"})
-    print("Login Response:", resp.get_json())
-    data = resp.get_json()
-    if data and "data" in data and "access_token" in data["data"]:
-        token = data["data"]["access_token"]
-        return {"Authorization": f"Bearer {token}"}
-
-    # Fallback/Retry für /login (manche Blueprints haben unterschiedliche Prefixe)
-    resp = client.post("/login", json={"username": "admin", "password": "admin"})
-    print("Login Retry Response:", resp.get_json())
-    data = resp.get_json()
-    token = data["data"]["access_token"]
+    token = _login_admin(client)
     return {"Authorization": f"Bearer {token}"}
 
 
