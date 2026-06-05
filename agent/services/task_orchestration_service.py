@@ -309,8 +309,20 @@ class TaskOrchestrationService:
             "retry_count": record.retry_count if record else 0,
             "repair_attempts": record.repair_attempts if record else 0,
             "escalation_reason": record.escalation_reason if record else None,
-            "memory_entry_id": memory_entry.id if memory_entry else None,
+            "memory_entry_id": TaskOrchestrationService._json_safe_identifier(
+                getattr(memory_entry, "id", None) if memory_entry else None
+            ),
         }
+
+    @staticmethod
+    def _json_safe_identifier(value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float, bool)):
+            return str(value)
+        return None
 
     def _apply_completion_status_update(
         self,

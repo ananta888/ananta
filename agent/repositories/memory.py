@@ -5,10 +5,15 @@ from typing import List, Optional
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlmodel import Session, select
 
-from agent.database import engine
 from agent.db_models import MemoryEntryDB
 
 logger = logging.getLogger(__name__)
+
+
+def _engine():
+    from agent.database import engine
+
+    return engine
 
 
 def _is_missing_memory_entries_table(exc: Exception) -> bool:
@@ -37,7 +42,7 @@ def _matches_scope(entry: MemoryEntryDB, scope: Optional[str]) -> bool:
 
 class MemoryEntryRepository:
     def get_by_id(self, entry_id: str) -> Optional[MemoryEntryDB]:
-        with Session(engine) as session:
+        with Session(_engine()) as session:
             return session.get(MemoryEntryDB, entry_id)
 
     def get_by_task(
@@ -47,7 +52,7 @@ class MemoryEntryRepository:
         include_expired: bool = False,
         scope: Optional[str] = None,
     ) -> List[MemoryEntryDB]:
-        with Session(engine) as session:
+        with Session(_engine()) as session:
             statement = select(MemoryEntryDB).where(MemoryEntryDB.task_id == task_id).order_by(MemoryEntryDB.created_at.desc())
             try:
                 rows = session.exec(statement).all()
@@ -74,7 +79,7 @@ class MemoryEntryRepository:
         include_expired: bool = False,
         scope: Optional[str] = None,
     ) -> List[MemoryEntryDB]:
-        with Session(engine) as session:
+        with Session(_engine()) as session:
             statement = select(MemoryEntryDB).where(MemoryEntryDB.goal_id == goal_id).order_by(MemoryEntryDB.created_at.desc())
             try:
                 rows = session.exec(statement).all()
@@ -93,7 +98,7 @@ class MemoryEntryRepository:
         return result
 
     def save(self, entry: MemoryEntryDB) -> MemoryEntryDB:
-        with Session(engine) as session:
+        with Session(_engine()) as session:
             session.add(entry)
             session.commit()
             session.refresh(entry)
