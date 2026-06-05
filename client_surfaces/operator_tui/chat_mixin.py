@@ -779,6 +779,31 @@ class ChatMixin:
                         _v2_dict = dict(build_result.worker_v2_payload)
                         if _configured_model:
                             _v2_dict["model"] = _configured_model
+                        # Forward TUI-configured limits so Hub can respect them
+                        try:
+                            _rk = int(game.get("chat_rag_top_k") or 0)
+                            if _rk > 0:
+                                _v2_dict["rag_top_k"] = max(8, min(120, _rk))
+                        except (TypeError, ValueError):
+                            pass
+                        try:
+                            _ac = int(game.get("chat_answer_chars") or 0)
+                            if _ac > 0:
+                                _v2_dict["answer_chars"] = _ac
+                        except (TypeError, ValueError):
+                            pass
+                        try:
+                            _mt = int(game.get("chat_max_tokens") or 0)
+                            if _mt > 0:
+                                _v2_dict["max_tokens"] = _mt
+                        except (TypeError, ValueError):
+                            pass
+                        try:
+                            _cc = int(game.get("chat_context_chars") or 0)
+                            if _cc > 0:
+                                _v2_dict["context_chars"] = _cc
+                        except (TypeError, ValueError):
+                            pass
                         v2_payload = _json_mod.dumps(_v2_dict).encode()
                         req = urllib.request.Request(
                             f"{endpoint_norm}/snake/ask",
