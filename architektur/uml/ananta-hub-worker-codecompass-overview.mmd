@@ -3,22 +3,22 @@
 %% Beispiel: Hub delegiert Aufgaben an Worker.
 
 flowchart TD
-    U["User / UI / CLI"] -->|"gibt Auftrag an"| H["Hub\nKoordinator"]
+    U["User / UI / CLI"] -->|"gibt Auftrag an"| H["Hub<br/>Koordinator"]
 
     H -->|"delegiert Aufgabe an"| W1["Worker 1"]
     H -->|"delegiert Aufgabe an"| W2["Worker 2"]
     H -->|"delegiert Aufgabe an"| W3["Worker 3"]
 
-    W1 -->|"beinhaltet"| A1["Agent / Tool\nz.B. OpenCode"]
-    W2 -->|"beinhaltet"| A2["Agent / Tool\nz.B. Hermes"]
-    W3 -->|"beinhaltet"| A3["Agent / Tool\nz.B. Ananta-Worker"]
+    W1 -->|"beinhaltet"| A1["Agent / Tool<br/>z.B. OpenCode"]
+    W2 -->|"beinhaltet"| A2["Agent / Tool<br/>z.B. Hermes"]
+    W3 -->|"beinhaltet"| A3["Agent / Tool<br/>z.B. Ananta-Worker"]
 
-    H -->|"fragt Kontext an"| CC["CodeCompass\nContextManager"]
+    H -->|"fragt Kontext an"| CC["CodeCompass<br/>ContextManager"]
     CC -->|"liefert Kontext an"| H
-    CC -->|"liest und indexiert"| SRC["Projektcode\nDateien · Symbole · Artefakte · RAG"]
+    CC -->|"liest und indexiert"| SRC["Projektcode<br/>Dateien · Symbole · Artefakte · RAG"]
 
     A1 -->|"liefert Ergebnis an"| H
     A2 -->|"liefert Ergebnis an"| H
     A3 -->|"liefert Ergebnis an"| H
 
-    H -.->|"erzwingt Standardpfad"| RULE["User -> Hub -> Worker -> Agent/Tool\nkein Agent->Agent\nkein Worker->Worker"]
+    H -.->|"erzwingt"| RULE["Standardpfad:<br/>User -> Hub -> Worker -> Agent/Tool<br/>keine freie Agent-zu-Agent-Kommunikation<br/>keine direkte Worker-zu-Worker-Kommunikation"]
