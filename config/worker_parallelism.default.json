@@ -7,7 +7,7 @@
     "enabled": true,
     "default_endpoint": "http://ollama:11434",
     "model_defaults": {
-      "max_parallel_requests": 1,
+      "max_parallel_requests": 4,
       "queue_limit": 64,
       "request_timeout_seconds": 300,
       "slot_lease_seconds": 600,
@@ -16,7 +16,7 @@
     },
     "models": {
       "ananta-default:latest": {
-        "max_parallel_requests": 1,
+        "max_parallel_requests": 4,
         "queue_limit": 64,
         "preferred_for": ["analysis", "planning", "repair.preview", "code_review"]
       }

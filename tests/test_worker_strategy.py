@@ -1,6 +1,7 @@
 """Tests for WorkerStrategy — FA-T008."""
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 from worker.core.propose_orchestrator import ProposeContext
@@ -20,14 +21,23 @@ class TestWorkerStrategy:
             base_prompt="Propose for Fibonacci API.",
         )
 
-    def test_declined_no_selection(self, context, monkeypatch):
-        mock_decision = Mock()
-        mock_decision.status = SelectionDecisionStatus.no_eligible_worker
-        mock_decision.reason = "no_suitable_workers"
-        mock_decision.reason_codes = []
+    @staticmethod
+    def _decision(**kwargs):
+        defaults = dict(
+            decision_status=SelectionDecisionStatus.no_eligible_worker,
+            reason="no_suitable_workers",
+            reason_codes=[],
+            selected_worker=None,
+            proposal_output=None,
+            worker_output=None,
+            output=None,
+        )
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
 
+    def test_declined_no_selection(self, context, monkeypatch):
         mock_service_instance = Mock()
-        mock_service_instance.select.return_value = mock_decision
+        mock_service_instance.select.return_value = self._decision()
 
         mock_service_cls = Mock(return_value=mock_service_instance)
         monkeypatch.setattr(
@@ -43,16 +53,14 @@ class TestWorkerStrategy:
 
     def test_declined_when_worker_selected_but_delegation_not_implemented(self, context, monkeypatch):
         """When a worker is selected, real delegation is TODO → declined with diagnostics."""
-        mock_selected_worker = Mock()
-        mock_selected_worker.worker_kind.value = "opencode"
-        mock_selected_worker.worker_id = "opencode-1"
-
-        mock_decision = Mock()
-        mock_decision.status = SelectionDecisionStatus.selected
-        mock_decision.selected_worker = mock_selected_worker
+        mock_selected_worker = SimpleNamespace(worker_kind=SimpleNamespace(value="opencode"), worker_id="opencode-1")
 
         mock_service_instance = Mock()
-        mock_service_instance.select.return_value = mock_decision
+        mock_service_instance.select.return_value = self._decision(
+            decision_status=SelectionDecisionStatus.selected,
+            reason="worker_selected",
+            selected_worker=mock_selected_worker,
+        )
 
         mock_service_cls = Mock(return_value=mock_service_instance)
         monkeypatch.setattr(
@@ -67,16 +75,14 @@ class TestWorkerStrategy:
         assert "real_worker_delegation_not_implemented" in result.reason
 
     def test_declined_hermes_worker_delegation_not_implemented(self, context, monkeypatch):
-        mock_selected_worker = Mock()
-        mock_selected_worker.worker_kind.value = "hermes"
-        mock_selected_worker.worker_id = "hermes-1"
-
-        mock_decision = Mock()
-        mock_decision.status = SelectionDecisionStatus.selected
-        mock_decision.selected_worker = mock_selected_worker
+        mock_selected_worker = SimpleNamespace(worker_kind=SimpleNamespace(value="hermes"), worker_id="hermes-1")
 
         mock_service_instance = Mock()
-        mock_service_instance.select.return_value = mock_decision
+        mock_service_instance.select.return_value = self._decision(
+            decision_status=SelectionDecisionStatus.selected,
+            reason="worker_selected",
+            selected_worker=mock_selected_worker,
+        )
 
         mock_service_cls = Mock(return_value=mock_service_instance)
         monkeypatch.setattr(
@@ -91,15 +97,13 @@ class TestWorkerStrategy:
         assert "real_worker_delegation_not_implemented" in result.reason
 
     def test_selected_worker_with_structured_output_becomes_executable(self, context, monkeypatch):
-        mock_selected_worker = Mock()
-        mock_selected_worker.worker_id = "worker-1"
-        mock_decision = Mock()
-        mock_decision.status = SelectionDecisionStatus.selected
-        mock_decision.selected_worker = mock_selected_worker
-        mock_decision.proposal_output = '{"tool_calls":[{"name":"write_file","args":{"path":"main.py","content":"print(1)"}}]}'
-
         mock_service_instance = Mock()
-        mock_service_instance.select.return_value = mock_decision
+        mock_service_instance.select.return_value = self._decision(
+            decision_status=SelectionDecisionStatus.selected,
+            reason="worker_selected",
+            selected_worker=SimpleNamespace(worker_id="worker-1"),
+            proposal_output='{"tool_calls":[{"name":"write_file","args":{"path":"main.py","content":"print(1)"}}]}',
+        )
         monkeypatch.setattr(
             "worker.core.worker_strategy.WorkerRuntimeSelectionService",
             Mock(return_value=mock_service_instance),
@@ -112,13 +116,13 @@ class TestWorkerStrategy:
         assert result.metadata["source"] == "worker_strategy_output"
 
     def test_selected_worker_with_prose_output_stays_advisory(self, context, monkeypatch):
-        mock_decision = Mock()
-        mock_decision.status = SelectionDecisionStatus.selected
-        mock_decision.selected_worker = Mock(worker_id="worker-2")
-        mock_decision.output = "I suggest creating app.py and requirements.txt."
-
         mock_service_instance = Mock()
-        mock_service_instance.select.return_value = mock_decision
+        mock_service_instance.select.return_value = self._decision(
+            decision_status=SelectionDecisionStatus.selected,
+            reason="worker_selected",
+            selected_worker=SimpleNamespace(worker_id="worker-2"),
+            output="I suggest creating app.py and requirements.txt.",
+        )
         monkeypatch.setattr(
             "worker.core.worker_strategy.WorkerRuntimeSelectionService",
             Mock(return_value=mock_service_instance),

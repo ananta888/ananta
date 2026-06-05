@@ -293,7 +293,8 @@ class TestMCPAdapter:
     def test_empty_tool_allowlist_allows_all(self):
         env = _env(tool_policy=ToolPolicy())
         allowed, denied = self.adapter.filter_tools(["any_tool"], env)
-        assert "any_tool" in allowed and denied == []
+        assert allowed == []
+        assert denied == ["any_tool"]
 
     def test_scoped_env_only_allows_listed_keys(self):
         env_in = {"PATH": "/usr/bin", "OPENAI_API_KEY": "sk-secret", "HOME": "/home/user"}
