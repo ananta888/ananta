@@ -44,7 +44,7 @@ LOGIN_PASS = (
     os.getenv("E2E_ADMIN_PASSWORD")
     or os.getenv("INITIAL_ADMIN_PASSWORD")
     or _DOTENV.get("INITIAL_ADMIN_PASSWORD")
-    or "AnantaAdminPassword123!"
+    or "test123"
 )
 
 

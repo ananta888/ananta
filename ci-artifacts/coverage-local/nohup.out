@@ -1,0 +1,494 @@
+[coverage-local] START Fri Jun  5 16:14:43 CEST 2026
+
+=== [core-contracts-01] START Fri Jun  5 16:14:43 CEST 2026 ===
+Resolved 1083 files and 1083 collected tests into 14 shards
+[backend-coverage] shard=core-contracts-01 file_count=146 test_count=146
+[backend-coverage] files=146
+tests/operator_tui/chat_control/test_chat_control_parser.py
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py
+tests/operator_tui/scroll/test_keyboard_scroll_routing.py
+tests/operator_tui/scroll/test_scrollbar_renderer.py
+tests/operator_tui/test_share_commands.py
+tests/operator_tui/test_share_view_stream.py
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py
+tests/operator_tui/visual/test_view_capability_report.py
+tests/test_action_packs.py
+tests/test_admin_repair_contracts.py
+tests/test_agent_registration.py
+tests/test_ananta_game_codecompass_adapter.py
+tests/test_ananta_update_command.py
+tests/test_api_task_artifact_status.py
+tests/test_architecture_agents_compliance.py
+tests/test_artifact_first_audit.py
+tests/test_artifact_first_security.py
+tests/test_artifact_manifest_contract.py
+tests/test_artifact_type_registry.py
+tests/test_audit_event_schema.py
+tests/test_auth_scenarios.py
+tests/test_auto_planner_template_compatibility.py
+tests/test_autopilot_metrics_population.py
+tests/test_backup_cleanup.py
+tests/test_blender_policy_approval.py
+tests/test_blueprint_bundle_api.py
+tests/test_bridge_adapter_registry.py
+tests/test_browser_policy_service.py
+tests/test_browser_task_contract.py
+tests/test_cancelled_goal_task_execution_guard.py
+tests/test_chat_decision_manager.py
+tests/test_citation_formatter.py
+tests/test_codecompass_context_explainer.py
+tests/test_codecompass_embedding_provider.py
+tests/test_codecompass_graph_context.py
+tests/test_codecompass_output_manifest_schema.py
+tests/test_codecompass_vector_store.py
+tests/test_command_to_tool_mapper_chain_segments.py
+tests/test_commit_metadata_schema.py
+tests/test_config_api.py
+tests/test_context_access_policy_schema.py
+tests/test_context_bundle_policy_filter.py
+tests/test_context_scanner.py
+tests/test_contract_schemas.py
+tests/test_core_provider_boundary_checker.py
+tests/test_csd_wgw_integration.py
+tests/test_demo_mode.py
+tests/test_deterministic_repair_security.py
+tests/test_domain_action_execution_integration.py
+tests/test_domain_descriptor_contracts.py
+tests/test_domain_registry.py
+tests/test_email_webhook.py
+tests/test_event_bus.py
+tests/test_evolution_persistence_service.py
+tests/test_execution_audit_service.py
+tests/test_execution_provenance_and_snapshots.py
+tests/test_file_change_set_contract.py
+tests/test_freecad_http_transport.py
+tests/test_git_webhook_receiver.py
+tests/test_goal_artifacts_api.py
+tests/test_goal_execution_contract_service.py
+tests/test_goal_scoped_config_runtime_integration.py
+tests/test_grm_extended.py
+tests/test_helpcenter_ingest_service.py
+tests/test_helpcenter_source_adapter_service.py
+tests/test_hermes_parser.py
+tests/test_hint_routing_service.py
+tests/test_hybrid_orchestrator_load.py
+tests/test_imap_connector_service.py
+tests/test_imap_mail_artifact_service.py
+tests/test_imap_schema_policy_unit.py
+tests/test_imap_sync_policy_service.py
+tests/test_instruction_layers.py
+tests/test_keycloak_fetcher.py
+tests/test_mcp_readonly_adapter.py
+tests/test_memory_tree_context_policy.py
+tests/test_migrations_runtime_targets.py
+tests/test_no_implicit_context.py
+tests/test_nvim_runtime_bridge_contract.py
+tests/test_opencode_command_chain_guardrails.py
+tests/test_persisted_last_proposal_contract.py
+tests/test_planning_context_compactor_service.py
+tests/test_planning_learning_loop_service.py
+tests/test_planning_prompt_evolver_boundaries.py
+tests/test_planning_proposal_service.py
+tests/test_planning_service_contract_repair.py
+tests/test_planning_summary_doctor_service.py
+tests/test_planning_template_catalog_schema.py
+tests/test_planning_track_pipeline_service.py
+tests/test_platform_governance_service.py
+tests/test_plugin_robustness.py
+tests/test_pr_review_publisher.py
+tests/test_prompt_snapshot_service.py
+tests/test_prompt_trace_sensitivity_scope.py
+tests/test_propose_contracts.py
+tests/test_propose_policy_service.py
+tests/test_provider_observer_service.py
+tests/test_public_rendezvous_oidc_join.py
+tests/test_rag_helper_index_service.py
+tests/test_rate_limit_service.py
+tests/test_reference_java_mini_rag.py
+tests/test_release_gate_planning_cleanup.py
+tests/test_repair_outcome_repository.py
+tests/test_repair_procedure_runner_strategy.py
+tests/test_research_context_bridge_auto_index.py
+tests/test_round4_modules.py
+tests/test_route_inventory_metadata.py
+tests/test_runtime_profile_recommender.py
+tests/test_scheduled_job.py
+tests/test_schema_baselines.py
+tests/test_security_policy_regression.py
+tests/test_service_boundaries.py
+tests/test_share_audit.py
+tests/test_shell_command_analyzer.py
+tests/test_shell_security.py
+tests/test_source_catalog_service.py
+tests/test_source_verification_routes.py
+tests/test_sources_schemas.py
+tests/test_splash_status_snapshot.py
+tests/test_startup_phase_telemetry.py
+tests/test_strategy_mode_api.py
+tests/test_system_health_standard.py
+tests/test_task_delegation_policy.py
+tests/test_task_execution_mutation_gate.py
+tests/test_task_filtering.py
+tests/test_task_prompt_templates.py
+tests/test_task_scoped_execution_runtime_command_rewrite.py
+tests/test_task_state_machine_service.py
+tests/test_tasks_cache.py
+tests/test_team_blueprint_seed_reconcile.py
+tests/test_template_architecture_regression.py
+tests/test_thread_lifecycle.py
+tests/test_todo_tasks.py
+tests/test_tool_guardrails.py
+tests/test_tool_registry.py
+tests/test_transition_trace_consistency.py
+tests/test_utils_extra.py
+tests/test_verification_governance.py
+tests/test_webrtc_signaling.py
+tests/test_wiki_document_normalizer.py
+tests/test_wiki_markup_cleaner.py
+tests/test_wiki_record_writer.py
+tests/test_wiki_vector_store.py
+tests/test_workspace_context_manifest.py
+tests/test_workspace_git_service.py
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0 -- /home/krusty/ananta/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/krusty/ananta
+configfile: pyproject.toml
+plugins: timeout-2.4.0, cov-7.1.0, anyio-4.13.0, split-0.11.0
+collecting ... collected 1022 items
+
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_not_a_command_returns_error PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_double_slash_not_a_chat_command PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_is_chat_command PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_list PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_next PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_previous PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_prev_alias PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_select_by_name PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_select_markdown_alias PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_select_diagnostics_alias PASSED [  0%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_overlay_views_on PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_overlay_views_off PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_overlay_views_toggle_explicit PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_overlay_views_default_toggle PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_focus_chat PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_focus_artifacts PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_open_artifact PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_open_artifact_missing_ref PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_snake_pause PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_snake_resume PASSED [  1%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_snake_follow_on PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_snake_follow_off PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_help_tui PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_help_no_arg PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_invalid_command_returns_error PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_invalid_overlay_modifier PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_view_no_subcommand PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_quoted_argument PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_parser_has_no_side_effects PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_nl_mode_maps_phrase PASSED [  2%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_nl_mode_ambiguous_phrase_returns_error PASSED [  3%]
+tests/operator_tui/chat_control/test_chat_control_parser.py::test_nl_mode_disabled_by_default PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_messages_contain_system_and_user PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_messages_last_is_user_question PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_messages_include_recent_turns PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_messages_trim_turns_by_char_budget PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_prompt_text_contains_question PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_prompt_text_contains_summary_when_present PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_prompt_text_contains_recent_turns PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_worker_v2_payload_contains_question PASSED [  3%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_worker_v2_payload_contains_memory_context PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_worker_v2_payload_has_memory_version PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_worker_v2_disabling_summary_produces_empty_summary PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_active_target_included_first PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_included_sections_non_empty_when_content PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_budget_limits_total_context PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_depth_overview_in_prompt PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_depth_expert_in_prompt PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_codecompass_included_when_budget_allows PASSED [  4%]
+tests/operator_tui/chat_memory/test_chat_prompt_builder.py::test_codecompass_excluded_when_budget_exhausted PASSED [  4%]
+tests/operator_tui/scroll/test_keyboard_scroll_routing.py::test_pagedown_scrolls_focused_context PASSED [  4%]
+tests/operator_tui/scroll/test_keyboard_scroll_routing.py::test_pageup_scrolls_focused_context PASSED [  5%]
+tests/operator_tui/scroll/test_keyboard_scroll_routing.py::test_focus_change_routes_to_different_context PASSED [  5%]
+tests/operator_tui/scroll/test_keyboard_scroll_routing.py::test_no_active_scroll_context_produces_noop PASSED [  5%]
+tests/operator_tui/scroll/test_keyboard_scroll_routing.py::test_ctrl_w_style_cycle_changes_focus PASSED [  5%]
+tests/operator_tui/scroll/test_keyboard_scroll_routing.py::test_focus_left_right_behavior PASSED [  5%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_no_scrollbar_when_fits PASSED [  5%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_scrollbar_length_matches_height PASSED [  5%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_scrollbar_top_state PASSED [  5%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_scrollbar_bottom_state PASSED [  5%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_scrollbar_middle_state PASSED [  5%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_ascii_fallback PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_thumb_position_top PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_thumb_position_bottom PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_thumb_pos_increases_with_offset PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_minimal_indicator_at_top PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_minimal_indicator_at_bottom PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_minimal_indicator_middle PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_minimal_indicator_no_scroll PASSED [  6%]
+tests/operator_tui/scroll/test_scrollbar_renderer.py::test_scrollbar_snapshot_stable PASSED [  6%]
+tests/operator_tui/test_share_commands.py::test_share_status_navigates_to_share_section PASSED [  6%]
+tests/operator_tui/test_share_commands.py::test_share_help_returns_hint PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_create_sets_pending_action PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_create_default_title PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_invite_no_active_session PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_invite_with_active_session PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_join_sets_pending_action PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_key_generate_creates_key PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_key_generate_already_exists PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_key_show_displays_fingerprint PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_key_rotate_updates_fingerprint PASSED [  7%]
+tests/operator_tui/test_share_commands.py::test_share_view_on_no_session PASSED [  8%]
+tests/operator_tui/test_share_commands.py::test_share_view_on_with_session PASSED [  8%]
+tests/operator_tui/test_share_commands.py::test_share_view_invalid_subcommand PASSED [  8%]
+tests/operator_tui/test_share_commands.py::test_share_stop_sets_pending_action PASSED [  8%]
+tests/operator_tui/test_share_commands.py::test_share_unknown_subcommand_returns_help PASSED [  8%]
+tests/operator_tui/test_share_view_stream.py::test_sender_not_active_by_default PASSED [  8%]
+tests/operator_tui/test_share_view_stream.py::test_sender_active_after_start PASSED [  8%]
+tests/operator_tui/test_share_view_stream.py::test_sender_inactive_after_stop PASSED [  8%]
+tests/operator_tui/test_share_view_stream.py::test_sender_emits_frame_when_active PASSED [  8%]
+tests/operator_tui/test_share_view_stream.py::test_sender_suppresses_frame_when_disabled PASSED [  8%]
+tests/operator_tui/test_share_view_stream.py::test_receiver_applies_snapshot PASSED [  9%]
+tests/operator_tui/test_share_view_stream.py::test_receiver_wrong_key_fails PASSED [  9%]
+tests/operator_tui/test_share_view_stream.py::test_receiver_hash_mismatch_marks_stale PASSED [  9%]
+tests/operator_tui/test_share_view_stream.py::test_receiver_disconnect_marks_stale PASSED [  9%]
+tests/operator_tui/test_share_view_stream.py::test_text_hash_deterministic PASSED [  9%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_h1_rendered_with_prefix PASSED [  9%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_h2_rendered_with_separator PASSED [  9%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_h3_no_separator PASSED [  9%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_h6_rendered PASSED [  9%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_inline_code_backtick_preserved PASSED [  9%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_bold_star_parsed PASSED [  9%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_italic_star_parsed PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_link_parsed PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_mixed_inline_in_paragraph PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_bullet_list_rendered PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_bullet_uses_bullet_char PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_numbered_list_rendered PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_blockquote_rendered_with_marker PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_hr_rendered PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_table_renders_headers PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_table_renders_box_chars PASSED [ 10%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_table_narrow_viewport PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_code_block_shows_language PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_code_block_shows_source PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_code_block_clips_long_lines PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_code_block_no_ansi_injection PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_mermaid_source_shown_as_code_block PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_mermaid_no_error_header_without_fallback PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_link_renders_label_and_url PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_long_url_shortened PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_narrow_viewport_does_not_crash PASSED [ 11%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_deterministic_output PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_markdown_polished_rendering.py::test_empty_document PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_fallback_codeblock_always_available PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_fallback_codeblock_returns_source_with_reason PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_mermaid_cli_unavailable_when_mmdc_missing PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_mermaid_cli_render_returns_fallback_when_unavailable PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_playwright_unavailable_when_not_installed PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_playwright_render_returns_fallback_when_not_installed PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_renderer_uses_fallback_when_no_image_renderer PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_renderer_skips_unavailable_image_backends PASSED [ 12%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_renderer_capability_status_includes_all_backends PASSED [ 13%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_renderer_capability_status_reports_mmdc_unavailable PASSED [ 13%]
+tests/operator_tui/visual/markdown/test_mermaid_renderer.py::test_render_result_is_dataclass PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_report_ok_status PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_report_unavailable_status PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_report_degraded_status PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_full_report_all_ansi_views_available PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_full_report_raster_view_unavailable_without_capability PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_full_report_active_view_id PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_full_report_find_by_id PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_full_report_find_missing_returns_none PASSED [ 13%]
+tests/operator_tui/visual/test_view_capability_report.py::test_markdown_mermaid_available_when_no_image_renderer PASSED [ 14%]
+tests/operator_tui/visual/test_view_capability_report.py::test_markdown_mermaid_ok_when_image_renderer_available PASSED [ 14%]
+tests/operator_tui/visual/test_view_capability_report.py::test_unavailable_skipped_by_bundle_cycling PASSED [ 14%]
+tests/test_action_packs.py::test_action_pack_service_crud PASSED         [ 14%]
+tests/test_action_packs.py::test_platform_governance_action_pack_integration PASSED [ 14%]
+tests/test_admin_repair_contracts.py::test_admin_repair_mode_data_contains_hook_ready_contract_fields PASSED [ 14%]
+tests/test_admin_repair_contracts.py::test_admin_repair_unknown_platform_forces_diagnosis_only_scope PASSED [ 14%]
+tests/test_admin_repair_contracts.py::test_admin_repair_classifies_permissions_symptom PASSED [ 14%]
+tests/test_admin_repair_contracts.py::test_admin_repair_goal_text_contains_foundation_signals PASSED [ 14%]
+tests/test_admin_repair_contracts.py::test_admin_repair_execution_session_is_step_confirmed_and_bounded PASSED [ 14%]
+tests/test_admin_repair_contracts.py::test_admin_repair_verification_phase_contains_result_states_and_checks PASSED [ 15%]
+tests/test_admin_repair_contracts.py::test_admin_repair_platform_adapters_and_playbooks_are_available_for_windows_and_ubuntu PASSED [ 15%]
+tests/test_admin_repair_contracts.py::test_admin_repair_bridge_contract_exposes_stable_hook_references PASSED [ 15%]
+tests/test_admin_repair_contracts.py::test_admin_repair_output_and_session_trail_are_structured_for_operator_view PASSED [ 15%]
+tests/test_admin_repair_contracts.py::test_admin_repair_smoke_scenarios_cover_windows_and_ubuntu PASSED [ 15%]
+tests/test_admin_repair_contracts.py::test_admin_repair_rollback_and_caution_model_is_explicit_for_risky_actions PASSED [ 15%]
+tests/test_admin_repair_contracts.py::test_admin_repair_golden_paths_exist_for_windows_and_ubuntu PASSED [ 15%]
+tests/test_admin_repair_contracts.py::test_admin_repair_future_extension_boundaries_are_explicit PASSED [ 15%]
+tests/test_agent_registration.py::test_register_agent_success PASSED     [ 15%]
+tests/test_agent_registration.py::test_register_agent_unreachable PASSED [ 15%]
+tests/test_agent_registration.py::test_register_agent_with_capabilities_metadata PASSED [ 16%]
+tests/test_agent_registration.py::test_register_agent_accepts_explicit_worker_kind PASSED [ 16%]
+tests/test_agent_registration.py::test_register_agent_exposes_validation_errors_field PASSED [ 16%]
+tests/test_agent_registration.py::test_register_agent_validates_execution_limits_bounds PASSED [ 16%]
+tests/test_agent_registration.py::test_list_agents_exposes_liveness_contract PASSED [ 16%]
+tests/test_agent_registration.py::test_agent_directory_uses_effective_load_max_of_reported_and_scheduler PASSED [ 16%]
+tests/test_agent_registration.py::test_register_agent_rejects_invalid_role PASSED [ 16%]
+tests/test_agent_registration.py::test_register_agent_requires_worker_capabilities PASSED [ 16%]
+tests/test_agent_registration.py::test_registration_runtime_state_tracks_failed_attempts PASSED [ 16%]
+tests/test_agent_registration.py::test_registration_runtime_state_retries_after_successful_registration PASSED [ 16%]
+tests/test_ananta_game_codecompass_adapter.py::test_adapter_maps_paths_to_territories_with_explicit_risk PASSED [ 17%]
+tests/test_ananta_game_codecompass_adapter.py::test_adapter_maps_dependency_edges_to_trust_edges PASSED [ 17%]
+tests/test_ananta_game_codecompass_adapter.py::test_adapter_returns_degraded_valid_map_without_repo_paths PASSED [ 17%]
+tests/test_ananta_update_command.py::test_ananta_update_clean_flow_runs_git_deps_and_smoke PASSED [ 17%]
+tests/test_ananta_update_command.py::test_ananta_update_refuses_dirty_worktree_without_allow_flag PASSED [ 17%]
+tests/test_ananta_update_command.py::test_ananta_update_reports_smoke_failure PASSED [ 17%]
+tests/test_ananta_update_command.py::test_ananta_update_supports_explicit_rollback_ref PASSED [ 17%]
+tests/test_api_task_artifact_status.py::TestArtifactStatusAPIFields::test_returns_attempted_strategies_from_last_proposal PASSED [ 17%]
+tests/test_api_task_artifact_status.py::TestArtifactStatusAPIFields::test_returns_empty_strategies_when_no_proposal PASSED [ 17%]
+tests/test_api_task_artifact_status.py::TestArtifactStatusAPIFields::test_returns_normalization_format PASSED [ 17%]
+tests/test_api_task_artifact_status.py::TestArtifactStatusAPIFields::test_returns_artifact_summary_with_completion_decision PASSED [ 18%]
+tests/test_api_task_artifact_status.py::TestArtifactStatusAPIFields::test_returns_task_not_found PASSED [ 18%]
+tests/test_api_task_artifact_status.py::TestArtifactStatusAPIFields::test_strategy_meta_from_history_event_when_no_last_proposal PASSED [ 18%]
+tests/test_api_task_artifact_status.py::TestArtifactStatusAPIFields::test_no_secrets_in_response PASSED [ 18%]
+tests/test_api_task_artifact_status.py::TestOrchestratorAttemptedStrategiesTracking::test_first_success_records_one_attempt PASSED [ 18%]
+tests/test_api_task_artifact_status.py::TestOrchestratorAttemptedStrategiesTracking::test_fallback_records_all_attempts PASSED [ 18%]
+tests/test_architecture_agents_compliance.py::test_worker_modules_do_not_import_hub_orchestration_routes PASSED [ 18%]
+tests/test_artifact_first_audit.py::TestArtifactFirstAuditEvents::test_all_required_audit_event_constants_exist PASSED [ 18%]
+tests/test_artifact_first_audit.py::TestArtifactFirstAuditEvents::test_event_names_are_snake_case PASSED [ 18%]
+tests/test_artifact_first_audit.py::TestArtifactFirstAuditEvents::test_advisory_parse_failed_ignored_event_name PASSED [ 18%]
+tests/test_artifact_first_audit.py::TestArtifactFirstAuditEvents::test_reconciliation_event_exists PASSED [ 18%]
+tests/test_artifact_first_security.py::TestPathTraversalRejection::test_manifest_with_dotdot_path_rejected PASSED [ 19%]
+tests/test_artifact_first_security.py::TestPathTraversalRejection::test_manifest_with_absolute_path_rejected PASSED [ 19%]
+tests/test_artifact_first_security.py::TestPathTraversalRejection::test_manifest_with_valid_path_accepted PASSED [ 19%]
+tests/test_artifact_first_security.py::TestPathTraversalRejection::test_build_artifact_entry_rejects_traversal PASSED [ 19%]
+tests/test_artifact_first_security.py::TestPathTraversalRejection::test_build_artifact_entry_rejects_absolute_path PASSED [ 19%]
+tests/test_artifact_first_security.py::TestSymlinkEscape::test_symlink_escaping_workspace_rejected PASSED [ 19%]
+tests/test_artifact_first_security.py::TestHashIntegrity::test_wrong_hash_rejected PASSED [ 19%]
+tests/test_artifact_first_security.py::TestHashIntegrity::test_correct_hash_accepted PASSED [ 19%]
+tests/test_artifact_first_security.py::TestLargeFileHandling::test_large_file_hash_not_content_in_manifest PASSED [ 19%]
+tests/test_artifact_first_security.py::TestWorkspaceDiffSecurity::test_workspace_diff_skips_dotdot_paths PASSED [ 19%]
+tests/test_artifact_first_security.py::TestWorkspaceDiffSecurity::test_manifest_not_trusted_without_validation PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestBuild::test_build_manifest_valid_structure PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestBuild::test_write_and_load_manifest PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestBuild::test_artifact_entry_rejects_traversal PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestBuild::test_artifact_entry_rejects_absolute_path PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestBuild::test_synthesized_manifest_marked_correctly PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestValidation::test_valid_manifest_passes PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestValidation::test_missing_hash_fails PASSED [ 20%]
+tests/test_artifact_manifest_contract.py::TestArtifactManifestValidation::test_path_traversal_fails PASSED [ 20%]
+tests/test_artifact_type_registry.py::test_artifact_type_registry_discovers_types_for_clients PASSED [ 20%]
+tests/test_artifact_type_registry.py::test_artifact_type_registry_validates_payload_and_reports_unknown_or_unsupported PASSED [ 21%]
+tests/test_audit_event_schema.py::test_canonical_schema_required_fields_present PASSED [ 21%]
+tests/test_audit_event_schema.py::test_context_classification_merges_unique_values PASSED [ 21%]
+tests/test_audit_event_schema.py::test_build_canonical_event_contains_chain_and_target PASSED [ 21%]
+tests/test_auth_scenarios.py::test_agent_token_header PASSED             [ 21%]
+tests/test_auth_scenarios.py::test_agent_token_query PASSED              [ 21%]
+tests/test_auth_scenarios.py::test_agent_jwt_header PASSED               [ 21%]
+tests/test_auth_scenarios.py::test_user_jwt_admin PASSED                 [ 21%]
+tests/test_auth_scenarios.py::test_user_jwt_regular PASSED               [ 21%]
+tests/test_auth_scenarios.py::test_invalid_token PASSED                  [ 21%]
+tests/test_auth_scenarios.py::test_missing_token PASSED                  [ 22%]
+tests/test_auth_scenarios.py::test_multi_decorator_auth PASSED           [ 22%]
+tests/test_auth_scenarios.py::test_expired_token PASSED                  [ 22%]
+tests/test_auth_scenarios.py::test_no_auth_configured PASSED             [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[bug_fix] PASSED [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[feature] PASSED [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[refactor] PASSED [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[test] PASSED [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[repo_analysis] PASSED [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[sys_diag] PASSED [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[code_fix] PASSED [ 22%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[new_software_project] PASSED [ 23%]
+tests/test_auto_planner_template_compatibility.py::test_legacy_template_ids_still_produce_subtasks[project_evolution] PASSED [ 23%]
+tests/test_auto_planner_template_compatibility.py::test_keyword_matching_works_for_german_and_english[Bitte behebe den Fehler im Auth-Flow] PASSED [ 23%]
+tests/test_auto_planner_template_compatibility.py::test_keyword_matching_works_for_german_and_english[Fix broken endpoint and add tests] PASSED [ 23%]
+tests/test_auto_planner_template_compatibility.py::test_keyword_matching_works_for_german_and_english[Neues Feature fuer Export erstellen] PASSED [ 23%]
+tests/test_auto_planner_template_compatibility.py::test_keyword_matching_works_for_german_and_english[Refactor the module and improve quality] PASSED [ 23%]
+tests/test_auto_planner_template_compatibility.py::test_template_resolution_avoids_llm_call_when_template_matches PASSED [ 23%]
+tests/test_auto_planner_template_compatibility.py::test_fallback_to_llm_still_works_when_no_template_matches PASSED [ 23%]
+tests/test_autopilot_metrics_population.py::test_dispatch_populates_core_bottleneck_metrics PASSED [ 23%]
+tests/test_backup_cleanup.py::test_cleanup_old_backups PASSED            [ 23%]
+tests/test_backup_cleanup.py::test_cleanup_no_dir PASSED                 [ 24%]
+tests/test_blender_policy_approval.py::test_blender_policy_denies_without_approval PASSED [ 24%]
+tests/test_blender_policy_approval.py::test_blender_policy_allows_with_approval PASSED [ 24%]
+tests/test_blueprint_bundle_api.py::test_export_blueprint_bundle_full_includes_templates_and_team PASSED [ 24%]
+tests/test_blueprint_bundle_api.py::test_export_blueprint_bundle_split_can_limit_parts PASSED [ 24%]
+tests/test_blueprint_bundle_api.py::test_import_blueprint_bundle_dry_run_returns_diff_without_persisting PASSED [ 24%]
+tests/test_blueprint_bundle_api.py::test_import_blueprint_bundle_split_can_stage_templates_before_blueprint PASSED [ 24%]
+tests/test_blueprint_bundle_api.py::test_import_blueprint_bundle_overwrite_is_idempotent PASSED [ 24%]
+tests/test_blueprint_bundle_api.py::test_import_blueprint_bundle_fail_strategy_reports_conflicts PASSED [ 24%]
+tests/test_bridge_adapter_registry.py::test_bridge_adapter_registry_resolves_known_adapter_as_ready PASSED [ 24%]
+tests/test_bridge_adapter_registry.py::test_bridge_adapter_registry_reports_unknown_adapter_as_degraded PASSED [ 25%]
+tests/test_bridge_adapter_registry.py::test_bridge_adapter_registry_reports_disabled_adapter_as_degraded PASSED [ 25%]
+tests/test_bridge_adapter_registry.py::test_bridge_adapter_registry_reports_malformed_descriptor_as_degraded PASSED [ 25%]
+tests/test_browser_policy_service.py::test_domain_allow_and_deny PASSED  [ 25%]
+tests/test_browser_policy_service.py::test_action_budget_enforced PASSED [ 25%]
+tests/test_browser_policy_service.py::test_download_policy_whitelist_and_bounded_dir PASSED [ 25%]
+tests/test_browser_policy_service.py::test_auth_policy_opt_in_required PASSED [ 25%]
+tests/test_browser_task_contract.py::test_contract_defaults_and_validation PASSED [ 25%]
+tests/test_browser_task_contract.py::test_contract_invalid_policy_rejected PASSED [ 25%]
+tests/test_cancelled_goal_task_execution_guard.py::test_terminal_parent_goal_guard_returns_skipped PASSED [ 25%]
+tests/test_cancelled_goal_task_execution_guard.py::test_terminal_parent_goal_guard_allows_active_goal PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_decide_heuristic_when_ai_offline PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_decide_ai_path_when_ai_available PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_decide_with_selected_artifact_returns_context_summary PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_decide_no_context_returns_no_good_match PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_decide_enriches_with_intent_reason_code PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_policy_denied_blocks_decision PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_policy_allowed_proceeds PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_late_ai_response_discarded_when_context_changed PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_late_ai_response_accepted_when_still_waiting PASSED [ 26%]
+tests/test_chat_decision_manager.py::test_initial_state_is_waiting_ai PASSED [ 27%]
+tests/test_chat_decision_manager.py::test_state_transitions_to_heuristic_on_offline PASSED [ 27%]
+tests/test_chat_decision_manager.py::test_metrics_accumulate_after_decisions PASSED [ 27%]
+tests/test_chat_decision_manager.py::test_trace_persisted_after_decide PASSED [ 27%]
+tests/test_citation_formatter.py::test_citation_formatter_keycloak_long_contains_version_and_snapshot PASSED [ 27%]
+tests/test_citation_formatter.py::test_citation_formatter_wikipedia_mentions_language_and_attribution PASSED [ 27%]
+tests/test_citation_formatter.py::test_citation_formatter_handles_missing_optional_fields PASSED [ 27%]
+tests/test_codecompass_context_explainer.py::test_context_explainer_produces_machine_and_human_readable_reason PASSED [ 27%]
+tests/test_codecompass_embedding_provider.py::test_embedding_provider_factory_supports_fake_and_local_provider_modes PASSED [ 27%]
+tests/test_codecompass_embedding_provider.py::test_openai_compatible_provider_requires_runtime_configuration PASSED [ 27%]
+tests/test_codecompass_embedding_provider.py::test_hash_provider_remains_backward_compatible PASSED [ 27%]
+tests/test_codecompass_graph_context.py::test_graph_context_builder_groups_seed_and_neighbors_with_clipped_content PASSED [ 28%]
+tests/test_codecompass_output_manifest_schema.py::test_codecompass_manifest_schema_accepts_complete_manifest PASSED [ 28%]
+tests/test_codecompass_output_manifest_schema.py::test_codecompass_manifest_schema_accepts_partial_outputs PASSED [ 28%]
+tests/test_codecompass_output_manifest_schema.py::test_codecompass_manifest_schema_rejects_missing_output_key PASSED [ 28%]
+tests/test_codecompass_vector_store.py::test_codecompass_vector_store_rebuild_and_search PASSED [ 28%]
+tests/test_codecompass_vector_store.py::test_codecompass_vector_store_refresh_rebuilds_when_manifest_changes PASSED [ 28%]
+tests/test_command_to_tool_mapper_chain_segments.py::test_mapper_applied_to_individual_segment_not_full_chain PASSED [ 28%]
+tests/test_command_to_tool_mapper_chain_segments.py::test_mapper_never_called_with_chain_operator PASSED [ 28%]
+tests/test_command_to_tool_mapper_chain_segments.py::test_git_status_maps_in_segment_context PASSED [ 28%]
+tests/test_command_to_tool_mapper_chain_segments.py::test_mapper_handles_python_c_segment PASSED [ 28%]
+tests/test_commit_metadata_schema.py::test_commit_metadata_defaults_to_none PASSED [ 29%]
+tests/test_commit_metadata_schema.py::test_commit_metadata_fields_preserved PASSED [ 29%]
+tests/test_commit_metadata_schema.py::test_commit_metadata_partial_fields_ok PASSED [ 29%]
+tests/test_commit_metadata_schema.py::test_existing_task_create_without_commit_metadata_unchanged PASSED [ 29%]
+tests/test_commit_metadata_schema.py::test_task_create_with_commit_metadata PASSED [ 29%]
+tests/test_config_api.py::test_get_config PASSED                         [ 29%]
+tests/test_config_api.py::test_get_config_exposes_effective_template_variable_registry PASSED [ 29%]
+tests/test_config_api.py::test_set_config_rejects_invalid_runtime_profile PASSED [ 29%]
+tests/test_config_api.py::test_set_config_accepts_actionable_runtime_profiles PASSED [ 29%]
+tests/test_config_api.py::test_set_config_rejects_invalid_execution_fallback_policy PASSED [ 29%]
+tests/test_config_api.py::test_set_config_rejects_invalid_autonomous_retry_strategy PASSED [ 30%]
+tests/test_config_api.py::test_set_config_unwrapping PASSED              [ 30%]
+tests/test_config_api.py::test_set_config_forbidden_for_user PASSED      [ 30%]
+tests/test_config_api.py::test_llmstudio_mode_persists PASSED            [ 30%]
+tests/test_config_api.py::test_llmstudio_mode_not_dropped_by_partial_llm_update PASSED [ 30%]
+tests/test_config_api.py::test_hub_copilot_config_is_normalized_and_merged PASSED [ 30%]
+tests/test_config_api.py::test_hub_copilot_invalid_mode_falls_back_to_planning_only PASSED [ 30%]
+tests/test_config_api.py::test_context_bundle_policy_is_normalized_and_merged PASSED [ 30%]
+tests/test_config_api.py::test_artifact_flow_config_is_normalized_and_merged PASSED [ 30%]
+tests/test_config_api.py::test_doom_loop_policy_is_normalized_and_merged PASSED [ 30%]
+tests/test_config_api.py::test_unified_approval_policy_is_normalized_and_merged PASSED [ 31%]
+tests/test_config_api.py::test_model_override_maps_are_normalized PASSED [ 31%]
+tests/test_config_api.py::test_specialized_worker_profiles_config_is_normalized_and_merged PASSED [ 31%]
+tests/test_config_api.py::test_ml_intern_spike_config_is_normalized_and_merged PASSED [ 31%]
+tests/test_config_api.py::test_model_override_maps_reject_non_objects PASSED [ 31%]
+tests/test_config_api.py::test_set_config_updates_runtime_provider_urls_for_flat_keys PASSED [ 31%]
+tests/test_config_api.py::test_list_providers_uses_dynamic_lmstudio_models PASSED [ 31%]
+tests/test_config_api.py::test_provider_catalog_contains_dynamic_lmstudio_block PASSED [ 31%]
+tests/test_config_api.py::test_provider_catalog_contains_codex_provider PASSED [ 31%]
+tests/test_config_api.py::test_provider_catalog_includes_configured_local_openai_backend PASSED [ 31%]
+tests/test_config_api.py::test_provider_catalog_handles_lmstudio_candidate_errors PASSED [ 31%]
+tests/test_config_api.py::test_provider_catalog_uses_cache_and_force_refresh PASSED [ 32%]
+tests/test_config_api.py::test_provider_catalog_passes_custom_lmstudio_timeout PASSED [ 32%]
+tests/test_config_api.py::test_provider_catalog_exposes_benchmark_recommendations_for_task_kind PASSED [ 32%]
+tests/test_config_api.py::test_provider_catalog_omits_recommendations_without_task_kind PASSED [ 32%]
+tests/test_config_api.py::test_dashboard_read_model_uses_benchmark_task_kind_rows PASSED [ 32%]
+tests/test_config_api.py::test_dashboard_read_model_can_skip_task_snapshot PASSED [ 32%]
+tests/test_config_api.py::test_dashboard_read_model_exposes_operations_observability 

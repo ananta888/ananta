@@ -219,7 +219,7 @@ def resolve_admin_credentials_via_hub_container(
             preferred_password,
             os.getenv("E2E_ADMIN_PASSWORD", ""),
             _env_value("E2E_ADMIN_PASSWORD"),
-            "AnantaAdminPassword123!",
+            "test123",
             os.getenv("INITIAL_ADMIN_PASSWORD", ""),
             _env_value("INITIAL_ADMIN_PASSWORD"),
             container_password,
@@ -449,7 +449,7 @@ def main() -> int:
     parser.add_argument("--admin-user", default=os.getenv("E2E_ADMIN_USER") or os.getenv("INITIAL_ADMIN_USER") or _env_value("INITIAL_ADMIN_USER") or "admin")
     parser.add_argument(
         "--admin-password",
-        default=os.getenv("E2E_ADMIN_PASSWORD") or os.getenv("INITIAL_ADMIN_PASSWORD") or _env_value("E2E_ADMIN_PASSWORD") or _env_value("INITIAL_ADMIN_PASSWORD") or "AnantaAdminPassword123!",
+        default=os.getenv("E2E_ADMIN_PASSWORD") or os.getenv("INITIAL_ADMIN_PASSWORD") or _env_value("E2E_ADMIN_PASSWORD") or _env_value("INITIAL_ADMIN_PASSWORD") or "test123",
     )
     parser.add_argument(
         "--goal-text",

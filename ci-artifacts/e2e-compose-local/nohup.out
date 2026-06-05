@@ -1,0 +1,268 @@
+[e2e-compose-local] START Fri Jun  5 16:14:43 CEST 2026
+
+=== [compose-foundation-auth] START Fri Jun  5 16:14:43 CEST 2026 ===
+[e2e-compose] running compose-foundation-auth with 6 specs
+[e2e-compose] shard compose-foundation-auth failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-foundation-auth/compose-foundation-auth.log
+time="2026-06-05T16:14:44+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-002bc36e6687 Creating 
+ Container ananta-frontend-test-run-002bc36e6687 Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/auth.spec.ts tests/auth-password.spec.ts tests/auth-lockout.spec.ts tests/auth-mfa.spec.ts tests/auth-rate-limit.spec.ts tests/permissions.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-foundation-auth] FAIL ===
+
+=== [compose-foundation-ui] START Fri Jun  5 16:15:06 CEST 2026 ===
+[e2e-compose] running compose-foundation-ui with 6 specs
+[e2e-compose] shard compose-foundation-ui failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-foundation-ui/compose-foundation-ui.log
+time="2026-06-05T16:15:06+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-6242694175c2 Creating 
+ Container ananta-frontend-test-run-6242694175c2 Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/settings-config.spec.ts tests/llm-config.spec.ts tests/notifications.spec.ts tests/agents.spec.ts tests/terminal.spec.ts tests/lite-compose-connectivity.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-foundation-ui] FAIL ===
+
+=== [compose-goal-core] START Fri Jun  5 16:15:19 CEST 2026 ===
+[e2e-compose] running compose-goal-core with 5 specs
+[e2e-compose] shard compose-goal-core failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-goal-core/compose-goal-core.log
+time="2026-06-05T16:15:20+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-e9099e51a4ba Creating 
+ Container ananta-frontend-test-run-e9099e51a4ba Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/main-goal-foundation.spec.ts tests/main-goal-planning.spec.ts tests/main-goal-execution.spec.ts tests/main-goal-observability.spec.ts tests/hub-flow.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-goal-core] FAIL ===
+
+=== [compose-goal-smoke] START Fri Jun  5 16:15:35 CEST 2026 ===
+[e2e-compose] running compose-goal-smoke with 2 specs
+[e2e-compose] shard compose-goal-smoke failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-goal-smoke/compose-goal-smoke.log
+time="2026-06-05T16:15:36+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-95b13285e19c Creating 
+ Container ananta-frontend-test-run-95b13285e19c Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/first-goal-e2e.spec.ts tests/release-goal-smoke.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-goal-smoke] FAIL ===
+
+=== [compose-admin-core] START Fri Jun  5 16:15:49 CEST 2026 ===
+[e2e-compose] running compose-admin-core with 7 specs
+[e2e-compose] shard compose-admin-core failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-admin-core/compose-admin-core.log
+time="2026-06-05T16:15:49+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-939f238298f0 Creating 
+ Container ananta-frontend-test-run-939f238298f0 Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/admin-core-journey.spec.ts tests/agent-registration.spec.ts tests/audit-logs.spec.ts tests/control-center-denied-flow.spec.ts tests/control-center-policies.spec.ts tests/control-center-review-flow.spec.ts tests/task-cleanup-ui.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-admin-core] FAIL ===
+
+=== [compose-admin-entities] START Fri Jun  5 16:16:02 CEST 2026 ===
+[e2e-compose] running compose-admin-entities with 3 specs
+[e2e-compose] shard compose-admin-entities failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-admin-entities/compose-admin-entities.log
+time="2026-06-05T16:16:03+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-b6e3fd46ba79 Creating 
+ Container ananta-frontend-test-run-b6e3fd46ba79 Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/team-types-roles.spec.ts tests/teams.spec.ts tests/templates-crud.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-admin-entities] FAIL ===
+
+=== [compose-ai-interaction] START Fri Jun  5 16:16:17 CEST 2026 ===
+[e2e-compose] running compose-ai-interaction with 10 specs
+[e2e-compose] shard compose-ai-interaction failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-ai-interaction/compose-ai-interaction.log
+time="2026-06-05T16:16:18+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-86b819bb6860 Creating 
+ Container ananta-frontend-test-run-86b819bb6860 Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/ai-assistant-global-dock.spec.ts tests/ai-assistant-hybrid.spec.ts tests/ai-assistant-opencode.spec.ts tests/ai-assistant-settings-mutations.spec.ts tests/ai-snake-config-panel.spec.ts tests/ai-snake-session-sharing.spec.ts tests/auto-planner.spec.ts tests/config-ui-control-hardening.spec.ts tests/llm-generate.spec.ts tests/templates-ai.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-ai-interaction] FAIL ===
+
+=== [compose-observability-network] START Fri Jun  5 16:16:29 CEST 2026 ===
+[e2e-compose] running compose-observability-network with 8 specs
+[e2e-compose] shard compose-observability-network failed with exit code 1
+[e2e-compose] tail of ci-artifacts/e2e-compose-local/compose-observability-network/compose-observability-network.log
+time="2026-06-05T16:16:30+02:00" level=warning msg="Found orphan containers ([ananta-frontend-live-llm-test-1 ananta-backend-live-llm-test-1 ananta-backend-test-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container ananta-frontend-test-run-2c60b1351156 Creating 
+ Container ananta-frontend-test-run-2c60b1351156 Created 
+
+> ananta-angular@0.7.0 test:e2e:compose
+> node ./scripts/run-e2e-compose.js tests/a11y.spec.ts tests/live-click-critical-paths.spec.ts tests/public-oidc-webrtc.spec.ts tests/sse-events.spec.ts tests/stress.spec.ts tests/ui-ux-console.spec.ts tests/ui-ux-workflows.spec.ts tests/webrtc-datachannel.spec.ts
+
+Service hub already running on ai-agent-hub:5000
+Service alpha already running on ai-agent-alpha:5000
+Service beta already running on ai-agent-beta:5000
+
+Error: Could not acquire admin token for deterministic scrum seed
+
+   at global-setup.ts:387
+
+  385 |     const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+  386 |     if (!token) {
+> 387 |       throw new Error('Could not acquire admin token for deterministic scrum seed');
+      |             ^
+  388 |     }
+  389 |     const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+  390 |     await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+    at globalSetup (/app/tests/global-setup.ts:387:13)
+
+
+
+=== [compose-observability-network] FAIL ===
+
+[e2e-compose-local] DONE Fri Jun  5 16:16:44 CEST 2026 — pass=0 fail=8
+e2e-compose-local summary: pass=0 fail=8 (Fri Jun  5 16:16:44 CEST 2026)
+  compose-foundation-auth: FAIL (exit 1)
+  compose-foundation-ui: FAIL (exit 1)
+  compose-goal-core: FAIL (exit 1)
+  compose-goal-smoke: FAIL (exit 1)
+  compose-admin-core: FAIL (exit 1)
+  compose-admin-entities: FAIL (exit 1)
+  compose-ai-interaction: FAIL (exit 1)
+  compose-observability-network: FAIL (exit 1)

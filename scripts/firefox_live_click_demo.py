@@ -64,7 +64,7 @@ def main():
             const u=document.querySelector('input[name="username"]');
             const p=document.querySelector('input[name="password"]');
             if(u){u.value='admin';u.dispatchEvent(new Event('input',{bubbles:true}));}
-            if(p){p.value='AnantaAdminPassword123!';p.dispatchEvent(new Event('input',{bubbles:true}));}
+            if(p){p.value='test123';p.dispatchEvent(new Event('input',{bubbles:true}));}
             return !!(u&&p);
             """,
         )
