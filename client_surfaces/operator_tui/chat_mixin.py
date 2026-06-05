@@ -437,7 +437,8 @@ class ChatMixin:
                 ai_msg | {"text": answer},
                 channel_id=channel_id,
                 streaming=False,
-                activate_view=bool(game.get("visual_viewport_enabled")),
+                activate_view=True,
+                plain_text=True,
             )
             chat.pop("ai_pending_msg_channel", None)
             set_chat_state(game, chat)
@@ -459,7 +460,8 @@ class ChatMixin:
                 {"id": "streaming", "sender_id": "s-ai", "sender_kind": "ai", "text": partial},
                 channel_id=channel_id,
                 streaming=True,
-                activate_view=bool(game.get("visual_viewport_enabled")),
+                activate_view=True,
+                plain_text=True,
             )
         if not question or bool(game.get("tutor_ask_answered")):
             return
