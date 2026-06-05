@@ -127,20 +127,6 @@ async function getAdminToken(hubUrl: string, username: string, password: string)
   }
 }
 
-function adminPasswordCandidates(preferredPassword: string): string[] {
-  return [...new Set([preferredPassword, 'test123', 'admin', 'AnantaAdminPassword123!']
-    .map((item) => String(item || '').trim())
-    .filter(Boolean))];
-}
-
-async function getAdminTokenWithFallbacks(hubUrl: string, username: string, password: string): Promise<string | null> {
-  for (const candidate of adminPasswordCandidates(password)) {
-    const token = await getAdminToken(hubUrl, username, candidate);
-    if (token) return token;
-  }
-  return null;
-}
-
 async function unwrapResponseList(res: Response): Promise<any[]> {
   const body = await res.json().catch(() => ({} as any));
   if (Array.isArray(body)) return body;
@@ -396,7 +382,7 @@ export default async function globalSetup() {
   await waitForFrontendReady(frontendBaseUrl, frontendWaitMs);
 
   if (process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1') {
-    const token = await getAdminTokenWithFallbacks(hubUrl, adminUser, adminPassword);
+    const token = await getAdminToken(hubUrl, adminUser, adminPassword);
     if (!token) {
       throw new Error('Could not acquire admin token for deterministic scrum seed');
     }
