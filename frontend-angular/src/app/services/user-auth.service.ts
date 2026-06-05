@@ -125,12 +125,15 @@ export class UserAuthService {
     if (!hub) return;
 
     this.userRefreshInFlight = true;
-    this.getMe().pipe(
+    this.http.get(`${hub.url}/me`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+    }).pipe(
       finalize(() => {
         this.userRefreshInFlight = false;
       })
     ).subscribe({
-      next: user => {
+      next: (response: any) => {
+        const user = response?.data ?? response;
         if (user) {
           this._user.next(user);
         }
