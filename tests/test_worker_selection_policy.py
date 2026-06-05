@@ -5,6 +5,7 @@ from agent.services.worker_selection_policy_service import (
     WorkerSelectionPolicyError,
     WorkerSelectionPolicyService,
     external_analysis_only_policy,
+    is_cloud_worker_kind,
     policy_allows_kind,
     strict_local_policy,
 )
@@ -51,6 +52,10 @@ def test_external_analysis_policy_allows_hermes_but_not_cloud():
     assert reason == ""
     assert policy.allow_cloud is False
     assert policy.allow_external_workers is True
+
+
+def test_hermes_is_not_classified_as_cloud_worker_kind():
+    assert is_cloud_worker_kind(WorkerKind.hermes.value) is False
 
 
 def test_legacy_preferred_backend_maps_to_fixed_worker_policy():

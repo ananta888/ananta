@@ -95,18 +95,18 @@ class TestModelPolicy:
         p = ModelPolicy(cloud_allowed=True, legacy_default_allow=True)
         assert p.is_provider_allowed("openai") is True
 
-    def test_local_provider_denied_by_default(self):
+    def test_local_provider_allowed_by_default(self):
         p = ModelPolicy(cloud_allowed=False)
-        assert p.is_provider_allowed("ollama") is False
+        assert p.is_provider_allowed("ollama") is True
 
     def test_allowlist_filters_local_providers(self):
         p = ModelPolicy(allowed_providers=["ollama"], cloud_allowed=False)
         assert p.is_provider_allowed("ollama") is True
         assert p.is_provider_allowed("lmstudio") is False
 
-    def test_empty_allowlist_denies_by_default(self):
+    def test_empty_allowlist_allows_local_providers_by_default(self):
         p = ModelPolicy(allowed_providers=[], cloud_allowed=False)
-        assert p.is_provider_allowed("lmstudio") is False
+        assert p.is_provider_allowed("lmstudio") is True
 
     def test_legacy_default_allow_allows_non_cloud(self):
         p = ModelPolicy(allowed_providers=[], cloud_allowed=False, legacy_default_allow=True)

@@ -27,7 +27,9 @@ EXTERNAL_WORKER_KINDS: frozenset[str] = frozenset({
     WorkerKind.remote_worker.value,
     WorkerKind.custom_worker.value,
 })
-CLOUD_WORKER_KINDS: frozenset[str] = frozenset({WorkerKind.hermes.value})
+# Cloud is modeled at the runtime-target layer. Worker kinds themselves only
+# encode whether they are external/non-local enough to need explicit allowance.
+CLOUD_WORKER_KINDS: frozenset[str] = frozenset()
 DETERMINISTIC_REPAIR_CAPABLE_KINDS: frozenset[str] = frozenset({WorkerKind.native_ananta_worker.value})
 ANALYSIS_ONLY_KINDS: frozenset[str] = frozenset({WorkerKind.hermes.value, WorkerKind.shellgpt.value})
 

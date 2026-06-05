@@ -53,7 +53,7 @@ class WorkerStrategy(ProposeStrategy):
                 return ProposeStrategyResult.declined(
                     "worker_strategy",
                     reason=str(decision.reason) if hasattr(decision, "reason") else "no_worker_selected",
-                    reason_codes=["no_worker_selected"] + list(getattr(decision, "reason_codes", [])),
+                    reason_codes=["no_worker_selected"] + self._normalize_reason_codes(getattr(decision, "reason_codes", None)),
                 )
 
             # If a worker adapter already produced structured proposal output, normalize it.
@@ -91,3 +91,20 @@ class WorkerStrategy(ProposeStrategy):
                 reason=f"worker_strategy_error: {exc}",
                 reason_codes=["worker_error"],
             )
+
+    @staticmethod
+    def _normalize_reason_codes(raw: Any) -> list[str]:
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            code = raw.strip()
+            return [code] if code else []
+        try:
+            normalized: list[str] = []
+            for item in raw:
+                code = str(item or "").strip()
+                if code and code not in normalized:
+                    normalized.append(code)
+            return normalized
+        except TypeError:
+            return []

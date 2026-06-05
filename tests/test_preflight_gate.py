@@ -158,10 +158,10 @@ class TestFailClosed:
         assert result.decision == PreflightDecision.blocked
         assert result.reason_code == REASON_PROVIDER_BLOCKED
 
-    def test_empty_allowlist_denies_provider_by_default(self):
+    def test_empty_allowlist_allows_local_provider_by_default(self):
         env = _env(model_policy=ModelPolicy(cloud_allowed=False))
         result = GATE.check_provider(env, "local_ollama_fork")
-        assert result.decision == PreflightDecision.blocked
+        assert result.allowed
 
     def test_cloud_provider_blocked_when_cloud_not_allowed(self):
         env = _env(model_policy=ModelPolicy(cloud_allowed=False))

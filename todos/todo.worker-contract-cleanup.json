@@ -1,0 +1,506 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "worker_contract_cleanup",
+  "purpose": "Align worker policy, runtime, strategy, and configuration contracts into one coherent security- and performance-aware model.",
+  "goal": "Remove semantic drift between tool policy defaults, worker taxonomy, runtime selection, and parallelism defaults without introducing compatibility hacks that hide the real contract.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "milestones": [
+    {
+      "id": "WCC-M1",
+      "title": "Tool policy contract unification",
+      "task_ids": [
+        "WCC-T001",
+        "WCC-T002",
+        "WCC-T003",
+        "WCC-T004"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WCC-M2",
+      "title": "Worker taxonomy and selection semantics",
+      "task_ids": [
+        "WCC-T005",
+        "WCC-T006",
+        "WCC-T007",
+        "WCC-T008",
+        "WCC-T009"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WCC-M3",
+      "title": "Runtime strategy hardening",
+      "task_ids": [
+        "WCC-T010",
+        "WCC-T011",
+        "WCC-T012",
+        "WCC-T013"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WCC-M4",
+      "title": "Parallelism defaults and config coherence",
+      "task_ids": [
+        "WCC-T014",
+        "WCC-T015",
+        "WCC-T016"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WCC-M5",
+      "title": "Regression coverage and docs",
+      "task_ids": [
+        "WCC-T017",
+        "WCC-T018",
+        "WCC-T019"
+      ],
+      "status": "done"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WCC-T001",
+      "title": "Define a single default semantics for empty ToolPolicy allowlists",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "ToolPolicy, PreflightGate, MCPAdapter, and all tests agree on the same empty-allowlist behavior.",
+        "Legacy permissive behavior exists only through an explicit opt-in field and is documented as legacy."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "WCC-T002",
+      "title": "Audit all tool-policy call sites for implicit open-by-default assumptions",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "No production code path silently assumes empty allowlists are permissive.",
+        "Any existing permissive call site is explicitly marked as legacy or test-only."
+      ],
+      "depends_on": [
+        "WCC-T001"
+      ]
+    },
+    {
+      "id": "WCC-T003",
+      "title": "Document the tool-policy security contract and migration path",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "The contract for empty allowlists is documented in repo docs.",
+        "The migration note explains how legacy_default_allow is used and when it should not be used."
+      ],
+      "depends_on": [
+        "WCC-T001"
+      ]
+    },
+    {
+      "id": "WCC-T004",
+      "title": "Update regression tests to validate the new tool-policy contract",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Worker API adapter tests and preflight tests assert the same semantics.",
+        "No test continues to encode contradictory allowlist expectations."
+      ],
+      "depends_on": [
+        "WCC-T001",
+        "WCC-T002"
+      ]
+    },
+    {
+      "id": "WCC-T005",
+      "title": "Separate worker taxonomy by capability and runtime-origin concerns",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "The worker classification model distinguishes runtime-origin from capability role.",
+        "Hermes is no longer ambiguously classified across incompatible policy axes."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "WCC-T006",
+      "title": "Define the exact semantics for external_analysis_only_policy",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "The policy explicitly states whether Hermes is treated as external, local, or cloud-adjacent.",
+        "The allow/deny order is deterministic and matches the policy name."
+      ],
+      "depends_on": [
+        "WCC-T005"
+      ]
+    },
+    {
+      "id": "WCC-T007",
+      "title": "Normalize worker-kind classification helpers and avoid conflicting categories",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Classification helpers cannot simultaneously place a kind into incompatible categories.",
+        "policy_allows_kind remains the single authoritative decision point for kind gating."
+      ],
+      "depends_on": [
+        "WCC-T005",
+        "WCC-T006"
+      ]
+    },
+    {
+      "id": "WCC-T008",
+      "title": "Align worker-selection service behavior with the new taxonomy contract",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Selection decisions fail closed only for intended policy reasons, not because of category drift.",
+        "Hermes-related selection behavior is consistent across selection and policy tests."
+      ],
+      "depends_on": [
+        "WCC-T005",
+        "WCC-T006",
+        "WCC-T007"
+      ]
+    },
+    {
+      "id": "WCC-T009",
+      "title": "Add taxonomy-focused regression tests for worker kinds and policies",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Hermes classification is tested from both policy and selection perspectives.",
+        "Cloud vs external vs local decisions are covered by explicit assertions."
+      ],
+      "depends_on": [
+        "WCC-T006",
+        "WCC-T008"
+      ]
+    },
+    {
+      "id": "WCC-T010",
+      "title": "Make WorkerStrategy resilient to partially populated decision objects",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Missing reason_codes are treated as an empty list instead of raising TypeError.",
+        "Selection decisions with optional metadata do not crash the strategy path."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "WCC-T011",
+      "title": "Introduce a typed selection-decision test builder for WorkerStrategy",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Tests use real or builder-backed decision objects rather than fragile naked mocks.",
+        "Selected, declined, and no-eligible cases are represented through one shared helper."
+      ],
+      "depends_on": [
+        "WCC-T010"
+      ]
+    },
+    {
+      "id": "WCC-T012",
+      "title": "Preserve executable vs advisory normalization semantics in WorkerStrategy",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Structured tool-call output normalizes to executable.",
+        "Prose output remains advisory and empty output remains an explicit decline."
+      ],
+      "depends_on": [
+        "WCC-T010",
+        "WCC-T011"
+      ]
+    },
+    {
+      "id": "WCC-T013",
+      "title": "Clarify the strategy fallback contract for no-delegation cases",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "The reason code for no usable worker output is documented and stable.",
+        "The decline path remains diagnostic without pretending work was executed."
+      ],
+      "depends_on": [
+        "WCC-T012"
+      ]
+    },
+    {
+      "id": "WCC-T014",
+      "title": "Choose the intended ollama parallelism baseline as a product decision",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "A single authoritative default exists for max_parallel_requests.",
+        "The chosen baseline is justified as either throughput-oriented or stability-oriented."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "WCC-T015",
+      "title": "Unify config defaults, runtime config, and schema expectations for parallelism",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "config/worker_parallelism.default.json, agent/config_defaults.py, and tests all agree.",
+        "No hidden fallback reintroduces a different default behind the chosen value."
+      ],
+      "depends_on": [
+        "WCC-T014"
+      ]
+    },
+    {
+      "id": "WCC-T016",
+      "title": "Reconcile worker-pool concurrency values with ollama model concurrency values",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Worker pool limits and ollama limits are internally consistent.",
+        "The effective concurrency rule is explained in docs and reflected by tests."
+      ],
+      "depends_on": [
+        "WCC-T014",
+        "WCC-T015"
+      ]
+    },
+    {
+      "id": "WCC-T017",
+      "title": "Expand coverage for worker-policy and runtime-target regression cases",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "The worker-01 shard remains green across policy, selection, and strategy tests.",
+        "Regression tests capture the intended contract, not the accidental one."
+      ],
+      "depends_on": [
+        "WCC-T004",
+        "WCC-T009",
+        "WCC-T013"
+      ]
+    },
+    {
+      "id": "WCC-T018",
+      "title": "Add a short design note describing the worker contract model",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": [
+        "The design note explains why these issues are coupled and not independent.",
+        "The note names the authoritative files for policy, selection, strategy, and config."
+      ],
+      "depends_on": [
+        "WCC-T003",
+        "WCC-T006",
+        "WCC-T014"
+      ]
+    },
+    {
+      "id": "WCC-T019",
+      "title": "Verify the cleaned-up contracts with targeted and shard-level CI runs",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Targeted tests pass for tool policy, worker selection, worker strategy, and parallelism schema.",
+        "The backend-coverage worker shard no longer exposes the old contract drift."
+      ],
+      "depends_on": [
+        "WCC-T004",
+        "WCC-T008",
+        "WCC-T012",
+        "WCC-T015"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "WCC-T001",
+    "WCC-T005",
+    "WCC-T010",
+    "WCC-T014",
+    "WCC-T015"
+  ],
+  "tasks_status_summary": {
+    "total": 19,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 19
+    },
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "P0": 9,
+      "P1": 8,
+      "P2": 2
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 10,
+      "high": 8
+    },
+    "critical_path": {
+      "total": 5,
+      "done": 5,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 5
+    }
+  },
+  "tasks_type_summary": {
+    "total": 19,
+    "by_type": {
+      "policy": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      },
+      "taxonomy": {
+        "total": 5,
+        "done": 5,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 5
+        }
+      },
+      "strategy": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      },
+      "config": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "verification": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 19
+  },
+  "summary_notes": [
+    "This track treats the worker failures as a contract-repair problem, not a one-off CI fix.",
+    "Empty allowlist semantics, Hermes classification, WorkerStrategy robustness, and parallelism defaults are intentionally grouped because they share the same authority boundary.",
+    "The goal is to remove drift between config, runtime code, and tests so the worker subsystem has one authoritative contract."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "WCC-S1",
+      "title": "Security contract",
+      "items": [
+        "ToolPolicy defaults are fail-closed unless explicitly opted into legacy permissive behavior.",
+        "Preflight and adapter behavior remain aligned with the same empty-allowlist contract."
+      ]
+    },
+    {
+      "summary_id": "WCC-S2",
+      "title": "Worker selection contract",
+      "items": [
+        "Hermes and other worker kinds have one unambiguous classification model.",
+        "Selection logic, policy logic, and tests all share the same taxonomy."
+      ]
+    },
+    {
+      "summary_id": "WCC-S3",
+      "title": "Runtime and performance contract",
+      "items": [
+        "WorkerStrategy no longer fails on partial decision objects.",
+        "Parallelism defaults are intentional, documented, and consistent across config sources."
+      ]
+    }
+  ]
+}
