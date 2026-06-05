@@ -334,12 +334,12 @@ class MarkdownMermaidDocumentView:
         text = str(context.state.get("markdown_plain_text") or context.state.get("markdown_text") or "")
         width = max(1, context.region.columns)
         body_width = max(1, width)
-        lines: list[str] = [
-            "# Chat-Nachricht",
-            "",
-            "> Antwortstream wird hier in der mittleren Ansicht fortgesetzt.",
-            "",
-        ]
+        lines: list[str] = ["# Chat-Nachricht", ""]
+        if bool(context.state.get("chat_long_message_streaming")):
+            lines.extend([
+                "> Antwortstream wird hier in der mittleren Ansicht fortgesetzt.",
+                "",
+            ])
         for raw_line in text.splitlines() or [""]:
             if not raw_line:
                 lines.append("")

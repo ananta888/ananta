@@ -25,7 +25,7 @@ def compact_chat_message_text(
     shortcut = shortcut_display or display_for_action("open_long_chat_message", "Ctrl+Space")
     return (
         f"{value[:threshold]} ... "
-        f"[wird in der mittleren Markdown/Mermaid-Ansicht fortgesetzt; {shortcut} erneut anzeigen]"
+        f"[wird in der mittleren Ansicht vollständig fortgesetzt; {shortcut} Ansicht umschalten]"
     )
 
 
@@ -168,6 +168,7 @@ def configure_middle_view_for_message(
     game["chat_long_message_plain_text"] = text
     game["chat_long_message_id"] = str(message.get("id") or ("streaming" if streaming else ""))
     game["chat_long_message_channel"] = channel_id
+    game["chat_long_message_streaming"] = bool(streaming)
     game["visual_viewport_enabled"] = True
     game["visual_viewport"] = {"enabled": True}
     game["visual_viewport_active_view_request"] = "markdown_mermaid_document"

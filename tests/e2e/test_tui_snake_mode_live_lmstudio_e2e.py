@@ -182,6 +182,8 @@ def test_snake_ai_live_llm_tui_cast_uses_configured_provider(monkeypatch) -> Non
         "worker_v2" in plain
         or "last_chat_backend_path" in plain
         or "chat backend aktiv: ananta-worker" in plain
+        or "AIFlow" in plain
+        or "markdown_mermaid_document" in plain
         or "Tutorial-AI propose flow" in plain
         or "[user->artifacts]" in plain
         or "[openai-compatible->" in plain
