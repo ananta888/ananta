@@ -78,7 +78,9 @@ from agent.services.verification_service import get_verification_service
 from agent.llm_integration import build_llm_call_profile_entry, normalize_llm_call_profile_entry
 from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.services.propose_policy_service import get_propose_policy_service
+from agent.services.propose_policy import get_task_kind_preset
 from agent.utils import _extract_reason, _log_terminal_entry
+from worker.core.propose import ExecutableProposal
 
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
 
@@ -788,7 +790,7 @@ class TaskScopedExecutionService:
                     cli_runner=cli_runner,
                     cfg=cfg,
                 )
-            if explicit_task_kind:
+            if explicit_task_kind and not get_task_kind_preset(explicit_task_kind):
                 handler_response = self._try_handler_propose(
                     tid=tid,
                     task=task,
@@ -3571,6 +3573,15 @@ class TaskScopedExecutionService:
             return None
         if isinstance(response, TaskScopedRouteResponse):
             return response
+        if isinstance(response, ExecutableProposal):
+            return TaskScopedRouteResponse(
+                data={
+                    **response.to_dict(),
+                    "status": "executable",
+                    "proposal_status": "executable",
+                    "selected_strategy": "deterministic_handler",
+                }
+            )
         if isinstance(response, dict):
             return TaskScopedRouteResponse(data=response)
         raise TypeError("task_handler_response_must_be_dict_or_TaskScopedRouteResponse")
