@@ -440,7 +440,7 @@ export class AppComponent implements OnInit, OnDestroy {
   get headerUser(): { sub: string; role: string } | null {
     const user = this.auth.userPayload;
     if (user && typeof user === 'object') {
-      const sub = String((user as any).sub || '').trim() || 'angemeldet';
+      const sub = String((user as any).sub || (user as any).username || (user as any).preferred_username || '').trim() || 'angemeldet';
       const role = String((user as any).role || '').trim() || 'user';
       return { sub, role };
     }
