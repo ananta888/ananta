@@ -78,11 +78,12 @@ def toggle_render_mode(game: dict[str, Any]) -> str:
     game["markdown_stream_plain"] = new_plain
     game["markdown_auto_follow"] = False
     game["visual_viewport_force_render"] = True
+    game["visual_viewport_frame_lines"] = []
     game["markdown_mermaid_render_requested"] = not new_plain
     game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=not new_plain)
     msg_id = str(game.get("chat_long_message_id") or "")
     suffix = "plain" if new_plain else "rendered"
-    game["visual_state_version"] = f"chat-long-message:{msg_id}:{suffix}"
+    game["visual_state_version"] = f"chat-long-message:{msg_id}:{suffix}:{time.time():.6f}"
     return "plain" if new_plain else "rendered"
 
 
@@ -141,10 +142,10 @@ def configure_middle_view_for_history_entry(game: dict[str, Any], entry: dict[st
     game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
     game["visual_viewport_force_render"] = True
     game["markdown_auto_follow"] = False
-    game["markdown_stream_plain"] = False
-    game["markdown_mermaid_render_requested"] = True
-    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=True)
-    game["visual_state_version"] = f"chat-long-message:{msg_id}:rendered-history"
+    game["markdown_stream_plain"] = True
+    game["markdown_mermaid_render_requested"] = False
+    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=False)
+    game["visual_state_version"] = f"chat-long-message:{msg_id}:plain-history:{time.time():.6f}"
     return True
 
 
