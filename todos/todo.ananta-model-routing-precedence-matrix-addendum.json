@@ -1,0 +1,326 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-model-routing-precedence-matrix-addendum",
+  "purpose": "Ergänzung zu todos/todo.ananta-model-profile-routing-policy.json: Die genaue Gewinner-Reihenfolge zwischen neuer Model-Profile-Konfiguration, Blueprint-/Template-/Task-Konfiguration und alter DEFAULT_PROVIDER/DEFAULT_MODEL-/Override-Konfiguration wird verbindlich festgelegt.",
+  "goal": "Bei paralleler alter und neuer Modellkonfiguration darf nicht unklar sein, welche Einstellung gewinnt. Die Priorität muss deterministisch, testbar und security-first sein.",
+  "related_track": "todos/todo.ananta-model-profile-routing-policy.json",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "precedence_matrix": [
+    {
+      "rank": 0,
+      "source": "security_policy",
+      "description": "Security-/Risk-/Context-Policy gewinnt immer. Sie darf jede alte oder neue Modellwahl blockieren.",
+      "example": "Secret-Kontext blockiert Cloud auch dann, wenn request_override oder DEFAULT_MODEL ein Cloud-Modell fordert."
+    },
+    {
+      "rank": 1,
+      "source": "explicit_request_or_task_override",
+      "description": "Expliziter Request-/Task-Override gewinnt, sofern Security Policy ihn erlaubt.",
+      "example": "Task fordert profile=local_fast_coder und kein Secret/Policy-Konflikt liegt vor."
+    },
+    {
+      "rank": 2,
+      "source": "task_model_policy",
+      "description": "Neue task-spezifische model_policy gewinnt vor Blueprint, Template und Legacy-Overrides.",
+      "example": "Task-Kontext setzt preferred_profile=local_planner."
+    },
+    {
+      "rank": 3,
+      "source": "blueprint_role_model_policy",
+      "description": "Neue Blueprint Role model_policy gewinnt vor Team-, Template-, Task-Kind- und Legacy-Overrides.",
+      "example": "Blueprint-Rolle coder setzt preferred_profile=local_fast_coder."
+    },
+    {
+      "rank": 4,
+      "source": "team_model_policy",
+      "description": "Team-spezifische Modellpolicy gewinnt vor Template und allgemeinen Task-Kind-Regeln.",
+      "example": "Team ananta-local-dev bevorzugt nur lokale Profile."
+    },
+    {
+      "rank": 5,
+      "source": "template_model_policy",
+      "description": "Neue Template model_policy gewinnt vor Task-Kind-Defaults und Legacy-Overrides.",
+      "example": "Template security-review-agent fordert min_quality_class=high und require_json=true."
+    },
+    {
+      "rank": 6,
+      "source": "new_task_kind_profiles",
+      "description": "Neue task_kind_profiles aus model_routing gewinnen vor alten task_kind_model_overrides.",
+      "example": "task_kind_profiles.coding.primary=local_fast_coder."
+    },
+    {
+      "rank": 7,
+      "source": "legacy_task_kind_model_overrides",
+      "description": "Alte task_kind_model_overrides bleiben aktiv, wenn keine stärkere neue Regel greift.",
+      "example": "task_kind_model_overrides.coding=qwen2.5-coder:7b."
+    },
+    {
+      "rank": 8,
+      "source": "legacy_role_model_overrides",
+      "description": "Alte role_model_overrides bleiben aktiv, wenn keine neue Task-/Blueprint-/Team-/Template-/TaskKind-Regel greift.",
+      "example": "role_model_overrides.coder=qwen2.5-coder:7b."
+    },
+    {
+      "rank": 9,
+      "source": "legacy_template_model_overrides",
+      "description": "Alte template_model_overrides bleiben aktiv, wenn keine stärkere neue oder alte Regel greift.",
+      "example": "template_model_overrides.review-agent=gemini-flash."
+    },
+    {
+      "rank": 10,
+      "source": "model_routing_defaults",
+      "description": "Neue model_routing.defaults gewinnen vor DEFAULT_PROVIDER/DEFAULT_MODEL.",
+      "example": "model_routing.defaults.profile=local_fast_coder."
+    },
+    {
+      "rank": 11,
+      "source": "legacy_default_provider_model",
+      "description": "DEFAULT_PROVIDER/DEFAULT_MODEL sind der letzte Fallback und sichern Rückwärtskompatibilität, wenn keine Profil-/Routing-Config greift.",
+      "example": "DEFAULT_PROVIDER=ollama und DEFAULT_MODEL=qwen2.5-coder:7b."
+    }
+  ],
+  "legacy_normalization_rules": [
+    "String-basierte Legacy-Overrides werden intern in ModelPolicy-Objekte normalisiert.",
+    "Ein Legacy-Wert role_model_overrides.coder=\"qwen2.5-coder:7b\" entspricht intern {\"model\": \"qwen2.5-coder:7b\", \"source\": \"legacy_role_model_overrides\"}.",
+    "Legacy DEFAULT_PROVIDER/DEFAULT_MODEL wird nur verwendet, wenn keine explizite neue Profil-/Routing-Entscheidung möglich ist.",
+    "Legacy-Konfiguration darf niemals Security-/Risk-/Context-Policy überschreiben.",
+    "Neue Config gewinnt vor alter Config, wenn beide dieselbe Ebene abdecken; alte Config bleibt Fallback."
+  ],
+  "milestones": [
+    {
+      "id": "MPM-1",
+      "title": "Precedence Matrix dokumentieren und testen",
+      "task_ids": [
+        "MPM-001",
+        "MPM-002",
+        "MPM-003"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "MPM-001",
+      "title": "Precedence Matrix in Hauptarchitektur übernehmen",
+      "type": "docs",
+      "milestone": "MPM-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-002",
+        "AMR-009",
+        "AMR-020"
+      ],
+      "target_files": [
+        "docs/architecture/model-routing-profiles-policy.md",
+        "docs/migrations/model-routing-profiles-migration.md",
+        "todos/todo.ananta-model-profile-routing-policy.json"
+      ],
+      "acceptance_criteria": [
+        "Die Precedence Matrix aus dieser Addendum-Datei wird in docs/architecture/model-routing-profiles-policy.md übernommen.",
+        "Die Migration-Doku erklärt explizit, dass DEFAULT_PROVIDER/DEFAULT_MODEL nur finaler Legacy-Fallback sind.",
+        "Die Haupt-TODO todos/todo.ananta-model-profile-routing-policy.json referenziert diese Matrix oder integriert sie vollständig.",
+        "Security Policy steht in allen Dokumenten als Rang 0 und gewinnt immer.",
+        "Es gibt ein konkretes Beispiel für alte Config only, neue Config only und gemischte alte+neue Config."
+      ],
+      "test_expectations": [
+        "Docs-Review prüft, dass die Reihenfolge vollständig und widerspruchsfrei ist.",
+        "Keine Code-Tests nötig für reine Doku-Übernahme."
+      ]
+    },
+    {
+      "id": "MPM-002",
+      "title": "Resolver-Tests für alte vs. neue Konfiguration ergänzen",
+      "type": "backend-test",
+      "milestone": "MPM-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-008",
+        "AMR-009"
+      ],
+      "target_files": [
+        "tests/test_model_profile_resolver_precedence.py",
+        "tests/test_model_override_normalization.py"
+      ],
+      "acceptance_criteria": [
+        "Test beweist: request/task override schlägt Blueprint Role model_policy, wenn Security es erlaubt.",
+        "Test beweist: Blueprint Role model_policy schlägt legacy role_model_overrides.",
+        "Test beweist: Template model_policy schlägt legacy template_model_overrides.",
+        "Test beweist: new task_kind_profiles schlägt legacy task_kind_model_overrides.",
+        "Test beweist: model_routing.defaults schlägt DEFAULT_PROVIDER/DEFAULT_MODEL.",
+        "Test beweist: DEFAULT_PROVIDER/DEFAULT_MODEL wird genutzt, wenn keine neue Profil-/Routing-Config existiert.",
+        "Test beweist: Security Policy schlägt alle genannten alten und neuen Overrides."
+      ],
+      "test_expectations": [
+        "pytest tests/test_model_profile_resolver_precedence.py läuft ohne echte LLM-Provider.",
+        "Alle Precedence-Fälle nutzen Mock-Profile und Mock-Provider.",
+        "Tests prüfen nicht nur das Modell, sondern auch routing_source und policy_decisions."
+      ]
+    },
+    {
+      "id": "MPM-003",
+      "title": "Read-Model muss effektive Gewinnerquelle anzeigen",
+      "type": "api-test",
+      "milestone": "MPM-1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-014",
+        "MPM-002"
+      ],
+      "target_files": [
+        "agent/routes/config/read_models.py",
+        "tests/test_config_read_models_model_precedence.py"
+      ],
+      "acceptance_criteria": [
+        "Config Read-Model zeigt pro Routing-Entscheidung die Gewinnerquelle: security_policy, request_override, task_model_policy, blueprint_role_model_policy, team_model_policy, template_model_policy, task_kind_profiles, legacy_task_kind_model_overrides, legacy_role_model_overrides, legacy_template_model_overrides, model_routing_defaults oder legacy_default_provider_model.",
+        "Read-Model zeigt zusätzlich shadowed_sources, also welche niedrigeren Konfigquellen vorhanden waren, aber nicht gewonnen haben.",
+        "Read-Model zeigt blocked_by_security=true, wenn eine eigentlich stärkere Modellwahl durch Security blockiert wurde.",
+        "Read-Model gibt keine Secrets/API-Key-Werte aus.",
+        "UI kann anhand dieser Felder später erklären: Warum wurde dieses Modell gewählt?"
+      ],
+      "test_expectations": [
+        "API-Test prüft Gewinnerquelle bei gemischter alter+neuer Config.",
+        "API-Test prüft shadowed_sources.",
+        "API-Test prüft blocked_by_security.",
+        "API-Test prüft Secret-Redaction."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "MPM-001",
+    "MPM-002"
+  ],
+  "tasks_status_summary": {
+    "total": 3,
+    "by_status": {
+      "todo": 3,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 2,
+      "P1": 1,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 2,
+      "high": 1
+    },
+    "critical_path": {
+      "total": 2,
+      "done": 0,
+      "remaining": 2
+    },
+    "milestones": {
+      "total": 1,
+      "todo": 1,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 3,
+    "by_type": {
+      "docs": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-test": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "api-test": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 3,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Diese Datei ergänzt die Haupt-TODO um eine eindeutige Gewinner-Reihenfolge.",
+    "Wichtigste Regel: Security Policy gewinnt immer, DEFAULT_PROVIDER/DEFAULT_MODEL ist finaler Legacy-Fallback.",
+    "Alte Overrides bleiben funktionsfähig, werden aber in neue ModelPolicy-Objekte normalisiert und verlieren gegen explizite neue Policies auf derselben oder konkreteren Ebene."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "effective_rule",
+      "title": "Effektive Regel",
+      "items": [
+        "Neue spezifische Policy gewinnt vor alter allgemeiner Config.",
+        "Alte Config bleibt als Fallback erhalten.",
+        "Security Policy schlägt alles.",
+        "Read-Model und Tests müssen die Gewinnerquelle sichtbar machen."
+      ]
+    }
+  ]
+}
