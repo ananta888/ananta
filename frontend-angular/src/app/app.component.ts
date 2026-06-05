@@ -5,7 +5,7 @@ import { NotificationsComponent } from './components/notifications.component';
 import { ToastComponent } from './components/toast.component';
 import { AgentDirectoryService } from './services/agent-directory.service';
 import { UserAuthService } from './services/user-auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, combineLatest } from 'rxjs';
 import { AsyncPipe } from '@angular/common';
 import { AiAssistantComponent } from './components/ai-assistant.component';
 import { BreadcrumbComponent } from './components/breadcrumb.component';
@@ -281,7 +281,9 @@ export class AppComponent implements OnInit, OnDestroy {
   private pythonRuntime = inject(PythonRuntimeService);
   readonly bridge = inject(WindowBridgeService);
 
+  headerUser: { sub: string; role: string } | null = null;
   private authSub?: Subscription;
+  private headerUserSub?: Subscription;
   private touchStartX = 0;
   private touchStartY = 0;
   private trackingOpenSwipe = false;
@@ -305,10 +307,22 @@ export class AppComponent implements OnInit, OnDestroy {
         this.system.disconnectSystemEvents();
       }
     });
+    this.headerUserSub = combineLatest([this.auth.user$, this.auth.token$]).subscribe(([user, token]) => {
+      if (user && typeof user === 'object') {
+        const sub = String((user as any).sub || '').trim() || 'angemeldet';
+        const role = String((user as any).role || '').trim() || 'user';
+        this.headerUser = { sub, role };
+      } else if (token) {
+        this.headerUser = { sub: 'angemeldet', role: 'user' };
+      } else {
+        this.headerUser = null;
+      }
+    });
   }
 
   ngOnDestroy() {
     this.authSub?.unsubscribe();
+    this.headerUserSub?.unsubscribe();
     this.system.disconnectSystemEvents();
   }
 
@@ -437,16 +451,4 @@ export class AppComponent implements OnInit, OnDestroy {
     this.trackingCloseSwipe = false;
   }
 
-  get headerUser(): { sub: string; role: string } | null {
-    const user = this.auth.userPayload;
-    if (user && typeof user === 'object') {
-      const sub = String((user as any).sub || '').trim() || 'angemeldet';
-      const role = String((user as any).role || '').trim() || 'user';
-      return { sub, role };
-    }
-    if (this.auth.isLoggedIn()) {
-      return { sub: 'angemeldet', role: 'user' };
-    }
-    return null;
-  }
 }

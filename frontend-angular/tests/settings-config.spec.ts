@@ -227,6 +227,7 @@ test.describe('Settings Config', () => {
     const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
     const rawArea = rawCard.locator('textarea');
     await expect(rawArea).toBeVisible();
+    await expect.poll(async () => await httpTimeout.inputValue(), { timeout: 15_000 }).toBe('17');
 
     await httpTimeout.fill('44');
     await commandTimeout.fill('45');
