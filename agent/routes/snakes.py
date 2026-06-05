@@ -557,12 +557,72 @@ def list_participants():
 # ── Synchrone AI-Ask API (TUI worker mode) ────────────────────────────────────
 
 
+def _pick_worker_for_ask() -> tuple[str, str | None]:
+    """Return (worker_url, token) for the first online worker, or ("", None)."""
+    try:
+        from agent.services.agent_registry_service import get_agent_registry_service
+        from agent.repositories.repository_registry import get_repository_registry
+
+        agents = get_agent_registry_service().get_online_agents()
+        if not agents:
+            return "", None
+        agent = agents[0]
+        worker_url = str(getattr(agent, "url", "") or "").strip()
+        if not worker_url:
+            return "", None
+        token: str | None = None
+        try:
+            db_agent = get_repository_registry().agent_repo.get_by_url(worker_url)
+            token = str(getattr(db_agent, "token", "") or "").strip() or None
+        except Exception:
+            pass
+        return worker_url, token
+    except Exception:
+        return "", None
+
+
+def _worker_propose(grounded_prompt: str, model: str | None) -> str:
+    """Forward the prompt to an online worker's /step/propose. Returns answer or ""."""
+    from agent.services.task_runtime_service import forward_to_worker
+
+    worker_url, token = _pick_worker_for_ask()
+    if not worker_url:
+        return ""
+
+    payload: dict[str, Any] = {
+        "prompt": grounded_prompt,
+        "provider": "lmstudio",
+        "temperature": 0.3,
+    }
+    if model:
+        payload["model"] = model
+
+    try:
+        result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
+        if result is None and token:
+            result = forward_to_worker(worker_url, "/step/propose", payload, token=None)
+    except Exception as exc:
+        logging.getLogger(__name__).debug("snake-ask worker forward failed: %s", exc)
+        return ""
+
+    if not isinstance(result, dict):
+        return ""
+    data = result.get("data") if isinstance(result.get("data"), dict) else result
+    if not isinstance(data, dict):
+        return ""
+    text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
+    if len(text) > 2200:
+        text = text[:2200].rstrip() + "\n\n[gekuerzt]"
+    return text
+
+
 @snakes_bp.route("/snake/ask", methods=["POST"])
 def snake_ask():
     """POST /snake/ask – Synchrone AI-Antwort für den TUI ananta-worker Modus.
 
     Akzeptiert v1 ({question, context, depth}) und v2 ({question, context, depth, memory_context}).
-    Antwortet mit {"answer": "..."}.
+    Antwortet mit {"answer": "..."}. Routet über einen registrierten Worker-Prozess;
+    fällt auf direkten LMStudio-Aufruf zurück falls kein Worker verfügbar.
     """
     if not _is_local_request():
         auth = _optional_user_auth()
@@ -575,28 +635,35 @@ def snake_ask():
         return jsonify({"error": "question erforderlich"}), 400
 
     context = str(body.get("context") or "").strip()[:4000]
-
     if context:
         grounded_prompt = f"{question}\n\nKontext:\n{context}"
     else:
         grounded_prompt, _, _ = _build_grounded_snake_prompt(question)
 
+    _, model = _resolve_ai_snake_chat_provider()
+
+    # Primary path: route through registered ananta-worker
+    answer = _worker_propose(grounded_prompt, model)
+    if answer:
+        return jsonify({"answer": answer, "path": "worker"}), 200
+
+    # Fallback: direct LMStudio call from hub
     try:
-        provider, model = _resolve_ai_snake_chat_provider()
+        provider, _ = _resolve_ai_snake_chat_provider()
         timeout = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
-        answer = generate_text(
+        raw = generate_text(
             prompt=grounded_prompt,
             provider=provider,
             model=model,
             history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
             timeout=timeout,
         )
-        text = str(answer or "").strip()
+        text = str(raw or "").strip()
         if len(text) > 2200:
             text = text[:2200].rstrip() + "\n\n[gekuerzt]"
         if not text:
             return jsonify({"error": "Keine Antwort generiert"}), 503
-        return jsonify({"answer": text}), 200
+        return jsonify({"answer": text, "path": "hub_direct"}), 200
     except Exception as exc:
         logging.getLogger(__name__).warning("snake-ask failed: %s", exc)
         return jsonify({"error": f"LLM-Fehler: {str(exc)[:120]}"}), 503
