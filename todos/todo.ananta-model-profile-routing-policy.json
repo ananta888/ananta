@@ -1,0 +1,1217 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-model-profile-routing-policy",
+  "purpose": "Ein übersichtliches, aber umfangreiches Modellrouting-System für Ananta planen und umsetzen: zentrale Model Profiles, deterministische Routing-Regeln, Blueprint-/Template-/Task-Zuordnung, Security-first Cloud-Policy, Fallbacks, Telemetrie, UI und Tests.",
+  "goal": "Ananta soll lokale freie Modelle, OpenRouter-/Cloud-Modelle und spätere High-End-Modelle sauber, nachvollziehbar und sicher zu Rollen, Blueprints, Templates, Task-Arten und Sicherheitsklassen zuordnen können.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "design_principles": [
+    "Policy-first: Erst Kontext/Sicherheitsklasse prüfen, dann Modell wählen.",
+    "Deterministisch: Keine implizite Heuristik oder zufällige Modellwahl als Default.",
+    "Least Privilege: Cloud, Tools, Mutationen und Kontextzugriff werden explizit erlaubt, nicht implizit angenommen.",
+    "Abwärtskompatibel: DEFAULT_PROVIDER/DEFAULT_MODEL und bestehende Overrides bleiben lauffähig.",
+    "Nachvollziehbar: Jede Modellentscheidung erzeugt Reason, Policy Decisions, Blocked Candidates und Telemetrie.",
+    "Trennung der Ebenen: Provider, Model Profile, fachliche Modellrolle, Routing-Regel und Security Policy sind getrennte Konzepte."
+  ],
+  "proposed_files": {
+    "schemas": [
+      "config/schemas/model_profiles.schema.json",
+      "config/schemas/model_routing.schema.json"
+    ],
+    "examples": [
+      "config/models/examples/local-ollama-rtx3080.model_profiles.yaml",
+      "config/models/examples/hybrid-local-cloud.model_profiles.yaml",
+      "config/models/examples/hybrid-local-cloud.model_routing.yaml"
+    ],
+    "services": [
+      "agent/services/model_profile_loader.py",
+      "agent/services/model_profile_resolver.py",
+      "agent/services/model_override_normalization_service.py"
+    ],
+    "docs": [
+      "docs/architecture/model-routing-current-state.md",
+      "docs/architecture/model-routing-profiles-policy.md",
+      "docs/operator/model-routing.md",
+      "docs/migrations/model-routing-profiles-migration.md"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Bestandsaufnahme und Zielarchitektur",
+      "task_ids": [
+        "AMR-001",
+        "AMR-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Schemas und Beispielkonfigurationen",
+      "task_ids": [
+        "AMR-003",
+        "AMR-004",
+        "AMR-005",
+        "AMR-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Loader, Resolver und Legacy-Normalisierung",
+      "task_ids": [
+        "AMR-007",
+        "AMR-008",
+        "AMR-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Backend-Integration in Invocation, Contracts, Blueprint und Templates",
+      "task_ids": [
+        "AMR-010",
+        "AMR-011",
+        "AMR-012",
+        "AMR-013"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Config API und Dashboard-Sichtbarkeit",
+      "task_ids": [
+        "AMR-014",
+        "AMR-015"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "Security Enforcement und Fallback-Verhalten",
+      "task_ids": [
+        "AMR-016",
+        "AMR-017"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M7",
+      "title": "Benchmarks, Learning und Worker-Integration",
+      "task_ids": [
+        "AMR-018",
+        "AMR-019"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M8",
+      "title": "Migration, E2E und Operator-Dokumentation",
+      "task_ids": [
+        "AMR-020",
+        "AMR-021",
+        "AMR-022"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M9",
+      "title": "Admin-Ausbau und Abschlussreview",
+      "task_ids": [
+        "AMR-023",
+        "AMR-024"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "AMR-001",
+      "title": "Ist-Zustand der Modellzuordnung dokumentieren",
+      "type": "analysis",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": [],
+      "target_files": [
+        "docs/architecture/model-routing-current-state.md"
+      ],
+      "acceptance_criteria": [
+        "Dokumentiert sind alle aktuell vorhandenen Eingriffspunkte: DEFAULT_PROVIDER, DEFAULT_MODEL, OLLAMA_URL, LMSTUDIO_URL, OPENAI_URL, OPENCODE_DEFAULT_MODEL, role_model_overrides, template_model_overrides, task_kind_model_overrides, planning_policy, worker_runtime, opencode_runtime und Blueprint Role config.",
+        "Dokumentation nennt eindeutig, welche Zuordnung heute hart verdrahtet, welche runtime-konfigurierbar und welche nur als UI-/Read-Model sichtbar ist.",
+        "Bestehende Dateien agent/config.py, agent/config_defaults.py, agent/services/model_invocation_service.py, agent/routes/config/read_models.py, agent/routes/config/shared.py und config/runs/three-worker-local-planning.yaml sind als Ausgangspunkt referenziert.",
+        "Es gibt keine neue Logik in diesem Task, nur nachvollziehbare Bestandsaufnahme."
+      ],
+      "test_expectations": [
+        "Keine Unit-Tests nötig; Review akzeptiert die Bestandsaufnahme nur, wenn sie konkrete Dateipfade und Config-Keys enthält.",
+        "Bestehende Tests bleiben grün."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-002",
+      "title": "Zielarchitektur Model Profiles, Routing und Policy beschreiben",
+      "type": "architecture",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-001"
+      ],
+      "target_files": [
+        "docs/architecture/model-routing-profiles-policy.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument beschreibt die Trennung zwischen Provider, Model Profile, fachlicher Modellrolle, Routing-Regel und Sicherheits-Policy.",
+        "Dokument enthält eine deterministische Routing-Reihenfolge: request override, task override, blueprint role override, team override, template override, task kind override, risk/security policy, benchmark/learning preference, global default.",
+        "Dokument stellt klar: Security Policy darf jede frühere Modellwahl blockieren; Cloud-Blockade bei Secrets ist nicht optional.",
+        "Dokument enthält mindestens ein Mermaid-Diagramm für den Resolver-Fluss.",
+        "Dokument enthält konkrete Beispiele für Ollama, LM Studio, OpenRouter und OpenAI-kompatible Provider."
+      ],
+      "test_expectations": [
+        "Markdown-Lint oder vorhandene Docs-Tests laufen, falls im Projekt vorhanden.",
+        "Architekturreview prüft, dass keine heuristische Modellwahl als Default eingeführt wird."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-003",
+      "title": "JSON-Schema für model_profiles einführen",
+      "type": "schema",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-002"
+      ],
+      "target_files": [
+        "config/schemas/model_profiles.schema.json",
+        "tests/test_model_profiles_schema.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei config/schemas/model_profiles.schema.json existiert und validiert Provider, Model Profiles, Capabilities, Safety-Flags, Kontextlimits, Kostenklasse, Qualitätsklasse und Tool-/JSON-/Streaming-Unterstützung.",
+        "Schema erzwingt eindeutige Profile-IDs und Provider-IDs.",
+        "Schema erlaubt OpenAI-kompatible Provider, lokale Provider, Cloud-Provider und Mock-Provider.",
+        "Schema enthält Felder für local, cloud, cloud_allowed, block_secret_context, supports_tools, supports_json, supports_streaming, context_tokens, timeout_seconds und api_key_env.",
+        "Schema verbietet keine zusätzlichen zukünftigen Providerarten unnötig, validiert aber die sicherheitskritischen Felder streng."
+      ],
+      "test_expectations": [
+        "Neuer Test validiert eine minimale gültige Profiles-Datei.",
+        "Neuer Test lehnt ein Profil ohne Provider ab.",
+        "Neuer Test lehnt ein Cloud-Profil ohne block_secret_context-Definition ab.",
+        "Neuer Test lehnt doppelte oder leere IDs ab, falls die Schema-/Loader-Schicht dies prüfen muss."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-004",
+      "title": "JSON-Schema für model_routing einführen",
+      "type": "schema",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-002"
+      ],
+      "target_files": [
+        "config/schemas/model_routing.schema.json",
+        "tests/test_model_routing_schema.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei config/schemas/model_routing.schema.json existiert und validiert defaults, routing_order, task_kind_profiles, role_profiles, template_profiles, risk_profiles und fallback_policy.",
+        "Schema unterstützt primary, fallback_profiles, allowed_profiles, denied_profiles, allow_cloud, prefer_local, required_capabilities, min_quality_class und require_review.",
+        "Schema erlaubt deterministische Reihenfolgen, aber keine implizite zufällige Auswahl.",
+        "Schema erlaubt Legacy-Kompatibilitätsfelder, markiert sie aber strukturell als Legacy.",
+        "Schema dokumentiert in description-Feldern, dass Security-/Risk-Policy Vorrang vor Modellwunsch hat."
+      ],
+      "test_expectations": [
+        "Neuer Test validiert eine vollständige Routing-Beispieldatei.",
+        "Neuer Test lehnt unbekannte Profile ab, falls Loader mit Profiles-Datei kombiniert validiert.",
+        "Neuer Test stellt sicher, dass routing_order nicht leer sein darf."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-005",
+      "title": "Beispielkonfiguration für lokale RTX-3080/Ollama-Nutzung erstellen",
+      "type": "config",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-003",
+        "AMR-004"
+      ],
+      "target_files": [
+        "config/models/examples/local-ollama-rtx3080.model_profiles.yaml",
+        "config/models/README.md"
+      ],
+      "acceptance_criteria": [
+        "Neue Beispiel-Datei config/models/examples/local-ollama-rtx3080.model_profiles.yaml enthält lokale Profile für planner, coder, tester, reviewer_local und summarizer_local.",
+        "Beispiel nutzt Ollama über http://localhost:11434/v1 und OpenAI-kompatiblen Transport.",
+        "Beispiel enthält keine echten Secrets.",
+        "Beispiel benennt klar, welche Profile für 10/12GB VRAM realistisch sind und welche nur Platzhalter sind.",
+        "README-Abschnitt erklärt kurz, wie DEFAULT_PROVIDER/DEFAULT_MODEL als Fallback weiter funktioniert."
+      ],
+      "test_expectations": [
+        "Beispiel wird in Schema-Test geladen und validiert.",
+        "Test prüft, dass alle Beispielprofile cloud=false haben."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-006",
+      "title": "Beispielkonfiguration für Hybrid Local plus OpenRouter/OpenAI erstellen",
+      "type": "config",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-003",
+        "AMR-004"
+      ],
+      "target_files": [
+        "config/models/examples/hybrid-local-cloud.model_profiles.yaml",
+        "config/models/examples/hybrid-local-cloud.model_routing.yaml"
+      ],
+      "acceptance_criteria": [
+        "Neue Beispiel-Datei config/models/examples/hybrid-local-cloud.model_profiles.yaml enthält lokale Profile, OpenRouter-Profile und optional OpenAI-kompatible High-End-Profile.",
+        "Cloud-Profile haben block_secret_context=true oder eine gleichwertige explizite Schutzdefinition.",
+        "Beispiel trennt cheap_summary, cloud_reviewer, cloud_architect und final_judge.",
+        "Neue Routing-Beispieldatei zeigt, dass Secrets lokal bleiben und Public/Internal-Kontext optional Cloud nutzen darf.",
+        "OpenRouter Free-/Cheap-Modelle werden als optional und limitbehaftet markiert, nicht als garantierter Standard."
+      ],
+      "test_expectations": [
+        "Schema-Test lädt beide Hybrid-Beispieldateien.",
+        "Test prüft, dass risk_profiles.secret allow_cloud=false erzwingt.",
+        "Test prüft, dass cloud_reviewer nicht für secret-Kontext auswählbar ist."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-007",
+      "title": "ModelProfileLoader implementieren",
+      "type": "backend",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-003",
+        "AMR-004"
+      ],
+      "target_files": [
+        "agent/services/model_profile_loader.py",
+        "tests/test_model_profile_loader.py"
+      ],
+      "acceptance_criteria": [
+        "Neuer Service agent/services/model_profile_loader.py lädt model_profiles und model_routing aus konfigurierten Pfaden.",
+        "Loader unterstützt YAML und JSON, sofern Projektabhängigkeiten YAML bereits zulassen; andernfalls JSON zuerst und YAML als späterer Adapter.",
+        "Loader liefert normalisierte Python-Dicts mit provider_id, profile_id, capabilities und Safety-Feldern.",
+        "Loader validiert Referenzen: jedes Profil referenziert einen existierenden Provider, jedes Routing referenziert existierende Profile.",
+        "Loader hat klaren Fallback auf bestehende settings.default_provider/settings.default_model, wenn keine Profil-Dateien konfiguriert sind.",
+        "Fehler sind fail-fast bei ungültiger expliziter Config, aber fail-compatible bei nicht vorhandener optionaler Config."
+      ],
+      "test_expectations": [
+        "Unit-Test lädt gültige Beispielprofile.",
+        "Unit-Test erkennt fehlenden Provider.",
+        "Unit-Test erkennt Routing-Verweis auf unbekanntes Profil.",
+        "Unit-Test prüft Legacy-Fallback ohne Profil-Dateien.",
+        "Unit-Test prüft, dass Secrets/API-Keys in Loader-Ausgaben nicht geloggt werden."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-008",
+      "title": "ModelProfileResolver deterministisch implementieren",
+      "type": "backend",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-007"
+      ],
+      "target_files": [
+        "agent/services/model_profile_resolver.py",
+        "tests/test_model_profile_resolver.py"
+      ],
+      "acceptance_criteria": [
+        "Neuer Service agent/services/model_profile_resolver.py löst ein Runtime-Modellprofil deterministisch aus Task-Kontext, Blueprint-Rolle, Team, Template, Task-Kind, Risk-Level, Context-Policy und Request-Overrides auf.",
+        "Resolver implementiert die dokumentierte Override-Reihenfolge exakt.",
+        "Resolver gibt eine strukturierte Entscheidung zurück: selected_profile, provider, transport_provider, base_url, model, timeout, fallbacks, reason, policy_decisions, blocked_candidates.",
+        "Security-/Risk-Policy wird nach fachlichen Overrides angewendet und darf Kandidaten blockieren.",
+        "Resolver verwendet keine zufällige Auswahl und keine implizite Heuristik als Default.",
+        "Wenn kein Profil zulässig ist, liefert Resolver eine klare blockierte Entscheidung statt stillschweigend Cloud oder Default zu nutzen."
+      ],
+      "test_expectations": [
+        "Task-Override schlägt Blueprint-Override, solange Security es erlaubt.",
+        "Blueprint-Rollen-Override schlägt Task-Kind-Default.",
+        "Template-Override schlägt Task-Kind-Default, aber nicht Blueprint-Rolle.",
+        "Secret-Kontext blockiert jedes Cloud-Profil.",
+        "Tool-required-Aufgabe wählt nur Profile mit supports_tools=true oder partial nach definierter Policy.",
+        "JSON-required-Aufgabe wählt nur Profile mit supports_json=true.",
+        "Kein zulässiges Profil erzeugt blocked/unavailable statt Default-Leak."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-009",
+      "title": "Legacy Overrides auf neue Model Policy normalisieren",
+      "type": "backend",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-008"
+      ],
+      "target_files": [
+        "agent/routes/config/shared.py",
+        "agent/services/model_override_normalization_service.py",
+        "tests/test_model_override_normalization.py"
+      ],
+      "acceptance_criteria": [
+        "Bestehende role_model_overrides, template_model_overrides und task_kind_model_overrides bleiben funktionsfähig.",
+        "String-Werte wie \"qwen2.5-coder:7b\" werden intern als LegacyModelOverride mit model-Feld interpretiert.",
+        "Objekt-Werte mit profile, fallback_profiles, cloud_allowed, min_quality_class und required_capabilities werden unterstützt.",
+        "Read-Model zeigt sowohl raw als auch normalized Override-Form an.",
+        "Ungültige Override-Objekte erzeugen verständliche Validierungsfehler oder werden in Config-Preview als invalid markiert."
+      ],
+      "test_expectations": [
+        "Unit-Test normalisiert String-Legacy-Overrides.",
+        "Unit-Test normalisiert Objekt-Overrides.",
+        "Unit-Test ignoriert leere Schlüssel und leere Modelle wie bisher.",
+        "Regression-Test für agent/routes/config/shared.py normalize_model_override_map bleibt kompatibel oder wird bewusst ersetzt."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-010",
+      "title": "ModelInvocationService an Resolver anbinden",
+      "type": "backend",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-008",
+        "AMR-009"
+      ],
+      "target_files": [
+        "agent/services/model_invocation_service.py",
+        "tests/test_model_invocation_service_model_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "ModelInvocationService kann optional eine bereits aufgelöste model_routing_decision verwenden.",
+        "Ohne Routing-Decision verhält sich der Service wie bisher über settings.default_provider/settings.default_model.",
+        "Mit Routing-Decision werden provider/base_url/api_key_env/model/timeout aus dem Profil verwendet.",
+        "Ollama, LM Studio und OpenAI-kompatible Cloud-Provider nutzen weiterhin /chat/completions korrekt.",
+        "llm_call_profile enthält profile_id, provider_id, transport_provider, model, success, latency, Fehlerdetails und Policy-Reason.",
+        "Prompt Trace speichert Profil-ID und Routing-Entscheidung ohne Secrets."
+      ],
+      "test_expectations": [
+        "Regression: bestehende Tests für ModelInvocationService bleiben grün.",
+        "Mock-Test prüft, dass Routing-Decision den Default überschreibt.",
+        "Test prüft, dass API-Key nicht im Trace landet.",
+        "Test prüft Ollama-URL-Normalisierung von /api/generate zu /v1/chat/completions bleibt korrekt.",
+        "Test prüft LM-Studio-Lock bleibt nur für lmstudio aktiv."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-011",
+      "title": "TaskRoutingContract und Responses erweitern",
+      "type": "backend",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-010"
+      ],
+      "target_files": [
+        "agent/models.py",
+        "tests/test_task_routing_contract_model_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "TaskRoutingContract enthält neue Felder für model_profile_id, provider_id, policy_decisions, blocked_model_candidates, fallback_profiles und routing_source.",
+        "Bestehende Felder inference_provider, inference_model, inference_base_url und worker_profile bleiben erhalten.",
+        "TaskScopedStepProposeResponse zeigt die effektive Modellentscheidung vollständig, aber ohne Secrets.",
+        "CostSummaryContract kann profile_id/provider_id aufnehmen, ohne bestehende Clients zu brechen.",
+        "API-Antworten bleiben abwärtskompatibel."
+      ],
+      "test_expectations": [
+        "Schema-/Contract-Test prüft neue Felder.",
+        "Bestehende API-Tests für task propose/execute bleiben grün.",
+        "Snapshot-Test prüft, dass keine API-Keys oder Secrets in Routing-Ausgabe auftauchen."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-012",
+      "title": "Blueprint Role config um model_policy erweitern",
+      "type": "blueprint",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-009",
+        "AMR-011"
+      ],
+      "target_files": [
+        "agent/services/blueprint_bundle_service.py",
+        "agent/models.py",
+        "tests/test_blueprint_bundle_model_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Blueprint Role config unterstützt model_policy mit preferred_profile, allowed_profiles, fallback_profiles, cloud_allowed, required_capabilities und min_quality_class.",
+        "Blueprint Bundle Export/Import erhält model_policy vollständig.",
+        "Bestehende Bundles ohne model_policy bleiben gültig.",
+        "Import-Plan zeigt Änderungen an model_policy in diff/summary.",
+        "Konfliktstrategie fail/skip/overwrite funktioniert auch bei geänderter model_policy."
+      ],
+      "test_expectations": [
+        "Unit-Test exportiert Blueprint-Bundle mit Role model_policy.",
+        "Unit-Test importiert Bundle mit Role model_policy.",
+        "Unit-Test prüft Diff bei abweichender model_policy.",
+        "Regression-Test für bestehende Blueprint Bundle API bleibt grün."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-013",
+      "title": "Template model_policy einführen",
+      "type": "backend",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-009",
+        "AMR-011"
+      ],
+      "target_files": [
+        "agent/routes/templates.py",
+        "agent/db_models.py",
+        "agent/models.py",
+        "tests/test_template_model_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Templates können optional model_policy speichern oder über bestehende Template-Metadaten referenzieren.",
+        "model_policy enthält preferred_profile, min_quality_class, require_json, require_tool_support, cloud_allowed und notes.",
+        "Template-API liefert model_policy aus.",
+        "Template-Import/Export berücksichtigt model_policy, falls Templates in Blueprint Bundles enthalten sind.",
+        "Fehlende model_policy bedeutet keine Änderung gegenüber bisherigem Verhalten."
+      ],
+      "test_expectations": [
+        "Unit-Test erstellt/liest Template mit model_policy.",
+        "Unit-Test Resolver nutzt Template-Policy, wenn keine stärkere Role/Task-Policy greift.",
+        "Regression-Test für bestehende Template-Erstellung ohne model_policy bleibt grün."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-014",
+      "title": "Zentrale Config-API und Read-Models erweitern",
+      "type": "api",
+      "milestone": "M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-011",
+        "AMR-012",
+        "AMR-013"
+      ],
+      "target_files": [
+        "agent/routes/config/read_models.py",
+        "agent/routes/config/settings.py",
+        "tests/test_config_read_models_model_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "GET /config/read-models oder entsprechender Summary-Endpunkt zeigt model_profiles, model_routing, normalized overrides und effektive Routing-Matrix.",
+        "assistant_editable_settings_inventory enthält model_profiles_path, model_routing_path oder äquivalente zentrale Config-Felder.",
+        "Sensitive Felder wie api_key_env bleiben sichtbar, echte API-Key-Werte aber nie.",
+        "Read-Model zeigt pro Task-Kind Primary/Fallback/Cloud/Secret/Tools/JSON übersichtlich.",
+        "Ungültige Profilkonfiguration wird im Read-Model als invalid mit Fehlerliste dargestellt, ohne Serverstart unnötig zu zerstören, sofern nicht explizit enforced."
+      ],
+      "test_expectations": [
+        "API-Test prüft Read-Model mit gültiger Profilconfig.",
+        "API-Test prüft Redaction von Secrets.",
+        "API-Test prüft invalid config preview.",
+        "Bestehende Dashboard-/Config-Tests bleiben grün."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-015",
+      "title": "Dashboard/UI Modellmatrix ergänzen",
+      "type": "frontend",
+      "milestone": "M5",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-014"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/components/dashboard.component.ts",
+        "frontend-angular/src/app/components/dashboard.component.html",
+        "frontend-angular/src/app/models/model-routing.model.ts",
+        "frontend-angular/src/app/components/dashboard.component.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Angular Dashboard zeigt eine Modellrouting-Matrix mit Task-Kind, Primary, Fallbacks, Cloud erlaubt, Secret erlaubt, Tool-Support und JSON-Support.",
+        "Detailansicht pro Profil zeigt Provider, Modell, Endpoint ohne Secret, Kontextgröße, Kostenklasse, Qualitätsklasse und Capabilities.",
+        "Routing-Entscheidung eines Tasks kann im UI nachvollzogen werden: warum dieses Modell, welche Kandidaten blockiert, welche Policy gegriffen hat.",
+        "UI kann Profile zunächst read-only anzeigen; Schreibfunktion ist optional für spätere Ausbaustufe.",
+        "Fehlerhafte Config wird sichtbar, aber UI crasht nicht."
+      ],
+      "test_expectations": [
+        "Angular Unit-Test rendert Modellmatrix.",
+        "Angular Unit-Test prüft Secret-Redaction.",
+        "Angular Unit-Test rendert blocked_candidates und policy_decisions.",
+        "Bestehende Dashboard-Tests bleiben grün."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-016",
+      "title": "Policy-first Secret/Cloud Enforcement absichern",
+      "type": "security",
+      "milestone": "M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-008",
+        "AMR-010",
+        "AMR-014"
+      ],
+      "target_files": [
+        "agent/services/model_profile_resolver.py",
+        "agent/services/model_invocation_service.py",
+        "tests/test_model_routing_security_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Cloud-Provider werden bei secret/customer_confidential Kontext blockiert, sofern nicht explizit eine sichere Ausnahme später definiert ist.",
+        "Policy-Entscheidung passiert vor jedem LLM-Call, nicht nur im UI.",
+        "Blockierte Cloud-Kandidaten werden protokolliert, aber ohne geheimen Prompt-Inhalt.",
+        "Fallback auf global default darf niemals Cloud-Leak erzeugen, wenn Cloud blockiert wurde.",
+        "Bei Policy-Verletzung wird Task klar blockiert/review-required statt stillschweigend fortgesetzt."
+      ],
+      "test_expectations": [
+        "Security-Test: secret Kontext + Cloud primary + local fallback ergibt local fallback.",
+        "Security-Test: secret Kontext + nur Cloud profile ergibt blocked.",
+        "Security-Test: request override auf Cloud wird bei Secret blockiert.",
+        "Security-Test: Prompt Trace enthält keine Secret-Inhalte und keine API-Key-Werte.",
+        "Regression-Test: public Kontext darf Cloud nutzen, wenn allow_cloud=true."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-017",
+      "title": "Fallback- und Provider-Ausfallverhalten implementieren",
+      "type": "backend",
+      "milestone": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-010",
+        "AMR-016"
+      ],
+      "target_files": [
+        "agent/services/model_invocation_service.py",
+        "agent/services/model_profile_resolver.py",
+        "tests/test_model_routing_fallbacks.py"
+      ],
+      "acceptance_criteria": [
+        "Bei ConnectionError/Timeout/5xx kann ein zulässiges Fallback-Profil versucht werden, wenn Policy dies erlaubt.",
+        "Fallbacks respektieren dieselbe Security-/Cloud-Policy wie Primary.",
+        "Fallback-Versuche werden in llm_call_profile als separate Einträge sichtbar.",
+        "Maximale Fallback-Versuche sind konfigurierbar und standardmäßig konservativ.",
+        "Bei endgültigem Fehler enthält die Antwort klare Gründe und alle geprüften Kandidaten."
+      ],
+      "test_expectations": [
+        "Mock-Test simuliert Primary Timeout und erfolgreichen lokalen Fallback.",
+        "Mock-Test simuliert Cloud-Fallback, der wegen Secret blockiert wird.",
+        "Mock-Test prüft max_total_attempts.",
+        "Mock-Test prüft llm_call_profile mit Primary-Fehler und Fallback-Erfolg."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-018",
+      "title": "Benchmarks und Learning Loop an Profile anbinden",
+      "type": "backend",
+      "milestone": "M7",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-008",
+        "AMR-017"
+      ],
+      "target_files": [
+        "agent/llm_benchmarks.py",
+        "agent/routes/config/benchmarks.py",
+        "agent/services/model_profile_resolver.py",
+        "tests/test_model_profile_benchmark_routing.py"
+      ],
+      "acceptance_criteria": [
+        "Benchmark-Ergebnisse können profile_id zusätzlich zu provider/model speichern.",
+        "Adaptive Routing darf Profile innerhalb erlaubter Kandidaten sortieren, aber keine Policy überschreiben.",
+        "Learning-/Benchmark-Signal ist in routing_order nur Ranking innerhalb zulässiger Profile.",
+        "Read-Model zeigt, ob Benchmark-Ranking aktiv war und welche Samples genutzt wurden.",
+        "Keine zufällige oder undokumentierte Heuristik wird als Default eingeführt."
+      ],
+      "test_expectations": [
+        "Unit-Test: Benchmark bevorzugt schnelleres Profil innerhalb allowed_profiles.",
+        "Unit-Test: Benchmark versucht Cloud-Profil, wird aber bei Secret blockiert.",
+        "Regression-Test für bestehende benchmark_retention und benchmark_identity_precedence bleibt grün."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-019",
+      "title": "OpenCode und externe Worker mit Model Profiles verbinden",
+      "type": "worker",
+      "milestone": "M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-008",
+        "AMR-014"
+      ],
+      "target_files": [
+        "agent/services/routing_decision_service.py",
+        "agent/routes/agents.py",
+        "agent/routes/config/shared.py",
+        "config/runs/three-worker-local-planning.yaml",
+        "tests/test_worker_model_profile_routing.py"
+      ],
+      "acceptance_criteria": [
+        "opencode_runtime kann target_profile oder target_provider/target_model aus ModelProfileResolver erhalten.",
+        "WorkerRegistration runtime_targets können Profilfähigkeiten abbilden oder referenzieren.",
+        "RoutingDecisionService berücksichtigt worker capabilities plus model profile capabilities.",
+        "OpenCode local worker kann dasselbe lokale Planning-Modell nutzen wie in three-worker-local-planning.yaml vorgesehen.",
+        "Remote Worker erhalten keine Cloud-/Secret-Kontexte, die ihre Policy nicht erlaubt."
+      ],
+      "test_expectations": [
+        "Unit-Test registriert Worker mit runtime_targets und wählt passendes Profil.",
+        "Unit-Test OpenCode target_provider bleibt kompatibel.",
+        "Integrationstest für three-worker-local-planning Erwartungen bleibt grün oder wird auf Profile erweitert.",
+        "Security-Test blockiert Remote Worker bei nicht erlaubtem Secret-Kontext."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-020",
+      "title": "Migration und Backwards Compatibility absichern",
+      "type": "migration",
+      "milestone": "M8",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-007",
+        "AMR-010",
+        "AMR-014"
+      ],
+      "target_files": [
+        "agent/config.py",
+        "agent/config_defaults.py",
+        "docs/migrations/model-routing-profiles-migration.md",
+        "tests/test_model_profiles_backward_compatibility.py"
+      ],
+      "acceptance_criteria": [
+        "Bestehende .env-basierte Nutzung mit DEFAULT_PROVIDER/DEFAULT_MODEL funktioniert ohne neue Profile-Dateien weiter.",
+        "Bestehende config_defaults erzeugen weiterhin lauffähige Default-Config.",
+        "Neue Defaults referenzieren optional Profile, aber brechen alte Deployments nicht.",
+        "Migration-Dokument erklärt alte und neue Konfig nebeneinander.",
+        "Bei vorhandenen role_model_overrides/template_model_overrides/task_kind_model_overrides gibt es keine Datenmigration mit Informationsverlust."
+      ],
+      "test_expectations": [
+        "Regression-Test startet App-Konfig ohne model_profiles_path/model_routing_path.",
+        "Regression-Test DEFAULT_PROVIDER=ollama DEFAULT_MODEL=qwen2.5-coder:7b funktioniert.",
+        "Regression-Test DEFAULT_PROVIDER=lmstudio DEFAULT_MODEL=auto funktioniert.",
+        "Config Defaults Test prüft, dass neue Felder vorhanden und sinnvoll defaulted sind."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-021",
+      "title": "End-to-End Tests für Modellrouting ergänzen",
+      "type": "e2e",
+      "milestone": "M8",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-016",
+        "AMR-017",
+        "AMR-019",
+        "AMR-020"
+      ],
+      "target_files": [
+        "tests/test_e2e_model_profile_routing.py",
+        "tests/fixtures/model_profiles/"
+      ],
+      "acceptance_criteria": [
+        "E2E-Test erzeugt eine Coding-Task und prüft, dass lokales Coder-Profil gewählt wird.",
+        "E2E-Test erzeugt eine Review-Task mit public Kontext und prüft, dass Cloud-Reviewer erlaubt ist, falls Config dies vorsieht.",
+        "E2E-Test erzeugt Secret-Kontext und prüft, dass Cloud nicht aufgerufen wird.",
+        "E2E-Test prüft Blueprint-Rollen-Override mit Coder/Reviewer-Rollen.",
+        "E2E-Test prüft API-Response inklusive routing.model_profile_id und policy_decisions."
+      ],
+      "test_expectations": [
+        "Neue Tests laufen ohne echte Cloud-API durch Mock-Provider oder Mock-HTTP.",
+        "Tests sind deterministisch und hängen nicht von Ollama/LM Studio Verfügbarkeit ab.",
+        "CI kann die Tests ohne GPU ausführen."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-022",
+      "title": "Operator-Dokumentation und Schnellstart schreiben",
+      "type": "docs",
+      "milestone": "M8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-020",
+        "AMR-021"
+      ],
+      "target_files": [
+        "docs/operator/model-routing.md",
+        "README.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument docs/operator/model-routing.md erklärt Schnellstart für Ollama lokal, LM Studio lokal, Hybrid Local+Cloud und Legacy-Modus.",
+        "Dokument enthält konkrete .env-Beispiele.",
+        "Dokument erklärt die Sicherheitslogik: Secret blockiert Cloud, Policy schlägt Modellwunsch.",
+        "Dokument erklärt Debugging: Wo sieht man selected_profile, blocked_candidates, llm_call_profile und Prompt Trace.",
+        "Dokument enthält kurze Empfehlung für Ananta-Standardprofile: local_planner, local_coder, local_tester, cloud_reviewer, cheap_summarizer, final_judge."
+      ],
+      "test_expectations": [
+        "Docs-Links auf neue Beispiel-Dateien funktionieren.",
+        "README oder zentrale Docs-Navigation verweist auf das neue Dokument."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-023",
+      "title": "Optional: Schreibbare UI/API für Profile vorbereiten, aber nicht unkontrolliert aktivieren",
+      "type": "frontend-api",
+      "milestone": "M9",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-014",
+        "AMR-015"
+      ],
+      "target_files": [
+        "docs/architecture/model-profile-admin-api.md",
+        "agent/routes/config/settings.py",
+        "frontend-angular/src/app/models/model-routing.model.ts"
+      ],
+      "acceptance_criteria": [
+        "Es gibt einen klaren Entwurf, wie Profile später über UI/API geändert werden können.",
+        "Schreibzugriffe sind standardmäßig deaktiviert oder admin-/reviewpflichtig.",
+        "Validierung passiert vor Persistenz.",
+        "Änderungen an Profilen erzeugen Audit Events.",
+        "Kein API-Key kann über UI im Klartext ausgelesen werden."
+      ],
+      "test_expectations": [
+        "Falls API aktiviert wird: Test prüft Admin-Erfordernis.",
+        "Test prüft Validierungsfehler bei unsicherer Cloud-Konfig.",
+        "Test prüft Audit Event bei Änderung.",
+        "Test prüft, dass api_key_env erlaubt ist, echte api_key-Werte aber nicht zurückgegeben werden."
+      ],
+      "notes": []
+    },
+    {
+      "id": "AMR-024",
+      "title": "Abschlussreview, Konsolidierung und Archivierungsentscheidung",
+      "type": "review",
+      "milestone": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "AMR-021",
+        "AMR-022"
+      ],
+      "target_files": [
+        "test-reports/model-routing-final-review.md"
+      ],
+      "acceptance_criteria": [
+        "Alle neuen Tests laufen grün.",
+        "Bestehende Tests laufen grün oder bekannte Fremdfehler sind dokumentiert.",
+        "Konfiguration ist übersichtlich: Profile, Routing, Policy und Legacy-Fallback sind getrennt.",
+        "Security Review bestätigt: kein Secret-Kontext wird durch Fallback/Override an Cloud gesendet.",
+        "Entscheidung ist dokumentiert, ob ältere Modellkonfig-TODOs archiviert oder referenziert werden.",
+        "Eine kurze Endzusammenfassung nennt, wie Ananta danach lokale, freie, OpenRouter- und High-End-Modelle sauber mischen kann."
+      ],
+      "test_expectations": [
+        "pytest relevanter Backend-Tests.",
+        "Angular Tests für Dashboard, falls Frontend geändert wurde.",
+        "Schema-Validierung aller Beispiel-Dateien.",
+        "Manueller Dry-Run mit Mock-Provider für Planning/Coding/Review."
+      ],
+      "notes": []
+    }
+  ],
+  "critical_path_tasks": [
+    "AMR-001",
+    "AMR-002",
+    "AMR-003",
+    "AMR-004",
+    "AMR-007",
+    "AMR-008",
+    "AMR-010",
+    "AMR-016",
+    "AMR-020",
+    "AMR-021",
+    "AMR-024"
+  ],
+  "tasks_status_summary": {
+    "total": 24,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 12,
+      "P1": 8,
+      "P2": 2,
+      "P3": 1
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 16,
+      "high": 4
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 9,
+      "todo": 9,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 24,
+    "by_type": {
+      "analysis": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "schema": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "config": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend": {
+        "total": 8,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 8,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "blueprint": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "api": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "frontend": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "worker": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "migration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "e2e": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "docs": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "frontend-api": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "review": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 24,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Diese TODO-Datei ist bewusst umfangreich, weil das Modellrouting ein Kernstück von Ananta wird und nicht nur eine DEFAULT_MODEL-Erweiterung ist.",
+    "Die Umsetzung soll zuerst Schemas, Resolver und Policy-Sicherheit stabilisieren, bevor UI-Schreibfunktionen aktiviert werden.",
+    "Cloud-Modelle dürfen bei Secret-/Customer-confidential-Kontext niemals durch Fallback oder Request Override versehentlich genutzt werden.",
+    "Blueprints und Templates sollen portable Modellanforderungen ausdrücken, nicht zwingend harte Provider-URLs enthalten."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_state",
+      "title": "Zielzustand",
+      "items": [
+        "Ananta besitzt zentrale Model Profiles und Routing-Regeln.",
+        "Blueprints, Templates, Task-Arten und Rollen können Modelle/Profile zuordnen.",
+        "Security-Policy überschreibt jede Modellwahl.",
+        "Routing ist im UI und in Traces nachvollziehbar.",
+        "Legacy-Konfiguration bleibt lauffähig."
+      ]
+    },
+    {
+      "summary_id": "first_implementation_slice",
+      "title": "Erster sinnvoller Implementierungsschnitt",
+      "items": [
+        "AMR-001 bis AMR-010 liefern Bestandsaufnahme, Schema, Loader, Resolver und Invocation-Integration.",
+        "AMR-016 muss früh folgen, damit Security nicht erst nachträglich angeklebt wird.",
+        "UI und Learning/Benchmark-Routing sollten erst nach stabiler Resolver-Logik kommen."
+      ]
+    }
+  ]
+}
