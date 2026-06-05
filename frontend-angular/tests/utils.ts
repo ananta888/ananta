@@ -780,6 +780,14 @@ export async function loginFast(
   }
 }
 
+export async function waitForHeaderRole(page: Page, role: string): Promise<void> {
+  const headerUser = page.locator('.app-header-user');
+  await expect.poll(async () => {
+    const text = await headerUser.textContent().catch(() => '');
+    return String(text || '');
+  }, { timeout: 30000, intervals: [500, 1000, 2000] }).toContain(`(${role})`);
+}
+
 async function assertAdminSession(request: APIRequestContext, accessToken: string): Promise<void> {
   const response = await request.get(`${HUB_URL}/me`, {
     headers: {
