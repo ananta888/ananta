@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from typing import Any
 
 import portalocker
 from sqlalchemy import text
@@ -217,25 +218,74 @@ def ensure_default_user():
             logging.info(f"Database already contains users. Initial user '{settings.initial_admin_user}' not created.")
 
 
+def _get_ddl_default(col: Any) -> str | None:
+    from sqlalchemy import ScalarElementColumnDefault
+
+    if col.default is None or not isinstance(col.default, ScalarElementColumnDefault):
+        return None
+    val = col.default.arg
+    if isinstance(val, str):
+        return f"'{val}'"
+    return str(val)
+
+
 def _ensure_schema_compat() -> None:
     if DATABASE_URL.startswith("postgresql"):
-        with engine.begin() as connection:
-            connection.execute(
-                text(
-                    "ALTER TABLE IF EXISTS templates "
-                    "ADD COLUMN IF NOT EXISTS is_seed BOOLEAN NOT NULL DEFAULT FALSE"
-                )
+        _sync_schema_postgresql()
+    elif DATABASE_URL.startswith("sqlite"):
+        _sync_schema_sqlite()
+
+
+def _sync_schema_postgresql() -> None:
+    from sqlalchemy import inspect as sa_inspect
+
+    inspector = sa_inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    with engine.begin() as connection:
+        for table_name, table in SQLModel.metadata.tables.items():
+            if table_name not in existing_tables:
+                continue
+
+            existing_columns = {c["name"] for c in inspector.get_columns(table_name)}
+
+            new_columns = [
+                c for c in table.columns if c.name not in existing_columns and not c.primary_key
+            ]
+            if not new_columns:
+                continue
+
+            logging.warning(
+                "Schema drift: table '%s' missing columns %s; applying migration.",
+                table_name,
+                [c.name for c in new_columns],
             )
+
+            for col in new_columns:
+                type_str = col.type.compile(dialect=connection.dialect)
+                sql = f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col.name} {type_str}"
+                if not col.nullable:
+                    default = _get_ddl_default(col)
+                    if default is not None:
+                        sql += f" DEFAULT {default}"
+                    sql += " NOT NULL"
+                connection.execute(text(sql))
+
+                if col.index:
+                    connection.execute(
+                        text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_{col.name} ON {table_name}({col.name})")
+                    )
+
+
+def _sync_schema_sqlite() -> None:
+    from sqlalchemy import inspect as sa_inspect
+
+    inspector = sa_inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    if "agents" not in existing_tables:
         return
 
-    if not DATABASE_URL.startswith("sqlite"):
-        return
-
-    inspector = inspect(engine)
-    if "agents" not in set(inspector.get_table_names()):
-        return
-
-    compatibility_by_table = {
+    compatibility_by_table: dict[str, dict[str, str]] = {
         "agents": {
             "name": "TEXT NOT NULL DEFAULT ''",
             "role": "TEXT NOT NULL DEFAULT 'worker'",
@@ -258,25 +308,47 @@ def _ensure_schema_compat() -> None:
         },
     }
 
-    table_names = set(inspector.get_table_names())
     with engine.begin() as connection:
-        for table_name, compatibility_columns in compatibility_by_table.items():
-            if table_name not in table_names:
+        for table_name, compat_columns in compatibility_by_table.items():
+            if table_name not in existing_tables:
                 continue
-            existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
-            missing_columns: list[str] = []
-            for column_name, sql_type in compatibility_columns.items():
-                if column_name in existing_columns:
+            existing_columns = {c["name"] for c in inspector.get_columns(table_name)}
+            for col_name, sql_type in compat_columns.items():
+                if col_name in existing_columns:
                     continue
-                missing_columns.append(column_name)
-                connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {sql_type}"))
-            if missing_columns:
-                logging.warning(
-                    "DB schema missing %s columns %s; applying compatibility migration.",
-                    table_name,
-                    ", ".join(sorted(missing_columns)),
-                )
-    return
+                connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {sql_type}"))
+                logging.warning("SQLite schema: added column %s.%s", table_name, col_name)
+
+        for table_name, table in SQLModel.metadata.tables.items():
+            if table_name not in existing_tables:
+                continue
+            if table_name in compatibility_by_table:
+                continue
+            existing_columns = {c["name"] for c in inspector.get_columns(table_name)}
+            new_columns = [
+                c for c in table.columns if c.name not in existing_columns and not c.primary_key
+            ]
+            if not new_columns:
+                continue
+            logging.warning(
+                "SQLite schema drift: table '%s' missing columns %s; applying migration.",
+                table_name,
+                [c.name for c in new_columns],
+            )
+            for col in new_columns:
+                type_str = col.type.compile(dialect=connection.dialect)
+                sql = f"ALTER TABLE {table_name} ADD COLUMN {col.name} {type_str}"
+                if not col.nullable:
+                    default = _get_ddl_default(col)
+                    if default is not None:
+                        sql += f" DEFAULT {default}"
+                    sql += " NOT NULL"
+                connection.execute(text(sql))
+
+                if col.index:
+                    connection.execute(
+                        text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_{col.name} ON {table_name}({col.name})")
+                    )
 
 
 def get_session():
