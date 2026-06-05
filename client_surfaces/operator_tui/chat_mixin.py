@@ -771,6 +771,7 @@ class ChatMixin:
             endpoint_norm = str(self.state.endpoint or "http://localhost:5000").rstrip("/")
             if not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
                 answered = False
+                ask_timeout = self._chat_ask_timeout_seconds()
                 # Try v2 payload first when memory propagation enabled
                 if mem_settings["pass_memory_to_worker"]:
                     try:
@@ -781,7 +782,7 @@ class ChatMixin:
                             headers={"Content-Type": "application/json"},
                             method="POST",
                         )
-                        with urllib.request.urlopen(req, timeout=3.0) as resp:
+                        with urllib.request.urlopen(req, timeout=ask_timeout) as resp:
                             data = _json_mod.loads(resp.read().decode())
                             answer = str(data.get("answer") or data.get("text") or "")
                             if answer:
@@ -807,7 +808,7 @@ class ChatMixin:
                             headers={"Content-Type": "application/json"},
                             method="POST",
                         )
-                        with urllib.request.urlopen(req, timeout=3.0) as resp:
+                        with urllib.request.urlopen(req, timeout=ask_timeout) as resp:
                             data = _json_mod.loads(resp.read().decode())
                             answer = str(data.get("answer") or data.get("text") or "")
                             if answer:
