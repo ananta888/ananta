@@ -2221,6 +2221,39 @@ def test_long_ai_chat_answer_auto_opens_full_plain_middle_view() -> None:
     assert long_answer in str(game.get("chat_long_message_markdown") or "")
 
 
+def test_long_chat_middle_view_ctrl_space_toggles_rendered_and_original() -> None:
+    answer = "Antwort " + ("lang " * 40)
+    game = {
+        "visual_viewport_enabled": True,
+        "visual_viewport": {"enabled": True},
+        "chat_long_message_id": "answer-1",
+        "chat_long_message_plain_text": answer,
+        "chat_long_message_markdown": "# Chat-Nachricht\n\n" + answer,
+        "markdown_stream_plain": True,
+        "markdown_mermaid_render_requested": False,
+        "visual_viewport_frame_lines": ["stale"],
+    }
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000", header_logo_game=game))
+
+    tui._open_latest_long_chat_message()
+
+    rendered = tui.state.header_logo_game or {}
+    rendered_version = str(rendered.get("visual_state_version") or "")
+    assert rendered["markdown_stream_plain"] is False
+    assert rendered["markdown_mermaid_render_requested"] is True
+    assert rendered.get("visual_viewport_frame_lines") == []
+    assert ":rendered:" in rendered_version
+
+    tui._open_latest_long_chat_message()
+
+    plain = tui.state.header_logo_game or {}
+    assert plain["markdown_stream_plain"] is True
+    assert plain["markdown_mermaid_render_requested"] is False
+    assert plain.get("visual_viewport_frame_lines") == []
+    assert ":plain:" in str(plain.get("visual_state_version") or "")
+    assert plain.get("visual_state_version") != rendered_version
+
+
 def test_ai_snake_config_panel_toggles_in_middle_content() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"tutorial_mode": True})
     tui = InteractiveOperatorTui(state)
@@ -3046,8 +3079,8 @@ def test_enter_on_navigation_history_opens_cached_original_output() -> None:
     updated = tui.state.header_logo_game or {}
     assert tui.state.focus is FocusPane.CONTENT
     assert updated["chat_long_message_plain_text"].startswith("Antwort lang")
-    assert updated["markdown_stream_plain"] is False
-    assert updated["markdown_mermaid_render_requested"] is True
+    assert updated["markdown_stream_plain"] is True
+    assert updated["markdown_mermaid_render_requested"] is False
     assert tui.state.status_message == "Chat-History: Originalausgabe"
 
 
@@ -3078,8 +3111,8 @@ def test_mouse_click_on_navigation_history_opens_cached_original_output(monkeypa
     updated = tui.state.header_logo_game or {}
     assert tui.state.focus is FocusPane.CONTENT
     assert updated["chat_long_message_plain_text"].startswith("Antwort lang")
-    assert updated["markdown_stream_plain"] is False
-    assert updated["markdown_mermaid_render_requested"] is True
+    assert updated["markdown_stream_plain"] is True
+    assert updated["markdown_mermaid_render_requested"] is False
     assert tui.state.status_message == "Chat-History: Originalausgabe"
 
 

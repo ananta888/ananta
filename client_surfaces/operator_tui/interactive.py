@@ -1747,7 +1747,13 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._set_state(self.state.with_updates(status_message="keine lange Chatnachricht im aktiven Kanal"))
             return
 
-        configure_middle_view_for_message(game, message, channel_id=active_ch_id, streaming=False)
+        configure_middle_view_for_message(
+            game,
+            message,
+            channel_id=active_ch_id,
+            streaming=False,
+            plain_text=True,
+        )
         from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_chat_preview
         preview = str(message.get("text") or message.get("preview") or "Chat")
         label = tab_label_for_chat_preview(preview)
