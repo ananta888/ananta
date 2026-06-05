@@ -82,9 +82,9 @@ test.describe('UI UX console and visibility', () => {
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await expect.poll(async () => {
-      const quickGoalVisible = await page.getByLabel(/Quick Goal Beschreibung eingeben/i).isVisible().catch(() => false);
+      const quickGoalVisible = await page.getByLabel(/Zielbeschreibung eingeben/i).isVisible().catch(() => false);
       const loadingCount = await page.getByText(/Lade Statistiken von Hub/i).count();
-      const dashboardErrorCount = await page.locator('.card.danger', { hasText: /Dashboard-Daten konnten nicht geladen werden/i }).count();
+      const dashboardErrorCount = await page.locator('app-error-state', { hasText: /Dashboard-Daten konnten nicht geladen werden/i }).count();
       return quickGoalVisible || loadingCount === 0 || dashboardErrorCount > 0;
     }, { timeout: 35000 }).toBeTruthy();
 
