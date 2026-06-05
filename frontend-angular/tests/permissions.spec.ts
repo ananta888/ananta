@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { login, waitForHeaderRole } from './utils';
 
 test.describe('Permissions', () => {
   test('non-admin cannot manage templates, roles, or team types', async ({ page }) => {
@@ -11,6 +11,7 @@ test.describe('Permissions', () => {
       localStorage.setItem('ananta.user.token', `${header}.${payload}.sig`);
     });
     await page.reload();
+    await waitForHeaderRole(page, 'user');
 
     await page.goto('/templates');
     await expect(page.getByRole('button', { name: /Anlegen/i })).toBeDisabled();
