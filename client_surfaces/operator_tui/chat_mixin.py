@@ -775,7 +775,11 @@ class ChatMixin:
                 # Try v2 payload first when memory propagation enabled
                 if mem_settings["pass_memory_to_worker"]:
                     try:
-                        v2_payload = _json_mod.dumps(build_result.worker_v2_payload).encode()
+                        _configured_model = str(game.get("chat_backend_model") or "").strip()
+                        _v2_dict = dict(build_result.worker_v2_payload)
+                        if _configured_model:
+                            _v2_dict["model"] = _configured_model
+                        v2_payload = _json_mod.dumps(_v2_dict).encode()
                         req = urllib.request.Request(
                             f"{endpoint_norm}/snake/ask",
                             data=v2_payload,

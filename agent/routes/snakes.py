@@ -672,6 +672,8 @@ def snake_ask():
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     question = str(body.get("question") or "").strip()[:1000]
     debug = bool(body.get("debug"))
+    # Model from TUI config (passed in v2 payload as "model")
+    request_model = str(body.get("model") or "").strip() or None
     if not question:
         return jsonify({"error": "question erforderlich"}), 400
 
@@ -687,7 +689,9 @@ def snake_ask():
         rag_trace["has_context"] = has_context
         rag_trace["summary"] = context_summary
 
-    _, model = _resolve_ai_snake_chat_provider()
+    _, hub_model = _resolve_ai_snake_chat_provider()
+    # TUI-configured model takes precedence over hub default
+    model = request_model or hub_model
 
     # Primary path: route through registered ananta-worker
     answer, worker_trace = _worker_propose(grounded_prompt, model)
