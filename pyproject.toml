@@ -79,6 +79,7 @@ packages = [
     "agent.sgpt.handlers",
     "agent.sgpt.llm_functions",
     "agent.shell",
+    "client_runtime",
     "client_surfaces",
     "client_surfaces.common",
     "client_surfaces.operator_tui",

@@ -96,8 +96,6 @@ jobs:
           )
           PY
       - name: Run backend coverage
-        env:
-          COVERAGE_FILE: .coverage.${{ matrix.shard_name }}
         run: |
           set -euo pipefail
           mapfile -t test_files <<< "${{ steps.shard.outputs.files }}"
@@ -105,7 +103,10 @@ jobs:
             echo "No backend test files were assigned to this shard." >&2
             exit 1
           fi
-          pytest "${test_files[@]}" --cov=agent --cov-report=
+          coverage run \
+            --data-file=".coverage.${{ matrix.shard_name }}" \
+            --source=agent \
+            -m pytest "${test_files[@]}"
           if [[ ! -f ".coverage.${{ matrix.shard_name }}" ]]; then
             echo "::error::Coverage file .coverage.${{ matrix.shard_name }} was not written after pytest run." >&2
             exit 1
