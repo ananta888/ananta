@@ -219,7 +219,7 @@ def ensure_default_user():
 
 
 def _get_ddl_default(col: Any) -> str | None:
-    from sqlalchemy import ScalarElementColumnDefault
+    from sqlalchemy.sql.schema import ScalarElementColumnDefault
 
     if col.default is None or not isinstance(col.default, ScalarElementColumnDefault):
         return None
