@@ -20,8 +20,29 @@ concurrency:
 jobs:
   e2e-compose:
     if: github.event_name != 'pull_request' || github.event.label.name == 'full-ci'
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - shard_name: compose-foundation-auth
+            specs: tests/auth.spec.ts tests/auth-password.spec.ts tests/auth-lockout.spec.ts tests/auth-mfa.spec.ts tests/auth-rate-limit.spec.ts tests/permissions.spec.ts
+          - shard_name: compose-foundation-ui
+            specs: tests/settings-config.spec.ts tests/llm-config.spec.ts tests/notifications.spec.ts tests/agents.spec.ts tests/terminal.spec.ts tests/lite-compose-connectivity.spec.ts
+          - shard_name: compose-goal-core
+            specs: tests/main-goal-foundation.spec.ts tests/main-goal-planning.spec.ts tests/main-goal-execution.spec.ts tests/main-goal-observability.spec.ts tests/hub-flow.spec.ts
+          - shard_name: compose-goal-smoke
+            specs: tests/first-goal-e2e.spec.ts tests/release-goal-smoke.spec.ts
+          - shard_name: compose-admin-core
+            specs: tests/admin-core-journey.spec.ts tests/agent-registration.spec.ts tests/audit-logs.spec.ts tests/control-center-denied-flow.spec.ts tests/control-center-policies.spec.ts tests/control-center-review-flow.spec.ts tests/task-cleanup-ui.spec.ts
+          - shard_name: compose-admin-entities
+            specs: tests/team-types-roles.spec.ts tests/teams.spec.ts tests/templates-crud.spec.ts
+          - shard_name: compose-ai-interaction
+            specs: tests/ai-assistant-global-dock.spec.ts tests/ai-assistant-hybrid.spec.ts tests/ai-assistant-opencode.spec.ts tests/ai-assistant-settings-mutations.spec.ts tests/ai-snake-config-panel.spec.ts tests/ai-snake-session-sharing.spec.ts tests/auto-planner.spec.ts tests/config-ui-control-hardening.spec.ts tests/llm-generate.spec.ts tests/templates-ai.spec.ts
+          - shard_name: compose-observability-network
+            specs: tests/a11y.spec.ts tests/live-click-critical-paths.spec.ts tests/public-oidc-webrtc.spec.ts tests/sse-events.spec.ts tests/stress.spec.ts tests/ui-ux-console.spec.ts tests/ui-ux-workflows.spec.ts tests/webrtc-datachannel.spec.ts
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     env:
       POSTGRES_PASSWORD: test-postgres-password
       INITIAL_ADMIN_PASSWORD: test123
@@ -32,7 +53,10 @@ jobs:
       AGENT_TOKEN_GAMMA: gamma-token
       AGENT_TOKEN_DELTA: delta-token
       GRAFANA_PASSWORD: test-grafana-password
-    name: e2e-compose
+      E2E_RESULTS_DIR: frontend-angular/test-results/${{ matrix.shard_name }}
+      E2E_LOGS_DIR: ci-artifacts/e2e-compose/${{ matrix.shard_name }}
+      E2E_REPORTER_MODE: compact
+    name: e2e-compose (${{ matrix.shard_name }})
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -65,12 +89,10 @@ jobs:
           -f docker-compose.github-ci.yml
           up -d --no-build
           postgres redis ai-agent-hub ai-agent-alpha ai-agent-beta angular-frontend
-      - name: Run E2E against compose
-        id: e2e
-        continue-on-error: true
+      - name: Run E2E shard
         run: |
           set -euo pipefail
-          bash scripts/run_e2e_compose_parallel.sh
+          bash scripts/run_e2e_compose_shard.sh "${{ matrix.shard_name }}" "${{ matrix.specs }}"
       - name: Build failure summary
         if: always()
         working-directory: frontend-angular
@@ -79,14 +101,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ananta-e2e-compose
+          name: ananta-e2e-compose-${{ matrix.shard_name }}
           path: frontend-angular/test-results/**
           retention-days: 7
       - name: Upload E2E compose logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ananta-e2e-compose-logs
+          name: ananta-e2e-compose-logs-${{ matrix.shard_name }}
           path: ci-artifacts/e2e-compose/**
           retention-days: 7
       - name: Stop compose stack
@@ -97,6 +119,3 @@ jobs:
           -f docker-compose-lite.yml
           -f docker-compose.github-ci.yml
           down -v --remove-orphans
-      - name: Fail workflow on E2E failure
-        if: steps.e2e.outcome == 'failure'
-        run: exit 1

@@ -9,7 +9,7 @@ Artifact names use the `ananta-` prefix and describe the diagnostic surface:
 - `ananta-compose-configs`: rendered Docker Compose configurations from the compose validation job.
 - `ananta-release-verification-report`: release-gate evidence for the current commit.
 - `ananta-domain-integration-audit`: domain integration audit report generated in the release-gate job.
-- `ananta-e2e-compose-results`: Playwright and E2E failure output from the compose-backed E2E job.
+- `ananta-e2e-compose-<shard>`: Playwright and E2E failure output from the compose-backed E2E shard jobs.
 - `ananta-live-llm-smoke-diagnostics`: compact hosted OpenAI Live-LLM smoke summary.
 - `ananta-architecture-diagrams`: rendered architecture diagrams.
 - `ananta-github-release-assets`: prepared GitHub Release asset bundle from the release workflow.
@@ -35,7 +35,7 @@ For a failed run, inspect artifacts in this order:
 
 1. `ananta-release-verification-report` for release-gate or reproducibility failures.
 2. `ananta-domain-integration-audit` for runtime-claim/inventory/domain-descriptor blockers.
-3. `ananta-e2e-compose-results` for browser failures, traces, screenshots, and `failure-summary.md`.
+3. `ananta-e2e-compose-<shard>` for browser failures, traces, screenshots, and `failure-summary.md`.
 4. `ananta-compose-configs` for rendered service configuration differences.
 5. `ananta-live-llm-smoke-diagnostics` for hosted model, timeout, token-limit and skip/failure reason.
 6. `ananta-architecture-diagrams` for documentation rendering failures.
