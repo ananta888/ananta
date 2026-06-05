@@ -371,6 +371,21 @@ def disable_planning_context_compactor_llm(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def isolate_operator_tui_user_config(tmp_path, monkeypatch):
+    """Keep project/user chat config from leaking into deterministic tests."""
+    try:
+        import client_surfaces.operator_tui.config.user_config_manager as ucm
+
+        ucm.reset_manager()
+        monkeypatch.setattr(ucm, "global_config_path", lambda: tmp_path / "home" / ".anana" / "user.json")
+        monkeypatch.setattr(ucm, "_manager", ucm.UserConfigManager(cwd=tmp_path))
+        yield
+        ucm.reset_manager()
+    except Exception:
+        yield
+
+
+@pytest.fixture(autouse=True)
 def ensure_state_ownership_matrix_file():
     """Keep ownership-matrix tests deterministic in clean CI environments."""
     matrix_path = Path("data/state_ownership_matrix.json")

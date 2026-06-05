@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from agent.config import settings
 from agent.common.sgpt import run_llm_cli_command
 from agent.hybrid_context_orchestration import collect_context_chunks, serialize_context_result
 from agent.hybrid_context_support import (
@@ -546,6 +547,13 @@ class ContextManager:
     def __init__(self, policy_version: str = "v1") -> None:
         self.policy_version = policy_version
 
+    @staticmethod
+    def _quota(name: str, fallback: int) -> int:
+        try:
+            return max(0, int(getattr(settings, name, fallback)))
+        except (TypeError, ValueError):
+            return fallback
+
     def route(self, query: str) -> dict[str, int]:
         q = query.lower()
         code_like = any(k in q for k in (
@@ -559,8 +567,8 @@ class ContextManager:
 
         quotas = {"repository_map": 0, "semantic_search": 0, "agentic_search": 0}
         if code_like:
-            quotas["repository_map"] += 12
-            quotas["semantic_search"] += 2
+            quotas["repository_map"] += self._quota("rag_route_quota_code_repo", 12)
+            quotas["semantic_search"] += self._quota("rag_route_quota_code_semantic", 2)
             quotas["agentic_search"] += 1
         if docs_like:
             quotas["semantic_search"] += 4
@@ -569,7 +577,11 @@ class ContextManager:
             quotas["agentic_search"] += 3
             quotas["repository_map"] += 2
         if all(v == 0 for v in quotas.values()):
-            quotas = {"repository_map": 6, "semantic_search": 4, "agentic_search": 1}
+            quotas = {
+                "repository_map": self._quota("rag_route_quota_default_repo", 6),
+                "semantic_search": self._quota("rag_route_quota_default_semantic", 4),
+                "agentic_search": 1,
+            }
         return quotas
 
     @staticmethod

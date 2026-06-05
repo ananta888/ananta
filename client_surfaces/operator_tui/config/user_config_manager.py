@@ -68,7 +68,7 @@ _DEFAULTS: dict[str, Any] = {
     "ai_visual_use_codecompass": False,
     "chat_panel_open": True,
     "chat_backend": "ananta-worker",
-    "chat_backend_model": "microsoft_-_phi-3.5-mini-instruct",
+    "chat_backend_model": "google/gemma-4-e4b",
     "chat_backend_api_base": "http://localhost:1234/v1",
     "chat_ask_timeout_s": 180.0,
     "chat_use_codecompass": True,
@@ -260,7 +260,8 @@ _manager: UserConfigManager | None = None
 
 def get_manager(*, cwd: Path | None = None) -> UserConfigManager:
     global _manager
-    if _manager is None:
+    resolved_cwd = (cwd or Path.cwd()).resolve()
+    if _manager is None or _manager._cwd != resolved_cwd:
         _manager = UserConfigManager(cwd=cwd)
     return _manager
 

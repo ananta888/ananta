@@ -136,10 +136,12 @@ class RagService:
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
         source_types: list[str] | None = None,
+        max_chunks: int | None = None,
     ) -> tuple[dict[str, object], str]:
         bundle = self.retrieve_context_bundle(
             prompt,
             include_context_text=True,
+            max_chunks=max_chunks,
             task_kind=task_kind,
             retrieval_intent=retrieval_intent,
             source_types=source_types,
