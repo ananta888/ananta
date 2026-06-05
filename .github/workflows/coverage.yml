@@ -36,7 +36,7 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
-          python scripts/resolve_backend_coverage_shards.py --shard-count 4 > backend-coverage-matrix.json
+          python scripts/resolve_backend_coverage_shards.py --shard-count 14 > backend-coverage-matrix.json
           echo "matrix<<EOF" >> "$GITHUB_OUTPUT"
           cat backend-coverage-matrix.json >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -46,9 +46,10 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    name: backend-coverage (${{ matrix.shard_name }})
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 14
       matrix: ${{ fromJson(needs.resolve_backend_coverage.outputs.matrix) }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -68,6 +69,7 @@ jobs:
         id: shard
         env:
           TEST_FILES_JSON: ${{ toJson(matrix.files) }}
+          SHARD_NAME: ${{ matrix.shard_name }}
           SHARD_FILE_COUNT: ${{ matrix.file_count }}
           SHARD_TEST_COUNT: ${{ matrix.test_count }}
         run: |
@@ -87,14 +89,15 @@ jobs:
             handle.write("\nEOF\n")
             handle.write(f"test_count={os.environ['SHARD_TEST_COUNT']}\n")
             handle.write(f"file_count={os.environ['SHARD_FILE_COUNT']}\n")
+            handle.write(f"shard_name={os.environ['SHARD_NAME']}\n")
           print(
-              f"Loaded shard with {os.environ['SHARD_FILE_COUNT']} files "
+              f"Loaded shard {os.environ['SHARD_NAME']} with {os.environ['SHARD_FILE_COUNT']} files "
               f"and {os.environ['SHARD_TEST_COUNT']} collected tests"
           )
           PY
       - name: Run backend coverage
         env:
-          COVERAGE_FILE: .coverage.${{ matrix.shard_index }}
+          COVERAGE_FILE: .coverage.${{ matrix.shard_name }}
         run: |
           set -euo pipefail
           mapfile -t test_files <<< "${{ steps.shard.outputs.files }}"
@@ -106,8 +109,8 @@ jobs:
       - name: Upload backend coverage artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ananta-backend-coverage-${{ matrix.shard_index }}
-          path: .coverage.${{ matrix.shard_index }}
+          name: ananta-backend-coverage-${{ matrix.shard_name }}
+          path: .coverage.${{ matrix.shard_name }}
           retention-days: 7
 
   frontend-coverage:

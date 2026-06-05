@@ -43,5 +43,8 @@ def test_backend_coverage_uses_a_single_shard_resolver_and_pip_cache():
 
     assert "resolve_backend_coverage" in workflow
     assert "resolve_backend_coverage_shards.py" in workflow
+    assert "--shard-count 14" in workflow
     assert "cache: pip" in workflow
     assert "fromJson(needs.resolve_backend_coverage.outputs.matrix)" in workflow
+    assert "matrix.shard_name" in workflow
+    assert "ananta-backend-coverage-${{ matrix.shard_name }}" in workflow
