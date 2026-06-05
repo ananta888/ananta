@@ -127,7 +127,7 @@ class TerminalPolicyService:
                 matched_rule_id=None,
                 permission=permission,
             )
-        if bool(sandbox_terminal.get("enforce", True)) and target_key in set(
+        if operation_key != "list" and bool(sandbox_terminal.get("enforce", True)) and target_key in set(
             str(item or "").strip().lower() for item in list(sandbox_terminal.get("blocked_target_types") or [])
         ):
             return TerminalPolicyDecision(

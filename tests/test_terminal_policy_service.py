@@ -36,6 +36,15 @@ def test_hub_as_worker_requires_explicit_permission():
     assert allowed.reason_code == "terminal_target_blocked_by_sandbox_policy"
 
 
+def test_hub_as_worker_list_visibility_is_not_blocked_by_sandbox_defaults():
+    svc = TerminalPolicyService()
+    user = {"sub": "u2", "role": "admin", "terminal_permissions": ["terminal.hub_as_worker.list"]}
+
+    allowed = svc.evaluate(user_ctx=user, operation="list", target_type="hub_as_worker", target_id="h1", cfg={})
+    assert allowed.allow is True
+    assert allowed.reason_code == "terminal_permission_granted"
+
+
 def test_denied_and_allowed_decisions_include_stable_metadata():
     svc = TerminalPolicyService()
     denied = svc.evaluate(user_ctx={"sub": "u1", "role": "viewer"}, operation="write", target_type="worker", target_id="w1", cfg={})

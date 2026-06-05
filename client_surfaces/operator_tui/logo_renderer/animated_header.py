@@ -235,7 +235,7 @@ def render_header_logo(
             render_ms += (time.perf_counter() - part_start) * 1000.0
             output_ms += (time.perf_counter() - started) * 1000.0
             _record_metrics(env=env, backend="ascii", render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
-            return list(frame.text_lines) if frame.text_lines else None
+            return list(frame.text_lines) if frame.text_lines else [""]
         part_start = time.perf_counter()
         frame = HalfblockRenderer().render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
         render_ms += (time.perf_counter() - part_start) * 1000.0
