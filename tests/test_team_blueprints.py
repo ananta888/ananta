@@ -447,8 +447,8 @@ def test_team_list_exposes_simplified_lifecycle_state(client):
 
     update_log = next(
         log
-        for log in audit_repo.get_all(limit=100)
-        if log.action == "team_blueprint_updated" and log.details.get("blueprint_id") == scrum_blueprint["id"]
+        for log in audit_repo.query(action="team_blueprint_updated", limit=500)
+        if log.details.get("blueprint_id") == scrum_blueprint["id"]
     )
     assert update_log.details["changes"]["roles"]["created"] == [{"name": "Lifecycle Drift Role"}]
 
@@ -1015,7 +1015,11 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
     assert create_response.status_code == 201
     blueprint = create_response.json["data"]
 
-    create_log = next(log for log in audit_repo.get_all(limit=50) if log.action == "team_blueprint_created" and log.details.get("blueprint_id") == blueprint["id"])
+    create_log = next(
+        log
+        for log in audit_repo.query(action="team_blueprint_created", limit=500)
+        if log.details.get("blueprint_id") == blueprint["id"]
+    )
     assert create_log.details["changes"]["blueprint_fields"] == ["name", "description", "base_team_type_name", "is_seed"]
     assert create_log.details["changes"]["roles"]["created"] == [{"name": "Developer"}]
     assert create_log.details["changes"]["artifacts"]["created"] == [{"title": "Kickoff", "kind": "task"}]
@@ -1031,7 +1035,11 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
     )
     assert update_response.status_code == 200
 
-    update_log = next(log for log in audit_repo.get_all(limit=50) if log.action == "team_blueprint_updated" and log.details.get("blueprint_id") == blueprint["id"])
+    update_log = next(
+        log
+        for log in audit_repo.query(action="team_blueprint_updated", limit=500)
+        if log.details.get("blueprint_id") == blueprint["id"]
+    )
     assert update_log.details["changes"]["blueprint_fields"] == ["description"]
     assert update_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description", "config"]}]
     assert update_log.details["changes"]["artifacts"]["updated"] == [{"title": "Kickoff", "fields": ["description", "payload"]}]
@@ -1077,7 +1085,11 @@ def test_seed_reconcile_writes_audit_diff(client):
     reconcile_response = client.get("/teams/blueprints", headers=auth_header)
     assert reconcile_response.status_code == 200
 
-    reconcile_log = next(log for log in audit_repo.get_all(limit=100) if log.action == "team_blueprint_reconciled" and log.details.get("blueprint_id") == scrum_blueprint["id"])
+    reconcile_log = next(
+        log
+        for log in audit_repo.query(action="team_blueprint_reconciled", limit=500)
+        if log.details.get("blueprint_id") == scrum_blueprint["id"]
+    )
     assert reconcile_log.details["source"] == "seed_sync"
     assert reconcile_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description"]}]
     assert reconcile_log.details["changes"]["roles"]["deleted"] == [{"name": "Audit Drift Role"}]
@@ -1150,6 +1162,11 @@ def test_instantiate_blueprint_rolls_back_when_materialization_fails(client, mon
 
     monkeypatch.setattr(team_blueprint_service, "_materialize_blueprint_artifacts_in_session", fail_materialization)
 
+    with Session(engine) as session:
+        before_team_count = len(session.exec(select(TeamDB)).all())
+        before_member_count = len(session.exec(select(TeamMemberDB)).all())
+        before_task_count = len(session.exec(select(TaskDB)).all())
+
     response = client.post(
         f"/teams/blueprints/{scrum_blueprint['id']}/instantiate",
         json={"name": "Rollback Team", "activate": False, "members": []},
@@ -1159,8 +1176,11 @@ def test_instantiate_blueprint_rolls_back_when_materialization_fails(client, mon
 
     with Session(engine) as session:
         persisted_team = session.exec(select(TeamDB).where(TeamDB.name == "Rollback Team")).first()
-        persisted_members = session.exec(select(TeamMemberDB)).all()
-        persisted_tasks = session.exec(select(TaskDB).where(TaskDB.title.startswith("Rollback Team:"))).all()
+        persisted_members = len(session.exec(select(TeamMemberDB)).all())
+        persisted_tasks = len(session.exec(select(TaskDB).where(TaskDB.title.startswith("Rollback Team:"))).all())
     assert persisted_team is None
-    assert persisted_members == []
-    assert persisted_tasks == []
+    assert persisted_members == before_member_count
+    assert persisted_tasks == before_task_count
+    with Session(engine) as session:
+        after_team_count = len(session.exec(select(TeamDB)).all())
+    assert after_team_count == before_team_count
