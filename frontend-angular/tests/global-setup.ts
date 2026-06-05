@@ -263,7 +263,7 @@ export default async function globalSetup() {
   const alphaUrl = process.env.E2E_ALPHA_URL || 'http://127.0.0.1:5501';
   const betaUrl = process.env.E2E_BETA_URL || 'http://127.0.0.1:5502';
   const adminUser = process.env.E2E_ADMIN_USER || 'admin';
-  const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'test123';
   const hub = parseServiceUrl(hubUrl);
   const alpha = parseServiceUrl(alphaUrl);
   const beta = parseServiceUrl(betaUrl);

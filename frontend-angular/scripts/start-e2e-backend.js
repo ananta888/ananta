@@ -135,7 +135,7 @@ function serviceSpecs() {
   const alphaUrl = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
   const betaUrl = process.env.E2E_BETA_URL || 'http://localhost:5502';
   const adminUser = process.env.E2E_ADMIN_USER || 'admin';
-  const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'test123';
   const hub = parseServiceUrl(hubUrl);
   const alpha = parseServiceUrl(alphaUrl);
   const beta = parseServiceUrl(betaUrl);
