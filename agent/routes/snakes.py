@@ -581,6 +581,32 @@ def _pick_worker_for_ask() -> tuple[str, str | None]:
         return "", None
 
 
+def _resolve_lmstudio_model_for_worker(configured: str | None) -> str | None:
+    """Resolve an actual LMStudio model ID, bypassing smoke/placeholder names."""
+    try:
+        from agent.llm_integration import _list_lmstudio_candidates, _select_best_lmstudio_model, _prepare_lmstudio_history
+        from agent.config import settings as _s
+
+        base_url = str(getattr(_s, "lmstudio_url", "") or "").rstrip("/")
+        if not base_url:
+            return configured
+        candidates = _list_lmstudio_candidates(base_url, timeout=5)
+        if not candidates:
+            return configured
+        # If configured model exists in LMStudio, use it directly
+        if configured and "smoke" not in configured.lower() and "ananta" not in configured.lower():
+            from agent.llm_integration import _find_matching_lmstudio_candidate
+            matched = _find_matching_lmstudio_candidate(configured, candidates)
+            if matched:
+                return str(matched.get("id") or configured)
+        # Fall back to best available model
+        history = _prepare_lmstudio_history(candidates)
+        best = _select_best_lmstudio_model(candidates, history)
+        return str((best or candidates[0]).get("id") or "")
+    except Exception:
+        return configured
+
+
 def _worker_propose(grounded_prompt: str, model: str | None) -> str:
     """Forward the prompt to an online worker's /step/propose. Returns answer or ""."""
     from agent.services.task_runtime_service import forward_to_worker
@@ -589,13 +615,14 @@ def _worker_propose(grounded_prompt: str, model: str | None) -> str:
     if not worker_url:
         return ""
 
+    resolved_model = _resolve_lmstudio_model_for_worker(model)
     payload: dict[str, Any] = {
         "prompt": grounded_prompt,
         "provider": "lmstudio",
         "temperature": 0.3,
     }
-    if model:
-        payload["model"] = model
+    if resolved_model:
+        payload["model"] = resolved_model
 
     try:
         result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
