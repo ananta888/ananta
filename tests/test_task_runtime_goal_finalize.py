@@ -2,7 +2,7 @@ from pathlib import Path
 
 from agent.db_models import GoalDB, TaskDB
 from agent.repository import goal_repo, task_repo
-from agent.services.task_runtime_service import update_local_task_status
+from agent.services.task_runtime_service import _maybe_finalize_goal, update_local_task_status
 
 
 def test_goal_finalization_marks_failed_when_output_dir_has_no_files(tmp_path):
@@ -70,9 +70,15 @@ def test_goal_finalization_fibonacci_requires_source_tests_and_pytest_evidence(t
             execution_preferences={"output_dir": str(output_dir)},
         )
     )
-    task_repo.save(TaskDB(id="task-finalize-fib-missing", title="t", status="todo", goal_id="goal-finalize-fib-missing"))
-
-    update_local_task_status("task-finalize-fib-missing", "completed", force=True)
+    task_repo.save(
+        TaskDB(
+            id="task-finalize-fib-missing",
+            title="t",
+            status="completed",
+            goal_id="goal-finalize-fib-missing",
+        )
+    )
+    _maybe_finalize_goal("goal-finalize-fib-missing")
     goal = goal_repo.get_by_id("goal-finalize-fib-missing")
 
     assert goal is not None
@@ -100,9 +106,15 @@ def test_goal_finalization_fibonacci_succeeds_with_required_evidence(tmp_path):
             execution_preferences={"output_dir": str(output_dir)},
         )
     )
-    task_repo.save(TaskDB(id="task-finalize-fib-complete", title="t", status="todo", goal_id="goal-finalize-fib-complete"))
-
-    update_local_task_status("task-finalize-fib-complete", "completed", force=True)
+    task_repo.save(
+        TaskDB(
+            id="task-finalize-fib-complete",
+            title="t",
+            status="completed",
+            goal_id="goal-finalize-fib-complete",
+        )
+    )
+    _maybe_finalize_goal("goal-finalize-fib-complete")
     goal = goal_repo.get_by_id("goal-finalize-fib-complete")
 
     assert goal is not None
