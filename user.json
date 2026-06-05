@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-06-05T23:32:54Z",
+  "updated": "2026-06-05T23:39:32Z",
   "settings": {
     "chat_rag_top_k": 120,
     "chat_max_tokens": 8000,
@@ -120,11 +120,11 @@
     "chat_use_codecompass": true,
     "chat_pass_memory_to_worker": true,
     "chat_backend": "ananta-worker",
-    "chat_worker_mode": "snake_ask",
+    "chat_worker_mode": "propose",
     "chat_history_turns": 30,
     "chat_include_local_project": true,
     "input_history_chat_enabled": true,
-    "chat_backend_model": "opencode/glm-5-free",
+    "chat_backend_model": "google/gemma-4-e4b",
     "chat_backend_api_base": "http://192.168.178.100:1234/v1",
     "chat_include_wikipedia": false,
     "chat_source_pack_id": "ananta-dev-default",
@@ -141,6 +141,9 @@
       "bitte erkläre mir den codecompass bzw rag-helper wie dieser von dem hauptprojekt ananta verwendet wird",
       "kannst du mir mehr darüber erzählen bzw erklären",
       "das ist noch etwas wenig erklärung dazu",
+      "bitte erkläre mir den codecompass bzw rag-helper wie dieser von dem hauptprojekt ananta verwendet wird",
+      "das müsstest du genauer erklären können",
+      "das ist alles noch zu ungenau bitte mehr erklären und bitte auch ein sinniges markdown dafür schreiben",
       "bitte erkläre mir den codecompass bzw rag-helper wie dieser von dem hauptprojekt ananta verwendet wird"
     ],
     "chat_answer_chars": 12000

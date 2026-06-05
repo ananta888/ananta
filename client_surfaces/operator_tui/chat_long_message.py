@@ -156,7 +156,7 @@ def configure_middle_view_for_message(
     channel_id: str,
     streaming: bool = False,
     activate_view: bool = True,
-    plain_text: bool = False,
+    plain_text: bool = True,
 ) -> bool:
     if not should_use_middle_view_for_message(message):
         return False
