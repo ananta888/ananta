@@ -525,13 +525,14 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("ANANTA_TUI_CHAT_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or env.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL") or ""))
     env.setdefault("ANANTA_TUI_CHAT_ASK_TIMEOUT", "75")
     env.setdefault("ANANTA_TUI_CHAT_RAG_TOP_K", "16")
+    env.setdefault("ANANTA_TUI_CHAT_MAX_TOKENS", "96")
+    env.setdefault("ANANTA_TUI_CHAT_ANSWER_CHARS", "420")
     env.setdefault(
         "ANANTA_TUI_CHAT_SYSTEM_PROMPT",
         (
             "Du bist die AI-Snake im Ananta Operator TUI. Wenn die Frage den Marker "
             "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST verlangt, beginne exakt mit diesem Marker. "
-            "Beantworte vollstaendig in 120 bis 260 Zeichen, und nenne Hub, Worker, /snake/ask "
-            "und CodeCompass, wenn diese im Kontext vorkommen."
+            "Wenn die Frage einen exakten Antwortsatz verlangt, gib nur diesen Satz aus."
         ),
     )
 
@@ -553,9 +554,9 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
             "at": 12.3,
             "need": "",
             "send": (
-                ":ask Antworte vollständig in 120 bis 260 Zeichen. "
-                "Erkläre anhand von CodeCompass, welche Rolle client_surfaces/operator_tui/chat_mixin.py "
-                "beim AI-Snake Chat über /snake/ask hat. Nenne Hub, Worker und CodeCompass."
+                ":ask Antworte exakt mit diesem Satz: CodeCompass liefert Kontext; "
+                "chat_mixin.py sendet AI-Snake-Fragen via /snake/ask an den Hub, "
+                "der ananta-worker nutzt LMStudio und zeigt die Antwort in der TUI."
             ).encode("utf-8"),
         },
         {"at": 12.8, "need": "", "send": b"\r"},
