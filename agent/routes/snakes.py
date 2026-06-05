@@ -607,15 +607,20 @@ def _resolve_lmstudio_model_for_worker(configured: str | None) -> str | None:
         return configured
 
 
-def _worker_propose(grounded_prompt: str, model: str | None) -> str:
-    """Forward the prompt to an online worker's /step/propose. Returns answer or ""."""
+def _worker_propose(grounded_prompt: str, model: str | None) -> tuple[str, dict[str, Any]]:
+    """Forward prompt to worker /step/propose. Returns (answer, trace)."""
     from agent.services.task_runtime_service import forward_to_worker
 
+    trace: dict[str, Any] = {}
     worker_url, token = _pick_worker_for_ask()
+    trace["worker_url"] = worker_url
     if not worker_url:
-        return ""
+        trace["error"] = "no_online_worker"
+        return "", trace
 
     resolved_model = _resolve_lmstudio_model_for_worker(model)
+    trace["model_requested"] = model
+    trace["model_resolved"] = resolved_model
     payload: dict[str, Any] = {
         "prompt": grounded_prompt,
         "provider": "lmstudio",
@@ -623,6 +628,8 @@ def _worker_propose(grounded_prompt: str, model: str | None) -> str:
     }
     if resolved_model:
         payload["model"] = resolved_model
+    trace["prompt_chars"] = len(grounded_prompt)
+    trace["prompt_preview"] = grounded_prompt[:300]
 
     try:
         result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
@@ -630,17 +637,22 @@ def _worker_propose(grounded_prompt: str, model: str | None) -> str:
             result = forward_to_worker(worker_url, "/step/propose", payload, token=None)
     except Exception as exc:
         logging.getLogger(__name__).debug("snake-ask worker forward failed: %s", exc)
-        return ""
+        trace["error"] = str(exc)[:120]
+        return "", trace
 
+    trace["worker_raw_response"] = str(result)[:500] if result else None
     if not isinstance(result, dict):
-        return ""
+        trace["error"] = "non_dict_response"
+        return "", trace
     data = result.get("data") if isinstance(result.get("data"), dict) else result
     if not isinstance(data, dict):
-        return ""
+        trace["error"] = "no_data_field"
+        return "", trace
     text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
     if len(text) > 2200:
         text = text[:2200].rstrip() + "\n\n[gekuerzt]"
-    return text
+    trace["answer_chars"] = len(text)
+    return text, trace
 
 
 @snakes_bp.route("/snake/ask", methods=["POST"])
@@ -648,6 +660,7 @@ def snake_ask():
     """POST /snake/ask – Synchrone AI-Antwort für den TUI ananta-worker Modus.
 
     Akzeptiert v1 ({question, context, depth}) und v2 ({question, context, depth, memory_context}).
+    Optionales Feld "debug": true gibt trace-Infos zurück.
     Antwortet mit {"answer": "..."}. Routet über einen registrierten Worker-Prozess;
     fällt auf direkten LMStudio-Aufruf zurück falls kein Worker verfügbar.
     """
@@ -658,21 +671,31 @@ def snake_ask():
 
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     question = str(body.get("question") or "").strip()[:1000]
+    debug = bool(body.get("debug"))
     if not question:
         return jsonify({"error": "question erforderlich"}), 400
 
+    rag_trace: dict[str, Any] = {}
     context = str(body.get("context") or "").strip()[:4000]
     if context:
         grounded_prompt = f"{question}\n\nKontext:\n{context}"
+        rag_trace["source"] = "client_provided"
+        rag_trace["context_chars"] = len(context)
     else:
-        grounded_prompt, _, _ = _build_grounded_snake_prompt(question)
+        grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(question)
+        rag_trace["source"] = "hub_rag"
+        rag_trace["has_context"] = has_context
+        rag_trace["summary"] = context_summary
 
     _, model = _resolve_ai_snake_chat_provider()
 
     # Primary path: route through registered ananta-worker
-    answer = _worker_propose(grounded_prompt, model)
+    answer, worker_trace = _worker_propose(grounded_prompt, model)
     if answer:
-        return jsonify({"answer": answer, "path": "worker"}), 200
+        resp: dict[str, Any] = {"answer": answer, "path": "worker"}
+        if debug:
+            resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
+        return jsonify(resp), 200
 
     # Fallback: direct LMStudio call from hub
     try:
@@ -690,7 +713,10 @@ def snake_ask():
             text = text[:2200].rstrip() + "\n\n[gekuerzt]"
         if not text:
             return jsonify({"error": "Keine Antwort generiert"}), 503
-        return jsonify({"answer": text, "path": "hub_direct"}), 200
+        resp = {"answer": text, "path": "hub_direct"}
+        if debug:
+            resp["trace"] = {"rag": rag_trace, "worker": worker_trace, "fallback_reason": "worker_empty"}
+        return jsonify(resp), 200
     except Exception as exc:
         logging.getLogger(__name__).warning("snake-ask failed: %s", exc)
         return jsonify({"error": f"LLM-Fehler: {str(exc)[:120]}"}), 503
