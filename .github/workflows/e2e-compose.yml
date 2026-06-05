@@ -22,73 +22,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.label.name == 'full-ci'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      max-parallel: 5
-      matrix:
-        include:
-          - shard: compose-foundation
-            specs: >-
-              tests/auth.spec.ts
-              tests/auth-password.spec.ts
-              tests/auth-lockout.spec.ts
-              tests/auth-mfa.spec.ts
-              tests/auth-rate-limit.spec.ts
-              tests/permissions.spec.ts
-              tests/settings-config.spec.ts
-              tests/llm-config.spec.ts
-              tests/notifications.spec.ts
-              tests/agents.spec.ts
-              tests/terminal.spec.ts
-              tests/lite-compose-connectivity.spec.ts
-
-          - shard: compose-goal-flow
-            specs: >-
-              tests/main-goal-foundation.spec.ts
-              tests/main-goal-planning.spec.ts
-              tests/main-goal-execution.spec.ts
-              tests/main-goal-observability.spec.ts
-              tests/hub-flow.spec.ts
-              tests/first-goal-e2e.spec.ts
-              tests/release-goal-smoke.spec.ts
-
-          - shard: compose-admin-control
-            specs: >-
-              tests/admin-core-journey.spec.ts
-              tests/agent-registration.spec.ts
-              tests/audit-logs.spec.ts
-              tests/control-center-denied-flow.spec.ts
-              tests/control-center-policies.spec.ts
-              tests/control-center-review-flow.spec.ts
-              tests/task-cleanup-ui.spec.ts
-              tests/team-types-roles.spec.ts
-              tests/teams.spec.ts
-              tests/templates-crud.spec.ts
-
-          - shard: compose-ai-llm
-            specs: >-
-              tests/ai-assistant-global-dock.spec.ts
-              tests/ai-assistant-hybrid.spec.ts
-              tests/ai-assistant-opencode.spec.ts
-              tests/ai-assistant-settings-mutations.spec.ts
-              tests/ai-snake-config-panel.spec.ts
-              tests/ai-snake-session-sharing.spec.ts
-              tests/auto-planner.spec.ts
-              tests/config-ui-control-hardening.spec.ts
-              tests/llm-generate.spec.ts
-              tests/templates-ai.spec.ts
-
-          - shard: compose-observability-network
-            specs: >-
-              tests/a11y.spec.ts
-              tests/live-click-critical-paths.spec.ts
-              tests/public-oidc-webrtc.spec.ts
-              tests/sse-events.spec.ts
-              tests/stress.spec.ts
-              tests/ui-ux-console.spec.ts
-              tests/ui-ux-workflows.spec.ts
-              tests/webrtc-datachannel.spec.ts
-
     env:
       POSTGRES_PASSWORD: test-postgres-password
       INITIAL_ADMIN_PASSWORD: test123
@@ -99,7 +32,7 @@ jobs:
       AGENT_TOKEN_GAMMA: gamma-token
       AGENT_TOKEN_DELTA: delta-token
       GRAFANA_PASSWORD: test-grafana-password
-    name: e2e-compose (${{ matrix.shard }})
+    name: e2e-compose
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -135,16 +68,9 @@ jobs:
       - name: Run E2E against compose
         id: e2e
         continue-on-error: true
-        env:
-          E2E_SPECS: ${{ matrix.specs }}
         run: |
           set -euo pipefail
-          read -r -a specs <<< "${E2E_SPECS}"
-          docker compose \
-            -f docker-compose.base.yml \
-            -f docker-compose-lite.yml \
-            -f docker-compose.github-ci.yml \
-            run --rm frontend-test npm run test:e2e:compose -- "${specs[@]}"
+          bash scripts/run_e2e_compose_parallel.sh
       - name: Build failure summary
         if: always()
         working-directory: frontend-angular
@@ -153,8 +79,15 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ananta-e2e-compose-${{ matrix.shard }}
+          name: ananta-e2e-compose
           path: frontend-angular/test-results/**
+          retention-days: 7
+      - name: Upload E2E compose logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-e2e-compose-logs
+          path: ci-artifacts/e2e-compose/**
           retention-days: 7
       - name: Stop compose stack
         if: always()
