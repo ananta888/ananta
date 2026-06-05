@@ -23,6 +23,15 @@ def _disable_llm_context_compaction(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _enable_legacy_cli_step_path(app):
+    cfg = dict(app.config.get("AGENT_CONFIG") or {})
+    task_scoped_execution = dict(cfg.get("task_scoped_execution") or {})
+    task_scoped_execution["allow_legacy_single_step_path"] = True
+    cfg["task_scoped_execution"] = task_scoped_execution
+    app.config["AGENT_CONFIG"] = cfg
+
+
 @pytest.fixture
 def force_hub_role(monkeypatch):
     monkeypatch.setattr("agent.config.settings.role", "hub")

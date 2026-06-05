@@ -1,0 +1,6 @@
+e2e-rerun summary: pass=0 fail=5 (Fri Jun  5 17:33:40 CEST 2026)
+  compose-foundation-ui: FAIL (exit 1)
+  compose-goal-core: FAIL (exit 1)
+  compose-goal-smoke: FAIL (exit 1)
+  compose-ai-interaction: FAIL (exit 1)
+  compose-observability-network: FAIL (exit 1)

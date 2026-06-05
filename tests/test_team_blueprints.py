@@ -447,8 +447,8 @@ def test_team_list_exposes_simplified_lifecycle_state(client):
 
     update_log = next(
         log
-        for log in audit_repo.query(action="team_blueprint_updated", limit=500)
-        if log.details.get("blueprint_id") == scrum_blueprint["id"]
+        for log in audit_repo.get_all(limit=500)
+        if log.action == "team_blueprint_updated" and log.details.get("blueprint_id") == scrum_blueprint["id"]
     )
     assert update_log.details["changes"]["roles"]["created"] == [{"name": "Lifecycle Drift Role"}]
 
@@ -1017,8 +1017,8 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
 
     create_log = next(
         log
-        for log in audit_repo.query(action="team_blueprint_created", limit=500)
-        if log.details.get("blueprint_id") == blueprint["id"]
+        for log in audit_repo.get_all(limit=500)
+        if log.action == "team_blueprint_created" and log.details.get("blueprint_id") == blueprint["id"]
     )
     assert create_log.details["changes"]["blueprint_fields"] == ["name", "description", "base_team_type_name", "is_seed"]
     assert create_log.details["changes"]["roles"]["created"] == [{"name": "Developer"}]
@@ -1037,8 +1037,8 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
 
     update_log = next(
         log
-        for log in audit_repo.query(action="team_blueprint_updated", limit=500)
-        if log.details.get("blueprint_id") == blueprint["id"]
+        for log in audit_repo.get_all(limit=500)
+        if log.action == "team_blueprint_updated" and log.details.get("blueprint_id") == blueprint["id"]
     )
     assert update_log.details["changes"]["blueprint_fields"] == ["description"]
     assert update_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description", "config"]}]
@@ -1087,8 +1087,8 @@ def test_seed_reconcile_writes_audit_diff(client):
 
     reconcile_log = next(
         log
-        for log in audit_repo.query(action="team_blueprint_reconciled", limit=500)
-        if log.details.get("blueprint_id") == scrum_blueprint["id"]
+        for log in audit_repo.get_all(limit=500)
+        if log.action == "team_blueprint_reconciled" and log.details.get("blueprint_id") == scrum_blueprint["id"]
     )
     assert reconcile_log.details["source"] == "seed_sync"
     assert reconcile_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description"]}]
@@ -1165,7 +1165,7 @@ def test_instantiate_blueprint_rolls_back_when_materialization_fails(client, mon
     with Session(engine) as session:
         before_team_count = len(session.exec(select(TeamDB)).all())
         before_member_count = len(session.exec(select(TeamMemberDB)).all())
-        before_task_count = len(session.exec(select(TaskDB)).all())
+        before_rollback_task_count = len(session.exec(select(TaskDB).where(TaskDB.title.startswith("Rollback Team:"))).all())
 
     response = client.post(
         f"/teams/blueprints/{scrum_blueprint['id']}/instantiate",
@@ -1180,7 +1180,7 @@ def test_instantiate_blueprint_rolls_back_when_materialization_fails(client, mon
         persisted_tasks = len(session.exec(select(TaskDB).where(TaskDB.title.startswith("Rollback Team:"))).all())
     assert persisted_team is None
     assert persisted_members == before_member_count
-    assert persisted_tasks == before_task_count
+    assert persisted_tasks == before_rollback_task_count
     with Session(engine) as session:
         after_team_count = len(session.exec(select(TeamDB)).all())
     assert after_team_count == before_team_count

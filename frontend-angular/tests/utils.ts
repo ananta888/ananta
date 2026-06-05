@@ -29,7 +29,7 @@ export const TEST_LOGIN_IP = USE_EXISTING_SERVICES ? undefined : '127.0.0.1';
 export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AGENT_TOKEN_HUB || 'generate_a_random_token_for_hub';
 export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
 export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.AGENT_TOKEN_BETA || 'generate_a_random_token_for_beta';
-const FALLBACK_ADMIN_PASSWORDS = ['test123', 'admin', 'test123'];
+const FALLBACK_ADMIN_PASSWORDS = ['test123', 'admin', 'AnantaAdminPassword123!'];
 const ENABLE_DETERMINISTIC_SCRUM_SEED = process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1';
 const E2E_SCRUM_SEED_TEAM_NAME = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
 const PUBLIC_OIDC_SCOPES = 'openid profile email';
