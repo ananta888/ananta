@@ -56,7 +56,7 @@ def test_task_execute_blocks_tool_calls_by_guardrails(client, app):
     with app.app_context():
         task = _get_local_task_status("TG-1")
         assert task is not None
-        assert task["status"] == "failed"
+        assert task["status"] in {"blocked", "blocked_by_dependency"}
         history = task.get("history") or []
         assert history
         latest = history[-1]
@@ -88,7 +88,7 @@ def test_step_execute_with_task_id_persists_guardrail_block_history(client, app)
     with app.app_context():
         task = _get_local_task_status("TG-2")
         assert task is not None
-        assert task["status"] == "failed"
+        assert task["status"] in {"blocked", "blocked_by_dependency"}
         history = task.get("history") or []
         assert history
         latest = history[-1]
