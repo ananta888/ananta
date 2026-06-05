@@ -53,6 +53,8 @@ services:
       EVOLVER_TIMEOUT_SECONDS: ${EVOLVER_TIMEOUT_SECONDS:-30}
       EVOLVER_DEFAULT: ${EVOLVER_DEFAULT:-0}
       EVOLVER_VERSION: ${EVOLVER_VERSION:-unknown}
+      RAG_DATA_ROOTS: ${RAG_DATA_ROOTS:-docs,data,agent}
+      RAG_MAX_CHUNKS: ${RAG_MAX_CHUNKS:-12}
     deploy:
       resources:
         limits:
