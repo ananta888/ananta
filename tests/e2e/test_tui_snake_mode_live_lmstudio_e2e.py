@@ -169,8 +169,16 @@ def test_snake_ai_live_llm_tui_cast_uses_configured_provider(monkeypatch) -> Non
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", frame_text)
     assert "ARTIFACTS" in plain
     assert "[Ctrl+S] Snake" in plain
+    assert "backend=ananta-worker" in plain or "Chat: ananta-worker/" in plain
+    assert "/snake/ask" in plain
+    assert "CodeCompass" in plain or "codecompass" in plain
+    assert "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST" in plain
+    assert "Chat-Nachricht" in plain
     assert (
-        "Tutorial-AI propose flow" in plain
+        "worker_v2" in plain
+        or "last_chat_backend_path" in plain
+        or "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST" in plain
+        or "Tutorial-AI propose flow" in plain
         or "[user->artifacts]" in plain
         or "[openai-compatible->" in plain
         or "snake tutorial-ai: an" in plain

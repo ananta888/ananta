@@ -2547,6 +2547,25 @@ def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkey
     assert game.get("chat_context_chars") == 5000
 
 
+def test_default_header_snake_explicit_chat_env_overrides_persisted_settings(tmp_path, monkeypatch) -> None:
+    import client_surfaces.operator_tui.config.user_config_manager as ucm
+    import client_surfaces.operator_tui.snake_persistence as sp
+
+    monkeypatch.setattr(sp, "_config_dir", lambda: tmp_path / "ananta")
+    monkeypatch.setattr(ucm, "load_user_config", lambda: {"chat_backend": "lmstudio"})
+    monkeypatch.setenv("ANANTA_TUI_CHAT_BACKEND", "ananta-worker")
+    monkeypatch.setenv("ANANTA_TUI_CHAT_MODEL", "microsoft_-_phi-3.5-mini")
+    monkeypatch.setenv("ANANTA_TUI_CHAT_RAG_TOP_K", "16")
+    save_tui_chat_settings({"chat_backend": "lmstudio", "chat_rag_top_k": 48}, cwd=Path.cwd())
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    game = tui._default_header_snake()
+
+    assert game.get("chat_backend") == "ananta-worker"
+    assert game.get("chat_backend_model") == "microsoft_-_phi-3.5-mini"
+    assert game.get("chat_rag_top_k") == "16"
+
+
 def test_default_header_snake_loads_persisted_chat_input_history(monkeypatch) -> None:
     import client_surfaces.operator_tui.config.user_config_manager as ucm
     import client_surfaces.operator_tui.header_snake_mixin as hsm
