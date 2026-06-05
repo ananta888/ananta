@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { execSync } from 'child_process';
+import path from 'path';
 delete process.env.NO_COLOR;
 delete process.env.FORCE_COLOR;
 const defaultBrowsers = ['chromium'];
@@ -29,11 +30,13 @@ const baseUrl = resolveFrontendBaseUrl(configuredBaseUrl);
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
+const resultsDir = process.env.E2E_RESULTS_DIR?.trim() || 'test-results';
 const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || (isLiveLlmRun ? '90000' : '120000'));
 const webServerEnv = process.env.CI ? { CI: 'true' } : {};
+const resultsPath = (fileName) => path.join(resultsDir, fileName);
 const reporters = compactReporter
-    ? [['dot'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]]
-    : [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]];
+    ? [['dot'], ['junit', { outputFile: resultsPath('junit-results.xml') }], ['json', { outputFile: resultsPath('results.json') }]]
+    : [['list'], ['junit', { outputFile: resultsPath('junit-results.xml') }], ['json', { outputFile: resultsPath('results.json') }]];
 const browsers = envBrowsers ? envBrowsers.split(',').map(b => b.trim()).filter(Boolean) : defaultBrowsers;
 const browserProjects = browsers.map((browser) => {
     if (browser === 'firefox') {
@@ -46,6 +49,7 @@ const browserProjects = browsers.map((browser) => {
 });
 export default defineConfig({
     testDir: './tests',
+    outputDir: resultsDir,
     timeout: isLiveLlmRun ? 90 * 1000 : 45 * 1000,
     expect: { timeout: 10 * 1000 },
     fullyParallel: false,

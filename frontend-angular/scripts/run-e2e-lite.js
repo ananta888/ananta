@@ -3,7 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const cwd = process.cwd();
-const resultsPath = path.join(cwd, 'test-results', 'results.json');
+const resultsDir = path.resolve(cwd, process.env.E2E_RESULTS_DIR?.trim() || 'test-results');
+const resultsPath = path.join(resultsDir, 'results.json');
 const timeoutMinutes = Number(process.env.E2E_LITE_TIMEOUT_MINUTES || '25');
 const timeoutMs = Math.max(1, timeoutMinutes) * 60 * 1000;
 

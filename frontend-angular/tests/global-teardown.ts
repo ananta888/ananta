@@ -47,6 +47,11 @@ function shouldRetainEvidenceArtifacts(): boolean {
   return process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === '1';
 }
 
+function resolveResultsRoot(): string {
+  const configured = process.env.E2E_RESULTS_DIR?.trim();
+  return path.resolve(process.cwd(), configured || 'test-results');
+}
+
 export default async function globalTeardown() {
   const pidFile = path.join(__dirname, '.pids.json');
   let startedLocalServices = false;
@@ -68,7 +73,7 @@ export default async function globalTeardown() {
 
   const root = path.join(__dirname, '..', '..');
   const dataRoot = path.join(root, 'data_test_e2e');
-  const artifactsRoot = path.join(root, 'frontend-angular', 'test-results');
+  const artifactsRoot = resolveResultsRoot();
 
   // Keep screenshots, videos, and traces for evidence workflows that upload them after teardown.
   if (!shouldRetainEvidenceArtifacts() && fs.existsSync(artifactsRoot)) {

@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { execSync } from 'child_process';
+import path from 'path';
 
 delete process.env.NO_COLOR;
 delete process.env.FORCE_COLOR;
@@ -32,6 +33,7 @@ const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
 const retainEvidenceArtifacts = process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === '1';
+const resultsDir = process.env.E2E_RESULTS_DIR?.trim() || 'test-results';
 const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || (isLiveLlmRun ? '90000' : '120000'));
 const testTimeoutMs = Number(process.env.E2E_TEST_TIMEOUT_MS || (isLiveLlmRun ? '120000' : '60000'));
 const expectTimeoutMs = Number(process.env.E2E_EXPECT_TIMEOUT_MS || '15000');
@@ -40,9 +42,10 @@ const navigationTimeoutMs = Number(process.env.E2E_NAV_TIMEOUT_MS || '30000');
 const webServerEnv = process.env.CI ? { CI: 'true' } : {};
 const configuredWorkers = Number(process.env.E2E_WORKERS || '1');
 const workerCount = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 1;
+const resultsPath = (fileName: string) => path.join(resultsDir, fileName);
 const reporters = compactReporter
-  ? [['dot'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any
-  : [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any;
+  ? [['dot'], ['junit', { outputFile: resultsPath('junit-results.xml') }], ['json', { outputFile: resultsPath('results.json') }]] as any
+  : [['list'], ['junit', { outputFile: resultsPath('junit-results.xml') }], ['json', { outputFile: resultsPath('results.json') }]] as any;
 const browsers = envBrowsers ? envBrowsers.split(',').map(b => b.trim()).filter(Boolean) : defaultBrowsers;
 const browserProjects = browsers.map((browser) => {
   if (browser === 'firefox') {
@@ -56,6 +59,7 @@ const browserProjects = browsers.map((browser) => {
 
 export default defineConfig({
   testDir: './tests',
+  outputDir: resultsDir,
   timeout: testTimeoutMs,
   expect: { timeout: expectTimeoutMs },
   fullyParallel: false,
