@@ -117,8 +117,8 @@ def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool, str]:
             source_types.append("wiki")
         bundle, grounded = get_rag_service().build_execution_context(
             prompt,
-            task_kind="chat",
-            retrieval_intent="chat_codecompass",
+            task_kind="research",
+            retrieval_intent="chat_codecompass_overview",
             source_types=source_types or None,
         )
         chunks = list(bundle.get("chunks") or [])
