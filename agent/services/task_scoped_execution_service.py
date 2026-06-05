@@ -640,21 +640,18 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _invoke_cli_runner(cli_runner: Callable, **cli_kwargs):
+        signature_target = cli_runner
+        side_effect = getattr(cli_runner, "side_effect", None)
+        if callable(side_effect):
+            signature_target = side_effect
         try:
-            return cli_runner(**cli_kwargs)
-        except TypeError as exc:
-            message = str(exc)
-            if "unexpected keyword argument" not in message:
-                raise
-            signature_target = cli_runner
-            side_effect = getattr(cli_runner, "side_effect", None)
-            if callable(side_effect):
-                signature_target = side_effect
             signature = inspect.signature(signature_target)
-            if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
-                raise
-            filtered_kwargs = {key: value for key, value in cli_kwargs.items() if key in signature.parameters}
-            return cli_runner(**filtered_kwargs)
+        except (TypeError, ValueError):
+            return cli_runner(**cli_kwargs)
+        if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
+            return cli_runner(**cli_kwargs)
+        filtered_kwargs = {key: value for key, value in cli_kwargs.items() if key in signature.parameters}
+        return cli_runner(**filtered_kwargs)
 
     def propose_task_step(
         self,
@@ -736,6 +733,11 @@ class TaskScopedExecutionService:
                 tool_definitions_resolver=tool_definitions_resolver,
                 allow_legacy_path=True,
             )
+        explicit_task_kind = str(
+            task.get("task_kind")
+            or getattr(request_data, "task_kind", "")
+            or ""
+        ).strip().lower()
         legacy_cli_task_kinds = {
             "generic",
             "analysis",
@@ -746,7 +748,7 @@ class TaskScopedExecutionService:
             "doc",
             "review",
         }
-        if task_kind in legacy_cli_task_kinds and not str(getattr(request_data, "strategy_mode", "") or "").strip():
+        if explicit_task_kind and task_kind in legacy_cli_task_kinds and not str(getattr(request_data, "strategy_mode", "") or "").strip():
             routed_backend, _routing_reason = self._resolve_cli_backend(
                 task_kind,
                 requested_backend="auto",
@@ -786,6 +788,19 @@ class TaskScopedExecutionService:
                     cli_runner=cli_runner,
                     cfg=cfg,
                 )
+            if explicit_task_kind:
+                handler_response = self._try_handler_propose(
+                    tid=tid,
+                    task=task,
+                    task_kind=explicit_task_kind,
+                    request_data=request_data,
+                    base_prompt=base_prompt,
+                    cli_runner=cli_runner,
+                    forwarder=forwarder,
+                    tool_definitions_resolver=tool_definitions_resolver,
+                )
+                if handler_response is not None:
+                    return handler_response
             legacy_enabled = bool(((cfg.get("task_scoped_execution") or {}).get("allow_legacy_single_step_path", False)))
             if legacy_enabled and task_kind in legacy_cli_task_kinds and has_app_context():
                 return self._propose_single_task_step(
@@ -2139,8 +2154,11 @@ class TaskScopedExecutionService:
         )
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         timeout = self._resolve_task_propose_timeout(cfg, task_kind)
-        proposal_model = self._resolve_requested_model(agent_cfg=cfg, requested_model=request_data.model)
-        policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
+        proposal_model = self._resolve_requested_model(
+            agent_cfg=cfg,
+            requested_model=getattr(request_data, "model", None),
+        )
+        policy_version = runtime_routing_config(cfg)["policy_version"] if isinstance(cfg, dict) else runtime_routing_config({})["policy_version"]
         session_payload = self._prepare_task_cli_session(
             tid=tid,
             task=task,
@@ -3471,6 +3489,41 @@ class TaskScopedExecutionService:
                 "status": "pending",
                 "reason": "handler_safety_requires_review",
             }
+        try:
+            from agent.services.service_registry import get_core_services
+
+            get_core_services().task_execution_service.persist_task_proposal_result(
+                tid=tid,
+                task=task,
+                reason=str(payload.get("reason") or payload.get("status") or "handler_proposal"),
+                raw=json.dumps(payload, ensure_ascii=False),
+                backend="handler",
+                model=None,
+                routing={
+                    "task_kind": task_kind,
+                    "effective_backend": "handler",
+                    "reason": "registered_task_handler",
+                    "required_capabilities": list(handler_descriptor.get("capabilities") or []),
+                },
+                cli_result={
+                    "returncode": 0,
+                    "latency_ms": 0,
+                    "output_source": "handler",
+                },
+                worker_context={"handler_task_kind": task_kind},
+                trace={"trace_id": f"handler-{tid}", "policy_version": "v1"},
+                review=payload.get("review") if isinstance(payload.get("review"), dict) else None,
+                command=payload.get("command") if isinstance(payload.get("command"), str) else None,
+                tool_calls=payload.get("tool_calls") if isinstance(payload.get("tool_calls"), list) else None,
+                history_event={
+                    "event_type": "proposal_result",
+                    "reason": str(payload.get("reason") or payload.get("status") or "handler_proposal"),
+                    "backend": "handler",
+                    "routing_reason": "registered_task_handler",
+                },
+            )
+        except Exception:
+            pass
         return TaskScopedRouteResponse(
             data=payload,
             status=coerced.status,

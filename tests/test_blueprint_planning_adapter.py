@@ -4,12 +4,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from agent import repository
 from agent.services.blueprint_planning_adapter import BlueprintPlanningAdapter
+from tests_support import admin_login_token as _login_admin
 
 
 def _ensure_seed_blueprints(client) -> None:
-    login = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert login.status_code == 200
-    token = login.json["data"]["access_token"]
+    token = _login_admin(client)
     response = client.get("/teams/blueprints", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
 

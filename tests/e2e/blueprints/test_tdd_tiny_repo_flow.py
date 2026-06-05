@@ -6,6 +6,8 @@ import json
 import os
 import shutil
 from pathlib import Path
+
+from tests_support import admin_login_token as _login_admin
 from typing import Any
 
 from tests.e2e.mock_llm import MockLLM
@@ -83,14 +85,6 @@ def _apply_patch_with_approval(
         "changed_files": ["calc.py"],
         "artifact_refs": [f"patch:{expected_hash}"],
     }
-
-
-def _login_admin(client) -> str:  # noqa: ANN001
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    return response.json["data"]["access_token"]
-
-
 def test_tdd_tiny_repo_flow_records_red_patch_green_evidence(client, tmp_path: Path) -> None:
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}

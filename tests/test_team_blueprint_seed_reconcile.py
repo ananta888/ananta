@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agent.services.seed_blueprint_catalog import get_seed_blueprint_catalog
+from tests_support import admin_login_token as _login_admin
 
 EXPECTED_ARTIFACT_COUNTS = {
     "Scrum": 5,
@@ -13,14 +14,6 @@ EXPECTED_ARTIFACT_COUNTS = {
     "Release-Prep": 4,
     "Research-Evolution": 5,
 }
-
-
-def _login_admin(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    return response.json["data"]["access_token"]
-
-
 def test_seed_catalog_and_runtime_reconcile_keep_expected_names_and_artifact_counts(client) -> None:
     seed_map = get_seed_blueprint_catalog().as_seed_blueprint_map()
     assert set(seed_map.keys()) == set(EXPECTED_ARTIFACT_COUNTS.keys())

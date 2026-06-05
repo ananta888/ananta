@@ -3,13 +3,12 @@ from sqlmodel import Session, delete
 from agent.database import engine
 from agent.db_models import AgentInfoDB, RoleDB, TeamDB, TeamMemberDB
 from agent.repository import agent_repo, role_repo
+from tests_support import admin_login_token as _login_admin
 
 
 def test_create_and_list_team(client):
     # Setup Admin Login
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    admin_token = response.json["data"]["access_token"]
+    admin_token = _login_admin(client)
 
     # Clean up
     with Session(engine) as session:
@@ -33,8 +32,7 @@ def test_create_and_list_team(client):
 
 def test_create_team_with_members(client):
     # Setup Admin Login
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    admin_token = response.json["data"]["access_token"]
+    admin_token = _login_admin(client)
 
     # Setup Role and Agent
     r = RoleDB(name="TestRole")

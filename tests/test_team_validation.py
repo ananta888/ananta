@@ -3,13 +3,12 @@ from sqlmodel import Session, delete, select
 from agent.database import engine
 from agent.db_models import AgentInfoDB, GoalDB, RoleDB, TaskDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
 from agent.repository import agent_repo, role_repo, team_repo, team_type_repo
+from tests_support import admin_login_token as _login_admin
 
 
 def test_team_role_validation(client):
     # Setup Admin Login
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    admin_token = response.json["data"]["access_token"]
+    admin_token = _login_admin(client)
 
     # Setup: Create TeamType, Role, and link them
     with Session(engine) as session:
@@ -74,9 +73,7 @@ def test_team_role_validation(client):
 
 
 def test_team_member_template_validation(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    admin_token = response.json["data"]["access_token"]
+    admin_token = _login_admin(client)
 
     with Session(engine) as session:
         session.exec(delete(TeamMemberDB))
@@ -118,9 +115,7 @@ def test_team_member_template_validation(client):
 
 
 def test_delete_team_with_members_cleans_members_first(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    admin_token = response.json["data"]["access_token"]
+    admin_token = _login_admin(client)
 
     with Session(engine) as session:
         session.exec(delete(TeamMemberDB))

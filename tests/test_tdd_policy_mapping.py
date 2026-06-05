@@ -1,10 +1,5 @@
 from __future__ import annotations
-
-
-def _login_admin(client):
-    response = client.post("/login", json={"username": "admin", "password": "admin"})
-    assert response.status_code == 200
-    return response.json["data"]["access_token"]
+from tests_support import admin_login_token as _login_admin
 
 
 def test_tdd_blueprint_policy_requires_patch_apply_approval(client):
