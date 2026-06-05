@@ -26,7 +26,11 @@ def tracked_code_files(*, repo_root: Path, code_extensions: set[str], max_files:
 
     files: list[Path] = []
     for current_root, dirs, file_names in os.walk(repo_root):
-        dirs[:] = [d for d in dirs if d not in {".git", ".venv", "node_modules", "__pycache__", ".mypy_cache"}]
+        dirs[:] = [d for d in dirs if d not in {
+            ".git", ".venv", "venv", "myvenv", "site-packages",
+            "node_modules", "__pycache__", ".mypy_cache", ".claude",
+            "project-workspaces", ".tox", "dist", "build", ".eggs",
+        }]
         for name in file_names:
             path = Path(current_root) / name
             if path.suffix.lower() in code_extensions:
