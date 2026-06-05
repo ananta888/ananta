@@ -78,7 +78,7 @@ class HeaderSnakeMixin:
             # settings already carry an explicit value.
             for k, v in user_cfg.items():
                 if isinstance(v, (str, int, float, bool)):
-                    if k in explicit_user_keys or k not in persisted_cfg or v != _DEFAULTS.get(k):
+                    if k in explicit_user_keys or (k in persisted_cfg and v != _DEFAULTS.get(k)):
                         persisted_cfg[k] = v
         except Exception:
             pass

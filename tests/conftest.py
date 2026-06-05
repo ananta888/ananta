@@ -375,10 +375,26 @@ def isolate_operator_tui_user_config(tmp_path, monkeypatch):
     """Keep project/user chat config from leaking into deterministic tests."""
     try:
         import client_surfaces.operator_tui.config.user_config_manager as ucm
+        import client_surfaces.operator_tui.snake_persistence as sp
 
         ucm.reset_manager()
         monkeypatch.setattr(ucm, "global_config_path", lambda: tmp_path / "home" / ".anana" / "user.json")
-        monkeypatch.setattr(ucm, "_manager", ucm.UserConfigManager(cwd=tmp_path))
+        monkeypatch.setattr(
+            ucm,
+            "project_config_path",
+            lambda cwd=None: ((Path(cwd).resolve() if cwd is not None else tmp_path) / "user.json"),
+        )
+        default_manager = ucm.UserConfigManager(cwd=tmp_path)
+        monkeypatch.setattr(ucm, "_manager", default_manager)
+        original_get_manager = ucm.get_manager
+
+        def _isolated_get_manager(*, cwd=None):
+            if cwd is None:
+                return default_manager
+            return original_get_manager(cwd=cwd)
+
+        monkeypatch.setattr(ucm, "get_manager", _isolated_get_manager)
+        monkeypatch.setattr(sp, "_config_dir", lambda: tmp_path / ".config" / "ananta")
         yield
         ucm.reset_manager()
     except Exception:
