@@ -1,0 +1,559 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "rag-config-layer-quotas-exclusions-query-normalization",
+  "purpose": "RAG-spezifische Hartkodierungen für Route-Quotas, Repository-Scan-Exclusions und Query-Normalisierung in eine saubere, deploybare Konfigurationsschicht überführen.",
+  "goal": "RAG-Verhalten muss über agent/config.py, .env und docker-compose.yml steuerbar sein, ohne Source-Code-Änderung und ohne Rebuild für reine Konfigurationsänderungen.",
+  "related_issue": "https://github.com/ananta888/ananta/issues/120",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "configuration_contract": {
+    "settings_target": "agent/config.py",
+    "environment_variables": [
+      {
+        "name": "RAG_ROUTE_QUOTA_CODE_REPO",
+        "setting": "rag_route_quota_code_repo",
+        "type": "int",
+        "default": 12
+      },
+      {
+        "name": "RAG_ROUTE_QUOTA_CODE_SEMANTIC",
+        "setting": "rag_route_quota_code_semantic",
+        "type": "int",
+        "default": 2
+      },
+      {
+        "name": "RAG_ROUTE_QUOTA_DEFAULT_REPO",
+        "setting": "rag_route_quota_default_repo",
+        "type": "int",
+        "default": 6
+      },
+      {
+        "name": "RAG_ROUTE_QUOTA_DEFAULT_SEMANTIC",
+        "setting": "rag_route_quota_default_semantic",
+        "type": "int",
+        "default": 4
+      },
+      {
+        "name": "RAG_SCAN_EXCLUDE_DIRS",
+        "setting": "rag_scan_exclude_dirs",
+        "type": "comma-separated string",
+        "default": ".git,.venv,venv,myvenv,site-packages,node_modules,__pycache__,.mypy_cache,.claude,project-workspaces,.tox,dist,build,.eggs"
+      },
+      {
+        "name": "RAG_QUERY_NORMALIZE_LANG",
+        "setting": "rag_query_normalize_lang",
+        "type": "comma-separated string",
+        "default": "de,en"
+      },
+      {
+        "name": "RAG_QUERY_NORMALIZE_MODE",
+        "setting": "rag_query_normalize_mode",
+        "type": "enum",
+        "allowed_values": [
+          "off",
+          "keyword",
+          "llm"
+        ],
+        "default": "keyword"
+      }
+    ]
+  },
+  "milestones": [
+    {
+      "id": "RCFG-1",
+      "title": "RAG Settings zentralisieren",
+      "task_ids": [
+        "RCFG-001",
+        "RCFG-002",
+        "RCFG-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "RCFG-2",
+      "title": "Query-Normalisierung vor RepositoryMap/RAG einführen",
+      "task_ids": [
+        "RCFG-004",
+        "RCFG-005",
+        "RCFG-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "RCFG-3",
+      "title": "Tests und Deployment-Dokumentation ergänzen",
+      "task_ids": [
+        "RCFG-007",
+        "RCFG-008",
+        "RCFG-009"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "RCFG-001",
+      "title": "RAG Route Quotas in agent/config.py aufnehmen",
+      "type": "backend-config",
+      "milestone": "RCFG-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py"
+      ],
+      "acceptance_criteria": [
+        "agent/config.py enthält rag_route_quota_code_repo mit Default 12 und validation_alias RAG_ROUTE_QUOTA_CODE_REPO.",
+        "agent/config.py enthält rag_route_quota_code_semantic mit Default 2 und validation_alias RAG_ROUTE_QUOTA_CODE_SEMANTIC.",
+        "agent/config.py enthält rag_route_quota_default_repo mit Default 6 und validation_alias RAG_ROUTE_QUOTA_DEFAULT_REPO.",
+        "agent/config.py enthält rag_route_quota_default_semantic mit Default 4 und validation_alias RAG_ROUTE_QUOTA_DEFAULT_SEMANTIC.",
+        "Die Defaults bilden das bisherige Verhalten rückwärtskompatibel ab.",
+        "Ungültige Werte werden durch die bestehende Settings-/Pydantic-Validierung sichtbar statt stillschweigend ignoriert."
+      ],
+      "test_expectations": [
+        "Settings-Test prüft alle vier Defaultwerte.",
+        "Settings-Test prüft Env-Override für mindestens einen code_* und einen default_* Wert."
+      ]
+    },
+    {
+      "id": "RCFG-002",
+      "title": "hybrid_orchestrator.py auf konfigurierbare Route-Quotas umstellen",
+      "type": "backend-refactor",
+      "milestone": "RCFG-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "RCFG-001"
+      ],
+      "target_files": [
+        "agent/**/hybrid_orchestrator.py",
+        "tests/**/test_*hybrid*orchestrator*.py",
+        "tests/**/test_*rag*route*.py"
+      ],
+      "acceptance_criteria": [
+        "route() nutzt settings.rag_route_quota_code_repo statt hartkodierter RepositoryMap-Code-Quota.",
+        "route() nutzt settings.rag_route_quota_code_semantic statt hartkodierter Semantic-Code-Quota.",
+        "route() nutzt settings.rag_route_quota_default_repo statt hartkodierter RepositoryMap-Default-Quota.",
+        "route() nutzt settings.rag_route_quota_default_semantic statt hartkodierter Semantic-Default-Quota.",
+        "Es bleiben keine magischen RAG-Quota-Zahlen im Routing-Code zurück, außer in Tests oder dokumentierten Defaults.",
+        "Route-Scores bleiben deterministisch und reproduzierbar."
+      ],
+      "test_expectations": [
+        "Routing-Test beweist: Override der Code-Repo-Quota verändert die RepositoryMap-Gewichtung.",
+        "Routing-Test beweist: Override der Default-Semantic-Quota verändert die Semantic-Gewichtung.",
+        "Bestehende Tests laufen mit Defaults unverändert weiter."
+      ]
+    },
+    {
+      "id": "RCFG-003",
+      "title": "Repository-Scan-Exclusions in agent/config.py zentralisieren",
+      "type": "backend-config",
+      "milestone": "RCFG-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        "agent/**/d_repository_scan.py",
+        "tests/**/test_*repository*scan*.py"
+      ],
+      "acceptance_criteria": [
+        "agent/config.py enthält rag_scan_exclude_dirs mit validation_alias RAG_SCAN_EXCLUDE_DIRS.",
+        "Default-Exclusions enthalten .git, .venv, venv, myvenv, site-packages, node_modules, __pycache__, .mypy_cache, .claude, project-workspaces, .tox, dist, build und .eggs.",
+        "tracked_code_files nutzt settings.rag_scan_exclude_dirs statt hartkodierter Exclusion-Liste.",
+        "Parsing nutzt strip() und ignoriert leere Einträge robust.",
+        "dirs[:] wird so gefiltert, dass os.walk ausgeschlossene Verzeichnisse gar nicht erst weiter traversiert.",
+        "RAG_SCAN_EXCLUDE_DIRS kann in .env oder docker-compose.yml angepasst werden, ohne Codeänderung."
+      ],
+      "test_expectations": [
+        "Repository-Scan-Test prüft, dass node_modules und .git per Default ausgeschlossen werden.",
+        "Repository-Scan-Test prüft Whitespace in RAG_SCAN_EXCLUDE_DIRS, z.B. ' .git, node_modules , dist '.",
+        "Repository-Scan-Test prüft Custom-Exclusion für project-workspaces oder ein Testverzeichnis."
+      ]
+    },
+    {
+      "id": "RCFG-004",
+      "title": "Konfigurierbaren Query-Normalizer vorbereiten",
+      "type": "backend-design",
+      "milestone": "RCFG-2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        "agent/**/rag_query_normalizer.py",
+        "agent/**/hybrid_orchestrator.py",
+        "agent/**/snake*.py"
+      ],
+      "acceptance_criteria": [
+        "agent/config.py enthält rag_query_normalize_lang mit Default 'de,en' und validation_alias RAG_QUERY_NORMALIZE_LANG.",
+        "agent/config.py enthält rag_query_normalize_mode mit Default 'keyword' und validation_alias RAG_QUERY_NORMALIZE_MODE.",
+        "Erlaubte Modi sind off, keyword und llm.",
+        "off deaktiviert jede Query-Erweiterung vollständig.",
+        "Der Normalizer ist als kleine, isolierte Komponente implementiert und nicht direkt in _build_grounded_snake_prompt hartverdrahtet.",
+        "Die Komponente gibt immer eine deduplizierte Query-Liste zurück, mindestens die Originalquery."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft off: Ergebnis enthält nur die Originalquery.",
+        "Unit-Test prüft keyword: Ergebnis enthält Originalquery und expandierte Query.",
+        "Unit-Test prüft Deduplizierung bei identischer Original- und Normalisierungsquery."
+      ]
+    },
+    {
+      "id": "RCFG-005",
+      "title": "Keyword-basierte DE→EN Query-Expansion für RAG umsetzen",
+      "type": "backend-feature",
+      "milestone": "RCFG-2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "RCFG-004"
+      ],
+      "target_files": [
+        "agent/**/rag_query_normalizer.py",
+        "tests/**/test_*rag*query*normalizer*.py"
+      ],
+      "acceptance_criteria": [
+        "Keyword-Mode benötigt keinen LLM-Provider und ist damit offline/lokal lauffähig.",
+        "Eine deutsche Query wie 'Wie funktioniert der Autopilot-Tick-Engine?' erzeugt zusätzlich eine englische/code-nähere Query wie 'autopilot tick engine process tasks' oder eine semantisch gleichwertige Keyword-Variante.",
+        "Die Mapping-Tabelle ist klein, nachvollziehbar und später ohne Architekturbruch erweiterbar.",
+        "Mindestens die Begriffe funktioniert, verarbeitet, erstellt, tasks und wie funktioniert werden sinnvoll in englische Code-Suchbegriffe expandiert.",
+        "Bindestriche, CamelCase-nahe Schreibweisen und deutsche Füllwörter verschlechtern die Code-Keyword-Ausgabe nicht unnötig.",
+        "Keine deutsche Query wird ersetzt; die Originalquery bleibt immer zusätzlich erhalten."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft Autopilot-Tick-Engine Beispiel.",
+        "Unit-Test prüft, dass Originalquery erhalten bleibt.",
+        "Unit-Test prüft, dass kein Netzwerk-/LLM-Call im keyword-Modus erfolgt."
+      ]
+    },
+    {
+      "id": "RCFG-006",
+      "title": "Normalisierte Queries in RepositoryMap/RAG Retrieval einbinden",
+      "type": "backend-integration",
+      "milestone": "RCFG-2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "RCFG-004",
+        "RCFG-005"
+      ],
+      "target_files": [
+        "agent/**/hybrid_orchestrator.py",
+        "agent/**/repository_map*.py",
+        "agent/**/snake*.py",
+        "tests/**/test_*repository*map*.py",
+        "tests/**/test_*grounded*snake*.py"
+      ],
+      "acceptance_criteria": [
+        "_build_grounded_snake_prompt oder die vorgelagerte RAG-Schicht gibt Originalquery und normalisierte Query an RepositoryMapEngine weiter.",
+        "Retriever-Ergebnisse mehrerer Queries werden als Union zusammengeführt.",
+        "Deduplizierung erfolgt stabil über Datei-/Symbol-/Chunk-ID oder einen dokumentierten Fallback-Key.",
+        "Ranking bleibt nachvollziehbar: Treffer aus Originalquery werden nicht unnötig von Normalisierungs-Treffern verdrängt.",
+        "Bei RAG_QUERY_NORMALIZE_MODE=off wird exakt der alte Retrievalpfad verwendet.",
+        "Fehler im Normalizer dürfen den RAG-Call nicht abbrechen; Fallback ist Originalquery only."
+      ],
+      "test_expectations": [
+        "Integrationstest prüft, dass eine deutsche Query zusätzlich eine englische RepositoryMap-Suche auslöst.",
+        "Integrationstest prüft Deduplizierung bei identischen Treffern aus Original- und EN-Query.",
+        "Integrationstest prüft off-Modus gegen bisherigen Pfad.",
+        "Regressionstest für autopilot_tick_engine.py oder einen vergleichbaren englischen Symbolnamen, sofern im Repo vorhanden."
+      ]
+    },
+    {
+      "id": "RCFG-007",
+      "title": "LLM-Normalisierung als optionalen späteren Modus absichern",
+      "type": "backend-design",
+      "milestone": "RCFG-3",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "RCFG-004"
+      ],
+      "target_files": [
+        "agent/**/rag_query_normalizer.py",
+        "agent/config.py",
+        "tests/**/test_*rag*query*normalizer*.py"
+      ],
+      "acceptance_criteria": [
+        "llm-Modus ist explizit optional und wird nicht benötigt, damit die RAG-Verbesserung funktioniert.",
+        "Wenn llm noch nicht implementiert ist, schlägt der Modus sauber mit dokumentiertem Fallback oder klarer Unsupported-Konfiguration fehl.",
+        "Der Prompt für llm-Modus fordert English keywords only, no sentences.",
+        "LLM-Normalisierung darf keine Secrets, langen Projektkontext oder Artefakte unnötig an ein Modell senden.",
+        "Timeout und Fallback auf keyword oder Originalquery sind vorgesehen."
+      ],
+      "test_expectations": [
+        "Test prüft, dass llm-Modus ohne konfigurierten Provider nicht unkontrolliert abstürzt.",
+        "Test prüft Fallback-Verhalten bei Timeout/Exception.",
+        "Security-Test prüft, dass nur die Query und kein großer Kontext normalisiert wird."
+      ]
+    },
+    {
+      "id": "RCFG-008",
+      "title": "Dokumentation für .env und docker-compose Overrides ergänzen",
+      "type": "docs",
+      "milestone": "RCFG-3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        ".env.example",
+        "docker-compose.yml",
+        "docs/**/rag*.md",
+        "docs/**/configuration*.md"
+      ],
+      "acceptance_criteria": [
+        ".env.example dokumentiert alle RAG_ROUTE_QUOTA_* Variablen mit Defaults.",
+        ".env.example dokumentiert RAG_SCAN_EXCLUDE_DIRS mit Defaultliste.",
+        ".env.example dokumentiert RAG_QUERY_NORMALIZE_LANG und RAG_QUERY_NORMALIZE_MODE.",
+        "Doku erklärt kurz, wann man Quotas auf schwacher Hardware reduziert.",
+        "Doku erklärt, warum node_modules, .venv, .git und project-workspaces ausgeschlossen sind.",
+        "Doku erklärt, dass keyword-Normalisierung lokal/offline ist und llm optional bleibt."
+      ],
+      "test_expectations": [
+        "Docs-Review prüft, dass Variablennamen exakt mit agent/config.py übereinstimmen.",
+        "Optionaler Smoke-Test lädt Settings aus einer Test-.env."
+      ]
+    },
+    {
+      "id": "RCFG-009",
+      "title": "Gesamttests für RAG Config Layer ergänzen",
+      "type": "backend-test",
+      "milestone": "RCFG-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "RCFG-001",
+        "RCFG-002",
+        "RCFG-003",
+        "RCFG-004",
+        "RCFG-005",
+        "RCFG-006"
+      ],
+      "target_files": [
+        "tests/test_rag_config_layer.py",
+        "tests/test_rag_query_normalizer.py",
+        "tests/test_repository_scan_config.py",
+        "tests/test_hybrid_orchestrator_rag_quotas.py"
+      ],
+      "acceptance_criteria": [
+        "Tests decken Settings-Defaults ab.",
+        "Tests decken Env-Overrides ab.",
+        "Tests decken Scanner-Exclusions ab.",
+        "Tests decken Route-Quota-Nutzung ab.",
+        "Tests decken Query-Normalisierung off und keyword ab.",
+        "Tests decken Merge/Deduplizierung mehrerer Retrieval-Ergebnisse ab.",
+        "Alle Tests laufen ohne echten LLM-Provider und ohne Netzwerkzugriff."
+      ],
+      "test_expectations": [
+        "pytest tests/test_rag_config_layer.py tests/test_rag_query_normalizer.py tests/test_repository_scan_config.py tests/test_hybrid_orchestrator_rag_quotas.py läuft lokal grün.",
+        "Bestehende RAG-/RepositoryMap-Tests bleiben rückwärtskompatibel grün."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "RCFG-001",
+    "RCFG-002",
+    "RCFG-003",
+    "RCFG-004",
+    "RCFG-005",
+    "RCFG-006",
+    "RCFG-009"
+  ],
+  "tasks_status_summary": {
+    "total": 9,
+    "by_status": {
+      "todo": 9,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 4,
+      "P1": 4,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 5,
+      "high": 3
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 0,
+      "remaining": 7
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 3,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 9,
+    "by_type": {
+      "backend-config": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-refactor": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-design": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-feature": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-integration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-test": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "docs": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 9,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Die Todo-Datei ersetzt die lose Planung im GitHub-Issue als eigentliche Ananta-Planungsquelle.",
+    "Defaultpfad bleibt rückwärtskompatibel und ohne LLM-Abhängigkeit.",
+    "Keyword-Normalisierung löst das konkrete Problem, dass deutsche Queries schlechter auf englische Code-Symbole matchen.",
+    "LLM-Normalisierung ist bewusst nur optional/später und darf keine Secret-/Kontext-Leaks erzeugen."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "effective_rule",
+      "title": "Effektive Regel",
+      "items": [
+        "RAG-Quotas gehören in Settings, nicht in Routing-Code.",
+        "Scan-Exclusions gehören in Settings, nicht in d_repository_scan.py hartkodiert.",
+        "Query-Normalisierung muss abschaltbar sein und Originalquery immer behalten.",
+        "Default muss ohne LLM und ohne Netzwerk laufen.",
+        "Tests müssen Defaults, Overrides, Deduplizierung und Off-Modus abdecken."
+      ]
+    }
+  ]
+}
