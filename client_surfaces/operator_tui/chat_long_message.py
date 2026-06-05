@@ -155,6 +155,7 @@ def configure_middle_view_for_message(
     channel_id: str,
     streaming: bool = False,
     activate_view: bool = True,
+    plain_text: bool = False,
 ) -> bool:
     if not should_use_middle_view_for_message(message):
         return False
@@ -167,14 +168,16 @@ def configure_middle_view_for_message(
     game["chat_long_message_id"] = str(message.get("id") or ("streaming" if streaming else ""))
     game["chat_long_message_channel"] = channel_id
     game["visual_viewport_enabled"] = True
+    game["visual_viewport"] = {"enabled": True}
     game["visual_viewport_active_view_request"] = "markdown_mermaid_document"
     game["visual_viewport_force_render"] = True
     game["markdown_auto_follow"] = True
     # While streaming we stay plain; once done we switch to rendered markdown/mermaid.
-    game["markdown_stream_plain"] = bool(streaming)
-    game["markdown_mermaid_render_requested"] = not bool(streaming)
-    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=not bool(streaming))
+    use_plain = bool(streaming) or bool(plain_text)
+    game["markdown_stream_plain"] = use_plain
+    game["markdown_mermaid_render_requested"] = not use_plain
+    game["markdown_mermaid_config"] = _markdown_config_for_mode(rendered=not use_plain)
     version_suffix = len(text)
-    mode = "plain" if bool(streaming) else "rendered"
+    mode = "plain" if use_plain else "rendered"
     game["visual_state_version"] = f"chat-long-message:{game['chat_long_message_id']}:{mode}:{version_suffix}"
     return True

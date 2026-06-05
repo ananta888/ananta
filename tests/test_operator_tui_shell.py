@@ -2184,6 +2184,43 @@ def test_chat_panel_shows_timeout_progress_while_ai_typing() -> None:
     assert "timeout in" in output
 
 
+def test_long_ai_chat_answer_auto_opens_full_plain_middle_view() -> None:
+    long_answer = (
+        "CodeCompass liefert Kontext; chat_mixin.py sendet AI-Snake-Fragen via /snake/ask "
+        "an den Hub, der ananta-worker nutzt LMStudio und zeigt die Antwort in der TUI. "
+        "Diese zweite Zeile bleibt vollständig im mittleren Plain-Text-Dokument erhalten."
+    )
+    game = {
+        "chat_panel_open": True,
+        "tutor_ask_answered": True,
+        "tutor_ask_answer": long_answer,
+        "chat_state": {
+            "active_channel": "ai:tutor",
+            "ai_pending_msg_channel": "ai:tutor",
+            "channels": {
+                "ai:tutor": {
+                    "id": "ai:tutor",
+                    "channel_type": "ai",
+                    "display_name": "AI tutor-ai",
+                    "messages": [],
+                    "unread": 0,
+                }
+            },
+        },
+    }
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000", header_logo_game=game))
+
+    tui._tick_chat_ai_response(game)
+
+    assert game.get("visual_viewport_enabled") is True
+    assert dict(game.get("visual_viewport") or {}).get("enabled") is True
+    assert game.get("visual_viewport_active_view_request") == "markdown_mermaid_document"
+    assert game.get("markdown_stream_plain") is True
+    assert game.get("markdown_mermaid_render_requested") is False
+    assert game.get("chat_long_message_plain_text") == long_answer
+    assert long_answer in str(game.get("chat_long_message_markdown") or "")
+
+
 def test_ai_snake_config_panel_toggles_in_middle_content() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"tutorial_mode": True})
     tui = InteractiveOperatorTui(state)
