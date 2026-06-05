@@ -7,7 +7,6 @@ from flask import g, has_request_context, request
 from sqlmodel import Session, select
 
 from agent.common.redaction import DEFAULT_SENSITIVE_KEYS, VisibilityLevel, redact
-from agent.database import engine
 from agent.db_models import AuditLogDB
 from agent.services.hub_event_service import build_hub_event
 
@@ -32,6 +31,12 @@ _FORBIDDEN_RAW_FIELDS = {
     "raw_response",
     "response_text",
 }
+
+
+def _engine():
+    from agent.database import engine
+
+    return engine
 
 
 def _drop_forbidden_raw_fields(value):
@@ -102,7 +107,7 @@ def log_audit(action: str, details: dict = None):
     audit_logger.info(msg, extra=extra)
 
     try:
-        with Session(engine) as session:
+        with Session(_engine()) as session:
             previous = session.exec(select(AuditLogDB).order_by(AuditLogDB.id.desc())).first()
             prev_hash = previous.record_hash if previous else None
             hash_payload = {
