@@ -561,7 +561,7 @@ def _pick_worker_for_ask() -> tuple[str, str | None]:
     """Return (worker_url, token) for the first online worker, or ("", None)."""
     try:
         from agent.services.agent_registry_service import get_agent_registry_service
-        from agent.repositories.repository_registry import get_repository_registry
+        from agent.services.repository_registry import get_repository_registry
 
         agents = get_agent_registry_service().get_online_agents()
         if not agents:
