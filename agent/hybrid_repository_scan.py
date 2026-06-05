@@ -4,10 +4,17 @@ import logging
 import os
 from pathlib import Path
 
+from agent.config import settings
+
 try:
     from git import Repo
 except Exception:  # pragma: no cover - optional dependency
     Repo = None
+
+
+def _configured_exclude_dirs() -> set[str]:
+    raw = str(getattr(settings, "rag_scan_exclude_dirs", "") or "")
+    return {item.strip() for item in raw.split(",") if item.strip()}
 
 
 def tracked_code_files(*, repo_root: Path, code_extensions: set[str], max_files: int) -> list[Path]:
@@ -25,12 +32,9 @@ def tracked_code_files(*, repo_root: Path, code_extensions: set[str], max_files:
             logging.debug(f"Git ls-files failed, falling back to os.walk: {e}")
 
     files: list[Path] = []
+    excluded_dirs = _configured_exclude_dirs()
     for current_root, dirs, file_names in os.walk(repo_root):
-        dirs[:] = [d for d in dirs if d not in {
-            ".git", ".venv", "venv", "myvenv", "site-packages",
-            "node_modules", "__pycache__", ".mypy_cache", ".claude",
-            "project-workspaces", ".tox", "dist", "build", ".eggs",
-        }]
+        dirs[:] = [d for d in dirs if d not in excluded_dirs]
         for name in file_names:
             path = Path(current_root) / name
             if path.suffix.lower() in code_extensions:

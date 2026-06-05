@@ -22,6 +22,7 @@ import secrets
 import threading
 import time
 import uuid
+from dataclasses import dataclass
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
@@ -67,6 +68,33 @@ _SNAKE_CHAT_PROMPT = (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class SnakeAskLimits:
+    context_chars: int = 4000
+    answer_chars: int = 2200
+    max_tokens: int | None = None
+    rag_top_k: int | None = None
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> "SnakeAskLimits":
+        return cls(
+            context_chars=_bounded_optional_int(payload.get("context_chars"), default=4000, minimum=500, maximum=20000),
+            answer_chars=_bounded_optional_int(payload.get("answer_chars"), default=2200, minimum=600, maximum=12000),
+            max_tokens=_bounded_optional_int(payload.get("max_tokens"), default=None, minimum=100, maximum=8000),
+            rag_top_k=_bounded_optional_int(payload.get("rag_top_k"), default=None, minimum=1, maximum=120),
+        )
+
+
+def _bounded_optional_int(value: Any, *, default: int | None, minimum: int, maximum: int) -> int | None:
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(maximum, parsed))
+
+
 def _background_threads_disabled() -> bool:
     return bool(
         (has_app_context() and bool(getattr(current_app, "testing", False)))
@@ -97,10 +125,11 @@ def _resolve_ai_snake_chat_provider() -> tuple[str, str | None]:
     return provider, model
 
 
-def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool, str]:
+def _build_grounded_snake_prompt(user_text: str, *, limits: SnakeAskLimits | None = None) -> tuple[str, bool, str]:
     prompt = str(user_text or "").strip()
     if not prompt:
         return prompt
+    effective_limits = limits or SnakeAskLimits()
     try:
         from agent.routes.ai_snake_config import _current_config  # local import avoids route init coupling
 
@@ -120,6 +149,7 @@ def _build_grounded_snake_prompt(user_text: str) -> tuple[str, bool, str]:
             task_kind="research",
             retrieval_intent="chat_codecompass_overview",
             source_types=source_types or None,
+            max_chunks=effective_limits.rag_top_k,
         )
         chunks = list(bundle.get("chunks") or [])
         if chunks:
@@ -607,10 +637,11 @@ def _resolve_lmstudio_model_for_worker(configured: str | None) -> str | None:
         return configured
 
 
-def _worker_propose(grounded_prompt: str, model: str | None) -> tuple[str, dict[str, Any]]:
+def _worker_propose(grounded_prompt: str, model: str | None, *, limits: SnakeAskLimits | None = None) -> tuple[str, dict[str, Any]]:
     """Forward prompt to worker /step/propose. Returns (answer, trace)."""
     from agent.services.task_runtime_service import forward_to_worker
 
+    effective_limits = limits or SnakeAskLimits()
     trace: dict[str, Any] = {}
     worker_url, token = _pick_worker_for_ask()
     trace["worker_url"] = worker_url
@@ -625,11 +656,20 @@ def _worker_propose(grounded_prompt: str, model: str | None) -> tuple[str, dict[
         "prompt": grounded_prompt,
         "provider": "lmstudio",
         "temperature": 0.3,
+        "max_context_chars": effective_limits.context_chars,
     }
     if resolved_model:
         payload["model"] = resolved_model
+    if effective_limits.max_tokens is not None:
+        payload["max_tokens"] = effective_limits.max_tokens
     trace["prompt_chars"] = len(grounded_prompt)
     trace["prompt_preview"] = grounded_prompt[:300]
+    trace["limits"] = {
+        "context_chars": effective_limits.context_chars,
+        "answer_chars": effective_limits.answer_chars,
+        "max_tokens": effective_limits.max_tokens,
+        "rag_top_k": effective_limits.rag_top_k,
+    }
 
     try:
         result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
@@ -649,8 +689,8 @@ def _worker_propose(grounded_prompt: str, model: str | None) -> tuple[str, dict[
         trace["error"] = "no_data_field"
         return "", trace
     text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
-    if len(text) > 2200:
-        text = text[:2200].rstrip() + "\n\n[gekuerzt]"
+    if len(text) > effective_limits.answer_chars:
+        text = text[:effective_limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
     trace["answer_chars"] = len(text)
     return text, trace
 
@@ -672,29 +712,36 @@ def snake_ask():
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     question = str(body.get("question") or "").strip()[:1000]
     debug = bool(body.get("debug"))
+    limits = SnakeAskLimits.from_payload(body)
     # Model from TUI config (passed in v2 payload as "model")
     request_model = str(body.get("model") or "").strip() or None
     if not question:
         return jsonify({"error": "question erforderlich"}), 400
 
     rag_trace: dict[str, Any] = {}
-    context = str(body.get("context") or "").strip()[:4000]
+    context = str(body.get("context") or "").strip()[:limits.context_chars]
     if context:
         grounded_prompt = f"{question}\n\nKontext:\n{context}"
         rag_trace["source"] = "client_provided"
         rag_trace["context_chars"] = len(context)
     else:
-        grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(question)
+        grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(question, limits=limits)
         rag_trace["source"] = "hub_rag"
         rag_trace["has_context"] = has_context
         rag_trace["summary"] = context_summary
+    rag_trace["limits"] = {
+        "context_chars": limits.context_chars,
+        "answer_chars": limits.answer_chars,
+        "max_tokens": limits.max_tokens,
+        "rag_top_k": limits.rag_top_k,
+    }
 
     _, hub_model = _resolve_ai_snake_chat_provider()
     # TUI-configured model takes precedence over hub default
     model = request_model or hub_model
 
     # Primary path: route through registered ananta-worker
-    answer, worker_trace = _worker_propose(grounded_prompt, model)
+    answer, worker_trace = _worker_propose(grounded_prompt, model, limits=limits)
     if answer:
         resp: dict[str, Any] = {"answer": answer, "path": "worker"}
         if debug:
@@ -710,11 +757,12 @@ def snake_ask():
             provider=provider,
             model=model,
             history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+            max_output_tokens=limits.max_tokens,
             timeout=timeout,
         )
         text = str(raw or "").strip()
-        if len(text) > 2200:
-            text = text[:2200].rstrip() + "\n\n[gekuerzt]"
+        if len(text) > limits.answer_chars:
+            text = text[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
         if not text:
             return jsonify({"error": "Keine Antwort generiert"}), 503
         resp = {"answer": text, "path": "hub_direct"}

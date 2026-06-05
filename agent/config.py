@@ -225,6 +225,14 @@ class Settings(BaseSettings):
     rag_agentic_timeout_seconds: int = Field(default=8, validation_alias="RAG_AGENTIC_TIMEOUT_SECONDS")
     rag_semantic_persist_dir: str = Field(default=".rag/llamaindex", validation_alias="RAG_SEMANTIC_PERSIST_DIR")
     rag_redact_sensitive: bool = Field(default=True, validation_alias="RAG_REDACT_SENSITIVE")
+    rag_route_quota_code_repo: int = Field(default=12, validation_alias="RAG_ROUTE_QUOTA_CODE_REPO")
+    rag_route_quota_code_semantic: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_CODE_SEMANTIC")
+    rag_route_quota_default_repo: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_REPO")
+    rag_route_quota_default_semantic: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_SEMANTIC")
+    rag_scan_exclude_dirs: str = Field(
+        default=".git,.venv,venv,myvenv,site-packages,node_modules,__pycache__,.mypy_cache,.claude,project-workspaces,.tox,dist,build,.eggs",
+        validation_alias="RAG_SCAN_EXCLUDE_DIRS",
+    )
     rag_source_repo_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_REPO_ENABLED")
     rag_source_artifact_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_ARTIFACT_ENABLED")
     rag_source_task_memory_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_TASK_MEMORY_ENABLED")

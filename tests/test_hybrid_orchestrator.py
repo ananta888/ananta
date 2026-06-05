@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from agent import hybrid_orchestrator
+from agent.config import settings
 from agent.hybrid_orchestrator import HybridOrchestrator, RepositoryMapEngine
+from agent.hybrid_repository_scan import tracked_code_files
 
 
 def test_get_relevant_context_returns_mixed_chunks(tmp_path: Path) -> None:
@@ -64,6 +66,39 @@ def test_parser_resolution_falls_back_for_unsupported_extension(tmp_path: Path) 
     unsupported = tmp_path / "note.txt"
     unsupported.write_text("hello", encoding="utf-8")
     assert engine._parser_for_file(unsupported) is None
+
+
+def test_context_manager_route_uses_configured_rag_quotas(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "rag_route_quota_code_repo", 5, raising=False)
+    monkeypatch.setattr(settings, "rag_route_quota_code_semantic", 3, raising=False)
+    monkeypatch.setattr(settings, "rag_route_quota_default_repo", 2, raising=False)
+    monkeypatch.setattr(settings, "rag_route_quota_default_semantic", 7, raising=False)
+
+    manager = hybrid_orchestrator.ContextManager()
+
+    assert manager.route("python service bug")["repository_map"] == 5
+    assert manager.route("python service bug")["semantic_search"] == 3
+    assert manager.route("plain request") == {
+        "repository_map": 2,
+        "semantic_search": 7,
+        "agentic_search": 1,
+    }
+
+
+def test_tracked_code_files_uses_configured_scan_exclusions(tmp_path: Path, monkeypatch) -> None:
+    keep = tmp_path / "keep"
+    skip = tmp_path / "custom-skip"
+    keep.mkdir()
+    skip.mkdir()
+    (keep / "included.py").write_text("def included():\n    return True\n", encoding="utf-8")
+    (skip / "excluded.py").write_text("def excluded():\n    return True\n", encoding="utf-8")
+    monkeypatch.setattr(settings, "rag_scan_exclude_dirs", " .git, custom-skip , node_modules ", raising=False)
+
+    files = tracked_code_files(repo_root=tmp_path, code_extensions={".py"}, max_files=20)
+    rel = {path.relative_to(tmp_path).as_posix() for path in files}
+
+    assert "keep/included.py" in rel
+    assert "custom-skip/excluded.py" not in rel
 
 
 def test_semantic_search_defaults_to_non_embedding_fallback(tmp_path: Path, monkeypatch) -> None:

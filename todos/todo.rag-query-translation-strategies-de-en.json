@@ -1,4 +1,4 @@
-{
+a{
   "$schema": "./todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
