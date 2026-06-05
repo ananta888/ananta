@@ -965,15 +965,28 @@ class TaskScopedExecutionService:
                         pass
         result_dict = result.to_dict()
         if not result.is_executable:
+            fallback_backend, fallback_reason = self._resolve_cli_backend(
+                task_kind,
+                requested_backend="auto",
+                agent_cfg=cfg,
+                required_capabilities=derive_required_capabilities(task, task_kind),
+            )
+            cli_backend = fallback_backend if fallback_backend != "ananta-worker" else "aider"
             try:
                 rc, cli_out, cli_err, backend_used = self._invoke_cli_runner(
                     cli_runner,
                     prompt=str(base_prompt or ""),
                     options=["--no-interaction"],
                     timeout=self._resolve_task_propose_timeout(cfg, task_kind),
-                    backend="aider",
+                    backend=cli_backend,
                     model=getattr(request_data, "model", None),
-                    routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": "v1"},
+                    routing_policy={
+                        "mode": "adaptive",
+                        "task_kind": task_kind,
+                        "policy_version": "v1",
+                        "routing_reason": fallback_reason,
+                        "fallback_backend": cli_backend,
+                    },
                     session=None,
                     workdir=None,
                 )
