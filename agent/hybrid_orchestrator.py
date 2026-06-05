@@ -246,12 +246,22 @@ class RepositoryMapEngine:
             score = 0.0
             path_lower = rel_path.lower()
             sym_lower = [s.lower() for s in symbols]
+            path_token_hits = 0
             for token in tokens:
                 if token in path_lower:
                     score += 1.4
+                    path_token_hits += 1
                 score += sum(1.0 for sym in sym_lower if token in sym)
             if score <= 0:
                 continue
+            # Boost files whose filename stem matches ≥2 distinct query tokens:
+            # incentivises source files over tangentially-matching test/util files.
+            if path_token_hits >= 2:
+                from pathlib import Path as _Path
+                stem_tokens = set(re.findall(r"[a-z0-9]+", _Path(rel_path).stem.lower()))
+                stem_hits = len(tokens.intersection(stem_tokens))
+                if stem_hits >= 2:
+                    score *= 1.0 + 0.5 * stem_hits
             preview = ", ".join(symbols[:20])
             candidates.append(
                 ContextChunk(
@@ -549,7 +559,7 @@ class ContextManager:
 
         quotas = {"repository_map": 0, "semantic_search": 0, "agentic_search": 0}
         if code_like:
-            quotas["repository_map"] += 8
+            quotas["repository_map"] += 12
             quotas["semantic_search"] += 2
             quotas["agentic_search"] += 1
         if docs_like:
