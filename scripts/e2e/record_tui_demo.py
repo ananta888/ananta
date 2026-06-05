@@ -502,7 +502,7 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
 
 def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
-    height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
+    height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "44"))))
     duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "78"))))
     default_cmd = _default_tui_command()
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
@@ -530,8 +530,8 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         (
             "Du bist die AI-Snake im Ananta Operator TUI. Wenn die Frage den Marker "
             "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST verlangt, beginne exakt mit diesem Marker. "
-            "Beantworte knapp, aber vollstaendig, und nenne Hub, Worker, /snake/ask und CodeCompass, "
-            "wenn diese im Kontext vorkommen."
+            "Beantworte vollstaendig in 120 bis 260 Zeichen, und nenne Hub, Worker, /snake/ask "
+            "und CodeCompass, wenn diese im Kontext vorkommen."
         ),
     )
 
@@ -547,28 +547,20 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         {"at": 7.8, "need": "", "send": b"jjj\r"},  # select/open Artifacts in NAV
         {"at": 9.0, "need": "", "send": b"\x13"},  # snake on again
         {"at": 9.6, "need": "", "send": b"u"},  # enable tutorial ai
-        {"at": 11.0, "need": "", "send": b"m"},
+        {"at": 10.0, "need": "", "send": b":chat backend use ananta-worker\r"},
+        {"at": 10.8, "need": "", "send": b":chat backend status\r"},
         {
-            "at": 11.3,
+            "at": 12.3,
             "need": "",
             "send": (
-                "Antworte mit dem ersten Satz exakt: ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST. "
+                ":ask Antworte vollständig in 120 bis 260 Zeichen. "
                 "Erkläre anhand von CodeCompass, welche Rolle client_surfaces/operator_tui/chat_mixin.py "
                 "beim AI-Snake Chat über /snake/ask hat. Nenne Hub, Worker und CodeCompass."
             ).encode("utf-8"),
         },
-        {"at": 11.8, "need": "", "send": b"\r"},
-        {"at": 32.0, "need": "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST", "send": b"\x00"},
-        {"at": 36.0, "need": "Chat-Nachricht", "send": b"\x00"},
-        {"at": 42.0, "need": "", "send": b"m"},
-        {
-            "at": 42.3,
-            "need": "",
-            "send": "[mouse-follow] [artifact-intent] [ai-fast-target] [artifact-chat-active] Welche Cast- und Bericht-Artefakte sind hier wichtig?".encode(
-                "utf-8"
-            ),
-        },
-        {"at": 42.8, "need": "", "send": b"\r"},
+        {"at": 12.8, "need": "", "send": b"\r"},
+        {"at": 24.0, "need": "", "send": b"\x00"},
+        {"at": 28.0, "need": "", "send": b"\x00"},
         {"at": 50.0, "need": "", "send": (b"\x1b[C" * 4 + b"\x1b[B" * 2 + b" ")},
         {"at": 62.0, "need": "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST", "send": b"q"},
         {"at": 74.0, "need": "", "send": b"q"},
@@ -688,6 +680,11 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         "Tutorial-AI propose flow" not in plain_all
         and "[user->artifacts]" not in plain_all
         and "[openai-compatible->" not in plain_all
+        and "chat backend aktiv: ananta-worker" not in plain_all
+        and "ananta-worker" not in plain_all
+        and "Chat-Nachricht" not in plain_all
+        and "Cha-Nachricht" not in plain_all
+        and "markdown_mermaid_document" not in plain_all
         and "snake tutorial-ai: an" not in plain_all
     ):
         completion_tokens.append("[openai-compatible-> online]")
