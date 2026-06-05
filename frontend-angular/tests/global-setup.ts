@@ -344,8 +344,17 @@ export default async function globalSetup() {
   const servicesToSpawn = toStart.filter((svc) => !running.has(svc.name));
 
   if (servicesToSpawn.length > 0 && fs.existsSync('/.dockerenv')) {
-    const missing = servicesToSpawn.map((svc) => `${svc.name}=${svc.host}:${svc.port}`).join(', ');
-    throw new Error(`Services not found (${missing}), but we are in Docker. Cannot spawn local processes.`);
+    if (!allowExisting) {
+      const missing = servicesToSpawn.map((svc) => `${svc.name}=${svc.host}:${svc.port}`).join(', ');
+      throw new Error(`Services not found (${missing}), but we are in Docker. Cannot spawn local processes.`);
+    }
+
+    const waiting = servicesToSpawn.map((svc) => `${svc.name}=${svc.host}:${svc.port}`).join(', ');
+    console.log(`Waiting for compose-backed services to become ready: ${waiting}`);
+    for (const svc of servicesToSpawn) {
+      await waitForHealth(`http://${svc.host}:${svc.port}/health`, healthTimeoutMs);
+      running.add(svc.name);
+    }
   }
 
   for (const svc of toStart) {
