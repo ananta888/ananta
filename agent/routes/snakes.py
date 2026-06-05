@@ -11,6 +11,7 @@ Endpunkte:
   GET    /snakes/<id>/chat/messages      – Chat-Nachrichten abrufen (cursor)
   POST   /snakes/<id>/chat/ack           – Gelesene Nachrichten bestätigen
   GET    /snakes/participants            – Teilnehmerliste mit Status
+  POST   /snake/ask                      – Synchrone AI-Antwort (TUI worker mode)
 """
 from __future__ import annotations
 
@@ -551,3 +552,51 @@ def list_participants():
             "last_seen": snake.get("last_heartbeat"),
         })
     return jsonify({"participants": result}), 200
+
+
+# ── Synchrone AI-Ask API (TUI worker mode) ────────────────────────────────────
+
+
+@snakes_bp.route("/snake/ask", methods=["POST"])
+def snake_ask():
+    """POST /snake/ask – Synchrone AI-Antwort für den TUI ananta-worker Modus.
+
+    Akzeptiert v1 ({question, context, depth}) und v2 ({question, context, depth, memory_context}).
+    Antwortet mit {"answer": "..."}.
+    """
+    if not _is_local_request():
+        auth = _optional_user_auth()
+        if not auth:
+            return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
+
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    question = str(body.get("question") or "").strip()[:1000]
+    if not question:
+        return jsonify({"error": "question erforderlich"}), 400
+
+    context = str(body.get("context") or "").strip()[:4000]
+
+    if context:
+        grounded_prompt = f"{question}\n\nKontext:\n{context}"
+    else:
+        grounded_prompt, _, _ = _build_grounded_snake_prompt(question)
+
+    try:
+        provider, model = _resolve_ai_snake_chat_provider()
+        timeout = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
+        answer = generate_text(
+            prompt=grounded_prompt,
+            provider=provider,
+            model=model,
+            history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+            timeout=timeout,
+        )
+        text = str(answer or "").strip()
+        if len(text) > 2200:
+            text = text[:2200].rstrip() + "\n\n[gekuerzt]"
+        if not text:
+            return jsonify({"error": "Keine Antwort generiert"}), 503
+        return jsonify({"answer": text}), 200
+    except Exception as exc:
+        logging.getLogger(__name__).warning("snake-ask failed: %s", exc)
+        return jsonify({"error": f"LLM-Fehler: {str(exc)[:120]}"}), 503
