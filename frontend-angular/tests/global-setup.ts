@@ -239,7 +239,10 @@ export default async function globalSetup() {
   const e2ePort = Number(process.env.E2E_PORT || '4200');
   const frontendBaseUrl = process.env.E2E_FRONTEND_URL || `http://127.0.0.1:${e2ePort}`;
   const forceIsolated = process.env.ANANTA_E2E_FORCE_ISOLATED === '1';
-  const allowExisting = !forceIsolated && process.env.ANANTA_E2E_USE_EXISTING === '1';
+  const allowExisting = !forceIsolated && (
+    process.env.ANANTA_E2E_USE_EXISTING === '1' ||
+    process.env.E2E_REUSE_SERVER === '1'
+  );
 
   const existingPidFile = path.join(__dirname, '.pids.json');
   if (fs.existsSync(existingPidFile)) {
