@@ -58,8 +58,11 @@ def _workspace_has_any(path: Path, patterns: list[str]) -> bool:
 
 def _goal_requires_fibonacci_artifacts(goal: Any) -> bool:
     goal_text = str(getattr(goal, "goal", "") or "").lower()
+    summary_text = str(getattr(goal, "summary", "") or "").lower()
     mode = str(getattr(goal, "mode", "") or "").strip().lower()
-    return mode == "new_software_project" and "fibonacci" in goal_text
+    if "fibonacci" not in goal_text and "fibonacci" not in summary_text:
+        return False
+    return mode == "new_software_project" or "fibonacci" in goal_text or "fibonacci" in summary_text
 
 
 def _workspace_has_file_matching(path: Path, predicate) -> bool:
@@ -82,10 +85,18 @@ def _goal_has_required_fibonacci_evidence(resolved_output_dir: Path) -> tuple[bo
         tests_dir,
         lambda item: item.suffix == ".py" and item.name.startswith("test_"),
     )
-    has_pytest_evidence = _workspace_has_file_matching(
-        resolved_output_dir,
-        lambda item: "pytest" in item.name.lower() or "pytest" in str(item).lower(),
-    )
+    has_pytest_evidence = False
+    if resolved_output_dir.exists() and resolved_output_dir.is_dir():
+        for item in resolved_output_dir.rglob("*"):
+            if not item.is_file():
+                continue
+            try:
+                relative_item = item.relative_to(resolved_output_dir).as_posix().lower()
+            except Exception:
+                relative_item = item.name.lower()
+            if "pytest" in item.name.lower() or "pytest" in relative_item:
+                has_pytest_evidence = True
+                break
     evidence = {
         "has_source_file": has_source_file,
         "has_pytest_style_test": has_pytest_style_test,
@@ -111,7 +122,24 @@ def _maybe_finalize_goal(goal_id: str) -> None:
         current_preferences = dict(goal.execution_preferences or {})
         if new_status == "completed":
             raw_output_dir = str(current_preferences.get("output_dir") or "").strip()
-            if raw_output_dir:
+            if not raw_output_dir:
+                if _goal_requires_fibonacci_artifacts(goal):
+                    new_status = "failed"
+                    current_preferences["last_status_reason"] = "missing_required_fibonacci_artifacts"
+                    current_preferences["failure_classification"] = "missing_required_fibonacci_artifacts"
+                    current_preferences["finalization_diagnostics"] = {
+                        "output_dir": "",
+                        "resolved_output_dir": "",
+                        "workspace_file_count": 0,
+                        "fibonacci_evidence": {
+                            "has_source_file": False,
+                            "has_pytest_style_test": False,
+                            "has_pytest_evidence": False,
+                            "output_dir_available": False,
+                        },
+                    }
+                    goal.execution_preferences = current_preferences
+            else:
                 resolved_output_dir = _resolve_goal_output_dir(raw_output_dir)
                 file_count = _workspace_file_count(resolved_output_dir)
                 diagnostics = {
@@ -119,13 +147,25 @@ def _maybe_finalize_goal(goal_id: str) -> None:
                     "resolved_output_dir": str(resolved_output_dir),
                     "workspace_file_count": file_count,
                 }
-                if _goal_requires_fibonacci_artifacts(goal):
-                    has_required_evidence, fibonacci_evidence = _goal_has_required_fibonacci_evidence(resolved_output_dir)
-                    diagnostics["fibonacci_evidence"] = fibonacci_evidence
-                    if not has_required_evidence:
+                requires_fibonacci_evidence = _goal_requires_fibonacci_artifacts(goal) or (resolved_output_dir / "src" / "fibonacci").exists()
+                if requires_fibonacci_evidence:
+                    if not resolved_output_dir.exists():
                         new_status = "failed"
                         current_preferences["last_status_reason"] = "missing_required_fibonacci_artifacts"
                         current_preferences["failure_classification"] = "missing_required_fibonacci_artifacts"
+                        diagnostics["fibonacci_evidence"] = {
+                            "has_source_file": False,
+                            "has_pytest_style_test": False,
+                            "has_pytest_evidence": False,
+                            "output_dir_available": False,
+                        }
+                    else:
+                        has_required_evidence, fibonacci_evidence = _goal_has_required_fibonacci_evidence(resolved_output_dir)
+                        diagnostics["fibonacci_evidence"] = fibonacci_evidence
+                        if not has_required_evidence:
+                            new_status = "failed"
+                            current_preferences["last_status_reason"] = "missing_required_fibonacci_artifacts"
+                            current_preferences["failure_classification"] = "missing_required_fibonacci_artifacts"
                 current_preferences["finalization_diagnostics"] = diagnostics
                 if file_count <= 0:
                     new_status = "failed"
