@@ -1,24 +1,42 @@
 %% Ananta architecture - simple explanation for demos
-%% Die Pfeile sind bewusst als Satz lesbar.
-%% Beispiel: Hub delegiert Aufgaben an Worker.
+%% Ziel: unmissverstaendlich, wenig Text, Pfeile als Satz lesbar.
 
 flowchart TD
-    U["User / UI / CLI"] -->|"gibt Auftrag an"| H["Hub<br/>Koordinator"]
+    U["User / UI / CLI"] -->|"gibt Auftrag an"| H["Hub"]
 
     H -->|"delegiert Aufgabe an"| W1["Worker 1"]
     H -->|"delegiert Aufgabe an"| W2["Worker 2"]
     H -->|"delegiert Aufgabe an"| W3["Worker 3"]
 
-    W1 -->|"beinhaltet"| A1["Agent / Tool<br/>z.B. OpenCode"]
-    W2 -->|"beinhaltet"| A2["Agent / Tool<br/>z.B. Hermes"]
-    W3 -->|"beinhaltet"| A3["Agent / Tool<br/>z.B. Ananta-Worker"]
+    W1 -->|"waehlt Ausfuehrung"| D1{"Agent oder Tool?"}
+    W2 -->|"waehlt Ausfuehrung"| D2{"Agent oder Tool?"}
+    W3 -->|"waehlt Ausfuehrung"| D3{"Agent oder Tool?"}
 
-    H -->|"fragt Kontext an"| CC["CodeCompass<br/>ContextManager"]
-    CC -->|"liefert Kontext an"| H
-    CC -->|"liest und indexiert"| SRC["Projektcode<br/>Dateien · Symbole · Artefakte · RAG"]
+    D1 -->|"Agent"| A1["Agent<br/>z.B. OpenCode"]
+    D1 -->|"Tool"| T1["Tool"]
+
+    D2 -->|"Agent"| A2["Agent<br/>z.B. Hermes"]
+    D2 -->|"Tool"| T2["Tool"]
+
+    D3 -->|"Agent"| A3["Agent<br/>Ananta-Worker"]
+    D3 -->|"Tool"| T3["Tool"]
+
+    A1 -->|"nutzt erlaubte Tools"| T1
+    A2 -->|"nutzt erlaubte Tools"| T2
+    A3 -->|"nutzt erlaubte Tools"| T3
 
     A1 -->|"liefert Ergebnis an"| H
     A2 -->|"liefert Ergebnis an"| H
     A3 -->|"liefert Ergebnis an"| H
+    T1 -->|"liefert Ergebnis an"| H
+    T2 -->|"liefert Ergebnis an"| H
+    T3 -->|"liefert Ergebnis an"| H
 
-    H -.->|"erzwingt"| RULE["Standardpfad:<br/>User -> Hub -> Worker -> Agent/Tool<br/>keine freie Agent-zu-Agent-Kommunikation<br/>keine direkte Worker-zu-Worker-Kommunikation"]
+    H -->|"fragt Kontext an"| CC["CodeCompass"]
+    CC -->|"liefert Kontext an"| H
+    CC -->|"liest"| SRC["Projektcode"]
+
+    H -.->|"erzwingt"| P["Standardpfad"]
+    P -.->|"erlaubt"| PATH["User -> Hub -> Worker"]
+    P -.->|"verbietet"| AA["Agent -> Agent"]
+    P -.->|"verbietet"| WW["Worker -> Worker"]
