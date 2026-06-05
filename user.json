@@ -140,5 +140,7 @@
     "chat_history_chars": 5000,
     "chat_use_summary": false,
     "input_history_command_enabled": true
-  }
+  },
+  "chat_backend": "lmstudio",
+  "_updated_at": 1780672868.6086478
 }

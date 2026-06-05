@@ -1,0 +1,15 @@
+coverage-local summary: pass=11 fail=3 (Fri Jun  5 17:11:26 CEST 2026)
+  core-contracts-01: PASS
+  core-contracts-02: FAIL (exit 1)
+  core-contracts-03: FAIL (exit 1)
+  core-contracts-04: FAIL (exit 1)
+  e2e-01: PASS
+  e2e-02: PASS
+  client-surfaces-01: PASS
+  operator-tui-01: PASS
+  worker-01: PASS
+  llm-interceptor-01: PASS
+  heuristic-runtime-01: PASS
+  smoke-cli-01: PASS
+  cli-01: PASS
+  benchmarks-01: PASS
