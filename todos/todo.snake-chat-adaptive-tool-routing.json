@@ -1,0 +1,322 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "snake-chat-adaptive-tool-routing",
+  "purpose": "AI-Snake-Chat soll einfache deterministische Aufgaben nicht unnötig über RAG/LLM ausführen, sondern sichere Tools direkt nutzen. Das LLM entscheidet initial über Intent und Ausführungsplan, aber Tool-Ausführung und rohe/strukturierte Ausgabe laufen deterministisch außerhalb des LLM. Wiederkehrende einfache Muster können später ohne LLM über Erinnerungs-/Routing-Regeln erkannt werden.",
+  "goal": "Schnelle, sichere und kostengünstige Snake-Chat-Antworten für einfache Projekt-/Dateisystem-/Git-/Todo-Abfragen, mit LLM als lernendem Router statt als unnötigem Ausführungs- und Formatierungszwang.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "routing_principles": [
+    "LLM darf initial entscheiden, ob eine Anfrage einfach/deterministisch ist und welches Tool geeignet ist.",
+    "Tool-Ausführung läuft außerhalb des LLM über erlaubte, sichere Tool-APIs.",
+    "Für einfache Leseoperationen wird die Tool-Ausgabe direkt oder minimal strukturiert zurückgegeben.",
+    "RAG/LLM wird nur genutzt, wenn Erklärung, Bewertung, Planung, Synthese oder unklare Kontextsuche nötig ist.",
+    "Wiederkehrende einfache Intents werden als Routing-Erinnerung/Pattern gespeichert und können später ohne LLM erkannt werden.",
+    "Security Policy gewinnt immer: kein freier Shell-Zugriff, keine Pfade außerhalb des Projektroots, Secret-Redaction."
+  ],
+  "milestones": [
+    {
+      "id": "SCTR-1",
+      "title": "Routing-Architektur und Policy definieren",
+      "task_ids": ["SCTR-001", "SCTR-002"],
+      "status": "todo"
+    },
+    {
+      "id": "SCTR-2",
+      "title": "Deterministische Toolpfade für Snake-Chat implementieren",
+      "task_ids": ["SCTR-003", "SCTR-004", "SCTR-005"],
+      "status": "todo"
+    },
+    {
+      "id": "SCTR-3",
+      "title": "Adaptive Erinnerung und LLM-Verzicht für bekannte Muster",
+      "task_ids": ["SCTR-006", "SCTR-007", "SCTR-008"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SCTR-001",
+      "title": "SnakeChat Routing-Entscheidungsmodell definieren",
+      "type": "architecture",
+      "milestone": "SCTR-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/**/snake*.md",
+        "docs/**/tool-routing*.md",
+        "agent/**/snake*.py",
+        "agent/**/chat*.py"
+      ],
+      "acceptance_criteria": [
+        "Architektur unterscheidet klar zwischen Intent-Entscheidung, Policy-Prüfung, Tool-Ausführung, Ausgabeformatierung und optionaler LLM-Synthese.",
+        "LLM darf initial entscheiden: simple_tool, tool_plus_summary, rag_required, llm_required, clarification_required oder blocked_by_policy.",
+        "Simple Tool Requests wie 'gib mir alle Dateien im Hauptverzeichnis' werden als deterministische Leseoperation modelliert.",
+        "Tool-Ausführung und rohe Ergebnisgewinnung laufen nicht durch das LLM.",
+        "RAG/LLM wird nur für nichtdeterministische oder erklärende Aufgaben genutzt.",
+        "Dokumentation enthält konkrete Beispiele für Dateiliste, git status, Todo-Liste, Datei anzeigen, Architektur erklären und Code bewerten."
+      ],
+      "test_expectations": [
+        "Docs-Review prüft, dass LLM nicht als zwingender Ausführungsweg beschrieben wird.",
+        "Docs-Review prüft, dass der direkte Toolpfad und der RAG/LLM-Pfad getrennt sind."
+      ]
+    },
+    {
+      "id": "SCTR-002",
+      "title": "Security Policy für direkte Snake-Chat-Tools festlegen",
+      "type": "security-design",
+      "milestone": "SCTR-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/**/policy*.py",
+        "agent/**/tool*.py",
+        "docs/**/security*.md",
+        "tests/**/test_*snake*tool*policy*.py"
+      ],
+      "acceptance_criteria": [
+        "Kein freier Shell-Zugriff aus Snake-Chat für einfache Dateisystemabfragen.",
+        "Dateisystem-Tools arbeiten nur innerhalb eines erlaubten Projektroots.",
+        "Pfade mit .., Symlink-Ausbruch oder absoluten Fremdpfaden werden blockiert oder normalisiert und erneut geprüft.",
+        "Secrets wie .env, private keys, token files und bekannte Credential-Dateien werden blockiert oder redacted.",
+        "Nur Read-Only-Tools sind im einfachen Direktpfad erlaubt.",
+        "Destruktive Operationen wie delete, move, overwrite, git reset oder checkout brauchen eigene Bestätigung und sind nicht Teil dieses Simple-Read-Tracks."
+      ],
+      "test_expectations": [
+        "Policy-Test blockiert Pfad außerhalb des Projektroots.",
+        "Policy-Test blockiert .env oder redacted den Inhalt.",
+        "Policy-Test erlaubt normales Listing im Projektroot.",
+        "Policy-Test beweist, dass kein beliebiger Shell-Befehl ausgeführt wird."
+      ]
+    },
+    {
+      "id": "SCTR-003",
+      "title": "FilesystemReadTool für deterministische Projektabfragen implementieren",
+      "type": "backend-feature",
+      "milestone": "SCTR-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["SCTR-002"],
+      "target_files": [
+        "agent/**/filesystem_read_tool.py",
+        "agent/**/tools*.py",
+        "tests/**/test_*filesystem*read*tool*.py"
+      ],
+      "acceptance_criteria": [
+        "Tool bietet list_dir(path='.', depth=1, include_dirs=true, include_files=true).",
+        "Tool bietet list_root_files() für Hauptverzeichnis-Dateien ohne rekursive Suche.",
+        "Tool bietet find_files(pattern, max_depth) ohne freien Shell-Befehl.",
+        "Ausgabe enthält Name, Typ, relativen Pfad und optional Größe/mtime, aber keine unnötigen Dateiinhalte.",
+        "Sortierung ist deterministisch und stabil.",
+        "Tool nutzt Python-APIs wie pathlib/os.walk statt shell ls/find, außer ein späterer ShellAdapter ist explizit whitelisted."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft list_root_files mit gemischten Dateien/Ordnern.",
+        "Unit-Test prüft max_depth-Verhalten.",
+        "Unit-Test prüft deterministische Sortierung.",
+        "Unit-Test prüft Policy-Block bei verbotenem Pfad."
+      ]
+    },
+    {
+      "id": "SCTR-004",
+      "title": "SnakeChatCommandRouter mit LLM-Entscheidung und direkter Tool-Ausgabe einführen",
+      "type": "backend-integration",
+      "milestone": "SCTR-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["SCTR-001", "SCTR-002", "SCTR-003"],
+      "target_files": [
+        "agent/**/snake_chat_command_router.py",
+        "agent/**/snake*.py",
+        "agent/**/chat*.py",
+        "tests/**/test_*snake*chat*command*router*.py"
+      ],
+      "acceptance_criteria": [
+        "Router kann eine User-Anfrage in einen ToolPlan übersetzen: intent, tool_name, args, output_mode, confidence, policy_notes.",
+        "LLM-Entscheidung wird nur für Planung genutzt, nicht für die tatsächliche Dateisystemausführung.",
+        "Bei output_mode=raw oder structured wird die Tool-Ausgabe direkt zurückgegeben.",
+        "Bei output_mode=summary darf optional eine kurze LLM-Zusammenfassung folgen, aber die Rohdaten bleiben verfügbar.",
+        "Für 'gib mir alle Dateien im Hauptverzeichnis' wird FilesystemReadTool.list_root_files ausgeführt.",
+        "Bei niedriger Confidence oder Policy-Konflikt wird nicht blind ausgeführt."
+      ],
+      "test_expectations": [
+        "Integrationstest mockt LLM-Plan und prüft direkte Toolausführung.",
+        "Integrationstest prüft, dass keine RAG-Pipeline für list_root_files gestartet wird.",
+        "Integrationstest prüft raw/structured/summary output_mode.",
+        "Integrationstest prüft blockiertes Tool bei Policy-Verstoß."
+      ]
+    },
+    {
+      "id": "SCTR-005",
+      "title": "Direkte Read-Only Toolfamilien für Git und Todos ergänzen",
+      "type": "backend-feature",
+      "milestone": "SCTR-2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["SCTR-004"],
+      "target_files": [
+        "agent/**/git_read_tool.py",
+        "agent/**/todo_read_tool.py",
+        "agent/**/snake_chat_command_router.py",
+        "tests/**/test_*git*read*tool*.py",
+        "tests/**/test_*todo*read*tool*.py"
+      ],
+      "acceptance_criteria": [
+        "GitReadTool unterstützt read-only Operationen wie status, changed_files, current_branch und recent_commits mit Limit.",
+        "TodoReadTool unterstützt list_todos, list_active_tracks und find_task_by_id.",
+        "Keine write-/delete-/checkout-/reset-Operation ist in diesen Tools enthalten.",
+        "SnakeChatCommandRouter kennt Beispiele wie 'zeige git status', 'welche todos gibt es', 'zeige aktive todo tracks'.",
+        "Ausgaben sind strukturiert und direkt nutzbar, ohne LLM-Pflicht.",
+        "Tools respektieren Projektroot und bestehende Config."
+      ],
+      "test_expectations": [
+        "Unit-Tests prüfen GitReadTool mit Fixture-Repo oder Mock.",
+        "Unit-Tests prüfen TodoReadTool mit todos Fixture.",
+        "Router-Test prüft Git-/Todo-Intent ohne RAG."
+      ]
+    },
+    {
+      "id": "SCTR-006",
+      "title": "Adaptive Routing-Erinnerung für wiederkehrende einfache Intents einführen",
+      "type": "backend-feature",
+      "milestone": "SCTR-3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["SCTR-004"],
+      "target_files": [
+        "agent/**/snake_chat_routing_memory.py",
+        "agent/**/user_preferences*.py",
+        "agent/**/snake_chat_command_router.py",
+        "tests/**/test_*routing*memory*.py"
+      ],
+      "acceptance_criteria": [
+        "Wiederkehrende einfache Anfragen können als Pattern gespeichert werden, z.B. 'gib mir alle dateien im hauptverzeichnis' -> filesystem.list_root_files.",
+        "Routing-Erinnerungen enthalten Intent, Tool, erlaubte Args, Confidence, Trefferzähler und letzte Nutzung.",
+        "Nur sichere Read-Only-Patterns dürfen automatisch ohne erneuten LLM-Call ausgeführt werden.",
+        "Patterns werden normalisiert, aber nicht so breit, dass gefährliche Fehlmatches entstehen.",
+        "User/Projekt kann adaptive Routing-Erinnerung deaktivieren.",
+        "Bei Unsicherheit fällt Router zurück auf LLM-Entscheidung oder Nachfrage."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft Speichern und Wiederverwenden eines sicheren list_root_files Patterns.",
+        "Unit-Test prüft, dass gefährliche oder schreibende Patterns nicht auto-gelernt werden.",
+        "Unit-Test prüft Deaktivierung der Routing-Erinnerung."
+      ]
+    },
+    {
+      "id": "SCTR-007",
+      "title": "LLM-Verzicht für bekannte Simple-Read-Patterns implementieren",
+      "type": "backend-optimization",
+      "milestone": "SCTR-3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["SCTR-006"],
+      "target_files": [
+        "agent/**/snake_chat_command_router.py",
+        "agent/**/snake_chat_routing_memory.py",
+        "tests/**/test_*snake*chat*no*llm*.py"
+      ],
+      "acceptance_criteria": [
+        "Bekannte sichere Simple-Read-Patterns können ohne LLM-Call direkt in einen ToolPlan übersetzt werden.",
+        "Es gibt eine harte Begrenzung auf erlaubte Tools und erlaubte Arg-Schemata.",
+        "Der direkte No-LLM-Pfad protokolliert, warum kein LLM verwendet wurde.",
+        "Bei Pattern-Konflikten, niedriger Confidence oder neuen Argumenten wird wieder LLM/Policy genutzt.",
+        "No-LLM-Pfad ist messbar schneller als LLM-Router-Pfad.",
+        "Debug-Ausgabe kann anzeigen: route_source=memory_pattern oder route_source=llm_router."
+      ],
+      "test_expectations": [
+        "Test prüft, dass bekannter list_root_files Intent keinen LLM-Mock aufruft.",
+        "Test prüft Fallback auf LLM bei unbekanntem Intent.",
+        "Test prüft route_source-Metadaten."
+      ]
+    },
+    {
+      "id": "SCTR-008",
+      "title": "Telemetry und UX für direkte Toolantworten ergänzen",
+      "type": "ui-backend",
+      "milestone": "SCTR-3",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": ["SCTR-004", "SCTR-007"],
+      "target_files": [
+        "agent/**/snake*.py",
+        "agent/**/chat*.py",
+        "frontend/**/snake*.ts",
+        "frontend/**/chat*.ts",
+        "tests/**/test_*snake*chat*telemetry*.py"
+      ],
+      "acceptance_criteria": [
+        "Snake-Chat-Antwort kann anzeigen: direct_tool, llm_router, memory_pattern, rag_required oder blocked_by_policy.",
+        "Für direkte Toolantworten wird keine künstlich ausgeschmückte LLM-Antwort erzwungen.",
+        "User kann bei Bedarf explizit 'erklär das' oder 'fasse zusammen' nachschieben, dann darf LLM genutzt werden.",
+        "Logs enthalten Toolname, Dauer, Route-Quelle und Policy-Ergebnis, aber keine Secret-Inhalte.",
+        "UI/TUI bleibt knapp und lesbar für Dateilisten, Git-Status und Todo-Listen.",
+        "Fehlermeldungen unterscheiden zwischen nicht gefunden, nicht erlaubt und internem Toolfehler."
+      ],
+      "test_expectations": [
+        "Test prüft route_source in Antwortmetadaten.",
+        "Test prüft knappe direkte Dateilisten-Ausgabe.",
+        "Test prüft Secret-Redaction in Logs."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["SCTR-001", "SCTR-002", "SCTR-003", "SCTR-004", "SCTR-006", "SCTR-007"],
+  "tasks_status_summary": {
+    "total": 8,
+    "by_status": {"todo": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 4, "P1": 3, "P2": 1, "P3": 0},
+    "by_risk": {"low": 1, "medium": 3, "high": 4},
+    "critical_path": {"total": 6, "done": 0, "remaining": 6},
+    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 8,
+    "by_type": {
+      "architecture": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "security-design": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "backend-feature": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "backend-integration": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "backend-optimization": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+      "ui-backend": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+    }
+  },
+  "progress_summary": {"state": "not_started", "todo_remaining": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "summary_notes": [
+    "Der wichtige Unterschied: Das LLM darf anfangs entscheiden, aber die Ausführung einfacher Tools und deren Ausgabe muss nicht erneut durch das LLM laufen.",
+    "Mit Routing-Erinnerung kann Ananta wiederkehrende sichere Simple-Read-Anfragen später komplett ohne LLM erkennen.",
+    "Direkte Toolpfade brauchen harte Security-Grenzen, weil sie näher am Projekt und Dateisystem arbeiten.",
+    "Dieser Track ergänzt RAG-Config und Query-Translation: Nicht jede Anfrage ist RAG; manche sind sichere deterministische Tool-Aufgaben."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "effective_rule",
+      "title": "Effektive Regel",
+      "items": [
+        "LLM entscheidet initial über den Weg, aber führt einfache Tools nicht selbst aus.",
+        "Direkte Read-Only-Toolausgabe darf direkt an den User gehen.",
+        "RAG/LLM nur bei Erklärung, Bewertung, Planung, Synthese oder unklarer Suche.",
+        "Bekannte sichere Muster können später ohne LLM über Routing-Memory laufen.",
+        "PolicyGuard ist Pflicht vor jeder Tool-Ausführung."
+      ]
+    }
+  ]
+}
