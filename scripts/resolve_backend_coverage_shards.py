@@ -96,12 +96,8 @@ def main() -> None:
     total_tests = sum(file_counts.values())
     total_files = len(file_counts)
 
-    payload = {
-        "include": shards,
-        "shard_count": args.shard_count,
-        "total_files": total_files,
-        "total_tests": total_tests,
-    }
+    print(f"Resolved {total_files} files and {total_tests} collected tests into {args.shard_count} shards", file=sys.stderr)
+    payload = {"include": shards}
     print(json.dumps(payload, indent=2))
 
 
