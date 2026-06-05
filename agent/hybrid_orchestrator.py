@@ -538,22 +538,28 @@ class ContextManager:
 
     def route(self, query: str) -> dict[str, int]:
         q = query.lower()
-        code_like = any(k in q for k in ("class", "function", "bug", "stacktrace", "repo", "module", "python", ".py"))
+        code_like = any(k in q for k in (
+            "class", "function", "funktion", "bug", "stacktrace", "repo",
+            "module", "modul", "python", ".py", "engine", "service", "tick",
+            "agent", "autopilot", "methode", "klasse", "route", "controller",
+            "implementier", "implement", "wie funktioniert", "wie arbeitet",
+        ))
         docs_like = any(k in q for k in ("pdf", "doku", "documentation", "log", "readme", "spec"))
         fs_like = any(k in q for k in ("find", "suche", "where", "ls", "grep", "datei", "folder"))
 
         quotas = {"repository_map": 0, "semantic_search": 0, "agentic_search": 0}
         if code_like:
-            quotas["repository_map"] += 4
+            quotas["repository_map"] += 8
+            quotas["semantic_search"] += 2
             quotas["agentic_search"] += 1
         if docs_like:
             quotas["semantic_search"] += 4
-            quotas["repository_map"] += 1
+            quotas["repository_map"] += 2
         if fs_like:
             quotas["agentic_search"] += 3
-            quotas["repository_map"] += 1
+            quotas["repository_map"] += 2
         if all(v == 0 for v in quotas.values()):
-            quotas = {"repository_map": 2, "semantic_search": 2, "agentic_search": 1}
+            quotas = {"repository_map": 6, "semantic_search": 4, "agentic_search": 1}
         return quotas
 
     @staticmethod
