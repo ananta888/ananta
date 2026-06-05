@@ -1,0 +1,29 @@
+%% Ananta MVP architecture overview
+%% Focus: simple Hub -> Worker -> Agent model with CodeCompass as shared context provider.
+
+flowchart TD
+    U["User / UI / CLI"] --> H["Ananta Hub\nKoordinator"]
+
+    H -->|"nutzt Kontext"| CC["CodeCompass\nContextManager / RAG Helper"]
+    CC -->|"liest / indexiert"| SRC["Projektquellen\nDateien · Symbole · Artefakte · Wikipedia Dump"]
+    CC -->|"liefert relevanten Kontext"| H
+
+    H -->|"plant · priorisiert · delegiert"| W1["Worker 1\nOpenCode"]
+    H -->|"plant · priorisiert · delegiert"| W2["Worker 2\nHermes"]
+    H -->|"plant · priorisiert · delegiert"| W3["Worker 3\nAnanta-Worker"]
+    H -->|"optional"| W4["Worker n\nCodex-CLI / n8n / andere Adapter"]
+
+    W1 -->|"beinhaltet"| A1["Agent / Tool"]
+    W2 -->|"beinhaltet"| A2["Agent / Tool"]
+    W3 -->|"beinhaltet"| A3["Agent / Tool"]
+    W4 -->|"beinhaltet"| A4["Agent / Tool"]
+
+    A1 -->|"Ergebnis / Artefakt"| H
+    A2 -->|"Ergebnis / Artefakt"| H
+    A3 -->|"Ergebnis / Artefakt"| H
+    A4 -->|"Ergebnis / Artefakt"| H
+
+    H -. "Standard: kein Agent->Agent, kein Worker->Worker" .- GUARD["Kontrollierter Standardpfad\nUser -> Hub -> Worker -> Agent/Tool"]
+
+    W4 -. "nicht Standard, aber technisch möglich" .-> SUB["verschachtelter Ananta-Hub\nfür Sub-Planning"]
+    SUB -.-> W4
