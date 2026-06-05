@@ -12,7 +12,7 @@ test.describe('Auth', () => {
     const res = await request.post(`${HUB_URL}/login`, {
       data: { username: 'auth-invalid-user', password: 'wrong-password' }
     });
-    const usingExisting = process.env.ANANTA_E2E_USE_EXISTING === '1';
+    const usingExisting = process.env.ANANTA_E2E_USE_EXISTING === '1' || process.env.E2E_REUSE_SERVER === '1';
     if (usingExisting) {
       expect([401, 403, 429]).toContain(res.status());
     } else {

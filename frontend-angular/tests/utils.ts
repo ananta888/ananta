@@ -23,12 +23,13 @@ export const PUBLIC_OIDC_CLIENT_SECRET = process.env.E2E_OIDC_CLIENT_SECRET || '
 export const PUBLIC_OIDC_AUTH_MODE = (process.env.E2E_AUTH_MODE || 'local').toLowerCase();
 export const PUBLIC_KEYCLOAK_HOST = PUBLIC_KEYCLOAK_BASE_URL.replace(/^https?:\/\//, '');
 export const PUBLIC_OIDC_REALM_NAME = PUBLIC_OIDC_REALM;
-export const TEST_LOGIN_IP = process.env.ANANTA_E2E_USE_EXISTING === '1' ? undefined : '127.0.0.1';
+export const USE_EXISTING_SERVICES =
+  process.env.ANANTA_E2E_USE_EXISTING === '1' || process.env.E2E_REUSE_SERVER === '1';
+export const TEST_LOGIN_IP = USE_EXISTING_SERVICES ? undefined : '127.0.0.1';
 export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AGENT_TOKEN_HUB || 'generate_a_random_token_for_hub';
 export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
 export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.AGENT_TOKEN_BETA || 'generate_a_random_token_for_beta';
 const FALLBACK_ADMIN_PASSWORDS = ['AnantaAdminPassword123!', 'admin', 'test123'];
-const USE_EXISTING_SERVICES = process.env.ANANTA_E2E_USE_EXISTING === '1';
 const ENABLE_DETERMINISTIC_SCRUM_SEED = process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1';
 const E2E_SCRUM_SEED_TEAM_NAME = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
 const PUBLIC_OIDC_SCOPES = 'openid profile email';
