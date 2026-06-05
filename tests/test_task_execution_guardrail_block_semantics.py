@@ -26,4 +26,3 @@ def test_guardrail_block_history_uses_blocked_status(monkeypatch) -> None:
     )
     assert calls["status"] == "blocked"
     assert calls["kwargs"]["status_reason_code"] == "security_or_policy_denied"
-
