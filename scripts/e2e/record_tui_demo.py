@@ -1374,11 +1374,15 @@ def _sync_tutorial_ai_live_cast_targets(
     cast_content: str,
     sync_targets: list[Path] | None = None,
 ) -> list[str]:
-    targets = sync_targets or [
-        Path("tests/output/operator_tui_tutorial_ai_live.cast"),
-        Path("web/www/assets/operator_tui_tutorial_ai_live.cast"),
-        Path("web/www/assets/operator_tui_splash.cast"),
-    ]
+    targets = (
+        [
+            Path("tests/output/operator_tui_tutorial_ai_live.cast"),
+            Path("web/www/assets/operator_tui_tutorial_ai_live.cast"),
+            Path("web/www/assets/operator_tui_splash.cast"),
+        ]
+        if sync_targets is None
+        else sync_targets
+    )
     written: list[str] = []
     for target in targets:
         path = Path(target)
@@ -1395,10 +1399,14 @@ def _sync_snake_mode_live_cast_targets(
     cast_content: str,
     sync_targets: list[Path] | None = None,
 ) -> list[str]:
-    targets = sync_targets or [
-        Path("tests/output/operator_tui_splash.cast"),
-        Path("web/www/assets/operator_tui_splash.cast"),
-    ]
+    targets = (
+        [
+            Path("tests/output/operator_tui_splash.cast"),
+            Path("web/www/assets/operator_tui_splash.cast"),
+        ]
+        if sync_targets is None
+        else sync_targets
+    )
     written: list[str] = []
     for target in targets:
         path = Path(target)

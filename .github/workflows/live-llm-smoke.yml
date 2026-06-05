@@ -42,6 +42,14 @@ jobs:
       LIVE_LLM_MAX_OUTPUT_TOKENS: "16"
       LIVE_LLM_ALLOW_PROVIDER_SKIP: "1"
       OPENAI_API_KEY: ${{ secrets.OPENAIANANTA }}
+      ANANTA_E2E_LIVE_TUI_LLM: "1"
+      ANANTA_E2E_TUI_LIVE_PROVIDER: "openai"
+      ANANTA_TUI_LLM_API_BASE: "https://api.openai.com/v1"
+      ANANTA_TUI_LLM_MODEL: ${{ vars.LIVE_LLM_MODEL || 'gpt-4o-mini' }}
+      ANANTA_TUI_LLM_API_TOKEN: ${{ secrets.OPENAIANANTA }}
+      ANANTA_TUI_SNAKE_AI_API_BASE_URL: "https://api.openai.com/v1"
+      ANANTA_TUI_SNAKE_AI_MODEL: ${{ vars.LIVE_LLM_MODEL || 'gpt-4o-mini' }}
+      ANANTA_TUI_SNAKE_AI_API_TOKEN: ${{ secrets.OPENAIANANTA }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -68,11 +76,18 @@ jobs:
       - name: Run one hosted OpenAI smoke request
         if: env.OPENAI_API_KEY != ''
         run: pytest -q tests/test_openai_live_smoke.py -rs
+      - name: Run live TUI AI-Snake cast with OpenAI mini
+        if: env.OPENAI_API_KEY != ''
+        run: >
+          pytest -q -rs
+          tests/e2e/test_tui_snake_mode_live_lmstudio_e2e.py::test_snake_ai_live_llm_tui_cast_uses_configured_provider
       - name: Upload Live LLM smoke diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ananta-live-llm-smoke-diagnostics
-          path: ci-artifacts/live-llm-smoke/**
+          path: |
+            ci-artifacts/live-llm-smoke/**
+            artifacts/e2e/**
           if-no-files-found: ignore
           retention-days: 7
