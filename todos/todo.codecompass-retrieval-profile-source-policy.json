@@ -1,0 +1,896 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-retrieval-profile-source-policy",
+  "created": "2026-06-06",
+  "status": "todo",
+  "purpose": "AI-Snake, Hub-RAG und Worker-Handoff sollen CodeCompass-Kontext nicht mehr nur ueber einfache UI-Flags und source_types steuern, sondern ueber generische, domainfaehige RetrievalProfile mit SourcePolicy, Intent, ChunkPolicy, Ranking- und Explainability-Vertrag.",
+  "goal": "Aus User-Frage, UI-Konfiguration, Domain-Hinweisen und globaler RAG-Konfiguration wird deterministisch ein RetrievalProfile erzeugt. Dieses Profile steuert source_types, Source-Prioritaeten, Source-Gewichte, negative Domains, Chunk-/Snippet-Strategien, Graph-/Relation-Expansion und Prompt-Rendering. Dadurch erklaert die AI-Snake bei implementierten Code-Fragen tatsaechlich Code und nicht zufaellig Game-, Tutorial- oder TUI-Doku.",
+  "source_review": {
+    "summary": "Der aktuelle Stand enthaelt bereits mehrere Bausteine: agent/routes/snakes.py baut fuer AI-Snake source_types direkt aus UI-Flags; agent/services/rag_service.py reicht source_types und retrieval_intent an RetrievalService und ContextBundler weiter; agent/services/retrieval_service.py enthaelt bereits SourceAdapter, SourceSelectionPolicy, Fusion-Profile, Source-Type-Weights, Dedupe, Expansion, Rerank, Diversity-Cut und RetrievalTrace. Der fehlende Architekturteil ist ein expliziter RetrievalProfileResolver, der UI-Flags, User-Intent und Domain-Policy zusammenfuehrt und diese Entscheidung transparent an RetrievalService, ContextBundler und build_grounded_prompt uebergibt.",
+    "observed_source_files": [
+      {
+        "path": "agent/routes/snakes.py",
+        "observations": [
+          "_build_grounded_snake_prompt liest chat_use_codecompass, chat_include_local_project und chat_include_wikipedia aus _current_config().",
+          "chat_use_codecompass fuegt aktuell nur source_types.append('artifact') hinzu.",
+          "chat_include_local_project fuegt separat source_types.append('repo') hinzu.",
+          "Die Route nutzt retrieval_intent='chat_codecompass_overview' fest verdrahtet, unabhaengig davon, ob der User nach implementiertem Code, Doku, Architektur oder Spielinhalt fragt.",
+          "Die Kontext-Zusammenfassung zaehlt aktuell nach chunk['source'], nicht nach source_type/domain/selected_by."
+        ]
+      },
+      {
+        "path": "agent/services/rag_service.py",
+        "observations": [
+          "retrieve_context_bundle akzeptiert source_types, task_kind, retrieval_intent, max_chunks und reicht sie an RetrievalService weiter.",
+          "build_execution_context ruft retrieve_context_bundle auf und uebergibt bundle['chunks'] an build_grounded_prompt.",
+          "Es gibt noch keinen Parameter retrieval_profile/source_policy_override/domain_policy, obwohl die nachgelagerte Struktur dafuer geeignet waere.",
+          "Explainability wird nachtraeglich mit source_type_counts, sources und Provenance angereichert."
+        ]
+      },
+      {
+        "path": "agent/services/context_bundle_service.py",
+        "observations": [
+          "build_bundle filtert und sortiert Chunks und erzeugt context_policy mit source_prioritization_rules.",
+          "Die Sortierung ist aktuell grob: architecture-Intent bevorzugt wiki, sonst repo.",
+          "context_policy enthaelt bereits mode, max_chunks, budget, explainability_level, chunk_text_style, source_prioritization_rules und llm_scope.",
+          "build_grounded_prompt nimmt chunks entgegen, verwirft sie aber aktuell mit del chunks und rendert nur context_text."
+        ]
+      },
+      {
+        "path": "agent/services/retrieval_service.py",
+        "observations": [
+          "_source_selection_policy nutzt resolve_source_selection_policy(settings, requested_source_types).",
+          "_task_profile_for_fusion enthaelt bereits engine_weights und source_type_weights fuer verschiedene task_kind-Gruppen.",
+          "_source_priority_rules erzeugt bereits erklaerbare Ranking-Regeln aus source_type_weights.",
+          "retrieve_context nutzt Adapter fuer repo, artifact, wiki und task_memory, fuehrt Dedupe, Expansion, Rerank, Diversity-Cut und finalen ContextManager-Rerank aus.",
+          "strategy['fusion'] enthaelt bereits source_policy, source_type_contributions, selection_stages, final_ranked_sources und retrieval_trace."
+        ]
+      },
+      {
+        "path": "agent/services/retrieval_source_contract.py",
+        "observations": [
+          "Der konkrete Source-Selection-Vertrag liegt dort; er muss fuer Profile-basierte Overrides erweitert oder sauber wiederverwendet werden.",
+          "Die Erweiterung darf vorhandene Settings wie rag_source_repo_enabled, rag_source_artifact_enabled, rag_source_wiki_enabled und rag_source_task_memory_enabled nicht umgehen."
+        ]
+      },
+      {
+        "path": "agent/routes/ai_snake_config.py",
+        "observations": [
+          "AI-Snake-Konfiguration ist die naheliegende UI-/User-Config-Quelle fuer neue Profile-Defaults.",
+          "Neue Optionen duerfen bestehende chat_use_codecompass/chat_include_local_project/chat_include_wikipedia Flags nicht sofort brechen."
+        ]
+      },
+      {
+        "path": "tests/test_codecompass_worker_retrieval_flags.py",
+        "observations": [
+          "Vorhandene Tests pruefen Retrieval-Flags und Worker-Konfiguration; sie sind ein guter Anknuepfungspunkt fuer source-policy regression tests."
+        ]
+      },
+      {
+        "path": "tests/test_sgpt_route.py",
+        "observations": [
+          "SGPT/ananta-worker Tests sollten die Folge-Todo zum Snippet-Handoff ergaenzen, aber diese Todo fokussiert primaer SourcePolicy/Profile-Resolution vor dem Worker."
+        ]
+      }
+    ],
+    "problem_examples_from_ai_snake_log": [
+      {
+        "user_question": "den codecompass der schon implementiert ist erklären",
+        "bad_context_pattern": [
+          "docs/ananta-game/book-of-ananta.md",
+          "docs/snake_tutor.md",
+          "terminal-header-logo-renderer.md",
+          "markdown_mermaid_document_view.py"
+        ],
+        "expected_context_pattern": [
+          "agent/services/rag_service.py",
+          "agent/services/retrieval_service.py",
+          "agent/services/context_bundle_service.py",
+          "agent/routes/codecompass_graph.py",
+          "agent/services/codecompass_retrieval_flag_service.py",
+          "agent/routes/snakes.py"
+        ]
+      },
+      {
+        "user_question": "wie ist der mechanismus damit ananta dies an die worker weitergibt?",
+        "bad_behavior": "Antwort springt auf WorkerRuntimeSelectionService, erklaert aber nicht den RAG/ContextBundle/Prompt-Handoff.",
+        "expected_behavior": "Antwort erklaert SourceProfile -> RetrievalService -> ContextBundle -> grounded_prompt -> Worker/LLM-Aufruf und nennt konkrete Code-Stellen."
+      }
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "design_decisions": [
+    {
+      "id": "CRPS-DD-001",
+      "decision": "RetrievalProfileResolver wird als eigene Service-Schicht eingefuehrt.",
+      "rationale": "UI-Flags in snakes.py sollen nicht direkt source_types festlegen. Der Resolver kann generisch arbeiten, aber domainbezogene Profile anwenden."
+    },
+    {
+      "id": "CRPS-DD-002",
+      "decision": "Bestehende SourceSelectionPolicy bleibt Sicherheitsgrenze.",
+      "rationale": "Profile duerfen Quellen priorisieren oder anfordern, aber globale rag_source_*_enabled Settings und Policy-Filter nicht umgehen."
+    },
+    {
+      "id": "CRPS-DD-003",
+      "decision": "Profile sind deterministisch und erklaerbar.",
+      "rationale": "Ananta soll nachvollziehbar sagen koennen, warum repo, artifact, wiki oder task_memory gewaehlt wurde."
+    },
+    {
+      "id": "CRPS-DD-004",
+      "decision": "Domain-Profile sind Daten/Config, nicht hart verdrahtete Sonderfaelle in routes.",
+      "rationale": "CodeCompass, Ananta-Game, Ops, Tutorial, Architektur und Implementierungsfragen brauchen unterschiedliche Source-Mixe."
+    },
+    {
+      "id": "CRPS-DD-005",
+      "decision": "Implemented-code-Fragen bevorzugen repo und konkrete Chunks vor Doku.",
+      "rationale": "Wenn der User 'implementiert', 'Code', 'Mechanismus', 'Klasse', 'Funktion' oder 'Datei' fragt, muss lokaler Code vor Marketing/Game/Tutorial-Doku gewinnen."
+    },
+    {
+      "id": "CRPS-DD-006",
+      "decision": "Prompt-Rendering muss Profile/Source-Entscheidung sichtbar machen.",
+      "rationale": "Der Worker darf nicht nur Kontext bekommen, sondern soll Quellenart, Score, Grund und ggf. Ausschluesse sehen."
+    }
+  ],
+  "target_contract": {
+    "retrieval_profile_schema": {
+      "profile_id": "codecompass.implemented_code_explanation.v1",
+      "domain": "codecompass",
+      "intent": "implemented_code_explanation",
+      "task_kind": "analysis",
+      "source_policy": {
+        "requested_source_types": [
+          "repo",
+          "artifact"
+        ],
+        "priority_order": [
+          "repo",
+          "artifact",
+          "task_memory",
+          "wiki"
+        ],
+        "source_type_weights": {
+          "repo": 1.45,
+          "artifact": 1.05,
+          "task_memory": 0.95,
+          "wiki": 0.3
+        },
+        "negative_source_patterns": [
+          "docs/ananta-game/",
+          "book-of-ananta",
+          "terminal-header-logo-renderer",
+          "markdown_mermaid_document"
+        ],
+        "required_min_source_type_counts": {
+          "repo": 2
+        }
+      },
+      "chunk_policy": {
+        "preferred_granularity": [
+          "symbol",
+          "line_range",
+          "snippet",
+          "chunk",
+          "file_excerpt"
+        ],
+        "prefer_chunks_over_context_text": true,
+        "max_chunks": 12,
+        "max_per_source": 2,
+        "max_per_source_type": {
+          "repo": 8,
+          "artifact": 4,
+          "wiki": 1
+        }
+      },
+      "expansion_policy": {
+        "graph_expansion": true,
+        "relation_expansion": true,
+        "source_neighbor_expansion": true
+      },
+      "explainability": {
+        "include_profile_id": true,
+        "include_selected_by": true,
+        "include_rejected_sources_summary": true
+      }
+    },
+    "backward_compatibility": [
+      "Wenn kein RetrievalProfileResolver aktiv ist, bleibt der aktuelle Pfad source_types -> RetrievalService funktionsfaehig.",
+      "Bestehende chat_use_codecompass/chat_include_local_project/chat_include_wikipedia Flags werden als Eingaben in das Default-Profil gemappt.",
+      "source_types als expliziter Parameter bleibt unterstuetzt und kann als lower-level Override verwendet werden."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "CRPS-M1",
+      "title": "Ist-Zustand und Profile-Vertrag absichern",
+      "status": "todo",
+      "task_ids": [
+        "CRPS-001",
+        "CRPS-002",
+        "CRPS-003"
+      ]
+    },
+    {
+      "id": "CRPS-M2",
+      "title": "RetrievalProfileResolver implementieren und in AI-Snake anbinden",
+      "status": "todo",
+      "task_ids": [
+        "CRPS-004",
+        "CRPS-005",
+        "CRPS-006",
+        "CRPS-007"
+      ]
+    },
+    {
+      "id": "CRPS-M3",
+      "title": "RetrievalService/ContextBundler profilfaehig machen",
+      "status": "todo",
+      "task_ids": [
+        "CRPS-008",
+        "CRPS-009",
+        "CRPS-010",
+        "CRPS-011"
+      ]
+    },
+    {
+      "id": "CRPS-M4",
+      "title": "Regressionstests gegen falschen AI-Snake-Kontext und Doku",
+      "status": "todo",
+      "task_ids": [
+        "CRPS-012",
+        "CRPS-013",
+        "CRPS-014",
+        "CRPS-015"
+      ]
+    },
+    {
+      "id": "CRPS-M5",
+      "title": "Dokumentation, Config und Rollout",
+      "status": "todo",
+      "task_ids": [
+        "CRPS-016",
+        "CRPS-017",
+        "CRPS-018"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CRPS-001",
+      "title": "Aktuellen AI-Snake Retrieval-Flow als Architekturvertrag dokumentieren",
+      "type": "analysis-documentation",
+      "milestone": "CRPS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "target_files": [
+        "agent/routes/snakes.py",
+        "agent/services/rag_service.py",
+        "agent/services/retrieval_service.py",
+        "agent/services/context_bundle_service.py",
+        "docs/codecompass-retrieval-profile-source-policy.md"
+      ],
+      "problem": "Der aktuelle Flow ist verteilt: AI-Snake setzt source_types, RagService baut Bundle, RetrievalService fusioniert Quellen, ContextBundler rendert Prompt. Ohne dokumentierten Vertrag werden Fixes punktuell und brechen spaeter wieder.",
+      "implementation_notes": [
+        "Dokumentiere den Ist-Ablauf: _build_grounded_snake_prompt -> get_rag_service().build_execution_context -> retrieve_context_bundle -> retrieve_context -> build_bundle -> build_grounded_prompt.",
+        "Halte die aktuellen Engpaesse fest: chat_use_codecompass=artifact-only, festes retrieval_intent='chat_codecompass_overview', grobe architecture/wiki Sortierung, build_grounded_prompt verwirft chunks.",
+        "Dokumentiere, welche Felder bereits im Bundle existieren: context_policy, retrieval_trace, explainability, policy_filter, chunks."
+      ],
+      "acceptance_criteria": [
+        "docs/codecompass-retrieval-profile-source-policy.md beschreibt den bestehenden Flow mit konkreten Datei-/Funktionsnamen.",
+        "Das Dokument nennt mindestens agent/routes/snakes.py::_build_grounded_snake_prompt, agent/services/rag_service.py::build_execution_context, agent/services/retrieval_service.py::retrieve_context und agent/services/context_bundle_service.py::build_grounded_prompt.",
+        "Das Dokument beschreibt den bekannten Fehlfall aus dem AI-Snake-Log als Regression Case.",
+        "Keine Runtime-Logik wird in diesem Task geaendert."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-retrieval-profile-source-policy.json"
+      ]
+    },
+    {
+      "id": "CRPS-002",
+      "title": "RetrievalProfile-Dataclass und JSON-Vertrag definieren",
+      "type": "schema-contract",
+      "milestone": "CRPS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-001"
+      ],
+      "target_files": [
+        "agent/services/retrieval_profile_service.py",
+        "tests/test_retrieval_profile_service.py",
+        "docs/codecompass-retrieval-profile-source-policy.md"
+      ],
+      "problem": "Es fehlt ein expliziter, typsicherer Vertrag fuer Profile. Ohne Vertrag bleiben source_types, task_kind und retrieval_intent lose Strings.",
+      "implementation_notes": [
+        "Erstelle RetrievalProfile, SourcePolicy, ChunkPolicy, ExpansionPolicy und ProfileExplainability als dataclasses oder kleine immutable Dict-Normalizer.",
+        "Felder: profile_id, domain, intent, task_kind, requested_source_types, priority_order, source_type_weights, negative_source_patterns, max_chunks, max_per_source, preferred_granularity, graph_expansion, relation_expansion, selected_by.",
+        "Implementiere normalize_retrieval_profile(raw: dict|None) mit konservativen Defaults.",
+        "Keine direkte Kopplung an Flask oder AI-Snake."
+      ],
+      "acceptance_criteria": [
+        "Ein leeres Raw-Profil normalisiert zu einem sicheren generic/default Profil.",
+        "Unbekannte source_types werden verworfen oder als validation warning in profile['warnings'] markiert.",
+        "requested_source_types enthaelt nur erlaubte Quellen: repo, artifact, wiki, task_memory.",
+        "source_type_weights werden als floats normalisiert und deterministisch sortiert.",
+        "Tests pruefen Defaults, unbekannte Quellen, negative_source_patterns und selected_by."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_profile_service.py"
+      ]
+    },
+    {
+      "id": "CRPS-003",
+      "title": "Domain-/Intent-Heuristik fuer Fragen extrahieren",
+      "type": "resolver",
+      "milestone": "CRPS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-002"
+      ],
+      "target_files": [
+        "agent/services/retrieval_profile_service.py",
+        "tests/test_retrieval_profile_service.py"
+      ],
+      "problem": "AI-Snake-Fragen enthalten Hinweise wie 'implementiert', 'Code', 'Mechanismus', 'Worker', 'Diagramm', 'Tutorial' oder 'Game'. Diese Hinweise werden aktuell nicht in ein Retrieval-Profil uebersetzt.",
+      "implementation_notes": [
+        "Implementiere classify_retrieval_intent(query, ui_config=None) deterministisch ohne LLM.",
+        "Erkenne mindestens: implemented_code_explanation, architecture_overview, docs_overview, tutorial_help, game_design, ops_runbook, mermaid_request, generic_chat.",
+        "Erkenne Domain codecompass, ai_snake, worker, ananta_game, operator_tui, ops anhand Query-Tokens und optionaler UI-/Route-Hinweise.",
+        "Halte Heuristik bewusst klein und testbar; keine Hidden Magic."
+      ],
+      "acceptance_criteria": [
+        "'den codecompass der schon implementiert ist erklären' ergibt domain=codecompass und intent=implemented_code_explanation.",
+        "'wie ist der mechanismus damit ananta dies an die worker weitergibt' ergibt intent=implemented_code_explanation oder implementation_flow, nicht docs_overview.",
+        "'kannst du mir mermaid diagramme dazu zeigen' darf mermaid_request erkennen, muss aber vorherigen Kontext/Domain nicht ueberschreiben, wenn diese explizit uebergeben wird.",
+        "'ananta game lore' ergibt domain=ananta_game und darf Game-Doku bevorzugen.",
+        "Tests decken deutsche und englische Begriffe ab: implementiert/implemented, Mechanismus/mechanism, Datei/file, Klasse/class, Funktion/function."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_profile_service.py"
+      ]
+    },
+    {
+      "id": "CRPS-004",
+      "title": "RetrievalProfileResolver mit UI-Config und Defaults implementieren",
+      "type": "service",
+      "milestone": "CRPS-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-002",
+        "CRPS-003"
+      ],
+      "target_files": [
+        "agent/services/retrieval_profile_service.py",
+        "agent/routes/ai_snake_config.py",
+        "tests/test_retrieval_profile_service.py"
+      ],
+      "problem": "UI-Flags sollen Eingaben sein, aber nicht direkt source_types bestimmen. Es braucht eine zentrale Stelle, die Frage, UI-Konfig und Defaults zu einem Profil zusammenfuehrt.",
+      "implementation_notes": [
+        "Implementiere resolve_profile(query, ui_config, explicit_source_types=None, explicit_intent=None, domain_hint=None).",
+        "Mappe alte Flags: chat_use_codecompass, chat_include_local_project, chat_include_wikipedia, chat_use_history/chat_pass_memory_to_worker.",
+        "Wenn chat_use_codecompass=true und Query nach implementiertem Code fragt, setze requested_source_types mindestens ['repo','artifact'], sofern globale Settings diese Quellen erlauben.",
+        "Wenn include_wikipedia=false, darf wiki nicht automatisch aktiviert werden, ausser ein explizites Profil erlaubt es und Settings/UI erlauben es.",
+        "Wenn explicit_source_types gesetzt ist, bleibt es lower-level override, wird aber durch globale SourceSelectionPolicy validiert."
+      ],
+      "acceptance_criteria": [
+        "Resolver erzeugt fuer implementierten CodeCompass ein Profil mit repo vor artifact.",
+        "Resolver erzeugt fuer reine Doku-/Architekturfragen ein Profil, das artifact/wiki hoeher gewichten kann.",
+        "Resolver aktiviert task_memory nur, wenn entsprechende UI-/Scope-Hinweise vorhanden sind.",
+        "Alle Entscheidungen werden in selected_by/reasons dokumentiert.",
+        "Bestehende AI-Snake-Config ohne neue Felder funktioniert unveraendert."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_profile_service.py"
+      ]
+    },
+    {
+      "id": "CRPS-005",
+      "title": "AI-Snake _build_grounded_snake_prompt auf RetrievalProfile umstellen",
+      "type": "route-refactor",
+      "milestone": "CRPS-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-004"
+      ],
+      "target_files": [
+        "agent/routes/snakes.py",
+        "agent/services/retrieval_profile_service.py",
+        "tests/test_snake_ask_retrieval_profile.py"
+      ],
+      "problem": "_build_grounded_snake_prompt setzt source_types direkt aus UI-Flags und verwendet ein fixes retrieval_intent. Das fuehrt zu falschen Quellen bei implementierten Code-Fragen.",
+      "implementation_notes": [
+        "Importiere get_retrieval_profile_service lokal in _build_grounded_snake_prompt, um Route-Kopplung klein zu halten.",
+        "Erzeuge profile = resolve_profile(prompt, cfg, domain_hint='ai_snake_chat').",
+        "Rufe get_rag_service().build_execution_context mit retrieval_profile=profile oder kompatiblem Parameter-Set auf.",
+        "Lasse source_types nicht mehr direkt in snakes.py zusammenbauen, ausser als Legacy-Fallback.",
+        "Passe context_summary so an, dass source_type_counts und profile_id sichtbar werden, nicht nur source-Pfade."
+      ],
+      "acceptance_criteria": [
+        "Bei Frage 'den codecompass der schon implementiert ist erklären' uebergibt die Route ein Profil mit intent=implemented_code_explanation.",
+        "Die Route setzt nicht mehr blind nur ['artifact'] bei chat_use_codecompass=true.",
+        "context_summary enthaelt profile_id oder intent sowie SourceType-Zaehler, z.B. repo:4, artifact:2.",
+        "Wenn Resolver fehlschlaegt, bleibt der lokale Fallback erhalten und gibt 'Unklar, bitte Kontext pruefen' bei konkreten lokalen Fragen.",
+        "Tests mocken RagService und pruefen die uebergebenen Profil-/Intent-/SourcePolicy-Daten."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_snake_ask_retrieval_profile.py"
+      ]
+    },
+    {
+      "id": "CRPS-006",
+      "title": "RagService API profilfaehig erweitern",
+      "type": "api-refactor",
+      "milestone": "CRPS-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-004"
+      ],
+      "target_files": [
+        "agent/services/rag_service.py",
+        "tests/test_rag_service_retrieval_profile.py"
+      ],
+      "problem": "RagService akzeptiert aktuell source_types/retrieval_intent, aber kein gesamtes RetrievalProfile. Dadurch gehen SourcePolicy, negative Patterns, ChunkPolicy und Profile-Explainability verloren.",
+      "implementation_notes": [
+        "Erweitere retrieve_context_bundle und build_execution_context um retrieval_profile: dict|RetrievalProfile|None.",
+        "Wenn retrieval_profile gesetzt ist, leite task_kind, retrieval_intent, source_types, max_chunks und optionale policy overrides daraus ab.",
+        "Behalte bestehende Parameter als Legacy/Override bei; dokumentiere Konfliktregel: explizite Funktionsparameter gewinnen nur, wenn explicit_override=True oder fuer Tests klar gesetzt.",
+        "Fuege profile_id/domain/intent in bundle['context_policy'] oder bundle['retrieval_profile'] ein."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Calls ohne retrieval_profile bleiben kompatibel.",
+        "Ein Profil mit requested_source_types=['repo','artifact'] fuehrt zu RetrievalService-Aufruf mit diesen Quellen.",
+        "Ein Profil mit max_chunks ueberschreibt default max_chunks, ausser der direkte max_chunks Parameter ist explizit gesetzt.",
+        "bundle enthaelt retrieval_profile.profile_id, domain und intent.",
+        "Tests pruefen Legacy-Pfad und Profil-Pfad."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_rag_service_retrieval_profile.py"
+      ]
+    },
+    {
+      "id": "CRPS-007",
+      "title": "Konfigurierbare Profil-Defaults in AI-Snake/User-Config einfuehren",
+      "type": "config",
+      "milestone": "CRPS-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-004"
+      ],
+      "target_files": [
+        "agent/routes/ai_snake_config.py",
+        "client_surfaces/operator_tui/config/user_config_manager.py",
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "tests/test_ai_snake_config.py"
+      ],
+      "problem": "Profile muessen konfigurierbar sein, ohne dass Nutzer direkt komplexe internals kennen muessen. Gleichzeitig sollen alte Boolean-Flags weiter funktionieren.",
+      "implementation_notes": [
+        "Fuehre optionale Config-Felder ein: chat_retrieval_profile='auto', chat_retrieval_domain_hint, chat_source_policy_mode, chat_code_questions_repo_first.",
+        "Dokumentiere Default: auto.",
+        "Alte Flags bleiben sichtbar und werden im Resolver als Signale genutzt.",
+        "Keine harte Migration von user.json erzwingen."
+      ],
+      "acceptance_criteria": [
+        "Eine alte user.json ohne neue Felder validiert weiter.",
+        "Eine Config mit chat_retrieval_profile='repo_first' erzeugt ein Profil, das repo priorisiert.",
+        "Eine Config mit chat_retrieval_profile='docs_first' priorisiert artifact/wiki, sofern erlaubt.",
+        "UI-/Docs beschreiben die neuen Felder kurz und ohne Nutzer mit internen Klassen zu ueberfordern."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_ai_snake_config.py"
+      ]
+    },
+    {
+      "id": "CRPS-008",
+      "title": "RetrievalService source_type_weights aus RetrievalProfile uebernehmen",
+      "type": "retrieval",
+      "milestone": "CRPS-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-006"
+      ],
+      "target_files": [
+        "agent/services/retrieval_service.py",
+        "agent/services/rag_service.py",
+        "tests/test_retrieval_service_profiles.py"
+      ],
+      "problem": "_task_profile_for_fusion enthaelt harte Source-Type-Gewichte je task_kind. Profile sollen diese Werte kontrolliert ueberschreiben oder mischen koennen.",
+      "implementation_notes": [
+        "Erweitere retrieve_context um optional retrieval_profile oder fusion_profile_override.",
+        "Mische Profile-Gewichte mit _task_profile_for_fusion: Profile-Wert gewinnt nur fuer explizit gesetzte source_type_weights.",
+        "max_per_source, max_per_source_type und max_per_engine sollen aus chunk_policy uebernehmbar sein.",
+        "strategy['fusion']['profile'] soll profile_id/domain/intent und angewendete Gewichtung enthalten."
+      ],
+      "acceptance_criteria": [
+        "Ein Profil mit repo=1.45 und wiki=0.3 fuehrt im rerank_meta zu diesen effective source_type_weights.",
+        "Ohne Profil bleiben bestehende _task_profile_for_fusion Defaults identisch.",
+        "Diversity-Cut respektiert max_per_source_type aus dem Profil.",
+        "strategy['fusion']['source_priority_rules'] zeigt die Profile-Gewichte erklaerbar.",
+        "Tests verwenden Fake-Chunks mit repo/artifact/wiki und pruefen finale Reihenfolge."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_service_profiles.py"
+      ]
+    },
+    {
+      "id": "CRPS-009",
+      "title": "Negative Source Patterns und Domain-Ausschluesse implementieren",
+      "type": "retrieval-filter",
+      "milestone": "CRPS-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-008"
+      ],
+      "target_files": [
+        "agent/services/retrieval_service.py",
+        "agent/services/retrieval_profile_service.py",
+        "tests/test_retrieval_service_profiles.py"
+      ],
+      "problem": "Bei implementierten Code-Fragen duerfen Game-/Tutorial-/Terminal-Renderer-Dokumente nicht hochrutschen, nur weil sie den Begriff CodeCompass oder Ananta enthalten.",
+      "implementation_notes": [
+        "Fuehre eine Filter-/Penalty-Stufe nach normalize und vor finalem Rerank ein: apply_profile_source_constraints(chunks, profile).",
+        "negative_source_patterns sollen entweder harte Ausschluesse oder starke Penalty unterstuetzen; Default fuer implemented_code_explanation: Penalty oder Ausschluss fuer bekannte Game/Tutorial/Marketing-Domains.",
+        "Speichere abgelehnte oder abgestrafte Quellen in strategy['fusion']['profile_constraints'].",
+        "Ausschluss darf Security-/Policy-Filter nicht ersetzen, sondern nur Relevanz steuern."
+      ],
+      "acceptance_criteria": [
+        "Bei implementierter CodeCompass-Frage werden docs/ananta-game/book-of-ananta.md und terminal-header-logo-renderer.md nicht in final_ranked_sources Top 5 aufgenommen, wenn passende repo Treffer existieren.",
+        "Wenn nur negative Quellen existieren, wird nicht leer halluziniert; bundle enthaelt Warnung insufficient_positive_sources.",
+        "profile_constraints enthaelt counts: penalized, rejected, reason_by_pattern.",
+        "Tests decken harte Reject- und Penalty-Variante ab."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_service_profiles.py"
+      ]
+    },
+    {
+      "id": "CRPS-010",
+      "title": "ContextBundler context_policy um RetrievalProfile und SourcePolicy erweitern",
+      "type": "bundle",
+      "milestone": "CRPS-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-006",
+        "CRPS-008"
+      ],
+      "target_files": [
+        "agent/services/context_bundle_service.py",
+        "tests/test_context_bundle_retrieval_profile.py"
+      ],
+      "problem": "ContextBundler hat bereits context_policy, aber keine explizite Profile-Identitaet und nur grobe source_prioritization_rules.",
+      "implementation_notes": [
+        "Erweitere build_bundle um retrieval_profile Parameter oder context_payload['retrieval_profile'].",
+        "context_policy soll profile_id, domain, intent, source_policy_mode, source_priority_order, source_type_weights und negative_source_patterns_summary enthalten.",
+        "why_this_context.summary soll profile_id/domain/intent enthalten.",
+        "explainability.sources soll source_type, score, selected_by und ggf. profile_penalty/rejected_reason aufnehmen, falls vorhanden."
+      ],
+      "acceptance_criteria": [
+        "Bundle fuer codecompass.implemented_code_explanation.v1 enthaelt profile_id in context_policy.",
+        "why_this_context.summary nennt domain=codecompass und intent=implemented_code_explanation.",
+        "explainability.source_type_counts bleibt erhalten.",
+        "Bestehende Tests fuer ContextBundler ohne Profil bleiben gruen."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_context_bundle_retrieval_profile.py tests/test_context_bundle_service.py"
+      ]
+    },
+    {
+      "id": "CRPS-011",
+      "title": "build_grounded_prompt chunks-aware und profile-aware rendern",
+      "type": "prompt-contract",
+      "milestone": "CRPS-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-010"
+      ],
+      "target_files": [
+        "agent/services/context_bundle_service.py",
+        "tests/test_context_bundle_retrieval_profile.py"
+      ],
+      "problem": "build_grounded_prompt verwirft chunks aktuell mit del chunks. Damit gehen SourceType, Scores, Line-Ranges und Profile-Gruende im finalen Prompt verloren.",
+      "implementation_notes": [
+        "Entferne del chunks.",
+        "Rendere bei vorhandenen Chunks eine strukturierte Kontextsektion mit Quelle, source_type, engine, score, selected_by, ggf. line_range/symbol.",
+        "Nutze context_text als Fallback oder Zusatz, nicht als einzige Quelle.",
+        "Fuege Prompt-Instruktion ein: Bei implemented_code_explanation nur anhand der aufgefuehrten Code-/Repo-Kontexte antworten und konkrete Dateien/Funktionen nennen.",
+        "Begrenze Promptlaenge ueber vorhandene Budgets; kein unkontrolliertes Verdoppeln von context_text und chunks."
+      ],
+      "acceptance_criteria": [
+        "Ein Prompt mit repo chunks enthaelt Dateinamen und source_type=repo sichtbar.",
+        "Ein Prompt mit artifact/wiki chunks markiert diese sichtbar als artifact/wiki.",
+        "Bei empty chunks und context_text bleibt bisheriges Verhalten kompatibel.",
+        "Bei implemented_code_explanation enthaelt der Prompt eine klare Antwortregel gegen generisches Gelaber.",
+        "Tests pruefen, dass chunks nicht ignoriert werden."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_context_bundle_retrieval_profile.py"
+      ]
+    },
+    {
+      "id": "CRPS-012",
+      "title": "Regressionstest fuer AI-Snake: implementierter CodeCompass zieht Repo-Kontext",
+      "type": "regression-test",
+      "milestone": "CRPS-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-005"
+      ],
+      "target_files": [
+        "tests/test_snake_ask_retrieval_profile.py",
+        "agent/routes/snakes.py"
+      ],
+      "problem": "Das konkrete Log zeigt, dass AI-Snake bei 'implementierter CodeCompass' falsche Doku/TUI/Game-Kontexte verwendet.",
+      "implementation_notes": [
+        "Baue Test mit FakeRagService/FakeRetrievalProfileService.",
+        "Simuliere Config: chat_use_codecompass=true, chat_include_local_project default/false, chat_include_wikipedia=false.",
+        "Frage: 'den codecompass der schon implementiert ist erklären'.",
+        "Pruefe, dass Profil repo+artifact anfordert und intent implemented_code_explanation ist."
+      ],
+      "acceptance_criteria": [
+        "Test scheitert auf altem Verhalten artifact-only.",
+        "Test prueft, dass repo in requested_source_types enthalten ist.",
+        "Test prueft, dass retrieval_intent nicht mehr fix chat_codecompass_overview sein muss.",
+        "Test prueft context_summary mit SourceType-Zaehlern."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_snake_ask_retrieval_profile.py"
+      ]
+    },
+    {
+      "id": "CRPS-013",
+      "title": "Regressionstest fuer Retrieval Ranking: Repo vor Game-/Tutorial-Doku",
+      "type": "regression-test",
+      "milestone": "CRPS-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-008",
+        "CRPS-009"
+      ],
+      "target_files": [
+        "tests/test_retrieval_service_profiles.py",
+        "agent/services/retrieval_service.py"
+      ],
+      "problem": "Ranking darf bei Implementierungsfragen nicht durch semantisch breite Doku-Treffer dominiert werden.",
+      "implementation_notes": [
+        "Erzeuge Fake-Chunks: repo rag_service.py, repo retrieval_service.py, artifact book-of-ananta.md, artifact snake_tutor.md, wiki generisch.",
+        "Wende Profil codecompass.implemented_code_explanation.v1 an.",
+        "Pruefe finale Reihenfolge und Ausschluss/Penalty."
+      ],
+      "acceptance_criteria": [
+        "Top 3 enthalten mindestens zwei repo Quellen.",
+        "book-of-ananta.md und snake_tutor.md sind nicht Top 3, wenn repo Treffer vorhanden sind.",
+        "strategy['fusion']['profile_constraints'] dokumentiert Penalty/Reject.",
+        "source_type_contributions_final enthaelt repo > 0."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_service_profiles.py"
+      ]
+    },
+    {
+      "id": "CRPS-014",
+      "title": "Regressionstest fuer Worker-Handoff-Erklaerung statt falscher WorkerRuntimeSelection-Antwort",
+      "type": "regression-test",
+      "milestone": "CRPS-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-011",
+        "CRPS-012"
+      ],
+      "target_files": [
+        "tests/test_snake_ask_retrieval_profile.py",
+        "tests/test_rag_service_retrieval_profile.py"
+      ],
+      "problem": "Bei 'Mechanismus an Worker weitergeben' darf die Antwort nicht nur WorkerRuntimeSelectionService erklaeren, sondern muss RAG/Bundle/Prompt-Handoff referenzieren.",
+      "implementation_notes": [
+        "Erzeuge Fake-Kontext mit rag_service.py, context_bundle_service.py, snakes.py und einem WorkerRuntimeSelectionService Treffer.",
+        "Pruefe Profil-Resolver erkennt implementation_flow.",
+        "Pruefe Profil priorisiert RAG/ContextBundle/Prompt-Dateien gegenueber WorkerSelection, wenn Frage explizit CodeCompass-Handoff meint."
+      ],
+      "acceptance_criteria": [
+        "Ausgewaehlte Quellen enthalten rag_service.py und context_bundle_service.py.",
+        "WorkerRuntimeSelectionService darf als Kontext vorkommen, aber nicht als alleiniger Top-Treffer.",
+        "Prompt-Regeln verlangen konkrete Dateien/Funktionen fuer den Handoff.",
+        "Test bildet den AI-Snake-Log-Fehlfall nach."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_snake_ask_retrieval_profile.py tests/test_rag_service_retrieval_profile.py"
+      ]
+    },
+    {
+      "id": "CRPS-015",
+      "title": "End-to-End-light Test fuer /snake/ask mit profile-aware Grounding",
+      "type": "integration-test",
+      "milestone": "CRPS-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-005",
+        "CRPS-011"
+      ],
+      "target_files": [
+        "tests/e2e/test_tui_snake_chat_propose_flow_e2e.py",
+        "tests/test_snake_ask_retrieval_profile.py"
+      ],
+      "problem": "Unit-Tests reichen nicht, wenn Route, Resolver, RagService und Prompt-Building zusammen verdrahtet sind.",
+      "implementation_notes": [
+        "Nutze Flask-Testclient oder existierenden E2E-Harness.",
+        "Mocke LLM/generate_text, damit kein echtes Modell noetig ist.",
+        "Mocke Retrieval so, dass source_type_counts kontrolliert sind.",
+        "POST /snake/ask oder Chat-Reply-Pfad soll grounded_prompt mit Profilinformationen an generate_text geben."
+      ],
+      "acceptance_criteria": [
+        "Test laeuft ohne externes LLM.",
+        "generate_text erhaelt Prompt mit Profil/Source-Headern.",
+        "Antwort enthaelt Kontextsummary mit profile_id/source_type_counts.",
+        "Test bleibt deterministisch und ohne Hintergrundthreads."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_snake_ask_retrieval_profile.py tests/e2e/test_tui_snake_chat_propose_flow_e2e.py"
+      ]
+    },
+    {
+      "id": "CRPS-016",
+      "title": "Dokumentation fuer Profile, Domainen und SourcePolicy schreiben",
+      "type": "documentation",
+      "milestone": "CRPS-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-015"
+      ],
+      "target_files": [
+        "docs/codecompass-retrieval-profile-source-policy.md",
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md"
+      ],
+      "problem": "Die neuen Profile muessen fuer dich und spaetere Worker nachvollziehbar sein, sonst wird wieder an Flags herumgeflickt.",
+      "implementation_notes": [
+        "Dokumentiere Profile: auto, repo_first, docs_first, codecompass.implemented_code_explanation, architecture_overview, game_design.",
+        "Dokumentiere Konfliktregeln: globale rag_source_* Settings > UI-Scope > Profil > Query-Heuristik.",
+        "Fuege Beispiele fuer gute/schlechte Treffer hinzu.",
+        "Beschreibe, wie Explainability im Bundle/Prompt zu lesen ist."
+      ],
+      "acceptance_criteria": [
+        "Doku enthaelt mindestens ein Beispiel fuer 'den implementierten CodeCompass erklaeren'.",
+        "Doku enthaelt mindestens ein Beispiel fuer 'Mermaid Diagramm dazu' mit Beibehaltung der Domain.",
+        "Doku nennt die relevanten Dateien und Tests.",
+        "Doku warnt vor user.json als lokaler Runtime-Config im Repo."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-retrieval-profile-source-policy.json"
+      ]
+    },
+    {
+      "id": "CRPS-017",
+      "title": "Config-/Settings-Grenzen fuer Profile pruefen und absichern",
+      "type": "config-test",
+      "milestone": "CRPS-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-004",
+        "CRPS-008"
+      ],
+      "target_files": [
+        "agent/config.py",
+        "agent/services/retrieval_source_contract.py",
+        "tests/test_retrieval_source_contract.py",
+        "tests/test_retrieval_profile_service.py"
+      ],
+      "problem": "Profile duerfen keine deaktivierten oder unzulässigen Quellen aktivieren. Least-Privilege bleibt wichtiger als Komfort.",
+      "implementation_notes": [
+        "Pruefe resolve_source_selection_policy gegen Profile-Anforderungen.",
+        "Wenn rag_source_repo_enabled=false, darf ein repo_first Profil repo nicht effektiv aktivieren, muss aber degraded/warning melden.",
+        "Wenn wiki deaktiviert ist, darf docs_first nicht still wiki verwenden.",
+        "Fuehre warnings in retrieval_profile oder source_policy ein."
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen deaktivierte repo/artifact/wiki/task_memory Settings.",
+        "Profil-Warnings sind maschinenlesbar.",
+        "Keine Profile-Logik umgeht RetrievalPolicyFilter.",
+        "Preflight/get_source_preflight bleibt konsistent mit effektiven Quellen."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_source_contract.py tests/test_retrieval_profile_service.py"
+      ]
+    },
+    {
+      "id": "CRPS-018",
+      "title": "Rollout-Plan und Migration ohne Breaking Changes abschliessen",
+      "type": "rollout",
+      "milestone": "CRPS-M5",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "CRPS-016",
+        "CRPS-017"
+      ],
+      "target_files": [
+        "docs/codecompass-retrieval-profile-source-policy.md",
+        "todos/todo.codecompass-retrieval-profile-source-policy.json"
+      ],
+      "problem": "Die Umstellung betrifft Chat, RAG und Worker-Kontext. Sie soll schrittweise aktivierbar sein.",
+      "implementation_notes": [
+        "Definiere Feature-Flag oder Config-Schalter: chat_retrieval_profile='auto' aktiviert neuen Pfad, 'legacy' nutzt alten Pfad.",
+        "Dokumentiere Migrationspfad: legacy -> auto -> profile-specific.",
+        "Fuehre Monitoring/Log-Ausgabe ein: selected profile, source_type_counts, rejected_source_counts.",
+        "Lege fest, wann Legacy entfernt werden darf."
+      ],
+      "acceptance_criteria": [
+        "Legacy-Modus kann alten source_types-Pfad noch verwenden.",
+        "Auto-Modus nutzt RetrievalProfileResolver.",
+        "Logs enthalten keine sensiblen Inhalte, nur Profile/Counts/SourceTypes.",
+        "Todo wird nach Implementierung mit echten Commit-Hashes/Tests aktualisiert."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_retrieval_profile_service.py tests/test_snake_ask_retrieval_profile.py"
+      ]
+    }
+  ]
+}
