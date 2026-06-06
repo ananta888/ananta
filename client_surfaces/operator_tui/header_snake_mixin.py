@@ -39,6 +39,10 @@ class HeaderSnakeMixin:
         "chat_include_local_project",
         "chat_include_wikipedia",
         "chat_source_pack_id",
+        "chat_retrieval_profile",
+        "chat_retrieval_domain_hint",
+        "chat_code_questions_repo_first",
+        "chat_architecture_analysis_mode",
         "chat_context_chars",
         "chat_max_tokens",
         "chat_rag_top_k",
@@ -196,6 +200,10 @@ class HeaderSnakeMixin:
             "chat_max_tokens": os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS"),
             "chat_rag_top_k": os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K"),
             "chat_answer_chars": os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS"),
+            "chat_retrieval_profile": os.environ.get("ANANTA_TUI_CHAT_RETRIEVAL_PROFILE"),
+            "chat_retrieval_domain_hint": os.environ.get("ANANTA_TUI_CHAT_RETRIEVAL_DOMAIN_HINT"),
+            "chat_code_questions_repo_first": os.environ.get("ANANTA_TUI_CHAT_CODE_QUESTIONS_REPO_FIRST"),
+            "chat_architecture_analysis_mode": os.environ.get("ANANTA_TUI_CHAT_ARCHITECTURE_ANALYSIS_MODE"),
             "chat_backend_fallback": os.environ.get("ANANTA_TUI_CHAT_BACKEND_FALLBACK"),
         }
         for key, value in env_overrides.items():

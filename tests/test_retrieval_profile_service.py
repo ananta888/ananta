@@ -252,6 +252,21 @@ class TestResolveProfile:
         )
         assert profile.source_type_weights.get("repo", 1.0) >= 1.3
 
+    def test_architecture_analysis_mode_can_force_full_scan(self):
+        profile = resolve_profile(
+            "gib mir einen kurzen ueberblick",
+            {"chat_architecture_analysis_mode": "full_scan"},
+        )
+        assert profile.analysis_mode == "architecture_full_scan"
+        assert profile.coverage_policy == "relation_expanded"
+
+    def test_architecture_analysis_mode_can_disable_full_scan(self):
+        profile = resolve_profile(
+            "Bitte erstelle ein Architekturdiagramm als full scan",
+            {"chat_architecture_analysis_mode": "off"},
+        )
+        assert profile.analysis_mode == ""
+
     def test_domain_hint_override(self):
         profile = resolve_profile("erklär mir das", domain_hint="ananta_game")
         assert profile.domain == DOMAIN_ANANTA_GAME

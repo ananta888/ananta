@@ -3441,6 +3441,10 @@ def test_ai_snake_config_includes_chat_context_control_fields() -> None:
     assert "chat_include_local_project" in keys
     assert "chat_include_wikipedia" in keys
     assert "chat_source_pack_id" in keys
+    assert "chat_retrieval_profile" in keys
+    assert "chat_architecture_analysis_mode" in keys
+    assert "chat_retrieval_domain_hint" in keys
+    assert "chat_code_questions_repo_first" in keys
     assert "chat_context_chars" in keys
     assert "chat_max_tokens" in keys
     assert "chat_rag_top_k" in keys
@@ -3462,18 +3466,30 @@ def test_ai_snake_config_applies_chat_context_settings() -> None:
     status_d = apply_ai_snake_config_value(game, key="chat_max_tokens", value="1200")
     status_e = apply_ai_snake_config_value(game, key="chat_rag_top_k", value="48")
     status_f = apply_ai_snake_config_value(game, key="chat_answer_chars", value="4000")
+    status_g = apply_ai_snake_config_value(game, key="chat_retrieval_profile", value="repo_first")
+    status_h = apply_ai_snake_config_value(game, key="chat_architecture_analysis_mode", value="full_scan")
+    status_i = apply_ai_snake_config_value(game, key="chat_retrieval_domain_hint", value="worker")
+    status_j = apply_ai_snake_config_value(game, key="chat_code_questions_repo_first", value="AN")
     assert game.get("chat_use_codecompass") is False
     assert game.get("chat_source_pack_id") == "ananta-local-only"
     assert game.get("chat_context_chars") == 6000
     assert game.get("chat_max_tokens") == 1200
     assert game.get("chat_rag_top_k") == 48
     assert game.get("chat_answer_chars") == 4000
+    assert game.get("chat_retrieval_profile") == "repo_first"
+    assert game.get("chat_architecture_analysis_mode") == "full_scan"
+    assert game.get("chat_retrieval_domain_hint") == "worker"
+    assert game.get("chat_code_questions_repo_first") is True
     assert "AUS" in status_a
     assert "ananta-local-only" in status_b
     assert "6000" in status_c
     assert "1200" in status_d
     assert "48" in status_e
     assert "4000" in status_f
+    assert "repo_first" in status_g
+    assert "full_scan" in status_h
+    assert "worker" in status_i
+    assert "AN" in status_j
 
 
 def test_chat_state_sanitize_text_can_keep_long_messages() -> None:

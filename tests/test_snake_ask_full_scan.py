@@ -58,3 +58,43 @@ def test_snake_ask_debug_trace_contains_full_scan_profile(client):
     assert profile["coverage_policy"] == "relation_expanded"
     assert trace["full_scan"]["status"] == "not_run"
     assert trace["full_scan"]["reason"] == "hub_direct_fallback"
+
+
+def test_snake_ask_payload_can_disable_full_scan_profile(client):
+    with (
+        patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()),
+        patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
+        patch("agent.routes.snakes.generate_text", return_value="fallback answer"),
+    ):
+        resp = client.post(
+            "/snake/ask",
+            json={
+                "question": "Bitte erstelle ein Mermaid Diagramm zur implementierten CodeCompass Worker Handoff Architektur",
+                "debug": True,
+                "retrieval_config": {"chat_architecture_analysis_mode": "off"},
+            },
+        )
+
+    assert resp.status_code == 200
+    profile = resp.json["trace"]["rag"]["retrieval_profile"]
+    assert profile["analysis_mode"] == "standard"
+
+
+def test_snake_ask_payload_can_force_full_scan_profile(client):
+    with (
+        patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()),
+        patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
+        patch("agent.routes.snakes.generate_text", return_value="fallback answer"),
+    ):
+        resp = client.post(
+            "/snake/ask",
+            json={
+                "question": "Gib mir einen kurzen Ueberblick",
+                "debug": True,
+                "retrieval_config": {"chat_architecture_analysis_mode": "full_scan"},
+            },
+        )
+
+    assert resp.status_code == 200
+    profile = resp.json["trace"]["rag"]["retrieval_profile"]
+    assert profile["analysis_mode"] == "architecture_full_scan"

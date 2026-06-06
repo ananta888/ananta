@@ -103,7 +103,9 @@ def test_all_config_items_have_schema_keys():
     memory_keys = {"chat_use_history", "chat_history_turns", "chat_history_chars",
                    "chat_use_summary", "chat_summary_chars", "chat_summary_update_every_turns",
                    "chat_pass_memory_to_worker", "chat_worker_mode", "chat_backend_fallback",
-                   "chat_include_runtime_status"}
+                   "chat_include_runtime_status", "chat_retrieval_profile",
+                   "chat_retrieval_domain_hint", "chat_code_questions_repo_first",
+                   "chat_architecture_analysis_mode"}
     assert memory_keys.issubset(_SCHEMA_KEYS)
 
 

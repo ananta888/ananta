@@ -49,6 +49,10 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_use_embedding_api",
     "chat_embedding_model",
     "chat_embedding_api_max_records",
+    "chat_retrieval_profile",
+    "chat_retrieval_domain_hint",
+    "chat_code_questions_repo_first",
+    "chat_architecture_analysis_mode",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -292,6 +296,7 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     chat_use_codecompass = _resolve_bool_pref(game, "chat_use_codecompass", "ANANTA_TUI_CHAT_USE_CODECOMPASS", True)
     chat_include_local_project = _resolve_bool_pref(game, "chat_include_local_project", "ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", True)
     chat_include_wikipedia = _resolve_bool_pref(game, "chat_include_wikipedia", "ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", False)
+    chat_code_questions_repo_first = _resolve_bool_pref(game, "chat_code_questions_repo_first", "", False)
     chat_source_pack_id = str(
         game.get("chat_source_pack_id")
         or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK")
@@ -410,6 +415,36 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(chat_answer_chars),
             "options": ["600", "1200", "2400", "4000", "6000", "8000", "12000"],
+        },
+        {
+            "key": "chat_retrieval_profile",
+            "label": "Retrieval Profile",
+            "type": "choice",
+            "value": str(game.get("chat_retrieval_profile") or "auto"),
+            "options": ["auto", "repo_first", "docs_first", "legacy"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_architecture_analysis_mode",
+            "label": "Architektur Analyse",
+            "type": "choice",
+            "value": str(game.get("chat_architecture_analysis_mode") or "auto"),
+            "options": ["auto", "standard", "full_scan", "off"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_retrieval_domain_hint",
+            "label": "Retrieval Domain Hint",
+            "type": "text",
+            "value": str(game.get("chat_retrieval_domain_hint") or ""),
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_code_questions_repo_first",
+            "label": "Codefragen Repo-first",
+            "type": "bool",
+            "value": chat_code_questions_repo_first,
+            "group": "Kontext / RAG",
         },
         # ── Chat Context/Memory (CMW-012) ─────────────────────────────────────
         {"key": "chat_use_history", "label": "Chat Verlauf nutzen", "type": "bool",
@@ -718,12 +753,13 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             game["chat_include_local_project"] = parsed
         elif key == "chat_include_wikipedia":
             game["chat_include_wikipedia"] = parsed
-        elif key in {"chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status"}:
+        elif key in {"chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status", "chat_code_questions_repo_first"}:
             game[key] = parsed
         if key in {
             "visual_enabled", "chat_panel_open", "visual_codecompass", "chat_use_codecompass",
             "chat_include_local_project", "chat_include_wikipedia",
             "chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status",
+            "chat_code_questions_repo_first",
         }:
             _persist_tui_chat_settings(game)
         return f"ai config: {label} {'AN' if parsed else 'AUS'}"
@@ -808,6 +844,25 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         game["chat_answer_chars"] = value_int
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"
+
+    if key == "chat_retrieval_profile":
+        if raw_value not in {"auto", "repo_first", "docs_first", "legacy"}:
+            return f"ai config: {label} erwartet auto/repo_first/docs_first/legacy"
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value}"
+
+    if key == "chat_architecture_analysis_mode":
+        if raw_value not in {"auto", "standard", "full_scan", "off"}:
+            return f"ai config: {label} erwartet auto/standard/full_scan/off"
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value}"
+
+    if key == "chat_retrieval_domain_hint":
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value or '-'}"
 
     if key == "chat_history_turns":
         try:
