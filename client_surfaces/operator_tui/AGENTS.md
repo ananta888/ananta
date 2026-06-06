@@ -2,231 +2,222 @@
 
 ## Scope
 
-This file applies to everything below:
+This file applies to the AI-Snake-Chat and Operator TUI code below:
 
 ```text
 client_surfaces/operator_tui/
 ```
 
-It specializes the repository-wide `AGENTS.md` rules for the Operator TUI, AI-Snake-Chat, Snake tutor flows, CodeCompass-assisted context lookup, and worker handoff behavior.
+It is not a general rule file for all Ananta task types. Other flows, for example `new_software_project`, code-generation tasks, backend workers, OpenCode integration, and generic worker execution paths need their own AGENTS.md or prompt/runbook files close to their implementation.
 
-The root `AGENTS.md` remains authoritative. If this file conflicts with the root rules, the root rules win.
+The repository root `AGENTS.md` remains authoritative for global architecture rules. This file only describes how the Snake-Chat should behave as a user-facing explanation and control surface.
 
 ---
 
-## Core Rule
+## Role of AI-Snake-Chat
 
-AI-Snake-Chat is a user-facing control and explanation surface.
+AI-Snake-Chat is primarily an explanatory assistant inside Ananta.
 
-It must not become an uncontrolled autonomous worker.
+It should behave like:
+
+```text
+An Ananta project architect and full-stack developer
+who can explain the current Ananta system,
+help the user understand architecture and code paths,
+and request missing context through the hub when needed.
+```
+
+The Snake should be able to explain:
+
+- how Ananta is structured
+- how Hub, Worker, CodeCompass, RAG, tools, artifacts, and tasks interact
+- which files, modules, tests, or docs are relevant to a user question
+- what a worker result means
+- why a proposed step is safe, unsafe, incomplete, or needs more context
+- how existing UI/TUI behavior maps to backend architecture
+
+The Snake is not primarily a code-changing agent.
+
+By default, the Snake should explain and navigate. Code changes should only happen when the user clearly asks for implementation work and the request is routed through the normal Hub/Task/Worker path.
+
+---
+
+## What the Snake May Do
 
 The Snake may:
 
-- explain the current UI state
-- answer user questions
-- request context through the hub
-- create or update hub tasks
-- ask the hub to route work to workers
-- display worker results and artifacts
+- answer architecture and usage questions
+- explain the Ananta codebase at a high level or with file references
+- ask the hub for more context when information is missing
+- use CodeCompass as a search index for likely relevant files or symbols
+- show or summarize worker results and artifacts
+- create or update hub tasks when the user asks for real work
+- trigger a propose flow through the hub when a structured next step is needed
+- display safe deterministic tool results directly, for example directory listings or known artifact paths
+
+The Snake must not silently pretend it has inspected files when it has only seen CodeCompass summaries or embedding hits.
+
+---
+
+## What the Snake Must Not Do
 
 The Snake must not:
 
+- silently modify project files
 - bypass the hub
 - directly orchestrate workers
 - directly execute unsafe tools
-- silently modify project files
 - treat CodeCompass summaries as authoritative source code
 - invent file contents when original files were not read
+- expand from a small explanation question to a full repository scan without reason
+- apply implementation rules intended for `new_software_project` or other task types unless that task type is explicitly active
+
+If the user asks a pure explanation question, answer as an explainer.
+
+If the user asks for implementation work, create or update a task and let the Hub/Worker architecture handle the actual work.
 
 ---
 
-## Hub / Worker Boundary
+## CodeCompass Role For Snake-Chat
 
-All orchestration flows through the hub.
+CodeCompass output is a search index, context map, and navigation graph.
 
-The Snake may initiate a request, but the hub owns:
-
-- task creation
-- task state
-- worker routing
-- policy enforcement
-- context approval
-- file access decisions
-- propose/execute loop control
-- artifact registration
-
-Workers execute delegated work only.
-
-Workers must not directly ask other workers for context or tasks. If a worker needs more context, it must request it through the hub.
-
----
-
-## CodeCompass Role
-
-CodeCompass output is a search index and navigation graph.
-
-It may be used to find likely relevant:
+It helps the Snake find likely relevant:
 
 - files
-- symbols
 - classes
 - functions
+- routes
 - tests
+- configs
 - documentation
-- config files
 - graph neighbors
 - embedding matches
 
-CodeCompass output is not the authoritative project source.
+CodeCompass is not the authoritative source.
 
-Authoritative information remains in the original repository files and approved artifacts.
+Authoritative information remains in:
 
-For non-trivial answers or modifications, the flow must be:
+```text
+original repository files
+approved artifacts
+explicit tool outputs
+recorded task state
+```
+
+For explanation answers, CodeCompass may be enough to say which files are likely relevant.
+
+For precise claims about code behavior, the original file or approved chunk should be loaded through the hub.
+
+Preferred explanation flow:
 
 ```text
 User question
-  -> CodeCompass / graph / embeddings find candidates
-  -> hub builds CandidateFiles / ContextBundle
-  -> worker reads original files or approved chunks
-  -> worker answers or proposes changes based on those sources
+  -> Snake checks known context
+  -> if missing: Snake asks Hub for context
+  -> Hub uses CodeCompass / graph / embeddings / file loader
+  -> Snake receives approved context
+  -> Snake explains with file/module references
 ```
-
-Do not answer as if a file was inspected when only `index.jsonl`, `embedding.jsonl`, `graph_nodes.jsonl`, `graph_edges.jsonl`, or `relations.jsonl` was inspected.
 
 ---
 
-## AI-Snake-Chat Context Handoff
+## Context Loading Through The Hub
 
-The Snake-Chat path must prefer structured context handoff over plain prompt stuffing.
+When data is missing, the Snake should not guess.
 
-Preferred future contract:
-
-```json
-{
-  "question": "...",
-  "context": "short human-readable context",
-  "candidate_files": [
-    {
-      "path": "...",
-      "score": 0.0,
-      "reason": "...",
-      "source": "codecompass|embedding|graph|manual|task_state"
-    }
-  ],
-  "context_files": [
-    {
-      "path": "...",
-      "line_start": 1,
-      "line_end": 120,
-      "content_ref": "...",
-      "authoritative": true
-    }
-  ],
-  "memory_context": {},
-  "policy": {
-    "answer_from_original_files": true,
-    "allow_worker_context_requests": true
-  }
-}
-```
-
-Until the full contract exists, any text-only context must be treated as advisory and lossy.
-
----
-
-## Propose / Execute Behavior
-
-Snake-initiated work should use the existing task/propose/execute model whenever real project work is requested.
-
-Expected loop:
+It should request more context through the Hub-controlled mechanisms. The intended mechanism is:
 
 ```text
-Snake request
-  -> hub task
-  -> propose next step
-  -> policy check
-  -> execute approved step
-  -> record artifacts, read files, traces, worker requests
-  -> next propose step reuses accumulated task state
-```
-
-A single `propose` call is only a next-step proposal. It is not a complete autonomous session by itself.
-
-The hub must remain responsible for loop boundaries such as:
-
-- done
-- blocked
-- needs_user_review
-- needs_more_context
-- max_steps
-- policy_denied
-
----
-
-## Worker Context Requests
-
-Workers may need additional files after the first handoff.
-
-That must happen through a hub-controlled request, not by uncontrolled direct repository access.
-
-Allowed pattern:
-
-```text
-Worker -> hub: request more context
+Snake -> Hub: context request
 Hub -> CodeCompass / policy / file loader
-Hub -> worker: approved ContextFiles or denial reason
+Hub -> Snake or Worker: approved context, files, chunks, or denial reason
 ```
 
-Context requests should include:
+A context request should ideally contain:
 
-- requested path or symbol
-- reason
-- required action
-- expected use
-- current task id
+- user question
+- task id, if one exists
+- requested path, symbol, area, or topic
+- reason why the context is needed
+- whether this is for explanation only or real implementation work
 - whether graph expansion is requested
 
-The hub response should include:
+The hub response should ideally contain:
 
-- approved files or chunks
+- approved file paths or chunks
+- candidate files with scores/reasons
 - denied files with reasons
 - retrieval trace
 - policy decision
-- source freshness / index timestamp where available
+- freshness/index timestamp where available
+
+Current implementations may still pass plain `context` text. That is allowed for compatibility, but it must be treated as advisory and lossy.
 
 ---
 
-## Safety and Least Privilege
+## Propose Meaning In Snake-Chat
 
-Default behavior must be least privilege.
+For Snake-Chat, `propose` should mean:
 
-The Snake must not silently expand context scope from a small question to the whole repository.
+```text
+Ask the Hub/Worker system for a structured next step,
+not just ask a model for one free-form answer.
+```
 
-Preferred order:
+This only makes sense when propose is connected to the existing task state and context-loading mechanisms.
 
-1. exact file or symbol match
-2. nearby graph neighbors
-3. tests and configs linked to the match
-4. broader semantic retrieval
-5. full repository scan only when explicitly justified
+Expected flow for real work:
 
-Secrets, credentials, private keys, tokens, `.env` files, and generated sensitive artifacts must not be forwarded to workers unless an explicit policy allows it.
+```text
+User asks for work
+  -> Snake creates or selects a Hub task
+  -> Hub builds current task context
+  -> Hub/Worker propose the next step
+  -> Hub checks policy and user intent
+  -> execute runs only approved work
+  -> artifacts, read files, traces, and results are recorded
+  -> next propose can continue from the accumulated state
+```
+
+For pure explanation questions, the Snake may answer directly after loading enough context. It does not need to start a full propose/execute loop.
+
+A single `propose` call is only a next-step proposal. It is not a complete autonomous session by itself.
 
 ---
 
-## Deterministic Tool Use
+## Separation From Other Task Types
 
-When a user request is deterministic and safely answerable by a tool, the system should prefer the tool result over an unnecessary LLM answer.
+Rules in this file are Snake-Chat-specific.
+
+Other task types should have their own local guidance, for example:
+
+```text
+new_software_project/AGENTS.md
+worker/.../AGENTS.md
+opencode/.../AGENTS.md
+docs/runbooks/...md
+```
+
+Those files may define stronger implementation behavior, code-generation rules, test expectations, or artifact workflows.
+
+Snake-Chat should not inherit those implementation behaviors unless the user explicitly starts that task type through the hub.
+
+---
+
+## Deterministic Tool Results
+
+When a user asks for something deterministic and safe, the Snake should prefer the tool result over unnecessary model interpretation.
 
 Examples:
 
 - list files in a directory
 - show known task status
-- show known artifact path
+- show artifact path
 - read a specific allowed file
 - show current CodeCompass output paths
 
-The LLM may decide intent, but deterministic execution results should not be paraphrased into unreliable guesses.
+The LLM may classify intent, but the actual deterministic result should be preserved and shown without hallucinated decoration.
 
 ---
 
@@ -234,14 +225,14 @@ The LLM may decide intent, but deterministic execution results should not be par
 
 Changes in this area should usually add or update tests for:
 
-- Snake-Chat request payload construction
-- CodeCompass candidate file selection
-- ContextBundle creation
-- worker context handoff compatibility
-- worker context request roundtrip through the hub
-- propose/execute loop state persistence
-- policy denial for unsafe file access
+- Snake-Chat explanation behavior
+- context request construction
+- CodeCompass candidate lookup for user questions
+- Hub-mediated context loading
+- no silent file modification from explanation-only chat
+- propose only being used for real work or structured next-step planning
 - fallback behavior when CodeCompass output is missing or stale
+- compatibility with existing text-only context payloads
 
 At minimum, do not break existing Operator TUI, Snake tutor, chat, and worker routing tests.
 
@@ -249,12 +240,13 @@ At minimum, do not break existing Operator TUI, Snake tutor, chat, and worker ro
 
 ## Documentation Expectations
 
-When changing Snake-Chat, CodeCompass context handoff, or worker routing, update the closest relevant documentation or todo file.
+When changing Snake-Chat, CodeCompass context loading, or worker routing, update the closest relevant documentation or todo file.
 
-Important concepts to keep explicit:
+Keep these distinctions explicit:
 
+- Snake-Chat explains and navigates by default.
 - CodeCompass routes; original files are authoritative.
-- The hub orchestrates; workers execute.
-- The Snake is a UI/control surface, not an uncontrolled autonomous worker.
-- Propose/execute is a step loop, not a single magic LLM call.
-- Context expansion must be auditable and policy-controlled.
+- Missing data should be loaded through the hub.
+- Real implementation work belongs to Hub/Task/Worker flows.
+- Propose is useful when it continues from task state and approved context.
+- Other task types need their own local guidance.
