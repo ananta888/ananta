@@ -1,0 +1,645 @@
+{
+  "version": 1,
+  "owner": "Peter Stuiber / Ananta",
+  "track": "agent-profile-runtime-loader",
+  "purpose": "Standardpfad-spezifische AGENTS.md/Profile-Regeln zur Laufzeit eindeutig laden und an OpenCode, ananta-worker, Propose/Execute und AI-Snake-Chat-Kontext uebergeben.",
+  "goal": "Ananta soll fuer jeden Haupt-Standardpfad wie new_software_project, bug_fix, refactor, repo_analysis, architecture_review, incident usw. die passende AGENTS.md/Profile-Datei automatisch bestimmen, mit der globalen Root-AGENTS.md kombinieren und konsistent in Worker-Workspaces, Prompt-/Instruction-Stacks und ContextBundles verfuegbar machen. Die Profile duerfen nicht unkontrolliert in andere Pfade hineinlecken.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0-critical",
+    "P1-high",
+    "P2-medium",
+    "P3-low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "context": {
+    "problem_statement": "Es gibt inzwischen Root-AGENTS.md, client_surfaces/operator_tui/AGENTS.md und docs/agent-profiles/<standardpfad>/AGENTS.md sowie docs/agent-profiles/profile-map.json. Diese sind aber bisher vor allem dokumentiert. OpenCode bekommt zwar bereits eine zur Laufzeit generierte Workspace-AGENTS.md, diese ist aktuell im WorkerWorkspaceService hartcodiert und nicht aus Root-AGENTS.md plus aktivem Standardpfad-Profil zusammengesetzt. Der ananta-worker/Propose-Pfad nutzt InstructionLayerService und Context-/Prompt-Strukturen, aber die neuen AGENTS.md-Profile sind dort noch nicht als eigener Governance-/Template-Layer verdrahtet.",
+    "architectural_intent": "AGENTS.md/Profile-Dateien sind keine losen Texte, sondern rollenbezogene Ausfuehrungs- und Erklaerregeln. Root-AGENTS.md bleibt global. Lokale/pfadbezogene AGENTS.md-Dateien ergaenzen nur den jeweils aktiven Pfad. AI-Snake-Chat erklaert und navigiert primaer. Implementierende Pfade wie new_software_project, feature, bug_fix oder refactor duerfen Code nur ueber Hub/Task/Worker-Prozesse bearbeiten.",
+    "relevant_existing_files": [
+      "AGENTS.md",
+      "client_surfaces/operator_tui/AGENTS.md",
+      "docs/agent-profiles/profile-map.json",
+      "docs/agent-profiles/README.md",
+      "docs/agent-profiles/new_software_project/AGENTS.md",
+      "docs/agent-profiles/feature/AGENTS.md",
+      "docs/agent-profiles/bug_fix/AGENTS.md",
+      "docs/agent-profiles/code_fix/AGENTS.md",
+      "docs/agent-profiles/refactor/AGENTS.md",
+      "docs/agent-profiles/test/AGENTS.md",
+      "docs/agent-profiles/tdd/AGENTS.md",
+      "docs/agent-profiles/repo_analysis/AGENTS.md",
+      "docs/agent-profiles/sys_diag/AGENTS.md",
+      "docs/agent-profiles/admin_repair/AGENTS.md",
+      "docs/agent-profiles/incident/AGENTS.md",
+      "docs/agent-profiles/architecture_review/AGENTS.md",
+      "docs/agent-profiles/project_evolution/AGENTS.md",
+      "docs/architecture/planning-template-inventory.md",
+      "agent/services/worker_workspace_service.py",
+      "agent/services/task_scoped_execution_service.py",
+      "agent/services/instruction_layer_service.py",
+      "agent/services/task_template_resolution.py",
+      "agent/services/workspace_context_policy.py",
+      "agent/services/context_delivery_service.py",
+      "agent/services/context_bundle_service.py",
+      "agent/models.py",
+      "worker/core/propose_orchestrator.py",
+      "worker/core/propose.py",
+      "tests/test_e2e_workspace_artifact_flow.py",
+      "tests/test_workspace_context_policy_resolver.py",
+      "tests/test_task_endpoints.py"
+    ],
+    "non_goals": [
+      "Keine direkte Codeaenderung durch AI-Snake-Chat einfuehren.",
+      "Keine Worker-zu-Worker-Orchestrierung einfuehren.",
+      "Keine Profile anhand von unscharfem LLM-Raten aktivieren, wenn bereits task_kind/template_id/mode vorhanden ist.",
+      "Keine Root-AGENTS.md-Regeln durch lokale Profile ueberschreiben lassen.",
+      "Keine automatische Ausfuehrung riskanter Admin-/Incident-Schritte ohne bestehende Policy-/Approval-Mechanismen."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "APRL-M1",
+      "title": "Ist-Zustand und Contract klaeren",
+      "task_ids": ["APRL-001", "APRL-002"],
+      "status": "todo"
+    },
+    {
+      "id": "APRL-M2",
+      "title": "AgentProfileLoader implementieren",
+      "task_ids": ["APRL-003", "APRL-004", "APRL-005", "APRL-006"],
+      "status": "todo"
+    },
+    {
+      "id": "APRL-M3",
+      "title": "OpenCode Workspace-AGENTS.md aus Profilen generieren",
+      "task_ids": ["APRL-007", "APRL-008", "APRL-009"],
+      "status": "todo"
+    },
+    {
+      "id": "APRL-M4",
+      "title": "ananta-worker und Propose/Execute-Kontext verdrahten",
+      "task_ids": ["APRL-010", "APRL-011", "APRL-012", "APRL-013"],
+      "status": "todo"
+    },
+    {
+      "id": "APRL-M5",
+      "title": "AI-Snake-Chat und CodeCompass-Handoff absichern",
+      "task_ids": ["APRL-014", "APRL-015", "APRL-016"],
+      "status": "todo"
+    },
+    {
+      "id": "APRL-M6",
+      "title": "Tests, Diagnostik, Migration und Dokumentation",
+      "task_ids": ["APRL-017", "APRL-018", "APRL-019", "APRL-020", "APRL-021"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "APRL-001",
+      "title": "Aktuelle AGENTS.md-/Profil-Verwendung im Code dokumentieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "low",
+      "source_code_refs": [
+        "agent/services/worker_workspace_service.py:prepare_opencode_context_files",
+        "agent/services/task_scoped_execution_service.py:propose_task_step",
+        "agent/services/instruction_layer_service.py:assemble_for_task",
+        "docs/agent-profiles/profile-map.json",
+        "client_surfaces/operator_tui/AGENTS.md"
+      ],
+      "description": "Klaeren und im Repo dokumentieren, welche AGENTS.md aktuell automatisch verwendet werden und welche nur Dokumentation sind. Besonders wichtig: OpenCode bekommt derzeit eine generierte Workspace-AGENTS.md; diese ist aber hartcodiert. Die neuen docs/agent-profiles/<pfad>/AGENTS.md werden noch nicht automatisch geladen.",
+      "acceptance_criteria": [
+        "Eine kurze Doku nennt eindeutig: Root-AGENTS.md, Operator-TUI-AGENTS.md, Standardpfad-Profile und generierte OpenCode-Workspace-AGENTS.md.",
+        "Die Doku unterscheidet zwischen Runtime-aktiv, nur verlinkt und noch nicht verdrahtet.",
+        "Die Doku benennt die vorhandene Runtime-Luecke ohne Schoenfaerberei.",
+        "Keine bestehende Runtime-Logik wird in diesem Analyse-Task geaendert."
+      ]
+    },
+    {
+      "id": "APRL-002",
+      "title": "Profil-Contract fuer Standardpfade definieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "medium",
+      "source_code_refs": [
+        "docs/agent-profiles/profile-map.json",
+        "docs/agent-profiles/README.md",
+        "docs/architecture/planning-template-inventory.md"
+      ],
+      "description": "Festlegen, welche Felder ein Standardpfad-Profil besitzen muss: profile_id, activation/template_ids, agents_file, primary_role, allowed_task_kinds, default_behavior, code_change_policy, context_policy_hint, applies_to. profile-map.json soll nicht nur Doku sein, sondern als stabile Loader-Eingabe taugen.",
+      "acceptance_criteria": [
+        "profile-map.json hat ein klares Schema oder eine dokumentierte Contract-Beschreibung.",
+        "Jedes Profil besitzt eine eindeutige ID und genau eine primaere AGENTS.md-Datei.",
+        "Mehrdeutige Aktivierungen werden als Fehler oder diagnostische Warnung behandelt, nicht still geraten.",
+        "AI-Snake-Chat ist explizit als explain/navigate/default-no-code-change Profil markiert.",
+        "Implementierungsprofile sind explizit von Analyse-/Review-/Incident-Profilen getrennt."
+      ]
+    },
+    {
+      "id": "APRL-003",
+      "title": "AgentProfileService / AgentProfileLoader einfuehren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "medium",
+      "source_code_refs": [
+        "agent/services/worker_workspace_service.py",
+        "agent/services/instruction_layer_service.py",
+        "agent/services/task_template_resolution.py"
+      ],
+      "description": "Neuen Service anlegen, z.B. agent/services/agent_profile_service.py. Der Service liest docs/agent-profiles/profile-map.json, validiert Pfade gegen Repo-Root, laedt Root-AGENTS.md und die aktive Profil-AGENTS.md und liefert ein strukturiertes Ergebnis zurueck.",
+      "acceptance_criteria": [
+        "Der Service kann Root-AGENTS.md und aktive Profil-AGENTS.md als Text laden.",
+        "Der Service gibt profile_id, agents_file, root_agents_file, primary_role, activation_source und warnings zurueck.",
+        "Pfadauflösung ist gegen Path Traversal abgesichert und akzeptiert nur Dateien innerhalb des Repos.",
+        "Fehlende Profil-Dateien fuehren zu deterministischem Fallback auf Root-AGENTS.md plus Warnung.",
+        "Der Service hat keine Flask-Abhaengigkeit im Kern und ist in Unit-Tests isoliert testbar."
+      ]
+    },
+    {
+      "id": "APRL-004",
+      "title": "Profil-Aufloesung aus Task-Daten implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "medium",
+      "source_code_refs": [
+        "agent/services/task_template_resolution.py",
+        "agent/services/workspace_context_policy.py",
+        "agent/services/task_scoped_execution_service.py"
+      ],
+      "description": "Der Loader muss das aktive Profil aus stabilen Task-Feldern bestimmen: task.worker_execution_context.template_id, task.agent_template, task.task_kind, task.mode, task.mode_data, goal template, explizites profile_id. Reihenfolge muss deterministisch sein.",
+      "acceptance_criteria": [
+        "Explizites profile_id gewinnt gegen Heuristik, aber nicht gegen globale Governance-Regeln.",
+        "template_id/agent_template gewinnt gegen reine Keyword-Aktivierung.",
+        "task_kind wird nur genutzt, wenn keine eindeutigere Template-ID vorhanden ist.",
+        "Keyword-Aktivierung aus title/description ist optionaler letzter Fallback und muss in diagnostics als fallback markiert werden.",
+        "new_software_project wird fuer entsprechende Template-ID stabil auf docs/agent-profiles/new_software_project/AGENTS.md gemappt.",
+        "bugfix/bug_fix/code_fix werden nicht versehentlich vermischt, sondern klar normalisiert oder diagnostiziert."
+      ]
+    },
+    {
+      "id": "APRL-005",
+      "title": "Profil-Komposition Root + lokal ohne Policy-Bypass definieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "high",
+      "source_code_refs": [
+        "AGENTS.md",
+        "docs/agent-profiles/*/AGENTS.md",
+        "agent/services/instruction_layer_service.py"
+      ],
+      "description": "Root-AGENTS.md bleibt nicht ueberschreibbare Governance-/Repo-Schicht. Lokale Profile duerfen Verhalten spezialisieren, aber keine Root-Regeln abschwaechen. Die Komposition muss sichtbar machen, welche Schicht welche Regel liefert.",
+      "acceptance_criteria": [
+        "Komponierter Text enthaelt klar getrennte Abschnitte: Global AGENTS, Active Path Profile, Runtime Workspace Constraints, Response Contract Hinweise.",
+        "Lokale Profile werden immer nach Root-Regeln angehaengt und als Spezialisierung markiert.",
+        "Wenn lokale Profile widersprechende Aussagen enthalten, erzeugt der Loader eine Warnung; Root bleibt dominant.",
+        "Keine lokale Profil-Datei kann Hub-Control-Plane, Least-Privilege oder Worker-Isolation aufheben.",
+        "Diagnostics enthalten checksums/hash der geladenen Dateien."
+      ]
+    },
+    {
+      "id": "APRL-006",
+      "title": "AgentProfileDiagnostics und Audit-Metadaten einfuehren",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "low",
+      "source_code_refs": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/instruction_layer_service.py",
+        "agent/pipeline_trace.py"
+      ],
+      "description": "Jeder Runtime-Einsatz eines Profils muss nachvollziehbar sein: welches Profil, warum, welche Dateien, welche Fallbacks, welche Warnungen. Das ist wichtig, damit falsche Profile nicht still falsches Verhalten erzeugen.",
+      "acceptance_criteria": [
+        "Propose-Metadaten enthalten active_agent_profile mit profile_id, agents_file, activation_source und checksum.",
+        "OpenCode-Manifest enthaelt active_agent_profile und profile_diagnostics.",
+        "Pipeline Trace oder Produkt-Event protokolliert Profil-Aufloesung fuer relevante Tasks.",
+        "Bei Fallback auf Root-only wird eine sichtbare Warnung abgelegt.",
+        "Keine sensiblen Dateiinhalte werden in Diagnostics dupliziert; nur Pfade/Hashes/IDs."
+      ]
+    },
+    {
+      "id": "APRL-007",
+      "title": "WorkerWorkspaceService nutzt AgentProfileService fuer OpenCode-AGENTS.md",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "medium",
+      "source_code_refs": [
+        "agent/services/worker_workspace_service.py:prepare_opencode_context_files"
+      ],
+      "description": "Die bisher hartcodierte AGENTS.md-Erzeugung in prepare_opencode_context_files wird ersetzt oder erweitert: Workspace-AGENTS.md wird aus Root-AGENTS.md, aktivem Profil und bestehenden Container-/Engineering-Regeln zusammengesetzt.",
+      "acceptance_criteria": [
+        "OpenCode-Workspace enthaelt weiterhin eine AGENTS.md im Workspace-Root.",
+        "Diese AGENTS.md enthaelt Root-Regeln und das aktive Standardpfad-Profil.",
+        "Bestehende Container-Regeln wie kein sudo, kein systemctl, kein service bleiben erhalten.",
+        "Bestehende context-index.md listet AGENTS.md weiterhin als erste relevante Datei.",
+        "Bestehende Tests fuer Workspace-Artefakte bleiben gruen oder werden passend erweitert.",
+        "Wenn kein Profil ermittelt wird, wird eine Root-only AGENTS.md mit Runtime-Constraints geschrieben."
+      ]
+    },
+    {
+      "id": "APRL-008",
+      "title": "OpenCode-Workspace bekommt Profil-Metadaten-Datei",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "low",
+      "source_code_refs": [
+        "agent/services/worker_workspace_service.py:prepare_opencode_context_files"
+      ],
+      "description": "Zusätzlich zur AGENTS.md soll eine maschinenlesbare Datei geschrieben werden, z.B. .ananta/agent-profile.json. Sie enthaelt active profile, mapping source, hashes und Fallback-Status.",
+      "acceptance_criteria": [
+        ".ananta/agent-profile.json wird im OpenCode-Workspace erzeugt.",
+        "context-index.md listet .ananta/agent-profile.json nach AGENTS.md oder task-brief.md.",
+        "Manifest enthaelt agent_profile_path und active_agent_profile.",
+        "Die Datei enthaelt keine kompletten langen AGENTS.md-Inhalte, sondern Metadaten und Checksums.",
+        "Bei Profil-Fallback ist fallback_reason gesetzt."
+      ]
+    },
+    {
+      "id": "APRL-009",
+      "title": "OpenCode-Task-Brief referenziert aktives Profil",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2-medium",
+      "risk": "low",
+      "source_code_refs": [
+        "agent/services/worker_workspace_service.py:prepare_opencode_context_files"
+      ],
+      "description": "Task-Brief soll kurz sagen, welches Profil aktiv ist und dass AGENTS.md + context-index.md vor Planung/Ausfuehrung zu lesen sind. Das hilft besonders bei interaktiven OpenCode-Sessions.",
+      "acceptance_criteria": [
+        ".ananta/task-brief.md enthaelt eine kurze Zeile Active agent profile: <profile_id>.",
+        "Bei Root-only-Fallback steht dies sichtbar im Task-Brief.",
+        "Der Task-Brief bleibt knapp und wiederholt nicht den kompletten Profiltext.",
+        "Interactive Workspace Execution und Structured JSON Proposal behalten ihre bisherigen Arbeitsdirektiven."
+      ]
+    },
+    {
+      "id": "APRL-010",
+      "title": "InstructionLayerService bekommt AGENTS.md-Profil als Blueprint-/Role-Layer",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "high",
+      "source_code_refs": [
+        "agent/services/instruction_layer_service.py:assemble_for_task",
+        "agent/services/task_template_resolution.py"
+      ],
+      "description": "Fuer ananta-worker und generische Propose-Orchestrierung soll das aktive AGENTS.md-Profil nicht nur in OpenCode-Workspace-Dateien existieren, sondern als nicht-user-ueberschreibbarer Rollen-/Template-Layer in den Instruction Stack eingehen.",
+      "acceptance_criteria": [
+        "assemble_for_task laedt oder erhaelt active_agent_profile fuer den Task.",
+        "Der Profiltext wird als eigener Layer z.B. agent_profile oder blueprint_template_profile aufgenommen.",
+        "User Profile und Task Overlay duerfen diesen Layer nicht aufheben.",
+        "Diagnostics zeigen applied_layers inklusive agent_profile mit profile_id und agents_file.",
+        "Bestehende UserInstructionProfile-/Overlay-Logik bleibt kompatibel.",
+        "Wenn task_role_template und agent_profile beide existieren, ist die Reihenfolge eindeutig dokumentiert."
+      ]
+    },
+    {
+      "id": "APRL-011",
+      "title": "ProposeContext mit aktivem Agent-Profil erweitern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "medium",
+      "source_code_refs": [
+        "agent/services/task_scoped_execution_service.py:propose_task_step",
+        "worker/core/propose_orchestrator.py",
+        "worker/core/propose.py"
+      ],
+      "description": "ProposeContext soll das aktive Profil strukturiert enthalten, damit Strategien und Fallbacks nicht nur einen zusammengeklatschten Prompt sehen. Das Profil soll auch in result.metadata persistiert werden.",
+      "acceptance_criteria": [
+        "ProposeContext enthaelt active_agent_profile oder agent_profile_metadata.",
+        "result.metadata enthaelt active_agent_profile fuer API-Antwort und last_proposal.",
+        "Fallback-CLI-Propose bekommt den gerenderten Systemprompt inklusive Profil oder eine klare Profil-Datei im Workspace.",
+        "Nicht-executable Proposals behalten Profil-Metadaten fuer Diagnose.",
+        "Keine Strategie darf Profil-Metadaten verwenden, um Policy/Approval zu umgehen."
+      ]
+    },
+    {
+      "id": "APRL-012",
+      "title": "ContextBundle um active_agent_profile erweitern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "medium",
+      "source_code_refs": [
+        "agent/services/context_bundle_service.py",
+        "agent/services/context_delivery_service.py",
+        "agent/models.py"
+      ],
+      "description": "ContextBundles sollen nicht nur Chunks, Sources und Retrieval Trace enthalten, sondern auch welches Agentenprofil fuer diese Ausfuehrung aktiv ist. Damit wird spaeter auch der CodeCompass-Datei-Handoff sauber profilabhaengig steuerbar.",
+      "acceptance_criteria": [
+        "ContextBundle-Schema akzeptiert active_agent_profile als Metadatenblock.",
+        "active_agent_profile enthaelt profile_id, role, agents_file, checksum, activation_source.",
+        "Bestehende Bundles ohne dieses Feld bleiben gueltig.",
+        "Context Delivery kann das Profil an Worker-Kontext weiterreichen.",
+        "Tests pruefen Rueckwaertskompatibilitaet fuer alte worker_context_bundle.v1 Payloads."
+      ]
+    },
+    {
+      "id": "APRL-013",
+      "title": "Propose/Execute-Loop nutzt Profil konsistent ueber mehrere Schritte",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "medium",
+      "source_code_refs": [
+        "agent/services/task_scoped_execution_service.py",
+        "worker/core/propose_orchestrator.py"
+      ],
+      "description": "Wenn ein Task mehrfach propose -> execute -> propose laeuft, darf das Profil nicht zufaellig wechseln. Es soll aus Task-State/Template stabil rekonstruiert oder im Task-State diagnostisch referenziert werden.",
+      "acceptance_criteria": [
+        "Zwei aufeinanderfolgende propose-Aufrufe fuer denselben Task verwenden dasselbe aktive Profil, solange Task-Mode/Template nicht geaendert wurde.",
+        "execute speichert relevante Profil-Metadaten im Task-Verifikations-/Runtime-State oder laesst sie rekonstruierbar.",
+        "Wenn ein Profilwechsel bewusst erfolgt, wird dies als diagnostics event sichtbar.",
+        "Tests decken propose -> execute -> propose mit stabilem Profil ab.",
+        "Loop-Endzustaende done/blocked/needs_user_review/max_steps bleiben unveraendert."
+      ]
+    },
+    {
+      "id": "APRL-014",
+      "title": "AI-Snake-Chat-Profil nur fuer Erklaeren/Navigieren aktivieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "medium",
+      "source_code_refs": [
+        "client_surfaces/operator_tui/AGENTS.md",
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "agent/routes/codecompass_graph.py"
+      ],
+      "description": "AI-Snake-Chat soll sein eigenes Profil nutzen: Architekt/Fullstack-Erklaerer des Ananta-Projekts, der Kontext nachladen kann. Standardverhalten: erklaeren, navigieren, Quellen nennen; keine Codeaenderung ohne klare User-Anforderung und dann nur ueber Hub/Task/Worker.",
+      "acceptance_criteria": [
+        "Snake-Chat bekommt oder referenziert client_surfaces/operator_tui/AGENTS.md als aktives Profil.",
+        "Normale Snake-Fragen erzeugen keine Implementierungsaktion und keinen direkten Workspace-Patch.",
+        "Bei fehlenden Daten darf Snake Kontext ueber Hub/CodeCompass anfordern, aber nicht direkt unkontrolliert Dateien lesen.",
+        "Wenn User Codeaenderung verlangt, wird ein Task/Worker-Pfad vorgeschlagen oder gestartet, statt dass Snake selbst Code aendert.",
+        "Tests pruefen: Erklaerfrage bleibt explain-only; Implementierungsfrage wird an Hub/Task/Worker abgegeben."
+      ]
+    },
+    {
+      "id": "APRL-015",
+      "title": "CodeCompass-Handoff respektiert aktives Profil",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "medium",
+      "source_code_refs": [
+        "agent/services/codecompass_output_reader.py",
+        "agent/routes/codecompass_graph.py",
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "agent/services/context_bundle_service.py"
+      ],
+      "description": "CodeCompass ist Suchindex, nicht Wahrheit. Je nach aktivem Profil sollen unterschiedliche Retrieval-/Handoff-Regeln greifen: Snake erklaert und fordert ggf. Kontext an; Implementierungsworker brauchen CandidateFiles/ContextFiles und muessen Originaldateien lesen/verifizieren.",
+      "acceptance_criteria": [
+        "Profil-Metadaten koennen in CodeCompass-/ContextBundle-Retrieval einfliessen.",
+        "AI-Snake-Chat nutzt kompakte erklaerende Hints und Datei-Referenzen, keine direkte Patch-Autoritaet.",
+        "Implementierungsprofile koennen CandidateFiles fuer Worker-Handoff markieren.",
+        "Originaldateien bleiben als autoritative Quelle gekennzeichnet.",
+        "Tests pruefen, dass graph_nodes/graph_edges/embedding nicht als alleinige Wahrheit fuer Codeaenderungen behandelt werden."
+      ]
+    },
+    {
+      "id": "APRL-016",
+      "title": "WorkerContextRequest mit Profil- und Policy-Kontext verbinden",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "high",
+      "source_code_refs": [
+        "agent/services/context_delivery_service.py",
+        "agent/services/workspace_context_policy.py",
+        "worker/core/tool_registry.py"
+      ],
+      "description": "Wenn Worker weitere Dateien oder Graph-Kontext nachfordern, muss das aktive Profil sichtbar sein. Ein repo_analysis-Profil darf z.B. Analysekontext anfordern, waehrend bug_fix gezielt Reproduktion/Ursache/Test-Dateien braucht. Policy bleibt beim Hub.",
+      "acceptance_criteria": [
+        "Kontext-Nachforderungen enthalten task_id und active_agent_profile metadata.",
+        "Hub entscheidet anhand Profil + WorkspaceContextPolicy + Sensitivity, welche Dateien geliefert werden duerfen.",
+        "Worker bekommt keine Moeglichkeit, Profil-Regeln durch eigene Anfrage zu ueberschreiben.",
+        "Nachgeladene ContextFiles enthalten provenance, reason, score und source_index.",
+        "Tests pruefen erlaubte und abgelehnte Nachforderungen fuer mindestens zwei Profile."
+      ]
+    },
+    {
+      "id": "APRL-017",
+      "title": "Unit-Tests fuer AgentProfileService schreiben",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0-critical",
+      "risk": "low",
+      "source_code_refs": [
+        "tests/test_agent_profile_service.py",
+        "docs/agent-profiles/profile-map.json"
+      ],
+      "description": "Der Loader braucht solide Unit-Tests, weil falsche Profilwahl spaeter schwer zu debuggen ist.",
+      "acceptance_criteria": [
+        "Test: new_software_project Template-ID laedt docs/agent-profiles/new_software_project/AGENTS.md.",
+        "Test: ai_snake_chat laedt client_surfaces/operator_tui/AGENTS.md.",
+        "Test: unbekannter Pfad faellt deterministisch auf Root-only zurueck.",
+        "Test: Path Traversal oder externe agents_file-Pfade werden abgelehnt.",
+        "Test: Diagnostics enthalten activation_source und checksums.",
+        "Test: Mehrdeutige Aktivierung erzeugt Warnung oder deterministische Prioritaet."
+      ]
+    },
+    {
+      "id": "APRL-018",
+      "title": "OpenCode Workspace-Tests fuer komponierte AGENTS.md erweitern",
+      "type": "test",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "low",
+      "source_code_refs": [
+        "tests/test_e2e_workspace_artifact_flow.py",
+        "agent/services/worker_workspace_service.py"
+      ],
+      "description": "Die bestehenden Workspace-Tests sollen pruefen, dass OpenCode nicht nur irgendeine AGENTS.md bekommt, sondern die richtige komponierte AGENTS.md inklusive Profil.",
+      "acceptance_criteria": [
+        "Test erzeugt Task mit new_software_project-Profil und prueft Workspace-AGENTS.md Inhalt.",
+        "Test prueft, dass Container-Constraints weiterhin enthalten sind.",
+        "Test prueft .ananta/agent-profile.json und Manifest-Key agent_profile_path.",
+        "Test prueft context-index.md enthaelt AGENTS.md und agent-profile.json.",
+        "Bestehende Workspace-Isolation- und Artifact-Injection-Tests bleiben gruen."
+      ]
+    },
+    {
+      "id": "APRL-019",
+      "title": "Propose/Instruction-Stack-Tests fuer aktive Profile schreiben",
+      "type": "test",
+      "status": "todo",
+      "priority": "P1-high",
+      "risk": "medium",
+      "source_code_refs": [
+        "tests/test_task_endpoints.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/instruction_layer_service.py"
+      ],
+      "description": "Tests muessen sicherstellen, dass ananta-worker/Propose nicht am Profil-System vorbei laeuft.",
+      "acceptance_criteria": [
+        "Test fuer propose_task_step zeigt active_agent_profile in result.metadata oder persisted last_proposal metadata.",
+        "Test fuer InstructionLayerService zeigt agent_profile Layer in applied_layers.",
+        "Test zeigt, dass User-Overlay den agent_profile Layer nicht unterdruecken kann.",
+        "Test fuer bug_fix/refactor zeigt unterschiedliche aktive Profile bei unterschiedlichen task_kind/template_id.",
+        "Test fuer alten Task ohne Profil bleibt kompatibel."
+      ]
+    },
+    {
+      "id": "APRL-020",
+      "title": "Dokumentation und Migration aktualisieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P2-medium",
+      "risk": "low",
+      "source_code_refs": [
+        "docs/agent-profiles/README.md",
+        "docs/architecture/planning-template-inventory.md",
+        "docs/golden-path-cli.md"
+      ],
+      "description": "Die Dokumentation soll danach klar sagen: Profile sind runtime-aktiv, nicht nur Doku. Ausserdem muss beschrieben sein, wie neue Standardpfade Profile bekommen.",
+      "acceptance_criteria": [
+        "README erklaert Loader-Reihenfolge und Fallbacks.",
+        "planning-template-inventory markiert Profile nicht mehr als nur pending, sondern als runtime-target oder runtime-active nach Implementierung.",
+        "Doku beschreibt, wie ein neuer Standardpfad ein eigenes docs/agent-profiles/<id>/AGENTS.md und profile-map.json Entry bekommt.",
+        "Doku zeigt ein Beispiel fuer new_software_project und eins fuer AI-Snake-Chat.",
+        "Doku nennt explizit: Profile duerfen Root-AGENTS.md nicht abschwaechen."
+      ]
+    },
+    {
+      "id": "APRL-021",
+      "title": "Validierungs-Script fuer Profil-Matrix einfuehren",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "P2-medium",
+      "risk": "low",
+      "source_code_refs": [
+        "scripts/",
+        "docs/agent-profiles/profile-map.json",
+        "docs/agent-profiles/*/AGENTS.md"
+      ],
+      "description": "Ein kleines Script soll CI-/lokal pruefen, ob alle profile-map Eintraege auf existierende Dateien zeigen und ob Standardpfade aus der Template-Inventur abgedeckt sind.",
+      "acceptance_criteria": [
+        "Script validiert profile-map.json Syntax und Datei-Existenz.",
+        "Script erkennt fehlende AGENTS.md-Dateien fuer gemappte Profile.",
+        "Script erkennt verwaiste docs/agent-profiles/<id>/AGENTS.md ohne Mapping.",
+        "Script gibt klare Fehlermeldungen mit Pfad und Profil-ID aus.",
+        "Optionaler Test ruft das Script gegen den aktuellen Repo-Stand auf."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "APRL-002",
+    "APRL-003",
+    "APRL-004",
+    "APRL-005",
+    "APRL-007",
+    "APRL-010",
+    "APRL-011",
+    "APRL-017",
+    "APRL-018",
+    "APRL-019"
+  ],
+  "tasks_status_summary": {
+    "total": 21,
+    "by_status": {
+      "todo": 21,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0-critical": 6,
+      "P1-high": 11,
+      "P2-medium": 4,
+      "P3-low": 0
+    },
+    "by_risk": {
+      "low": 8,
+      "medium": 10,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 0,
+      "remaining": 10
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 21,
+    "by_type": {
+      "analysis": 1,
+      "contract": 1,
+      "implementation": 12,
+      "observability": 1,
+      "test": 3,
+      "documentation": 1,
+      "tooling": 1,
+      "contract_runtime": 1
+    }
+  },
+  "progress_summary": {
+    "state": "planned",
+    "todo_remaining": 21,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Diese Todo ersetzt keine sofortige Runtime-Aenderung, sondern beschreibt die saubere Implementierung der Profil-Verdrahtung.",
+    "OpenCode bekommt bereits eine Workspace-AGENTS.md, diese muss aber aus Root-AGENTS.md plus aktivem Standardpfad-Profil generiert werden.",
+    "ananta-worker/Propose muss das aktive Profil ueber InstructionLayer/ProposeContext/ContextBundle bekommen, nicht nur als Doku-Datei.",
+    "AI-Snake-Chat bleibt primaer Erklaer-/Navigationsagent; Codeaenderungen laufen ueber Hub/Task/Worker."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_architecture",
+      "title": "Zielarchitektur",
+      "items": [
+        "AgentProfileService liest profile-map.json und ermittelt aktives Profil deterministisch.",
+        "Root-AGENTS.md bleibt globale nicht ueberschreibbare Schicht.",
+        "docs/agent-profiles/<standardpfad>/AGENTS.md spezialisiert nur den aktiven Pfad.",
+        "OpenCode Workspace-AGENTS.md wird aus Root + Profil + Runtime-Constraints generiert.",
+        "ananta-worker bekommt das Profil ueber InstructionLayerService, ProposeContext und ContextBundle-Metadaten.",
+        "Worker-Kontextnachforderungen laufen weiterhin ueber Hub und werden profil-/policybewusst entschieden."
+      ]
+    },
+    {
+      "summary_id": "main_risks",
+      "title": "Hauptrisiken",
+      "items": [
+        "Falsches Profil kann falsches Agentenverhalten erzeugen.",
+        "Lokale Profile duerfen Root-Governance nicht abschwaechen.",
+        "AI-Snake-Chat darf nicht versehentlich zum Implementierungsagenten werden.",
+        "OpenCode und ananta-worker duerfen nicht auseinanderlaufen und verschiedene Regeln sehen.",
+        "Profilwechsel im propose/execute Loop muessen sichtbar und kontrolliert sein."
+      ]
+    }
+  ]
+}
