@@ -129,7 +129,7 @@
         "APRL-020",
         "APRL-021"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -510,7 +510,7 @@
       "id": "APRL-019",
       "title": "Propose/Instruction-Stack-Tests fuer aktive Profile schreiben",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "medium",
       "source_code_refs": [
@@ -531,7 +531,7 @@
       "id": "APRL-020",
       "title": "Dokumentation und Migration aktualisieren",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2-medium",
       "risk": "low",
       "source_code_refs": [
@@ -552,7 +552,7 @@
       "id": "APRL-021",
       "title": "Validierungs-Script fuer Profil-Matrix einfuehren",
       "type": "tooling",
-      "status": "todo",
+      "status": "done",
       "priority": "P2-medium",
       "risk": "low",
       "source_code_refs": [
@@ -585,13 +585,13 @@
   "tasks_status_summary": {
     "total": 21,
     "by_status": {
-      "todo": 3,
+      "done": 21,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 0,
-      "done": 18
+      "blocked": 0
     },
-    "progress_percent_done": 86,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0-critical": 6,
       "P1-high": 11,
@@ -606,15 +606,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 9,
-      "remaining": 1
+      "done": 10,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -631,12 +631,12 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 3,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 18
+    "done": 21
   },
   "summary_notes": [
     "Diese Todo ersetzt keine sofortige Runtime-Aenderung, sondern beschreibt die saubere Implementierung der Profil-Verdrahtung.",

@@ -1,7 +1,9 @@
-"""APRL-017: Unit tests for AgentProfileService."""
+"""APRL-017 + APRL-021: Unit tests for AgentProfileService and profile validation script."""
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -294,3 +296,71 @@ class TestProfileComposition:
         svc = AgentProfileService(repo_root=tmp_path)
         result = svc.resolve_by_profile_id("bad_profile")
         assert any("profile_conflicts_with_root" in w for w in result.warnings)
+
+
+# ---------------------------------------------------------------------------
+# APRL-021: validate_agent_profiles.py script tests
+# ---------------------------------------------------------------------------
+
+VALIDATE_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "validate_agent_profiles.py"
+
+
+class TestValidateAgentProfilesScript:
+    def test_script_exits_zero_on_current_repo(self):
+        result = subprocess.run(
+            [sys.executable, str(VALIDATE_SCRIPT)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"validate_agent_profiles.py failed on current repo:\n{result.stderr}"
+        )
+
+    def test_script_detects_missing_agents_file(self, tmp_path):
+        """main() returns 1 when an agents_file entry is missing from disk."""
+        import importlib.util
+        import unittest.mock as mock
+
+        pm = {
+            "schema": "test",
+            "global_profile": "AGENTS.md",
+            "profiles": {
+                "missing_profile": {
+                    "activation": ["missing"],
+                    "agents_file": "docs/agent-profiles/missing_profile/AGENTS.md",
+                    "primary_role": "test",
+                },
+            },
+        }
+        (tmp_path / "AGENTS.md").write_text("# Root\n", encoding="utf-8")
+        pm_dir = tmp_path / "docs" / "agent-profiles"
+        pm_dir.mkdir(parents=True, exist_ok=True)
+        (pm_dir / "profile-map.json").write_text(json.dumps(pm), encoding="utf-8")
+
+        spec = importlib.util.spec_from_file_location("validate_agent_profiles", str(VALIDATE_SCRIPT))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with mock.patch.object(mod, "REPO_ROOT", tmp_path), \
+             mock.patch.object(mod, "PROFILE_MAP_PATH", tmp_path / "docs" / "agent-profiles" / "profile-map.json"), \
+             mock.patch.object(mod, "PROFILE_DIR", tmp_path / "docs" / "agent-profiles"):
+            exit_code = mod.main()
+        assert exit_code == 1, "Script must exit 1 when agents_file is missing"
+
+    def test_script_detects_invalid_json(self, tmp_path):
+        """main() returns 1 for broken JSON in profile-map.json."""
+        import importlib.util
+        import unittest.mock as mock
+
+        (tmp_path / "AGENTS.md").write_text("# Root\n", encoding="utf-8")
+        pm_dir = tmp_path / "docs" / "agent-profiles"
+        pm_dir.mkdir(parents=True, exist_ok=True)
+        (pm_dir / "profile-map.json").write_text("NOT JSON {{{", encoding="utf-8")
+
+        spec = importlib.util.spec_from_file_location("validate_agent_profiles2", str(VALIDATE_SCRIPT))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with mock.patch.object(mod, "REPO_ROOT", tmp_path), \
+             mock.patch.object(mod, "PROFILE_MAP_PATH", tmp_path / "docs" / "agent-profiles" / "profile-map.json"), \
+             mock.patch.object(mod, "PROFILE_DIR", tmp_path / "docs" / "agent-profiles"):
+            exit_code = mod.main()
+        assert exit_code == 1, "Script must exit 1 for JSON syntax error"
