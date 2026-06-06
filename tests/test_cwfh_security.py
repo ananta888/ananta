@@ -21,6 +21,7 @@ from agent.services.context_file_reader_service import (
     ContextFileReaderService,
     FileReadPolicy,
 )
+from client_surfaces.operator_tui.tools.filesystem_read_tool import FilesystemReadTool
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -231,6 +232,34 @@ def test_two_workspaces_cannot_cross_read():
         # Attempt to read from ws2 via absolute path → traversal blocked
         with pytest.raises(ValueError, match="traversal"):
             svc.read_file(str(internal))
+
+
+def test_workspace_prefix_sibling_absolute_path_blocked():
+    with tempfile.TemporaryDirectory() as base:
+        root = Path(base) / "repo"
+        sibling = Path(base) / "repo_evil"
+        root.mkdir()
+        sibling.mkdir()
+        outside = sibling / "outside.py"
+        outside.write_text("outside = True")
+
+        svc = _service_for(str(root))
+        with pytest.raises(ValueError, match="traversal"):
+            svc.read_file(str(outside))
+
+
+def test_snakechat_filesystem_tool_prefix_sibling_absolute_path_blocked():
+    with tempfile.TemporaryDirectory() as base:
+        root = Path(base) / "repo"
+        sibling = Path(base) / "repo_evil"
+        root.mkdir()
+        sibling.mkdir()
+        outside = sibling / "outside.py"
+        outside.write_text("outside = True")
+
+        result = FilesystemReadTool(root).read_file(str(outside))
+        assert result.ok is False
+        assert result.error == "path_traversal_denied"
 
 
 def test_sha256_computed_correctly():

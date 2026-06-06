@@ -304,7 +304,7 @@
       "task_ids": [
         "ROADMAP-005"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "ROADMAP-M3",
@@ -312,7 +312,7 @@
       "task_ids": [
         "ROADMAP-006"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "ROADMAP-M4",
@@ -322,7 +322,7 @@
         "ROADMAP-008",
         "ROADMAP-009"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "ROADMAP-M5",
@@ -330,7 +330,7 @@
       "task_ids": [
         "ROADMAP-010"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "ROADMAP-M6",
@@ -468,10 +468,10 @@
       "title": "Phase 2: EPC Track vollständig abschließen (alle 20 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M2",
-      "status": "done",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 100,
+      "progress_percent": 85,
       "dependencies": [
         "ROADMAP-002"
       ],
@@ -490,6 +490,9 @@
       "test_expectations": [
         "Security-Test prüft: kein externer Call ohne external_calls_allowed=true.",
         "Secret-Test prüft: kein API-Key in Diagnostik-Logs oder Index-Dateien."
+      ],
+      "notes": [
+        "Subtrack EPC ist 17/20 abgeschlossen; RHF-002 geschlossen, EPC-019/020 bleiben offen."
       ]
     },
     {
@@ -497,10 +500,10 @@
       "title": "Phase 3: CWFH Track vollständig abschließen (alle 15 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M3",
-      "status": "done",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 100,
+      "progress_percent": 53,
       "dependencies": [
         "ROADMAP-005",
         "ROADMAP-002"
@@ -525,6 +528,9 @@
       "test_expectations": [
         "pytest tests/test_cwfh_*.py und Integration-Tests grün.",
         "Worker-v2 Payload-Tests weiterhin grün (Rückwärtskompatibilität)."
+      ],
+      "notes": [
+        "Subtrack CWFH ist 8/15 abgeschlossen; RHF-001 geschlossen, mehrere CWFH-Tasks bleiben offen."
       ]
     },
     {
@@ -595,10 +601,10 @@
       "title": "Phase 4c: AMR Track M4-M9 abschließen (Schicht-2, nach CWFH-M3)",
       "type": "track-gate",
       "milestone": "ROADMAP-M4",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "dependencies": [
         "ROADMAP-007",
         "ROADMAP-006"
@@ -629,6 +635,9 @@
       "test_expectations": [
         "AMR E2E-Test: Routing-Entscheidung mit Reason, Policy-Decisions und Blocked-Candidates in Telemetrie.",
         "Security-Test: Cloud-Model ohne erlaubte Policy wird geblockt."
+      ],
+      "notes": [
+        "AMR M4/M6 und Teile von M8 sind implementiert; RHF-003 geschlossen, AMR-018/019/022/023/024 bleiben offen."
       ]
     },
     {
@@ -636,10 +645,10 @@
       "title": "Phase 5: SCTR Track vollständig abschließen (alle 8 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M5",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 62.5,
       "dependencies": [
         "ROADMAP-004",
         "ROADMAP-005",
@@ -672,6 +681,10 @@
         "Test: list_root_files läuft ohne LLM-Call.",
         "Test: bekannter Intent löst kein RAG aus.",
         "Security-Test: kein Pfad außerhalb Projektroot, keine .env-Leak."
+      ],
+      "notes": [
+        "SCTR-001..004 sind implementiert; RHF-001 geschlossen, SCTR-005..008 bleiben offen.",
+        "SCTR-005 am 2026-06-06 implementiert; SCTR steht jetzt bei 5/8 Tasks, SCTR-006..008 bleiben offen."
       ]
     },
     {
@@ -758,33 +771,31 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 8,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 4,
       "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 6
     },
-    "progress_percent_done": 33.3,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 10,
-      "P1": 2,
-      "P2": 0,
-      "P3": 0
+      "P1": 2
     },
     "by_risk": {
+      "high": 7,
       "low": 2,
-      "medium": 4,
-      "high": 6
+      "medium": 3
     },
     "critical_path": {
       "total": 10,
-      "done": 4,
-      "remaining": 6
+      "done": 5,
+      "remaining": 5
     },
     "milestones": {
       "total": 6,
-      "todo": 5,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 4,
       "blocked": 0,
       "done": 1
     }
@@ -794,58 +805,30 @@
     "by_type": {
       "architecture-analysis": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "track-gate": {
-        "total": 7,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 7,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "track-partial-gate": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "backend-refactor": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "backend-test": {
@@ -853,7 +836,7 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -867,7 +850,7 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -875,16 +858,46 @@
           "blocked": 0,
           "done": 0
         }
+      },
+      "track-gate": {
+        "total": 7,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 80.1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 4,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "track-partial-gate": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 8,
-    "in_progress": 0,
+    "todo_remaining": 2,
+    "in_progress": 4,
     "partial": 0,
     "blocked": 0,
-    "done": 4
+    "done": 6,
+    "total": 12,
+    "progress_percent": 50.0
   },
   "summary_notes": [
     "Diese Master-Datei ist kein weiterer Feature-Track, sondern der Navigationsanker für alle 7 Sub-Tracks.",
@@ -893,7 +906,11 @@
     "Phase 5 (SCTR) ist bewusst zuletzt: es integriert Ergebnisse aus allen vier vorherigen Phasen.",
     "Alle Sub-Track-Dateien wurden mit cross_track_dependencies-Feldern ergänzt (separate Korrekturdateien).",
     "87 Tasks gesamt: RCFG(9) + RTS(8) + EPC(20) + CWFH(15) + AMR(24) + MPM(3) + SCTR(8) = 87.",
-    "Phase 1 (RCFG+RTS) abgeschlossen 2026-06-06: rag_query_normalizer.py erstellt, DE↔EN Expansion, Retrieval-Integration, alle Settings in agent/config.py und .env.example, 31 Tests grün."
+    "Phase 1 (RCFG+RTS) abgeschlossen 2026-06-06: rag_query_normalizer.py erstellt, DE↔EN Expansion, Retrieval-Integration, alle Settings in agent/config.py und .env.example, 31 Tests grün.",
+    "Review-Hardening-Track ergänzt: todos/todo.review-hardening-findings-2026-06-06.json.",
+    "Roadmap-Gates ROADMAP-005/006 wurden von done auf in_progress korrigiert, weil die Subtrack-Dateien noch offene Tasks ausweisen.",
+    "RHF-001/RHF-002/RHF-003 am 2026-06-06 umgesetzt und mit fokussierten Regressionstests abgesichert.",
+    "SCTR-005 am 2026-06-06 implementiert; SCTR steht jetzt bei 5/8 Tasks, SCTR-006..008 bleiben offen."
   ],
   "end_summaries": [
     {
@@ -918,6 +935,13 @@
         "SCTR erst wenn AMR-M6 (Security Enforcement) done ist — PolicyGuard ist Pflicht.",
         "EPC-003 (Default-Deny externe Embedding-Calls) ist harter Sicherheits-Gate für alle folgenden Phasen."
       ]
+    }
+  ],
+  "review_hardening_tracks": [
+    {
+      "file": "todos/todo.review-hardening-findings-2026-06-06.json",
+      "summary": "Review-Befunde aus den letzten Commits: Workspace-Prefix-Bypass, Embedding-Allowlist-Bypass und Provider-Health-Precedence.",
+      "status": "in_progress"
     }
   ]
 }

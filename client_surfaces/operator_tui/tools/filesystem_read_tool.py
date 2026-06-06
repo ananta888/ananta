@@ -64,7 +64,7 @@ class FilesystemReadTool:
     def _safe_resolve(self, relative_path: str) -> Path | None:
         """Resolve path within workspace; return None on traversal."""
         candidate = (self._root / relative_path).resolve()
-        if not str(candidate).startswith(str(self._root)):
+        if not candidate.is_relative_to(self._root):
             return None
         return candidate
 

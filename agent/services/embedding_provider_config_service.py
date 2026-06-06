@@ -15,6 +15,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 ALLOWED_PROVIDERS = frozenset({
     "fake", "test", "local", "local_hash", "hash",
@@ -214,20 +215,56 @@ class EmbeddingProviderConfigService:
         return cfg
 
     @staticmethod
+    def _base_url_allowed(base_url: str, allowed_base_urls: list[str]) -> bool:
+        """Allow exact URL origins, with optional path prefix bounded on path segments."""
+        candidate = urlparse(str(base_url or "").rstrip("/"))
+        if not candidate.scheme or not candidate.netloc:
+            return False
+        candidate_path = (candidate.path or "").rstrip("/")
+        for raw_allowed in allowed_base_urls:
+            allowed = urlparse(str(raw_allowed or "").rstrip("/"))
+            if not allowed.scheme or not allowed.netloc:
+                continue
+            if candidate.scheme.lower() != allowed.scheme.lower():
+                continue
+            if candidate.hostname != allowed.hostname:
+                continue
+            if (candidate.port or _default_url_port(candidate.scheme)) != (
+                allowed.port or _default_url_port(allowed.scheme)
+            ):
+                continue
+            allowed_path = (allowed.path or "").rstrip("/")
+            if not allowed_path:
+                return True
+            if candidate_path == allowed_path or candidate_path.startswith(f"{allowed_path}/"):
+                return True
+        return False
+
+    @staticmethod
     def _check_security(cfg: EmbeddingProviderConfig) -> tuple[ProviderStatus, str]:
         """Return (status, reason) for diagnostics."""
         is_external = cfg.provider in {"openai", "openai_compatible"}
         if is_external and not cfg.external_calls_allowed:
             return "blocked", "external_calls_not_allowed"
         if is_external and cfg.allowed_base_urls and cfg.base_url:
-            url = str(cfg.base_url).rstrip("/")
-            if not any(url.startswith(allowed.rstrip("/")) for allowed in cfg.allowed_base_urls):
+            if not EmbeddingProviderConfigService._base_url_allowed(
+                cfg.base_url,
+                cfg.allowed_base_urls,
+            ):
                 return "blocked", "base_url_not_in_allowed_list"
         if is_external and not cfg.base_url:
             return "degraded", "missing_base_url"
         if cfg.provider in {"fake", "test"}:
             return "degraded", "fake_provider_not_for_production"
         return "ready", ""
+
+
+def _default_url_port(scheme: str) -> int | None:
+    if scheme.lower() == "http":
+        return 80
+    if scheme.lower() == "https":
+        return 443
+    return None
 
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import pytest
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import (
     ModelProfileResolver,
+    ProviderHealthCache,
     RoutingContext,
     RoutingRules,
     SecurityPolicyChecker,
@@ -173,6 +174,39 @@ def test_task_override_takes_precedence_over_role():
     result = resolver.resolve(ctx)
     assert result.profile.profile_id == "p-review"
     assert result.final_source == "task_override_map"
+
+
+def test_explicit_rule_skips_unhealthy_provider():
+    cache = ProviderHealthCache()
+    cache.mark_unavailable("ollama")
+    rules = RoutingRules(
+        global_profile_id="p-ollama",
+        fallback_chain=["p-lmstudio"],
+    )
+    p_ollama = _local("p-ollama")
+    p_lmstudio = ModelProfile(
+        profile_id="p-lmstudio",
+        provider_id="lmstudio",
+        model="m",
+        local=True,
+        cloud=False,
+        cloud_allowed=False,
+        block_secret_context=False,
+    )
+    resolver = ModelProfileResolver(
+        profiles=[p_ollama, p_lmstudio],
+        routing_rules=rules,
+        health_cache=cache,
+    )
+
+    result = resolver.resolve(RoutingContext())
+
+    assert result.ok
+    assert result.profile.profile_id == "p-lmstudio"
+    assert any(
+        d.profile_id == "p-ollama" and d.reason == "provider_health:unavailable:ollama"
+        for d in result.decisions
+    )
 
 
 # ── rank 11: fallback chain ───────────────────────────────────────────────────

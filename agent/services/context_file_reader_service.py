@@ -80,7 +80,7 @@ class ContextFileReaderService:
     def _resolve_safe(self, relative_path: str) -> Path:
         root = Path(str(self._policy.workspace_root or "")).resolve()
         candidate = (root / relative_path).resolve()
-        if root.parts and not str(candidate).startswith(str(root)):
+        if root.parts and not candidate.is_relative_to(root):
             raise ValueError(f"Path traversal blocked: {relative_path!r}")
         return candidate
 

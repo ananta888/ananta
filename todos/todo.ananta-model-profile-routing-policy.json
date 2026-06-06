@@ -102,7 +102,7 @@
         "AMR-014",
         "AMR-015"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M6",
@@ -130,7 +130,7 @@
         "AMR-021",
         "AMR-022"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M9",
@@ -682,7 +682,9 @@
         "Mock-Test prüft max_total_attempts.",
         "Mock-Test prüft llm_call_profile mit Primary-Fehler und Fallback-Erfolg."
       ],
-      "notes": []
+      "notes": [
+        "RHF-003: Provider-Health gilt seit 2026-06-06 auch für explizite Routing-Regeln."
+      ]
     },
     {
       "id": "AMR-018",
@@ -938,7 +940,7 @@
       "blocked": 0,
       "done": 18
     },
-    "progress_percent_done": 75,
+    "progress_percent_done": 75.0,
     "by_priority": {
       "P0": 13,
       "P1": 8,
@@ -946,9 +948,21 @@
       "P3": 1
     },
     "by_risk": {
+      "high": 4,
       "low": 3,
-      "medium": 17,
-      "high": 4
+      "medium": 17
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 10,
+      "remaining": 1
+    },
+    "milestones": {
+      "total": 9,
+      "todo": 2,
+      "in_progress": 2,
+      "blocked": 0,
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -956,150 +970,94 @@
     "by_type": {
       "analysis": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "architecture": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "schema": {
-        "total": 2,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 2,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "config": {
-        "total": 2,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 2,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "backend": {
-        "total": 8,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 8,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "blueprint": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "api": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "backend": {
+        "total": 8,
+        "done": 7,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 87.5,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 7
         }
       },
-      "frontend": {
+      "blueprint": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
-      "security": {
-        "total": 1,
-        "done": 0,
+      "config": {
+        "total": 2,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
-      "worker": {
+      "docs": {
         "total": 1,
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "migration": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1110,24 +1068,24 @@
       },
       "e2e": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
-      "docs": {
+      "frontend": {
         "total": 1,
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1141,7 +1099,7 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1150,12 +1108,68 @@
           "done": 0
         }
       },
+      "migration": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
       "review": {
         "total": 1,
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "schema": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "security": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "worker": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1167,14 +1181,14 @@
     }
   },
   "progress_summary": {
-    "state": "mostly_done",
+    "state": "in_progress",
     "todo_remaining": 6,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
     "done": 18,
     "total": 24,
-    "progress_percent": 75
+    "progress_percent": 75.0
   },
   "summary_notes": [
     "Diese TODO-Datei ist bewusst umfangreich, weil das Modellrouting ein Kernstück von Ananta wird und nicht nur eine DEFAULT_MODEL-Erweiterung ist.",
