@@ -258,3 +258,83 @@ def test_no_height_limit_returns_full_content():
     # Alle 60 Zeilen der langen Antwort müssen sichtbar sein
     assert "Zeile 59" in plain, "Alle Zeilen bei height=None sichtbar"
     assert "Zeilen" not in plain, "Kein Scroll-Indicator bei height=None"
+
+
+# ---------------------------------------------------------------------------
+# _copy_ask_answer_to_game: stale mouse_selection_range must not affect :ask copy
+# ---------------------------------------------------------------------------
+
+class _MinimalCopyHost:
+    """Minimal stub to exercise _copy_ask_answer_to_game and _clear_selection_state."""
+
+    def _copy_to_clipboard_bg(self, text: str) -> None:
+        self._last_clipboard = text
+
+    def _copy_to_system_clipboard(self, text: str) -> bool:
+        return True
+
+    _last_clipboard: str = ""
+
+    from client_surfaces.operator_tui.snake_ops_mixin import SnakeOpsMixin
+    _copy_ask_answer_to_game = SnakeOpsMixin._copy_ask_answer_to_game
+    _clear_selection_state = SnakeOpsMixin._clear_selection_state
+
+
+def _make_ask_game_with_stale_range(question: str, answer: str) -> dict:
+    return {
+        "tutor_ask_question": question,
+        "chat_state": {
+            "active_channel": "room:main",
+            "channels": {
+                "room:main": {
+                    "channel_id": "room:main",
+                    "messages": [
+                        {"sender_kind": "user", "sender_id": "user", "text": question},
+                        {"sender_kind": "ai", "sender_id": "AI-Snake", "text": answer},
+                    ],
+                }
+            },
+        },
+        # Stale drag range left over from a previous selection
+        "mouse_selection_range": {"start_x": 0, "start_y": 5, "end_x": 80, "end_y": 12, "mode": "linear"},
+        "mouse_selection_committed_ranges": [],
+        "mouse_selection_active": False,
+    }
+
+
+def test_copy_ask_answer_preserves_spaces():
+    answer = "CodeCompass ist der Retrieval-Service in Ananta."
+    game = _make_ask_game_with_stale_range("Was ist CodeCompass?", answer)
+    host = _MinimalCopyHost()
+    host._copy_ask_answer_to_game(game)
+    assert "CodeCompass ist der Retrieval-Service" in host._last_clipboard, (
+        "Spaces must be preserved in clipboard text"
+    )
+    assert "CodeCompassist" not in host._last_clipboard
+
+
+def test_copy_ask_answer_includes_question_echo():
+    answer = "Kurze Antwort."
+    game = _make_ask_game_with_stale_range("Meine Frage?", answer)
+    host = _MinimalCopyHost()
+    host._copy_ask_answer_to_game(game)
+    assert "Frage: Meine Frage?" in host._last_clipboard
+
+
+def test_clear_selection_state_resets_all_fields():
+    game: dict = {
+        "mouse_selection_range": {"start_x": 0, "start_y": 5, "end_x": 80, "end_y": 12, "mode": "linear"},
+        "mouse_selection_committed_ranges": [{"start_x": 0, "start_y": 1, "end_x": 20, "end_y": 2, "mode": "linear"}],
+        "mouse_selection_active": True,
+        "mouse_selection_dragged": True,
+        "selection_cells": [(1, 2), (3, 4)],
+        "selection_regions": [(0, 1, 20, 2)],
+        "selection_anchor": (0, 5),
+    }
+    host = _MinimalCopyHost()
+    host._clear_selection_state(game)
+    assert game["mouse_selection_range"] is None
+    assert game["mouse_selection_committed_ranges"] == []
+    assert game["mouse_selection_active"] is False
+    assert game["selection_cells"] == []
+    assert game["selection_regions"] == []
