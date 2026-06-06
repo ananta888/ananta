@@ -1,0 +1,631 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-relevant-snippet-handoff",
+  "created": "2026-06-06",
+  "status": "todo",
+  "purpose": "CodeCompass soll fuer ananta-worker nicht nur relevante Dateien liefern, sondern bevorzugt konkrete relevante Abschnitte, Symbole und Snippets an den Prompt-/Worker-Kontext uebergeben.",
+  "goal": "Der aktuelle Dateifallback in agent/common/sgpt.py wird zu einem priorisierten Kontext-Handoff erweitert: CodeCompass-Snippets > Line-Ranges aus Dateien > gezielte Symbol-/Chunk-Auschnitte > gekuerzte ganze Datei > hub-context.md. Dadurch wird der Worker praeziser, billiger und weniger prompt-muell-anfaellig.",
+  "source_review": {
+    "summary": "Der aktuelle Commit-Stand nutzt in agent/common/sgpt.py zwar rag_helper/research-context.json und repo_scope_refs, wertet aber primaer nur path aus und liest dann den Dateianfang bis per_file_chars. ResearchContextBridgeService kann fuer indexierte Repo-Pfade bereits chunks erzeugen, rendert diese jedoch nicht vollstaendig in den Repo-Kontext und sgpt.py konsumiert sie nicht. Tests existieren fuer SGPT-Routen und Research-Context-Bridge, aber noch nicht fuer snippet-/line-range-basiertes ananta-worker-Handoff.",
+    "observed_source_files": [
+      {
+        "path": "agent/common/sgpt.py",
+        "observations": [
+          "_load_source_file_batches liest rag_helper/research-context.json und nutzt repo_scope_refs.",
+          "Aktuell wird pro ref nur path robust ausgewertet; start_line/end_line/chunks/snippet/symbol werden nicht verarbeitet.",
+          "Dateien werden ueber settings.rag_repo_root aufgeloest und per relative_to gegen Path-Traversal abgesichert.",
+          "content = raw[:per_file_chars] liest den Dateianfang, nicht zwingend den relevanten Abschnitt.",
+          "_run_ananta_worker_iterative verarbeitet Batches, schreibt progress.md und erzeugt eine finale Synthese. Diese Mechanik soll erhalten bleiben."
+        ]
+      },
+      {
+        "path": "agent/services/research_context_bridge_service.py",
+        "observations": [
+          "_repo_scope_context kann bei completed repo_path index retrieval.search(...) aufrufen und chunks mit source/content/score erzeugen.",
+          "_render_prompt_section rendert bei repo_scopes bisher excerpt und entries, aber keine chunks aus indexed repo scopes.",
+          "build_context gibt repo_scope_refs und repo_scopes im ResearchContextSummaryContract zurueck; dies ist der naheliegende Vertrag fuer snippet metadata."
+        ]
+      },
+      {
+        "path": "tests/test_sgpt_route.py",
+        "observations": [
+          "SGPT-Route-Tests existieren, decken aber nicht _load_source_file_batches oder iterative ananta-worker Kontextauswahl ab."
+        ]
+      },
+      {
+        "path": "tests/test_deerflow_integration.py",
+        "observations": [
+          "test_task_propose_attaches_research_context_bridge prueft bereits, dass Research-Kontext in Prompts gelangt. Er prueft aber keine repo_scope chunks oder Line-Ranges."
+        ]
+      },
+      {
+        "path": "agent/config.py",
+        "observations": [
+          "settings.rag_repo_root ist bereits der zentrale Root fuer sichere Source-Aufloesung in sgpt.py. Fuer neue Grenzwerte sollten Settings oder AGENT_CONFIG genutzt werden statt neue harte Defaults zu verteilen."
+        ]
+      }
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "design_decisions": [
+    {
+      "id": "CCSH-DD-001",
+      "decision": "Snippet-/Line-Range-Kontext hat Vorrang vor ganzer Datei.",
+      "rationale": "CodeCompass kennt im Idealfall bereits den relevanten Ausschnitt. Der Worker soll nicht raten muessen und nicht mit Dateianfaengen geflutet werden."
+    },
+    {
+      "id": "CCSH-DD-002",
+      "decision": "Ganze Dateien bleiben als Fallback erhalten.",
+      "rationale": "Aktuelle research-context.json Dateien koennen weiterhin nur path enthalten. Rueckwaertskompatibilitaet darf nicht brechen."
+    },
+    {
+      "id": "CCSH-DD-003",
+      "decision": "Line-Ranges werden immer mit konfigurierbarem Kontextfenster geladen.",
+      "rationale": "Exakte Chunk-Grenzen enthalten oft nicht Imports, Decorators, Klassendefinitionen oder direkt angrenzende Fehlerursachen."
+    },
+    {
+      "id": "CCSH-DD-004",
+      "decision": "Snippets duerfen genutzt werden, aber Datei+Line-Range kann optional gegen den aktuellen Workspace verifiziert werden.",
+      "rationale": "Direkt gelieferte Snippets sind schnell, koennen aber stale sein. Wenn path+range vorhanden ist, ist Nachladen aus rag_repo_root robuster."
+    },
+    {
+      "id": "CCSH-DD-005",
+      "decision": "Security-Grenze bleibt rag_repo_root plus relative_to/is_relative_to.",
+      "rationale": "Kein CodeCompass-Ref darf Dateien ausserhalb des erlaubten Repo-Roots nachladen, auch nicht mit absoluten Pfaden oder ../."
+    }
+  ],
+  "context_contract_target": {
+    "description": "Erweiterter kompatibler Eintrag fuer research-context.json repo_scope_refs oder repo_scopes chunks.",
+    "example": {
+      "path": "agent/common/sgpt.py",
+      "ref": "HEAD",
+      "symbol": "_load_source_file_batches",
+      "start_line": 573,
+      "end_line": 648,
+      "score": 0.91,
+      "reason": "Loads CodeCompass repo_scope_refs and assembles ananta-worker context batches.",
+      "snippet": "def _load_source_file_batches(...):\n    ...",
+      "metadata": {
+        "source_scope": "repo_path",
+        "chunk_id": "agent/common/sgpt.py:573-648",
+        "retrieval_query": "CodeCompass relevant file batches for ananta-worker"
+      }
+    },
+    "accepted_aliases": {
+      "start_line": [
+        "start_line",
+        "line_start",
+        "start",
+        "from_line"
+      ],
+      "end_line": [
+        "end_line",
+        "line_end",
+        "end",
+        "to_line"
+      ],
+      "snippet": [
+        "snippet",
+        "content",
+        "excerpt"
+      ]
+    }
+  },
+  "milestones": [
+    {
+      "id": "CCSH-M1",
+      "title": "Bestehenden Kontextfluss sichtbar und testbar machen",
+      "status": "todo",
+      "task_ids": [
+        "CCSH-001",
+        "CCSH-002",
+        "CCSH-003"
+      ]
+    },
+    {
+      "id": "CCSH-M2",
+      "title": "Snippet-/Line-Range-Handoff in sgpt.py implementieren",
+      "status": "todo",
+      "task_ids": [
+        "CCSH-004",
+        "CCSH-005",
+        "CCSH-006",
+        "CCSH-007"
+      ]
+    },
+    {
+      "id": "CCSH-M3",
+      "title": "ResearchContextBridge und CodeCompass-Export um Chunks erweitern",
+      "status": "todo",
+      "task_ids": [
+        "CCSH-008",
+        "CCSH-009",
+        "CCSH-010"
+      ]
+    },
+    {
+      "id": "CCSH-M4",
+      "title": "Tests, Regressionen und Dokumentation abschliessen",
+      "status": "todo",
+      "task_ids": [
+        "CCSH-011",
+        "CCSH-012",
+        "CCSH-013",
+        "CCSH-014"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCSH-001",
+      "title": "Ist-Vertrag von research-context.json und repo_scope_refs dokumentieren",
+      "type": "analysis-documentation",
+      "milestone": "CCSH-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "agent/services/research_context_bridge_service.py",
+        "docs/codecompass-relevant-snippet-handoff.md"
+      ],
+      "problem": "sgpt.py erwartet aktuell repo_scope_refs mit path. Unklar dokumentiert ist, ob CodeCompass bereits start_line/end_line/chunks/snippet/symbol liefern darf oder soll.",
+      "implementation_notes": [
+        "Dokumentiere den aktuellen Minimalvertrag: repo_scope_refs[].path und optional ref/url.",
+        "Dokumentiere den neuen erweiterten Vertrag mit path, symbol, start_line, end_line, score, reason, snippet, metadata.",
+        "Halte fest, dass alte research-context.json Dateien ohne Line-Ranges weiterhin gueltig bleiben."
+      ],
+      "acceptance_criteria": [
+        "docs/codecompass-relevant-snippet-handoff.md beschreibt den aktuellen Pfad-only-Fallback aus sgpt.py nachvollziehbar.",
+        "Das Dokument beschreibt den Zielvertrag fuer snippet-/line-range-basierte repo_scope_refs mit Beispiel-JSON.",
+        "Das Dokument benennt die Prioritaet: snippet oder line-range vor ganzer Datei, Datei vor hub-context.md.",
+        "Keine Runtime-Logik wird in diesem Task geaendert."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-relevant-snippet-handoff.json"
+      ]
+    },
+    {
+      "id": "CCSH-002",
+      "title": "Kontextquelle im ananta-worker Prompt sichtbar kennzeichnen",
+      "type": "prompt-contract",
+      "milestone": "CCSH-M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "problem": "Prompts enthalten aktuell Datei-Bloecke mit ### path, aber nicht eindeutig, ob der Inhalt aus ganzer Datei, Snippet, Line-Range, Chunk oder hub-context.md stammt.",
+      "implementation_notes": [
+        "Fuehre eine kleine interne Struktur fuer geladene Kontextbloecke ein, z.B. dict/dataclass mit path, lang, content, source_kind, start_line, end_line, score, reason.",
+        "Passe _build_iteration_prompt so an, dass Header z.B. ### agent/common/sgpt.py:573-648 [codecompass_line_range score=0.91] ausgeben.",
+        "Behalte bestehende Markdown-Codefence-Ausgabe bei."
+      ],
+      "acceptance_criteria": [
+        "Prompt-Bloecke fuer ganze Dateien sind als file_prefix oder file_excerpt erkennbar.",
+        "Prompt-Bloecke fuer Line-Ranges enthalten path:start-end im Header.",
+        "Prompt-Bloecke fuer direkte CodeCompass-Snippets enthalten source_kind=codecompass_snippet oder aequivalent.",
+        "Bestehende ananta-worker Single-Batch- und Multi-Batch-Pfade bleiben funktionsfaehig."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k ananta_worker"
+      ]
+    },
+    {
+      "id": "CCSH-003",
+      "title": "Aktuelle Dateianfang-Ladeweise mit Regressionstest absichern",
+      "type": "test",
+      "milestone": "CCSH-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "problem": "Bevor der Loader umgebaut wird, muss ein Test beweisen, dass der bisherige path-only-Fallback weiterhin funktioniert.",
+      "implementation_notes": [
+        "Erzeuge in einem tmp workdir rag_helper/research-context.json mit repo_scope_refs=[{path: 'sample.py'}].",
+        "Setze settings.rag_repo_root oder patche _resolve_repo_root auf ein tmp repo.",
+        "Pruefe, dass _load_source_file_batches eine Batch mit sample.py-Inhalt liefert.",
+        "Pruefe, dass path traversal via ../secret.py nicht geladen wird."
+      ],
+      "acceptance_criteria": [
+        "Path-only research-context.json erzeugt weiterhin Kontextbloecke.",
+        "Dateien ausserhalb rag_repo_root werden nicht geladen.",
+        "Leere, nicht existierende oder unlesbare Pfade werden still uebersprungen wie bisher.",
+        "Fallback auf .ananta/hub-context.md bleibt erhalten, wenn keine gueltigen refs geladen werden."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k source_file_batches"
+      ]
+    },
+    {
+      "id": "CCSH-004",
+      "title": "Snippet-/Line-Range-Normalisierung fuer repo_scope_refs implementieren",
+      "type": "implementation",
+      "milestone": "CCSH-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "problem": "_load_source_file_batches ignoriert aktuell start_line/end_line/snippet/chunks und liest nur raw[:per_file_chars]. Dadurch kann der relevante Abschnitt fehlen, wenn er nicht am Dateianfang liegt.",
+      "implementation_notes": [
+        "Ergaenze Hilfsfunktionen wie _extract_line_range(ref), _extract_snippet(ref), _read_line_window(full, start, end, context_lines).",
+        "Akzeptiere Alias-Felder start_line/line_start/start/from_line und end_line/line_end/end/to_line.",
+        "Validiere Line-Ranges: start >= 1, end >= start, maximale Fensterbreite begrenzen.",
+        "Wenn snippet vorhanden ist und path fehlt oder Datei nicht lesbar ist, darf snippet als codecompass_snippet genutzt werden, sofern es Laengenlimits einhaelt.",
+        "Wenn path + line-range vorhanden sind, bevorzugt aus aktueller Datei lesen; snippet kann als Fallback oder Vergleichsmetadata dienen."
+      ],
+      "acceptance_criteria": [
+        "repo_scope_refs mit path/start_line/end_line laden den entsprechenden Dateiausschnitt statt raw[:per_file_chars].",
+        "Der geladene Ausschnitt enthaelt konfigurierbare Kontextzeilen vor und nach der Range.",
+        "Unguelitge Line-Ranges fallen kontrolliert auf snippet oder Datei-Fallback zurueck, ohne Exception nach aussen.",
+        "Direkte snippets ohne gueltigen path werden nur innerhalb definierter Laengenlimits eingebunden.",
+        "Der Header des Promptblocks enthaelt path und effektive start/end Zeilen, wenn bekannt."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k 'line_range or snippet or source_file_batches'"
+      ]
+    },
+    {
+      "id": "CCSH-005",
+      "title": "Priorisierte Kontextauswahl im ananta-worker Loader einbauen",
+      "type": "implementation",
+      "milestone": "CCSH-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "problem": "Der Loader braucht eine stabile Reihenfolge, damit CodeCompass-Abschnitte wirklich vor ganzen Dateien genutzt werden.",
+      "implementation_notes": [
+        "Implementiere Prioritaet pro ref: 1) explicit snippet with path/range metadata, 2) path + line-range aus Datei, 3) chunks[] innerhalb ref, 4) path-only file excerpt, 5) hub-context.md.",
+        "Falls ref.chunks existiert, erzeuge pro chunk einen Kontextblock oder fasse nahe zusammenliegende Ranges derselben Datei zusammen.",
+        "Dedupliziere Kontextbloecke nach path + start/end + hash(content).",
+        "Sortiere bevorzugt nach score absteigend, aber erhalte stabile Eingabereihenfolge bei fehlendem Score."
+      ],
+      "acceptance_criteria": [
+        "Ein ref mit start_line/end_line verwendet nicht mehr den Dateianfang.",
+        "Ein ref mit chunks erzeugt Chunk-Kontextbloecke, auch wenn path-only-Fallback moeglich waere.",
+        "Doppelte Chunks werden nur einmal in den Prompt aufgenommen.",
+        "Bei fehlenden Chunks/Line-Ranges bleibt der bisherige Datei-Fallback aktiv.",
+        "hub-context.md wird nur genutzt, wenn keine repo_scope_refs verwertbar sind."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k ananta_worker"
+      ]
+    },
+    {
+      "id": "CCSH-006",
+      "title": "Konfigurierbare Grenzen fuer Snippet-Handoff ergaenzen",
+      "type": "configuration",
+      "milestone": "CCSH-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        "agent/common/sgpt.py",
+        "agent/config_defaults.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "problem": "files_per_batch, per_file_chars, max_iterations und kuenftige context_lines/max_snippet_chars sind aktuell hart in sgpt.py verdrahtet.",
+      "implementation_notes": [
+        "Ergaenze Settings oder AGENT_CONFIG-Werte fuer ananta_worker_context_files_per_batch, ananta_worker_context_per_file_chars, ananta_worker_context_max_iterations, ananta_worker_context_line_window, ananta_worker_context_max_snippet_chars.",
+        "Nutze defensive Bounds analog _bounded_int-Pattern in task_scoped_execution_service.py.",
+        "Defaults muessen aktuelles Verhalten grob bewahren: 3 Dateien/Batch, 4000 Zeichen pro Datei, 8 Iterationen."
+      ],
+      "acceptance_criteria": [
+        "Ohne neue Config bleibt das bisherige Verhalten kompatibel.",
+        "Mit Config koennen Kontextfenster und Snippet-Laengen reduziert oder erhoeht werden, aber nur innerhalb sicherer Bounds.",
+        "Tests pruefen mindestens einen ueberschriebenen line_window Wert.",
+        "Keine lokale user.json wird fuer diese Defaults benoetigt."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k config"
+      ]
+    },
+    {
+      "id": "CCSH-007",
+      "title": "Progress-Datei um Quellenmetadaten erweitern",
+      "type": "implementation",
+      "milestone": "CCSH-M2",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "problem": "rag_helper/progress.md speichert aktuell Schritt-Ausgaben und Dateinamen, aber keine konkrete Information, welche Zeilen oder Chunks verarbeitet wurden.",
+      "implementation_notes": [
+        "Erweitere den Schritt-Header um Quelle, line range, score und source_kind.",
+        "Halte progress.md weiterhin menschenlesbar in Markdown.",
+        "Keine sensiblen absoluten Pfade ausgeben; repo-relative Pfade verwenden."
+      ],
+      "acceptance_criteria": [
+        "progress.md zeigt pro Schritt die verarbeiteten path:start-end Quellen, sofern vorhanden.",
+        "Bei path-only-Fallback steht klar file_excerpt oder file_prefix im Header.",
+        "Absolute lokale Pfade werden nicht in progress.md geschrieben.",
+        "Finales Ergebnis bleibt wie bisher unter ## Finales Ergebnis sichtbar."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k progress"
+      ]
+    },
+    {
+      "id": "CCSH-008",
+      "title": "ResearchContextBridge repo_scope chunks im Prompt-Section rendern",
+      "type": "implementation",
+      "milestone": "CCSH-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/research_context_bridge_service.py",
+        "tests/test_deerflow_integration.py"
+      ],
+      "problem": "_repo_scope_context kann indexed chunks erzeugen, aber _render_prompt_section gibt fuer repo_scopes aktuell nur status, excerpt und entries aus. Chunks koennen dadurch im Prompt unsichtbar bleiben.",
+      "implementation_notes": [
+        "Erweitere _render_prompt_section: fuer item.chunks die Top-N Chunks mit source, score, optional metadata.path/start_line/end_line und content ausgeben.",
+        "Halte per_item_limit ein und verhindere, dass chunk rendering max_context_chars sprengt.",
+        "Wenn chunk metadata line ranges enthaelt, im Text als source:start-end ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Repo-Kontext-Prompt enthaelt chunks aus indexed repo_scope Eintraegen.",
+        "Chunk-Score und source werden sichtbar oder strukturiert nachvollziehbar mitgefuehrt.",
+        "Bestehender Test test_task_propose_attaches_research_context_bridge wird erweitert oder ein neuer Test prueft repo_scope chunks explizit.",
+        "Directory entries und file excerpt Verhalten bleiben unveraendert, wenn keine chunks vorhanden sind."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_deerflow_integration.py -k research_context_bridge"
+      ]
+    },
+    {
+      "id": "CCSH-009",
+      "title": "ResearchContextSummaryContract um strukturierte repo chunk metadata pruefen und ggf erweitern",
+      "type": "contract",
+      "milestone": "CCSH-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/models.py",
+        "agent/services/research_context_bridge_service.py",
+        "tests/test_deerflow_integration.py"
+      ],
+      "problem": "build_context gibt repo_scopes bereits zurueck, aber der Pydantic-Vertrag muss explizit erlauben, dass chunks line metadata, symbol, score und reason enthalten.",
+      "implementation_notes": [
+        "Pruefe ResearchContextSummaryContract in agent/models.py.",
+        "Falls der Contract zu strikt ist, ergaenze optionale Felder fuer repo_scopes[].chunks[].metadata, start_line, end_line, symbol, reason.",
+        "Wenn der Contract bereits permissiv ist, dokumentiere das im Testnamen und pruefe model_dump output."
+      ],
+      "acceptance_criteria": [
+        "Structured chunk metadata wird durch build_context nicht verworfen.",
+        "model_dump(exclude_none=True) enthaelt line ranges, wenn sie von Retrieval-Metadata geliefert werden.",
+        "Rueckwaertskompatible Felder artifact_ids, knowledge_collection_ids, repo_scope_refs bleiben erhalten.",
+        "Keine Breaking Changes fuer bestehende Research-Kontext-Tests."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_deerflow_integration.py -k context"
+      ]
+    },
+    {
+      "id": "CCSH-010",
+      "title": "CodeCompass-/RAG-Index-Metadata fuer Line-Ranges normalisieren",
+      "type": "implementation",
+      "milestone": "CCSH-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/rag_helper_index_service.py",
+        "agent/services/knowledge_index_retrieval_service.py",
+        "worker/retrieval/*",
+        "tests/test_*rag*",
+        "tests/test_*retrieval*"
+      ],
+      "problem": "Damit sgpt.py gezielt Abschnitte laden kann, muss der Index/Retrieval-Pfad line metadata stabil liefern. Falls Chunks aktuell nur source/content/score haben, fehlt die praezise Rueckbindung an Dateiabschnitte.",
+      "implementation_notes": [
+        "Suche im RagHelper-/KnowledgeIndex-Pfad, wo Chunks erzeugt und metadata gesetzt werden.",
+        "Fuege repo_relative_path, start_line, end_line, symbol optional in chunk.metadata ein.",
+        "Falls exakte Line-Ranges bei bestehenden Chunkern nicht verfuegbar sind, ermittle sie beim Indexieren ueber Textoffset/Zeilenmapping oder markiere metadata.line_range_status='unknown'.",
+        "Keine Heuristik erfinden, die falsche Zeilen behauptet. Unbekannt bleibt unbekannt."
+      ],
+      "acceptance_criteria": [
+        "Retrieval-Treffer fuer repo_path enthalten, wenn technisch bestimmbar, repo_relative_path/start_line/end_line in metadata.",
+        "Wenn Line-Ranges nicht bestimmbar sind, wird das explizit markiert und nicht geraten.",
+        "ResearchContextBridge uebernimmt diese Metadata in repo_scopes[].chunks[].metadata.",
+        "sgpt.py kann diese Metadata fuer Kontextfenster verwenden."
+      ],
+      "test_expectations": [
+        "pytest -q tests -k 'rag_helper_index or knowledge_index or retrieval'"
+      ]
+    },
+    {
+      "id": "CCSH-011",
+      "title": "End-to-End-Test fuer CodeCompass-Snippet bis ananta-worker Prompt bauen",
+      "type": "integration-test",
+      "milestone": "CCSH-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "tests/test_sgpt_route.py",
+        "tests/test_deerflow_integration.py",
+        "agent/common/sgpt.py",
+        "agent/services/research_context_bridge_service.py"
+      ],
+      "problem": "Es braucht einen echten Nachweis, dass CodeCompass-relevante Abschnitte bis in den Worker-Prompt gelangen und nicht durch Datei-Fallback ersetzt werden.",
+      "implementation_notes": [
+        "Erstelle tmp repo mit sample.py, bei dem relevante Funktion weit unten steht und Dateianfang absichtlich irrelevante Marker enthaelt.",
+        "research-context.json verweist auf sample.py mit start_line/end_line der relevanten Funktion.",
+        "Patche run_sgpt_command und capture den Prompt.",
+        "Pruefe, dass relevante Funktion im Prompt ist und irrelevanter Dateianfang ausserhalb des Kontextfensters nicht enthalten ist."
+      ],
+      "acceptance_criteria": [
+        "Der Test schlaegt mit dem aktuellen raw[:per_file_chars]-Verhalten fehl und besteht erst mit Line-Range-Handoff.",
+        "Der Test prueft path traversal weiterhin negativ.",
+        "Der Test prueft, dass Single-Batch und Multi-Batch nicht versehentlich unterschiedliche Kontextformate erzeugen.",
+        "Der Test benoetigt kein echtes LLM und keine Netzverbindung."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k codecompass_snippet_handoff"
+      ]
+    },
+    {
+      "id": "CCSH-012",
+      "title": "Rueckwaertskompatibilitaet fuer alte research-context.json Dateien sichern",
+      "type": "regression-test",
+      "milestone": "CCSH-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "problem": "Bestehende Workspaces werden weiterhin repo_scope_refs nur mit path enthalten. Der Umbau darf diese nicht brechen.",
+      "implementation_notes": [
+        "Baue Tests fuer path-only, missing research-context.json, invalid JSON, empty repo_scope_refs und hub-context fallback.",
+        "Invalid JSON soll nicht crashen, sondern wie bisher zum Fallback fuehren."
+      ],
+      "acceptance_criteria": [
+        "Path-only refs laden weiterhin Datei-Excerpt.",
+        "Invalid research-context.json wirft keine Exception nach aussen.",
+        "hub-context.md fallback funktioniert weiterhin.",
+        "Keine bestehenden SGPT-Route-Tests brechen."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py"
+      ]
+    },
+    {
+      "id": "CCSH-013",
+      "title": "Prompt- und Kontextbudget gegen Chunk-Flut absichern",
+      "type": "security-performance",
+      "milestone": "CCSH-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/common/sgpt.py",
+        "agent/services/research_context_bridge_service.py",
+        "tests/test_sgpt_route.py",
+        "tests/test_deerflow_integration.py"
+      ],
+      "problem": "Wenn CodeCompass viele kleine Chunks liefert, kann der Prompt trotz Snippet-Ansatz zu gross werden oder wichtige Abschnitte im Batch-Splitting verlieren.",
+      "implementation_notes": [
+        "Fuehre ein Gesamtbudget fuer Kontextbloecke pro ananta-worker Durchlauf ein.",
+        "Sortiere und begrenze Chunks nach score, source priority und dedupe hash.",
+        "Logge oder schreibe in progress.md, welche Chunks wegen Budget ausgelassen wurden."
+      ],
+      "acceptance_criteria": [
+        "Maximale Anzahl Chunks/Dateien pro Iterationslauf ist konfigurierbar und begrenzt.",
+        "Bei Budget-Ueberschreitung werden niedriger priorisierte Chunks ausgelassen, nicht willkuerlich fruehere wichtige Chunks abgeschnitten.",
+        "Ausgelassene Chunks werden mit count und Grund nachvollziehbar gemacht.",
+        "Keine absoluten Pfade oder Secrets werden durch Budget-Logging geleakt."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_sgpt_route.py -k budget"
+      ]
+    },
+    {
+      "id": "CCSH-014",
+      "title": "README/Runbook fuer CodeCompass-Handoff aktualisieren",
+      "type": "documentation",
+      "milestone": "CCSH-M4",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "README.md",
+        "docs/hybrid_rag_runbook.md",
+        "docs/codecompass-relevant-snippet-handoff.md"
+      ],
+      "problem": "Nach dem Umbau muss klar sein, wann Ananta ganze Dateien, Snippets, Line-Ranges oder hub-context.md nutzt.",
+      "implementation_notes": [
+        "Beschreibe den Datenfluss: CodeCompass/RAG -> research-context.json -> sgpt.py loader -> ananta-worker prompt -> progress.md -> synthesis.",
+        "Beschreibe typische Debug-Stellen: rag_helper/research-context.json, rag_helper/progress.md, .ananta/hub-context.md.",
+        "Ergaenze kurze Troubleshooting-Hinweise fuer 'relevanter Abschnitt fehlt'."
+      ],
+      "acceptance_criteria": [
+        "Runbook beschreibt die Prioritaetsreihenfolge der Kontextquellen.",
+        "Runbook erklaert, wie man prueft, ob CodeCompass wirklich Line-Ranges liefert.",
+        "README verweist knapp auf das Detaildokument, ohne die Startseite zu ueberladen.",
+        "Keine veraltete Aussage bleibt stehen, dass immer komplette Dateien geladen werden."
+      ],
+      "test_expectations": [
+        "Dokumente sind Markdown-parsebar und enthalten keine lokalen privaten Pfade."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "ananta-worker nutzt CodeCompass/research-context.json weiterhin, aber bevorzugt konkrete Snippets oder Line-Ranges vor ganzen Dateien.",
+    "Bestehende path-only repo_scope_refs bleiben kompatibel.",
+    "Path-Traversal und absolute Pfade ausserhalb settings.rag_repo_root bleiben blockiert.",
+    "ResearchContextBridge rendert repo_scope chunks sichtbar in den Research-/Worker-Kontext.",
+    "Tests beweisen, dass relevante Abschnitte weit unten in einer Datei geladen werden, ohne den irrelevanten Dateianfang mitzuschicken.",
+    "Kein Test braucht ein echtes LLM, OpenRouter, LM Studio, Ollama oder Netzverbindung.",
+    "Prompt-/Progress-Ausgaben enthalten repo-relative Quellenangaben und keine absoluten lokalen Pfade."
+  ],
+  "suggested_test_commands": [
+    "python -m json.tool todos/todo.codecompass-relevant-snippet-handoff.json",
+    "pytest -q tests/test_sgpt_route.py -k 'ananta_worker or source_file_batches or codecompass_snippet_handoff'",
+    "pytest -q tests/test_deerflow_integration.py -k 'research_context_bridge or context'",
+    "pytest -q tests -k 'rag_helper_index or knowledge_index or retrieval'"
+  ],
+  "non_goals": [
+    "Kein echter LLM-Aufruf in Tests.",
+    "Keine Entfernung des bestehenden Datei-Fallbacks.",
+    "Keine heuristische Behauptung falscher Line-Ranges, wenn der Index sie nicht kennt.",
+    "Keine lokale user.json als notwendige Konfiguration fuer dieses Feature."
+  ],
+  "notes": [
+    "Der aktuelle sgpt.py Stand ist ein guter erster Schritt, weil repo_scope_refs ueberhaupt schon verwendet und iterativ verarbeitet werden.",
+    "Der naechste Qualitaetssprung ist nicht mehr Dateien nachzuladen, sondern weniger und praeziser: konkrete relevante Abschnitte, mit sauberem Fallback.",
+    "Wichtig ist, dass CodeCompass nicht nur als Dateifinder, sondern als Abschnitts- und Symbolfinder genutzt wird."
+  ]
+}
