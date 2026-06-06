@@ -22,6 +22,8 @@ import {
   HubCopilotStatus,
   LlmEffectiveRuntime,
   LlmModelReference,
+  ModelRoutingProfile,
+  ModelRoutingReadModel,
   ResearchBackendProvider,
   ResearchBackendStatus,
   RoleEntry,
@@ -330,6 +332,70 @@ import { ModeCardOption, ModeCardPickerComponent, PresetOption } from '../shared
         (refresh)="refreshBenchmarks()"
       ></app-dashboard-benchmark-panel>
 
+      @if (modelRouting) {
+        <div class="card mb-md">
+          <div class="row space-between">
+            <div>
+              <h3>Modellrouting-Matrix</h3>
+              <p class="muted no-margin">Profile read-only, Secrets redacted, Entscheidungen nachvollziehbar.</p>
+            </div>
+            <span class="badge">{{ modelRouting.status || 'unknown' }}</span>
+          </div>
+          @if ((modelRouting.matrix || []).length) {
+            <div class="table-scroll mt-sm">
+              <table class="compact-table">
+                <thead>
+                  <tr>
+                    <th>Task</th>
+                    <th>Rolle</th>
+                    <th>Primary</th>
+                    <th>Fallbacks</th>
+                    <th>Cloud</th>
+                    <th>Secret</th>
+                    <th>Tools</th>
+                    <th>JSON</th>
+                    <th>Policy</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of modelRouting.matrix || []; track row.model_role + ':' + row.task_kind) {
+                    <tr>
+                      <td>{{ row.task_kind || '-' }}</td>
+                      <td>{{ row.model_role || '-' }}</td>
+                      <td>{{ row.primary || '-' }}</td>
+                      <td>{{ (row.fallbacks || []).join(', ') || '-' }}</td>
+                      <td>{{ row.cloud_allowed ? 'ja' : 'nein' }}</td>
+                      <td>{{ row.secret_allowed ? 'ja' : 'nein' }}</td>
+                      <td>{{ row.supports_tools ? 'ja' : 'nein' }}</td>
+                      <td>{{ row.supports_json ? 'ja' : 'nein' }}</td>
+                      <td>
+                        <span>{{ row.final_source || '-' }}</span>
+                        @if ((row.blocked_candidates || []).length) {
+                          <span class="danger"> blockiert: {{ (row.blocked_candidates || []).length }}</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="muted mt-sm">Keine Profilmatrix geladen. Legacy-Default: {{ modelRouting.legacy?.default_provider || '-' }}/{{ modelRouting.legacy?.default_model || '-' }}</p>
+          }
+          @if ((modelRouting.profiles || []).length) {
+            <div class="grid cols-2 mt-sm">
+              @for (profile of modelRouting.profiles || []; track profile.profile_id) {
+                <div class="card card-light">
+                  <strong>{{ profile.profile_id }}</strong>
+                  <p class="muted no-margin">{{ profile.provider_id }}/{{ profile.model }}</p>
+                  <app-key-value-grid [items]="modelRoutingProfileItems(profile)" [columns]="2"></app-key-value-grid>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
       <app-dashboard-goal-governance-summary-card
         [goals]="goalsList"
         [selectedGoalId]="selectedGoalId"
@@ -477,6 +543,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   set researchBackendStatus(v: ResearchBackendStatus | null) { this.facade.researchBackendStatus = v; }
   get runtimeTelemetry(): RuntimeTelemetry | null { return this.facade.runtimeTelemetry; }
   set runtimeTelemetry(v: RuntimeTelemetry | null) { this.facade.runtimeTelemetry = v; }
+  get modelRouting(): ModelRoutingReadModel | null { return this.facade.modelRouting; }
+  set modelRouting(v: ModelRoutingReadModel | null) { this.facade.modelRouting = v; }
   get viewState(): UiAsyncState { return this.facade.viewState; }
   set viewState(v: UiAsyncState) { this.facade.viewState = v; }
 
@@ -965,6 +1033,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const providers = this.researchBackendStatus?.providers;
     if (!providers || typeof providers !== 'object') return [];
     return Object.values(providers) as any[];
+  }
+
+  modelRoutingProfileItems(profile: ModelRoutingProfile): KeyValueItem[] {
+    return [
+      { label: 'Endpoint', value: profile.endpoint || '-' },
+      { label: 'API-Key', value: profile.api_key_redacted ? `${profile.api_key_env || 'env'} (redacted)` : '-' },
+      { label: 'Kontext', value: profile.context_tokens || '-' },
+      { label: 'Kosten', value: profile.cost_class || '-' },
+      { label: 'Qualitaet', value: profile.quality_class || '-' },
+      { label: 'Capabilities', value: [
+        profile.capabilities?.tools ? 'tools' : '',
+        profile.capabilities?.json ? 'json' : '',
+        profile.capabilities?.streaming ? 'streaming' : '',
+      ].filter(Boolean).join(', ') || '-' },
+    ];
   }
 
   activeInferenceRuntime(): any | null {

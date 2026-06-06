@@ -155,6 +155,7 @@ def record_benchmark_sample(
     tokens_total: int,
     cost_units: float = 0.0,
     context_tags: dict[str, Any] | None = None,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
     provider = str(provider or "").strip().lower()
     model = str(model or "").strip()
@@ -171,6 +172,24 @@ def record_benchmark_sample(
         model_key,
         {"provider": provider, "model": model, "overall": default_metric_bucket(), "task_kinds": {}},
     )
+    normalized_profile_id = str(profile_id or "").strip()
+    if normalized_profile_id:
+        entry["profile_id"] = normalized_profile_id
+        profiles = db.setdefault("profiles", {})
+        profile_entry = profiles.setdefault(
+            normalized_profile_id,
+            {
+                "profile_id": normalized_profile_id,
+                "provider": provider,
+                "model": model,
+                "overall": default_metric_bucket(),
+                "task_kinds": {},
+            },
+        )
+        profile_entry["provider"] = provider
+        profile_entry["model"] = model
+    else:
+        profile_entry = None
     bucket = (entry.setdefault("task_kinds", {})).setdefault(task_kind, default_metric_bucket())
     retention = benchmark_retention_config(agent_cfg)
     now = int(time.time())
@@ -199,9 +218,55 @@ def record_benchmark_sample(
 
     _apply(bucket)
     _apply(entry.setdefault("overall", default_metric_bucket()))
+    if profile_entry is not None:
+        profile_bucket = (profile_entry.setdefault("task_kinds", {})).setdefault(task_kind, default_metric_bucket())
+        _apply(profile_bucket)
+        _apply(profile_entry.setdefault("overall", default_metric_bucket()))
     db["updated_at"] = now
     save_benchmarks(data_dir, db)
     return {"recorded": True, "model_key": model_key, "task_kind": task_kind, "db": db}
+
+
+def recommend_profiles_for_context(
+    *,
+    data_dir: str,
+    task_kind: str,
+    allowed_profile_ids: list[str],
+    min_samples: int = 3,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Rank known profile ids using benchmark samples without expanding policy scope."""
+    allowed = [str(item or "").strip() for item in allowed_profile_ids if str(item or "").strip()]
+    if not allowed:
+        return []
+    allowed_set = set(allowed)
+    normalized_task_kind = str(task_kind or "").strip().lower()
+    if normalized_task_kind not in BENCH_TASK_KINDS:
+        normalized_task_kind = "analysis"
+    db = load_benchmarks(data_dir)
+    rows: list[dict[str, Any]] = []
+    for profile_id, entry in (db.get("profiles") or {}).items():
+        profile_id = str(profile_id or "").strip()
+        if profile_id not in allowed_set or not isinstance(entry, dict):
+            continue
+        bucket = (entry.get("task_kinds") or {}).get(normalized_task_kind) or {}
+        samples = list(bucket.get("samples") or [])
+        if len(samples) < max(1, int(min_samples or 1)):
+            continue
+        score = score_bucket(bucket)
+        rows.append(
+            {
+                "profile_id": profile_id,
+                "provider": str(entry.get("provider") or "").strip().lower(),
+                "model": str(entry.get("model") or "").strip(),
+                "task_kind": normalized_task_kind,
+                "sample_count": int(score.get("total") or 0),
+                "score": score,
+                "selection_source": "benchmark_profile_ranking",
+            }
+        )
+    rows.sort(key=lambda item: float((item.get("score") or {}).get("suitability_score") or 0.0), reverse=True)
+    return rows[: max(1, min(int(limit or 1), 50))]
 
 
 def recommend_model_for_context(

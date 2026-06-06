@@ -105,7 +105,7 @@ class RoutingDecisionService:
         sources = sources if isinstance(sources, dict) else {}
         steps: list[dict[str, Any]] = []
 
-        if any(requested.get(key) for key in ("provider", "model", "base_url")):
+        if any(requested.get(key) for key in ("provider", "model", "base_url", "tool", "route_source")):
             steps.append(
                 {
                     "step": "request_override",
@@ -205,6 +205,74 @@ class RoutingDecisionService:
             "available_for_routing": allowed and bool(provider.get("available", True)),
             "reason": reason,
             "fallback_policy": fallback_policy,
+        }
+
+    def worker_model_profile_decision(
+        self,
+        *,
+        worker: dict[str, Any],
+        profile: Any,
+        context_contains_secret: bool = False,
+    ) -> dict[str, Any]:
+        """Explain whether a registered worker may receive work for a model profile."""
+        runtime_targets = list((worker or {}).get("runtime_targets") or [])
+        capabilities = {str(item or "").strip().lower() for item in list((worker or {}).get("capabilities") or [])}
+        worker_id = str((worker or {}).get("name") or (worker or {}).get("url") or "").strip() or None
+        profile_id = str(getattr(profile, "profile_id", "") or "").strip()
+        provider_id = str(getattr(profile, "provider_id", "") or "").strip().lower()
+        model_role = str(getattr(profile, "model_role", "") or "any").strip().lower()
+        profile_cloud = bool(getattr(profile, "cloud", False)) or provider_id in {"openai", "openrouter"}
+        block_secret_context = bool(getattr(profile, "block_secret_context", True))
+        remote_worker = bool((worker or {}).get("remote_hub") or (worker or {}).get("remote_worker"))
+        for target in runtime_targets:
+            if not isinstance(target, dict):
+                continue
+            runtime_kind = str(target.get("runtime_kind") or target.get("kind") or "").strip().lower()
+            if "remote" in runtime_kind or bool(target.get("remote_hub")):
+                remote_worker = True
+            if target.get("target_profile") and str(target.get("target_profile")).strip() == profile_id:
+                target_match = "target_profile"
+                break
+            if str(target.get("provider_id") or target.get("target_provider") or "").strip().lower() == provider_id:
+                target_match = "target_provider"
+                break
+        else:
+            target_match = None
+
+        if context_contains_secret and (profile_cloud or remote_worker or block_secret_context):
+            return {
+                "policy_version": "routing-decision-v1",
+                "worker_id": worker_id,
+                "profile_id": profile_id,
+                "allowed": False,
+                "reason": "secret_context_not_allowed_for_remote_or_secret_blocking_profile",
+                "target_match": target_match,
+            }
+        if target_match is None and runtime_targets:
+            return {
+                "policy_version": "routing-decision-v1",
+                "worker_id": worker_id,
+                "profile_id": profile_id,
+                "allowed": False,
+                "reason": "worker_runtime_targets_do_not_reference_profile",
+                "target_match": None,
+            }
+        if model_role not in {"", "any"} and model_role not in capabilities and f"model_role:{model_role}" not in capabilities:
+            return {
+                "policy_version": "routing-decision-v1",
+                "worker_id": worker_id,
+                "profile_id": profile_id,
+                "allowed": False,
+                "reason": "worker_capabilities_do_not_match_model_role",
+                "target_match": target_match,
+            }
+        return {
+            "policy_version": "routing-decision-v1",
+            "worker_id": worker_id,
+            "profile_id": profile_id,
+            "allowed": True,
+            "reason": "worker_capabilities_and_profile_policy_allow_routing",
+            "target_match": target_match,
         }
 
 

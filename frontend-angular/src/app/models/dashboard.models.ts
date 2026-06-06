@@ -193,6 +193,45 @@ export interface RuntimeTelemetry {
   };
 }
 
+export interface ModelRoutingProfile {
+  profile_id?: string;
+  provider_id?: string;
+  model?: string;
+  endpoint?: string | null;
+  model_role?: string;
+  context_tokens?: number;
+  cost_class?: string;
+  quality_class?: string;
+  cloud_allowed?: boolean;
+  block_secret_context?: boolean;
+  api_key_env?: string | null;
+  api_key_redacted?: boolean | null;
+  capabilities?: { tools?: boolean; json?: boolean; streaming?: boolean };
+}
+
+export interface ModelRoutingMatrixRow {
+  task_kind?: string;
+  model_role?: string;
+  primary?: string | null;
+  fallbacks?: string[];
+  cloud_allowed?: boolean;
+  secret_allowed?: boolean;
+  supports_tools?: boolean;
+  supports_json?: boolean;
+  final_source?: string | null;
+  policy_decisions?: Array<{ source?: string; profile_id?: string | null; accepted?: boolean; reason?: string }>;
+  blocked_candidates?: Array<{ profile_id?: string; reason?: string }>;
+}
+
+export interface ModelRoutingReadModel {
+  status?: string;
+  profiles?: ModelRoutingProfile[];
+  matrix?: ModelRoutingMatrixRow[];
+  benchmark_ranking?: { active?: boolean; profile_order?: string[]; sample_metadata?: Record<string, unknown> };
+  effective_winner?: { profile_id?: string | null; provider_id?: string | null; model?: string | null; final_source?: string | null };
+  legacy?: { default_provider?: string; default_model?: string };
+}
+
 export interface LlmConfiguration {
   defaults?: LlmModelReference | null;
   explicit_override?: LlmModelReference | null;
@@ -202,6 +241,7 @@ export interface LlmConfiguration {
   artifact_flow?: ArtifactFlowStatus | null;
   research_backend?: ResearchBackendStatus | null;
   runtime_telemetry?: RuntimeTelemetry | null;
+  model_routing?: ModelRoutingReadModel | null;
 }
 
 export interface SystemHealthChecks {

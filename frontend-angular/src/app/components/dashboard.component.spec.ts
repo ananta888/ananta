@@ -55,6 +55,7 @@ describe('DashboardComponent (benchmarks)', () => {
     facade.artifactFlowStatus = null;
     facade.researchBackendStatus = null;
     facade.runtimeTelemetry = null;
+    facade.modelRouting = null;
     facade.taskTimeline = [];
     facade.benchmarkTaskKind = 'analysis';
     (facade as any).readModelInFlight = false;
@@ -190,6 +191,37 @@ describe('DashboardComponent (benchmarks)', () => {
               ananta_research: { provider: 'ananta_research', selected: false, configured: false, binary_available: false, working_dir_exists: false, mode: 'cli' },
             },
           },
+          model_routing: {
+            status: 'loaded',
+            matrix: [
+              {
+                task_kind: 'coding',
+                model_role: 'coder',
+                primary: 'local-coder',
+                fallbacks: ['local-reviewer'],
+                cloud_allowed: false,
+                secret_allowed: true,
+                supports_tools: true,
+                supports_json: true,
+                final_source: 'model_role_rule',
+                blocked_candidates: [{ profile_id: 'cloud-coder', reason: 'security_policy:secrets_detected_cloud_blocked' }],
+              },
+            ],
+            profiles: [
+              {
+                profile_id: 'local-coder',
+                provider_id: 'ollama',
+                model: 'qwen2.5-coder:7b',
+                endpoint: 'http://localhost:11434/v1',
+                context_tokens: 32768,
+                cost_class: 'free',
+                quality_class: 'medium',
+                api_key_env: 'OLLAMA_API_KEY',
+                api_key_redacted: true,
+                capabilities: { tools: true, json: true, streaming: true },
+              },
+            ],
+          },
         },
         context_timestamp: 1739790000,
       })
@@ -215,6 +247,8 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.contextPolicyStatus?.effective?.mode).toBe('standard');
     expect(cmp.artifactFlowStatus?.effective?.rag_top_k).toBe(4);
     expect(cmp.researchBackendStatus?.provider).toBe('deerflow');
+    expect(cmp.modelRouting?.matrix?.[0]?.primary).toBe('local-coder');
+    expect(cmp.modelRoutingProfileItems(cmp.modelRouting!.profiles![0])[1].value).toContain('redacted');
     expect(cmp.researchBackendProviderEntries()).toHaveLength(2);
     expect(cmp.stats.tasks.total).toBe(2);
     expect(cmp.taskTimeline[0].task_id).toBe('T-2');

@@ -237,11 +237,15 @@ def normalize_opencode_runtime_config(value: dict | None) -> dict:
     target_provider = str(payload.get("target_provider") or "").strip().lower() or None
     if target_provider not in {"ollama", "lmstudio"}:
         target_provider = None
+    target_profile = str(payload.get("target_profile") or "").strip() or None
+    target_model = str(payload.get("target_model") or payload.get("model") or "").strip() or None
     return {
         "tool_mode": tool_mode,
         "execution_mode": execution_mode,
         "interactive_launch_mode": interactive_launch_mode,
+        "target_profile": target_profile,
         "target_provider": target_provider,
+        "target_model": target_model,
     }
 
 
@@ -266,7 +270,9 @@ def opencode_runtime_settings_summary(cfg: dict) -> dict:
             "tool_mode": "opencode_runtime.tool_mode",
             "execution_mode": "opencode_runtime.execution_mode",
             "interactive_launch_mode": "opencode_runtime.interactive_launch_mode",
+            "target_profile": "opencode_runtime.target_profile",
             "target_provider": "opencode_runtime.target_provider",
+            "target_model": "opencode_runtime.target_model",
         },
     }
 

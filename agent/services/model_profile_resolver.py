@@ -197,12 +197,20 @@ class ModelProfileResolver:
         security_policy: SecurityPolicyChecker | None = None,
         routing_rules: RoutingRules | None = None,
         health_cache: ProviderHealthCache | None = None,
+        benchmark_profile_order: list[str] | None = None,
+        benchmark_metadata: dict[str, Any] | None = None,
     ):
         self._by_id: dict[str, ModelProfile] = {p.profile_id: p for p in profiles if p.enabled}
         self._all_enabled: list[ModelProfile] = [p for p in profiles if p.enabled]
         self.security = security_policy or SecurityPolicyChecker()
         self.rules = routing_rules or RoutingRules()
         self.health = health_cache or ProviderHealthCache()
+        self._benchmark_profile_order = [
+            str(profile_id or "").strip()
+            for profile_id in list(benchmark_profile_order or [])
+            if str(profile_id or "").strip()
+        ]
+        self._benchmark_metadata = dict(benchmark_metadata or {})
 
     def resolve(self, ctx: RoutingContext) -> ResolutionResult:
         decisions: list[ResolutionDecision] = []
@@ -332,6 +340,28 @@ class ModelProfileResolver:
         role_matched = [p for p in candidates if p.model_role == ctx.model_role or p.model_role == "any"]
         if role_matched:
             candidates = role_matched
+        benchmark_order = {
+            profile_id: index
+            for index, profile_id in enumerate(self._benchmark_profile_order)
+        }
+        benchmark_ranked = [p for p in candidates if p.profile_id in benchmark_order]
+        if benchmark_ranked:
+            candidates = sorted(
+                candidates,
+                key=lambda p: (
+                    0 if p.profile_id in benchmark_order else 1,
+                    benchmark_order.get(p.profile_id, len(benchmark_order)),
+                ),
+            )
+            decisions.append(
+                ResolutionDecision(
+                    10,
+                    "benchmark_profile_ranking",
+                    candidates[0].profile_id if candidates else None,
+                    True,
+                    "ranking_applied_within_policy_allowed_candidates",
+                )
+            )
 
         for prof in candidates:
             allowed, reason = self.security.is_allowed(prof, ctx.context_text)
@@ -358,6 +388,14 @@ class ModelProfileResolver:
             )
             return prof
         return None
+
+    def benchmark_ranking_read_model(self) -> dict[str, Any]:
+        return {
+            "active": bool(self._benchmark_profile_order),
+            "profile_order": list(self._benchmark_profile_order),
+            "sample_metadata": dict(self._benchmark_metadata),
+            "policy_boundary": "ranking_only_after_policy_and_capability_filters",
+        }
 
     def resolve_with_fallback(
         self,
