@@ -64,6 +64,10 @@ class TestNormalizeRetrievalProfile:
         assert p.source_type_weights["repo"] == pytest.approx(1.45)
         assert p.negative_source_patterns == ["book-of-ananta"]
         assert p.warnings == []
+        assert p.source_policy["requested_source_types"] == ["repo", "artifact"]
+        assert p.chunk_policy["prefer_chunks_over_context_text"] is True
+        assert p.expansion_policy["relation_expansion"] is True
+        assert p.explainability["include_selected_by"] is True
 
     def test_unknown_source_type_produces_warning(self):
         p = normalize_retrieval_profile({
@@ -260,8 +264,20 @@ class TestResolveProfile:
         profile = resolve_profile("implementierter code", {"chat_use_codecompass": True})
         d = profile.as_dict()
         for key in ("profile_id", "domain", "intent", "source_types", "source_type_weights",
-                    "retrieval_intent", "negative_source_patterns", "feature_flag", "warnings"):
+                    "retrieval_intent", "negative_source_patterns", "feature_flag", "warnings",
+                    "selected_by", "reasons", "source_policy", "chunk_policy", "expansion_policy",
+                    "explainability"):
             assert key in d
+
+    def test_resolved_profile_explains_selection(self):
+        profile = resolve_profile(
+            "den codecompass der schon implementiert ist erklären",
+            {"chat_use_codecompass": True, "chat_include_local_project": True},
+        )
+        assert profile.selected_by == "retrieval_profile_resolver.v1"
+        assert "classified_domain:codecompass" in profile.reasons
+        assert profile.source_policy["priority_order"][0] == "repo"
+        assert profile.source_policy["required_min_source_type_counts"]["repo"] == 2
 
     def test_source_types_only_valid(self):
         profile = resolve_profile("test", {"chat_use_codecompass": True})

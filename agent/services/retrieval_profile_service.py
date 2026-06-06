@@ -43,6 +43,12 @@ class RetrievalProfile:
     negative_source_patterns: list[str] = field(default_factory=list)
     feature_flag: str = "auto"
     warnings: list[str] = field(default_factory=list)
+    selected_by: str = "retrieval_profile_resolver.v1"
+    reasons: list[str] = field(default_factory=list)
+    source_policy: dict[str, Any] = field(default_factory=dict)
+    chunk_policy: dict[str, Any] = field(default_factory=dict)
+    expansion_policy: dict[str, Any] = field(default_factory=dict)
+    explainability: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -55,6 +61,12 @@ class RetrievalProfile:
             "negative_source_patterns": list(self.negative_source_patterns),
             "feature_flag": self.feature_flag,
             "warnings": list(self.warnings),
+            "selected_by": self.selected_by,
+            "reasons": list(self.reasons),
+            "source_policy": dict(self.source_policy),
+            "chunk_policy": dict(self.chunk_policy),
+            "expansion_policy": dict(self.expansion_policy),
+            "explainability": dict(self.explainability),
         }
 
 
@@ -88,6 +100,8 @@ def normalize_retrieval_profile(raw: dict[str, Any] | None) -> RetrievalProfile 
     retrieval_intent = str(raw.get("retrieval_intent") or "").strip()
     negative_source_patterns = [str(p) for p in list(raw.get("negative_source_patterns") or []) if str(p).strip()]
     feature_flag = str(raw.get("feature_flag") or "auto").strip()
+    selected_by = str(raw.get("selected_by") or "raw_profile").strip()
+    reasons = [str(r) for r in list(raw.get("reasons") or []) if str(r).strip()]
     return RetrievalProfile(
         profile_id=profile_id,
         domain=domain,
@@ -98,7 +112,61 @@ def normalize_retrieval_profile(raw: dict[str, Any] | None) -> RetrievalProfile 
         negative_source_patterns=negative_source_patterns,
         feature_flag=feature_flag,
         warnings=warnings,
+        selected_by=selected_by,
+        reasons=reasons,
+        source_policy=dict(raw.get("source_policy") or _build_source_policy(source_types, source_type_weights, negative_source_patterns)),
+        chunk_policy=dict(raw.get("chunk_policy") or _default_chunk_policy()),
+        expansion_policy=dict(raw.get("expansion_policy") or _default_expansion_policy()),
+        explainability=dict(raw.get("explainability") or _default_explainability()),
     )
+
+
+def _default_chunk_policy() -> dict[str, Any]:
+    return {
+        "preferred_granularity": ["symbol", "line_range", "snippet", "chunk", "file_excerpt"],
+        "prefer_chunks_over_context_text": True,
+        "max_chunks": 12,
+        "max_per_source": 2,
+        "max_per_source_type": {"repo": 8, "artifact": 4, "wiki": 1, "task_memory": 3},
+    }
+
+
+def _default_expansion_policy() -> dict[str, Any]:
+    return {
+        "graph_expansion": True,
+        "relation_expansion": True,
+        "source_neighbor_expansion": True,
+    }
+
+
+def _default_explainability() -> dict[str, Any]:
+    return {
+        "include_profile_id": True,
+        "include_selected_by": True,
+        "include_rejected_sources_summary": True,
+    }
+
+
+def _build_source_policy(
+    source_types: list[str],
+    source_type_weights: dict[str, float],
+    negative_source_patterns: list[str],
+) -> dict[str, Any]:
+    weighted_order = sorted(
+        ((source_type, float(weight)) for source_type, weight in source_type_weights.items()),
+        key=lambda item: (-item[1], item[0]),
+    )
+    priority_order = [source_type for source_type, _ in weighted_order if source_type in _VALID_SOURCE_TYPES]
+    for source_type in source_types:
+        if source_type not in priority_order:
+            priority_order.append(source_type)
+    return {
+        "requested_source_types": list(source_types),
+        "priority_order": priority_order,
+        "source_type_weights": dict(source_type_weights),
+        "negative_source_patterns": list(negative_source_patterns),
+        "required_min_source_type_counts": {"repo": 2} if "repo" in source_types else {},
+    }
 
 
 # ──────────────────────────────────────────
@@ -378,23 +446,34 @@ def resolve_profile(
     if effective_flag in {"legacy", "disabled"}:
         spec = dict(_GENERIC_FALLBACK)
         source_types = _apply_ui_source_constraints(list(spec["source_types"]), cfg)
+        source_type_weights = dict(spec["source_type_weights"])
+        negative_source_patterns: list[str] = []
         return RetrievalProfile(
             profile_id="generic_legacy",
             domain=DOMAIN_GENERIC,
             intent=INTENT_GENERIC_CHAT,
             source_types=source_types,
-            source_type_weights=dict(spec["source_type_weights"]),
+            source_type_weights=source_type_weights,
             retrieval_intent=str(spec["retrieval_intent"]),
-            negative_source_patterns=[],
+            negative_source_patterns=negative_source_patterns,
             feature_flag=effective_flag,
+            selected_by="retrieval_profile_resolver.v1",
+            reasons=[f"feature_flag:{effective_flag}", "legacy_generic_fallback"],
+            source_policy=_build_source_policy(source_types, source_type_weights, negative_source_patterns),
+            chunk_policy=_default_chunk_policy(),
+            expansion_policy=_default_expansion_policy(),
+            explainability=_default_explainability(),
         )
 
     domain, intent = classify_retrieval_intent(query, cfg)
+    reasons = [f"classified_domain:{domain}", f"classified_intent:{intent}"]
 
     if domain_hint and str(domain_hint).strip():
         domain = str(domain_hint).strip()
+        reasons.append(f"domain_hint:{domain}")
     if intent_override and str(intent_override).strip():
         intent = str(intent_override).strip()
+        reasons.append(f"intent_override:{intent}")
 
     spec = dict(
         _PROFILE_TABLE.get((domain, intent))
@@ -408,12 +487,16 @@ def resolve_profile(
         weights = dict(spec.get("source_type_weights") or {})
         weights.update(mode_override.get("source_type_weights_patch") or {})
         spec["source_type_weights"] = weights
+        reasons.append(f"profile_mode_override:{effective_flag}")
         ensure_st = mode_override.get("ensure_source_type")
         if ensure_st and ensure_st not in list(spec.get("source_types") or []):
             spec["source_types"] = [ensure_st] + list(spec.get("source_types") or [])
+            reasons.append(f"ensured_source_type:{ensure_st}")
 
     # Apply ui_config source constraints (hard boundary)
     source_types = _apply_ui_source_constraints(list(spec.get("source_types") or []), cfg)
+    source_type_weights = dict(spec.get("source_type_weights") or {})
+    negative_source_patterns = list(spec.get("negative_source_patterns") or [])
 
     # Build warnings for sources requested but globally disabled
     warnings: list[str] = []
@@ -421,6 +504,7 @@ def resolve_profile(
     for st in requested:
         if st not in source_types:
             warnings.append(f"source_type_disabled_by_ui_config:{st}")
+            reasons.append(f"ui_disabled_source_type:{st}")
 
     profile_id = f"{domain}/{intent}"
     return RetrievalProfile(
@@ -428,11 +512,17 @@ def resolve_profile(
         domain=domain,
         intent=intent,
         source_types=source_types,
-        source_type_weights=dict(spec.get("source_type_weights") or {}),
+        source_type_weights=source_type_weights,
         retrieval_intent=str(spec.get("retrieval_intent") or ""),
-        negative_source_patterns=list(spec.get("negative_source_patterns") or []),
+        negative_source_patterns=negative_source_patterns,
         feature_flag=effective_flag,
         warnings=warnings,
+        selected_by="retrieval_profile_resolver.v1",
+        reasons=reasons,
+        source_policy=_build_source_policy(source_types, source_type_weights, negative_source_patterns),
+        chunk_policy=_default_chunk_policy(),
+        expansion_policy=_default_expansion_policy(),
+        explainability=_default_explainability(),
     )
 
 
