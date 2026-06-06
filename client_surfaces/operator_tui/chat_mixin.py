@@ -782,6 +782,21 @@ class ChatMixin:
                         _v2_dict = dict(build_result.worker_v2_payload)
                         if _configured_model:
                             _v2_dict["model"] = _configured_model
+                        retrieval_config: dict[str, object] = {}
+                        for _cfg_key in (
+                            "chat_retrieval_profile",
+                            "chat_retrieval_domain_hint",
+                            "chat_code_questions_repo_first",
+                            "chat_architecture_analysis_mode",
+                        ):
+                            if _cfg_key in game:
+                                _cfg_value = game.get(_cfg_key)
+                                if isinstance(_cfg_value, (str, bool)):
+                                    retrieval_config[_cfg_key] = _cfg_value
+                        if retrieval_config:
+                            _v2_dict["retrieval_config"] = retrieval_config
+                        if str(retrieval_config.get("chat_architecture_analysis_mode") or "").strip().lower() == "full_scan":
+                            _v2_dict["context"] = ""
                         # Forward TUI-configured limits so Hub can respect them
                         try:
                             _rk = int(game.get("chat_rag_top_k") or 0)

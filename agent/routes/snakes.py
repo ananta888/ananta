@@ -126,7 +126,34 @@ def _resolve_ai_snake_chat_provider() -> tuple[str, str | None]:
     return provider, model
 
 
-def _build_grounded_snake_prompt(user_text: str, *, limits: SnakeAskLimits | None = None) -> tuple[str, bool, str]:
+_SNAKE_RETRIEVAL_CONFIG_KEYS = frozenset({
+    "chat_retrieval_profile",
+    "chat_retrieval_domain_hint",
+    "chat_code_questions_repo_first",
+    "chat_architecture_analysis_mode",
+})
+
+
+def _snake_retrieval_config_overrides(body: dict[str, Any]) -> dict[str, Any]:
+    raw = body.get("retrieval_config")
+    if not isinstance(raw, dict):
+        return {}
+    overrides: dict[str, Any] = {}
+    for key in _SNAKE_RETRIEVAL_CONFIG_KEYS:
+        value = raw.get(key)
+        if isinstance(value, bool):
+            overrides[key] = value
+        elif isinstance(value, str):
+            overrides[key] = value.strip()
+    return overrides
+
+
+def _build_grounded_snake_prompt(
+    user_text: str,
+    *,
+    limits: SnakeAskLimits | None = None,
+    retrieval_config_overrides: dict[str, Any] | None = None,
+) -> tuple[str, bool, str]:
     prompt = str(user_text or "").strip()
     if not prompt:
         return prompt
@@ -136,6 +163,7 @@ def _build_grounded_snake_prompt(user_text: str, *, limits: SnakeAskLimits | Non
         from agent.services.retrieval_profile_service import resolve_profile  # CRPS-005
 
         cfg = _current_config()
+        cfg.update(dict(retrieval_config_overrides or {}))
 
         # CRPS-005: resolve domain-aware retrieval profile instead of hard-coding source_types
         # chat_code_questions_repo_first is a shortcut to "repo_first" mode
@@ -187,12 +215,17 @@ def _build_grounded_snake_prompt(user_text: str, *, limits: SnakeAskLimits | Non
     return prompt, False, "Kontext: 0 Treffer"
 
 
-def _resolve_snake_retrieval_profile_trace(user_text: str) -> dict[str, Any]:
+def _resolve_snake_retrieval_profile_trace(
+    user_text: str,
+    *,
+    retrieval_config_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     try:
         from agent.routes.ai_snake_config import _current_config
         from agent.services.retrieval_profile_service import resolve_profile
 
         cfg = _current_config()
+        cfg.update(dict(retrieval_config_overrides or {}))
         feature_flag = str(cfg.get("chat_retrieval_profile") or "auto").strip().lower()
         if bool(cfg.get("chat_code_questions_repo_first")) and feature_flag == "auto":
             feature_flag = "repo_first"
@@ -843,6 +876,7 @@ def snake_ask():
     question = str(body.get("question") or "").strip()[:1000]
     debug = bool(body.get("debug"))
     limits = SnakeAskLimits.from_payload(body)
+    retrieval_config_overrides = _snake_retrieval_config_overrides(body)
     # Model from TUI config (passed in v2 payload as "model")
     request_model = str(body.get("model") or "").strip() or None
     if not question:
@@ -854,13 +888,25 @@ def snake_ask():
         grounded_prompt = f"{question}\n\nKontext:\n{context}"
         rag_trace["source"] = "client_provided"
         rag_trace["context_chars"] = len(context)
+        if debug or retrieval_config_overrides:
+            rag_trace["retrieval_profile"] = _resolve_snake_retrieval_profile_trace(
+                question,
+                retrieval_config_overrides=retrieval_config_overrides,
+            )
     else:
-        grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(question, limits=limits)
+        grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(
+            question,
+            limits=limits,
+            retrieval_config_overrides=retrieval_config_overrides,
+        )
         rag_trace["source"] = "hub_rag"
         rag_trace["has_context"] = has_context
         rag_trace["summary"] = context_summary
         if debug:
-            rag_trace["retrieval_profile"] = _resolve_snake_retrieval_profile_trace(question)
+            rag_trace["retrieval_profile"] = _resolve_snake_retrieval_profile_trace(
+                question,
+                retrieval_config_overrides=retrieval_config_overrides,
+            )
     rag_trace["limits"] = {
         "context_chars": limits.context_chars,
         "answer_chars": limits.answer_chars,

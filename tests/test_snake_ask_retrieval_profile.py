@@ -137,6 +137,8 @@ class TestBuildGroundedSnakePromptProfileIntegration:
                 self.handler.emit = self.records.append
                 self.logger = logging.getLogger("agent.routes.snakes")
                 self.old_level = self.logger.level
+                self.old_disabled = self.logger.disabled
+                self.logger.disabled = False
                 self.logger.setLevel(logging.INFO)
                 self.logger.addHandler(self.handler)
                 return self.records
@@ -144,6 +146,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
             def __exit__(self, exc_type, exc, tb):
                 self.logger.removeHandler(self.handler)
                 self.logger.setLevel(self.old_level)
+                self.logger.disabled = self.old_disabled
 
         return _Capture()
 
