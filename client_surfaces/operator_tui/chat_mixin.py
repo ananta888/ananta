@@ -1109,20 +1109,21 @@ class ChatMixin:
                     content_type = str(resp.headers.get("Content-Type") or "")
                 except Exception:
                     content_type = ""
+                _char_limit = self._chat_answer_char_limit()
                 if stream_enabled and "text/event-stream" in content_type.lower():
                     streamed = self._read_chat_stream_response(resp)
                     if streamed:
-                        return streamed
+                        return streamed[:_char_limit]
                     return "⚠ LLM Streaming-Fehler: keine Antwort erhalten"
                 raw_response = resp.read().decode("utf-8", errors="replace")
                 if stream_enabled:
                     streamed = self._read_chat_stream(raw_response)
                     if streamed:
-                        return streamed
+                        return streamed[:_char_limit]
                 data = _json_mod.loads(raw_response)
                 choices = data.get("choices") or []
                 if choices:
-                    return str(choices[0].get("message", {}).get("content", "")).strip()
+                    return str(choices[0].get("message", {}).get("content", "")).strip()[:_char_limit]
         except urllib.error.HTTPError as exc:
             detail = ""
             try:
