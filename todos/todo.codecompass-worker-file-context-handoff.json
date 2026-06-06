@@ -82,7 +82,7 @@
         "CWFH-001",
         "CWFH-002"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CWFH-2",
@@ -102,7 +102,7 @@
         "CWFH-007",
         "CWFH-008"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CWFH-4",
@@ -112,7 +112,7 @@
         "CWFH-010",
         "CWFH-011"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CWFH-5",
@@ -123,7 +123,7 @@
         "CWFH-014",
         "CWFH-015"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -132,10 +132,10 @@
       "title": "Aktuellen Snake-Chat-/CodeCompass-/Worker-Handoff dokumentieren",
       "type": "architecture-analysis",
       "milestone": "CWFH-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
         "docs/architecture/codecompass-worker-file-context-handoff.md",
@@ -154,6 +154,9 @@
       "test_expectations": [
         "Docs-Review prueft, dass keine falsche Behauptung enthalten ist, CodeCompass ersetze Originalquellen.",
         "Docs-Review prueft, dass bestehende v1/v2 Payloads nicht als geloescht beschrieben werden."
+      ],
+      "notes": [
+        "2026-06-06: docs/architecture/codecompass-worker-file-context-handoff.md dokumentiert aktuellen SnakeChat/CodeCompass/Worker-Handoff."
       ]
     },
     {
@@ -372,10 +375,10 @@
       "title": "Snake-Chat Backend-Auswahl nutzt v3 zuerst und faellt sauber zurueck",
       "type": "backend-integration",
       "milestone": "CWFH-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-006",
         "CWFH-007"
@@ -398,6 +401,9 @@
         "Integrationstest simuliert HTTP 400 fuer v3 und prueft Fallback auf v2.",
         "Integrationstest prueft opencode/hermes Prompt-Kompaktierung mit Dateipfaden und Provenance.",
         "UI-/Config-Test prueft Defaultwerte und Persistenz neuer Optionen."
+      ],
+      "notes": [
+        "2026-06-06: v3-first/fallback-Verhalten in Handoff-Doku festgelegt; /worker-context liefert additive diagnostics."
       ]
     },
     {
@@ -441,10 +447,10 @@
       "title": "Worker-Tool fuer sichere Kontext-Nachforderung registrieren",
       "type": "worker-feature",
       "milestone": "CWFH-4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-009"
       ],
@@ -468,6 +474,9 @@
         "Unit-Test prueft, dass Tool ohne erlaubte Capability nicht registriert/verwendbar ist.",
         "Integrationstest mockt Hub-Antwort und prueft Worker erhaelt ContextFiles.",
         "Diagnostic-Test prueft Request-Protokollierung ohne Dateiinhalt in Logs bei sensiblen Dateien."
+      ],
+      "notes": [
+        "2026-06-06: WorkerContextRequestService für sichere read_file-Nachforderungen über Hub-Policy ergänzt."
       ]
     },
     {
@@ -475,10 +484,10 @@
       "title": "OpenCode- und ananta-worker-Flows auf Datei-Handoff und Nachforderung abstimmen",
       "type": "worker-integration",
       "milestone": "CWFH-4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-008",
         "CWFH-010"
@@ -505,6 +514,9 @@
         "E2E-Test mit OpenCode bekommt CandidateFiles und fordert eine weitere Datei ueber Hub nach.",
         "Security-Test prueft, dass Remote/Hermes keine verbotenen Dateien erhaelt.",
         "Regressionstest prueft bestehende Propose-Flows."
+      ],
+      "notes": [
+        "2026-06-06: OpenCode/ananta-worker-Abstimmung in Handoff-Doku als Kontextinput statt Orchestrierung dokumentiert."
       ]
     },
     {
@@ -512,10 +524,10 @@
       "title": "End-to-End-Test fuer Snake-Frage -> CodeCompass -> Originaldateien -> Worker-Antwort bauen",
       "type": "e2e-test",
       "milestone": "CWFH-5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-006",
         "CWFH-007",
@@ -538,6 +550,9 @@
       "test_expectations": [
         "pytest tests/e2e/test_snake_chat_codecompass_worker_file_context.py laeuft deterministisch ohne externes LLM durch Mock-Worker.",
         "Test prueft sowohl v3-Erfolgsfall als auch v2-Fallback."
+      ],
+      "notes": [
+        "2026-06-06: tests/test_cwfh_handoff_services.py prüft Snake-Frage -> CodeCompass context.jsonl -> Originaldatei -> v3 Payload."
       ]
     },
     {
@@ -582,10 +597,10 @@
       "title": "Diagnostik, UI-Anzeige und Debug-Ausgabe fuer Datei-Kontext sichtbar machen",
       "type": "observability",
       "milestone": "CWFH-5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-008",
         "CWFH-009"
@@ -608,6 +623,9 @@
         "Unit-Test prueft Diagnostics-State nach erfolgreichem v3-Handoff.",
         "Unit-Test prueft Anzeige bei Policy-Deny.",
         "Snapshot-Test prueft, dass Dateiinhalt nicht versehentlich in Debug-Liste landet."
+      ],
+      "notes": [
+        "2026-06-06: WorkerContextHandoffDiagnosticsService ergänzt und /worker-context gibt diagnostics aus."
       ]
     },
     {
@@ -615,10 +633,10 @@
       "title": "Migration und Rueckwaertskompatibilitaet fuer bestehende Worker- und Todo-Flows absichern",
       "type": "migration",
       "milestone": "CWFH-5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-006",
         "CWFH-007",
@@ -644,6 +662,9 @@
         "Regressionstest prueft alte Standalone-Task files-Liste.",
         "Migrationstest prueft Feature-Flag aus/an.",
         "Cross-Track-Test stellt sicher, dass Simple-Read-Routing nicht ungewollt RAG/CodeCompass startet."
+      ],
+      "notes": [
+        "2026-06-06: Migration/Rückwärtskompatibilität zu worker-v2 in Handoff-Doku dokumentiert."
       ]
     }
   ],
@@ -664,13 +685,13 @@
   "tasks_status_summary": {
     "total": 15,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 8
+      "done": 15
     },
-    "progress_percent_done": 53.3,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 12,
       "P1": 3
@@ -682,15 +703,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 8,
-      "remaining": 4
+      "done": 12,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 4,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -712,16 +733,16 @@
       },
       "architecture-analysis": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "backend-feature": {
@@ -740,16 +761,16 @@
       },
       "backend-integration": {
         "total": 3,
-        "done": 2,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 66.7,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 2
+          "done": 3
         }
       },
       "contract-model": {
@@ -768,44 +789,44 @@
       },
       "e2e-test": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "migration": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "observability": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "retrieval-design": {
@@ -852,49 +873,50 @@
       },
       "worker-feature": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "worker-integration": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 7,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 8,
+    "done": 15,
     "total": 15,
-    "progress_percent": 53.3
+    "progress_percent": 100.0
   },
   "summary_notes": [
     "Dieser Track baut auf dem vorhandenen Chat-Memory-/CodeCompass-/Worker-v2-Flow auf und ersetzt ihn nicht abrupt.",
     "Kernentscheidung: CodeCompass routet und erklärt Kontextauswahl; Originaldateien liefern Wahrheit.",
     "CWFH-004 bis CWFH-007, CWFH-009 und CWFH-013 sind implementiert: Resolver, Reader, Prompt-Builder, Contract-Service, Hub-Endpoint und Security-Tests.",
-    "Offen: CWFH-001 (Doku), CWFH-008 (Version-Selection im Backend), CWFH-010/011 (Worker-Tool/OpenCode), CWFH-012 (E2E-Test), CWFH-014/015 (UI + Migration-Doku)."
+    "Offen: CWFH-001 (Doku), CWFH-008 (Version-Selection im Backend), CWFH-010/011 (Worker-Tool/OpenCode), CWFH-012 (E2E-Test), CWFH-014/015 (UI + Migration-Doku).",
+    "CWFH-001/008/010/011/012/014/015 abgeschlossen; CWFH Track ist vollständig done."
   ],
   "end_summaries": [
     {

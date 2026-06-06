@@ -738,6 +738,9 @@ def worker_context():
             ContextFileReaderService, FileReadPolicy,
         )
         from agent.services.worker_contract_service import get_worker_contract_service
+        from agent.services.worker_context_handoff_diagnostics_service import (
+            get_worker_context_handoff_diagnostics_service,
+        )
 
         resolver = CodeCompassCandidateResolver(max_candidates=max(1, min(max_candidates, 100)))
         candidates = resolver.resolve(
@@ -759,6 +762,7 @@ def worker_context():
             memory_context=memory_context,
             manifest_hash=manifest_hash,
         )
+        handoff["diagnostics"] = get_worker_context_handoff_diagnostics_service().summarize(handoff)
         return jsonify(handoff), 200
     except Exception as exc:
         logging.getLogger(__name__).warning("worker-context failed: %s", exc, exc_info=True)

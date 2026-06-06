@@ -178,7 +178,7 @@
         "EPC-019",
         "EPC-020"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -586,7 +586,7 @@
     {
       "id": "EPC-019",
       "title": "Benchmark-Profil für echte vs Hash-Embeddings ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "benchmark",
@@ -602,7 +602,10 @@
         "CI bleibt ohne externe Credentials grün.",
         "Doku erklärt, dass Hash-Benchmark nur Pipeline-Funktion, nicht semantische Qualität misst."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "2026-06-06: Benchmark-Profil für local_hash und optionalen realen Provider in docs/benchmarks/codecompass-worker-retrieval.md ergänzt."
+      ]
     },
     {
       "id": "EPC-020",
@@ -642,13 +645,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 19
+      "done": 20
     },
-    "progress_percent_done": 95.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 14,
       "P1": 5,
@@ -668,25 +671,26 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 1,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 19,
+    "done": 20,
     "total": 20,
-    "progress_percent": 95.0
+    "progress_percent": 100.0
   },
   "summary_notes": [
     "17 von 20 Tasks abgeschlossen. Kernarchitektur EmbeddingProviderConfigService, TextBuilder, Index-Rebuild-Detection und Vector-Engine-Integration ist fertig.",
     "Offen: EPC-001 (Code-Inventar/Analyse), EPC-019 (Benchmark real vs. hash), EPC-020 (finale Doku).",
-    "EPC-001 und EPC-020 abgeschlossen; offen bleibt EPC-019 Benchmark-Profil."
+    "EPC-001 und EPC-020 abgeschlossen; offen bleibt EPC-019 Benchmark-Profil.",
+    "EPC-019 abgeschlossen; EPC Track ist vollständig done."
   ],
   "end_summaries": [
     {
@@ -757,16 +761,16 @@
       },
       "benchmark": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "config_examples": {
