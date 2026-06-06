@@ -1176,42 +1176,61 @@ def _clip_with_scroll(
 ) -> list[str]:
     """Clip *out* to *height* lines, honouring game['chat_long_message_scroll_offset'].
 
-    A status row at the bottom (showing "lines N-M / TOTAL  ↑↓ scroll") is always
-    appended when there is more content than visible room. Without height we
-    return the unmodified list (other callers may not need the limit).
+    The pane title, question header and sender row are kept fixed at the top
+    (they are the "chrome" of the response and should never scroll away). Only
+    the body lines are windowed. A status row at the bottom (showing
+    "Zeilen N-M / TOTAL  ↑K ↓K") is appended when there is more body content
+    than fits in the remaining room. Without height we return the unmodified
+    list (other callers may not need the limit).
     """
     if not height or height <= 0:
         return out
-    total = len(out)
-    if total <= height:
+    if len(out) <= height:
         return out
 
-    # Reserve one row for the scroll indicator
-    visible_rows = max(1, height - 1)
+    # Identify the body offset: the first row starting with "  " followed by
+    # the sender label (e.g. "  \x1b[38;2;120;180;255ms-ai:\x1b[0m") or any
+    # content line. Anything before it is fixed chrome.
+    body_start = 0
+    for idx, line in enumerate(out):
+        # The sender line starts with two spaces and contains the cyan
+        # colour sequence; everything from there on is body.
+        if "\x1b[38;2;120;180;255m" in line and line.lstrip().startswith("\x1b"):
+            body_start = idx
+            break
+    # If we did not find a sender line, fall back to fixed first 4 lines.
+    if body_start == 0 and out and not out[0].startswith("  "):
+        body_start = min(4, len(out) - 1)
+
+    chrome = out[:body_start]
+    body = out[body_start:]
+    # Always reserve one row for the scroll indicator
+    available = max(1, height - len(chrome) - 1)
+
     raw_offset = int(game.get("chat_long_message_scroll_offset") or 0)
-    max_offset = max(0, total - visible_rows)
+    max_offset = max(0, len(body) - available)
     offset = max(0, min(raw_offset, max_offset))
-    window = out[offset : offset + visible_rows]
-    if len(window) < visible_rows:
-        window = window + [""] * (visible_rows - len(window))
+    window = body[offset : offset + available]
+    if len(window) < available:
+        window = window + [""] * (available - len(window))
 
     above = offset
-    below = total - (offset + visible_rows)
+    below = len(body) - (offset + available)
     if above <= 0 and below <= 0:
         indicator = ""
     elif above > 0 and below > 0:
         indicator = (
-            f"  \x1b[2m↑{above} ↓{below}  Zeilen {offset+1}-{offset+visible_rows}/{total}\x1b[0m"
+            f"\x1b[2m  ↑{above} ↓{below}  Zeilen {offset+1}-{offset+available}/{len(body)}\x1b[0m"
         )
     elif above > 0:
         indicator = (
-            f"  \x1b[2m↑{above}  Zeilen {offset+1}-{offset+visible_rows}/{total}  ↓ Ende\x1b[0m"
+            f"\x1b[2m  ↑{above}  Zeilen {offset+1}-{offset+available}/{len(body)}  ↓ Ende\x1b[0m"
         )
     else:
         indicator = (
-            f"  \x1b[2m↑ Anfang  Zeilen 1-{visible_rows}/{total}  ↓{below}\x1b[0m"
+            f"\x1b[2m  ↑ Anfang  Zeilen 1-{available}/{len(body)}  ↓{below}\x1b[0m"
         )
-    return window + [_clip(indicator, width)]
+    return chrome + window + [_clip(indicator, width)]
 
 
 def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str]:
