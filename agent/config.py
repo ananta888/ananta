@@ -200,6 +200,12 @@ class Settings(BaseSettings):
     ananta_worker_context_max_iterations: int = Field(default=8, validation_alias="ANANTA_WORKER_CONTEXT_MAX_ITERATIONS")
     ananta_worker_context_line_window: int = Field(default=5, validation_alias="ANANTA_WORKER_CONTEXT_LINE_WINDOW")
     ananta_worker_context_max_snippet_chars: int = Field(default=8000, validation_alias="ANANTA_WORKER_CONTEXT_MAX_SNIPPET_CHARS")
+    ananta_worker_full_scan_enabled: bool = Field(default=True, validation_alias="ANANTA_WORKER_FULL_SCAN_ENABLED")
+    ananta_worker_full_scan_max_batches: int = Field(default=8, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_BATCHES")
+    ananta_worker_full_scan_files_per_batch: int = Field(default=3, validation_alias="ANANTA_WORKER_FULL_SCAN_FILES_PER_BATCH")
+    ananta_worker_full_scan_max_ref_chars: int = Field(default=4000, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_REF_CHARS")
+    ananta_worker_full_scan_summary_chars: int = Field(default=12000, validation_alias="ANANTA_WORKER_FULL_SCAN_SUMMARY_CHARS")
+    ananta_worker_full_scan_max_total_ref_count: int = Field(default=120, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_TOTAL_REF_COUNT")
     worker_default_execution_profile: str = Field(
         default="balanced",
         validation_alias="WORKER_DEFAULT_EXECUTION_PROFILE",

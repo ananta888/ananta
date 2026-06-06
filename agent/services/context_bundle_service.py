@@ -293,6 +293,10 @@ Output ONLY valid JSON matching schema."""
                 "profile_chunk_policy": (retrieval_profile or {}).get("chunk_policy"),
                 "profile_expansion_policy": (retrieval_profile or {}).get("expansion_policy"),
                 "profile_negative_source_patterns": (retrieval_profile or {}).get("negative_source_patterns"),
+                "profile_analysis_mode": (retrieval_profile or {}).get("analysis_mode"),
+                "profile_output_intent": (retrieval_profile or {}).get("output_intent"),
+                "profile_coverage_policy": (retrieval_profile or {}).get("coverage_policy"),
+                "profile_summary_policy": (retrieval_profile or {}).get("summary_policy"),
             },
             "retrieval_trace": retrieval_trace,
             "selection_trace": {

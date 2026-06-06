@@ -187,6 +187,32 @@ def _build_grounded_snake_prompt(user_text: str, *, limits: SnakeAskLimits | Non
     return prompt, False, "Kontext: 0 Treffer"
 
 
+def _resolve_snake_retrieval_profile_trace(user_text: str) -> dict[str, Any]:
+    try:
+        from agent.routes.ai_snake_config import _current_config
+        from agent.services.retrieval_profile_service import resolve_profile
+
+        cfg = _current_config()
+        feature_flag = str(cfg.get("chat_retrieval_profile") or "auto").strip().lower()
+        if bool(cfg.get("chat_code_questions_repo_first")) and feature_flag == "auto":
+            feature_flag = "repo_first"
+        domain_hint = str(cfg.get("chat_retrieval_domain_hint") or "").strip() or None
+        profile = resolve_profile(str(user_text or ""), cfg, domain_hint=domain_hint, feature_flag=feature_flag)
+        return {
+            "profile_id": profile.profile_id,
+            "domain": profile.domain,
+            "intent": profile.intent,
+            "analysis_mode": profile.analysis_mode or "standard",
+            "output_intent": profile.output_intent,
+            "coverage_policy": profile.coverage_policy,
+            "summary_policy": profile.summary_policy,
+            "source_types": list(profile.source_types),
+            "warnings": list(profile.warnings),
+        }
+    except Exception as exc:
+        return {"error": str(exc)[:120]}
+
+
 def _build_local_repo_fallback_context(prompt: str) -> str:
     text = str(prompt or "").lower()
     repo_root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
@@ -651,7 +677,13 @@ def _resolve_lmstudio_model_for_worker(configured: str | None) -> str | None:
         return configured
 
 
-def _worker_propose(grounded_prompt: str, model: str | None, *, limits: SnakeAskLimits | None = None) -> tuple[str, dict[str, Any]]:
+def _worker_propose(
+    grounded_prompt: str,
+    model: str | None,
+    *,
+    limits: SnakeAskLimits | None = None,
+    retrieval_profile_trace: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]]:
     """Forward prompt to worker /step/propose. Returns (answer, trace)."""
     from agent.services.task_runtime_service import forward_to_worker
 
@@ -684,6 +716,17 @@ def _worker_propose(grounded_prompt: str, model: str | None, *, limits: SnakeAsk
         "max_tokens": effective_limits.max_tokens,
         "rag_top_k": effective_limits.rag_top_k,
     }
+    if retrieval_profile_trace:
+        analysis_mode = str(retrieval_profile_trace.get("analysis_mode") or "standard")
+        trace["full_scan"] = {
+            "status": "delegated_to_worker" if analysis_mode == "architecture_full_scan" else "not_requested",
+            "analysis_mode": analysis_mode,
+            "profile_id": retrieval_profile_trace.get("profile_id"),
+            "output_intent": retrieval_profile_trace.get("output_intent"),
+            "coverage_policy": retrieval_profile_trace.get("coverage_policy"),
+            "plan_id": None,
+            "artifact_paths": {},
+        }
 
     try:
         result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
@@ -816,6 +859,8 @@ def snake_ask():
         rag_trace["source"] = "hub_rag"
         rag_trace["has_context"] = has_context
         rag_trace["summary"] = context_summary
+        if debug:
+            rag_trace["retrieval_profile"] = _resolve_snake_retrieval_profile_trace(question)
     rag_trace["limits"] = {
         "context_chars": limits.context_chars,
         "answer_chars": limits.answer_chars,
@@ -828,7 +873,12 @@ def snake_ask():
     model = request_model or hub_model
 
     # Primary path: route through registered ananta-worker
-    answer, worker_trace = _worker_propose(grounded_prompt, model, limits=limits)
+    answer, worker_trace = _worker_propose(
+        grounded_prompt,
+        model,
+        limits=limits,
+        retrieval_profile_trace=rag_trace.get("retrieval_profile") if isinstance(rag_trace.get("retrieval_profile"), dict) else None,
+    )
     if answer:
         resp: dict[str, Any] = {"answer": answer, "path": "worker"}
         if debug:
@@ -854,7 +904,16 @@ def snake_ask():
             return jsonify({"error": "Keine Antwort generiert"}), 503
         resp = {"answer": text, "path": "hub_direct"}
         if debug:
-            resp["trace"] = {"rag": rag_trace, "worker": worker_trace, "fallback_reason": "worker_empty"}
+            resp["trace"] = {
+                "rag": rag_trace,
+                "worker": worker_trace,
+                "fallback_reason": "worker_empty",
+                "full_scan": {
+                    "status": "not_run",
+                    "reason": "hub_direct_fallback",
+                    "analysis_mode": (rag_trace.get("retrieval_profile") or {}).get("analysis_mode"),
+                },
+            }
         return jsonify(resp), 200
     except Exception as exc:
         logging.getLogger(__name__).warning("snake-ask failed: %s", exc)

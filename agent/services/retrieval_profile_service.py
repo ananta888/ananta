@@ -23,6 +23,7 @@ INTENT_TUTORIAL = "tutorial_help"
 INTENT_GAME_DESIGN = "game_design"
 INTENT_OPS_RUNBOOK = "ops_runbook"
 INTENT_MERMAID = "mermaid_request"
+INTENT_ARCHITECTURE_FULL_SCAN = "architecture_full_scan"
 INTENT_GENERIC_CHAT = "generic_chat"
 
 _VALID_SOURCE_TYPES: frozenset[str] = frozenset({"repo", "artifact", "wiki", "task_memory"})
@@ -49,6 +50,11 @@ class RetrievalProfile:
     chunk_policy: dict[str, Any] = field(default_factory=dict)
     expansion_policy: dict[str, Any] = field(default_factory=dict)
     explainability: dict[str, Any] = field(default_factory=dict)
+    analysis_mode: str = ""
+    output_intent: str = ""
+    coverage_policy: str = ""
+    summary_policy: str = ""
+    budgets: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -67,6 +73,11 @@ class RetrievalProfile:
             "chunk_policy": dict(self.chunk_policy),
             "expansion_policy": dict(self.expansion_policy),
             "explainability": dict(self.explainability),
+            "analysis_mode": self.analysis_mode,
+            "output_intent": self.output_intent,
+            "coverage_policy": self.coverage_policy,
+            "summary_policy": self.summary_policy,
+            "budgets": dict(self.budgets),
         }
 
 
@@ -102,6 +113,11 @@ def normalize_retrieval_profile(raw: dict[str, Any] | None) -> RetrievalProfile 
     feature_flag = str(raw.get("feature_flag") or "auto").strip()
     selected_by = str(raw.get("selected_by") or "raw_profile").strip()
     reasons = [str(r) for r in list(raw.get("reasons") or []) if str(r).strip()]
+    analysis_mode = str(raw.get("analysis_mode") or "").strip()
+    output_intent = str(raw.get("output_intent") or "").strip()
+    coverage_policy = str(raw.get("coverage_policy") or "").strip()
+    summary_policy = str(raw.get("summary_policy") or "").strip()
+    budgets = _normalize_budgets(raw.get("budgets"))
     return RetrievalProfile(
         profile_id=profile_id,
         domain=domain,
@@ -118,6 +134,11 @@ def normalize_retrieval_profile(raw: dict[str, Any] | None) -> RetrievalProfile 
         chunk_policy=dict(raw.get("chunk_policy") or _default_chunk_policy()),
         expansion_policy=dict(raw.get("expansion_policy") or _default_expansion_policy()),
         explainability=dict(raw.get("explainability") or _default_explainability()),
+        analysis_mode=analysis_mode,
+        output_intent=output_intent,
+        coverage_policy=coverage_policy,
+        summary_policy=summary_policy,
+        budgets=budgets,
     )
 
 
@@ -145,6 +166,67 @@ def _default_explainability() -> dict[str, Any]:
         "include_selected_by": True,
         "include_rejected_sources_summary": True,
     }
+
+
+def _normalize_budgets(raw: Any) -> dict[str, int]:
+    result: dict[str, int] = {}
+    if not isinstance(raw, dict):
+        return result
+    bounds = {
+        "max_batches": (1, 64),
+        "files_per_batch": (1, 20),
+        "max_ref_chars": (500, 40_000),
+        "max_total_ref_count": (1, 500),
+        "max_summary_chars": (1_000, 80_000),
+    }
+    for key, (lo, hi) in bounds.items():
+        value = raw.get(key)
+        if value is None:
+            continue
+        try:
+            result[key] = max(lo, min(hi, int(value)))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _default_full_scan_budgets() -> dict[str, int]:
+    return {
+        "max_batches": 8,
+        "files_per_batch": 3,
+        "max_ref_chars": 4000,
+        "max_total_ref_count": 24,
+        "max_summary_chars": 12000,
+    }
+
+
+def _is_full_scan_intent(query: str, intent: str, cfg: dict[str, Any]) -> bool:
+    mode = str(cfg.get("chat_architecture_analysis_mode") or cfg.get("analysis_mode") or "").strip().lower()
+    if mode in {"architecture_full_scan", "full_scan", "force_full_scan"}:
+        return True
+    if mode in {"off", "disabled", "quick", "standard"}:
+        return False
+    q = str(query or "").lower()
+    if intent == INTENT_ARCHITECTURE_FULL_SCAN:
+        return True
+    if intent == INTENT_MERMAID and any(marker in q for marker in ("architektur", "architecture", "gesamt", "worker handoff", "codecompass")):
+        return True
+    if any(marker in q for marker in ("architekturdiagramm", "architecture diagram", "gesamtarchitektur", "vollanalyse", "full scan")):
+        return True
+    return False
+
+
+def _resolve_output_intent(query: str, intent: str) -> str:
+    q = str(query or "").lower()
+    if "sequence" in q or "sequenz" in q or "ablauf" in q or "handoff" in q:
+        return "mermaid_sequence_diagram"
+    if "mermaid" in q or "diagram" in q or "diagramm" in q:
+        return "mermaid_component_diagram"
+    if "dependency" in q or "abhängig" in q or "abhaengig" in q:
+        return "dependency_map"
+    if intent == INTENT_ARCHITECTURE_FULL_SCAN:
+        return "architecture_overview"
+    return ""
 
 
 def _build_source_policy(
@@ -202,6 +284,13 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    INTENT_ARCHITECTURE_FULL_SCAN: (
+        "architekturdiagramm", "architecture diagram", "gesamtarchitektur",
+        "full scan", "vollanalyse", "vollständige analyse", "vollstaendige analyse",
+        "alle relevanten komponenten", "all relevant components",
+        "mermaid diagramm zur architektur", "mermaid diagram for architecture",
+        "dependency map", "abhängigkeitsdiagramm", "abhaengigkeitsdiagramm",
+    ),
     INTENT_CODE_EXPLANATION: (
         "wie funktioniert", "how does", "explain", "erklär", "erkläre",
         "was macht", "what does", "zeig mir", "show me", "implementiert",
@@ -301,6 +390,12 @@ _PROFILE_TABLE: dict[tuple[str, str], dict[str, Any]] = {
         "retrieval_intent": "mermaid_diagram_request",
         "negative_source_patterns": [],
     },
+    (DOMAIN_CODECOMPASS, INTENT_ARCHITECTURE_FULL_SCAN): {
+        "source_types": ["repo", "artifact"],
+        "source_type_weights": {"repo": 1.35, "artifact": 1.1, "wiki": 0.55, "task_memory": 0.95},
+        "retrieval_intent": "architecture_full_scan_codecompass",
+        "negative_source_patterns": ["book-of-ananta", "book_of_ananta", "snake_tutor", "terminal-header-logo-renderer"],
+    },
     (DOMAIN_WORKER, INTENT_CODE_EXPLANATION): {
         "source_types": ["repo", "artifact"],
         "source_type_weights": {"repo": 1.35, "artifact": 1.15, "wiki": 0.5, "task_memory": 1.1},
@@ -312,6 +407,12 @@ _PROFILE_TABLE: dict[tuple[str, str], dict[str, Any]] = {
         "source_type_weights": {"repo": 1.2, "artifact": 1.2, "wiki": 0.6, "task_memory": 1.0},
         "retrieval_intent": "worker_architecture_overview",
         "negative_source_patterns": [],
+    },
+    (DOMAIN_WORKER, INTENT_ARCHITECTURE_FULL_SCAN): {
+        "source_types": ["repo", "artifact"],
+        "source_type_weights": {"repo": 1.35, "artifact": 1.05, "wiki": 0.55, "task_memory": 1.0},
+        "retrieval_intent": "worker_architecture_full_scan",
+        "negative_source_patterns": ["book-of-ananta", "book_of_ananta", "snake_tutor"],
     },
     (DOMAIN_AI_SNAKE, INTENT_CODE_EXPLANATION): {
         "source_types": ["repo", "artifact"],
@@ -467,6 +568,13 @@ def resolve_profile(
 
     domain, intent = classify_retrieval_intent(query, cfg)
     reasons = [f"classified_domain:{domain}", f"classified_intent:{intent}"]
+    full_scan = _is_full_scan_intent(query, intent, cfg)
+    output_intent = _resolve_output_intent(query, intent)
+    if full_scan:
+        intent = INTENT_ARCHITECTURE_FULL_SCAN
+        reasons.append("analysis_mode:architecture_full_scan")
+        if not output_intent:
+            output_intent = "architecture_overview"
 
     if domain_hint and str(domain_hint).strip():
         domain = str(domain_hint).strip()
@@ -507,6 +615,10 @@ def resolve_profile(
             reasons.append(f"ui_disabled_source_type:{st}")
 
     profile_id = f"{domain}/{intent}"
+    analysis_mode = "architecture_full_scan" if full_scan else ""
+    coverage_policy = "relation_expanded" if full_scan else ""
+    summary_policy = "rolling_structured" if full_scan else ""
+    budgets = _default_full_scan_budgets() if full_scan else {}
     return RetrievalProfile(
         profile_id=profile_id,
         domain=domain,
@@ -523,6 +635,11 @@ def resolve_profile(
         chunk_policy=_default_chunk_policy(),
         expansion_policy=_default_expansion_policy(),
         explainability=_default_explainability(),
+        analysis_mode=analysis_mode,
+        output_intent=output_intent,
+        coverage_policy=coverage_policy,
+        summary_policy=summary_policy,
+        budgets=budgets,
     )
 
 
