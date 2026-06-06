@@ -130,6 +130,10 @@ def create_app(agent: str = "default") -> Flask:
     return app
 
 
+def _env_flag(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default).strip().lower() not in ("0", "false", "")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -140,5 +144,6 @@ if __name__ == "__main__":
         sys.exit(0)
 
     app = create_app()
-    _debug = os.environ.get("FLASK_DEBUG", "0").strip() not in ("0", "false", "")
-    app.run(host="0.0.0.0", port=settings.port, threaded=True, debug=_debug, use_reloader=_debug)
+    _debug = _env_flag("FLASK_DEBUG")
+    _reload = _env_flag("FLASK_RELOAD") or _debug
+    app.run(host="0.0.0.0", port=settings.port, threaded=True, debug=_debug, use_reloader=_reload)
