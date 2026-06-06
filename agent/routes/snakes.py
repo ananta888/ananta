@@ -133,33 +133,36 @@ def _build_grounded_snake_prompt(user_text: str, *, limits: SnakeAskLimits | Non
     effective_limits = limits or SnakeAskLimits()
     try:
         from agent.routes.ai_snake_config import _current_config  # local import avoids route init coupling
+        from agent.services.retrieval_profile_service import resolve_profile  # CRPS-005
 
         cfg = _current_config()
-        use_codecompass = bool(cfg.get("chat_use_codecompass"))
-        include_local_project = bool(cfg.get("chat_include_local_project"))
-        include_wiki = bool(cfg.get("chat_include_wikipedia"))
-        source_types: list[str] = []
-        if use_codecompass:
-            source_types.append("artifact")
-        if include_local_project:
-            source_types.append("repo")
-        if include_wiki:
-            source_types.append("wiki")
+
+        # CRPS-005: resolve domain-aware retrieval profile instead of hard-coding source_types
+        # chat_code_questions_repo_first is a shortcut to "repo_first" mode
+        feature_flag = str(cfg.get("chat_retrieval_profile") or "auto").strip().lower()
+        if bool(cfg.get("chat_code_questions_repo_first")) and feature_flag == "auto":
+            feature_flag = "repo_first"
+        domain_hint = str(cfg.get("chat_retrieval_domain_hint") or "").strip() or None
+
+        profile = resolve_profile(prompt, cfg, domain_hint=domain_hint, feature_flag=feature_flag)
+
         bundle, grounded = get_rag_service().build_execution_context(
             prompt,
             task_kind="research",
-            retrieval_intent="chat_codecompass_overview",
-            source_types=source_types or None,
+            retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
+            source_types=profile.source_types or None,
             max_chunks=effective_limits.rag_top_k,
+            retrieval_profile=profile.as_dict(),
         )
         chunks = list(bundle.get("chunks") or [])
         if chunks:
-            src_counts: dict[str, int] = {}
+            src_type_counts: dict[str, int] = {}
             for chunk in chunks:
-                source = str((chunk or {}).get("source") or "unknown").strip().lower() or "unknown"
-                src_counts[source] = int(src_counts.get(source, 0)) + 1
-            summary_parts = [f"{k}:{v}" for k, v in sorted(src_counts.items())]
-            summary = f"Kontext: {len(chunks)} Treffer ({', '.join(summary_parts)})"
+                metadata = dict((chunk or {}).get("metadata") or {})
+                st = str(metadata.get("source_type") or (chunk or {}).get("engine") or "unknown").strip().lower() or "unknown"
+                src_type_counts[st] = int(src_type_counts.get(st, 0)) + 1
+            summary_parts = [f"{k}:{v}" for k, v in sorted(src_type_counts.items())]
+            summary = f"Kontext: {len(chunks)} Treffer ({', '.join(summary_parts)}) [{profile.profile_id}]"
             return grounded, True, summary
     except Exception:
         pass

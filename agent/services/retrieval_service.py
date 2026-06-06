@@ -853,9 +853,17 @@ class RetrievalService:
         goal_id: str | None = None,
         neighbor_task_ids: list[str] | None = None,
         source_types: list[str] | None = None,
+        retrieval_profile: dict | None = None,
     ) -> dict[str, object]:
+        # CRPS-008: extract profile source_types if not explicitly provided
+        effective_source_types_override: list[str] | None = source_types
+        if retrieval_profile and isinstance(retrieval_profile, dict) and source_types is None:
+            profile_st = list(retrieval_profile.get("source_types") or [])
+            if profile_st:
+                effective_source_types_override = profile_st
+
         orchestrator = self.get_orchestrator()
-        source_policy = self._source_selection_policy(source_types)
+        source_policy = self._source_selection_policy(effective_source_types_override)
         effective_source_types = set(source_policy.get("effective") or [])
         context_payload: dict[str, object] = {
             "query": query,
@@ -865,6 +873,18 @@ class RetrievalService:
         }
         knowledge_top_k, knowledge_reason = self._knowledge_index_plan(query, task_kind=task_kind, retrieval_intent=retrieval_intent)
         fusion_profile = self._task_profile_for_fusion(task_kind, retrieval_intent)
+
+        # CRPS-008: merge profile source_type_weights into fusion_profile (profile wins for explicitly set keys)
+        if retrieval_profile and isinstance(retrieval_profile, dict):
+            profile_weights = dict(retrieval_profile.get("source_type_weights") or {})
+            if profile_weights:
+                merged_weights = dict(fusion_profile.get("source_type_weights") or {})
+                merged_weights.update(profile_weights)
+                fusion_profile = dict(fusion_profile)
+                fusion_profile["source_type_weights"] = merged_weights
+                fusion_profile["profile_id"] = retrieval_profile.get("profile_id")
+                fusion_profile["profile_domain"] = retrieval_profile.get("domain")
+                fusion_profile["profile_intent"] = retrieval_profile.get("intent")
 
         knowledge_chunks: list[ContextChunk] = []
         artifact_adapter = self._source_adapters.get("artifact")
@@ -918,6 +938,33 @@ class RetrievalService:
         memory_chunks = self._normalize_chunks(memory_chunks)
         all_candidates = [*orchestrator_chunks, *knowledge_chunks, *memory_chunks]
         deduped_candidates, dedupe_meta = self._dedupe_candidates(all_candidates)
+
+        # CRPS-009: apply negative source pattern filter after dedup
+        profile_constraints: dict = {"removed": 0, "patterns": [], "insufficient_positive_sources": False}
+        if retrieval_profile and isinstance(retrieval_profile, dict):
+            neg_patterns = [str(p).lower() for p in list(retrieval_profile.get("negative_source_patterns") or []) if str(p).strip()]
+            if neg_patterns:
+                filtered: list = []
+                removed_count = 0
+                for chunk in deduped_candidates:
+                    chunk_source = str(getattr(chunk, "source", "") or "").lower()
+                    chunk_metadata = dict(getattr(chunk, "metadata", {}) or {})
+                    source_id = str(chunk_metadata.get("source_id") or "").lower()
+                    record_kind = str(chunk_metadata.get("record_kind") or "").lower()
+                    collection = str(chunk_metadata.get("collection_name") or "").lower()
+                    haystack = f"{chunk_source} {source_id} {record_kind} {collection}"
+                    if any(pat in haystack for pat in neg_patterns):
+                        removed_count += 1
+                    else:
+                        filtered.append(chunk)
+                insufficient = len(filtered) == 0 and removed_count > 0
+                profile_constraints = {
+                    "removed": removed_count,
+                    "patterns": neg_patterns,
+                    "insufficient_positive_sources": insufficient,
+                }
+                if not insufficient:
+                    deduped_candidates = filtered
         expanded_candidates, expansion_meta = self._expand_candidates(
             deduped_candidates,
             max_candidates=max(len(deduped_candidates), max(settings.rag_max_chunks * 4, 12)),
@@ -952,6 +999,10 @@ class RetrievalService:
             "task_kind": self._normalize_task_kind(task_kind) or None,
             "retrieval_intent": str(retrieval_intent or "").strip() or None,
             "source_policy": source_policy,
+            "profile_id": fusion_profile.get("profile_id") if isinstance(fusion_profile, dict) else None,
+            "profile_domain": fusion_profile.get("profile_domain") if isinstance(fusion_profile, dict) else None,
+            "profile_intent": fusion_profile.get("profile_intent") if isinstance(fusion_profile, dict) else None,
+            "profile_constraints": profile_constraints,
             "engine_contributions_before": self._engine_contributions(all_candidates),
             "engine_contributions_after_dedupe": self._engine_contributions(deduped_candidates),
             "engine_contributions_final": self._engine_contributions(merged),

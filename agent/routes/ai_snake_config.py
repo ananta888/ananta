@@ -24,6 +24,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_pass_memory_to_worker", "chat_worker_mode", "chat_backend_fallback",
     "chat_include_runtime_status", "input_history_chat_enabled",
     "input_history_command_enabled", "input_history_max_entries",
+    # CRPS-007: retrieval profile config
+    "chat_retrieval_profile", "chat_retrieval_domain_hint", "chat_code_questions_repo_first",
 })
 
 _DEFAULTS: dict[str, Any] = {
@@ -56,6 +58,10 @@ _DEFAULTS: dict[str, Any] = {
     "input_history_chat_enabled": True,
     "input_history_command_enabled": True,
     "input_history_max_entries": 100,
+    # CRPS-007: retrieval profile config
+    "chat_retrieval_profile": "auto",
+    "chat_retrieval_domain_hint": "",
+    "chat_code_questions_repo_first": False,
 }
 
 _OPTIONS: dict[str, list[str]] = {
@@ -78,6 +84,7 @@ _OPTIONS: dict[str, list[str]] = {
     "chat_worker_mode": ["snake_ask", "propose", "auto"],
     "chat_backend_fallback": ["none", "lmstudio", "local_knowledge"],
     "input_history_max_entries": ["20", "50", "100", "200", "500"],
+    "chat_retrieval_profile": ["auto", "repo_first", "docs_first", "legacy"],
 }
 
 _BOOL_KEYS = frozenset(k for k, v in _DEFAULTS.items() if isinstance(v, bool))
