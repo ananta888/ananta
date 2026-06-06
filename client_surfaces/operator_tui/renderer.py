@@ -707,9 +707,12 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
     if bool(game.get("center_browser_active")):
         return _content_browser_lines(game, width, height=height)
     if _is_chat_ask_mode(game) and not bool(game.get("chat_long_message_streaming")):
-        ask_lines = _content_chat_plain_ask_lines(state, width, height=height)
-        if ask_lines is not None:
-            return ask_lines
+        # Only occupy this section's middle pane — navigate away → normal content.
+        _ask_section = str(game.get("tutor_ask_section_id") or "")
+        if not _ask_section or _ask_section == state.section_id:
+            ask_lines = _content_chat_plain_ask_lines(state, width, height=height)
+            if ask_lines is not None:
+                return ask_lines
     if bool(dict(game.get("visual_viewport") or {}).get("enabled")):
         return _content_visual_viewport_lines(state, width)
 
@@ -1155,6 +1158,7 @@ def _content_chat_plain_ask_lines(
             continue
         body.extend(_wrap_plain(raw_line, body_width) or [""])
     lines.extend("  " + row for row in body)
+    lines.append(f"  \x1b[2mStrg+C: Antwort kopieren  PgUp/PgDn: scrollen\x1b[0m")
 
     out = [_clip(l, width) for l in lines]
 

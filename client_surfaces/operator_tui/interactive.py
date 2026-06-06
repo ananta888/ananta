@@ -1603,6 +1603,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         set_chat_state(game, chat)
         game["tutor_ask_question"] = text
         game["tutor_ask_at"] = time.monotonic()
+        game["tutor_ask_section_id"] = self.state.section_id
         timeout_s = self._chat_ask_timeout_seconds()
         game["tutor_ask_timeout_s"] = timeout_s
         game["tutor_ask_deadline_at"] = float(game["tutor_ask_at"]) + timeout_s
