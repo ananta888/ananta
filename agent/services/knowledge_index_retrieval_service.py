@@ -19,6 +19,27 @@ class KnowledgeIndexRetrievalService:
     FIELD_EXCLUDE_KEYS = {"id", "parent_id", "node_id", "edge_id", "hash", "sha1", "sha256"}
     TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
     SYMBOL_SPLIT_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
+    # Stop tokens filtered before scoring. Includes German articles/pronouns and
+    # common 2-char fragments produced by splitting words at umlauts (e.g. "erkläre"
+    # → ["erkl", "re"]). Without this filter, "re" dominates large Python files
+    # through "return", "service", "regex" etc. hitting the linear count formula.
+    _STOP_TOKENS: frozenset = frozenset({
+        # German articles / pronouns / prepositions
+        "der", "die", "das", "den", "dem", "des",
+        "ein", "eine", "einer", "eines", "einem",
+        "mir", "dir", "ihm", "ihr", "uns",
+        "ich", "du", "er", "sie", "wir",
+        "und", "oder", "aber", "nicht", "auch", "noch",
+        "von", "mit", "bei", "aus", "zur", "zum",
+        "ist", "sind", "war", "wird", "hat", "haben",
+        "auf", "in", "an", "zu", "am", "im",
+        "als", "bitte", "mal", "schon", "wie", "was", "wer", "wo",
+        # Common short fragments from umlaut splitting
+        "re", "de", "le", "al", "ar", "te", "se",
+        # English stop words
+        "the", "and", "for", "are", "but", "not", "you", "all",
+        "can", "has", "its", "was", "use", "one", "how", "our", "out",
+    })
     CODE_EXTENSIONS = {
         ".py",
         ".js",
@@ -201,7 +222,10 @@ class KnowledgeIndexRetrievalService:
         return re.sub(r"\s+", " ", compact).strip()[:2000]
 
     def _tokenize(self, value: str) -> list[str]:
-        return [token.lower() for token in self.TOKEN_PATTERN.findall(value or "") if len(token) > 1]
+        return [
+            t for t in (token.lower() for token in self.TOKEN_PATTERN.findall(value or ""))
+            if len(t) >= 3 and t not in self._STOP_TOKENS
+        ]
 
     def _query_features(self, query: str) -> dict[str, list[str]]:
         tokens = self._tokenize(query)

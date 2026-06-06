@@ -42,6 +42,65 @@ PRIORITY_DIRS = [        # indexed first, guaranteed inclusion
     "client_surfaces",
 ]
 
+# Semantic aliases: file path fragments → tags added to the content header.
+# This bridges the gap between project-internal names and user-facing terms so
+# embedding queries like "codecompass" find the right Python files.
+_PATH_TAGS: list[tuple[str, str]] = [
+    ("codecompass",          "CodeCompass RAG retrieval system knowledge index"),
+    ("knowledge_index",      "CodeCompass knowledge index retrieval RAG"),
+    ("retrieval_service",    "CodeCompass RAG retrieval orchestration"),
+    ("context_bundle",       "CodeCompass context bundle RAG assembly grounded prompt"),
+    ("worker_workspace",     "worker workspace preparation CodeCompass context files"),
+    ("knowledge_routes",     "CodeCompass knowledge API routes"),
+    ("snake",                "AI-Snake chat CodeCompass question answering"),
+    ("goal_service",         "goal task planning execution service"),
+    ("planning_strategies",  "planning strategy task decomposition"),
+    ("task_scoped_execution","task execution worker proposal pipeline"),
+    ("sgpt",                 "LLM CLI backend ananta-worker execution"),
+]
+
+# A synthetic glossary record injected first so the embedding index always
+# contains the project terminology mapping even before any file is indexed.
+_GLOSSARY_RECORD = {
+    "file": "_project_glossary.md",
+    "path": "_project_glossary.md",
+    "content": """\
+# Ananta Project Glossary — CodeCompass & RAG System
+
+## CodeCompass
+CodeCompass ist das RAG-System (Retrieval Augmented Generation) von Ananta.
+Es indiziert Quellcode-Dateien und liefert bei Anfragen die semantisch relevantesten
+Datei-Inhalte als Kontext für LLM-Anfragen (AI-Snake Chat, ananta-worker, OpenCode).
+
+Kern-Python-Dateien von CodeCompass:
+- agent/services/codecompass_retrieval_flag_service.py  — steuert aktive CodeCompass-Quellen
+- agent/services/codecompass_output_reader.py            — liest CodeCompass-Ausgaben
+- agent/services/wiki_codecompass_bridge.py              — Wiki-Integration
+- agent/services/knowledge_index_retrieval_service.py    — Hauptlogik Knowledge-Index-Abfrage
+- agent/services/knowledge_index_job_service.py          — Indizierungs-Jobs verwalten
+- agent/services/retrieval_service.py                    — RAG-Orchestrierung aller Engines
+- agent/services/context_bundle_service.py               — baut den RAG-Kontext-Bundle zusammen
+- agent/services/prompt_context_bundle_service.py        — Prompt-Kontext-Aufbereitung
+- agent/services/worker_workspace_service.py             — bereitet Workspace für Worker vor
+- agent/routes/knowledge.py                              — REST-API für Knowledge/CodeCompass
+
+## Knowledge Index
+Der Knowledge Index speichert Datei-Inhalte als Vektoren (Embeddings).
+Queries liefern die N ähnlichsten Chunks zurück (top_k).
+Source scope "artifact" = indizierte Projekt-Dateien.
+
+## RAG (Retrieval Augmented Generation)
+Vor jeder LLM-Anfrage werden relevante Datei-Inhalte aus dem Index geholt
+und in den Prompt eingebettet, damit das Modell projektspezifische Fragen
+beantworten kann.
+
+## AI-Snake Chat
+Der AI-Snake Chat (/snake/ask) nutzt CodeCompass: Die Nutzeranfrage wird
+gegen den Knowledge Index abgeglichen, relevante Dateien werden als Kontext
+übergeben, dann antwortet das LLM.
+""",
+}
+
 
 def _should_exclude_file(path: Path) -> bool:
     name = path.name
@@ -92,8 +151,18 @@ def _collect_files() -> list[Path]:
     return result[:MAX_RECORDS]
 
 
+def _file_tags(rel: str) -> str:
+    """Return extra semantic tag tokens for a file based on path keywords."""
+    tags: list[str] = []
+    for fragment, tag in _PATH_TAGS:
+        if fragment in rel:
+            tags.append(tag)
+    return " | ".join(tags)
+
+
 def _build_records(files: list[Path]) -> list[dict]:
-    records = []
+    # Glossary record first so it is always included even if MAX_RECORDS is tight.
+    records: list[dict] = [_GLOSSARY_RECORD]
     for f in files:
         try:
             size = f.stat().st_size
@@ -103,7 +172,13 @@ def _build_records(files: list[Path]) -> list[dict]:
             if not content:
                 continue
             rel = str(f.relative_to(ROOT))
-            records.append({"file": rel, "path": rel, "content": content})
+            tags = _file_tags(rel)
+            # Prepend path + semantic tags so embeddings include project terminology.
+            header = f"# {rel}"
+            if tags:
+                header += f"\n# Themen: {tags}"
+            content_with_header = f"{header}\n{content}"
+            records.append({"file": rel, "path": rel, "content": content_with_header})
         except Exception:
             continue
     return records
