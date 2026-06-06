@@ -555,8 +555,13 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         {
             "at": 12.3,
             "need": "",
+            # Marker ist in der Frage eingebaut, damit er auch im
+            # ananta-worker Modus die LMStudio-Runde erreicht (die
+            # TUI system_prompt wird in diesem Pfad nicht propagiert).
             "send": (
-                ":ask Antworte exakt mit diesem Satz: CodeCompass liefert Kontext; "
+                ":ask Antworte exakt mit dem Marker "
+                "'ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST:' gefolgt von diesem Satz: "
+                "CodeCompass liefert Kontext; "
                 "chat_mixin.py sendet AI-Snake-Fragen via /snake/ask an den Hub, "
                 "der ananta-worker nutzt LMStudio und zeigt die Antwort in der TUI."
             ).encode("utf-8"),

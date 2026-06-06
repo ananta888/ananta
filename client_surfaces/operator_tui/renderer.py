@@ -20,6 +20,7 @@ from client_surfaces.operator_tui.chat_long_message import (
     long_message_history_rows,
     should_use_middle_view_for_message,
 )
+from client_surfaces.operator_tui.chat_state import get_active_channel
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -705,6 +706,10 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
         return _content_ai_snake_config_lines(state, width)
     if bool(game.get("center_browser_active")):
         return _content_browser_lines(game, width, height=height)
+    if _is_chat_ask_mode(game) and not bool(game.get("chat_long_message_streaming")):
+        ask_lines = _content_chat_plain_ask_lines(state, width, height=height)
+        if ask_lines is not None:
+            return ask_lines
     if bool(dict(game.get("visual_viewport") or {}).get("enabled")):
         return _content_visual_viewport_lines(state, width)
 
@@ -1072,6 +1077,93 @@ def _templates_editor_content_lines(state: OperatorState, width: int, *, viewpor
     if end_line < len(text_lines):
         lines.append(f"  ... ({len(text_lines) - end_line} weitere Zeilen)")
     return [_clip(line, width) for line in lines]
+
+
+def _is_chat_ask_mode(game: dict) -> bool:
+    """True when the chat panel has an active :ask question (waiting or answered).
+
+    In :ask mode the middle pane renders the LLM answer as plain text instead
+    of going through the visual viewport (compressed tree, narrow wrap).
+    """
+    return bool(str(game.get("tutor_ask_question") or "").strip())
+
+
+def _latest_ai_message_text(game: dict) -> tuple[str, str] | None:
+    """Return (sender_label, plain_text) for the most recent AI message in
+    the active chat channel, or None if the channel has no AI message yet.
+    The streaming partial (game['llm_streaming_partial']) takes precedence so
+    that a still-arriving answer is shown word-for-word as it grows.
+    """
+    partial = str(game.get("llm_streaming_partial") or "").strip()
+    if partial:
+        return ("AI-Snake", partial)
+    chat = game.get("chat_state") if isinstance(game.get("chat_state"), dict) else {}
+    if not chat:
+        return None
+    channel = get_active_channel(chat) or {}
+    if not isinstance(channel, dict):
+        return None
+    messages = list(channel.get("messages") or [])
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        if str(msg.get("sender_kind") or "") == "ai":
+            text = str(msg.get("text") or "").strip()
+            if text:
+                sender_id = str(msg.get("sender_id") or "s-ai")
+                return (sender_id, text)
+    return None
+
+
+def _content_chat_plain_ask_lines(
+    state: OperatorState, width: int, *, height: int | None = None
+) -> list[str] | None:
+    """Render the :ask answer as plain text in the middle pane (no visual
+    viewport, no tree compression, no markdown rendering). Returns None if
+    there is no AI answer to show yet — caller falls back to the visual
+    viewport.
+    """
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    question = str(game.get("tutor_ask_question") or "").strip()
+    latest = _latest_ai_message_text(game)
+    if latest is None and not question:
+        return None
+    sender_label, answer_text = latest if latest is not None else ("AI-Snake", "")
+
+    title = _pane_title("AI-SNAKE ANTWORT", state.focus == FocusPane.CONTENT)
+    lines: list[str] = [title]
+
+    # Frage als Header (Echo der User-Eingabe)
+    if question:
+        q_header = f"  ? {question[: max(4, width - 6)]}"
+        lines.append(_clip(q_header, width))
+        lines.append("  " + "─" * max(4, width - 4))
+
+    if not answer_text:
+        # Noch keine Antwort — Wartezustand
+        lines.append("  \x1b[2m…warte auf Antwort\x1b[0m")
+        return [_clip(l, width) for l in lines]
+
+    # Plain-Text-Antwort, hart an width gewrappt (kein visuelles Viewport-Wrapping).
+    body_width = max(8, width - 2)
+    lines.append(f"  \x1b[38;2;120;180;255m{sender_label}:\x1b[0m")
+    body: list[str] = []
+    for raw_line in answer_text.splitlines() or [""]:
+        if not raw_line:
+            body.append("")
+            continue
+        body.extend(_wrap_plain(raw_line, body_width) or [""])
+    lines.extend("  " + row for row in body)
+
+    # Optionaler scroll-Footer
+    total = len(lines)
+    avail = int(height) if height else 0
+    if avail and total > avail:
+        hidden = total - avail
+        lines.append("  " + "─" * max(4, width - 4))
+        lines.append(_clip(f"  \x1b[2m({hidden} weitere Zeilen — Scroll mit Shift+Up/Down)\x1b[0m", width))
+
+    return [_clip(l, width) for l in lines]
 
 
 def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str]:
