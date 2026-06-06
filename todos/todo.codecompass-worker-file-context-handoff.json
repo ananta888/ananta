@@ -1,0 +1,647 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-worker-file-context-handoff",
+  "purpose": "AI-Snake-Chat, Hub und Worker sollen CodeCompass nicht als Ersatz fuer Originalquellen verwenden, sondern als sicheren Suchindex, um passende Dateien, Symbole und Nachbarschaften zu finden. Die gefundenen Kandidaten muessen strukturiert an ananta-worker, OpenCode oder andere Worker uebergeben werden. Worker duerfen ueber Hub/CodeCompass weitere Dateien nachfordern, aber nur ueber Policy-gepruefte, nachvollziehbare Contracts.",
+  "goal": "Aus Prompt-RAG wird ein nachvollziehbarer Retrieval- und Datei-Handoff: Userfrage -> CodeCompass/Embeddings/Graph -> CandidateFiles/ContextBundle -> Worker liest Originaldateien -> Worker kann ueber Hub weitere Dateien/Graph-Expansion anfordern -> Antwort oder Aenderung basiert auf Originaldateien mit Provenance.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "architecture_principles": [
+    "CodeCompass ist Suchindex, Navigationsgraph und Retrieval-Hilfe, nicht die autoritative Wahrheit.",
+    "Originaldateien und explizit gelesene Artefakte sind die autoritativen Quellen fuer Antworten, Reviews und Codeaenderungen.",
+    "Graphen und Embeddings liefern Kandidaten, Scores, Treffergruende und Nachbarschaften.",
+    "Worker bekommen strukturierte CandidateFiles/ContextFiles statt nur frei formatierte Prompt-Hints.",
+    "Worker duerfen weitere Dateien nur ueber Hub-vermittelte, policy-gepruefte Context-Request-Contracts anfordern.",
+    "Default-Deny, Projektroot-Grenzen, Secret-Redaction und Least-Privilege gelten fuer jede Dateiuebergabe und jede Nachforderung.",
+    "Rueckwaertskompatibilitaet zu worker v1/v2 Payloads bleibt erhalten, aber neue Clients nutzen einen versionierten v3 Context-Handoff."
+  ],
+  "existing_code_references": [
+    {
+      "path": "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+      "reason": "Dokumentiert den aktuellen Chat-Flow, CodeCompass/RAG Retrieval und Worker-v2 Payload mit question/context/depth/memory_context."
+    },
+    {
+      "path": "client_surfaces/operator_tui/chat_mixin.py",
+      "reason": "Aktueller Einstieg fuer Snake-Chat, RAG-Kontext und Worker-Aufruf."
+    },
+    {
+      "path": "client_surfaces/operator_tui/chat_prompt_builder.py",
+      "reason": "Baut bisher Kontexttext, Messages und worker_v2_payload. Muss v3 CandidateFiles/ContextFiles erzeugen koennen."
+    },
+    {
+      "path": "worker/retrieval/codecompass_output_reader.py",
+      "reason": "Liest index/details/context/embedding/relations/graph_nodes/graph_edges JSONL und liefert Provenance."
+    },
+    {
+      "path": "agent/routes/codecompass_graph.py",
+      "reason": "Bietet Graph-, Node- und Expand-Endpunkte fuer CodeCompass. Kann als Basis fuer Worker-Nachforderungen dienen."
+    },
+    {
+      "path": "agent/services/context_bundle_service.py",
+      "reason": "Baut worker_context_bundle.v1 mit chunks, context_text, retrieval_trace und explainability. Muss Originaldatei-Kandidaten/Lesestatus ergaenzen."
+    },
+    {
+      "path": "agent/services/worker_contract_service.py",
+      "reason": "Baut WorkerExecutionContextContract und Standalone-/Todo-Worker-Contracts. Muss Handoff-Vertrag versionieren und file candidates/files integrieren."
+    },
+    {
+      "path": "agent/models.py",
+      "reason": "Pydantic/Contract-Modelle fuer WorkerExecutionContextContract und neue Context-Request/Response-Modelle."
+    },
+    {
+      "path": "worker/core/tool_registry.py",
+      "reason": "Tool-Zugriff fuer Worker. Datei-Lese- und Context-Request-Tools muessen kontrolliert registriert werden."
+    },
+    {
+      "path": "agent/services/retrieval_policy_filter_service.py",
+      "reason": "Policy-Filter fuer Retrieval-Chunks. Muss auch auf CandidateFiles/ContextRequests angewandt werden."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "CWFH-1",
+      "title": "Ist-Zustand und Contract-Luecke sauber dokumentieren",
+      "task_ids": ["CWFH-001", "CWFH-002"],
+      "status": "todo"
+    },
+    {
+      "id": "CWFH-2",
+      "title": "CandidateFile- und ContextFile-Modelle einfuehren",
+      "task_ids": ["CWFH-003", "CWFH-004", "CWFH-005"],
+      "status": "todo"
+    },
+    {
+      "id": "CWFH-3",
+      "title": "Snake-Chat und Hub liefern strukturierte Dateien an Worker",
+      "task_ids": ["CWFH-006", "CWFH-007", "CWFH-008"],
+      "status": "todo"
+    },
+    {
+      "id": "CWFH-4",
+      "title": "Worker duerfen ueber Hub/CodeCompass weitere Dateien anfordern",
+      "task_ids": ["CWFH-009", "CWFH-010", "CWFH-011"],
+      "status": "todo"
+    },
+    {
+      "id": "CWFH-5",
+      "title": "Tests, Diagnostik und Migration absichern",
+      "task_ids": ["CWFH-012", "CWFH-013", "CWFH-014", "CWFH-015"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CWFH-001",
+      "title": "Aktuellen Snake-Chat-/CodeCompass-/Worker-Handoff dokumentieren",
+      "type": "architecture-analysis",
+      "milestone": "CWFH-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "docs/architecture/codecompass-worker-file-context-handoff.md",
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "agent/services/worker_contract_service.py",
+        "agent/services/context_bundle_service.py"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation beschreibt den aktuellen Ist-Zustand: Snake-Chat nutzt CodeCompass/RAG bereits fuer Kontext-Hints und Worker-v2 bekommt question/context/depth/memory_context.",
+        "Dokumentation benennt explizit die Luecke: Es gibt noch keinen harten Vertrag fuer candidate_files, context_files, read_status, required_reads oder worker_context_requests im Chat-Handoff.",
+        "Dokumentation grenzt klar ab: CodeCompass-Outputs sind Suchindex/Metadaten; Originaldateien bleiben autoritative Quelle.",
+        "Dokumentation beschreibt vorhandene Infrastruktur, die bereits Dateien/Chunks/Bundles an Worker uebergibt, insbesondere ContextBundler, WorkerContractService und Standalone-Task files.",
+        "Mermaid-Sequenzdiagramm zeigt Ist-Flow und Soll-Flow nebeneinander."
+      ],
+      "test_expectations": [
+        "Docs-Review prueft, dass keine falsche Behauptung enthalten ist, CodeCompass ersetze Originalquellen.",
+        "Docs-Review prueft, dass bestehende v1/v2 Payloads nicht als geloescht beschrieben werden."
+      ]
+    },
+    {
+      "id": "CWFH-002",
+      "title": "CodeCompass-Output-Semantik fuer Datei-Kandidaten vereinheitlichen",
+      "type": "retrieval-design",
+      "milestone": "CWFH-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_output_reader.py",
+        "docs/architecture/codecompass-worker-file-context-handoff.md",
+        "tests/**/test_*codecompass*output*reader*.py"
+      ],
+      "acceptance_criteria": [
+        "Semantik fuer index.jsonl, details.jsonl, context.jsonl, embedding.jsonl, relations.jsonl, graph_nodes.jsonl und graph_edges.jsonl ist dokumentiert.",
+        "Fuer jeden Record-Typ ist definiert, aus welchen Feldern ein relativer Originaldateipfad extrahiert werden darf.",
+        "Wenn ein Record keinen belastbaren Dateipfad enthaelt, darf er nur als Hint/Relation genutzt werden und nicht als ContextFile.",
+        "Provenance aus CodeCompassOutputReader bleibt erhalten: output_kind, output_file, record_id, manifest_hash und source_scope.",
+        "Mehrdeutige oder absolute Pfade werden nicht ungeprueft an Worker weitergereicht."
+      ],
+      "test_expectations": [
+        "Unit-Test prueft Dateipfad-Extraktion aus graph_nodes, context, details und embedding Records.",
+        "Unit-Test prueft, dass Records ohne path/file/source nur Hint-Kandidaten bleiben.",
+        "Unit-Test prueft, dass Provenance-Felder bei normalisierten Kandidaten erhalten bleiben."
+      ]
+    },
+    {
+      "id": "CWFH-003",
+      "title": "CandidateFile- und ContextFile-Contract in agent/models.py einfuehren",
+      "type": "contract-model",
+      "milestone": "CWFH-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-001", "CWFH-002"],
+      "target_files": [
+        "agent/models.py",
+        "tests/**/test_*worker*context*contract*.py",
+        "tests/baselines/schemas/*.json"
+      ],
+      "acceptance_criteria": [
+        "Neues Modell CandidateFile enthaelt mindestens: path, score, reason, source_record_ids, source_output_kinds, matched_symbols, relation_path, manifest_hash, sensitivity, read_policy und requires_read.",
+        "Neues Modell ContextFile enthaelt mindestens: path, content, sha256, byte_count, line_count, optional line_ranges, redaction_status, read_at und provenance.",
+        "Neues Modell WorkerContextRequest enthaelt mindestens: request_id, reason, requested_paths, seed_node_ids, expansion_profile, max_files, max_bytes, required_capabilities und user_question_ref.",
+        "Neues Modell WorkerContextResponse enthaelt allowed_files, denied_files, candidate_files, diagnostics, policy_decisions und retrieval_trace.",
+        "Alle Modelle erlauben JSON-Serialisierung ohne Python-spezifische Objekte und sind rueckwaertskompatibel zu bestehenden WorkerExecutionContextContract-Modellen."
+      ],
+      "test_expectations": [
+        "Pydantic-/Schema-Test serialisiert Minimal- und Vollbeispiel fuer CandidateFile, ContextFile, WorkerContextRequest und WorkerContextResponse.",
+        "Regressionstest prueft, dass bestehende WorkerExecutionContextContract-Payloads weiterhin valide sind.",
+        "Baseline-Schema wird erweitert oder neu abgelegt."
+      ]
+    },
+    {
+      "id": "CWFH-004",
+      "title": "CodeCompassCandidateResolver fuer Fragen, Embeddings und Graphnachbarschaft bauen",
+      "type": "backend-feature",
+      "milestone": "CWFH-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-002", "CWFH-003"],
+      "target_files": [
+        "worker/retrieval/codecompass_candidate_resolver.py",
+        "worker/retrieval/codecompass_output_reader.py",
+        "worker/retrieval/codecompass_graph_expansion.py",
+        "worker/retrieval/codecompass_graph_store.py",
+        "tests/**/test_*codecompass*candidate*resolver*.py"
+      ],
+      "acceptance_criteria": [
+        "Resolver nimmt Userfrage, optional Chat-Memory, aktives Ziel/Artifact und CodeCompass-Output-Dir entgegen.",
+        "Resolver scored Kandidaten aus embedding/context/index/details/graph_nodes und nutzt graph_edges/relations fuer Nachbarschaftserweiterung.",
+        "Jeder CandidateFile enthaelt erklaerbare Treffergruende wie token_match, embedding_text_match, symbol_match, graph_neighbor oder relation_path.",
+        "Deduplizierung erfolgt nach normalisiertem relativen Pfad, nicht nach Record-ID.",
+        "Top-K, max_graph_depth, max_files und max_total_bytes sind konfigurierbar und haben sichere Defaults.",
+        "Resolver gibt neben candidate_files auch rejected_hints/ambiguous_records fuer Diagnostik zurueck."
+      ],
+      "test_expectations": [
+        "Fixture mit graph_nodes/graph_edges/context/embedding findet erwartete Dateien fuer eine Snake-Chat-Frage.",
+        "Test prueft, dass ein direkt gematchter Symboltreffer hoeher rankt als ein entfernter Graphnachbar.",
+        "Test prueft stabile Sortierung bei gleichen Scores.",
+        "Test prueft max_graph_depth=0 als keine Graph-Expansion oder gemaess dokumentierter Semantik."
+      ]
+    },
+    {
+      "id": "CWFH-005",
+      "title": "Policy-geprueften Originaldatei-Reader fuer ContextFiles einfuehren",
+      "type": "security-feature",
+      "milestone": "CWFH-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-003", "CWFH-004"],
+      "target_files": [
+        "agent/services/context_file_reader_service.py",
+        "agent/services/retrieval_policy_filter_service.py",
+        "agent/services/context_bundle_service.py",
+        "tests/**/test_*context*file*reader*.py",
+        "tests/**/test_*retrieval*policy*.py"
+      ],
+      "acceptance_criteria": [
+        "Reader liest nur relative Pfade innerhalb erlaubter Projekt-/Workspace-Roots.",
+        "Reader blockiert Pfad-Traversal, Symlink-Ausbruch, absolute Fremdpfade und bekannte Secret-Dateien.",
+        "Reader unterstuetzt max_bytes_per_file, max_total_bytes, allowed_extensions, denied_globs und redaction_policy.",
+        "Jeder gelesene ContextFile enthaelt sha256, byte_count, line_count, read_status und redaction_status.",
+        "Denied Files werden mit konkretem Policy-Grund dokumentiert, aber nicht als Inhalt an Worker uebergeben.",
+        "Binary/zu grosse Dateien werden nicht blind gelesen, sondern als denied oder metadata_only markiert."
+      ],
+      "test_expectations": [
+        "Unit-Test erlaubt normale Projektdatei und liefert ContextFile mit Hash und Inhalt.",
+        "Unit-Test blockiert ../, absoluten Pfad ausserhalb Root und Symlink-Ausbruch.",
+        "Unit-Test blockiert oder redacted .env/private key Fixture.",
+        "Unit-Test prueft max_total_bytes und max_bytes_per_file."
+      ]
+    },
+    {
+      "id": "CWFH-006",
+      "title": "ChatPromptBuilder auf worker_context_handoff.v3 erweitern",
+      "type": "backend-integration",
+      "milestone": "CWFH-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-003", "CWFH-004", "CWFH-005"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "tests/**/test_*chat*prompt*builder*.py",
+        "tests/**/test_*snake*chat*worker*v3*.py"
+      ],
+      "acceptance_criteria": [
+        "PromptBuildResult erhaelt optional worker_v3_payload mit schema='worker_context_handoff.v3'.",
+        "worker_v3_payload enthaelt question, depth, memory_context, candidate_files, context_files, retrieval_trace, policy_decisions und backward_compat_context.",
+        "context_text bleibt fuer v1/v2-Fallback erhalten, wird aber nicht mehr als einzige Quelle fuer Datei-Kontext betrachtet.",
+        "Wenn chat_use_codecompass=false ist, werden keine CodeCompass-CandidateFiles erzeugt.",
+        "Wenn chat_context_file_read_mode='candidates_only' ist, werden Kandidaten uebergeben, aber Inhalte noch nicht gelesen.",
+        "Wenn chat_context_file_read_mode='read_top_k' ist, werden die Top-K Originaldateien policy-geprueft als ContextFiles gelesen."
+      ],
+      "test_expectations": [
+        "PromptBuilder-Test erzeugt v3 Payload mit CandidateFiles und ContextFiles fuer Fixture-Frage.",
+        "Test prueft Fallback: v2 Payload bleibt unveraendert erzeugbar.",
+        "Test prueft Budget: context_text wird gekuerzt, aber strukturierte CandidateFiles bleiben erhalten.",
+        "Test prueft deaktiviertes CodeCompass-Verhalten."
+      ]
+    },
+    {
+      "id": "CWFH-007",
+      "title": "WorkerContractService und ContextBundler um File-Handoff erweitern",
+      "type": "backend-integration",
+      "milestone": "CWFH-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-003", "CWFH-005", "CWFH-006"],
+      "target_files": [
+        "agent/services/worker_contract_service.py",
+        "agent/services/context_bundle_service.py",
+        "agent/models.py",
+        "tests/**/test_*worker*contract*.py",
+        "tests/**/test_*context*bundle*.py"
+      ],
+      "acceptance_criteria": [
+        "WorkerExecutionContextContract kann candidate_files und context_files im context-Block transportieren.",
+        "ContextBundler.build_bundle erhaelt optional candidate_files/context_files und fuehrt sie in worker_context_bundle.v1 oder einer versionierten Erweiterung mit.",
+        "Explainability.sources enthaelt weiterhin chunk-Quellen und zusaetzlich Datei-Quellen mit path, engine, manifest_hash und relation_path.",
+        "retrieval_trace enthaelt selected_file_count, read_file_count, denied_file_count und total_context_file_bytes.",
+        "Standalone-Task-Contract files-Feld wird nicht gebrochen, sondern mit CandidateFile/ContextFile-Semantik dokumentiert oder erweitert.",
+        "Worker-Kontrakte bleiben JSON-kompatibel fuer ananta_worker, opencode, openai_codex_cli und custom."
+      ],
+      "test_expectations": [
+        "Regressionstest fuer bestehende build_execution_context-Payloads bleibt gruen.",
+        "Neuer Test prueft build_execution_context mit candidate_files/context_files.",
+        "Neuer Test prueft build_standalone_task_contract files-Rueckwaertskompatibilitaet.",
+        "Snapshot-Test prueft retrieval_trace und explainability-Erweiterungen."
+      ]
+    },
+    {
+      "id": "CWFH-008",
+      "title": "Snake-Chat Backend-Auswahl nutzt v3 zuerst und faellt sauber zurueck",
+      "type": "backend-integration",
+      "milestone": "CWFH-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-006", "CWFH-007"],
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/ai_snake_config_view.py",
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "tests/**/test_*chat*mixin*worker*.py"
+      ],
+      "acceptance_criteria": [
+        "Bei chat_backend='ananta-worker' versucht der Client zuerst v3, dann v2, dann v1 gemaess dokumentierter Fallback-Policy.",
+        "Bei chat_backend='opencode' oder 'hermes' wird v3 entweder als strukturierter Propose-Kontext genutzt oder bewusst in einen kompatiblen Prompt mit Dateiliste und Lesestatus kompaktiert.",
+        "UI-Konfiguration bietet klare Optionen fuer chat_context_file_read_mode, chat_context_file_top_k, chat_context_file_byte_budget und chat_allow_worker_context_requests.",
+        "Diagnostik zeigt last_chat_context_files_count, last_chat_candidate_files_count, last_chat_denied_files_count und last_chat_context_handoff_version.",
+        "Fehler im Dateilesen fuehren nicht zum kompletten Chat-Ausfall, sondern zu Degradation mit sichtbarer Warnung."
+      ],
+      "test_expectations": [
+        "Integrationstest simuliert Worker-v3 Erfolg.",
+        "Integrationstest simuliert HTTP 400 fuer v3 und prueft Fallback auf v2.",
+        "Integrationstest prueft opencode/hermes Prompt-Kompaktierung mit Dateipfaden und Provenance.",
+        "UI-/Config-Test prueft Defaultwerte und Persistenz neuer Optionen."
+      ]
+    },
+    {
+      "id": "CWFH-009",
+      "title": "Hub-Endpoint fuer WorkerContextRequest einfuehren",
+      "type": "api-feature",
+      "milestone": "CWFH-4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-003", "CWFH-004", "CWFH-005"],
+      "target_files": [
+        "agent/routes/worker_context.py",
+        "agent/routes/codecompass_graph.py",
+        "agent/services/context_file_reader_service.py",
+        "agent/services/worker_contract_service.py",
+        "tests/**/test_*worker*context*route*.py"
+      ],
+      "acceptance_criteria": [
+        "Neuer interner Endpoint nimmt WorkerContextRequest entgegen und gibt WorkerContextResponse zurueck.",
+        "Endpoint akzeptiert requested_paths fuer direkte Datei-Nachforderung und seed_node_ids plus expansion_profile fuer CodeCompass-Graph-Expansion.",
+        "Alle Anforderungen werden gegen Worker-Identitaet, allowed_tools, workspace, project_root und Retrieval-/Secret-Policy geprueft.",
+        "Endpoint begrenzt max_files, max_bytes, max_graph_depth und Rate pro Task/Trace.",
+        "Antwort enthaelt allowed_files, denied_files, candidate_files, diagnostics und retrieval_trace.",
+        "Endpoint ist intern/authentifiziert und nicht als offener Datei-Lese-Endpunkt nutzbar."
+      ],
+      "test_expectations": [
+        "API-Test erlaubt Nachforderung einer normalen Datei innerhalb des Workspaces.",
+        "API-Test blockiert Pfad ausserhalb Workspaces.",
+        "API-Test prueft Graph-Expansion via seed_node_ids und expansion_profile.",
+        "API-Test prueft Rate-/Budget-Limit und denied_files."
+      ]
+    },
+    {
+      "id": "CWFH-010",
+      "title": "Worker-Tool fuer sichere Kontext-Nachforderung registrieren",
+      "type": "worker-feature",
+      "milestone": "CWFH-4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-009"],
+      "target_files": [
+        "worker/core/tool_registry.py",
+        "worker/core/execution_envelope.py",
+        "worker/tools/context_request_tool.py",
+        "worker/core/diagnostics.py",
+        "tests/**/test_*context*request*tool*.py"
+      ],
+      "acceptance_criteria": [
+        "Worker bekommt ein Tool wie request_context_files oder hub_context_request, das nur den Hub-Endpunkt nutzt und nicht direkt beliebig Dateien liest.",
+        "Tool verlangt reason, requested_paths oder seed_node_ids und nutzt task_id/trace_id aus ExecutionEnvelope.",
+        "Toolantwort unterscheidet allowed_files, denied_files und candidate_files klar.",
+        "Worker-Prompt/Tool-Definition erklaert: erst Kandidaten pruefen, dann bei Bedarf Originaldateien anfordern, nicht aus Index-Hints halluzinieren.",
+        "Tool ist nur verfuegbar, wenn allowed_tools es explizit erlaubt oder der Worker-Profilvertrag es enthaelt.",
+        "Diagnostics protokolliert jede Nachforderung mit request_id, reason, file_count und denied_count."
+      ],
+      "test_expectations": [
+        "Unit-Test prueft Tool-Argumentvalidierung.",
+        "Unit-Test prueft, dass Tool ohne erlaubte Capability nicht registriert/verwendbar ist.",
+        "Integrationstest mockt Hub-Antwort und prueft Worker erhaelt ContextFiles.",
+        "Diagnostic-Test prueft Request-Protokollierung ohne Dateiinhalt in Logs bei sensiblen Dateien."
+      ]
+    },
+    {
+      "id": "CWFH-011",
+      "title": "OpenCode- und ananta-worker-Flows auf Datei-Handoff und Nachforderung abstimmen",
+      "type": "worker-integration",
+      "milestone": "CWFH-4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-008", "CWFH-010"],
+      "target_files": [
+        "worker/core/hermes_adapter.py",
+        "worker/core/tool_registry.py",
+        "worker/core/execution_envelope.py",
+        "scripts/run_opencode_full_e2e_evidence.sh",
+        "scripts/run_ananta_native_full_e2e_evidence.sh",
+        "tests/**/test_*opencode*context*.py",
+        "tests/**/test_*ananta*worker*context*.py"
+      ],
+      "acceptance_criteria": [
+        "ananta-worker kann worker_context_handoff.v3 direkt verarbeiten und ContextFiles als bereits gelesene Originalquellen nutzen.",
+        "OpenCode bekommt Dateikandidaten entweder als erlaubte Workspace-Dateien plus klare Tool-Anweisung oder ueber einen kompatiblen Context-Request-Mechanismus.",
+        "Hermes/remote Worker bekommen keine lokalen sensiblen Dateien, ausser Policy/Scope erlaubt es explizit; sonst nur redacted snippets oder Kandidaten-Metadaten.",
+        "Worker duerfen nicht eigenmaechtig ausserhalb des Hub-/Workspace-Vertrags nach Dateien suchen.",
+        "Bei Aenderungsvorschlaegen muss der Worker nachweisen, welche Originaldateien gelesen wurden.",
+        "Antworten enthalten bei Debug/Trace optional verwendete Datei-Pfade und Manifest-/Context-Hash."
+      ],
+      "test_expectations": [
+        "E2E-Test mit ananta-worker beantwortet Frage zu einer konkreten Funktion erst nach ContextFile-Lesen.",
+        "E2E-Test mit OpenCode bekommt CandidateFiles und fordert eine weitere Datei ueber Hub nach.",
+        "Security-Test prueft, dass Remote/Hermes keine verbotenen Dateien erhaelt.",
+        "Regressionstest prueft bestehende Propose-Flows."
+      ]
+    },
+    {
+      "id": "CWFH-012",
+      "title": "End-to-End-Test fuer Snake-Frage -> CodeCompass -> Originaldateien -> Worker-Antwort bauen",
+      "type": "e2e-test",
+      "milestone": "CWFH-5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-006", "CWFH-007", "CWFH-008", "CWFH-010"],
+      "target_files": [
+        "tests/e2e/test_snake_chat_codecompass_worker_file_context.py",
+        "tests/fixtures/codecompass/**",
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "worker/retrieval/codecompass_candidate_resolver.py"
+      ],
+      "acceptance_criteria": [
+        "Test-Fixture enthaelt kleines Projekt plus CodeCompass-JSONL mit bewusst mehrdeutigen Kandidaten.",
+        "Snake-Frage findet korrekte CandidateFiles ueber CodeCompass und liest mindestens eine Originaldatei als ContextFile.",
+        "Worker-Antwort referenziert gelesene Originaldatei und nicht nur CodeCompass-Hint.",
+        "RetrievalTrace zeigt candidate_count, read_count, denied_count, context_hash und manifest_hash.",
+        "Test beweist, dass falscher Kandidat trotz Treffer nicht gelesen wird, wenn Score/Budget ihn ausschliesst."
+      ],
+      "test_expectations": [
+        "pytest tests/e2e/test_snake_chat_codecompass_worker_file_context.py laeuft deterministisch ohne externes LLM durch Mock-Worker.",
+        "Test prueft sowohl v3-Erfolgsfall als auch v2-Fallback."
+      ]
+    },
+    {
+      "id": "CWFH-013",
+      "title": "Security- und Least-Privilege-Testmatrix fuer Datei-Handoff ergaenzen",
+      "type": "security-test",
+      "milestone": "CWFH-5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-005", "CWFH-009", "CWFH-010"],
+      "target_files": [
+        "tests/security/test_worker_context_file_policy.py",
+        "tests/security/test_worker_context_request_policy.py",
+        "agent/services/context_file_reader_service.py",
+        "agent/routes/worker_context.py",
+        "docs/security/worker-context-file-policy.md"
+      ],
+      "acceptance_criteria": [
+        "Testmatrix umfasst erlaubte Projektdatei, verbotene Secret-Datei, Pfad-Traversal, Symlink-Ausbruch, Binary-Datei, grosse Datei und nicht existierende Datei.",
+        "Jeder Block liefert eine maschinenlesbare Policy-Decision mit Grund.",
+        "Kein sensibler Dateiinhalt erscheint in Logs, Diagnostics oder denied_files.details.",
+        "Worker kann max_files/max_bytes nicht durch wiederholte Nachforderungen umgehen.",
+        "Policy unterscheidet lokale Worker, OpenCode, Remote/Hermes und ggf. external_cloud_allowed sauber."
+      ],
+      "test_expectations": [
+        "pytest tests/security/test_worker_context_file_policy.py",
+        "pytest tests/security/test_worker_context_request_policy.py",
+        "Snapshot prueft denied_files ohne Inhalt."
+      ]
+    },
+    {
+      "id": "CWFH-014",
+      "title": "Diagnostik, UI-Anzeige und Debug-Ausgabe fuer Datei-Kontext sichtbar machen",
+      "type": "observability",
+      "milestone": "CWFH-5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-008", "CWFH-009"],
+      "target_files": [
+        "client_surfaces/operator_tui/renderer*.py",
+        "client_surfaces/operator_tui/ai_snake_config_view.py",
+        "worker/core/diagnostics.py",
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "tests/**/test_*chat*diagnostics*.py"
+      ],
+      "acceptance_criteria": [
+        "Renderer Diagnostics zeigt letzte Context-Handoff-Version, Kandidatenanzahl, gelesene Dateien, abgelehnte Dateien, Byte-Budget und Context-Hash.",
+        "Bei aktivem Debug werden Top-Dateikandidaten mit Score und Reason angezeigt, aber keine sensiblen Inhalte.",
+        "Chat-Antwort kann optional eine kurze Quellenzeile anzeigen: read_files=[...], denied_count=N.",
+        "Fehler wie fehlender CodeCompass-Output, stale manifest oder Policy-Deny werden fuer Nutzer verstaendlich angezeigt.",
+        "Debug-Ausgabe ist abschaltbar und veraendert nicht die eigentliche Worker-Antwort."
+      ],
+      "test_expectations": [
+        "Unit-Test prueft Diagnostics-State nach erfolgreichem v3-Handoff.",
+        "Unit-Test prueft Anzeige bei Policy-Deny.",
+        "Snapshot-Test prueft, dass Dateiinhalt nicht versehentlich in Debug-Liste landet."
+      ]
+    },
+    {
+      "id": "CWFH-015",
+      "title": "Migration und Rueckwaertskompatibilitaet fuer bestehende Worker- und Todo-Flows absichern",
+      "type": "migration",
+      "milestone": "CWFH-5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["CWFH-006", "CWFH-007", "CWFH-008", "CWFH-011"],
+      "target_files": [
+        "docs/migration/worker-context-handoff-v3.md",
+        "agent/services/worker_contract_service.py",
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "todos/todo.snake-chat-adaptive-tool-routing.json",
+        "tests/**/test_*backward*compat*.py"
+      ],
+      "acceptance_criteria": [
+        "Migration-Doku beschreibt v1, v2 und v3 Payloads mit klarer Prioritaet: v3 wenn supported, sonst v2, sonst v1.",
+        "Bestehende Todo- und Worker-Subplan-Contracts bleiben gueltig.",
+        "Konfigurationsdefaults aktivieren v3 nur fuer sichere lokale/ananta-worker Faelle oder gemaess dokumentiertem Flag.",
+        "Bei alten Workern wird structured file context in kompakten Prompt-Kontext umgewandelt, ohne harte Fehler.",
+        "Zusammenspiel mit todo.snake-chat-adaptive-tool-routing.json ist dokumentiert: Simple-Read-Tools und CodeCompass-File-Handoff sind getrennte, aber kombinierbare Pfade."
+      ],
+      "test_expectations": [
+        "Regressionstest laedt alte worker_v2_payload-Beispiele.",
+        "Regressionstest prueft alte Standalone-Task files-Liste.",
+        "Migrationstest prueft Feature-Flag aus/an.",
+        "Cross-Track-Test stellt sicher, dass Simple-Read-Routing nicht ungewollt RAG/CodeCompass startet."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CWFH-001",
+    "CWFH-002",
+    "CWFH-003",
+    "CWFH-004",
+    "CWFH-005",
+    "CWFH-006",
+    "CWFH-007",
+    "CWFH-008",
+    "CWFH-009",
+    "CWFH-010",
+    "CWFH-012",
+    "CWFH-013"
+  ],
+  "tasks_status_summary": {
+    "total": 15,
+    "by_status": {
+      "todo": 15,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 12,
+      "P1": 3,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 7,
+      "high": 7
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 15,
+    "by_type": {
+      "architecture-analysis": 1,
+      "retrieval-design": 1,
+      "contract-model": 1,
+      "backend-feature": 1,
+      "security-feature": 1,
+      "backend-integration": 3,
+      "api-feature": 1,
+      "worker-feature": 1,
+      "worker-integration": 1,
+      "e2e-test": 1,
+      "security-test": 1,
+      "observability": 1,
+      "migration": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 15,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Dieser Track baut auf dem vorhandenen Chat-Memory-/CodeCompass-/Worker-v2-Flow auf und ersetzt ihn nicht abrupt.",
+    "Kernentscheidung: CodeCompass routet und erklaert Kontextauswahl; Originaldateien liefern Wahrheit.",
+    "Wichtigster technischer Schnitt: worker_context_handoff.v3 mit candidate_files, context_files und worker_context_request/response.",
+    "Sicherheitsregel: Worker fordern Dateien ueber Hub an, nicht ueber unkontrollierten Direktzugriff ausserhalb des erlaubten Workspace-Vertrags."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "CWFH-END-001",
+      "title": "Erwarteter Zielzustand",
+      "items": [
+        "AI-Snake-Fragen koennen CodeCompass nutzen, um passende Dateien zu finden.",
+        "Der Worker bekommt strukturierte Kandidaten und optional bereits gelesene Originaldateien.",
+        "Der Worker kann ueber Hub/CodeCompass weitere Dateien oder Graph-Nachbarschaften nachfordern.",
+        "Antworten und Codeaenderungen basieren nachvollziehbar auf Originaldateien, nicht nur auf Index-Snippets.",
+        "Policy, Provenance, Budget und Rueckwaertskompatibilitaet sind getestet."
+      ]
+    }
+  ]
+}
