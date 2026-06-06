@@ -2,6 +2,7 @@ import contextlib
 import json
 import logging
 import os
+import pathlib
 import shlex
 import shutil
 import subprocess
@@ -542,11 +543,117 @@ def normalize_backend_flags(backend: str, options: list | None) -> tuple[list[st
     return valid, rejected
 
 
+_EXT_LANG: dict[str, str] = {
+    "py": "python", "ts": "typescript", "tsx": "typescript",
+    "js": "javascript", "jsx": "javascript",
+    "yaml": "yaml", "yml": "yaml", "json": "json",
+    "md": "markdown", "html": "html", "css": "css",
+    "sh": "bash", "bash": "bash",
+}
+
+
+def _resolve_repo_root() -> pathlib.Path | None:
+    """Return the configured project/repo root generically via settings.rag_repo_root."""
+    if has_app_context():
+        raw = str(getattr(settings, "rag_repo_root", "") or "").strip()
+        if raw and raw != ".":
+            p = pathlib.Path(raw)
+            if p.is_dir():
+                return p.resolve()
+    # Fallback: /app (Docker) or cwd
+    for candidate in (pathlib.Path("/app"), pathlib.Path.cwd()):
+        if candidate.is_dir() and (candidate / "agent").is_dir():
+            return candidate.resolve()
+    return None
+
+
+def _embed_workspace_files_in_prompt(prompt: str, workdir: str | None, *, max_chars: int = 20_000) -> str:
+    """Embed relevant source files from the project into the prompt for ananta-worker.
+
+    Reads rag_helper/research-context.json to find repo_scope_refs (file paths
+    identified as relevant by CodeCompass for this task), then reads the actual
+    source files from settings.rag_repo_root.
+
+    Works generically for any project — the repo root comes from configuration,
+    not a hardcoded path. Falls back to hub-context.md RAG excerpts if no file
+    refs are present.
+    """
+    if not workdir:
+        return prompt
+    root = pathlib.Path(workdir)
+    if not root.is_dir():
+        return prompt
+
+    sections: list[str] = []
+    remaining = max_chars
+    embedded_files = False
+
+    repo_root = _resolve_repo_root()
+    research_json = root / "rag_helper" / "research-context.json"
+
+    if research_json.exists() and repo_root is not None:
+        try:
+            data = json.loads(research_json.read_text(encoding="utf-8", errors="replace"))
+            refs = [dict(r or {}) for r in list(data.get("repo_scope_refs") or []) if r]
+            resolved_root = repo_root.resolve()
+            for ref in refs[:14]:
+                rel_path = str(ref.get("path") or "").strip()
+                if not rel_path:
+                    continue
+                try:
+                    full = (repo_root / rel_path).resolve()
+                    full.relative_to(resolved_root)  # guard against path traversal
+                except (ValueError, OSError):
+                    continue
+                if not full.is_file():
+                    continue
+                try:
+                    content = full.read_text(encoding="utf-8", errors="replace").strip()
+                except OSError:
+                    continue
+                if not content:
+                    continue
+                per_file = min(remaining, 5_000)
+                chunk = content[:per_file]
+                if len(content) > per_file:
+                    chunk = chunk.rstrip() + "\n# [… gekürzt]"
+                lang = _EXT_LANG.get(full.suffix.lstrip("."), full.suffix.lstrip(".") or "text")
+                sections.append(f"### {rel_path}\n```{lang}\n{chunk}\n```")
+                remaining -= len(chunk)
+                embedded_files = True
+                if remaining <= 0:
+                    break
+        except Exception:
+            pass
+
+    # Fallback: hub-context.md contains pre-assembled RAG chunk excerpts
+    if not embedded_files:
+        hub_path = root / ".ananta" / "hub-context.md"
+        if hub_path.exists() and remaining > 0:
+            try:
+                content = hub_path.read_text(encoding="utf-8", errors="replace").strip()
+                if content:
+                    chunk = content[:remaining]
+                    if len(content) > remaining:
+                        chunk = chunk.rstrip() + "\n\n[… gekürzt]"
+                    sections.append(f"### Projektkontext (CodeCompass)\n\n{chunk}")
+                    remaining -= len(chunk)
+                    embedded_files = True
+            except OSError:
+                pass
+
+    if not sections:
+        return prompt
+    injected = "\n\n---\n\n".join(sections)
+    return f"{prompt}\n\n---\n\n{injected}"
+
+
 def run_sgpt_command(
     prompt: str,
     options: list | None = None,
     timeout: int = 60,
     model: str | None = None,
+    workdir: str | None = None,
 ) -> tuple[int, str, str]:
     """
     Führt einen SGPT-Befehl zentral aus, inkl. korrekter Environment-Injektion.
@@ -607,6 +714,7 @@ def run_sgpt_command(
 
         try:
             logging.info(f"Zentraler SGPT-Aufruf: {args}")
+            cwd = workdir if (workdir and pathlib.Path(workdir).is_dir()) else None
             result = subprocess.run(  # noqa: S603 - args are constructed in-process; no shell=True
                 [sys.executable, "-m", "sgpt"] + args,
                 capture_output=True,
@@ -615,6 +723,7 @@ def run_sgpt_command(
                 errors="replace",
                 env=env,
                 timeout=timeout,
+                cwd=cwd,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -1416,9 +1525,10 @@ def run_llm_cli_command(
     for name in candidates:
         started = time.time()
         if name == "sgpt":
-            rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
+            rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model, workdir=workdir)
         elif name == "ananta-worker":
-            rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
+            enriched = _embed_workspace_files_in_prompt(prompt, workdir)
+            rc, out, err = run_sgpt_command(prompt=enriched, options=options or [], timeout=timeout, model=model, workdir=workdir)
         elif name == "codex":
             rc, out, err = run_codex_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "opencode":
