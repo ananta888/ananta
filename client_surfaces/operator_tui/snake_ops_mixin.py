@@ -679,16 +679,72 @@ class SnakeOpsMixin:
         return [_ANSI_STRIP.sub("", line) for line in rendered.splitlines()]
 
     def _snake_copy_selection(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        self._snake_copy_selection_to_game(game)
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message=str(game.get("_copy_status_message") or "snake copy"),
+        try:
+            game = dict(self.state.header_logo_game or {})
+            self._snake_copy_selection_to_game(game)
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    status_message=str(game.get("_copy_status_message") or "snake copy"),
+                )
             )
+        except Exception:
+            self._set_state(self.state.with_updates(status_message="copy: Fehler (TUI stabil)"))
+
+    def _copy_ask_answer_to_game(self, game: dict[str, object]) -> None:
+        """In :ask mode, copy the raw AI answer from chat_state directly.
+
+        Terminal-native copy strips trailing spaces and smashes lines together.
+        This extracts the answer text before any screen-rendering so spaces
+        are always preserved.
+        """
+        from client_surfaces.operator_tui.chat_state import get_active_channel
+        question = str(game.get("tutor_ask_question") or "").strip()
+        chat = game.get("chat_state") if isinstance(game.get("chat_state"), dict) else {}
+        channel = (get_active_channel(chat) or {}) if chat else {}
+        messages = list(channel.get("messages") or []) if isinstance(channel, dict) else []
+        answer_text = ""
+        sender_label = "AI-Snake"
+        for msg in reversed(messages):
+            if not isinstance(msg, dict):
+                continue
+            if str(msg.get("sender_kind") or "") == "ai":
+                t = str(msg.get("text") or "").strip()
+                if t:
+                    answer_text = t
+                    sender_label = str(msg.get("sender_id") or "AI-Snake")
+                    break
+        # Also check streaming partial
+        partial = str(game.get("llm_streaming_partial") or "").strip()
+        if partial:
+            answer_text = partial
+        lines_out: list[str] = []
+        if question:
+            lines_out.append(f"Frage: {question}")
+            lines_out.append("")
+        if answer_text:
+            lines_out.append(f"{sender_label}:")
+            lines_out.append(answer_text)
+        else:
+            lines_out.append("(noch keine Antwort)")
+        copied = "\n".join(lines_out).strip()
+        game["clipboard"] = copied
+        ok = self._copy_to_system_clipboard(copied) if copied else False
+        game["_copy_status_message"] = (
+            "ask copy: Antwort in Zwischenablage"
+            if ok
+            else "ask copy: intern (clip.exe nicht erreichbar)"
         )
 
     def _snake_copy_selection_to_game(self, game: dict[str, object]) -> None:
+        # :ask mode: copy the raw AI answer directly so spaces are preserved
+        if str(game.get("tutor_ask_question") or "").strip():
+            # Only bypass if no drag selection is active (user may want to select a snippet)
+            _has_drag = bool(game.get("mouse_selection_range") or game.get("mouse_selection_committed_ranges"))
+            if not _has_drag:
+                self._copy_ask_answer_to_game(game)
+                return
+
         # Mouse drag selection takes priority over cell-based snake selection
         _active_range = game.get("mouse_selection_range")
         if _active_range and isinstance(_active_range, dict):
@@ -696,30 +752,37 @@ class SnakeOpsMixin:
             for _c in (game.get("mouse_selection_committed_ranges") or []):
                 if isinstance(_c, dict):
                     _all_ranges.append(_c)
-            _plain_lines = self._snake_render_plain_lines()
+            try:
+                _plain_lines = self._snake_render_plain_lines()
+            except Exception:
+                game["_copy_status_message"] = "copy: Render-Fehler"
+                return
             _chunks: list[str] = []
             for _r in _all_ranges:
-                _sx = int(_r.get("start_x", 0))
-                _sy = int(_r.get("start_y", 0))
-                _ex = int(_r.get("end_x", 0))
-                _ey = int(_r.get("end_y", 0))
-                _mode = str(_r.get("mode", "linear"))
-                if _sy > _ey or (_sy == _ey and _sx > _ex):
-                    _sx, _ex = _ex, _sx
-                    _sy, _ey = _ey, _sy
-                for _ly in range(max(0, _sy), min(_ey + 1, len(_plain_lines))):
-                    _row = _plain_lines[_ly]
-                    if _mode == "block":
-                        _x1, _x2 = sorted([_sx, _ex])
-                    elif _ly == _sy and _ly == _ey:
-                        _x1, _x2 = sorted([_sx, _ex])
-                    elif _ly == _sy:
-                        _x1, _x2 = _sx, len(_row)
-                    elif _ly == _ey:
-                        _x1, _x2 = 0, _ex + 1
-                    else:
-                        _x1, _x2 = 0, len(_row)
-                    _chunks.append(_row[_x1:_x2])
+                try:
+                    _sx = int(_r.get("start_x", 0))
+                    _sy = int(_r.get("start_y", 0))
+                    _ex = int(_r.get("end_x", 0))
+                    _ey = int(_r.get("end_y", 0))
+                    _mode = str(_r.get("mode", "linear"))
+                    if _sy > _ey or (_sy == _ey and _sx > _ex):
+                        _sx, _ex = _ex, _sx
+                        _sy, _ey = _ey, _sy
+                    for _ly in range(max(0, _sy), min(_ey + 1, len(_plain_lines))):
+                        _row = _plain_lines[_ly]
+                        if _mode == "block":
+                            _x1, _x2 = sorted([_sx, _ex])
+                        elif _ly == _sy and _ly == _ey:
+                            _x1, _x2 = sorted([_sx, _ex])
+                        elif _ly == _sy:
+                            _x1, _x2 = _sx, len(_row)
+                        elif _ly == _ey:
+                            _x1, _x2 = 0, _ex + 1
+                        else:
+                            _x1, _x2 = 0, len(_row)
+                        _chunks.append(_row[_x1:_x2])
+                except Exception:
+                    continue
             copied = "\n".join(_chunks).rstrip("\n")
             game["clipboard"] = copied
             if copied:
@@ -741,7 +804,11 @@ class SnakeOpsMixin:
         if not cells:
             game["_copy_status_message"] = "snake copy: keine auswahl"
             return
-        lines = self._snake_render_plain_lines()
+        try:
+            lines = self._snake_render_plain_lines()
+        except Exception:
+            game["_copy_status_message"] = "copy: Render-Fehler"
+            return
         by_row: dict[int, list[int]] = {}
         for x, y in cells:
             by_row.setdefault(y, []).append(x)
