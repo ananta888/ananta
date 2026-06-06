@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-relevant-snippet-handoff",
   "created": "2026-06-06",
-  "status": "todo",
+  "status": "done",
   "purpose": "CodeCompass soll fuer ananta-worker nicht nur relevante Dateien liefern, sondern bevorzugt konkrete relevante Abschnitte, Symbole und Snippets an den Prompt-/Worker-Kontext uebergeben.",
   "goal": "Der aktuelle Dateifallback in agent/common/sgpt.py wird zu einem priorisierten Kontext-Handoff erweitert: CodeCompass-Snippets > Line-Ranges aus Dateien > gezielte Symbol-/Chunk-Auschnitte > gekuerzte ganze Datei > hub-context.md. Dadurch wird der Worker praeziser, billiger und weniger prompt-muell-anfaellig.",
   "source_review": {
@@ -135,7 +135,7 @@
     {
       "id": "CCSH-M1",
       "title": "Bestehenden Kontextfluss sichtbar und testbar machen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCSH-001",
         "CCSH-002",
@@ -145,7 +145,7 @@
     {
       "id": "CCSH-M2",
       "title": "Snippet-/Line-Range-Handoff in sgpt.py implementieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCSH-004",
         "CCSH-005",
@@ -156,7 +156,7 @@
     {
       "id": "CCSH-M3",
       "title": "ResearchContextBridge und CodeCompass-Export um Chunks erweitern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCSH-008",
         "CCSH-009",
@@ -166,7 +166,7 @@
     {
       "id": "CCSH-M4",
       "title": "Tests, Regressionen und Dokumentation abschliessen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCSH-011",
         "CCSH-012",
@@ -181,10 +181,10 @@
       "title": "Ist-Vertrag von research-context.json und repo_scope_refs dokumentieren",
       "type": "analysis-documentation",
       "milestone": "CCSH-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "agent/services/research_context_bridge_service.py",
@@ -211,10 +211,10 @@
       "title": "Kontextquelle im ananta-worker Prompt sichtbar kennzeichnen",
       "type": "prompt-contract",
       "milestone": "CCSH-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "tests/test_sgpt_route.py"
@@ -240,10 +240,10 @@
       "title": "Aktuelle Dateianfang-Ladeweise mit Regressionstest absichern",
       "type": "test",
       "milestone": "CCSH-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "tests/test_sgpt_route.py"
@@ -270,10 +270,10 @@
       "title": "Snippet-/Line-Range-Normalisierung fuer repo_scope_refs implementieren",
       "type": "implementation",
       "milestone": "CCSH-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "tests/test_sgpt_route.py"
@@ -302,10 +302,10 @@
       "title": "Priorisierte Kontextauswahl im ananta-worker Loader einbauen",
       "type": "implementation",
       "milestone": "CCSH-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "tests/test_sgpt_route.py"
@@ -333,10 +333,10 @@
       "title": "Konfigurierbare Grenzen fuer Snippet-Handoff ergaenzen",
       "type": "configuration",
       "milestone": "CCSH-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/config.py",
         "agent/common/sgpt.py",
@@ -364,10 +364,10 @@
       "title": "Progress-Datei um Quellenmetadaten erweitern",
       "type": "implementation",
       "milestone": "CCSH-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "tests/test_sgpt_route.py"
@@ -393,10 +393,10 @@
       "title": "ResearchContextBridge repo_scope chunks im Prompt-Section rendern",
       "type": "implementation",
       "milestone": "CCSH-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/services/research_context_bridge_service.py",
         "tests/test_deerflow_integration.py"
@@ -422,10 +422,10 @@
       "title": "ResearchContextSummaryContract um strukturierte repo chunk metadata pruefen und ggf erweitern",
       "type": "contract",
       "milestone": "CCSH-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/models.py",
         "agent/services/research_context_bridge_service.py",
@@ -452,10 +452,10 @@
       "title": "CodeCompass-/RAG-Index-Metadata fuer Line-Ranges normalisieren",
       "type": "implementation",
       "milestone": "CCSH-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/services/rag_helper_index_service.py",
         "agent/services/knowledge_index_retrieval_service.py",
@@ -485,10 +485,10 @@
       "title": "End-to-End-Test fuer CodeCompass-Snippet bis ananta-worker Prompt bauen",
       "type": "integration-test",
       "milestone": "CCSH-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "tests/test_sgpt_route.py",
         "tests/test_deerflow_integration.py",
@@ -517,10 +517,10 @@
       "title": "Rueckwaertskompatibilitaet fuer alte research-context.json Dateien sichern",
       "type": "regression-test",
       "milestone": "CCSH-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "tests/test_sgpt_route.py"
@@ -545,10 +545,10 @@
       "title": "Prompt- und Kontextbudget gegen Chunk-Flut absichern",
       "type": "security-performance",
       "milestone": "CCSH-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
         "agent/services/research_context_bridge_service.py",
@@ -576,10 +576,10 @@
       "title": "README/Runbook fuer CodeCompass-Handoff aktualisieren",
       "type": "documentation",
       "milestone": "CCSH-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "README.md",
         "docs/hybrid_rag_runbook.md",

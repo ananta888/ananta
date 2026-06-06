@@ -194,6 +194,12 @@ class Settings(BaseSettings):
     sgpt_use_litellm: bool = Field(default=False, validation_alias="SGPT_USE_LITELLM")
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
     sgpt_execution_backend: str = Field(default="ananta-worker", validation_alias="SGPT_EXECUTION_BACKEND")
+    # ananta-worker context budget (CCSH-006)
+    ananta_worker_context_files_per_batch: int = Field(default=3, validation_alias="ANANTA_WORKER_CONTEXT_FILES_PER_BATCH")
+    ananta_worker_context_per_file_chars: int = Field(default=4000, validation_alias="ANANTA_WORKER_CONTEXT_PER_FILE_CHARS")
+    ananta_worker_context_max_iterations: int = Field(default=8, validation_alias="ANANTA_WORKER_CONTEXT_MAX_ITERATIONS")
+    ananta_worker_context_line_window: int = Field(default=5, validation_alias="ANANTA_WORKER_CONTEXT_LINE_WINDOW")
+    ananta_worker_context_max_snippet_chars: int = Field(default=8000, validation_alias="ANANTA_WORKER_CONTEXT_MAX_SNIPPET_CHARS")
     worker_default_execution_profile: str = Field(
         default="balanced",
         validation_alias="WORKER_DEFAULT_EXECUTION_PROFILE",

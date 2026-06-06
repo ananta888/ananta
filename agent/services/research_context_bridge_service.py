@@ -258,6 +258,22 @@ class ResearchContextBridgeService:
                     lines.append(str(item["excerpt"]))
                 if item.get("entries"):
                     lines.append("Entries: " + ", ".join(item["entries"]))
+                # CCSH-008: render indexed chunks with source/score/line-range metadata
+                for chunk in list(item.get("chunks") or [])[:5]:
+                    source = chunk.get("source") or ""
+                    score = chunk.get("score")
+                    content = chunk.get("content") or ""
+                    meta = dict(chunk.get("metadata") or {})
+                    start_line = meta.get("start_line")
+                    end_line = meta.get("end_line")
+                    lr_status = meta.get("line_range_status", "unknown")
+                    if start_line is not None and end_line is not None:
+                        loc = f"{source}:{start_line}-{end_line}"
+                    else:
+                        loc = source
+                    score_str = f" score={score:.3f}" if score is not None else ""
+                    lr_note = "" if lr_status == "available" else f" [{lr_status}]"
+                    lines.append(f"  - {loc}{score_str}{lr_note}: {content}")
             sections.append("Repo-Kontext:\n" + "\n".join(lines))
         return "\n\n".join(section for section in sections if section.strip())
 

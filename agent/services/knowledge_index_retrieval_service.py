@@ -527,6 +527,14 @@ class KnowledgeIndexRetrievalService:
                     "revision": str(record.get("revision") or record.get("revision_id") or "").strip() or None,
                     "import_revision": str(record.get("import_revision") or "").strip() or None,
                     "import_metadata": dict(record.get("import_metadata") or {}),
+                    # CCSH-010: line-range metadata — use from record if present, else mark unknown
+                    "start_line": record.get("start_line"),
+                    "end_line": record.get("end_line"),
+                    "line_range_status": "available" if (
+                        record.get("start_line") is not None and record.get("end_line") is not None
+                    ) else "unknown",
+                    "repo_relative_path": str(record.get("path") or record.get("file") or "").strip() or None,
+                    "symbol": str(record.get("symbol") or "").strip() or None,
                 }
                 candidates.append(
                     ContextChunk(
