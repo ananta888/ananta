@@ -1,4 +1,4 @@
-a{
+{
   "$schema": "./todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
@@ -90,6 +90,8 @@ a{
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
+      "cross_track_dependencies": ["RCFG-004"],
+      "cross_track_note": "RAG_QUERY_NORMALIZE_LANG und RAG_QUERY_NORMALIZE_MODE werden in RCFG-004 eingeführt. RTS-002 ergänzt nur RAG_QUERY_TRANSLATION_DIRECTIONS als neues Setting — kein Duplikat, wenn RCFG-004 zuerst landet.",
       "target_files": [
         "agent/config.py",
         ".env.example",
@@ -118,6 +120,8 @@ a{
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
+      "cross_track_dependencies": ["RCFG-005"],
+      "cross_track_note": "RCFG-005 implementiert die Basis-DE→EN Keyword-Expansion in rag_query_normalizer.py. RTS-003 baut darauf auf und erweitert um Glossary-Erweiterung. ACHTUNG: Koordination mit ROADMAP-003 nötig — beide Tasks schreiben in dieselbe Datei. RTS-003 kann RCFG-005 vollständig ersetzen (dann RCFG-005 status=done via RTS-003 setzen).",
       "target_files": [
         "agent/**/rag_query_normalizer.py",
         "agent/**/query_translation*.py",
@@ -202,6 +206,8 @@ a{
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
+      "cross_track_dependencies": ["RCFG-006"],
+      "cross_track_note": "RCFG-006 legt die Retrieval-Union-Logik in hybrid_orchestrator.py an. RTS-006 ergänzt Ranking-Metadaten (query_variant/source) und Variant-Tracking. Beide schreiben in hybrid_orchestrator.py — Koordination nötig.",
       "target_files": [
         "agent/**/hybrid_orchestrator.py",
         "agent/**/repository_map*.py",

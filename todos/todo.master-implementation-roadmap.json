@@ -1,0 +1,713 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "master-implementation-roadmap",
+  "purpose": "Zentrale Planungsdatei für alle 7 parallelen Feature-Tracks. Definiert die sinnvolle Abarbeitungsreihenfolge, dokumentiert alle Cross-Track-Abhängigkeiten und fungiert als Gate-Kontrolle zwischen den Phasen.",
+  "goal": "87 Tasks aus 7 Tracks (RCFG, RTS, EPC, CWFH, AMR, MPM, SCTR) in einer begründeten, dependency-richtigen Reihenfolge abschließen, sodass kein Track auf ein unfertiges Fundament aufbaut und das Gesamtsystem nach Phase 5 kohärent und testbar ist.",
+  "tracks_overview": {
+    "RCFG": {
+      "file": "todos/todo.rag-config-layer-quotas-exclusions-query-normalization.json",
+      "tasks": 9,
+      "summary": "RAG-Hartkodierungen (Quotas, Scan-Exclusions, Query-Normalisierung) in konfigurierbare Settings überführen.",
+      "phase": 1,
+      "critical_path": ["RCFG-001", "RCFG-002", "RCFG-003", "RCFG-004", "RCFG-005", "RCFG-006", "RCFG-009"]
+    },
+    "RTS": {
+      "file": "todos/todo.rag-query-translation-strategies-de-en.json",
+      "tasks": 8,
+      "summary": "Addendum zu RCFG: bidirektionale DE↔EN Query-Translation für RAG/RepositoryMap.",
+      "phase": 1,
+      "cross_track_warning": "RTS-003 überschneidet sich mit RCFG-005 — beide implementieren DE→EN Expansion in rag_query_normalizer.py. Siehe ROADMAP-003.",
+      "critical_path": ["RTS-001", "RTS-002", "RTS-003", "RTS-005", "RTS-006", "RTS-008"]
+    },
+    "EPC": {
+      "file": "todos/todo.embedding-provider-rag-codecompass-config.json",
+      "tasks": 20,
+      "summary": "Kanonischer EmbeddingProviderConfig-Contract für Worker-Retrieval, CodeCompass, RAG-Helper und semantic_output_correction.",
+      "phase": 2,
+      "critical_path": ["EPC-001", "EPC-002", "EPC-003", "EPC-004", "EPC-005", "EPC-007", "EPC-008", "EPC-014", "EPC-015", "EPC-017"]
+    },
+    "CWFH": {
+      "file": "todos/todo.codecompass-worker-file-context-handoff.json",
+      "tasks": 15,
+      "summary": "Strukturierter Datei-Handoff (worker_context_handoff.v3) mit CandidateFile/ContextFile/WorkerContextRequest-Contracts.",
+      "phase": 3,
+      "cross_track_deps": ["EPC (EPC-007 für Embedding-Contract)", "RCFG (RAG-Config für Retrieval-Quotas)"],
+      "critical_path": ["CWFH-001", "CWFH-002", "CWFH-003", "CWFH-004", "CWFH-005", "CWFH-006", "CWFH-007", "CWFH-008", "CWFH-009", "CWFH-010", "CWFH-012", "CWFH-013"]
+    },
+    "AMR": {
+      "file": "todos/todo.ananta-model-profile-routing-policy.json",
+      "tasks": 24,
+      "summary": "Zentrale Model Profiles, deterministische Routing-Regeln, Security-first Cloud-Policy.",
+      "phase": 4,
+      "parallelization_note": "AMR-M1/M2 können parallel zu CWFH laufen. AMR-M4 (InvocationService) profitiert von CWFH-M3-Abschluss.",
+      "critical_path": ["AMR-001", "AMR-002", "AMR-003", "AMR-004", "AMR-007", "AMR-008", "AMR-010", "AMR-016", "AMR-020", "AMR-021", "AMR-024"]
+    },
+    "MPM": {
+      "file": "todos/todo.ananta-model-routing-precedence-matrix-addendum.json",
+      "tasks": 3,
+      "summary": "Addendum zu AMR: 12-Rang-Precedence-Matrix (Rang 0=security_policy, Rang 11=legacy DEFAULT_PROVIDER).",
+      "phase": 4,
+      "cross_track_deps": ["AMR-002 (Modell-Profile), AMR-009 (Fallback-Kette), AMR-020 (Telemetrie)"],
+      "critical_path": ["MPM-001", "MPM-002", "MPM-003"]
+    },
+    "SCTR": {
+      "file": "todos/todo.snake-chat-adaptive-tool-routing.json",
+      "tasks": 8,
+      "summary": "Snake-Chat routet einfache deterministische Anfragen direkt an Tools, bypass RAG/LLM.",
+      "phase": 5,
+      "cross_track_deps": ["AMR (Routing-Architektur AMR-007/008)", "CWFH (Worker-Contracts CWFH-007/010)", "RCFG (RAG-Off-Entscheidung RCFG-004)"],
+      "critical_path": ["SCTR-001", "SCTR-002", "SCTR-003", "SCTR-004", "SCTR-006", "SCTR-007"]
+    }
+  },
+  "cross_track_dependency_matrix": {
+    "description": "Explizite Cross-Track-Abhängigkeiten, die in den einzelnen Track-Dateien als cross_track_dependencies dokumentiert sind oder sein sollten.",
+    "dependencies": [
+      {
+        "from_track": "RTS",
+        "from_task": "RTS-002",
+        "requires_track": "RCFG",
+        "requires_task": "RCFG-004",
+        "reason": "RAG_QUERY_NORMALIZE_LANG/MODE Settings werden in RCFG-004 eingeführt; RTS-002 ergänzt nur RAG_QUERY_TRANSLATION_DIRECTIONS. Kein Duplikat, wenn RCFG-004 zuerst landet."
+      },
+      {
+        "from_track": "RTS",
+        "from_task": "RTS-003",
+        "requires_track": "RCFG",
+        "requires_task": "RCFG-005",
+        "reason": "RCFG-005 und RTS-003 implementieren DE→EN Expansion im selben rag_query_normalizer.py. RTS-003 ist die vollständigere Version (Glossary-Erweiterung). RCFG-005 kann nach RTS-003 auf 'done via RTS-003' gesetzt werden."
+      },
+      {
+        "from_track": "RTS",
+        "from_task": "RTS-006",
+        "requires_track": "RCFG",
+        "requires_task": "RCFG-006",
+        "reason": "Beide integrieren in hybrid_orchestrator.py. RCFG-006 legt die Retrieval-Union-Logik an; RTS-006 ergänzt Ranking-Metadaten und Variant-Tracking."
+      },
+      {
+        "from_track": "CWFH",
+        "from_task": "CWFH-005",
+        "requires_track": "EPC",
+        "requires_task": "EPC-007",
+        "reason": "CandidateFile.embedding_score setzt voraus, dass der EmbeddingProviderConfig-Contract stabil ist — sonst wissen CandidateFile-Modelle nicht, welche Dimensionen/Provider-Semantik gilt."
+      },
+      {
+        "from_track": "CWFH",
+        "from_task": "CWFH-006",
+        "requires_track": "EPC",
+        "requires_task": "EPC-011",
+        "reason": "Provider-Scopes (worker_retrieval, codecompass_vector) müssen bekannt sein, bevor der Snake-Chat-Prompt-Builder entscheidet, welche Retrieval-Varianten er an den Worker übergibt."
+      },
+      {
+        "from_track": "CWFH",
+        "from_task": "CWFH-002",
+        "requires_track": "RCFG",
+        "requires_task": "RCFG-001",
+        "reason": "CWFH-002 analysiert Retrieval-Quotas in der Contract-Lücke. Die stabilisierten Quota-Settings aus RCFG-001/002 sind die Referenz für die Soll-Analyse."
+      },
+      {
+        "from_track": "SCTR",
+        "from_task": "SCTR-001",
+        "requires_track": "AMR",
+        "requires_task": "AMR-001",
+        "reason": "SCTR-001 definiert Routing-Entscheidungsmodell (simple_tool/rag_required/llm_required). Dieses Modell muss mit der AMR-Routing-Taxonomie kompatibel sein — daher zuerst AMR-001 Bestandsaufnahme."
+      },
+      {
+        "from_track": "SCTR",
+        "from_task": "SCTR-004",
+        "requires_track": "CWFH",
+        "requires_task": "CWFH-007",
+        "reason": "SnakeChatCommandRouter entscheidet zwischen direktem Tool und RAG/Worker. Sobald CWFH-007 den strukturierten Worker-Payload einführt, muss der Router wissen, wann er einen strukturierten Worker-Call statt einem direkten Tool-Call auslöst."
+      },
+      {
+        "from_track": "SCTR",
+        "from_task": "SCTR-005",
+        "requires_track": "CWFH",
+        "requires_task": "CWFH-010",
+        "reason": "TodoReadTool muss kompatibel mit den WorkerContextRequest-Contracts aus CWFH-010 sein — Worker könnten Todo-Informationen als Kontext nachfordern."
+      },
+      {
+        "from_track": "MPM",
+        "from_task": "MPM-001",
+        "requires_track": "AMR",
+        "requires_task": "AMR-002",
+        "reason": "Die Precedence-Matrix basiert auf den in AMR-002 definierten ModelRole/ModelProfile-Konzepten. Ohne diese gibt es keine stabilen Rang-Bezeichnungen."
+      },
+      {
+        "from_track": "AMR",
+        "from_task": "AMR-010",
+        "requires_track": "CWFH",
+        "requires_task": "CWFH-006",
+        "reason": "AMR-010 integriert Routing in InvocationService. Sobald CWFH-006 Worker-Payloads strukturiert, muss der Invocation-Service wissen, welches Modell-Profil zu welcher Worker-Context-Art passt."
+      }
+    ]
+  },
+  "phase_plan": {
+    "phase_1": {
+      "name": "RAG-Fundament",
+      "tracks": ["RCFG", "RTS"],
+      "total_tasks": 17,
+      "rationale": "Kleinste und unabhängigste Tracks. Lösen sofortiges Produktionsproblem (Hartkodierungen, deutsche Queries finden keine englischen Symbole). Fundament für alle anderen Tracks, weil CWFH und SCTR beide konfigurierbare RAG-Quotas und Query-Normalisierung voraussetzen.",
+      "gate_to_phase_2": "RCFG-M1 (RCFG-001/002/003) abgeschlossen. RTS-M1 abgeschlossen. RCFG-005/RTS-003 Dopplung geklärt (ROADMAP-003).",
+      "can_run_parallel_within_phase": "RCFG-001 und RCFG-003 können parallel starten. RTS-001 und RTS-002 können parallel laufen. RTS-003/004/005 können parallel laufen."
+    },
+    "phase_2": {
+      "name": "Embedding-Vertrag",
+      "tracks": ["EPC"],
+      "total_tasks": 20,
+      "rationale": "EPC definiert den kanonischen EmbeddingProviderConfig-Contract. Ohne diesen Contract kann CWFH keine stabilen CandidateFile-Scoring-Semantiken definieren. EPC ist stabiler als RAG-Config und muss daher sicher sein, bevor CWFH darauf aufbaut.",
+      "gate_to_phase_3": "EPC-M1 (EPC-001 bis EPC-007 Contract-Definition) abgeschlossen. EPC-003 (Default-Policy: kein externer Call) ist kritisch — muss done sein.",
+      "can_run_parallel": "EPC-M1-Analyse-Tasks (EPC-001/002) können parallel zu EPC-003 starten. EPC-M2 Provider-Implementierungen können teilweise parallel laufen."
+    },
+    "phase_3": {
+      "name": "Worker-Kontext-Handoff",
+      "tracks": ["CWFH"],
+      "total_tasks": 15,
+      "rationale": "CWFH braucht stabilen EPC-Contract (Embedding-Scoring) und RCFG-M1 (RAG-Quotas als Referenz). Liefert die CandidateFile/WorkerContextRequest-Contracts, die SCTR-004/005 benötigen.",
+      "gate_to_phase_4_parallel": "CWFH-M1 abgeschlossen (Ist-Analyse). AMR kann dann parallel mit CWFH starten.",
+      "gate_to_sctr": "CWFH-M3 (CWFH-006/007/008) abgeschlossen — strukturierter Worker-Payload aktiv.",
+      "can_run_parallel": "CWFH-003 und CWFH-004 parallel. CWFH-012/013/014/015 parallel."
+    },
+    "phase_4": {
+      "name": "Modell-Routing",
+      "tracks": ["AMR", "MPM"],
+      "total_tasks": 27,
+      "rationale": "AMR kann teilweise parallel zu CWFH laufen (andere Codebase-Bereiche: config/schemas/model_profiles). AMR-M4 (InvocationService) sollte erst starten, wenn CWFH-M3 abgeschlossen ist. MPM folgt nach AMR-M3.",
+      "parallel_with_phase_3": "AMR-M1 und AMR-M2 können parallel zu CWFH-M1/M2 laufen.",
+      "gate_within_phase": "MPM-001 erst nach AMR-002. MPM-002 erst nach AMR-009. MPM-003 erst nach AMR-020.",
+      "gate_to_phase_5": "AMR-M3 (AMR-007/008/009) abgeschlossen. AMR-M6 (Security Enforcement) ist kritisch für SCTR-002."
+    },
+    "phase_5": {
+      "name": "Adaptives Tool-Routing",
+      "tracks": ["SCTR"],
+      "total_tasks": 8,
+      "rationale": "SCTR kombiniert Routing (AMR), Retrieval-Entscheidung (RCFG), Datei-Zugriff (CWFH) und Security-Policy (AMR-M6/EPC). Es ist das oberste Stockwerk. Alle vier Fundament-Bereiche müssen stabil sein.",
+      "minimum_prerequisites": ["RCFG-M2 done", "EPC-M2 done", "CWFH-M3 done", "AMR-M3 done", "AMR-M6 done"],
+      "can_run_parallel": "SCTR-003/004/005 können nach SCTR-001/002 parallel laufen."
+    },
+    "phase_6": {
+      "name": "Systemintegration",
+      "tracks": [],
+      "total_tasks": 2,
+      "rationale": "Erst wenn alle 5 Phasen abgeschlossen sind: End-to-End Integrationstest und Deployment-Dokumentation.",
+      "task_ids": ["ROADMAP-011", "ROADMAP-012"]
+    }
+  },
+  "milestones": [
+    {
+      "id": "ROADMAP-M1",
+      "title": "Phase 1 abgeschlossen — RAG-Fundament produktiv",
+      "task_ids": ["ROADMAP-001", "ROADMAP-002", "ROADMAP-003", "ROADMAP-004"],
+      "status": "todo"
+    },
+    {
+      "id": "ROADMAP-M2",
+      "title": "Phase 2 abgeschlossen — Embedding-Contract stabil",
+      "task_ids": ["ROADMAP-005"],
+      "status": "todo"
+    },
+    {
+      "id": "ROADMAP-M3",
+      "title": "Phase 3 abgeschlossen — Worker-Datei-Handoff aktiv",
+      "task_ids": ["ROADMAP-006"],
+      "status": "todo"
+    },
+    {
+      "id": "ROADMAP-M4",
+      "title": "Phase 4 abgeschlossen — Modell-Routing deterministisch",
+      "task_ids": ["ROADMAP-007", "ROADMAP-008", "ROADMAP-009"],
+      "status": "todo"
+    },
+    {
+      "id": "ROADMAP-M5",
+      "title": "Phase 5 abgeschlossen — Adaptives Tool-Routing aktiv",
+      "task_ids": ["ROADMAP-010"],
+      "status": "todo"
+    },
+    {
+      "id": "ROADMAP-M6",
+      "title": "Systemintegration abgeschlossen",
+      "task_ids": ["ROADMAP-011", "ROADMAP-012"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ROADMAP-001",
+      "title": "Bestandsaufnahme: Ist-Zustand aller 7 Tracks und bestehende Codebase prüfen",
+      "type": "architecture-analysis",
+      "milestone": "ROADMAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        "agent/**/hybrid_orchestrator.py",
+        "worker/retrieval/embedding_provider.py",
+        "agent/services/worker_contract_service.py",
+        "agent/services/model_profile_resolver.py"
+      ],
+      "acceptance_criteria": [
+        "agent/config.py enthält oder enthält nicht die RAG_ROUTE_QUOTA_* Settings (Ist-Zustand dokumentiert).",
+        "hybrid_orchestrator.py enthält oder enthält nicht hartkodierte Quota-Werte (Ist-Zustand dokumentiert).",
+        "EmbeddingProvider-Konfigurationsstand ist bekannt: wo wird build_embedding_provider aufgerufen und mit welchem Config-Pfad.",
+        "WorkerContractService Version (v1/v2/v3) ist bekannt.",
+        "Existiert agent/services/model_profile_loader.py oder model_profile_resolver.py bereits?",
+        "Alle relevanten Test-Dateien sind identifiziert."
+      ],
+      "test_expectations": [
+        "Kein Code-Umbau — nur Analyse. Ergebnis ist ein Kurzprotokoll der Ist-Lücken."
+      ]
+    },
+    {
+      "id": "ROADMAP-002",
+      "title": "Phase 1a: RCFG Track vollständig abschließen (alle 9 Tasks done)",
+      "type": "track-gate",
+      "milestone": "ROADMAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-001"],
+      "sub_track": "RCFG",
+      "sub_track_file": "todos/todo.rag-config-layer-quotas-exclusions-query-normalization.json",
+      "acceptance_criteria": [
+        "RCFG-001: RAG Route Quotas sind in agent/config.py konfigurierbar.",
+        "RCFG-002: hybrid_orchestrator.py nutzt Settings statt hartkodierte Werte.",
+        "RCFG-003: Repository-Scan-Exclusions sind in agent/config.py konfigurierbar.",
+        "RCFG-004: Query-Normalizer-Komponente existiert und ist konfigurierbar (off/keyword/llm).",
+        "RCFG-005: Keyword DE→EN Expansion implementiert — aber Koordination mit RTS-003 beachten (ROADMAP-003).",
+        "RCFG-006: Normalisierte Queries sind in Retrieval-Pipeline eingebunden.",
+        "RCFG-007: LLM-Modus ist abgesichert als optionaler späterer Pfad.",
+        "RCFG-008: .env.example und Doku aktualisiert.",
+        "RCFG-009: Alle RAG-Config-Layer-Tests laufen grün."
+      ],
+      "test_expectations": [
+        "pytest tests/test_rag_config_layer.py tests/test_rag_query_normalizer.py tests/test_repository_scan_config.py tests/test_hybrid_orchestrator_rag_quotas.py grün.",
+        "Bestehende RAG-Tests rückwärtskompatibel grün."
+      ]
+    },
+    {
+      "id": "ROADMAP-003",
+      "title": "RCFG-005 / RTS-003 Dopplung klären und auflösen",
+      "type": "backend-refactor",
+      "milestone": "ROADMAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-002"],
+      "problem_description": "RCFG-005 ('Keyword-basierte DE→EN Query-Expansion umsetzen') und RTS-003 ('DE→EN Keyword-/Glossary-Expansion für Code-Retrieval umsetzen') implementieren nahezu dasselbe Feature in derselben Datei (agent/**/rag_query_normalizer.py). Ohne Koordination entstehen zwei divergierende Implementierungen.",
+      "proposed_resolution": "RCFG-005 implementiert die minimale DE→EN Keyword-Expansion (Basis-Mapping-Tabelle, offline). RTS-003 baut darauf auf und erweitert um Glossary-Erweiterung, EN→DE und mixed_code_query-Erkennung. RCFG-005 nach Abschluss als 'erfüllt durch RTS-003-Vorstufe' markieren. RTS-003 referenziert explizit RCFG-005 als Vorläufer.",
+      "acceptance_criteria": [
+        "Entweder RCFG-005 ist die Basis-Implementierung, auf der RTS-003 aufbaut — dann sind beide mit klarer Abgrenzung dokumentiert.",
+        "Oder RCFG-005 wird als 'erfüllt durch RTS-003' markiert und RTS-003 übernimmt allein — dann ist RCFG-005 status=done mit Verweis.",
+        "Es gibt keinen Moment, in dem beide unabhängig in rag_query_normalizer.py schreiben ohne voneinander zu wissen.",
+        "In RTS-003 ist cross_track_dependencies auf RCFG-005 gesetzt.",
+        "In RCFG-005 ist ein resolution_note-Feld mit dem Verweis auf RTS-003 hinzugefügt."
+      ],
+      "test_expectations": [
+        "Nach Auflösung gibt es nur eine DE→EN Expansion-Implementierung, keine zwei parallelen Varianten.",
+        "Tests aus RCFG-009 und RTS-008 decken denselben Code-Pfad ab ohne Konflikte."
+      ]
+    },
+    {
+      "id": "ROADMAP-004",
+      "title": "Phase 1b: RTS Track vollständig abschließen (alle 8 Tasks done)",
+      "type": "track-gate",
+      "milestone": "ROADMAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-002", "ROADMAP-003"],
+      "cross_track_dependencies": ["RCFG-004", "RCFG-005", "RCFG-006"],
+      "sub_track": "RTS",
+      "sub_track_file": "todos/todo.rag-query-translation-strategies-de-en.json",
+      "acceptance_criteria": [
+        "RTS-001: Bidirektionale Query-Translation-Doku abgeschlossen.",
+        "RTS-002: RAG_QUERY_TRANSLATION_DIRECTIONS Setting ergänzt, Settings-Tests grün.",
+        "RTS-003: DE→EN Keyword-/Glossary-Expansion implementiert, aufbauend auf RCFG-005 oder RCFG-005 ersetzend.",
+        "RTS-004: EN→DE Expansion optional implementiert und deaktivierbar.",
+        "RTS-005: Mixed-Code-Query-Erkennung implementiert.",
+        "RTS-006: Übersetzungsvarianten sind in Retrieval-Ranking integriert, Originalquery behält Vorrang.",
+        "RTS-007: LLM-Übersetzung als optionaler, security-begrenzter Modus abgesichert.",
+        "RTS-008: E2E-Tests für DE↔EN Retrieval laufen grün ohne Netzwerk."
+      ],
+      "test_expectations": [
+        "pytest tests/test_rag_query_translation_strategies.py tests/test_rag_retrieval_multilingual_queries.py grün.",
+        "Deutsche Query findet englische Code-Datei in Fixture.",
+        "Englische Query findet deutsche Doku in Fixture, wenn EN→DE aktiviert."
+      ]
+    },
+    {
+      "id": "ROADMAP-005",
+      "title": "Phase 2: EPC Track vollständig abschließen (alle 20 Tasks done)",
+      "type": "track-gate",
+      "milestone": "ROADMAP-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-002"],
+      "sub_track": "EPC",
+      "sub_track_file": "todos/todo.embedding-provider-rag-codecompass-config.json",
+      "acceptance_criteria": [
+        "EPC-003: Default-Policy ist kein externer Call ohne external_calls_allowed=true — das ist der kritischste Gate-Punkt.",
+        "EPC-007: Kanonischer EmbeddingProviderConfig-Contract existiert in agent/models.py oder agent/services/.",
+        "EPC-011: Provider-Scopes (worker_retrieval, codecompass_vector, semantic_output_correction) sind definiert.",
+        "EPC-014/015: Security-Tests für External-Call-Block und Secret-Leak laufen grün.",
+        "EPC-017: Index-Rebuild-Trigger bei Provider-/Modell-Wechsel ist implementiert.",
+        "Alle 20 EPC-Tasks haben status=done.",
+        "Bestehende Embedding-Tests rückwärtskompatibel grün."
+      ],
+      "critical_gate": "EPC-003 (Default-Deny für externe Embedding-Calls) MUSS done sein, bevor CWFH starten darf.",
+      "test_expectations": [
+        "Security-Test prüft: kein externer Call ohne external_calls_allowed=true.",
+        "Secret-Test prüft: kein API-Key in Diagnostik-Logs oder Index-Dateien."
+      ]
+    },
+    {
+      "id": "ROADMAP-006",
+      "title": "Phase 3: CWFH Track vollständig abschließen (alle 15 Tasks done)",
+      "type": "track-gate",
+      "milestone": "ROADMAP-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-005", "ROADMAP-002"],
+      "cross_track_dependencies": ["EPC-007", "EPC-011", "RCFG-001", "RCFG-002"],
+      "sub_track": "CWFH",
+      "sub_track_file": "todos/todo.codecompass-worker-file-context-handoff.json",
+      "acceptance_criteria": [
+        "CWFH-003/004: CandidateFile und ContextFile Pydantic-Modelle in agent/models.py.",
+        "CWFH-005: WorkerContextHandoff.v3 Contract definiert, mit EmbeddingProviderConfig-kompatiblem Scoring.",
+        "CWFH-007: chat_prompt_builder.py erzeugt strukturierten worker_context_handoff.v3 Payload.",
+        "CWFH-010: WorkerContextRequest-Contract implementiert — Worker können Dateien über Hub nachfordern.",
+        "CWFH-012: Rückwärtskompatibilität zu worker_v2 Payload erhalten.",
+        "CWFH-013: Integrationstest Ende-zu-Ende: User-Frage → CodeCompass → CandidateFiles → Worker-Handoff.",
+        "Alle 15 CWFH-Tasks haben status=done."
+      ],
+      "test_expectations": [
+        "pytest tests/test_cwfh_*.py und Integration-Tests grün.",
+        "Worker-v2 Payload-Tests weiterhin grün (Rückwärtskompatibilität)."
+      ]
+    },
+    {
+      "id": "ROADMAP-007",
+      "title": "Phase 4a: AMR Track M1-M3 abschließen (Schicht-1, parallel zu CWFH)",
+      "type": "track-partial-gate",
+      "milestone": "ROADMAP-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-001"],
+      "parallelization": "Kann parallel zu ROADMAP-006 (CWFH) starten — AMR-M1/M2 berühren config/schemas/ nicht worker_contract_service.",
+      "sub_track": "AMR",
+      "sub_track_milestones": ["M1", "M2", "M3"],
+      "acceptance_criteria": [
+        "AMR-001/002: Ist-Zustand und Zielarchitektur für Model Profiles dokumentiert.",
+        "AMR-003/004: JSON-Schema für ModelProfile und Routing-Regeln existiert in config/schemas/.",
+        "AMR-005/006: Beispiel-Konfigurationen für local-ollama und hybrid-local-cloud existieren.",
+        "AMR-007: ModelProfileLoader implementiert.",
+        "AMR-008: ModelProfileResolver mit deterministischer Routing-Logik implementiert.",
+        "AMR-009: Legacy-Normalisierung DEFAULT_PROVIDER/DEFAULT_MODEL → neues Schema implementiert."
+      ],
+      "test_expectations": [
+        "ModelProfileLoader-Tests grün.",
+        "ModelProfileResolver-Tests prüfen deterministische Routing-Entscheidungen.",
+        "Legacy-Normalisierungstest: altes DEFAULT_PROVIDER-Format wird korrekt migriert."
+      ]
+    },
+    {
+      "id": "ROADMAP-008",
+      "title": "Phase 4b: MPM Track nach AMR-M3 abschließen (alle 3 Tasks done)",
+      "type": "track-gate",
+      "milestone": "ROADMAP-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-007"],
+      "cross_track_dependencies": ["AMR-002", "AMR-009", "AMR-020"],
+      "sub_track": "MPM",
+      "sub_track_file": "todos/todo.ananta-model-routing-precedence-matrix-addendum.json",
+      "acceptance_criteria": [
+        "MPM-001: 12-Rang-Precedence-Matrix dokumentiert und in Routing-Resolver integriert.",
+        "MPM-002: Precedence-Entscheidungen sind Teil der Routing-Telemetrie.",
+        "MPM-003: Precedence-Matrix-Tests laufen grün.",
+        "Rang 0 (security_policy) gewinnt immer, Rang 11 (legacy DEFAULT_PROVIDER) ist letzter Fallback."
+      ],
+      "test_expectations": [
+        "Precedence-Test prüft alle 12 Ränge auf korrekte Reihenfolge.",
+        "Security-Policy (Rang 0) überschreibt alle anderen Ränge."
+      ]
+    },
+    {
+      "id": "ROADMAP-009",
+      "title": "Phase 4c: AMR Track M4-M9 abschließen (Schicht-2, nach CWFH-M3)",
+      "type": "track-gate",
+      "milestone": "ROADMAP-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-007", "ROADMAP-006"],
+      "cross_track_dependencies": ["CWFH-006", "CWFH-007"],
+      "sub_track": "AMR",
+      "sub_track_milestones": ["M4", "M5", "M6", "M7", "M8", "M9"],
+      "acceptance_criteria": [
+        "AMR-010: InvocationService nutzt ModelProfileResolver für Modellauswahl.",
+        "AMR-011/012/013: Blueprint-, Template- und Task-Zuordnung zu ModelProfiles implementiert.",
+        "AMR-014/015: Config-API und Dashboard-Sichtbarkeit für Modell-Routing implementiert.",
+        "AMR-016: Security Enforcement — Cloud-Policy blockiert externe Calls ohne Erlaubnis.",
+        "AMR-017/018/019: Fallback-Kette und Telemetrie implementiert.",
+        "AMR-020/021: Telemetrie und Audit-Log für Routing-Entscheidungen implementiert.",
+        "AMR-022/023/024: Tests, Migrations-Guide und Dokumentation abgeschlossen.",
+        "Alle 24 AMR-Tasks haben status=done."
+      ],
+      "test_expectations": [
+        "AMR E2E-Test: Routing-Entscheidung mit Reason, Policy-Decisions und Blocked-Candidates in Telemetrie.",
+        "Security-Test: Cloud-Model ohne erlaubte Policy wird geblockt."
+      ]
+    },
+    {
+      "id": "ROADMAP-010",
+      "title": "Phase 5: SCTR Track vollständig abschließen (alle 8 Tasks done)",
+      "type": "track-gate",
+      "milestone": "ROADMAP-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-004", "ROADMAP-005", "ROADMAP-006", "ROADMAP-009"],
+      "cross_track_dependencies": ["AMR-007", "AMR-008", "AMR-016", "CWFH-007", "CWFH-010", "RCFG-004", "EPC-003"],
+      "sub_track": "SCTR",
+      "sub_track_file": "todos/todo.snake-chat-adaptive-tool-routing.json",
+      "acceptance_criteria": [
+        "SCTR-001: Routing-Entscheidungsmodell (simple_tool/tool_plus_summary/rag_required/llm_required/blocked_by_policy) dokumentiert und kompatibel mit AMR-Routing-Taxonomie.",
+        "SCTR-002: Security-Policy für direkte Snake-Chat-Tools implementiert — kein freier Shell-Zugriff.",
+        "SCTR-003: FilesystemReadTool implementiert (list_dir, list_root_files, find_files).",
+        "SCTR-004: SnakeChatCommandRouter implementiert — LLM entscheidet über ToolPlan, nicht über Ausführung.",
+        "SCTR-005: GitReadTool und TodoReadTool implementiert, TodoReadTool CWFH-kompatibel.",
+        "SCTR-006: Adaptive Routing-Erinnerung implementiert.",
+        "SCTR-007: No-LLM-Pfad für bekannte Simple-Read-Patterns implementiert.",
+        "SCTR-008: Telemetrie (route_source=memory_pattern/llm_router/direct_tool) implementiert.",
+        "Alle 8 SCTR-Tasks haben status=done."
+      ],
+      "test_expectations": [
+        "Test: list_root_files läuft ohne LLM-Call.",
+        "Test: bekannter Intent löst kein RAG aus.",
+        "Security-Test: kein Pfad außerhalb Projektroot, keine .env-Leak."
+      ]
+    },
+    {
+      "id": "ROADMAP-011",
+      "title": "Systemintegration: End-to-End Test aller 5 Phasen zusammen",
+      "type": "backend-test",
+      "milestone": "ROADMAP-M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-010"],
+      "acceptance_criteria": [
+        "Eine deutsche Snake-Chat-Frage zu einer Code-Datei durchläuft den vollen Pfad: Query-Normalizer (RCFG/RTS) → Embedding-Retrieval (EPC) → CandidateFiles (CWFH) → Modell-Auswahl (AMR/MPM) → direktes Tool wenn simple (SCTR) oder Worker-Handoff.",
+        "Eine einfache Dateisystem-Anfrage (list_root_files) geht nicht durch RAG, sondern direkt über SCTR.",
+        "Eine komplexe Planungs-Anfrage geht durch RAG, wählt ein Modell via AMR und erzeugt strukturierten Worker-Payload via CWFH.",
+        "Security-Policy (AMR-016) blockiert ungenehmigten Cloud-Provider in End-to-End Test.",
+        "Embedding-Call findet keinen externen Provider ohne external_calls_allowed=true (EPC-003).",
+        "Routing-Telemetrie zeigt Reason, Provider, Policy-Decisions und route_source für alle Pfade."
+      ],
+      "test_expectations": [
+        "E2E-Test-Suite läuft ohne echten LLM und ohne Netzwerk.",
+        "Alle Track-Tests (RCFG-009, RTS-008, EPC-Tests, CWFH-013, AMR-022, SCTR) laufen zusammen grün.",
+        "Kein Regression in bestehenden Tests."
+      ]
+    },
+    {
+      "id": "ROADMAP-012",
+      "title": "Deployment-Readiness: Migrations-Guide, .env.example und Operator-Doku finalisieren",
+      "type": "docs",
+      "milestone": "ROADMAP-M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": ["ROADMAP-011"],
+      "acceptance_criteria": [
+        ".env.example enthält alle neuen Settings aus RCFG, RTS, EPC, AMR mit Defaults und Kurzerklärung.",
+        "Migrations-Guide für bestehende Deployments dokumentiert: welche Settings neu sind, was der Default ist, was manuell gesetzt werden muss.",
+        "docs/architecture/ enthält aktuelle Übersicht für Model-Routing, Embedding-Config, Worker-Handoff und SCTR.",
+        "docker-compose.yml-Beispiel zeigt sinnvolle Produktions-Overrides für RAG-Quotas und Embedding-Provider.",
+        "Operator-Doku erklärt, wie man lokale Modelle (Ollama), hybrid und Cloud-Routing konfiguriert."
+      ],
+      "test_expectations": [
+        "Docs-Review: alle Variablennamen in .env.example stimmen exakt mit agent/config.py überein.",
+        "Smoke-Test: Settings aus Test-.env laden korrekt ohne Validierungsfehler."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "ROADMAP-001",
+    "ROADMAP-002",
+    "ROADMAP-003",
+    "ROADMAP-004",
+    "ROADMAP-005",
+    "ROADMAP-006",
+    "ROADMAP-007",
+    "ROADMAP-009",
+    "ROADMAP-010",
+    "ROADMAP-011"
+  ],
+  "execution_stage_summary": {
+    "sequential_gates": [
+      "ROADMAP-001 → ROADMAP-002 (Analyse vor erstem Code-Umbau)",
+      "ROADMAP-002 → ROADMAP-003 (RCFG muss done sein vor Duplizierungs-Klärung)",
+      "ROADMAP-003 → ROADMAP-004 (Dopplung geklärt bevor RTS vollständig)",
+      "ROADMAP-002 → ROADMAP-005 (RCFG-M1 done als Gate für EPC)",
+      "ROADMAP-005 → ROADMAP-006 (EPC-003 kritisch für CWFH)",
+      "ROADMAP-006 + ROADMAP-007 → ROADMAP-009 (CWFH-M3 + AMR-M3 für AMR-M4)",
+      "ROADMAP-009 → ROADMAP-010 (AMR-M6 Security für SCTR-002)"
+    ],
+    "parallel_opportunities": [
+      "ROADMAP-007 (AMR-M1/M2) parallel zu ROADMAP-006 (CWFH)",
+      "ROADMAP-008 (MPM) parallel zu ROADMAP-009 (AMR-M4-M9) nach ROADMAP-007",
+      "Innerhalb RCFG: RCFG-001 || RCFG-003",
+      "Innerhalb RTS: RTS-003 || RTS-004 || RTS-005",
+      "Innerhalb AMR: AMR-003 || AMR-004, AMR-005 || AMR-006"
+    ]
+  },
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 10,
+      "P1": 2,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 4,
+      "high": 6
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 0,
+      "remaining": 10
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 12,
+    "by_type": {
+      "architecture-analysis": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+      },
+      "track-gate": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {"todo": 7, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+      },
+      "track-partial-gate": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+      },
+      "backend-refactor": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+      },
+      "backend-test": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+      },
+      "docs": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 12,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Diese Master-Datei ist kein weiterer Feature-Track, sondern der Navigationsanker für alle 7 Sub-Tracks.",
+    "ROADMAP-003 (RCFG-005/RTS-003 Dopplung) ist der kritischste Architektur-Klärungspunkt in Phase 1.",
+    "Phase 4 (AMR) kann teilweise parallel zu Phase 3 (CWFH) laufen — AMR-M1/M2 sind unabhängig.",
+    "Phase 5 (SCTR) ist bewusst zuletzt: es integriert Ergebnisse aus allen vier vorherigen Phasen.",
+    "Alle Sub-Track-Dateien wurden mit cross_track_dependencies-Feldern ergänzt (separate Korrekturdateien).",
+    "87 Tasks gesamt: RCFG(9) + RTS(8) + EPC(20) + CWFH(15) + AMR(24) + MPM(3) + SCTR(8) = 87."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "ordering_rationale",
+      "title": "Begründung der Reihenfolge",
+      "items": [
+        "RCFG zuerst: kleinste Tasks, sofortiger Produktionsnutzen, Fundament für alle Retrieval-Pfade.",
+        "RTS direkt nach RCFG: ist Addendum, teilt Normalizer-Code — muss koordiniert laufen.",
+        "EPC nach RCFG: Embedding-Contract muss vor CandidateFile-Scoring stabil sein.",
+        "CWFH nach EPC: braucht stabilen Embedding-Contract für CandidateFile.embedding_score.",
+        "AMR-M1/M2 parallel zu CWFH: berühren andere Codebase-Schichten (config/schemas/).",
+        "SCTR zuletzt: kombiniert Routing (AMR), Retrieval-Entscheidung (RCFG), Datei-Zugriff (CWFH) und Security (AMR-M6, EPC-003)."
+      ]
+    },
+    {
+      "summary_id": "effective_rule",
+      "title": "Effektive Regel",
+      "items": [
+        "Nie einen Track starten, dessen cross_track_dependencies noch offen sind.",
+        "ROADMAP-003 (Dopplung RCFG-005/RTS-003) muss vor RTS-M2 geklärt sein.",
+        "AMR-M4+ erst nach CWFH-M3 — InvocationService braucht strukturierten Worker-Payload.",
+        "SCTR erst wenn AMR-M6 (Security Enforcement) done ist — PolicyGuard ist Pflicht.",
+        "EPC-003 (Default-Deny externe Embedding-Calls) ist harter Sicherheits-Gate für alle folgenden Phasen."
+      ]
+    }
+  ]
+}

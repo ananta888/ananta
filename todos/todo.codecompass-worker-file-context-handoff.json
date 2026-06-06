@@ -218,6 +218,8 @@
       "risk": "high",
       "progress_percent": 0,
       "dependencies": ["CWFH-003", "CWFH-004"],
+      "cross_track_dependencies": ["EPC-007"],
+      "cross_track_note": "CandidateFile.score und .reason setzen voraus, dass der EmbeddingProviderConfig-Contract (EPC-007) stabil ist — andernfalls fehlt die Semantik fuer embedding_score-Dimensionen und provider-Herkunft beim Scoring.",
       "target_files": [
         "agent/services/context_file_reader_service.py",
         "agent/services/retrieval_policy_filter_service.py",
@@ -250,6 +252,8 @@
       "risk": "high",
       "progress_percent": 0,
       "dependencies": ["CWFH-003", "CWFH-004", "CWFH-005"],
+      "cross_track_dependencies": ["EPC-011", "RCFG-002"],
+      "cross_track_note": "Provider-Scopes (EPC-011) definieren, welche Retrieval-Varianten (dense/lexical/symbol) dem PromptBuilder zur Verfuegung stehen. RCFG-002 stellt sicher, dass Quota-Settings konfigurierbar sind, bevor der Builder Retrieval-Budgets verwaltet.",
       "target_files": [
         "client_surfaces/operator_tui/chat_prompt_builder.py",
         "client_surfaces/operator_tui/chat_mixin.py",
