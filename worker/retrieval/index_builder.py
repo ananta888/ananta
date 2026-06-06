@@ -135,8 +135,11 @@ def build_incremental_index(
         path_hashes=path_hashes,
     )
     entries = [*remaining, *new_entries]
+    state_dict = state.as_dict()
+    # EPC-012: persist provider_id so rebuild detection works across restarts
+    state_dict["embedding_provider"] = str(getattr(provider, "provider_id", "") or "")
     return {
-        "state": state.as_dict(),
+        "state": state_dict,
         "entries": entries,
         "delta": {
             "changed_paths": delta.changed_paths,

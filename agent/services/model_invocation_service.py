@@ -142,6 +142,14 @@ class ModelInvocationService:
                     "model_invocation: loaded %d profiles from %s",
                     len(result.profiles), path,
                 )
+                # AMR-020: log deprecation warning if legacy env vars are still set
+                import os as _os
+                if _os.environ.get("DEFAULT_PROVIDER") or _os.environ.get("DEFAULT_MODEL"):
+                    logger.warning(
+                        "model_invocation: DEFAULT_PROVIDER/DEFAULT_MODEL env vars are set but "
+                        "MODEL_PROFILES_PATH is also configured. Profile-based routing takes "
+                        "precedence. Remove DEFAULT_PROVIDER/DEFAULT_MODEL to silence this warning."
+                    )
                 return resolver
             except Exception as exc:
                 logger.warning("model_invocation: resolver init failed: %s", exc)

@@ -5,9 +5,24 @@
   "track": "codecompass-worker-file-context-handoff",
   "purpose": "AI-Snake-Chat, Hub und Worker sollen CodeCompass nicht als Ersatz fuer Originalquellen verwenden, sondern als sicheren Suchindex, um passende Dateien, Symbole und Nachbarschaften zu finden. Die gefundenen Kandidaten muessen strukturiert an ananta-worker, OpenCode oder andere Worker uebergeben werden. Worker duerfen ueber Hub/CodeCompass weitere Dateien nachfordern, aber nur ueber Policy-gepruefte, nachvollziehbare Contracts.",
   "goal": "Aus Prompt-RAG wird ein nachvollziehbarer Retrieval- und Datei-Handoff: Userfrage -> CodeCompass/Embeddings/Graph -> CandidateFiles/ContextBundle -> Worker liest Originaldateien -> Worker kann ueber Hub weitere Dateien/Graph-Expansion anfordern -> Antwort oder Aenderung basiert auf Originaldateien mit Provenance.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "architecture_principles": [
     "CodeCompass ist Suchindex, Navigationsgraph und Retrieval-Hilfe, nicht die autoritative Wahrheit.",
     "Originaldateien und explizit gelesene Artefakte sind die autoritativen Quellen fuer Antworten, Reviews und Codeaenderungen.",
@@ -63,31 +78,51 @@
     {
       "id": "CWFH-1",
       "title": "Ist-Zustand und Contract-Luecke sauber dokumentieren",
-      "task_ids": ["CWFH-001", "CWFH-002"],
+      "task_ids": [
+        "CWFH-001",
+        "CWFH-002"
+      ],
       "status": "todo"
     },
     {
       "id": "CWFH-2",
       "title": "CandidateFile- und ContextFile-Modelle einfuehren",
-      "task_ids": ["CWFH-003", "CWFH-004", "CWFH-005"],
+      "task_ids": [
+        "CWFH-003",
+        "CWFH-004",
+        "CWFH-005"
+      ],
       "status": "todo"
     },
     {
       "id": "CWFH-3",
       "title": "Snake-Chat und Hub liefern strukturierte Dateien an Worker",
-      "task_ids": ["CWFH-006", "CWFH-007", "CWFH-008"],
+      "task_ids": [
+        "CWFH-006",
+        "CWFH-007",
+        "CWFH-008"
+      ],
       "status": "todo"
     },
     {
       "id": "CWFH-4",
       "title": "Worker duerfen ueber Hub/CodeCompass weitere Dateien anfordern",
-      "task_ids": ["CWFH-009", "CWFH-010", "CWFH-011"],
+      "task_ids": [
+        "CWFH-009",
+        "CWFH-010",
+        "CWFH-011"
+      ],
       "status": "todo"
     },
     {
       "id": "CWFH-5",
       "title": "Tests, Diagnostik und Migration absichern",
-      "task_ids": ["CWFH-012", "CWFH-013", "CWFH-014", "CWFH-015"],
+      "task_ids": [
+        "CWFH-012",
+        "CWFH-013",
+        "CWFH-014",
+        "CWFH-015"
+      ],
       "status": "todo"
     }
   ],
@@ -126,10 +161,10 @@
       "title": "CodeCompass-Output-Semantik fuer Datei-Kandidaten vereinheitlichen",
       "type": "retrieval-design",
       "milestone": "CWFH-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_output_reader.py",
         "docs/architecture/codecompass-worker-file-context-handoff.md",
@@ -153,11 +188,14 @@
       "title": "CandidateFile- und ContextFile-Contract in agent/models.py einfuehren",
       "type": "contract-model",
       "milestone": "CWFH-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": ["CWFH-001", "CWFH-002"],
+      "progress_percent": 100,
+      "dependencies": [
+        "CWFH-001",
+        "CWFH-002"
+      ],
       "target_files": [
         "agent/models.py",
         "tests/**/test_*worker*context*contract*.py",
@@ -185,7 +223,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-002", "CWFH-003"],
+      "dependencies": [
+        "CWFH-002",
+        "CWFH-003"
+      ],
       "target_files": [
         "worker/retrieval/codecompass_candidate_resolver.py",
         "worker/retrieval/codecompass_output_reader.py",
@@ -217,8 +258,13 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-003", "CWFH-004"],
-      "cross_track_dependencies": ["EPC-007"],
+      "dependencies": [
+        "CWFH-003",
+        "CWFH-004"
+      ],
+      "cross_track_dependencies": [
+        "EPC-007"
+      ],
       "cross_track_note": "CandidateFile.score und .reason setzen voraus, dass der EmbeddingProviderConfig-Contract (EPC-007) stabil ist — andernfalls fehlt die Semantik fuer embedding_score-Dimensionen und provider-Herkunft beim Scoring.",
       "target_files": [
         "agent/services/context_file_reader_service.py",
@@ -251,8 +297,15 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-003", "CWFH-004", "CWFH-005"],
-      "cross_track_dependencies": ["EPC-011", "RCFG-002"],
+      "dependencies": [
+        "CWFH-003",
+        "CWFH-004",
+        "CWFH-005"
+      ],
+      "cross_track_dependencies": [
+        "EPC-011",
+        "RCFG-002"
+      ],
       "cross_track_note": "Provider-Scopes (EPC-011) definieren, welche Retrieval-Varianten (dense/lexical/symbol) dem PromptBuilder zur Verfuegung stehen. RCFG-002 stellt sicher, dass Quota-Settings konfigurierbar sind, bevor der Builder Retrieval-Budgets verwaltet.",
       "target_files": [
         "client_surfaces/operator_tui/chat_prompt_builder.py",
@@ -284,7 +337,11 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-003", "CWFH-005", "CWFH-006"],
+      "dependencies": [
+        "CWFH-003",
+        "CWFH-005",
+        "CWFH-006"
+      ],
       "target_files": [
         "agent/services/worker_contract_service.py",
         "agent/services/context_bundle_service.py",
@@ -316,7 +373,10 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "dependencies": ["CWFH-006", "CWFH-007"],
+      "dependencies": [
+        "CWFH-006",
+        "CWFH-007"
+      ],
       "target_files": [
         "client_surfaces/operator_tui/chat_mixin.py",
         "client_surfaces/operator_tui/ai_snake_config_view.py",
@@ -346,7 +406,11 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-003", "CWFH-004", "CWFH-005"],
+      "dependencies": [
+        "CWFH-003",
+        "CWFH-004",
+        "CWFH-005"
+      ],
       "target_files": [
         "agent/routes/worker_context.py",
         "agent/routes/codecompass_graph.py",
@@ -378,7 +442,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-009"],
+      "dependencies": [
+        "CWFH-009"
+      ],
       "target_files": [
         "worker/core/tool_registry.py",
         "worker/core/execution_envelope.py",
@@ -410,7 +476,10 @@
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-008", "CWFH-010"],
+      "dependencies": [
+        "CWFH-008",
+        "CWFH-010"
+      ],
       "target_files": [
         "worker/core/hermes_adapter.py",
         "worker/core/tool_registry.py",
@@ -444,7 +513,12 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "dependencies": ["CWFH-006", "CWFH-007", "CWFH-008", "CWFH-010"],
+      "dependencies": [
+        "CWFH-006",
+        "CWFH-007",
+        "CWFH-008",
+        "CWFH-010"
+      ],
       "target_files": [
         "tests/e2e/test_snake_chat_codecompass_worker_file_context.py",
         "tests/fixtures/codecompass/**",
@@ -472,7 +546,11 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["CWFH-005", "CWFH-009", "CWFH-010"],
+      "dependencies": [
+        "CWFH-005",
+        "CWFH-009",
+        "CWFH-010"
+      ],
       "target_files": [
         "tests/security/test_worker_context_file_policy.py",
         "tests/security/test_worker_context_request_policy.py",
@@ -502,7 +580,10 @@
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
-      "dependencies": ["CWFH-008", "CWFH-009"],
+      "dependencies": [
+        "CWFH-008",
+        "CWFH-009"
+      ],
       "target_files": [
         "client_surfaces/operator_tui/renderer*.py",
         "client_surfaces/operator_tui/ai_snake_config_view.py",
@@ -532,7 +613,12 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "dependencies": ["CWFH-006", "CWFH-007", "CWFH-008", "CWFH-011"],
+      "dependencies": [
+        "CWFH-006",
+        "CWFH-007",
+        "CWFH-008",
+        "CWFH-011"
+      ],
       "target_files": [
         "docs/migration/worker-context-handoff-v3.md",
         "agent/services/worker_contract_service.py",

@@ -103,6 +103,15 @@ class TaskRoutingContract(SQLModel):
     reason: Optional[str] = None
     required_capabilities: List[str] = Field(default_factory=list)
     research_specialization: Optional[str] = None
+    # AMR-011: Model Profile routing fields
+    model_profile_id: Optional[str] = None
+    model_role: Optional[str] = None
+    model_resolver_source: Optional[str] = None
+    model_resolver_rank: Optional[int] = None
+    model_policy_decisions: List[str] = Field(default_factory=list)
+    model_blocked_candidates: List[str] = Field(default_factory=list)
+    model_cloud_allowed: Optional[bool] = None
+    model_block_secret_context: Optional[bool] = None
 
 
 class TaskReviewStateContract(SQLModel):
@@ -996,3 +1005,52 @@ class WorkflowExecutionRequestModel(SQLModel):
 
 TaskScopedStepProposeResponse.model_rebuild()
 TaskScopedStepExecuteResponse.model_rebuild()
+
+
+# ── CWFH-003: File Handoff Contracts ────────────────────────────────────────
+
+class CandidateFile(SQLModel):
+    """A file candidate surfaced by CodeCompass for a given task/query."""
+    path: str
+    score: float = 0.0
+    reason: Optional[str] = None
+    source_record_ids: List[str] = Field(default_factory=list)
+    source_output_kinds: List[str] = Field(default_factory=list)
+    matched_symbols: List[str] = Field(default_factory=list)
+    relation_path: Optional[str] = None
+    manifest_hash: Optional[str] = None
+    sensitivity: str = "internal"
+    read_policy: str = "allowed"
+    requires_read: bool = False
+
+
+class ContextFile(SQLModel):
+    """A file whose content has been read and is available as context."""
+    path: str
+    content: str
+    sha256: Optional[str] = None
+    byte_count: int = 0
+    line_count: int = 0
+    line_ranges: Optional[List[dict]] = None
+    redaction_status: str = "not_redacted"
+    read_at: Optional[float] = None
+    provenance: Optional[str] = None
+
+
+class WorkerContextHandoffV3(SQLModel):
+    """
+    CWFH-003: Structured handoff from Snake-Chat/Hub to Worker.
+
+    Contains the question, candidate files (from CodeCompass) and optionally
+    already-read context files, plus policy metadata.
+    """
+    question: str
+    context: Optional[str] = None
+    depth: Optional[str] = None
+    memory_context: Optional[str] = None
+    candidate_files: List[CandidateFile] = Field(default_factory=list)
+    context_files: List[ContextFile] = Field(default_factory=list)
+    manifest_hash: Optional[str] = None
+    policy_version: Optional[str] = None
+    required_reads: List[str] = Field(default_factory=list)
+    worker_context_requests: List[dict] = Field(default_factory=list)

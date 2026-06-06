@@ -93,7 +93,17 @@ def normalize_semantic_correction_policy(value: dict[str, Any] | None) -> dict[s
 
 
 def _embedding_provider_config(policy: dict[str, Any]) -> dict[str, Any]:
+    """EPC-008: Delegate to EmbeddingProviderConfigService when available."""
     provider_cfg = dict(policy.get("embedding_provider") or {})
+    try:
+        from agent.services.embedding_provider_config_service import (
+            EmbeddingProviderConfigService,
+        )
+        svc = EmbeddingProviderConfigService(global_config=provider_cfg)
+        return svc.resolve_for_build("semantic_output_correction")
+    except Exception:
+        pass
+    # Inline fallback (no agent package available in pure-worker context)
     provider = str(provider_cfg.get("provider") or "local").strip().lower() or "local"
     config: dict[str, Any] = {
         "provider": provider,

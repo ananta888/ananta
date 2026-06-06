@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from worker.retrieval.embedding_provider import EmbeddingProvider, EmbeddingProviderError
+from worker.retrieval.embedding_provider import (
+    EmbeddingProvider,
+    EmbeddingProviderError,
+    HashEmbeddingProvider,
+)
 from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
 
 _TASK_KIND_WEIGHT = {
@@ -76,4 +80,26 @@ class CodeCompassVectorEngine:
             )
         weighted.sort(key=lambda item: float(item.get("score") or 0.0), reverse=True)
         return weighted[: max(1, int(top_k))]
+
+    @classmethod
+    def build_from_config(
+        cls,
+        store: CodeCompassVectorStore,
+        *,
+        scope: str = "codecompass_vector",
+        provider_config: dict[str, Any] | None = None,
+    ) -> "CodeCompassVectorEngine":
+        """EPC-009: Build engine using EmbeddingProviderConfigService."""
+        provider: EmbeddingProvider
+        try:
+            from agent.services.embedding_provider_config_service import (
+                EmbeddingProviderConfigService,
+                build_embedding_provider_from_config,
+            )
+            svc = EmbeddingProviderConfigService(global_config=provider_config or {})
+            cfg = svc.resolve(scope)
+            provider = build_embedding_provider_from_config(cfg)
+        except Exception:
+            provider = HashEmbeddingProvider()
+        return cls(store=store, embedding_provider=provider)
 
