@@ -1,1792 +1,1808 @@
 {
   "routes": [
     {
+      "path": "/admin/planning/dataset",
+      "endpoint": "planning_dataset_admin.planning_dataset_export"
+    },
+    {
+      "path": "/admin/planning/metrics",
+      "endpoint": "planning_metrics_admin.planning_metrics"
+    },
+    {
+      "path": "/admin/planning/review-queue",
+      "endpoint": "planning_review_admin.planning_review_queue_list"
+    },
+    {
+      "path": "/admin/planning/review-queue/<item_id>/action",
+      "endpoint": "planning_review_admin.planning_review_queue_action"
+    },
+    {
       "path": "/agents",
-      "endpoint": "list_agents",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/agents"
+      "endpoint": "list_agents"
+    },
+    {
+      "path": "/ai-snake/config",
+      "endpoint": "ai_snake_config.get_ai_snake_config"
+    },
+    {
+      "path": "/ai-snake/config",
+      "endpoint": "ai_snake_config.patch_ai_snake_config"
+    },
+    {
+      "path": "/ai-snake/config/options",
+      "endpoint": "ai_snake_config.get_ai_snake_config_options"
+    },
+    {
+      "path": "/api/client-surfaces/blender/approvals",
+      "endpoint": "blender_client_surface.list_approvals"
+    },
+    {
+      "path": "/api/client-surfaces/blender/approvals/decision",
+      "endpoint": "blender_client_surface.approval_decision"
+    },
+    {
+      "path": "/api/client-surfaces/blender/artifacts",
+      "endpoint": "blender_client_surface.list_artifacts"
+    },
+    {
+      "path": "/api/client-surfaces/blender/artifacts/<artifact_id>",
+      "endpoint": "blender_client_surface.get_artifact"
+    },
+    {
+      "path": "/api/client-surfaces/blender/capabilities",
+      "endpoint": "blender_client_surface.capabilities"
+    },
+    {
+      "path": "/api/client-surfaces/blender/events",
+      "endpoint": "blender_client_surface.events"
+    },
+    {
+      "path": "/api/client-surfaces/blender/executions",
+      "endpoint": "blender_client_surface.execute"
+    },
+    {
+      "path": "/api/client-surfaces/blender/export-plans",
+      "endpoint": "blender_client_surface.export_plan"
+    },
+    {
+      "path": "/api/client-surfaces/blender/goals",
+      "endpoint": "blender_client_surface.submit_goal"
+    },
+    {
+      "path": "/api/client-surfaces/blender/health",
+      "endpoint": "blender_client_surface.health"
+    },
+    {
+      "path": "/api/client-surfaces/blender/mutation-plans",
+      "endpoint": "blender_client_surface.mutation_plan"
+    },
+    {
+      "path": "/api/client-surfaces/blender/render-plans",
+      "endpoint": "blender_client_surface.render_plan"
+    },
+    {
+      "path": "/api/client-surfaces/blender/tasks",
+      "endpoint": "blender_client_surface.list_tasks"
+    },
+    {
+      "path": "/api/client-surfaces/blender/tasks/<task_id>",
+      "endpoint": "blender_client_surface.get_task"
+    },
+    {
+      "path": "/api/client-surfaces/freecad/approvals/decision",
+      "endpoint": "freecad_client_surface.approval_decision"
+    },
+    {
+      "path": "/api/client-surfaces/freecad/capabilities",
+      "endpoint": "freecad_client_surface.capabilities"
+    },
+    {
+      "path": "/api/client-surfaces/freecad/export-plans",
+      "endpoint": "freecad_client_surface.export_plan"
+    },
+    {
+      "path": "/api/client-surfaces/freecad/goals",
+      "endpoint": "freecad_client_surface.submit_goal"
+    },
+    {
+      "path": "/api/client-surfaces/freecad/health",
+      "endpoint": "freecad_client_surface.health"
+    },
+    {
+      "path": "/api/client-surfaces/freecad/macro-executions",
+      "endpoint": "freecad_client_surface.macro_execution"
+    },
+    {
+      "path": "/api/client-surfaces/freecad/macro-plans",
+      "endpoint": "freecad_client_surface.macro_plan"
+    },
+    {
+      "path": "/api/codecompass/context-scopes",
+      "endpoint": "control_center_api.list_context_scopes"
+    },
+    {
+      "path": "/api/codecompass/context-scopes/preview",
+      "endpoint": "control_center_api.preview_context_scope"
+    },
+    {
+      "path": "/api/codecompass/graph",
+      "endpoint": "codecompass_graph.get_graph"
+    },
+    {
+      "path": "/api/codecompass/graph/expand",
+      "endpoint": "codecompass_graph.expand_graph"
+    },
+    {
+      "path": "/api/codecompass/graph/node/<node_id>",
+      "endpoint": "codecompass_graph.get_node"
+    },
+    {
+      "path": "/api/context-policy/policies",
+      "endpoint": "context_policy.list_policies"
+    },
+    {
+      "path": "/api/context-policy/policies",
+      "endpoint": "context_policy.create_policy"
+    },
+    {
+      "path": "/api/context-policy/policies/<policy_id>/latest",
+      "endpoint": "context_policy.get_latest_policy"
+    },
+    {
+      "path": "/api/context-policy/validate",
+      "endpoint": "context_policy.validate_policy_payload"
+    },
+    {
+      "path": "/api/demo/preview",
+      "endpoint": "demo.demo_preview"
+    },
+    {
+      "path": "/api/events/stream",
+      "endpoint": "control_center_api.stream_control_center_events"
+    },
+    {
+      "path": "/api/events/stream-token",
+      "endpoint": "control_center_api.create_stream_token"
     },
     {
       "path": "/api/hub/benchmark/auto-trigger-status",
-      "endpoint": "hub_benchmark.get_auto_trigger_status",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.get_auto_trigger_status"
     },
     {
       "path": "/api/hub/benchmark/config",
-      "endpoint": "hub_benchmark.get_hub_benchmark_config",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.get_hub_benchmark_config"
     },
     {
       "path": "/api/hub/benchmark/jobs/<job_id>",
-      "endpoint": "hub_benchmark.get_hub_benchmark_job",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.get_hub_benchmark_job"
     },
     {
       "path": "/api/hub/benchmark/model-for-task",
-      "endpoint": "hub_benchmark.get_hub_model_for_task",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.get_hub_model_for_task"
     },
     {
       "path": "/api/hub/benchmark/recommend",
-      "endpoint": "hub_benchmark.get_hub_benchmark_recommendation",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.get_hub_benchmark_recommendation"
     },
     {
       "path": "/api/hub/benchmark/results",
-      "endpoint": "hub_benchmark.get_hub_benchmark_results",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.get_hub_benchmark_results"
     },
     {
       "path": "/api/hub/benchmark/run",
-      "endpoint": "hub_benchmark.run_hub_benchmark",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.run_hub_benchmark"
     },
     {
       "path": "/api/hub/benchmark/single",
-      "endpoint": "hub_benchmark.run_single_hub_benchmark",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.run_single_hub_benchmark"
     },
     {
       "path": "/api/hub/benchmark/task-kinds",
-      "endpoint": "hub_benchmark.get_task_kinds",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "hub_benchmark.get_task_kinds"
+    },
+    {
+      "path": "/api/integrations/workflows/callback",
+      "endpoint": "integrations_workflows.workflow_callback"
+    },
+    {
+      "path": "/api/network-profiles",
+      "endpoint": "network_profiles.list_network_profiles"
+    },
+    {
+      "path": "/api/network-profiles/<profile_id>",
+      "endpoint": "network_profiles.get_network_profile"
     },
     {
       "path": "/api/ollama/benchmark/comparison",
-      "endpoint": "ollama_benchmark.get_model_comparison",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.get_model_comparison"
     },
     {
       "path": "/api/ollama/benchmark/config",
-      "endpoint": "ollama_benchmark.get_ollama_benchmark_config",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.get_ollama_benchmark_config"
     },
     {
       "path": "/api/ollama/benchmark/config",
-      "endpoint": "ollama_benchmark.update_ollama_benchmark_config",
-      "methods": [
-        "PATCH",
-        "PUT"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.update_ollama_benchmark_config"
     },
     {
       "path": "/api/ollama/benchmark/jobs/<job_id>",
-      "endpoint": "ollama_benchmark.get_ollama_benchmark_job",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.get_ollama_benchmark_job"
     },
     {
       "path": "/api/ollama/benchmark/models/discover",
-      "endpoint": "ollama_benchmark.discover_ollama_models",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.discover_ollama_models"
     },
     {
       "path": "/api/ollama/benchmark/parameters",
-      "endpoint": "ollama_benchmark.run_parameter_variation",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.run_parameter_variation"
     },
     {
       "path": "/api/ollama/benchmark/recommend",
-      "endpoint": "ollama_benchmark.get_ollama_recommendation",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.get_ollama_recommendation"
     },
     {
       "path": "/api/ollama/benchmark/results",
-      "endpoint": "ollama_benchmark.get_ollama_benchmark_results",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.get_ollama_benchmark_results"
     },
     {
       "path": "/api/ollama/benchmark/role",
-      "endpoint": "ollama_benchmark.run_role_benchmark",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.run_role_benchmark"
     },
     {
       "path": "/api/ollama/benchmark/roles",
-      "endpoint": "ollama_benchmark.get_role_templates",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.get_role_templates"
     },
     {
       "path": "/api/ollama/benchmark/run",
-      "endpoint": "ollama_benchmark.run_ollama_benchmark",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.run_ollama_benchmark"
     },
     {
       "path": "/api/ollama/benchmark/single",
-      "endpoint": "ollama_benchmark.run_single_benchmark",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.run_single_benchmark"
     },
     {
       "path": "/api/ollama/benchmark/task-kinds",
-      "endpoint": "ollama_benchmark.get_task_kinds",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ollama_benchmark.get_task_kinds"
+    },
+    {
+      "path": "/api/ollama/parallel/status",
+      "endpoint": "ollama_benchmark.get_ollama_parallel_status"
+    },
+    {
+      "path": "/api/policies",
+      "endpoint": "control_center_api.list_policies"
+    },
+    {
+      "path": "/api/policy/approve",
+      "endpoint": "control_center_api.approve_policy_action"
+    },
+    {
+      "path": "/api/projects",
+      "endpoint": "control_center_api.list_projects"
+    },
+    {
+      "path": "/api/projects/<project_id>/tasks",
+      "endpoint": "control_center_api.list_project_tasks"
+    },
+    {
+      "path": "/api/rendezvous/sessions",
+      "endpoint": "rendezvous.list_rendezvous_sessions"
+    },
+    {
+      "path": "/api/rendezvous/sessions",
+      "endpoint": "rendezvous.create_rendezvous_session"
+    },
+    {
+      "path": "/api/rendezvous/sessions/<session_id>",
+      "endpoint": "rendezvous.revoke_rendezvous_session"
+    },
+    {
+      "path": "/api/rendezvous/sessions/<session_id>/join",
+      "endpoint": "rendezvous.join_rendezvous_session"
+    },
+    {
+      "path": "/api/rendezvous/sessions/<session_id>/participants",
+      "endpoint": "rendezvous.list_rendezvous_participants"
+    },
+    {
+      "path": "/api/sessions",
+      "endpoint": "control_center_api.list_sessions"
+    },
+    {
+      "path": "/api/sessions/<session_id>",
+      "endpoint": "control_center_api.get_session"
+    },
+    {
+      "path": "/api/sessions/<session_id>/cancel",
+      "endpoint": "control_center_api.cancel_session"
+    },
+    {
+      "path": "/api/sessions/<session_id>/policy-decisions",
+      "endpoint": "control_center_api.list_session_policy_decisions"
+    },
+    {
+      "path": "/api/sessions/<session_id>/tool-calls",
+      "endpoint": "control_center_api.list_session_tool_calls"
     },
     {
       "path": "/api/sgpt/backends",
-      "endpoint": "sgpt.list_cli_backends",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.list_cli_backends"
     },
     {
       "path": "/api/sgpt/capability-matrix",
-      "endpoint": "sgpt.capability_matrix",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.capability_matrix"
     },
     {
       "path": "/api/sgpt/context",
-      "endpoint": "sgpt.get_context",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.get_context"
     },
     {
       "path": "/api/sgpt/execute",
-      "endpoint": "sgpt.execute_sgpt",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.execute_sgpt"
     },
     {
       "path": "/api/sgpt/sessions",
-      "endpoint": "sgpt.create_cli_session",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.create_cli_session"
     },
     {
       "path": "/api/sgpt/sessions",
-      "endpoint": "sgpt.list_cli_sessions",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.list_cli_sessions"
     },
     {
       "path": "/api/sgpt/sessions/<session_id>",
-      "endpoint": "sgpt.get_cli_session",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.get_cli_session"
     },
     {
       "path": "/api/sgpt/sessions/<session_id>",
-      "endpoint": "sgpt.close_cli_session",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.close_cli_session"
     },
     {
       "path": "/api/sgpt/sessions/<session_id>/turn",
-      "endpoint": "sgpt.run_cli_session_turn",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.run_cli_session_turn"
     },
     {
       "path": "/api/sgpt/source",
-      "endpoint": "sgpt.get_source_preview",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "sgpt.get_source_preview"
     },
     {
       "path": "/api/system/agents",
-      "endpoint": "system.list_agents",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.list_agents"
     },
     {
       "path": "/api/system/audit-logs",
-      "endpoint": "system.get_audit_logs",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.get_audit_logs"
+    },
+    {
+      "path": "/api/system/audit-logs/integrity",
+      "endpoint": "system.get_audit_logs_integrity"
+    },
+    {
+      "path": "/api/system/audit-logs/summary",
+      "endpoint": "system.get_audit_logs_summary"
     },
     {
       "path": "/api/system/audit/analyze",
-      "endpoint": "system.analyze_audit_logs",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.analyze_audit_logs"
     },
     {
       "path": "/api/system/contracts",
-      "endpoint": "system.contract_catalog",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.contract_catalog"
     },
     {
       "path": "/api/system/csp-report",
-      "endpoint": "system.csp_report",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.csp_report"
     },
     {
       "path": "/api/system/events",
-      "endpoint": "system.stream_system_events",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.stream_system_events"
     },
     {
       "path": "/api/system/health",
-      "endpoint": "system.health",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.health"
     },
     {
       "path": "/api/system/metrics",
-      "endpoint": "system.metrics",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.metrics"
+    },
+    {
+      "path": "/api/system/monitor/providers/live",
+      "endpoint": "system.monitor_providers_live"
     },
     {
       "path": "/api/system/openapi.json",
-      "endpoint": "system.openapi_document",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.openapi_document"
+    },
+    {
+      "path": "/api/system/provider-observer",
+      "endpoint": "system.provider_observer_snapshot"
     },
     {
       "path": "/api/system/ready",
-      "endpoint": "system.readiness_check",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.readiness_check"
+    },
+    {
+      "path": "/api/system/reference-profiles/catalog",
+      "endpoint": "system.reference_profile_catalog"
+    },
+    {
+      "path": "/api/system/reference-profiles/governance-contract",
+      "endpoint": "system.reference_profile_governance_contract"
+    },
+    {
+      "path": "/api/system/reference-profiles/retrieval-contract",
+      "endpoint": "system.reference_profile_retrieval_contract"
     },
     {
       "path": "/api/system/register",
-      "endpoint": "system.register_agent",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.register_agent"
     },
     {
       "path": "/api/system/restart-process",
-      "endpoint": "system.restart_process",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.restart_process"
     },
     {
       "path": "/api/system/rotate-token",
-      "endpoint": "system.do_rotate_token",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.do_rotate_token"
     },
     {
       "path": "/api/system/stats",
-      "endpoint": "system.system_stats",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.system_stats"
     },
     {
       "path": "/api/system/stats/history",
-      "endpoint": "system.get_stats_history",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.get_stats_history"
     },
     {
       "path": "/api/system/terminal/restart-session",
-      "endpoint": "system.restart_terminal_session",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "system.restart_terminal_session"
+    },
+    {
+      "path": "/api/tasks",
+      "endpoint": "control_center_api.create_task"
+    },
+    {
+      "path": "/api/tasks/<task_id>",
+      "endpoint": "control_center_api.get_task_detail"
+    },
+    {
+      "path": "/api/tasks/<task_id>",
+      "endpoint": "control_center_api.patch_task"
+    },
+    {
+      "path": "/api/tasks/<task_id>/sessions",
+      "endpoint": "control_center_api.create_task_session"
+    },
+    {
+      "path": "/api/webrtc/sessions/<session_id>/signal",
+      "endpoint": "webrtc_signaling.send_signal"
+    },
+    {
+      "path": "/api/webrtc/sessions/<session_id>/signal",
+      "endpoint": "webrtc_signaling.poll_signals"
+    },
+    {
+      "path": "/api/worker-pool/cleanup-stale-leases",
+      "endpoint": "worker_pool.worker_pool_cleanup_stale_leases"
+    },
+    {
+      "path": "/api/worker-pool/leases",
+      "endpoint": "worker_pool.worker_pool_leases"
+    },
+    {
+      "path": "/api/worker-pool/ollama-models",
+      "endpoint": "worker_pool.worker_pool_ollama_models"
+    },
+    {
+      "path": "/api/worker-pool/queues",
+      "endpoint": "worker_pool.worker_pool_queues"
+    },
+    {
+      "path": "/api/worker-pool/revalidate-queued",
+      "endpoint": "worker_pool.worker_pool_revalidate_queued"
+    },
+    {
+      "path": "/api/worker-pool/status",
+      "endpoint": "worker_pool.worker_pool_status"
+    },
+    {
+      "path": "/api/workers",
+      "endpoint": "control_center_api.list_workers"
     },
     {
       "path": "/apidocs/",
-      "endpoint": "flasgger.apidocs",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "flasgger.apidocs"
     },
     {
       "path": "/apidocs/index.html",
-      "endpoint": "flasgger.<lambda>",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "flasgger.<lambda>"
     },
     {
       "path": "/apispec_1.json",
-      "endpoint": "flasgger.apispec_1",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "flasgger.apispec_1"
     },
     {
       "path": "/artifacts",
-      "endpoint": "artifacts.list_artifacts",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.list_artifacts"
     },
     {
       "path": "/artifacts/<artifact_id>",
-      "endpoint": "artifacts.get_artifact",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.get_artifact"
+    },
+    {
+      "path": "/artifacts/<artifact_id>/content",
+      "endpoint": "artifacts.get_artifact_content"
     },
     {
       "path": "/artifacts/<artifact_id>/extract",
-      "endpoint": "artifacts.extract_artifact",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.extract_artifact"
     },
     {
       "path": "/artifacts/<artifact_id>/rag-index",
-      "endpoint": "artifacts.index_artifact_for_rag",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.index_artifact_for_rag"
     },
     {
       "path": "/artifacts/<artifact_id>/rag-jobs/<job_id>",
-      "endpoint": "artifacts.get_artifact_rag_job",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.get_artifact_rag_job"
     },
     {
       "path": "/artifacts/<artifact_id>/rag-preview",
-      "endpoint": "artifacts.get_artifact_rag_preview",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.get_artifact_rag_preview"
     },
     {
       "path": "/artifacts/<artifact_id>/rag-status",
-      "endpoint": "artifacts.get_artifact_rag_status",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.get_artifact_rag_status"
+    },
+    {
+      "path": "/artifacts/orchestration-contract",
+      "endpoint": "artifacts.get_artifact_orchestration_contract"
+    },
+    {
+      "path": "/artifacts/retrieval-preflight",
+      "endpoint": "artifacts.get_retrieval_preflight"
     },
     {
       "path": "/artifacts/upload",
-      "endpoint": "artifacts.upload_artifact",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "artifacts.upload_artifact"
     },
     {
       "path": "/assistant/read-model",
-      "endpoint": "config_read_models.assistant_read_model",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_read_models.assistant_read_model"
     },
     {
       "path": "/audit-logs",
-      "endpoint": "get_audit_logs",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/audit-logs"
+      "endpoint": "get_audit_logs"
+    },
+    {
+      "path": "/audit-logs/integrity",
+      "endpoint": "get_audit_logs_integrity"
+    },
+    {
+      "path": "/audit-logs/summary",
+      "endpoint": "get_audit_logs_summary"
     },
     {
       "path": "/audit/analyze",
-      "endpoint": "analyze_audit_logs",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/audit/analyze"
+      "endpoint": "analyze_audit_logs"
+    },
+    {
+      "path": "/auth/oidc/callback",
+      "endpoint": "auth_oidc.oidc_callback"
+    },
+    {
+      "path": "/auth/oidc/exchange",
+      "endpoint": "auth_oidc.oidc_exchange"
+    },
+    {
+      "path": "/auth/oidc/login",
+      "endpoint": "auth_oidc.oidc_login"
+    },
+    {
+      "path": "/auth/oidc/logout",
+      "endpoint": "auth_oidc.oidc_logout"
+    },
+    {
+      "path": "/auth/oidc/userinfo",
+      "endpoint": "auth_oidc.oidc_userinfo"
     },
     {
       "path": "/change-password",
-      "endpoint": "auth.change_password",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.change_password"
     },
     {
       "path": "/config",
-      "endpoint": "config_settings.get_config",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_settings.get_config"
     },
     {
       "path": "/config",
-      "endpoint": "config_settings.set_config",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_settings.set_config"
+    },
+    {
+      "path": "/config/model-routing/read-model",
+      "endpoint": "config_read_models.model_routing_read_model"
+    },
+    {
+      "path": "/config/profiles",
+      "endpoint": "config_read_models.list_config_profiles"
+    },
+    {
+      "path": "/config/profiles/<profile_id>",
+      "endpoint": "config_read_models.get_config_profile"
     },
     {
       "path": "/dashboard/read-model",
-      "endpoint": "config_read_models.dashboard_read_model",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_read_models.dashboard_read_model"
+    },
+    {
+      "path": "/debug/backend-observability",
+      "endpoint": "debug_backend_observability.backend_observability_summary"
+    },
+    {
+      "path": "/debug/command-guardrails/analyze",
+      "endpoint": "debug_command_guardrails.analyze_command_guardrail"
+    },
+    {
+      "path": "/debug/llm-requests",
+      "endpoint": "debug_prompt_traces.list_llm_requests"
+    },
+    {
+      "path": "/debug/llm-requests/<trace_id>",
+      "endpoint": "debug_prompt_traces.get_llm_request"
+    },
+    {
+      "path": "/debug/prompts/render-dry-run",
+      "endpoint": "debug_prompt_render.render_dry_run"
+    },
+    {
+      "path": "/diagnostics/embedding-provider",
+      "endpoint": "config_read_models.embedding_provider_diagnostics"
     },
     {
       "path": "/events",
-      "endpoint": "stream_system_events",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/events"
+      "endpoint": "stream_system_events"
     },
     {
       "path": "/evolution/providers",
-      "endpoint": "evolution.list_evolution_providers",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "evolution.list_evolution_providers"
     },
     {
       "path": "/evolution/providers/<provider_name>",
-      "endpoint": "evolution.get_evolution_provider",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "evolution.get_evolution_provider"
     },
     {
       "path": "/flasgger_static/<path:filename>",
-      "endpoint": "flasgger.static",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "flasgger.static"
     },
     {
       "path": "/goals",
-      "endpoint": "tasks_goals.list_goals",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.list_goals"
     },
     {
       "path": "/goals",
-      "endpoint": "tasks_goals.create_goal",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.create_goal"
     },
     {
       "path": "/goals/<gid>/governance",
-      "endpoint": "tasks_management.goal_governance",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.goal_governance"
     },
     {
       "path": "/goals/<goal_id>",
-      "endpoint": "tasks_goals.get_goal",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.get_goal"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/citations",
+      "endpoint": "goal_artifacts.get_goal_citation_bundle"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/executions/<provenance_id>",
+      "endpoint": "goal_artifacts.get_goal_execution_provenance"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/graph",
+      "endpoint": "goal_artifacts.get_goal_artifact_graph"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/outputs",
+      "endpoint": "goal_artifacts.get_goal_artifact_outputs"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/outputs/<output_id>/provenance",
+      "endpoint": "goal_artifacts.get_goal_output_provenance"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/source-candidates",
+      "endpoint": "goal_artifacts.list_goal_source_candidates"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/sources",
+      "endpoint": "goal_artifacts.get_goal_artifact_sources"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/sources/<grant_id>/revoke",
+      "endpoint": "goal_artifacts.revoke_goal_source_grant"
+    },
+    {
+      "path": "/goals/<goal_id>/artifacts/sources/grant",
+      "endpoint": "goal_artifacts.create_goal_source_grant"
     },
     {
       "path": "/goals/<goal_id>/detail",
-      "endpoint": "tasks_goals.get_goal_detail",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.get_goal_detail"
+    },
+    {
+      "path": "/goals/<goal_id>/effective-config",
+      "endpoint": "tasks_goals.get_goal_effective_config"
     },
     {
       "path": "/goals/<goal_id>/governance-summary",
-      "endpoint": "tasks_goals.goal_governance_summary",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.goal_governance_summary"
+    },
+    {
+      "path": "/goals/<goal_id>/instruction-selection",
+      "endpoint": "instruction_layers.set_goal_instruction_selection"
+    },
+    {
+      "path": "/goals/<goal_id>/kill-requests",
+      "endpoint": "tasks_goals.kill_goal_requests"
     },
     {
       "path": "/goals/<goal_id>/plan",
-      "endpoint": "tasks_goals.get_goal_plan",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.get_goal_plan"
     },
     {
       "path": "/goals/<goal_id>/plan/nodes/<node_id>",
-      "endpoint": "tasks_goals.patch_goal_plan_node",
-      "methods": [
-        "PATCH"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.patch_goal_plan_node"
+    },
+    {
+      "path": "/goals/<goal_id>/prompt-traces",
+      "endpoint": "debug_prompt_traces.get_goal_prompt_traces"
+    },
+    {
+      "path": "/goals/<goal_id>/purge",
+      "endpoint": "tasks_goals.purge_goal"
+    },
+    {
+      "path": "/goals/kill-all-requests",
+      "endpoint": "tasks_goals.kill_all_requests"
     },
     {
       "path": "/goals/modes",
-      "endpoint": "tasks_goals.list_goal_modes",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.list_goal_modes"
+    },
+    {
+      "path": "/goals/planning/health",
+      "endpoint": "tasks_goals.planning_health"
+    },
+    {
+      "path": "/goals/planning/recover-stale",
+      "endpoint": "tasks_goals.planning_recover_stale"
     },
     {
       "path": "/goals/readiness",
-      "endpoint": "tasks_goals.goals_readiness",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.goals_readiness"
     },
     {
       "path": "/goals/test/provision",
-      "endpoint": "tasks_goals.test_provision_goal",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_goals.test_provision_goal"
     },
     {
       "path": "/governance/policy",
-      "endpoint": "config_read_models.governance_policy_read_model",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_read_models.governance_policy_read_model"
     },
     {
       "path": "/health",
-      "endpoint": "health",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/health"
+      "endpoint": "health"
+    },
+    {
+      "path": "/instruction-layers/effective",
+      "endpoint": "instruction_layers.instruction_layer_effective"
+    },
+    {
+      "path": "/instruction-layers/model",
+      "endpoint": "instruction_layers.instruction_layer_model"
+    },
+    {
+      "path": "/instruction-overlays",
+      "endpoint": "instruction_layers.list_instruction_overlays"
+    },
+    {
+      "path": "/instruction-overlays",
+      "endpoint": "instruction_layers.create_instruction_overlay"
+    },
+    {
+      "path": "/instruction-overlays/<overlay_id>",
+      "endpoint": "instruction_layers.get_instruction_overlay"
+    },
+    {
+      "path": "/instruction-overlays/<overlay_id>",
+      "endpoint": "instruction_layers.patch_instruction_overlay"
+    },
+    {
+      "path": "/instruction-overlays/<overlay_id>",
+      "endpoint": "instruction_layers.delete_instruction_overlay"
+    },
+    {
+      "path": "/instruction-overlays/<overlay_id>/attach",
+      "endpoint": "instruction_layers.attach_instruction_overlay"
+    },
+    {
+      "path": "/instruction-overlays/<overlay_id>/detach",
+      "endpoint": "instruction_layers.detach_instruction_overlay"
+    },
+    {
+      "path": "/instruction-overlays/<overlay_id>/select",
+      "endpoint": "instruction_layers.select_instruction_overlay"
+    },
+    {
+      "path": "/instruction-profiles",
+      "endpoint": "instruction_layers.list_instruction_profiles"
+    },
+    {
+      "path": "/instruction-profiles",
+      "endpoint": "instruction_layers.create_instruction_profile"
+    },
+    {
+      "path": "/instruction-profiles/<profile_id>",
+      "endpoint": "instruction_layers.get_instruction_profile"
+    },
+    {
+      "path": "/instruction-profiles/<profile_id>",
+      "endpoint": "instruction_layers.patch_instruction_profile"
+    },
+    {
+      "path": "/instruction-profiles/<profile_id>",
+      "endpoint": "instruction_layers.delete_instruction_profile"
+    },
+    {
+      "path": "/instruction-profiles/<profile_id>/select",
+      "endpoint": "instruction_layers.select_instruction_profile"
+    },
+    {
+      "path": "/instruction-profiles/examples",
+      "endpoint": "instruction_layers.list_instruction_profile_examples"
+    },
+    {
+      "path": "/internal/goals/<goal_id>/kill-requests",
+      "endpoint": "tasks_goals.kill_goal_requests_internal"
+    },
+    {
+      "path": "/internal/goals/kill-all-requests",
+      "endpoint": "tasks_goals.kill_all_requests_internal"
+    },
+    {
+      "path": "/internal/tasks/<tid>/kill-requests",
+      "endpoint": "tasks_management.kill_task_requests_internal"
     },
     {
       "path": "/knowledge/collections",
-      "endpoint": "knowledge.list_knowledge_collections",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "knowledge.list_knowledge_collections"
     },
     {
       "path": "/knowledge/collections",
-      "endpoint": "knowledge.create_knowledge_collection",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "knowledge.create_knowledge_collection"
     },
     {
       "path": "/knowledge/collections/<collection_id>",
-      "endpoint": "knowledge.get_knowledge_collection",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "knowledge.get_knowledge_collection"
     },
     {
       "path": "/knowledge/collections/<collection_id>/index",
-      "endpoint": "knowledge.index_knowledge_collection",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "knowledge.index_knowledge_collection"
     },
     {
       "path": "/knowledge/collections/<collection_id>/search",
-      "endpoint": "knowledge.search_knowledge_collection",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "knowledge.search_knowledge_collection"
     },
     {
       "path": "/knowledge/index-jobs/<job_id>",
-      "endpoint": "knowledge.get_knowledge_index_job",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "knowledge.get_knowledge_index_job"
     },
     {
       "path": "/knowledge/index-profiles",
-      "endpoint": "knowledge.list_knowledge_index_profiles",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "knowledge.list_knowledge_index_profiles"
+    },
+    {
+      "path": "/knowledge/indexes",
+      "endpoint": "knowledge.list_knowledge_indices"
+    },
+    {
+      "path": "/knowledge/indices",
+      "endpoint": "knowledge.list_knowledge_indices"
+    },
+    {
+      "path": "/knowledge/indices/<knowledge_index_id>/metadata/security",
+      "endpoint": "knowledge.update_knowledge_index_security_metadata"
+    },
+    {
+      "path": "/knowledge/indices/metadata/security/batch",
+      "endpoint": "knowledge.batch_update_knowledge_index_security_metadata"
+    },
+    {
+      "path": "/knowledge/orchestration-contract",
+      "endpoint": "knowledge.get_knowledge_orchestration_contract"
+    },
+    {
+      "path": "/knowledge/retrieval-preflight",
+      "endpoint": "knowledge.get_knowledge_retrieval_preflight"
+    },
+    {
+      "path": "/knowledge/sources/index-records",
+      "endpoint": "knowledge.index_knowledge_source_records"
+    },
+    {
+      "path": "/knowledge/wiki/import",
+      "endpoint": "knowledge.import_wiki_corpus"
+    },
+    {
+      "path": "/knowledge/wiki/import-jobs/<job_id>",
+      "endpoint": "knowledge.get_wiki_import_job"
+    },
+    {
+      "path": "/knowledge/wiki/import-jobs/<job_id>/cancel",
+      "endpoint": "knowledge.cancel_wiki_import_job"
+    },
+    {
+      "path": "/knowledge/wiki/import-jobs/<job_id>/pause",
+      "endpoint": "knowledge.pause_wiki_import_job"
+    },
+    {
+      "path": "/knowledge/wiki/import-jobs/<job_id>/resume",
+      "endpoint": "knowledge.resume_wiki_import_job"
+    },
+    {
+      "path": "/knowledge/wiki/import-url",
+      "endpoint": "knowledge.import_wiki_corpus_from_url"
+    },
+    {
+      "path": "/knowledge/wiki/presets",
+      "endpoint": "knowledge.list_wiki_import_presets"
     },
     {
       "path": "/llm/benchmarks",
-      "endpoint": "config_benchmarks.get_llm_benchmarks",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_benchmarks.get_llm_benchmarks"
     },
     {
       "path": "/llm/benchmarks/config",
-      "endpoint": "config_benchmarks.get_llm_benchmarks_config",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_benchmarks.get_llm_benchmarks_config"
     },
     {
       "path": "/llm/benchmarks/record",
-      "endpoint": "config_benchmarks.record_llm_benchmark",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_benchmarks.record_llm_benchmark"
     },
     {
       "path": "/llm/benchmarks/timeseries",
-      "endpoint": "config_benchmarks.get_llm_benchmarks_timeseries",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_benchmarks.get_llm_benchmarks_timeseries"
     },
     {
       "path": "/llm/generate",
-      "endpoint": "config_llm_generate.llm_generate",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_llm_generate.llm_generate"
     },
     {
       "path": "/llm/history",
-      "endpoint": "config_benchmarks.get_llm_history",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_benchmarks.get_llm_history"
     },
     {
       "path": "/login",
-      "endpoint": "auth.login",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.login"
     },
     {
       "path": "/logs",
-      "endpoint": "tasks_logging.get_logs",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_logging.get_logs"
     },
     {
       "path": "/me",
-      "endpoint": "auth.get_me",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.get_me"
     },
     {
       "path": "/metrics",
-      "endpoint": "metrics",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/metrics"
+      "endpoint": "metrics"
     },
     {
       "path": "/mfa/disable",
-      "endpoint": "auth.mfa_disable",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.mfa_disable"
     },
     {
       "path": "/mfa/setup",
-      "endpoint": "auth.mfa_setup",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.mfa_setup"
     },
     {
       "path": "/mfa/verify",
-      "endpoint": "auth.mfa_verify",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.mfa_verify"
     },
     {
       "path": "/oauth2-redirect.html",
-      "endpoint": "flasgger.oauth_redirect",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "flasgger.oauth_redirect"
+    },
+    {
+      "path": "/pair-groups",
+      "endpoint": "pair_groups.list_pair_groups"
+    },
+    {
+      "path": "/pair-groups",
+      "endpoint": "pair_groups.create_pair_group"
+    },
+    {
+      "path": "/pair-groups/<group_id>",
+      "endpoint": "pair_groups.get_pair_group"
+    },
+    {
+      "path": "/pair-groups/<group_id>",
+      "endpoint": "pair_groups.update_pair_group"
+    },
+    {
+      "path": "/pair-groups/<group_id>",
+      "endpoint": "pair_groups.delete_pair_group"
+    },
+    {
+      "path": "/pair-groups/<group_id>/invite",
+      "endpoint": "pair_groups.create_group_session"
+    },
+    {
+      "path": "/pair-groups/<group_id>/members",
+      "endpoint": "pair_groups.add_pair_group_member"
+    },
+    {
+      "path": "/pair-groups/<group_id>/members/<member_user_id>",
+      "endpoint": "pair_groups.remove_pair_group_member"
     },
     {
       "path": "/providers",
-      "endpoint": "config_providers.list_providers",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_providers.list_providers"
     },
     {
       "path": "/providers/catalog",
-      "endpoint": "config_providers.list_provider_catalog",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_providers.list_provider_catalog"
     },
     {
       "path": "/ready",
-      "endpoint": "readiness_check",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/ready"
+      "endpoint": "readiness_check"
     },
     {
       "path": "/refresh-token",
-      "endpoint": "auth.refresh",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.refresh"
     },
     {
       "path": "/register",
-      "endpoint": "register_agent",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/register"
+      "endpoint": "register_agent"
+    },
+    {
+      "path": "/repair/analyze",
+      "endpoint": "repair.analyze_repair"
+    },
+    {
+      "path": "/repair/candidates",
+      "endpoint": "repair.list_worker_candidates"
+    },
+    {
+      "path": "/repair/diagnostics",
+      "endpoint": "repair.repair_diagnostics"
+    },
+    {
+      "path": "/repair/execute",
+      "endpoint": "repair.execute_repair"
+    },
+    {
+      "path": "/repair/operator/view",
+      "endpoint": "repair.operator_repair_view"
+    },
+    {
+      "path": "/repair/outcomes",
+      "endpoint": "repair.get_repair_outcomes"
+    },
+    {
+      "path": "/repair/preview",
+      "endpoint": "repair.preview_repair"
+    },
+    {
+      "path": "/repair/runtime-targets",
+      "endpoint": "repair.list_runtime_targets"
     },
     {
       "path": "/schedule",
-      "endpoint": "tasks_scheduling.schedule_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_scheduling.schedule_task"
     },
     {
       "path": "/schedule",
-      "endpoint": "tasks_scheduling.list_scheduled_tasks",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_scheduling.list_scheduled_tasks"
     },
     {
       "path": "/schedule/<task_id>",
-      "endpoint": "tasks_scheduling.remove_scheduled_task",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_scheduling.remove_scheduled_task"
+    },
+    {
+      "path": "/share-sessions",
+      "endpoint": "share_sessions.create_share_session"
+    },
+    {
+      "path": "/share-sessions",
+      "endpoint": "share_sessions.list_share_sessions"
+    },
+    {
+      "path": "/share-sessions/<session_id>",
+      "endpoint": "share_sessions.delete_share_session"
+    },
+    {
+      "path": "/share-sessions/<session_id>/chat/messages",
+      "endpoint": "share_sessions.send_share_chat_message"
+    },
+    {
+      "path": "/share-sessions/<session_id>/chat/messages",
+      "endpoint": "share_sessions.list_share_chat_messages"
+    },
+    {
+      "path": "/share-sessions/<session_id>/heartbeat",
+      "endpoint": "share_sessions.share_session_heartbeat"
+    },
+    {
+      "path": "/share-sessions/<session_id>/join",
+      "endpoint": "share_sessions.join_share_session"
+    },
+    {
+      "path": "/share-sessions/<session_id>/participants",
+      "endpoint": "share_sessions.list_share_session_participants"
+    },
+    {
+      "path": "/share-sessions/<session_id>/participants/<participant_id>",
+      "endpoint": "share_sessions.revoke_share_session_participant"
+    },
+    {
+      "path": "/share-sessions/<session_id>/permissions",
+      "endpoint": "share_sessions.patch_share_session_permissions"
+    },
+    {
+      "path": "/share-sessions/<session_id>/view/poll",
+      "endpoint": "share_sessions.poll_view_payload"
+    },
+    {
+      "path": "/share-sessions/<session_id>/view/push",
+      "endpoint": "share_sessions.push_view_payload"
+    },
+    {
+      "path": "/share-sessions/join-by-code",
+      "endpoint": "share_sessions.join_share_session_by_code"
+    },
+    {
+      "path": "/share-sessions/joined",
+      "endpoint": "share_sessions.list_joined_share_sessions"
+    },
+    {
+      "path": "/snake/ask",
+      "endpoint": "snakes.snake_ask"
+    },
+    {
+      "path": "/snakes",
+      "endpoint": "snakes.register_snake"
+    },
+    {
+      "path": "/snakes",
+      "endpoint": "snakes.list_snakes"
+    },
+    {
+      "path": "/snakes/<snake_id>",
+      "endpoint": "snakes.deregister_snake"
+    },
+    {
+      "path": "/snakes/<snake_id>/chat/ack",
+      "endpoint": "snakes.chat_ack"
+    },
+    {
+      "path": "/snakes/<snake_id>/chat/messages",
+      "endpoint": "snakes.chat_send"
+    },
+    {
+      "path": "/snakes/<snake_id>/chat/messages",
+      "endpoint": "snakes.chat_receive"
+    },
+    {
+      "path": "/snakes/<snake_id>/heartbeat",
+      "endpoint": "snakes.snake_heartbeat"
+    },
+    {
+      "path": "/snakes/<snake_id>/messages",
+      "endpoint": "snakes.send_message"
+    },
+    {
+      "path": "/snakes/<snake_id>/messages",
+      "endpoint": "snakes.get_messages"
+    },
+    {
+      "path": "/snakes/participants",
+      "endpoint": "snakes.list_participants"
+    },
+    {
+      "path": "/sources",
+      "endpoint": "sources.list_sources"
+    },
+    {
+      "path": "/sources/<source_id>",
+      "endpoint": "sources.get_source"
+    },
+    {
+      "path": "/sources/<source_id>/cache",
+      "endpoint": "sources.source_cache_status"
+    },
+    {
+      "path": "/sources/<source_id>/cache/clear",
+      "endpoint": "sources.source_cache_clear"
+    },
+    {
+      "path": "/sources/<source_id>/citation",
+      "endpoint": "sources.get_source_citation"
+    },
+    {
+      "path": "/sources/<source_id>/refresh",
+      "endpoint": "sources.refresh_source"
+    },
+    {
+      "path": "/sources/<source_id>/snapshots",
+      "endpoint": "sources.list_source_snapshots"
+    },
+    {
+      "path": "/sources/doctor",
+      "endpoint": "sources.source_pack_doctor"
+    },
+    {
+      "path": "/sources/packs",
+      "endpoint": "sources.list_source_packs"
+    },
+    {
+      "path": "/sources/packs/<source_pack_id>",
+      "endpoint": "sources.get_source_pack"
+    },
+    {
+      "path": "/sources/packs/<source_pack_id>/bootstrap",
+      "endpoint": "sources.bootstrap_source_pack"
+    },
+    {
+      "path": "/sources/packs/<source_pack_id>/query-preview",
+      "endpoint": "sources.source_pack_query_preview"
+    },
+    {
+      "path": "/sources/refresh",
+      "endpoint": "sources.refresh_due_sources"
     },
     {
       "path": "/stats",
-      "endpoint": "system_stats",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/stats"
+      "endpoint": "system_stats"
     },
     {
       "path": "/stats/history",
-      "endpoint": "get_stats_history",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "alias",
-      "canonical_path": "/api/system/stats/history"
+      "endpoint": "get_stats_history"
     },
     {
       "path": "/step/execute",
-      "endpoint": "tasks_execution.execute_step",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_execution.execute_step"
     },
     {
       "path": "/step/propose",
-      "endpoint": "tasks_execution.propose_step",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_execution.propose_step"
     },
     {
       "path": "/tasks",
-      "endpoint": "tasks_management.list_tasks",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.list_tasks"
     },
     {
       "path": "/tasks",
-      "endpoint": "tasks_management.create_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.create_task"
+    },
+    {
+      "path": "/tasks/<task_id>/answer-verification",
+      "endpoint": "tasks_source_verification.get_task_answer_verification"
     },
     {
       "path": "/tasks/<task_id>/evolution",
-      "endpoint": "evolution.task_evolution_read_model",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "evolution.task_evolution_read_model"
     },
     {
       "path": "/tasks/<task_id>/evolution/analyze",
-      "endpoint": "evolution.analyze_task_evolution",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "evolution.analyze_task_evolution"
     },
     {
       "path": "/tasks/<task_id>/evolution/proposals/<proposal_id>/apply",
-      "endpoint": "evolution.apply_task_evolution_proposal",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "evolution.apply_task_evolution_proposal"
+    },
+    {
+      "path": "/tasks/<task_id>/evolution/proposals/<proposal_id>/review",
+      "endpoint": "evolution.review_task_evolution_proposal"
     },
     {
       "path": "/tasks/<task_id>/evolution/proposals/<proposal_id>/validate",
-      "endpoint": "evolution.validate_task_evolution_proposal",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "evolution.validate_task_evolution_proposal"
+    },
+    {
+      "path": "/tasks/<task_id>/instruction-selection",
+      "endpoint": "instruction_layers.set_task_instruction_selection"
+    },
+    {
+      "path": "/tasks/<task_id>/sources",
+      "endpoint": "tasks_source_verification.get_task_sources"
     },
     {
       "path": "/tasks/<tid>",
-      "endpoint": "tasks_management.get_task",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.get_task"
     },
     {
       "path": "/tasks/<tid>",
-      "endpoint": "tasks_management.patch_task",
-      "methods": [
-        "PATCH"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.patch_task"
     },
     {
       "path": "/tasks/<tid>/archive",
-      "endpoint": "tasks_management.archive_task_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.archive_task_route"
     },
     {
       "path": "/tasks/<tid>/assign",
-      "endpoint": "tasks_management.assign_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.assign_task"
     },
     {
       "path": "/tasks/<tid>/assign/auto",
-      "endpoint": "tasks_management.auto_assign_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.auto_assign_task"
     },
     {
       "path": "/tasks/<tid>/cancel",
-      "endpoint": "tasks_management.cancel_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.cancel_task"
     },
     {
       "path": "/tasks/<tid>/delegate",
-      "endpoint": "tasks_orchestration.delegate_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_orchestration.delegate_task"
     },
     {
       "path": "/tasks/<tid>/followups",
-      "endpoint": "tasks_management.create_followups",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.create_followups"
+    },
+    {
+      "path": "/tasks/<tid>/kill-requests",
+      "endpoint": "tasks_management.kill_task_requests"
     },
     {
       "path": "/tasks/<tid>/logs",
-      "endpoint": "tasks_logging.task_logs",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_logging.task_logs"
     },
     {
       "path": "/tasks/<tid>/pause",
-      "endpoint": "tasks_management.pause_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.pause_task"
     },
     {
       "path": "/tasks/<tid>/resume",
-      "endpoint": "tasks_management.resume_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.resume_task"
     },
     {
       "path": "/tasks/<tid>/retry",
-      "endpoint": "tasks_management.retry_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.retry_task"
     },
     {
       "path": "/tasks/<tid>/review",
-      "endpoint": "tasks_management.review_task_proposal",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.review_task_proposal"
     },
     {
       "path": "/tasks/<tid>/step/execute",
-      "endpoint": "tasks_execution.task_execute",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_execution.task_execute"
     },
     {
       "path": "/tasks/<tid>/step/propose",
-      "endpoint": "tasks_execution.task_propose",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_execution.task_propose"
     },
     {
       "path": "/tasks/<tid>/stream-logs",
-      "endpoint": "tasks_logging.stream_task_logs",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_logging.stream_task_logs"
     },
     {
       "path": "/tasks/<tid>/subtask-callback",
-      "endpoint": "tasks_management.subtask_callback",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.subtask_callback"
     },
     {
       "path": "/tasks/<tid>/tree",
-      "endpoint": "tasks_management.task_tree_route",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.task_tree_route"
     },
     {
       "path": "/tasks/<tid>/unassign",
-      "endpoint": "tasks_management.unassign_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.unassign_task"
     },
     {
       "path": "/tasks/<tid>/verification",
-      "endpoint": "tasks_verification.task_verification",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_verification.task_verification"
     },
     {
       "path": "/tasks/<tid>/workspace/files",
-      "endpoint": "tasks_management.task_workspace_files_route",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.task_workspace_files_route"
     },
     {
       "path": "/tasks/archive/batch",
-      "endpoint": "tasks_management.archive_tasks_batch_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.archive_tasks_batch_route"
     },
     {
       "path": "/tasks/archive/retention/apply",
-      "endpoint": "tasks_management.archive_retention_apply_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.archive_retention_apply_route"
     },
     {
       "path": "/tasks/archived",
-      "endpoint": "tasks_management.list_archived_tasks",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.list_archived_tasks"
     },
     {
       "path": "/tasks/archived/<tid>",
-      "endpoint": "tasks_management.delete_archived_task_route",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.delete_archived_task_route"
     },
     {
       "path": "/tasks/archived/<tid>/restore",
-      "endpoint": "tasks_management.restore_task_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.restore_task_route"
     },
     {
       "path": "/tasks/archived/cleanup",
-      "endpoint": "tasks_management.cleanup_archived_tasks_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.cleanup_archived_tasks_route"
     },
     {
       "path": "/tasks/archived/restore/batch",
-      "endpoint": "tasks_management.restore_tasks_batch_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.restore_tasks_batch_route"
     },
     {
       "path": "/tasks/auto-planner/analyze/<task_id>",
-      "endpoint": "tasks_auto_planner.analyze_task_for_followups",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_auto_planner.analyze_task_for_followups"
     },
     {
       "path": "/tasks/auto-planner/configure",
-      "endpoint": "tasks_auto_planner.auto_planner_configure",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_auto_planner.auto_planner_configure"
     },
     {
       "path": "/tasks/auto-planner/plan",
-      "endpoint": "tasks_auto_planner.plan_goal_endpoint",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_auto_planner.plan_goal_endpoint"
     },
     {
       "path": "/tasks/auto-planner/status",
-      "endpoint": "tasks_auto_planner.auto_planner_status",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_auto_planner.auto_planner_status"
     },
     {
       "path": "/tasks/autopilot/circuits",
-      "endpoint": "tasks_autopilot.autopilot_circuits_status",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_autopilot.autopilot_circuits_status"
     },
     {
       "path": "/tasks/autopilot/circuits/reset",
-      "endpoint": "tasks_autopilot.autopilot_circuits_reset",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_autopilot.autopilot_circuits_reset"
     },
     {
       "path": "/tasks/autopilot/start",
-      "endpoint": "tasks_autopilot.autopilot_start",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_autopilot.autopilot_start"
     },
     {
       "path": "/tasks/autopilot/status",
-      "endpoint": "tasks_autopilot.autopilot_status",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_autopilot.autopilot_status"
     },
     {
       "path": "/tasks/autopilot/stop",
-      "endpoint": "tasks_autopilot.autopilot_stop",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_autopilot.autopilot_stop"
     },
     {
       "path": "/tasks/autopilot/tick",
-      "endpoint": "tasks_autopilot.autopilot_tick",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_autopilot.autopilot_tick"
     },
     {
       "path": "/tasks/cleanup",
-      "endpoint": "tasks_management.cleanup_tasks_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.cleanup_tasks_route"
     },
     {
       "path": "/tasks/derivation/backfill",
-      "endpoint": "tasks_management.task_derivation_backfill_route",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.task_derivation_backfill_route"
     },
     {
       "path": "/tasks/hierarchy/view/<tid>",
-      "endpoint": "tasks_management.task_hierarchy_view",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.task_hierarchy_view"
     },
     {
       "path": "/tasks/orchestration/claim",
-      "endpoint": "tasks_orchestration.claim_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_orchestration.claim_task"
     },
     {
       "path": "/tasks/orchestration/complete",
-      "endpoint": "tasks_orchestration.complete_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_orchestration.complete_task"
     },
     {
       "path": "/tasks/orchestration/ingest",
-      "endpoint": "tasks_orchestration.ingest_task",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_orchestration.ingest_task"
     },
     {
       "path": "/tasks/orchestration/read-model",
-      "endpoint": "tasks_orchestration.orchestration_read_model",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_orchestration.orchestration_read_model"
     },
     {
       "path": "/tasks/timeline",
-      "endpoint": "tasks_management.tasks_timeline",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "tasks_management.tasks_timeline"
     },
     {
       "path": "/teams",
-      "endpoint": "teams.list_teams",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.list_teams"
     },
     {
       "path": "/teams",
-      "endpoint": "teams.create_team",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.create_team"
     },
     {
       "path": "/teams/<team_id>",
-      "endpoint": "teams.update_team",
-      "methods": [
-        "PATCH"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.update_team"
     },
     {
       "path": "/teams/<team_id>",
-      "endpoint": "teams.delete_team",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.delete_team"
     },
     {
       "path": "/teams/<team_id>/activate",
-      "endpoint": "teams.activate_team",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.activate_team"
     },
     {
       "path": "/teams/<team_id>/blueprint-diff",
-      "endpoint": "teams.get_team_blueprint_diff",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.get_team_blueprint_diff"
     },
     {
       "path": "/teams/blueprints",
-      "endpoint": "teams.list_team_blueprints",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.list_team_blueprints"
     },
     {
       "path": "/teams/blueprints",
-      "endpoint": "teams.create_team_blueprint",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.create_team_blueprint"
     },
     {
       "path": "/teams/blueprints/<blueprint_id>",
-      "endpoint": "teams.get_team_blueprint",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.get_team_blueprint"
     },
     {
       "path": "/teams/blueprints/<blueprint_id>",
-      "endpoint": "teams.update_team_blueprint",
-      "methods": [
-        "PATCH"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.update_team_blueprint"
     },
     {
       "path": "/teams/blueprints/<blueprint_id>",
-      "endpoint": "teams.delete_team_blueprint",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.delete_team_blueprint"
     },
     {
       "path": "/teams/blueprints/<blueprint_id>/bundle",
-      "endpoint": "teams.export_team_blueprint_bundle",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.export_team_blueprint_bundle"
     },
     {
       "path": "/teams/blueprints/<blueprint_id>/instantiate",
-      "endpoint": "teams.instantiate_team_blueprint",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.instantiate_team_blueprint"
     },
     {
       "path": "/teams/blueprints/<blueprint_id>/work-profile",
-      "endpoint": "teams.get_team_blueprint_work_profile",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.get_team_blueprint_work_profile"
+    },
+    {
+      "path": "/teams/blueprints/catalog",
+      "endpoint": "teams.list_team_blueprint_catalog"
     },
     {
       "path": "/teams/blueprints/import",
-      "endpoint": "teams.import_team_blueprint_bundle",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.import_team_blueprint_bundle"
     },
     {
       "path": "/teams/roles",
-      "endpoint": "teams.get_team_roles",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.get_team_roles"
     },
     {
       "path": "/teams/roles",
-      "endpoint": "teams.create_role",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.create_role"
     },
     {
       "path": "/teams/roles/<role_id>",
-      "endpoint": "teams.delete_role",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.delete_role"
     },
     {
       "path": "/teams/setup-scrum",
-      "endpoint": "teams.setup_scrum",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.setup_scrum"
     },
     {
       "path": "/teams/types",
-      "endpoint": "teams.list_team_types",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.list_team_types"
     },
     {
       "path": "/teams/types",
-      "endpoint": "teams.create_team_type",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.create_team_type"
     },
     {
       "path": "/teams/types/<type_id>",
-      "endpoint": "teams.delete_team_type",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.delete_team_type"
     },
     {
       "path": "/teams/types/<type_id>/roles",
-      "endpoint": "teams.link_role_to_type",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.link_role_to_type"
     },
     {
       "path": "/teams/types/<type_id>/roles",
-      "endpoint": "teams.list_roles_for_type",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.list_roles_for_type"
     },
     {
       "path": "/teams/types/<type_id>/roles/<role_id>",
-      "endpoint": "teams.update_role_template_mapping",
-      "methods": [
-        "PATCH"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.update_role_template_mapping"
     },
     {
       "path": "/teams/types/<type_id>/roles/<role_id>",
-      "endpoint": "teams.unlink_role_from_type",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "teams.unlink_role_from_type"
     },
     {
       "path": "/templates",
-      "endpoint": "config_templates.list_templates",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_templates.list_templates"
     },
     {
       "path": "/templates",
-      "endpoint": "config_templates.create_template",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_templates.create_template"
     },
     {
       "path": "/templates/<tpl_id>",
-      "endpoint": "config_templates.update_template",
-      "methods": [
-        "PATCH",
-        "PUT"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_templates.update_template"
     },
     {
       "path": "/templates/<tpl_id>",
-      "endpoint": "config_templates.delete_template",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "config_templates.delete_template"
+    },
+    {
+      "path": "/templates/preview",
+      "endpoint": "config_templates.preview_template_payload"
+    },
+    {
+      "path": "/templates/runtime-contract",
+      "endpoint": "config_templates.template_runtime_contract_read_model"
+    },
+    {
+      "path": "/templates/sample-contexts",
+      "endpoint": "config_templates.template_sample_contexts_read_model"
+    },
+    {
+      "path": "/templates/validate",
+      "endpoint": "config_templates.validate_template_payload"
+    },
+    {
+      "path": "/templates/validation-diagnostics",
+      "endpoint": "config_templates.template_validation_diagnostics"
+    },
+    {
+      "path": "/templates/variable-registry",
+      "endpoint": "config_templates.template_variable_registry_read_model"
+    },
+    {
+      "path": "/terminal/sessions",
+      "endpoint": "terminal.list_terminal_sessions"
+    },
+    {
+      "path": "/terminal/sessions",
+      "endpoint": "terminal.create_terminal_session"
+    },
+    {
+      "path": "/terminal/sessions/<session_id>",
+      "endpoint": "terminal.get_terminal_session"
+    },
+    {
+      "path": "/terminal/sessions/<session_id>",
+      "endpoint": "terminal.kill_terminal_session"
+    },
+    {
+      "path": "/terminal/sessions/<session_id>/attach-token",
+      "endpoint": "terminal.issue_attach_token"
+    },
+    {
+      "path": "/terminal/sessions/<session_id>/input",
+      "endpoint": "terminal.send_terminal_input"
+    },
+    {
+      "path": "/terminal/sessions/<session_id>/output",
+      "endpoint": "terminal.get_terminal_output"
+    },
+    {
+      "path": "/terminal/targets",
+      "endpoint": "terminal.list_terminal_targets"
     },
     {
       "path": "/test/provision-user",
-      "endpoint": "auth.test_provision_user",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.test_provision_user"
     },
     {
       "path": "/test/reset-login-attempts",
-      "endpoint": "auth.test_reset_login_attempts",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.test_reset_login_attempts"
     },
     {
       "path": "/test/reset-user-auth-state",
-      "endpoint": "auth.test_reset_user_auth_state",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.test_reset_user_auth_state"
     },
     {
       "path": "/test/users/<username>",
-      "endpoint": "auth.test_delete_user",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.test_delete_user"
     },
     {
       "path": "/triggers/configure",
-      "endpoint": "triggers.triggers_configure",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "triggers.triggers_configure"
     },
     {
       "path": "/triggers/status",
-      "endpoint": "triggers.triggers_status",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "triggers.triggers_status"
     },
     {
       "path": "/triggers/test",
-      "endpoint": "triggers.test_trigger",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "triggers.test_trigger"
     },
     {
       "path": "/triggers/webhook/<source>",
-      "endpoint": "triggers.webhook_endpoint",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "triggers.webhook_endpoint"
     },
     {
       "path": "/users",
-      "endpoint": "auth.get_users",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.get_users"
     },
     {
       "path": "/users",
-      "endpoint": "auth.create_user",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.create_user"
     },
     {
       "path": "/users/<username>",
-      "endpoint": "auth.delete_user",
-      "methods": [
-        "DELETE"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.delete_user"
     },
     {
       "path": "/users/<username>/reset-password",
-      "endpoint": "auth.reset_password",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.reset_password"
     },
     {
       "path": "/users/<username>/role",
-      "endpoint": "auth.update_user_role",
-      "methods": [
-        "PUT"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "auth.update_user_role"
     },
     {
       "path": "/v1/ananta/capabilities",
-      "endpoint": "openai_compat.capabilities",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "openai_compat.capabilities"
     },
     {
       "path": "/v1/chat/completions",
-      "endpoint": "openai_compat.chat_completions",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "openai_compat.chat_completions"
     },
     {
       "path": "/v1/files",
-      "endpoint": "openai_compat.upload_file",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "openai_compat.upload_file"
     },
     {
       "path": "/v1/files",
-      "endpoint": "openai_compat.list_files",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "openai_compat.list_files"
     },
     {
       "path": "/v1/files/<file_id>",
-      "endpoint": "openai_compat.get_file",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "openai_compat.get_file"
     },
     {
       "path": "/v1/mcp",
-      "endpoint": "mcp.mcp_jsonrpc",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "mcp.mcp_jsonrpc"
     },
     {
       "path": "/v1/mcp/capabilities",
-      "endpoint": "mcp.mcp_capabilities",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "mcp.mcp_capabilities"
     },
     {
       "path": "/v1/models",
-      "endpoint": "openai_compat.list_models",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "openai_compat.list_models"
     },
     {
       "path": "/v1/responses",
-      "endpoint": "openai_compat.responses",
-      "methods": [
-        "POST"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "openai_compat.responses"
+    },
+    {
+      "path": "/v1/voice/capabilities",
+      "endpoint": "voice.capabilities"
+    },
+    {
+      "path": "/v1/voice/command",
+      "endpoint": "voice.command"
+    },
+    {
+      "path": "/v1/voice/goal",
+      "endpoint": "voice.goal"
+    },
+    {
+      "path": "/v1/voice/transcribe",
+      "endpoint": "voice.transcribe"
+    },
+    {
+      "path": "/webhooks/git/<provider>",
+      "endpoint": "webhooks.git_provider_webhook"
+    },
+    {
+      "path": "/worker-context",
+      "endpoint": "snakes.worker_context"
     },
     {
       "path": "/ws/terminal",
-      "endpoint": "ws_terminal",
-      "methods": [
-        "GET"
-      ],
-      "route_kind": "canonical"
+      "endpoint": "ws_terminal"
+    },
+    {
+      "path": "/ws/terminal/session",
+      "endpoint": "ws_terminal_session"
     }
   ]
 }
