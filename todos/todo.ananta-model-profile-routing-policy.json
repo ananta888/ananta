@@ -61,7 +61,7 @@
         "AMR-001",
         "AMR-002"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -72,7 +72,7 @@
         "AMR-005",
         "AMR-006"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -82,7 +82,7 @@
         "AMR-008",
         "AMR-009"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -148,10 +148,10 @@
       "title": "Ist-Zustand der Modellzuordnung dokumentieren",
       "type": "analysis",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [],
       "target_files": [
         "docs/architecture/model-routing-current-state.md"
@@ -173,10 +173,10 @@
       "title": "Zielarchitektur Model Profiles, Routing und Policy beschreiben",
       "type": "architecture",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-001"
       ],
@@ -201,10 +201,10 @@
       "title": "JSON-Schema für model_profiles einführen",
       "type": "schema",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-002"
       ],
@@ -232,10 +232,10 @@
       "title": "JSON-Schema für model_routing einführen",
       "type": "schema",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-002"
       ],
@@ -262,10 +262,10 @@
       "title": "Beispielkonfiguration für lokale RTX-3080/Ollama-Nutzung erstellen",
       "type": "config",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-003",
         "AMR-004"
@@ -292,10 +292,10 @@
       "title": "Beispielkonfiguration für Hybrid Local plus OpenRouter/OpenAI erstellen",
       "type": "config",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-003",
         "AMR-004"
@@ -323,10 +323,10 @@
       "title": "ModelProfileLoader implementieren",
       "type": "backend",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-003",
         "AMR-004"
@@ -357,10 +357,10 @@
       "title": "ModelProfileResolver deterministisch implementieren",
       "type": "backend",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-007"
       ],
@@ -392,10 +392,10 @@
       "title": "Legacy Overrides auf neue Model Policy normalisieren",
       "type": "backend",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-008"
       ],
@@ -424,10 +424,10 @@
       "title": "ModelInvocationService an Resolver anbinden",
       "type": "backend",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-008",
         "AMR-009"

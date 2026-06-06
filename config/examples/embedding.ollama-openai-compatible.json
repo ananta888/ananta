@@ -1,0 +1,16 @@
+{
+  "embedding_provider": {
+    "provider": "openai_compatible",
+    "model": "nomic-embed-text",
+    "model_version": "nomic-embed-text-v1.5",
+    "dimensions": 768,
+    "base_url": "http://localhost:11434/v1",
+    "api_key_ref": "OLLAMA_API_KEY",
+    "timeout_seconds": 30,
+    "external_calls_allowed": true,
+    "allowed_base_urls": ["http://localhost:11434"],
+    "diagnostics_enabled": true,
+    "index_rebuild_policy": "on_provider_or_model_change"
+  },
+  "_note": "Ollama local embedding model. external_calls_allowed=true is required but only localhost is in allowed_base_urls — no cloud calls possible. Model name and dimensions must match the installed Ollama embedding model."
+}

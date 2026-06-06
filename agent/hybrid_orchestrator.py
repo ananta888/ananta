@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from agent.rag_query_normalizer import normalize_query_from_settings
+
 from agent.config import settings
 from agent.common.sgpt import run_llm_cli_command
 from agent.hybrid_context_orchestration import collect_context_chunks, serialize_context_result
@@ -571,11 +573,11 @@ class ContextManager:
             quotas["semantic_search"] += self._quota("rag_route_quota_code_semantic", 2)
             quotas["agentic_search"] += 1
         if docs_like:
-            quotas["semantic_search"] += 4
-            quotas["repository_map"] += 2
+            quotas["semantic_search"] += self._quota("rag_route_quota_docs_semantic", 4)
+            quotas["repository_map"] += self._quota("rag_route_quota_docs_repo", 2)
         if fs_like:
-            quotas["agentic_search"] += 3
-            quotas["repository_map"] += 2
+            quotas["agentic_search"] += self._quota("rag_route_quota_fs_agentic", 3)
+            quotas["repository_map"] += self._quota("rag_route_quota_fs_repo", 2)
         if all(v == 0 for v in quotas.values()):
             quotas = {
                 "repository_map": self._quota("rag_route_quota_default_repo", 6),
@@ -690,17 +692,29 @@ class HybridOrchestrator:
         return redact_sensitive_text(text, self.SECRET_PATTERNS)
 
     def get_relevant_context(self, query: str) -> dict[str, object]:
+        query_variants = normalize_query_from_settings(query)
         quotas = self.context_manager.route(query)
-        chunks = collect_context_chunks(
-            query=query,
-            quotas=quotas,
-            repository_engine=self.repository_engine,
-            semantic_engine=self.semantic_engine,
-            agentic_engine=self.agentic_engine,
-        )
+
+        # Collect chunks for original query plus any normalized variants.
+        # Results are merged and deduplicated; original query keeps routing priority.
+        all_chunks: list[ContextChunk] = []
+        seen_keys: set[tuple[str, str, str]] = set()
+        for variant in query_variants:
+            variant_chunks = collect_context_chunks(
+                query=variant,
+                quotas=quotas,
+                repository_engine=self.repository_engine,
+                semantic_engine=self.semantic_engine,
+                agentic_engine=self.agentic_engine,
+            )
+            for chunk in variant_chunks:
+                key = (chunk.engine, chunk.source, chunk.content[:120])
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    all_chunks.append(chunk)
 
         best = self.context_manager.rerank(
-            chunks=chunks,
+            chunks=all_chunks,
             query=query,
             max_chunks=self.max_chunks,
             max_chars=self.max_context_chars,

@@ -103,6 +103,21 @@ def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingP
     payload = dict(config or {})
     provider = str(payload.get("provider") or "fake").strip().lower() or "fake"
     dimensions = max(1, int(payload.get("dimensions") or 8))
+
+    # EPC-006: external providers require explicit opt-in
+    is_external = provider in {"openai", "openai_compatible"}
+    if is_external and not payload.get("external_calls_allowed", False):
+        raise ValueError(
+            "embedding_provider_external_calls_not_allowed: set external_calls_allowed=True to use OpenAI-compatible providers"
+        )
+    if is_external and payload.get("allowed_base_urls"):
+        base_url = str(payload.get("base_url") or "").rstrip("/")
+        allowed = [str(u).rstrip("/") for u in payload["allowed_base_urls"]]
+        if base_url and not any(base_url.startswith(a) for a in allowed):
+            raise ValueError(
+                f"embedding_provider_base_url_not_allowed:{base_url!r}"
+            )
+
     if provider in {"fake", "test"}:
         return FakeEmbeddingProvider(
             provider_id=str(payload.get("provider_id") or "fake_test"),

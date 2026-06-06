@@ -85,7 +85,7 @@
         "RCFG-002",
         "RCFG-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "RCFG-2",
@@ -95,7 +95,7 @@
         "RCFG-005",
         "RCFG-006"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "RCFG-3",
@@ -105,7 +105,7 @@
         "RCFG-008",
         "RCFG-009"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -114,10 +114,10 @@
       "title": "RAG Route Quotas in agent/config.py aufnehmen",
       "type": "backend-config",
       "milestone": "RCFG-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/config.py"
       ],
@@ -139,10 +139,10 @@
       "title": "hybrid_orchestrator.py auf konfigurierbare Route-Quotas umstellen",
       "type": "backend-refactor",
       "milestone": "RCFG-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "RCFG-001"
       ],
@@ -170,10 +170,10 @@
       "title": "Repository-Scan-Exclusions in agent/config.py zentralisieren",
       "type": "backend-config",
       "milestone": "RCFG-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/config.py",
         "agent/**/d_repository_scan.py",
@@ -198,10 +198,10 @@
       "title": "Konfigurierbaren Query-Normalizer vorbereiten",
       "type": "backend-design",
       "milestone": "RCFG-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/config.py",
         "agent/**/rag_query_normalizer.py",
@@ -227,10 +227,10 @@
       "title": "Keyword-basierte DE→EN Query-Expansion für RAG umsetzen",
       "type": "backend-feature",
       "milestone": "RCFG-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "RCFG-004"
       ],
@@ -252,17 +252,18 @@
         "Unit-Test prüft Autopilot-Tick-Engine Beispiel.",
         "Unit-Test prüft, dass Originalquery erhalten bleibt.",
         "Unit-Test prüft, dass kein Netzwerk-/LLM-Call im keyword-Modus erfolgt."
-      ]
+      ],
+      "resolution_note": "Implemented via rag_query_normalizer.py (DE→EN keyword expansion). RTS-003 extends this with glossary and bidirectional support. RCFG-005 marked done-via-RTS-003."
     },
     {
       "id": "RCFG-006",
       "title": "Normalisierte Queries in RepositoryMap/RAG Retrieval einbinden",
       "type": "backend-integration",
       "milestone": "RCFG-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "RCFG-004",
         "RCFG-005"
@@ -294,10 +295,10 @@
       "title": "LLM-Normalisierung als optionalen späteren Modus absichern",
       "type": "backend-design",
       "milestone": "RCFG-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "RCFG-004"
       ],
@@ -324,10 +325,10 @@
       "title": "Dokumentation für .env und docker-compose Overrides ergänzen",
       "type": "docs",
       "milestone": "RCFG-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         ".env.example",
         "docker-compose.yml",
@@ -352,10 +353,10 @@
       "title": "Gesamttests für RAG Config Layer ergänzen",
       "type": "backend-test",
       "milestone": "RCFG-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "RCFG-001",
         "RCFG-002",
@@ -397,13 +398,13 @@
   "tasks_status_summary": {
     "total": 9,
     "by_status": {
-      "todo": 9,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 9
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 4,
       "P1": 4,
@@ -417,15 +418,15 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 0,
-      "remaining": 7
+      "done": 7,
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -532,12 +533,12 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 9,
+    "state": "completed",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 9
   },
   "summary_notes": [
     "Die Todo-Datei ersetzt die lose Planung im GitHub-Issue als eigentliche Ananta-Planungsquelle.",

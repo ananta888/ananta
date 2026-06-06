@@ -1,0 +1,58 @@
+version: "1.0"
+_note: "Example: hybrid setup — local Ollama for coding, OpenRouter for planning and frontier tasks. Cloud providers require explicit opt-in and block_secret_context."
+
+profiles:
+  - profile_id: ollama-qwen-7b-coder
+    provider_id: ollama
+    model: "qwen2.5-coder:7b"
+    model_role: coder
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_json: true
+    supports_streaming: true
+    context_tokens: 32768
+    max_output_tokens: 4096
+    cost_class: free
+    quality_class: medium
+    base_url: "http://localhost:11434"
+    enabled: true
+
+  - profile_id: openrouter-claude-sonnet-planner
+    provider_id: openrouter
+    model: "anthropic/claude-sonnet-4-6"
+    model_role: planner
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_tools: true
+    supports_json: true
+    supports_streaming: true
+    context_tokens: 200000
+    max_output_tokens: 8192
+    timeout_seconds: 120
+    cost_class: medium
+    quality_class: frontier
+    api_key_env: OPENROUTER_API_KEY
+    base_url: "https://openrouter.ai/api/v1"
+    enabled: true
+
+  - profile_id: openrouter-gemma-reviewer
+    provider_id: openrouter
+    model: "google/gemma-3-27b-it"
+    model_role: reviewer
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_tools: false
+    supports_json: true
+    context_tokens: 131072
+    max_output_tokens: 4096
+    cost_class: low
+    quality_class: high
+    api_key_env: OPENROUTER_API_KEY
+    base_url: "https://openrouter.ai/api/v1"
+    enabled: true

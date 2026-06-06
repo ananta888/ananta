@@ -279,3 +279,31 @@ def get_config_profile(profile_id: str):
     if profile is None:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=profile)
+
+
+@read_models_bp.route("/diagnostics/embedding-provider", methods=["GET"])
+@check_auth
+def embedding_provider_diagnostics():
+    """EPC-013: Return diagnostic status for all embedding provider scopes."""
+    try:
+        import dataclasses
+        from agent.services.embedding_provider_config_service import EmbeddingProviderConfigService
+        svc = EmbeddingProviderConfigService(
+            global_config=dict(current_app.config.get("AGENT_CONFIG") or {}).get("embedding_provider") or {}
+        )
+
+        def _diag_to_dict(d):
+            raw = dataclasses.asdict(d) if dataclasses.is_dataclass(d) else vars(d)
+            # status is an enum — convert to its value string
+            if hasattr(raw.get("status"), "value"):
+                raw = {**raw, "status": raw["status"].value}
+            return raw
+
+        scope = request.args.get("scope", "").strip() or None
+        if scope:
+            diag = svc.diagnostic(scope)
+            return api_response(data={"scope": scope, "diagnostic": _diag_to_dict(diag)})
+        all_diags = svc.all_diagnostics()
+        return api_response(data={"diagnostics": [_diag_to_dict(d) for d in all_diags]})
+    except Exception as exc:
+        return api_response(status="error", message=f"embedding_provider_diagnostics_failed:{exc}", code=500)

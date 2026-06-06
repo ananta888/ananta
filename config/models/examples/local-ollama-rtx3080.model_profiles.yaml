@@ -1,0 +1,43 @@
+version: "1.0"
+_note: "Example: local Ollama setup on RTX 3080 (10 GB VRAM). No cloud, fully offline."
+
+profiles:
+  - profile_id: ollama-qwen-7b-coder
+    provider_id: ollama
+    model: "qwen2.5-coder:7b"
+    model_role: coder
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: false
+    supports_json: true
+    supports_streaming: true
+    context_tokens: 32768
+    max_output_tokens: 4096
+    timeout_seconds: 180
+    temperature: 0.15
+    cost_class: free
+    quality_class: medium
+    base_url: "http://localhost:11434"
+    enabled: true
+
+  - profile_id: ollama-llama3-chat
+    provider_id: ollama
+    model: "llama3.1:8b"
+    model_role: chat
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: false
+    supports_json: false
+    supports_streaming: true
+    context_tokens: 131072
+    max_output_tokens: 2048
+    timeout_seconds: 120
+    temperature: 0.2
+    cost_class: free
+    quality_class: medium
+    base_url: "http://localhost:11434"
+    enabled: true

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from worker.retrieval.chunking import split_into_chunks
-from worker.retrieval.embedding_provider import EmbeddingProvider, HashEmbeddingProvider
+from worker.retrieval.embedding_provider import EmbeddingProvider, HashEmbeddingProvider, build_embedding_provider
 from worker.retrieval.index_contract import build_index_entry
 from worker.retrieval.index_state import RetrievalIndexState, compute_path_hash, derive_workspace_revision
 
@@ -62,16 +62,58 @@ def _build_entries_for_paths(
     return entries
 
 
+def _resolve_provider_from_config_service(scope: str) -> EmbeddingProvider:
+    """Use EmbeddingProviderConfigService when available; fall back to HashEmbeddingProvider."""
+    try:
+        from agent.services.embedding_provider_config_service import (
+            EmbeddingProviderConfigService,
+            build_embedding_provider_from_config,
+        )
+        svc = EmbeddingProviderConfigService()
+        cfg = svc.resolve(scope)
+        return build_embedding_provider_from_config(cfg)
+    except Exception:
+        return HashEmbeddingProvider()
+
+
+def provider_changed_since_last_build(
+    *,
+    previous_state: dict[str, Any] | None,
+    current_provider: EmbeddingProvider,
+) -> bool:
+    """EPC-012: detect provider/model change that requires a full rebuild."""
+    if not previous_state or not isinstance(previous_state, dict):
+        return False
+    prev_model = str(previous_state.get("embedding_model_version") or "").strip()
+    curr_model = str(getattr(current_provider, "model_version", "") or "").strip()
+    prev_provider = str(previous_state.get("embedding_provider") or "").strip()
+    curr_provider = str(getattr(current_provider, "provider_id", "") or "").strip()
+    return prev_model != curr_model or prev_provider != curr_provider
+
+
 def build_incremental_index(
     *,
     files: dict[str, str],
     previous_entries: list[dict[str, Any]] | None = None,
     previous_path_hashes: dict[str, str] | None = None,
+    previous_state: dict[str, Any] | None = None,
     retrieval_model_version: str = "hybrid-v1",
     embedding_provider: EmbeddingProvider | None = None,
+    embedding_scope: str = "worker_retrieval",
     revision_hint: str | None = None,
 ) -> dict[str, Any]:
-    provider = embedding_provider or HashEmbeddingProvider()
+    # EPC-010: use config service when no explicit provider is injected
+    if embedding_provider is not None:
+        provider = embedding_provider
+    else:
+        provider = _resolve_provider_from_config_service(embedding_scope)
+
+    # EPC-012: force full rebuild when provider or model changed
+    if provider_changed_since_last_build(
+        previous_state=previous_state, current_provider=provider
+    ):
+        previous_entries = []
+        previous_path_hashes = {}
     previous = list(previous_entries or [])
     previous_hashes = dict(previous_path_hashes or {})
     delta = compute_delta_set(previous_path_hashes=previous_hashes, files=files)

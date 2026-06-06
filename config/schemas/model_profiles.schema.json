@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model_profiles.schema.json",
+  "title": "Ananta Model Profiles",
+  "type": "object",
+  "required": ["version", "profiles"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "_note": { "type": "string" },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/ModelProfile" }
+    }
+  },
+  "$defs": {
+    "ModelProfile": {
+      "type": "object",
+      "required": ["profile_id", "provider_id", "model"],
+      "additionalProperties": true,
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique identifier for this profile"
+        },
+        "provider_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider identifier: ollama, lmstudio, openai, openrouter, openai_compatible, mock"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact model name or identifier"
+        },
+        "model_role": {
+          "type": "string",
+          "enum": ["planner", "coder", "reviewer", "embedder", "summarizer", "chat", "any"],
+          "description": "Primary functional role this profile is intended for"
+        },
+        "local": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this model runs locally without network"
+        },
+        "cloud": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this model requires external cloud provider"
+        },
+        "cloud_allowed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Explicit opt-in for cloud usage. Must be true for cloud providers."
+        },
+        "block_secret_context": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, this profile will not receive prompts containing detected secrets. Required for cloud providers."
+        },
+        "supports_tools": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this model supports function/tool calling"
+        },
+        "supports_json": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this model reliably produces valid JSON output"
+        },
+        "supports_streaming": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this model supports streaming responses"
+        },
+        "context_tokens": {
+          "type": "integer",
+          "minimum": 512,
+          "description": "Maximum context window in tokens"
+        },
+        "max_output_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum tokens to generate per response"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 120,
+          "description": "Request timeout in seconds"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Sampling temperature"
+        },
+        "cost_class": {
+          "type": "string",
+          "enum": ["free", "low", "medium", "high"],
+          "description": "Cost classification for routing decisions"
+        },
+        "quality_class": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "frontier"],
+          "description": "Relative quality classification"
+        },
+        "api_key_env": {
+          "type": ["string", "null"],
+          "description": "Environment variable name holding the API key (never the key itself)"
+        },
+        "base_url": {
+          "type": ["string", "null"],
+          "description": "Base URL override for this provider (e.g. http://localhost:11434/v1)"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "if": {
+        "properties": { "cloud": { "const": true } }
+      },
+      "then": {
+        "required": ["cloud_allowed", "block_secret_context"]
+      }
+    }
+  }
+}

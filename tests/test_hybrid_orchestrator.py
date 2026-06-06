@@ -120,3 +120,44 @@ def test_semantic_search_defaults_to_non_embedding_fallback(tmp_path: Path, monk
     orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[docs], max_context_chars=1000)
     result = orchestrator.get_relevant_context("fallback retrieval")
     assert result["chunks"]
+
+
+def test_context_manager_route_uses_docs_quota_settings(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "rag_route_quota_docs_semantic", 8, raising=False)
+    monkeypatch.setattr(settings, "rag_route_quota_docs_repo", 3, raising=False)
+    manager = hybrid_orchestrator.ContextManager()
+    quotas = manager.route("pdf documentation readme")
+    assert quotas["semantic_search"] == 8
+    assert quotas["repository_map"] == 3
+
+
+def test_context_manager_route_uses_fs_quota_settings(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "rag_route_quota_fs_agentic", 5, raising=False)
+    monkeypatch.setattr(settings, "rag_route_quota_fs_repo", 4, raising=False)
+    manager = hybrid_orchestrator.ContextManager()
+    quotas = manager.route("find datei folder suche")
+    assert quotas["agentic_search"] == 5
+    assert quotas["repository_map"] == 4
+
+
+def test_get_relevant_context_uses_normalizer(tmp_path: Path, monkeypatch) -> None:
+    """Query normalization is called and original query is always in the retrieval set."""
+    from agent import rag_query_normalizer
+
+    calls: list[str] = []
+    original_fn = rag_query_normalizer.normalize_query_from_settings
+
+    def _tracking(q: str) -> list[str]:
+        calls.append(q)
+        return original_fn(q)
+
+    monkeypatch.setattr(rag_query_normalizer, "normalize_query_from_settings", _tracking)
+    monkeypatch.setattr(
+        hybrid_orchestrator, "normalize_query_from_settings", _tracking
+    )
+
+    (tmp_path / "module.py").write_text("def process_task(): pass\n", encoding="utf-8")
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=500)
+    orchestrator.get_relevant_context("Wie funktioniert der service?")
+    assert calls, "normalize_query_from_settings was never called"
+    assert calls[0] == "Wie funktioniert der service?"
