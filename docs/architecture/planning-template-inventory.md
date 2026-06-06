@@ -9,7 +9,7 @@ Task-specific agent behavior is documented separately in:
 
 ```text
 docs/agent-profiles/README.md
-docs/agent-profiles/new-software-project.md
+docs/agent-profiles/profile-map.json
 client_surfaces/operator_tui/AGENTS.md
 ```
 
@@ -34,25 +34,26 @@ The inventory below describes template resolution and baseline task shapes. The 
 
 | Template ID | Keywords | Subtasks | Metadata fields in subtasks | Mapping assessment | Related standard blueprints | Agent profile |
 | --- | --- | ---: | --- | --- | --- | --- |
-| `bug_fix` | bug, fix, fehler, error, crash, broken, kaputt | 5 | none | clean | Code-Repair | pending |
-| `feature` | feature, implement, add, neu, new, create, erstellen, erstelle, baue | 5 | none | partial | Scrum, Kanban | pending |
-| `refactor` | refactor, cleanup, improve, optimieren, verbessern, clean | 4 | none | partial | Code-Repair, TDD | pending |
-| `test` | test, testing, coverage, unit test, integration test | 4 | none | partial | TDD, Code-Repair | pending |
-| `tdd` | tdd, test-driven, test driven, test-first, red green, red-green | 7 | `depends_on` | clean | TDD | pending |
-| `repo_analysis` | repo_analysis, projekt analysieren, analyse, struktur, risiken | 5 | none | partial | Research | pending |
-| `sys_diag` | sys_diag, systemdiagnose, diagnose, fehler, logs, docker, testfehler | 5 | none | partial | Security-Review, Release-Prep | pending |
-| `admin_repair` | admin_repair, admin repair, windows 11 repair, ubuntu repair, bounded repair, diagnosis only | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus`, `review_focus` | partial | Release-Prep, Security-Review | pending |
-| `incident` | incident, notfall, ausfall, down, kritisch | 4 | none | partial | Security-Review, Release-Prep | pending |
-| `architecture_review` | architecture_review, architekturreview, architektur, design review | 4 | none | partial | Research, Research-Evolution | pending |
-| `code_fix` | code_fix, codeproblem, beheben, patch | 5 | none | clean | Code-Repair | pending |
-| `new_software_project` | new_software_project, neues softwareprojekt, neues projekt anlegen, projektstart | 6 | `artifact`, `depends_on`, `test_focus`, `review_focus` | planning-only/partial | Scrum, Kanban | `docs/agent-profiles/new-software-project.md` |
-| `project_evolution` | project_evolution, existierendes projekt weiterentwickeln, weiterentwicklung, bestehendes projekt | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus` | partial | Research-Evolution, Scrum-OpenCode | pending |
+| `bug_fix` | bug, fix, fehler, error, crash, broken, kaputt | 5 | none | clean | Code-Repair | `docs/agent-profiles/bug_fix/AGENTS.md` |
+| `feature` | feature, implement, add, neu, new, create, erstellen, erstelle, baue | 5 | none | partial | Scrum, Kanban | `docs/agent-profiles/feature/AGENTS.md` |
+| `refactor` | refactor, cleanup, improve, optimieren, verbessern, clean | 4 | none | partial | Code-Repair, TDD | `docs/agent-profiles/refactor/AGENTS.md` |
+| `test` | test, testing, coverage, unit test, integration test | 4 | none | partial | TDD, Code-Repair | `docs/agent-profiles/test/AGENTS.md` |
+| `tdd` | tdd, test-driven, test driven, test-first, red green, red-green | 7 | `depends_on` | clean | TDD | `docs/agent-profiles/tdd/AGENTS.md` |
+| `repo_analysis` | repo_analysis, projekt analysieren, analyse, struktur, risiken | 5 | none | partial | Research | `docs/agent-profiles/repo_analysis/AGENTS.md` |
+| `sys_diag` | sys_diag, systemdiagnose, diagnose, fehler, logs, docker, testfehler | 5 | none | partial | Security-Review, Release-Prep | `docs/agent-profiles/sys_diag/AGENTS.md` |
+| `admin_repair` | admin_repair, admin repair, windows 11 repair, ubuntu repair, bounded repair, diagnosis only | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus`, `review_focus` | partial | Release-Prep, Security-Review | `docs/agent-profiles/admin_repair/AGENTS.md` |
+| `incident` | incident, notfall, ausfall, down, kritisch | 4 | none | partial | Security-Review, Release-Prep | `docs/agent-profiles/incident/AGENTS.md` |
+| `architecture_review` | architecture_review, architekturreview, architektur, design review | 4 | none | partial | Research, Research-Evolution | `docs/agent-profiles/architecture_review/AGENTS.md` |
+| `code_fix` | code_fix, codeproblem, beheben, patch | 5 | none | clean | Code-Repair | `docs/agent-profiles/code_fix/AGENTS.md` |
+| `new_software_project` | new_software_project, neues softwareprojekt, neues projekt anlegen, projektstart | 6 | `artifact`, `depends_on`, `test_focus`, `review_focus` | planning-only/partial | Scrum, Kanban | `docs/agent-profiles/new_software_project/AGENTS.md` |
+| `project_evolution` | project_evolution, existierendes projekt weiterentwickeln, weiterentwicklung, bestehendes projekt | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus` | partial | Research-Evolution, Scrum-OpenCode | `docs/agent-profiles/project_evolution/AGENTS.md` |
 
 ## Per-template details (keywords + subtasks)
 
 ### bug_fix
 
 - Keywords: `bug`, `fix`, `fehler`, `error`, `crash`, `broken`, `kaputt`
+- Agent profile: `docs/agent-profiles/bug_fix/AGENTS.md`
 - Subtasks:
   - Bug reproduzieren
   - Root Cause Analyse
@@ -63,6 +64,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### feature
 
 - Keywords: `feature`, `implement`, `add`, `neu`, `new`, `create`, `erstellen`, `erstelle`, `baue`
+- Agent profile: `docs/agent-profiles/feature/AGENTS.md`
 - Subtasks:
   - Anforderungen definieren
   - Design/Architektur
@@ -73,6 +75,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### refactor
 
 - Keywords: `refactor`, `cleanup`, `improve`, `optimieren`, `verbessern`, `clean`
+- Agent profile: `docs/agent-profiles/refactor/AGENTS.md`
 - Subtasks:
   - Code-Analyse
   - Refactoring-Plan
@@ -82,6 +85,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### test
 
 - Keywords: `test`, `testing`, `coverage`, `unit test`, `integration test`
+- Agent profile: `docs/agent-profiles/test/AGENTS.md`
 - Subtasks:
   - Test-Strategie
   - Unit Tests
@@ -91,6 +95,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### tdd
 
 - Keywords: `tdd`, `test-driven`, `test driven`, `test-first`, `red green`, `red-green`
+- Agent profile: `docs/agent-profiles/tdd/AGENTS.md`
 - Subtasks:
   - Verhalten und Akzeptanzgrenzen klaeren
   - Test zuerst schreiben oder anpassen
@@ -103,6 +108,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### repo_analysis
 
 - Keywords: `repo_analysis`, `projekt analysieren`, `analyse`, `struktur`, `risiken`
+- Agent profile: `docs/agent-profiles/repo_analysis/AGENTS.md`
 - Subtasks:
   - Projektstruktur scannen
   - Abhaengigkeiten pruefen
@@ -113,6 +119,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### sys_diag
 
 - Keywords: `sys_diag`, `systemdiagnose`, `diagnose`, `fehler`, `logs`, `docker`, `testfehler`
+- Agent profile: `docs/agent-profiles/sys_diag/AGENTS.md`
 - Subtasks:
   - Logs scannen
   - Laufzeitstatus pruefen
@@ -123,6 +130,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### admin_repair
 
 - Keywords: `admin_repair`, `admin repair`, `windows 11 repair`, `ubuntu repair`, `bounded repair`, `diagnosis only`
+- Agent profile: `docs/agent-profiles/admin_repair/AGENTS.md`
 - Subtasks:
   - Use-case, scope und Modusgrenzen festhalten
   - Environment Summary und bounded evidence erfassen
@@ -134,6 +142,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### incident
 
 - Keywords: `incident`, `notfall`, `ausfall`, `down`, `kritisch`
+- Agent profile: `docs/agent-profiles/incident/AGENTS.md`
 - Subtasks:
   - Systemstatus pruefen
   - Eingrenzung
@@ -143,6 +152,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### architecture_review
 
 - Keywords: `architecture_review`, `architekturreview`, `architektur`, `design review`
+- Agent profile: `docs/agent-profiles/architecture_review/AGENTS.md`
 - Subtasks:
   - Struktur-Audit
   - SOLID Check
@@ -152,6 +162,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### code_fix
 
 - Keywords: `code_fix`, `codeproblem`, `beheben`, `patch`
+- Agent profile: `docs/agent-profiles/code_fix/AGENTS.md`
 - Subtasks:
   - Analyse & Reproduktion
   - Loesungskonzept
@@ -162,7 +173,8 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### new_software_project
 
 - Keywords: `new_software_project`, `neues softwareprojekt`, `neues projekt anlegen`, `projektstart`
-- Agent profile: `docs/agent-profiles/new-software-project.md`
+- Agent profile: `docs/agent-profiles/new_software_project/AGENTS.md`
+- Legacy profile note: `docs/agent-profiles/new-software-project.md` exists as background documentation and should be consolidated later.
 - Subtasks:
   - Projektidee und Grenzen klaeren
   - Projekt-Blueprint erstellen
@@ -174,6 +186,7 @@ The inventory below describes template resolution and baseline task shapes. The 
 ### project_evolution
 
 - Keywords: `project_evolution`, `existierendes projekt weiterentwickeln`, `weiterentwicklung`, `bestehendes projekt`
+- Agent profile: `docs/agent-profiles/project_evolution/AGENTS.md`
 - Subtasks:
   - Ist-Kontext und betroffene Bereiche schaerfen
   - Aenderungsziel und Restriktionen abgrenzen
@@ -194,21 +207,20 @@ The inventory below describes template resolution and baseline task shapes. The 
 
 ## Profile Migration Notes
 
-The current state is mixed:
+The profile documentation state is now explicit:
 
-- `new_software_project` now has an explicit agent profile.
-- AI-Snake-Chat has a local `client_surfaces/operator_tui/AGENTS.md`.
-- Other templates still rely on root `AGENTS.md`, planning prompts, and hardcoded subtasks.
+- Root rules live in `AGENTS.md`.
+- AI-Snake-Chat has `client_surfaces/operator_tui/AGENTS.md`.
+- Each current hardcoded standard planning template has a corresponding `docs/agent-profiles/<template_id>/AGENTS.md`.
+- `docs/agent-profiles/profile-map.json` records the mapping.
 
-Future cleanup should add profiles for at least:
+Runtime cleanup still needed:
 
 ```text
-bug_fix
-code_fix
-refactor
-repo_analysis
-project_evolution
-architecture_review
+AgentProfileLoader
+  -> resolve active profile by task mode/template/path
+  -> compose root AGENTS.md + active AGENTS.md
+  -> inject into OpenCode workspace AGENTS.md and ananta-worker context
 ```
 
 Each profile should stay task-specific and must not change behavior for unrelated paths.
