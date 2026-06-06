@@ -1344,7 +1344,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if self._artifact_chat_focus_active():
             self._artifact_chat_focus_leave(clear=False)
             return
-        if self._snake_mode_active():
+        if self._snake_mode_active() or bool((self.state.header_logo_game or {}).get("chat_panel_open")):
             self._chat_focus_enter()
             return
         self._artifact_chat_focus_enter()
