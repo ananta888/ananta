@@ -424,7 +424,7 @@ def test_tui_snake_chat_propose_flow_cast(monkeypatch) -> None:
     # (c) Anzeige-Reihenfolge — Antwort muss NACH der Frage
     #     erscheinen. Der Frage-Marker wird im Cast sichtbar,
     #     weil der User ihn tippt.
-    question_marker = "Antworte exakt mit diesem Satz:"
+    question_marker = "Antworte exakt mit dem Marker"
     question_idx = plain.find(question_marker)
     assert question_idx >= 0, (
         f"Frage-Marker {question_marker!r} nicht im Cast. "
