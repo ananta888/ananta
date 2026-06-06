@@ -23,3 +23,8 @@ Each flag is independent. Default is disabled (`0`) for safe startup.
 3. FTS + vector + graph
 4. Relation expansion
 
+## Architecture Full Scan
+
+For architecture diagrams and full-system explanations, CodeCompass retrieval is only the scope source. The worker then runs the architecture full-scan workflow with a plan, rolling summary, coverage trace, and final diagram synthesis.
+
+See [ananta-worker-architecture-full-scan.md](ananta-worker-architecture-full-scan.md).

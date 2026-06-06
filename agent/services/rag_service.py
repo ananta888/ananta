@@ -133,6 +133,10 @@ class RagService:
                 "feature_flag": retrieval_profile.get("feature_flag"),
                 "selected_by": retrieval_profile.get("selected_by"),
                 "warnings": list(retrieval_profile.get("warnings") or []),
+                "analysis_mode": retrieval_profile.get("analysis_mode"),
+                "output_intent": retrieval_profile.get("output_intent"),
+                "coverage_policy": retrieval_profile.get("coverage_policy"),
+                "summary_policy": retrieval_profile.get("summary_policy"),
             }
         if bool(getattr(settings, "rag_redact_sensitive", False)):
             bundle["explainability"] = self._redact_sensitive(bundle.get("explainability") or {})

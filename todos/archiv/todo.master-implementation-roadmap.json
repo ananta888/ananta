@@ -78,6 +78,17 @@
         "CWFH-013"
       ]
     },
+    "AWAFS": {
+      "file": "todos/archiv/todo.ananta-worker-architecture-full-scan-rolling-summary.json",
+      "tasks": 18,
+      "summary": "Full-Scan-/Rolling-Summary-Layer über CodeCompass-Handoff und RetrievalProfile für Architekturdiagramme und Gesamtanalysen.",
+      "phase": 3,
+      "cross_track_deps": [
+        "CWFH",
+        "CodeCompass RetrievalProfile SourcePolicy"
+      ],
+      "status": "done"
+    },
     "AMR": {
       "file": "todos/todo.ananta-model-profile-routing-policy.json",
       "tasks": 24,
