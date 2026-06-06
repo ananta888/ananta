@@ -530,9 +530,11 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault(
         "ANANTA_TUI_CHAT_SYSTEM_PROMPT",
         (
-            "Du bist die AI-Snake im Ananta Operator TUI. Wenn die Frage den Marker "
-            "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST verlangt, beginne exakt mit diesem Marker. "
-            "Wenn die Frage einen exakten Antwortsatz verlangt, gib nur diesen Satz aus."
+            "Du bist die AI-Snake im Ananta Operator TUI. "
+            "Antworte immer in deutscher Sprache und beginne JEDE Antwort mit dem Marker "
+            "ANANTA-WORKER-CODECOMPASS-LMSTUDIO-CAST gefolgt von einem Doppelpunkt und Leerzeichen. "
+            "Anschliessend kommt der eigentliche Antwortsatz. "
+            "Wenn die Frage einen exakten Antwortsatz verlangt, gib nur diesen Satz aus (nach dem Marker)."
         ),
     )
 
