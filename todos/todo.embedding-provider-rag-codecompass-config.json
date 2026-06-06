@@ -5,9 +5,25 @@
   "track": "embedding-provider-rag-codecompass-config",
   "purpose": "Feingranulare Verbesserungs-TODO für eine zentrale, sichere und testbare Embedding-Konfiguration in Ananta. Ziel ist, Embeddings nicht nur punktuell in semantic_output_correction, sondern sauber für Worker Retrieval, CodeCompass Vector Store, RAG Helper und spätere lokale Open-Source-Modelle konfigurierbar zu machen.",
   "goal": "Ananta soll einen kanonischen EmbeddingProvider-Config-Pfad erhalten, der deterministische Fallbacks, echte lokale/OpenAI-kompatible Embedding-Endpunkte, Index-Versionierung, Rebuild-Regeln, Diagnostik und Tests sauber verbindet. Default muss sicher, reproduzierbar und ohne heimliche externe Calls bleiben.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "code_analysis": {
     "summary": [
       "worker/retrieval/embedding_provider.py enthält bereits ein Provider-Protokoll sowie FakeEmbeddingProvider, HashEmbeddingProvider und OpenAICompatibleEmbeddingProvider.",
@@ -112,31 +128,56 @@
     {
       "id": "M1",
       "title": "Bestand und Ziel-Contract festziehen",
-      "task_ids": ["EPC-001", "EPC-002", "EPC-003"],
+      "task_ids": [
+        "EPC-001",
+        "EPC-002",
+        "EPC-003"
+      ],
       "status": "todo"
     },
     {
       "id": "M2",
       "title": "Zentrale Config und sichere Provider-Auflösung einführen",
-      "task_ids": ["EPC-004", "EPC-005", "EPC-006", "EPC-007"],
+      "task_ids": [
+        "EPC-004",
+        "EPC-005",
+        "EPC-006",
+        "EPC-007"
+      ],
       "status": "todo"
     },
     {
       "id": "M3",
       "title": "CodeCompass, Worker Retrieval und Semantic-Correction vereinheitlichen",
-      "task_ids": ["EPC-008", "EPC-009", "EPC-010", "EPC-011"],
+      "task_ids": [
+        "EPC-008",
+        "EPC-009",
+        "EPC-010",
+        "EPC-011"
+      ],
       "status": "todo"
     },
     {
       "id": "M4",
       "title": "Index-Rebuild, Diagnostik und Security-Hardening",
-      "task_ids": ["EPC-012", "EPC-013", "EPC-014", "EPC-015"],
+      "task_ids": [
+        "EPC-012",
+        "EPC-013",
+        "EPC-014",
+        "EPC-015"
+      ],
       "status": "todo"
     },
     {
       "id": "M5",
       "title": "Tests, Doku und lokale Open-Source-Beispiele",
-      "task_ids": ["EPC-016", "EPC-017", "EPC-018", "EPC-019", "EPC-020"],
+      "task_ids": [
+        "EPC-016",
+        "EPC-017",
+        "EPC-018",
+        "EPC-019",
+        "EPC-020"
+      ],
       "status": "todo"
     }
   ],
@@ -168,7 +209,7 @@
     {
       "id": "EPC-002",
       "title": "Kanonisches EmbeddingProviderConfig-Modell definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "data_model",
@@ -184,12 +225,13 @@
         "external_calls_allowed ist explizit und default false.",
         "dimensions sind begrenzt und validiert.",
         "Config ist ohne Flask-Kontext normalisierbar."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-003",
       "title": "Default-Policy für Embeddings festlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security_policy",
@@ -204,12 +246,13 @@
         "Produktive Profile können echte Provider explizit aktivieren.",
         "Doku erklärt den Unterschied zwischen Hash/Fake und echten semantischen Embeddings.",
         "Fehlende Config führt nicht zu heimlichen Cloud-Calls."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-004",
       "title": "EmbeddingProviderConfigService implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "service",
@@ -224,12 +267,13 @@
         "Unbekannte Provider werden deterministisch abgelehnt.",
         "Secrets werden in Diagnostics redacted.",
         "Service liefert status ready, degraded oder blocked mit reason."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-005",
       "title": "Config-API um embedding_provider erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "api",
@@ -244,12 +288,13 @@
         "Ungültige dimensions, provider oder URLs liefern 400 mit sprechendem Fehlercode.",
         "Bestehende worker_runtime.semantic_output_correction bleibt rückwärtskompatibel.",
         "GET /config gibt redacted effective_embedding_provider_config zurück."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-006",
       "title": "OpenAI-kompatiblen Provider härten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -264,12 +309,13 @@
         "api_key_ref kann zur Laufzeit aufgelöst werden, ohne im Index zu landen.",
         "Fehlender API-Key erzeugt degraded/blocked Diagnostic statt unklarer Exception.",
         "Tests prüfen, dass Secrets nicht in Fehlertexten auftauchen."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-007",
       "title": "Lokale OpenAI-kompatible Beispiele vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config_examples",
@@ -286,7 +332,8 @@
         "LM Studio Beispiel nutzt explizit localhost und redacted API-Key.",
         "Doku nennt, dass Modellname und Dimensionen zum realen Embedding-Modell passen müssen.",
         "Beispiele enthalten keine echten Secrets."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-008",
@@ -333,7 +380,7 @@
     {
       "id": "EPC-010",
       "title": "Worker Retrieval Index Builder mit Provider-Config verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -349,12 +396,13 @@
         "Index-State enthält provider_id, model_version, dimensions und config_hash ohne Secrets.",
         "Änderung von Provider/Model/Dimensions erzwingt Rebuild oder invalidiert alte Einträge.",
         "Tests prüfen Delta-Indexing mit unverändertem und geändertem Provider."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-011",
       "title": "RAG Helper embedding_text und Provider-Config sauber trennen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -370,12 +418,13 @@
         "Provider-Selektion erfolgt außerhalb des embedding_text Builders.",
         "Doku erklärt Trennung zwischen Textprofil und Vektorprovider.",
         "Bestehende RAG Helper Tests bleiben kompatibel."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-012",
       "title": "Index-Rebuild-Regeln für Embedding-Änderungen implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "indexing",
@@ -391,12 +440,13 @@
         "Dimensions-Wechsel erzeugt Rebuild-Grund dimensions_changed.",
         "embedding_text_profile-Wechsel erzeugt Rebuild-Grund embedding_text_profile_changed.",
         "Mismatch zwischen Query-Vektor-Dimension und Index-Dimension liefert degraded Diagnostic."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-013",
       "title": "Provider-Diagnostik und Healthcheck ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -412,12 +462,13 @@
         "OpenAI-kompatible Provider können optional mit leerem Testinput geprüft werden.",
         "CodeCompass last_diagnostic enthält Provider-Fehler verständlich.",
         "Healthcheck unterscheidet Config-Fehler, Netzwerkfehler und Response-Formatfehler."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-014",
       "title": "External-Call Audit für Embeddings einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "audit",
@@ -433,12 +484,13 @@
         "Audit-Event enthält keine Secrets.",
         "Blocked Calls werden ebenfalls auditierbar erfasst.",
         "Tests prüfen Redaction und Event-Struktur."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-015",
       "title": "Datenabfluss-Grenzen für Code/Docs Embeddings dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "docs_security",
@@ -453,12 +505,13 @@
         "Doku erklärt erlaubte Base-URLs und external_calls_allowed.",
         "Doku erklärt Secret-Handling über api_key_ref.",
         "Doku enthält Warnung vor versehentlicher Cloud-Nutzung."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-016",
       "title": "Tests für Config-Normalisierung schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "tests",
@@ -472,12 +525,13 @@
         "Test: codecompass_vector Override gewinnt korrekt.",
         "Test: ungültige Provider werden abgelehnt.",
         "Test: api_key wird in Diagnostics redacted."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-017",
       "title": "Tests für Security-Grenzen externer Provider schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "tests",
@@ -492,7 +546,8 @@
         "Test: fehlender API-Key liefert klare Diagnostic.",
         "Test: Fehler enthalten keine Secrets.",
         "Test: lokaler Hash-Provider benötigt keine Netzwerkverbindung."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-018",

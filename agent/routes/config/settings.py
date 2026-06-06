@@ -439,6 +439,51 @@ def set_config():
             **new_cfg,
             "ml_intern_spike": shared.normalize_ml_intern_spike_config(merged_ml_intern),
         }
+    if "embedding_provider" in new_cfg:
+        emb_cfg = new_cfg.get("embedding_provider")
+        if not isinstance(emb_cfg, dict):
+            return api_response(status="error", message="invalid_embedding_provider", code=400)
+        # Validate provider value
+        provider_val = str(emb_cfg.get("provider") or "local_hash").strip().lower()
+        allowed_providers = {"local_hash", "openai", "openai_compatible", "ollama", "mock"}
+        if provider_val not in allowed_providers:
+            return api_response(
+                status="error",
+                message=f"invalid_embedding_provider_value:{provider_val}",
+                code=400,
+            )
+        # Security: external providers require explicit opt-in
+        is_external = provider_val in {"openai", "openai_compatible"}
+        if is_external and not bool(emb_cfg.get("external_calls_allowed", False)):
+            return api_response(
+                status="error",
+                message="embedding_provider_external_calls_not_allowed",
+                code=400,
+            )
+        # api_key must not be stored in config — must come from env
+        if "api_key" in emb_cfg:
+            return api_response(
+                status="error",
+                message="embedding_provider_api_key_not_allowed_in_config_use_env_var",
+                code=400,
+            )
+        allowed_base_urls = emb_cfg.get("allowed_base_urls")
+        if allowed_base_urls is not None and not isinstance(allowed_base_urls, list):
+            return api_response(status="error", message="invalid_embedding_provider_allowed_base_urls", code=400)
+        normalized_emb: dict = {
+            "provider": provider_val,
+            "external_calls_allowed": is_external and bool(emb_cfg.get("external_calls_allowed", False)),
+        }
+        if allowed_base_urls is not None:
+            normalized_emb["allowed_base_urls"] = [str(u).strip() for u in allowed_base_urls if str(u).strip()]
+        if emb_cfg.get("base_url"):
+            normalized_emb["base_url"] = str(emb_cfg["base_url"]).strip()
+        if emb_cfg.get("api_key_env"):
+            normalized_emb["api_key_env"] = str(emb_cfg["api_key_env"]).strip()
+        if emb_cfg.get("model"):
+            normalized_emb["model"] = str(emb_cfg["model"]).strip()
+        merged_emb = {**(current_cfg.get("embedding_provider") or {}), **normalized_emb}
+        new_cfg = {**new_cfg, "embedding_provider": merged_emb}
 
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg

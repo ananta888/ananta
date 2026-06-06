@@ -6,9 +6,24 @@
   "purpose": "Ergänzung zu todo.rag-config-layer-quotas-exclusions-query-normalization.json: Query-Übersetzung und bidirektionale Sprachstrategien DE↔EN für RAG, RepositoryMap und Snake-/Chat-Kontext sauber definieren.",
   "goal": "Deutschsprachige Nutzerfragen sollen englische Code-Symbole, Dateinamen und Doku zuverlässig finden; englische Queries sollen optional deutschsprachige Doku, Kommentare oder Artefakte finden. Originalquery bleibt immer erhalten, Übersetzung ist nur Expansion, kein Ersatz.",
   "related_track": "todos/todo.rag-config-layer-quotas-exclusions-query-normalization.json",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "translation_strategy_contract": {
     "principles": [
       "Originalquery darf niemals verworfen werden.",
@@ -37,20 +52,31 @@
     {
       "id": "RTS-1",
       "title": "Sprachstrategie und Konfigurationsvertrag definieren",
-      "task_ids": ["RTS-001", "RTS-002"],
-      "status": "todo"
+      "task_ids": [
+        "RTS-001",
+        "RTS-002"
+      ],
+      "status": "done"
     },
     {
       "id": "RTS-2",
       "title": "DE↔EN Query Expansion implementieren",
-      "task_ids": ["RTS-003", "RTS-004", "RTS-005"],
-      "status": "todo"
+      "task_ids": [
+        "RTS-003",
+        "RTS-004",
+        "RTS-005"
+      ],
+      "status": "done"
     },
     {
       "id": "RTS-3",
       "title": "Retrieval-Integration, Ranking und Tests absichern",
-      "task_ids": ["RTS-006", "RTS-007", "RTS-008"],
-      "status": "todo"
+      "task_ids": [
+        "RTS-006",
+        "RTS-007",
+        "RTS-008"
+      ],
+      "status": "done"
     }
   ],
   "tasks": [
@@ -59,10 +85,10 @@
       "title": "Bidirektionalen Query-Translation-Vertrag dokumentieren",
       "type": "architecture",
       "milestone": "RTS-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/**/rag*.md",
         "docs/**/repository-map*.md",
@@ -86,11 +112,13 @@
       "title": "Settings für Übersetzungsrichtungen und Strategien ergänzen",
       "type": "backend-config",
       "milestone": "RTS-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
-      "cross_track_dependencies": ["RCFG-004"],
+      "progress_percent": 100,
+      "cross_track_dependencies": [
+        "RCFG-004"
+      ],
       "cross_track_note": "RAG_QUERY_NORMALIZE_LANG und RAG_QUERY_NORMALIZE_MODE werden in RCFG-004 eingeführt. RTS-002 ergänzt nur RAG_QUERY_TRANSLATION_DIRECTIONS als neues Setting — kein Duplikat, wenn RCFG-004 zuerst landet.",
       "target_files": [
         "agent/config.py",
@@ -116,11 +144,13 @@
       "title": "DE→EN Keyword-/Glossary-Expansion für Code-Retrieval umsetzen",
       "type": "backend-feature",
       "milestone": "RTS-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "cross_track_dependencies": ["RCFG-005"],
+      "progress_percent": 100,
+      "cross_track_dependencies": [
+        "RCFG-005"
+      ],
       "cross_track_note": "RCFG-005 implementiert die Basis-DE→EN Keyword-Expansion in rag_query_normalizer.py. RTS-003 baut darauf auf und erweitert um Glossary-Erweiterung. ACHTUNG: Koordination mit ROADMAP-003 nötig — beide Tasks schreiben in dieselbe Datei. RTS-003 kann RCFG-005 vollständig ersetzen (dann RCFG-005 status=done via RTS-003 setzen).",
       "target_files": [
         "agent/**/rag_query_normalizer.py",
@@ -147,10 +177,10 @@
       "title": "EN→DE Expansion für deutsche Doku, Kommentare und Artefakte umsetzen",
       "type": "backend-feature",
       "milestone": "RTS-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/**/rag_query_normalizer.py",
         "agent/**/query_translation*.py",
@@ -175,10 +205,10 @@
       "title": "Mixed-Code-Query-Erkennung ergänzen",
       "type": "backend-feature",
       "milestone": "RTS-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/**/rag_query_normalizer.py",
         "tests/**/test_*query*translation*.py"
@@ -202,11 +232,13 @@
       "title": "Übersetzungsvarianten in Retrieval-Ranking integrieren",
       "type": "backend-integration",
       "milestone": "RTS-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "cross_track_dependencies": ["RCFG-006"],
+      "progress_percent": 100,
+      "cross_track_dependencies": [
+        "RCFG-006"
+      ],
       "cross_track_note": "RCFG-006 legt die Retrieval-Union-Logik in hybrid_orchestrator.py an. RTS-006 ergänzt Ranking-Metadaten (query_variant/source) und Variant-Tracking. Beide schreiben in hybrid_orchestrator.py — Koordination nötig.",
       "target_files": [
         "agent/**/hybrid_orchestrator.py",
@@ -235,10 +267,10 @@
       "title": "LLM-Übersetzung als optionalen Modus sicher begrenzen",
       "type": "security-design",
       "milestone": "RTS-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/**/rag_query_normalizer.py",
         "agent/**/query_translation*.py",
@@ -263,10 +295,10 @@
       "title": "End-to-End Tests für DE↔EN Retrieval-Verhalten ergänzen",
       "type": "backend-test",
       "milestone": "RTS-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "tests/test_rag_query_translation_strategies.py",
         "tests/test_rag_retrieval_multilingual_queries.py",
@@ -286,28 +318,145 @@
       ]
     }
   ],
-  "critical_path_tasks": ["RTS-001", "RTS-002", "RTS-003", "RTS-005", "RTS-006", "RTS-008"],
+  "critical_path_tasks": [
+    "RTS-001",
+    "RTS-002",
+    "RTS-003",
+    "RTS-005",
+    "RTS-006",
+    "RTS-008"
+  ],
   "tasks_status_summary": {
     "total": 8,
-    "by_status": {"todo": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"P0": 4, "P1": 2, "P2": 1, "P3": 0},
-    "by_risk": {"low": 0, "medium": 4, "high": 4},
-    "critical_path": {"total": 6, "done": 0, "remaining": 6},
-    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 8
+    },
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "P0": 4,
+      "P1": 2,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 4
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 6,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 3
+    }
   },
   "tasks_type_summary": {
     "total": 8,
     "by_type": {
-      "architecture": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "backend-config": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "backend-feature": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "backend-integration": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "security-design": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "backend-test": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+      "architecture": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-config": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-feature": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-integration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security-design": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-test": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
     }
   },
-  "progress_summary": {"state": "not_started", "todo_remaining": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "progress_summary": {
+    "state": "completed",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 8
+  },
   "summary_notes": [
     "Diese Datei präzisiert die Sprach-/Übersetzungsstrategie, die in der Haupt-RAG-Config-Todo nur grob als Query-Normalisierung enthalten ist.",
     "DE→EN ist der wichtigste Default, weil Code, Symbole und Dateinamen meist englisch sind.",

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model_routing.schema.json",
+  "title": "Ananta Model Routing Rules",
+  "type": "object",
+  "required": ["version", "routing_rules"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "_note": { "type": "string" },
+    "security_policy": { "$ref": "#/$defs/SecurityPolicy" },
+    "routing_rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RoutingRule" }
+    },
+    "fallback_chain": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ordered list of profile_ids to try when no rule matches"
+    }
+  },
+  "$defs": {
+    "SecurityPolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "block_cloud_with_secrets": {
+          "type": "boolean",
+          "default": true,
+          "description": "Block any cloud provider when secrets are detected in context"
+        },
+        "allowed_cloud_providers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit whitelist of cloud provider_ids that may be used"
+        },
+        "secret_detection_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Regex patterns for detecting secrets in prompts"
+        }
+      }
+    },
+    "RoutingRule": {
+      "type": "object",
+      "required": ["rule_id", "profile_id"],
+      "additionalProperties": true,
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "description": "Target profile_id from model_profiles config"
+        },
+        "model_role": {
+          "type": "string",
+          "description": "Apply when routing for this model role"
+        },
+        "blueprint_id": {
+          "type": ["string", "null"],
+          "description": "Apply only for this blueprint"
+        },
+        "task_kind": {
+          "type": ["string", "null"],
+          "description": "Apply only for this task kind"
+        },
+        "template_id": {
+          "type": ["string", "null"],
+          "description": "Apply only for this template"
+        },
+        "team_id": {
+          "type": ["string", "null"],
+          "description": "Apply only for this team"
+        },
+        "risk_class": {
+          "type": ["string", "null"],
+          "enum": ["low", "medium", "high", "critical", null],
+          "description": "Apply only for this risk classification"
+        },
+        "precedence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 11,
+          "description": "Routing precedence rank (0=highest/security_policy, 11=legacy fallback)"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "reason": {
+          "type": "string",
+          "description": "Human-readable explanation why this rule exists"
+        }
+      }
+    }
+  }
+}

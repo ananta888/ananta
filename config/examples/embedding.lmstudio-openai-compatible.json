@@ -1,0 +1,16 @@
+{
+  "embedding_provider": {
+    "provider": "openai_compatible",
+    "model": "text-embedding-nomic-embed-text-v1.5",
+    "model_version": "nomic-embed-text-v1.5",
+    "dimensions": 768,
+    "base_url": "http://localhost:1234/v1",
+    "api_key_ref": "LMSTUDIO_API_KEY",
+    "timeout_seconds": 30,
+    "external_calls_allowed": true,
+    "allowed_base_urls": ["http://localhost:1234"],
+    "diagnostics_enabled": true,
+    "index_rebuild_policy": "on_provider_or_model_change"
+  },
+  "_note": "LM Studio local embedding server. Requires LM Studio running with an embedding model loaded. api_key_ref points to a secret reference — never put a real key here. Only localhost is allowed."
+}

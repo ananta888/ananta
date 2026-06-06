@@ -227,11 +227,21 @@ class Settings(BaseSettings):
     rag_redact_sensitive: bool = Field(default=True, validation_alias="RAG_REDACT_SENSITIVE")
     rag_route_quota_code_repo: int = Field(default=12, validation_alias="RAG_ROUTE_QUOTA_CODE_REPO")
     rag_route_quota_code_semantic: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_CODE_SEMANTIC")
+    rag_route_quota_docs_semantic: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_DOCS_SEMANTIC")
+    rag_route_quota_docs_repo: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_DOCS_REPO")
+    rag_route_quota_fs_agentic: int = Field(default=3, validation_alias="RAG_ROUTE_QUOTA_FS_AGENTIC")
+    rag_route_quota_fs_repo: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_FS_REPO")
     rag_route_quota_default_repo: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_REPO")
     rag_route_quota_default_semantic: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_SEMANTIC")
     rag_scan_exclude_dirs: str = Field(
         default=".git,.venv,venv,myvenv,site-packages,node_modules,__pycache__,.mypy_cache,.claude,project-workspaces,.tox,dist,build,.eggs",
         validation_alias="RAG_SCAN_EXCLUDE_DIRS",
+    )
+    rag_query_normalize_lang: str = Field(default="de,en", validation_alias="RAG_QUERY_NORMALIZE_LANG")
+    rag_query_normalize_mode: str = Field(default="keyword", validation_alias="RAG_QUERY_NORMALIZE_MODE")
+    rag_query_translation_directions: str = Field(
+        default="de_to_en",
+        validation_alias="RAG_QUERY_TRANSLATION_DIRECTIONS",
     )
     rag_source_repo_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_REPO_ENABLED")
     rag_source_artifact_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_ARTIFACT_ENABLED")

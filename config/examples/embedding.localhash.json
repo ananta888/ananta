@@ -1,0 +1,11 @@
+{
+  "embedding_provider": {
+    "provider": "local_hash",
+    "model_version": "hash-v1",
+    "dimensions": 12,
+    "external_calls_allowed": false,
+    "diagnostics_enabled": true,
+    "index_rebuild_policy": "on_provider_or_model_change"
+  },
+  "_note": "Default offline config. Deterministic hash embeddings — no semantic quality, but safe for tests and local setups without GPU/LLM."
+}

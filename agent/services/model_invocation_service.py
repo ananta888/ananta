@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 # across threads (Flask runs with threaded=True, so planning and propose can overlap).
 _LMSTUDIO_INFERENCE_LOCK = threading.Lock()
 
+# Module-level resolver cache — loaded lazily, shared across calls.
+_PROFILE_RESOLVER_CACHE: Any = None
+_PROFILE_RESOLVER_LOCK = threading.Lock()
+
 
 class LLMUnavailableError(Exception):
     """LLM provider not reachable, timed out, or returned server error."""
@@ -104,6 +108,87 @@ class ModelInvocationService:
         return settings
 
     @classmethod
+    def _get_resolver(cls):
+        """Lazily load ModelProfileResolver from the configured profiles path.
+        Returns None if no profiles file is configured or parseable."""
+        global _PROFILE_RESOLVER_CACHE
+        if _PROFILE_RESOLVER_CACHE is not None:
+            return _PROFILE_RESOLVER_CACHE
+        with _PROFILE_RESOLVER_LOCK:
+            if _PROFILE_RESOLVER_CACHE is not None:
+                return _PROFILE_RESOLVER_CACHE
+            try:
+                import os
+                from pathlib import Path
+                from agent.services.model_profile_loader import ModelProfileLoader
+                from agent.services.model_profile_resolver import ModelProfileResolver, SecurityPolicyChecker, RoutingRules
+
+                profiles_path_env = os.environ.get("MODEL_PROFILES_PATH", "").strip()
+                if not profiles_path_env:
+                    return None
+                path = Path(profiles_path_env)
+                if not path.exists():
+                    return None
+                result = ModelProfileLoader().load_file(path)
+                if not result.ok or not result.profiles:
+                    logger.warning("model_invocation: profile load errors: %s", result.errors)
+                    return None
+                resolver = ModelProfileResolver(
+                    profiles=result.profiles,
+                    security_policy=SecurityPolicyChecker(),
+                )
+                _PROFILE_RESOLVER_CACHE = resolver
+                logger.info(
+                    "model_invocation: loaded %d profiles from %s",
+                    len(result.profiles), path,
+                )
+                return resolver
+            except Exception as exc:
+                logger.warning("model_invocation: resolver init failed: %s", exc)
+                return None
+
+    @classmethod
+    def _provider_info_from_profile(cls, profile) -> tuple[str, str, str | None]:
+        """Convert a ModelProfile to (provider_label, url, api_key)."""
+        import os
+        s = cls._get_settings()
+        provider = profile.provider_id.lower()
+        base_url = (profile.base_url or "").rstrip("/")
+        api_key: str | None = None
+
+        if profile.api_key_env:
+            api_key = os.environ.get(profile.api_key_env) or None
+
+        if not base_url:
+            if provider in ("lmstudio", "lm_studio"):
+                base_url = s.lmstudio_url.rstrip("/")
+            elif provider == "ollama":
+                base_url = s.ollama_url.rstrip("/")
+                if "/api/generate" in base_url:
+                    base_url = base_url.replace("/api/generate", "")
+                if not base_url.endswith("/v1"):
+                    base_url = base_url + "/v1"
+            elif provider == "openai":
+                base_url = "https://api.openai.com/v1"
+                if not api_key:
+                    api_key = s.openai_api_key
+            elif provider == "openrouter":
+                base_url = "https://openrouter.ai/api/v1"
+            elif provider == "mock":
+                base_url = s.mock_url.rstrip("/") + "/v1"
+
+        if not base_url.endswith("/chat/completions"):
+            if not base_url.endswith("/v1"):
+                # already has path like /v1/chat/completions — leave as-is if it has /chat
+                if "/chat" not in base_url:
+                    base_url = base_url + "/chat/completions"
+                # else trust the URL
+            else:
+                base_url = base_url + "/chat/completions"
+
+        return provider, base_url, api_key
+
+    @classmethod
     def _provider_info(cls) -> tuple[str, str, str | None]:
         """Return (provider_label, chat_completions_url, api_key)."""
         s = cls._get_settings()
@@ -189,17 +274,50 @@ class ModelInvocationService:
         response_format: dict | None = None,
         model: str | None = None,
         timeout: int | None = None,
+        routing_ctx: Any = None,
     ) -> dict:
         """POST chat/completions and return parsed JSON response."""
-        provider, url, api_key = cls._provider_info()
-        s = cls._get_settings()
+        resolved_profile = None
+        if routing_ctx is not None:
+            try:
+                resolver = cls._get_resolver()
+                if resolver is not None:
+                    result = resolver.resolve(routing_ctx)
+                    if result.ok:
+                        resolved_profile = result.profile
+                        logger.debug(
+                            "model_invocation: resolver picked %s via %s",
+                            result.profile.profile_id,
+                            result.final_source,
+                        )
+                    else:
+                        logger.warning(
+                            "model_invocation: resolver returned no profile, using legacy path"
+                        )
+            except Exception as exc:
+                logger.warning("model_invocation: resolver failed: %s — using legacy path", exc)
 
-        effective_model = model
-        if not effective_model or effective_model == "auto":
-            effective_model = s.default_model
+        if resolved_profile is not None:
+            provider, url, api_key = cls._provider_info_from_profile(resolved_profile)
+            effective_model = resolved_profile.model
+            if not effective_model or effective_model == "auto":
+                effective_model = cls._get_settings().default_model
+            if timeout is None:
+                timeout = resolved_profile.timeout_seconds
+        else:
+            provider, url, api_key = cls._provider_info()
+            s = cls._get_settings()
+            effective_model = model
+            if not effective_model or effective_model == "auto":
+                effective_model = s.default_model
+            if timeout is None:
+                timeout = int(getattr(s, "llm_invoke_timeout_seconds", None) or 120)
+            # override model if explicitly passed and non-auto
+            if model and model != "auto":
+                effective_model = model
 
         if timeout is None:
-            timeout = int(getattr(s, "llm_invoke_timeout_seconds", None) or 120)
+            timeout = 120
 
         headers = {"Content-Type": "application/json"}
         if api_key:

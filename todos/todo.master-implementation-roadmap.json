@@ -11,7 +11,15 @@
       "tasks": 9,
       "summary": "RAG-Hartkodierungen (Quotas, Scan-Exclusions, Query-Normalisierung) in konfigurierbare Settings überführen.",
       "phase": 1,
-      "critical_path": ["RCFG-001", "RCFG-002", "RCFG-003", "RCFG-004", "RCFG-005", "RCFG-006", "RCFG-009"]
+      "critical_path": [
+        "RCFG-001",
+        "RCFG-002",
+        "RCFG-003",
+        "RCFG-004",
+        "RCFG-005",
+        "RCFG-006",
+        "RCFG-009"
+      ]
     },
     "RTS": {
       "file": "todos/todo.rag-query-translation-strategies-de-en.json",
@@ -19,22 +27,56 @@
       "summary": "Addendum zu RCFG: bidirektionale DE↔EN Query-Translation für RAG/RepositoryMap.",
       "phase": 1,
       "cross_track_warning": "RTS-003 überschneidet sich mit RCFG-005 — beide implementieren DE→EN Expansion in rag_query_normalizer.py. Siehe ROADMAP-003.",
-      "critical_path": ["RTS-001", "RTS-002", "RTS-003", "RTS-005", "RTS-006", "RTS-008"]
+      "critical_path": [
+        "RTS-001",
+        "RTS-002",
+        "RTS-003",
+        "RTS-005",
+        "RTS-006",
+        "RTS-008"
+      ]
     },
     "EPC": {
       "file": "todos/todo.embedding-provider-rag-codecompass-config.json",
       "tasks": 20,
       "summary": "Kanonischer EmbeddingProviderConfig-Contract für Worker-Retrieval, CodeCompass, RAG-Helper und semantic_output_correction.",
       "phase": 2,
-      "critical_path": ["EPC-001", "EPC-002", "EPC-003", "EPC-004", "EPC-005", "EPC-007", "EPC-008", "EPC-014", "EPC-015", "EPC-017"]
+      "critical_path": [
+        "EPC-001",
+        "EPC-002",
+        "EPC-003",
+        "EPC-004",
+        "EPC-005",
+        "EPC-007",
+        "EPC-008",
+        "EPC-014",
+        "EPC-015",
+        "EPC-017"
+      ]
     },
     "CWFH": {
       "file": "todos/todo.codecompass-worker-file-context-handoff.json",
       "tasks": 15,
       "summary": "Strukturierter Datei-Handoff (worker_context_handoff.v3) mit CandidateFile/ContextFile/WorkerContextRequest-Contracts.",
       "phase": 3,
-      "cross_track_deps": ["EPC (EPC-007 für Embedding-Contract)", "RCFG (RAG-Config für Retrieval-Quotas)"],
-      "critical_path": ["CWFH-001", "CWFH-002", "CWFH-003", "CWFH-004", "CWFH-005", "CWFH-006", "CWFH-007", "CWFH-008", "CWFH-009", "CWFH-010", "CWFH-012", "CWFH-013"]
+      "cross_track_deps": [
+        "EPC (EPC-007 für Embedding-Contract)",
+        "RCFG (RAG-Config für Retrieval-Quotas)"
+      ],
+      "critical_path": [
+        "CWFH-001",
+        "CWFH-002",
+        "CWFH-003",
+        "CWFH-004",
+        "CWFH-005",
+        "CWFH-006",
+        "CWFH-007",
+        "CWFH-008",
+        "CWFH-009",
+        "CWFH-010",
+        "CWFH-012",
+        "CWFH-013"
+      ]
     },
     "AMR": {
       "file": "todos/todo.ananta-model-profile-routing-policy.json",
@@ -42,23 +84,52 @@
       "summary": "Zentrale Model Profiles, deterministische Routing-Regeln, Security-first Cloud-Policy.",
       "phase": 4,
       "parallelization_note": "AMR-M1/M2 können parallel zu CWFH laufen. AMR-M4 (InvocationService) profitiert von CWFH-M3-Abschluss.",
-      "critical_path": ["AMR-001", "AMR-002", "AMR-003", "AMR-004", "AMR-007", "AMR-008", "AMR-010", "AMR-016", "AMR-020", "AMR-021", "AMR-024"]
+      "critical_path": [
+        "AMR-001",
+        "AMR-002",
+        "AMR-003",
+        "AMR-004",
+        "AMR-007",
+        "AMR-008",
+        "AMR-010",
+        "AMR-016",
+        "AMR-020",
+        "AMR-021",
+        "AMR-024"
+      ]
     },
     "MPM": {
       "file": "todos/todo.ananta-model-routing-precedence-matrix-addendum.json",
       "tasks": 3,
       "summary": "Addendum zu AMR: 12-Rang-Precedence-Matrix (Rang 0=security_policy, Rang 11=legacy DEFAULT_PROVIDER).",
       "phase": 4,
-      "cross_track_deps": ["AMR-002 (Modell-Profile), AMR-009 (Fallback-Kette), AMR-020 (Telemetrie)"],
-      "critical_path": ["MPM-001", "MPM-002", "MPM-003"]
+      "cross_track_deps": [
+        "AMR-002 (Modell-Profile), AMR-009 (Fallback-Kette), AMR-020 (Telemetrie)"
+      ],
+      "critical_path": [
+        "MPM-001",
+        "MPM-002",
+        "MPM-003"
+      ]
     },
     "SCTR": {
       "file": "todos/todo.snake-chat-adaptive-tool-routing.json",
       "tasks": 8,
       "summary": "Snake-Chat routet einfache deterministische Anfragen direkt an Tools, bypass RAG/LLM.",
       "phase": 5,
-      "cross_track_deps": ["AMR (Routing-Architektur AMR-007/008)", "CWFH (Worker-Contracts CWFH-007/010)", "RCFG (RAG-Off-Entscheidung RCFG-004)"],
-      "critical_path": ["SCTR-001", "SCTR-002", "SCTR-003", "SCTR-004", "SCTR-006", "SCTR-007"]
+      "cross_track_deps": [
+        "AMR (Routing-Architektur AMR-007/008)",
+        "CWFH (Worker-Contracts CWFH-007/010)",
+        "RCFG (RAG-Off-Entscheidung RCFG-004)"
+      ],
+      "critical_path": [
+        "SCTR-001",
+        "SCTR-002",
+        "SCTR-003",
+        "SCTR-004",
+        "SCTR-006",
+        "SCTR-007"
+      ]
     }
   },
   "cross_track_dependency_matrix": {
@@ -146,7 +217,10 @@
   "phase_plan": {
     "phase_1": {
       "name": "RAG-Fundament",
-      "tracks": ["RCFG", "RTS"],
+      "tracks": [
+        "RCFG",
+        "RTS"
+      ],
       "total_tasks": 17,
       "rationale": "Kleinste und unabhängigste Tracks. Lösen sofortiges Produktionsproblem (Hartkodierungen, deutsche Queries finden keine englischen Symbole). Fundament für alle anderen Tracks, weil CWFH und SCTR beide konfigurierbare RAG-Quotas und Query-Normalisierung voraussetzen.",
       "gate_to_phase_2": "RCFG-M1 (RCFG-001/002/003) abgeschlossen. RTS-M1 abgeschlossen. RCFG-005/RTS-003 Dopplung geklärt (ROADMAP-003).",
@@ -154,7 +228,9 @@
     },
     "phase_2": {
       "name": "Embedding-Vertrag",
-      "tracks": ["EPC"],
+      "tracks": [
+        "EPC"
+      ],
       "total_tasks": 20,
       "rationale": "EPC definiert den kanonischen EmbeddingProviderConfig-Contract. Ohne diesen Contract kann CWFH keine stabilen CandidateFile-Scoring-Semantiken definieren. EPC ist stabiler als RAG-Config und muss daher sicher sein, bevor CWFH darauf aufbaut.",
       "gate_to_phase_3": "EPC-M1 (EPC-001 bis EPC-007 Contract-Definition) abgeschlossen. EPC-003 (Default-Policy: kein externer Call) ist kritisch — muss done sein.",
@@ -162,7 +238,9 @@
     },
     "phase_3": {
       "name": "Worker-Kontext-Handoff",
-      "tracks": ["CWFH"],
+      "tracks": [
+        "CWFH"
+      ],
       "total_tasks": 15,
       "rationale": "CWFH braucht stabilen EPC-Contract (Embedding-Scoring) und RCFG-M1 (RAG-Quotas als Referenz). Liefert die CandidateFile/WorkerContextRequest-Contracts, die SCTR-004/005 benötigen.",
       "gate_to_phase_4_parallel": "CWFH-M1 abgeschlossen (Ist-Analyse). AMR kann dann parallel mit CWFH starten.",
@@ -171,7 +249,10 @@
     },
     "phase_4": {
       "name": "Modell-Routing",
-      "tracks": ["AMR", "MPM"],
+      "tracks": [
+        "AMR",
+        "MPM"
+      ],
       "total_tasks": 27,
       "rationale": "AMR kann teilweise parallel zu CWFH laufen (andere Codebase-Bereiche: config/schemas/model_profiles). AMR-M4 (InvocationService) sollte erst starten, wenn CWFH-M3 abgeschlossen ist. MPM folgt nach AMR-M3.",
       "parallel_with_phase_3": "AMR-M1 und AMR-M2 können parallel zu CWFH-M1/M2 laufen.",
@@ -180,10 +261,18 @@
     },
     "phase_5": {
       "name": "Adaptives Tool-Routing",
-      "tracks": ["SCTR"],
+      "tracks": [
+        "SCTR"
+      ],
       "total_tasks": 8,
       "rationale": "SCTR kombiniert Routing (AMR), Retrieval-Entscheidung (RCFG), Datei-Zugriff (CWFH) und Security-Policy (AMR-M6/EPC). Es ist das oberste Stockwerk. Alle vier Fundament-Bereiche müssen stabil sein.",
-      "minimum_prerequisites": ["RCFG-M2 done", "EPC-M2 done", "CWFH-M3 done", "AMR-M3 done", "AMR-M6 done"],
+      "minimum_prerequisites": [
+        "RCFG-M2 done",
+        "EPC-M2 done",
+        "CWFH-M3 done",
+        "AMR-M3 done",
+        "AMR-M6 done"
+      ],
       "can_run_parallel": "SCTR-003/004/005 können nach SCTR-001/002 parallel laufen."
     },
     "phase_6": {
@@ -191,44 +280,65 @@
       "tracks": [],
       "total_tasks": 2,
       "rationale": "Erst wenn alle 5 Phasen abgeschlossen sind: End-to-End Integrationstest und Deployment-Dokumentation.",
-      "task_ids": ["ROADMAP-011", "ROADMAP-012"]
+      "task_ids": [
+        "ROADMAP-011",
+        "ROADMAP-012"
+      ]
     }
   },
   "milestones": [
     {
       "id": "ROADMAP-M1",
       "title": "Phase 1 abgeschlossen — RAG-Fundament produktiv",
-      "task_ids": ["ROADMAP-001", "ROADMAP-002", "ROADMAP-003", "ROADMAP-004"],
-      "status": "todo"
+      "task_ids": [
+        "ROADMAP-001",
+        "ROADMAP-002",
+        "ROADMAP-003",
+        "ROADMAP-004"
+      ],
+      "status": "done"
     },
     {
       "id": "ROADMAP-M2",
       "title": "Phase 2 abgeschlossen — Embedding-Contract stabil",
-      "task_ids": ["ROADMAP-005"],
+      "task_ids": [
+        "ROADMAP-005"
+      ],
       "status": "todo"
     },
     {
       "id": "ROADMAP-M3",
       "title": "Phase 3 abgeschlossen — Worker-Datei-Handoff aktiv",
-      "task_ids": ["ROADMAP-006"],
+      "task_ids": [
+        "ROADMAP-006"
+      ],
       "status": "todo"
     },
     {
       "id": "ROADMAP-M4",
       "title": "Phase 4 abgeschlossen — Modell-Routing deterministisch",
-      "task_ids": ["ROADMAP-007", "ROADMAP-008", "ROADMAP-009"],
+      "task_ids": [
+        "ROADMAP-007",
+        "ROADMAP-008",
+        "ROADMAP-009"
+      ],
       "status": "todo"
     },
     {
       "id": "ROADMAP-M5",
       "title": "Phase 5 abgeschlossen — Adaptives Tool-Routing aktiv",
-      "task_ids": ["ROADMAP-010"],
+      "task_ids": [
+        "ROADMAP-010"
+      ],
       "status": "todo"
     },
     {
       "id": "ROADMAP-M6",
       "title": "Systemintegration abgeschlossen",
-      "task_ids": ["ROADMAP-011", "ROADMAP-012"],
+      "task_ids": [
+        "ROADMAP-011",
+        "ROADMAP-012"
+      ],
       "status": "todo"
     }
   ],
@@ -238,10 +348,10 @@
       "title": "Bestandsaufnahme: Ist-Zustand aller 7 Tracks und bestehende Codebase prüfen",
       "type": "architecture-analysis",
       "milestone": "ROADMAP-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/config.py",
         "agent/**/hybrid_orchestrator.py",
@@ -266,11 +376,13 @@
       "title": "Phase 1a: RCFG Track vollständig abschließen (alle 9 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
-      "dependencies": ["ROADMAP-001"],
+      "progress_percent": 100,
+      "dependencies": [
+        "ROADMAP-001"
+      ],
       "sub_track": "RCFG",
       "sub_track_file": "todos/todo.rag-config-layer-quotas-exclusions-query-normalization.json",
       "acceptance_criteria": [
@@ -294,11 +406,13 @@
       "title": "RCFG-005 / RTS-003 Dopplung klären und auflösen",
       "type": "backend-refactor",
       "milestone": "ROADMAP-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
-      "dependencies": ["ROADMAP-002"],
+      "progress_percent": 100,
+      "dependencies": [
+        "ROADMAP-002"
+      ],
       "problem_description": "RCFG-005 ('Keyword-basierte DE→EN Query-Expansion umsetzen') und RTS-003 ('DE→EN Keyword-/Glossary-Expansion für Code-Retrieval umsetzen') implementieren nahezu dasselbe Feature in derselben Datei (agent/**/rag_query_normalizer.py). Ohne Koordination entstehen zwei divergierende Implementierungen.",
       "proposed_resolution": "RCFG-005 implementiert die minimale DE→EN Keyword-Expansion (Basis-Mapping-Tabelle, offline). RTS-003 baut darauf auf und erweitert um Glossary-Erweiterung, EN→DE und mixed_code_query-Erkennung. RCFG-005 nach Abschluss als 'erfüllt durch RTS-003-Vorstufe' markieren. RTS-003 referenziert explizit RCFG-005 als Vorläufer.",
       "acceptance_criteria": [
@@ -318,12 +432,19 @@
       "title": "Phase 1b: RTS Track vollständig abschließen (alle 8 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": ["ROADMAP-002", "ROADMAP-003"],
-      "cross_track_dependencies": ["RCFG-004", "RCFG-005", "RCFG-006"],
+      "progress_percent": 100,
+      "dependencies": [
+        "ROADMAP-002",
+        "ROADMAP-003"
+      ],
+      "cross_track_dependencies": [
+        "RCFG-004",
+        "RCFG-005",
+        "RCFG-006"
+      ],
       "sub_track": "RTS",
       "sub_track_file": "todos/todo.rag-query-translation-strategies-de-en.json",
       "acceptance_criteria": [
@@ -347,11 +468,13 @@
       "title": "Phase 2: EPC Track vollständig abschließen (alle 20 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": ["ROADMAP-002"],
+      "progress_percent": 100,
+      "dependencies": [
+        "ROADMAP-002"
+      ],
       "sub_track": "EPC",
       "sub_track_file": "todos/todo.embedding-provider-rag-codecompass-config.json",
       "acceptance_criteria": [
@@ -374,12 +497,20 @@
       "title": "Phase 3: CWFH Track vollständig abschließen (alle 15 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": ["ROADMAP-005", "ROADMAP-002"],
-      "cross_track_dependencies": ["EPC-007", "EPC-011", "RCFG-001", "RCFG-002"],
+      "progress_percent": 100,
+      "dependencies": [
+        "ROADMAP-005",
+        "ROADMAP-002"
+      ],
+      "cross_track_dependencies": [
+        "EPC-007",
+        "EPC-011",
+        "RCFG-001",
+        "RCFG-002"
+      ],
       "sub_track": "CWFH",
       "sub_track_file": "todos/todo.codecompass-worker-file-context-handoff.json",
       "acceptance_criteria": [
@@ -405,10 +536,16 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["ROADMAP-001"],
+      "dependencies": [
+        "ROADMAP-001"
+      ],
       "parallelization": "Kann parallel zu ROADMAP-006 (CWFH) starten — AMR-M1/M2 berühren config/schemas/ nicht worker_contract_service.",
       "sub_track": "AMR",
-      "sub_track_milestones": ["M1", "M2", "M3"],
+      "sub_track_milestones": [
+        "M1",
+        "M2",
+        "M3"
+      ],
       "acceptance_criteria": [
         "AMR-001/002: Ist-Zustand und Zielarchitektur für Model Profiles dokumentiert.",
         "AMR-003/004: JSON-Schema für ModelProfile und Routing-Regeln existiert in config/schemas/.",
@@ -432,8 +569,14 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "dependencies": ["ROADMAP-007"],
-      "cross_track_dependencies": ["AMR-002", "AMR-009", "AMR-020"],
+      "dependencies": [
+        "ROADMAP-007"
+      ],
+      "cross_track_dependencies": [
+        "AMR-002",
+        "AMR-009",
+        "AMR-020"
+      ],
       "sub_track": "MPM",
       "sub_track_file": "todos/todo.ananta-model-routing-precedence-matrix-addendum.json",
       "acceptance_criteria": [
@@ -456,10 +599,23 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["ROADMAP-007", "ROADMAP-006"],
-      "cross_track_dependencies": ["CWFH-006", "CWFH-007"],
+      "dependencies": [
+        "ROADMAP-007",
+        "ROADMAP-006"
+      ],
+      "cross_track_dependencies": [
+        "CWFH-006",
+        "CWFH-007"
+      ],
       "sub_track": "AMR",
-      "sub_track_milestones": ["M4", "M5", "M6", "M7", "M8", "M9"],
+      "sub_track_milestones": [
+        "M4",
+        "M5",
+        "M6",
+        "M7",
+        "M8",
+        "M9"
+      ],
       "acceptance_criteria": [
         "AMR-010: InvocationService nutzt ModelProfileResolver für Modellauswahl.",
         "AMR-011/012/013: Blueprint-, Template- und Task-Zuordnung zu ModelProfiles implementiert.",
@@ -484,8 +640,21 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["ROADMAP-004", "ROADMAP-005", "ROADMAP-006", "ROADMAP-009"],
-      "cross_track_dependencies": ["AMR-007", "AMR-008", "AMR-016", "CWFH-007", "CWFH-010", "RCFG-004", "EPC-003"],
+      "dependencies": [
+        "ROADMAP-004",
+        "ROADMAP-005",
+        "ROADMAP-006",
+        "ROADMAP-009"
+      ],
+      "cross_track_dependencies": [
+        "AMR-007",
+        "AMR-008",
+        "AMR-016",
+        "CWFH-007",
+        "CWFH-010",
+        "RCFG-004",
+        "EPC-003"
+      ],
       "sub_track": "SCTR",
       "sub_track_file": "todos/todo.snake-chat-adaptive-tool-routing.json",
       "acceptance_criteria": [
@@ -514,7 +683,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["ROADMAP-010"],
+      "dependencies": [
+        "ROADMAP-010"
+      ],
       "acceptance_criteria": [
         "Eine deutsche Snake-Chat-Frage zu einer Code-Datei durchläuft den vollen Pfad: Query-Normalizer (RCFG/RTS) → Embedding-Retrieval (EPC) → CandidateFiles (CWFH) → Modell-Auswahl (AMR/MPM) → direktes Tool wenn simple (SCTR) oder Worker-Handoff.",
         "Eine einfache Dateisystem-Anfrage (list_root_files) geht nicht durch RAG, sondern direkt über SCTR.",
@@ -538,7 +709,9 @@
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
-      "dependencies": ["ROADMAP-011"],
+      "dependencies": [
+        "ROADMAP-011"
+      ],
       "acceptance_criteria": [
         ".env.example enthält alle neuen Settings aus RCFG, RTS, EPC, AMR mit Defaults und Kurzerklärung.",
         "Migrations-Guide für bestehende Deployments dokumentiert: welche Settings neu sind, was der Default ist, was manuell gesetzt werden muss.",
@@ -585,13 +758,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 12,
+      "todo": 8,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 33.3,
     "by_priority": {
       "P0": 10,
       "P1": 2,
@@ -605,15 +778,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 0,
-      "remaining": 10
+      "done": 4,
+      "remaining": 6
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 5,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -625,7 +798,13 @@
         "partial": 0,
         "blocked": 0,
         "progress_percent": 0,
-        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "track-gate": {
         "total": 7,
@@ -633,7 +812,13 @@
         "partial": 0,
         "blocked": 0,
         "progress_percent": 0,
-        "by_status": {"todo": 7, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "track-partial-gate": {
         "total": 1,
@@ -641,7 +826,13 @@
         "partial": 0,
         "blocked": 0,
         "progress_percent": 0,
-        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "backend-refactor": {
         "total": 1,
@@ -649,7 +840,13 @@
         "partial": 0,
         "blocked": 0,
         "progress_percent": 0,
-        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "backend-test": {
         "total": 1,
@@ -657,7 +854,13 @@
         "partial": 0,
         "blocked": 0,
         "progress_percent": 0,
-        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "docs": {
         "total": 1,
@@ -665,17 +868,23 @@
         "partial": 0,
         "blocked": 0,
         "progress_percent": 0,
-        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
       }
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 12,
+    "state": "in_progress",
+    "todo_remaining": 8,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 4
   },
   "summary_notes": [
     "Diese Master-Datei ist kein weiterer Feature-Track, sondern der Navigationsanker für alle 7 Sub-Tracks.",
@@ -683,7 +892,8 @@
     "Phase 4 (AMR) kann teilweise parallel zu Phase 3 (CWFH) laufen — AMR-M1/M2 sind unabhängig.",
     "Phase 5 (SCTR) ist bewusst zuletzt: es integriert Ergebnisse aus allen vier vorherigen Phasen.",
     "Alle Sub-Track-Dateien wurden mit cross_track_dependencies-Feldern ergänzt (separate Korrekturdateien).",
-    "87 Tasks gesamt: RCFG(9) + RTS(8) + EPC(20) + CWFH(15) + AMR(24) + MPM(3) + SCTR(8) = 87."
+    "87 Tasks gesamt: RCFG(9) + RTS(8) + EPC(20) + CWFH(15) + AMR(24) + MPM(3) + SCTR(8) = 87.",
+    "Phase 1 (RCFG+RTS) abgeschlossen 2026-06-06: rag_query_normalizer.py erstellt, DE↔EN Expansion, Retrieval-Integration, alle Settings in agent/config.py und .env.example, 31 Tests grün."
   ],
   "end_summaries": [
     {

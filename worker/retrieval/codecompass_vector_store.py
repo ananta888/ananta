@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from worker.retrieval.embedding_provider import EmbeddingProvider
+from worker.retrieval.embedding_text_builder import build_embedding_texts_batch, build_query_embedding_text
 
 
 def _cosine_similarity(left: list[float], right: list[float]) -> float:
@@ -52,7 +53,7 @@ class CodeCompassVectorStore:
         retrieval_cache_state: str,
         manifest_hash: str,
     ) -> dict[str, Any]:
-        texts = [str(item.get("embedding_text") or "") for item in list(documents or [])]
+        texts = build_embedding_texts_batch(list(documents or []))
         vectors = embedding_provider.embed_texts(texts)
         entries: list[dict[str, Any]] = []
         for doc, vector in zip(list(documents or []), vectors, strict=False):
@@ -126,7 +127,7 @@ class CodeCompassVectorStore:
         embedding_provider: EmbeddingProvider,
         top_k: int = 10,
     ) -> list[dict[str, Any]]:
-        vectors = embedding_provider.embed_texts([str(query or "")])
+        vectors = embedding_provider.embed_texts([build_query_embedding_text(str(query or ""))])
         query_vector = [float(item) for item in list(vectors[0] if vectors else [])]
         return self.search_by_vector(query_vector=query_vector, top_k=top_k)
 
