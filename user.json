@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-06-06T19:20:22Z",
+  "updated": "2026-06-06T20:57:19Z",
   "settings": {
     "chat_backend_fallback": "none",
     "chat_backend_model": "microsoft_-_phi-3.5-mini-instruct",
