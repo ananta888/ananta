@@ -237,7 +237,8 @@ services:
       - ./frontend-angular:/app
       - /app/node_modules
       - /ms-playwright
-    ports: !reset []
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
 
   android-e2e:
     profiles: ["android-runner"]
