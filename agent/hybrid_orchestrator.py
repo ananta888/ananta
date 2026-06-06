@@ -239,11 +239,25 @@ class RepositoryMapEngine:
             self._file_state.pop(rel, None)
             self._symbol_graph.pop(rel, None)
 
+    _REPO_STOP_TOKENS: frozenset = frozenset({
+        "der", "die", "das", "den", "dem", "des", "ein", "eine", "einer",
+        "mir", "dir", "ihm", "ihr", "uns", "ich", "du", "er", "sie", "wir",
+        "und", "oder", "aber", "nicht", "auch", "noch", "von", "mit", "bei",
+        "aus", "zur", "zum", "ist", "sind", "war", "wird", "hat", "haben",
+        "auf", "in", "an", "zu", "am", "im", "als", "bitte", "mal",
+        "the", "and", "for", "are", "but", "not", "you", "all", "can",
+        "has", "its", "was", "use", "one", "how", "our", "out", "that",
+        "this", "with", "from", "have", "will", "been", "they", "their",
+    })
+
     def search(self, query: str, top_k: int = 5) -> list[ContextChunk]:
         self.build()
         if not self._symbol_graph:
             return []
-        tokens = {t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query) if len(t) > 2}
+        tokens = {
+            t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query)
+            if len(t) >= 3 and t.lower() not in self._REPO_STOP_TOKENS
+        }
         candidates: list[ContextChunk] = []
         for rel_path, symbols in self._symbol_graph.items():
             score = 0.0
