@@ -1,0 +1,397 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-worker-architecture-full-scan-rolling-summary",
+  "created": "2026-06-07",
+  "status": "todo",
+  "purpose": "Architekturdiagramme, Systemerklaerungen und andere Vollanalyse-Aufgaben duerfen nicht nur Top-N-RAG-Snippets verwenden. Der ananta-worker soll einen expliziten Full-Scan/Architecture-Analysis-Modus bekommen, der einen definierten Scope iterativ und vollstaendig abarbeitet, pro Batch strukturierte Zwischenergebnisse persistiert und bei begrenztem LLM-Kontextfenster selbst kompakte Rolling-Summaries erzeugt.",
+  "goal": "Fuer Aufgaben wie 'erstelle Architekturdiagramme', 'erklaere die Gesamtarchitektur' oder 'zeige Mermaid-Diagramme zum CodeCompass/Worker-Handoff' wird aus CodeCompass/RetrievalProfile ein Analyseplan erzeugt. Der Worker verarbeitet alle geplanten Quellen in Batches, aktualisiert nach jedem Schritt strukturierte Analyseartefakte, reduziert alte Details kontrolliert und erzeugt am Ende nachvollziehbare Mermaid-/PlantUML-/Markdown-Ergebnisse mit Quellenbezug.",
+  "depends_on": [
+    "todos/todo.codecompass-relevant-snippet-handoff.json",
+    "todos/todo.codecompass-retrieval-profile-source-policy.json"
+  ],
+  "non_goals": [
+    "Kein blinder Upload der gesamten Repository-Dateien an ein externes Modell.",
+    "Kein Entfernen der bestehenden schnellen Top-N-RAG-Antworten fuer kurze Chatfragen.",
+    "Kein Ersetzen von CodeCompass; CodeCompass liefert Scope, Reihenfolge, Snippets, Relationen und Provenance.",
+    "Kein unbegrenzter Worker-Loop ohne Budget, Trace und Abbruchbedingungen."
+  ],
+  "source_review": {
+    "summary": "Der aktuelle Stand hat bereits wichtige Bausteine: agent/common/sgpt.py laedt CodeCompass-Kontext inzwischen als line_range, chunk, file_excerpt, codecompass_snippet oder hub_context und verarbeitet mehrere Batches iterativ. Kontextlimits sind ueber ananta_worker_context_* konfigurierbar. ContextBundleService kann full/standard/compact Policies aufloesen und rendert Chunks im grounded prompt. RetrievalService besitzt SourceAdapter, Profile-Gewichte, Dedupe, Expansion, Rerank, Diversity-Cut und RetrievalTrace. Der neue Commit 2eb48668 ergaenzt Debug-Trace fuer /snake/ask und _worker_propose. Was noch fehlt: ein expliziter Full-Scan/Architecture-Modus, ein Analyseplan mit vollstaendigem Scope, strukturierte Rolling-Summaries statt nur progress.md-Freitext und eine finale Diagramm-Synthese mit beweisbaren Quellen.",
+    "observed_source_files": [
+      {
+        "path": "agent/common/sgpt.py",
+        "observations": [
+          "_load_source_file_batches liest rag_helper/research-context.json und verarbeitet repo_scope_refs.",
+          "Die Prioritaet ist bereits: path + start/end line-range, ref.chunks[], path-only file_excerpt, snippet ohne validen Pfad, .ananta/hub-context.md fallback.",
+          "Bloecke tragen rel_path, lang, content, source_kind, start_line, end_line, score, reason und symbol.",
+          "Bloecke werden nach score sortiert und danach auf max_files begrenzt.",
+          "_run_ananta_worker_iterative verarbeitet mehrere Batches, schreibt rag_helper/progress.md und ruft am Ende eine Synthese auf.",
+          "Der Fortschritt wird in _build_iteration_prompt aktuell auf die letzten 6000 Zeichen gekuerzt; fuer Architekturvollanalyse ist das zu verlustbehaftet.",
+          "Die Iteration nutzt max_iterations * files_per_batch als harte Blockgrenze; fuer Vollanalyse braucht es einen geplanten Scope und explizite Omitted-/Coverage-Metadaten."
+        ]
+      },
+      {
+        "path": "agent/services/context_bundle_service.py",
+        "observations": [
+          "resolve_context_bundle_policy kennt mode compact, standard und full mit full_budget_tokens.",
+          "build_bundle kann retrieval_profile-Metadaten in context_policy schreiben.",
+          "build_grounded_prompt rendert inzwischen chunks-aware Quellen, Score, Zeilenbereich, Symbol und Profile-Hinweise.",
+          "Architecture-Intent setzt aktuell nur eine grobe Regel fuer Architekturerklaerung, aber noch keine Full-Scan-Semantik.",
+          "Es gibt noch kein strukturiertes Analyseartefakt fuer components, edges, entrypoints, data_flows, security_boundaries oder open_questions."
+        ]
+      },
+      {
+        "path": "agent/services/rag_service.py",
+        "observations": [
+          "retrieve_context_bundle reicht retrieval_profile, source_types, task_kind und retrieval_intent an RetrievalService und ContextBundler durch.",
+          "build_execution_context uebergibt bundle['chunks'] an build_grounded_prompt.",
+          "Es gibt noch keinen Parameter analysis_mode/full_scan_required/coverage_target, der zwischen schneller Antwort und vollstaendiger Architekturverarbeitung unterscheidet."
+        ]
+      },
+      {
+        "path": "agent/services/retrieval_service.py",
+        "observations": [
+          "RetrievalService hat Adapter fuer repo, artifact, wiki und task_memory.",
+          "_task_profile_for_fusion bevorzugt bei architecture aktuell wiki/artifact relativ stark und setzt max_per_source=1; fuer implementierte Architekturdiagramme kann das zu wenig Repo-Abdeckung sein.",
+          "_expand_candidates erweitert nur ueber source_neighbor innerhalb vorhandener Kandidaten; fuer Architekturdiagramme braucht es zusaetzlich Relation-/Import-/Call-Graph-Scope.",
+          "_diversity_cut und finaler ContextManager-Rerank schneiden weiter auf settings.rag_max_chunks; Vollanalyse muss diese Auswahl als Plan-Seed nutzen, nicht als endgueltige Wahrheit.",
+          "strategy['fusion'] enthaelt bereits selection_stages, candidate_counts, final_ranked_sources und retrieval_trace; diese Felder sind gute Grundlage fuer Coverage-Trace."
+        ]
+      },
+      {
+        "path": "agent/routes/snakes.py",
+        "observations": [
+          "Der neue Commit 2eb48668 gibt bei debug=true Trace-Infos fuer RAG und Worker zurueck.",
+          "_worker_propose liefert jetzt answer und trace mit worker_url, model_requested, model_resolved, prompt_chars, prompt_preview und response preview.",
+          "Diese Trace-Struktur sollte fuer full_scan/architecture_workflow erweitert werden: plan_id, batch_count, processed_count, omitted_count, summary_hash und artifact_paths."
+        ]
+      },
+      {
+        "path": "rag_helper/research-context.json",
+        "observations": [
+          "Dieses Workspace-Artefakt ist die aktuelle Bruecke von CodeCompass zu sgpt.py.",
+          "Fuer Vollanalyse sollte es neben repo_scope_refs auch architecture_scope, relation_edges, entrypoints, excluded_refs und coverage_policy enthalten koennen.",
+          "Altformat mit nur repo_scope_refs muss weiterhin funktionieren."
+        ]
+      }
+    ]
+  },
+  "desired_architecture": {
+    "high_level_flow": [
+      "User fragt nach Architekturdiagramm oder Gesamtarchitektur.",
+      "RetrievalProfileResolver erkennt intent=architecture_full_scan oder diagram_generation.",
+      "CodeCompass/RetrievalService liefert Seed-Scope plus Relationen, EntryPoints, Quellenprioritaeten und Ausschluesse.",
+      "ArchitectureAnalysisPlanner erzeugt einen stabilen Plan mit batches, coverage_target und budgets.",
+      "ananta-worker verarbeitet Batch fuer Batch und schreibt strukturierte Analyseartefakte.",
+      "Nach jedem Batch wird eine Rolling-Summary aktualisiert, nicht nur Freitext appended.",
+      "Wenn das Kontextfenster knapp wird, wird alte Detailanalyse zu stabilen Komponenten-/Kanten-/Evidence-Records kompaktiert.",
+      "Finale Synthese erzeugt Mermaid/PlantUML/Markdown und nennt Quellen/Coverage."
+    ],
+    "new_or_extended_artifacts": [
+      "rag_helper/architecture-plan.json",
+      "rag_helper/architecture-progress.json",
+      "rag_helper/architecture-summary.json",
+      "rag_helper/architecture-diagrams.md",
+      "rag_helper/progress.md bleibt kompatibler menschenlesbarer Spiegel"
+    ],
+    "structured_summary_shape": {
+      "schema": "architecture_analysis_summary.v1",
+      "components": [],
+      "edges": [],
+      "entrypoints": [],
+      "data_flows": [],
+      "security_boundaries": [],
+      "configuration_points": [],
+      "runtime_paths": [],
+      "open_questions": [],
+      "source_evidence": [],
+      "coverage": {
+        "planned_refs": 0,
+        "processed_refs": 0,
+        "omitted_refs": 0,
+        "processed_source_kinds": {},
+        "omitted_reasons": {}
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": "AWAFS-001",
+      "title": "Document current iterative worker flow and limits",
+      "type": "analysis",
+      "source_files": ["agent/common/sgpt.py", "agent/services/rag_service.py", "agent/services/context_bundle_service.py", "agent/services/retrieval_service.py", "agent/routes/snakes.py"],
+      "description": "Dokumentiere, wie aktuell CodeCompass-Kontext ueber research-context.json in _load_source_file_batches, _run_ananta_worker_iterative und progress.md landet.",
+      "acceptance_criteria": [
+        "Die Doku nennt die aktuelle Prioritaet line_range > chunks > file_excerpt > codecompass_snippet > hub_context.",
+        "Die Doku nennt files_per_batch, per_file_chars, max_iterations, context_lines, max_snippet_chars und 6000-Zeichen-progress_so_far-Kuerzung.",
+        "Die Doku erklaert, warum dieser Mechanismus fuer schnelle Codefragen brauchbar ist, aber fuer Architekturdiagramme keine Coverage-Garantie bietet.",
+        "Die Doku verweist auf debug=true Trace von /snake/ask als Diagnosepfad."
+      ]
+    },
+    {
+      "id": "AWAFS-002",
+      "title": "Define architecture_full_scan retrieval profile contract",
+      "type": "design",
+      "source_files": ["agent/services/rag_service.py", "agent/services/context_bundle_service.py", "agent/services/retrieval_service.py"],
+      "description": "Erweitere den RetrievalProfile-Vertrag um einen expliziten Modus fuer Architekturvollanalyse und Diagrammgenerierung.",
+      "acceptance_criteria": [
+        "Ein Profil kann analysis_mode='architecture_full_scan' setzen.",
+        "Ein Profil kann output_intent Werte wie mermaid_component_diagram, mermaid_sequence_diagram, architecture_overview oder dependency_map tragen.",
+        "Ein Profil kann coverage_policy enthalten: seed_only, relation_expanded, repo_scope_complete.",
+        "Ein Profil kann summary_policy enthalten: rolling_structured, append_only_legacy, hybrid.",
+        "Ein Profil kann budgets enthalten: max_batches, files_per_batch, max_ref_chars, max_total_ref_count, max_summary_chars.",
+        "Altprofile ohne analysis_mode verhalten sich unveraendert."
+      ]
+    },
+    {
+      "id": "AWAFS-003",
+      "title": "Add ArchitectureAnalysisPlanner service",
+      "type": "implementation",
+      "source_files": ["agent/services/architecture_analysis_planner_service.py", "agent/services/retrieval_service.py", "agent/common/sgpt.py"],
+      "description": "Fuehre einen deterministischen Planner ein, der aus RetrievalProfile, research-context.json und optionalen CodeCompass-Relationen einen Analyseplan erzeugt.",
+      "acceptance_criteria": [
+        "Der neue Service erzeugt ein Plan-Dict mit schema='architecture_analysis_plan.v1'.",
+        "Der Plan enthaelt plan_id, query, profile_id, coverage_policy, batches, planned_refs, excluded_refs und budget.",
+        "Jeder Batch enthaelt stabile block_ids, rel_path, source_kind, start_line/end_line falls vorhanden, score, symbol, reason und estimated_chars.",
+        "Die Reihenfolge ist deterministisch: erst EntryPoints/Routes/APIs, dann Services/Orchestratoren, dann Models/DTOs/Config, dann Tests/Doku falls Profil dies erlaubt.",
+        "Der Planner dedupliziert identische path/range/chunk Kombinationen.",
+        "Der Planner bricht nicht ab, wenn nur altes repo_scope_refs-Format vorhanden ist.",
+        "Unit-Tests decken leeren Scope, path-only Scope, line-range Scope, chunk Scope und gemischten Scope ab."
+      ]
+    },
+    {
+      "id": "AWAFS-004",
+      "title": "Extend research-context.json shape for architecture scope",
+      "type": "implementation",
+      "source_files": ["agent/services/task_scoped_execution_service.py", "agent/services/research_context_bridge_service.py", "agent/common/sgpt.py"],
+      "description": "Erweitere den Workspace-Kontextvertrag optional um architecture_scope und relation_edges, ohne repo_scope_refs zu brechen.",
+      "acceptance_criteria": [
+        "research-context.json kann optional architecture_scope enthalten.",
+        "architecture_scope.refs verwenden dieselben Blockfelder wie repo_scope_refs plus role, component_hint und dependency_kind.",
+        "relation_edges koennen from, to, relation_type, source, confidence und evidence enthalten.",
+        "sgpt.py ignoriert unbekannte Felder weiterhin sicher.",
+        "Wenn architecture_scope vorhanden ist und analysis_mode architecture_full_scan aktiv ist, wird architecture_scope gegenueber reinem repo_scope_refs bevorzugt.",
+        "Tests bestaetigen Rueckwaertskompatibilitaet fuer alte research-context.json Dateien."
+      ]
+    },
+    {
+      "id": "AWAFS-005",
+      "title": "Replace lossy progress text with structured rolling summary",
+      "type": "implementation",
+      "source_files": ["agent/common/sgpt.py"],
+      "description": "Ersetze fuer Full-Scan-Aufgaben die reine progress_parts-Freitextlogik durch ein strukturiertes Summary-Artefakt.",
+      "acceptance_criteria": [
+        "Bei analysis_mode architecture_full_scan wird rag_helper/architecture-summary.json geschrieben.",
+        "Das Summary enthaelt mindestens components, edges, entrypoints, data_flows, security_boundaries, configuration_points, runtime_paths, open_questions, source_evidence und coverage.",
+        "progress.md wird weiterhin geschrieben, aber aus dem strukturierten Summary plus Batchausgaben abgeleitet.",
+        "_build_iteration_prompt nutzt fuer Full-Scan nicht nur die letzten 6000 Zeichen Freitext, sondern eine kompakte strukturierte Summary.",
+        "Es gibt eine harte Maximalgroesse fuer Summary im Prompt; bei Ueberschreitung wird deterministisch kompaktiert.",
+        "Tests pruefen, dass alte Findings aus Batch 1 in der finalen Synthese verfuegbar bleiben, obwohl spaetere Batches verarbeitet wurden."
+      ]
+    },
+    {
+      "id": "AWAFS-006",
+      "title": "Introduce batch output schema for architecture analysis",
+      "type": "implementation",
+      "source_files": ["agent/common/sgpt.py", "worker/core/propose_orchestrator.py"],
+      "description": "Definiere fuer Full-Scan-Batches eine erwartete JSON-Struktur, damit der Worker nicht nur Prosa liefert.",
+      "acceptance_criteria": [
+        "Der Batch-Prompt fordert JSON oder fenced JSON mit schema='architecture_batch_analysis.v1'.",
+        "Das Batch-Ergebnis enthaelt analyzed_refs, components, edges, data_flows, security_notes, config_notes, unresolved_questions und confidence.",
+        "Wenn das Modell kein valides JSON liefert, wird die Rohantwort in progress.md gespeichert und ein best-effort Parser extrahiert zumindest source_evidence und notes.",
+        "Fehlerhafte Batch-Ausgaben fuehren nicht zum kompletten Abbruch, sondern zu status='degraded' im Summary.",
+        "Tests decken valides JSON, fenced JSON, Prosa-Fallback und leere Antwort ab."
+      ]
+    },
+    {
+      "id": "AWAFS-007",
+      "title": "Add final diagram synthesis mode",
+      "type": "implementation",
+      "source_files": ["agent/common/sgpt.py"],
+      "description": "Erweitere den finalen Synthese-Prompt fuer Architekturaufgaben so, dass Mermaid/PlantUML/Markdown gezielt erzeugt werden.",
+      "acceptance_criteria": [
+        "Bei output_intent mermaid_component_diagram fordert der Synthese-Prompt ein Mermaid flowchart oder C4-aehnliches Mermaid-Diagramm.",
+        "Bei output_intent mermaid_sequence_diagram fordert der Synthese-Prompt ein Mermaid sequenceDiagram fuer konkrete Runtime-Flows.",
+        "Die finale Antwort enthaelt Diagramm, kurze Erklaerung, Quellenliste und Coverage-Hinweis.",
+        "Die finale Antwort darf keine Quellen behaupten, die nicht in source_evidence oder processed_refs enthalten sind.",
+        "architecture-diagrams.md wird optional geschrieben, wenn workdir vorhanden ist.",
+        "Tests pruefen, dass Mermaid-Codeblock vorhanden ist und mindestens zwei reale Quellen referenziert werden."
+      ]
+    },
+    {
+      "id": "AWAFS-008",
+      "title": "Make full-scan budgets explicit and safe",
+      "type": "configuration",
+      "source_files": ["agent/config.py", "agent/common/sgpt.py", "user.example.json"],
+      "description": "Fuehre eigene Settings fuer Architektur-Full-Scan ein, getrennt von den schnellen ananta_worker_context_* Limits.",
+      "acceptance_criteria": [
+        "Neue Settings sind dokumentiert: ananta_worker_full_scan_enabled, ananta_worker_full_scan_max_batches, ananta_worker_full_scan_files_per_batch, ananta_worker_full_scan_max_ref_chars, ananta_worker_full_scan_summary_chars.",
+        "Default ist sicher: Full-Scan ist lokal erlaubt, aber nicht automatisch fuer externe Cloud-Modelle.",
+        "Grenzen sind validiert und haben harte Obergrenzen.",
+        "Bestehende ananta_worker_context_* Settings bleiben unveraendert funktionsfaehig.",
+        "Tests pruefen Defaults, Env-Override und ungueltige Werte."
+      ]
+    },
+    {
+      "id": "AWAFS-009",
+      "title": "Connect RetrievalProfileResolver to full-scan mode",
+      "type": "implementation",
+      "source_files": ["agent/routes/snakes.py", "agent/services/rag_service.py", "agent/services/retrieval_profile_resolver_service.py"],
+      "description": "Wenn der User nach Architekturdiagrammen, Gesamtarchitektur oder vollstaendiger Analyse fragt, soll der Resolver analysis_mode architecture_full_scan setzen.",
+      "acceptance_criteria": [
+        "Fragen mit Begriffen wie Architekturdiagramm, Mermaid Diagramm zur Architektur, Gesamtarchitektur oder alle relevanten Komponenten setzen intent/output_intent passend.",
+        "Kurze Fragen wie 'was ist CodeCompass?' bleiben im schnellen Standardmodus.",
+        "User-/UI-Config kann Full-Scan erzwingen oder deaktivieren.",
+        "/snake/ask debug=true zeigt analysis_mode, profile_id, output_intent und coverage_policy im Trace.",
+        "Tests decken deutsche und englische Trigger ab."
+      ]
+    },
+    {
+      "id": "AWAFS-010",
+      "title": "Prevent architecture profile from over-preferring wiki for implemented-code diagrams",
+      "type": "implementation",
+      "source_files": ["agent/services/retrieval_service.py", "agent/services/context_bundle_service.py"],
+      "description": "Aktuell bevorzugt architecture-Intent wiki/artifact. Fuer Diagramme ueber implementierten Code muss repo-first oder repo-balanced gelten.",
+      "acceptance_criteria": [
+        "Implemented architecture/code diagram profiles setzen repo Gewicht >= artifact/wiki.",
+        "Konzeptionelle Architekturprofile duerfen docs/wiki bevorzugen.",
+        "Der Unterschied ist im RetrievalTrace sichtbar.",
+        "Regressionstest: Frage nach implementiertem CodeCompass-Architekturdiagramm liefert Repo-Quellen vor Game-/Wiki-/Tutorial-Doku.",
+        "Bestehende Architektur-Doku-Fragen verlieren nicht ihre wiki/artifact-Faehigkeit."
+      ]
+    },
+    {
+      "id": "AWAFS-011",
+      "title": "Add coverage trace to worker and snake ask responses",
+      "type": "implementation",
+      "source_files": ["agent/routes/snakes.py", "agent/common/sgpt.py"],
+      "description": "Der neue Debug-Trace aus Commit 2eb48668 soll fuer Full-Scan erweitert werden.",
+      "acceptance_criteria": [
+        "Trace enthaelt plan_id, analysis_mode, batch_count, processed_batches, processed_refs, omitted_refs, summary_hash und artifact_paths.",
+        "Bei Fallback auf hub_direct wird sichtbar, dass kein Full-Scan-Workerlauf stattgefunden hat.",
+        "prompt_preview wird nicht mit kompletten sensiblen Kontexten geflutet.",
+        "Trace kann fuer Tests genutzt werden, ohne Modellantworten semantisch zu bewerten."
+      ]
+    },
+    {
+      "id": "AWAFS-012",
+      "title": "Persist architecture analysis artifacts in workspace",
+      "type": "implementation",
+      "source_files": ["agent/common/sgpt.py"],
+      "description": "Full-Scan soll wiederaufnehmbar und nachvollziehbar werden.",
+      "acceptance_criteria": [
+        "architecture-plan.json wird vor dem ersten Batch geschrieben.",
+        "architecture-progress.json wird nach jedem Batch aktualisiert.",
+        "architecture-summary.json wird nach jeder Summary-Kompaktierung aktualisiert.",
+        "architecture-diagrams.md wird nach finaler Synthese geschrieben.",
+        "Alle Dateien liegen unter rag_helper/ oder .ananta/ und nicht irgendwo im Repo.",
+        "Teilweise fehlgeschlagene Laeufe enthalten status='partial' und last_successful_batch."
+      ]
+    },
+    {
+      "id": "AWAFS-013",
+      "title": "Support resume and idempotent rerun",
+      "type": "implementation",
+      "source_files": ["agent/common/sgpt.py"],
+      "description": "Lange Architekturlaeufe sollen nicht alles verlieren, wenn ein Batch scheitert.",
+      "acceptance_criteria": [
+        "Wenn architecture-progress.json existiert und plan_id passt, kann der Worker bereits verarbeitete Batches ueberspringen.",
+        "Rerun mit veraendertem Plan erzeugt einen neuen plan_id und vermischt keine alten Ergebnisse.",
+        "Batch IDs sind deterministisch aus Quellen und Ranges ableitbar.",
+        "Tests simulieren Abbruch nach Batch 2 und Resume ab Batch 3."
+      ]
+    },
+    {
+      "id": "AWAFS-014",
+      "title": "Add architecture-specific tests for sgpt iterative execution",
+      "type": "tests",
+      "source_files": ["tests/test_sgpt_route.py", "tests/test_ananta_worker_architecture_full_scan.py"],
+      "description": "Ergaenze Unit-/Integrationstests fuer den neuen Architekturmodus.",
+      "acceptance_criteria": [
+        "Test mit 10 geplanten Refs und files_per_batch=3 erzeugt 4 Analyse-Batches plus Synthese.",
+        "Test beweist, dass alle Refs in coverage.processed_refs auftauchen.",
+        "Test beweist, dass progress.md menschenlesbare Quelle je Schritt enthaelt.",
+        "Test beweist, dass architecture-summary.json valide JSON-Struktur hat.",
+        "Test beweist, dass der Synthese-Prompt Summary statt abgeschnittener Freitexthistorie nutzt.",
+        "Tests mocken run_sgpt_command deterministisch und brauchen kein echtes LLM."
+      ]
+    },
+    {
+      "id": "AWAFS-015",
+      "title": "Add regression test for Mermaid architecture request from AI-Snake",
+      "type": "tests",
+      "source_files": ["tests/test_codecompass_worker_retrieval_flags.py", "tests/test_snake_ask_full_scan.py"],
+      "description": "Simuliere die Nutzerfrage nach Mermaid-Diagrammen zum implementierten CodeCompass/Worker-Handoff.",
+      "acceptance_criteria": [
+        "Request an /snake/ask mit debug=true und Frage nach Mermaid Diagrammen zum implementierten CodeCompass Worker Handoff setzt analysis_mode='architecture_full_scan' oder aequivalente Trace-Info.",
+        "Trace zeigt repo Quellen im Plan.",
+        "Game-/Tutorial-/Terminal-Renderer Quellen sind nicht dominant, wenn negative/source policy dies ausschliesst.",
+        "Antwortpfad worker bleibt bevorzugt; hub_direct ist nur Fallback und im Trace sichtbar.",
+        "Test braucht keinen echten Worker, sondern mockt _worker_propose oder forward_to_worker."
+      ]
+    },
+    {
+      "id": "AWAFS-016",
+      "title": "Define source evidence rules for diagrams",
+      "type": "safety",
+      "source_files": ["agent/common/sgpt.py", "agent/services/context_bundle_service.py"],
+      "description": "Diagramme sollen nicht frei erfunden werden.",
+      "acceptance_criteria": [
+        "Jede Komponente im finalen Diagramm muss mindestens eine source_evidence Referenz haben oder als inferred markiert sein.",
+        "Edges zwischen Komponenten muessen relation evidence, import/call evidence oder Batch-Finding evidence tragen.",
+        "Inferred Edges werden im finalen Markdown separat gekennzeichnet.",
+        "Der Synthese-Prompt verbietet erfundene konkrete Dateipfade.",
+        "Tests pruefen, dass Komponenten ohne Evidence nicht als sichere Tatsache ausgegeben werden."
+      ]
+    },
+    {
+      "id": "AWAFS-017",
+      "title": "Add minimal architecture analysis docs",
+      "type": "documentation",
+      "source_files": ["docs/operations/ananta-worker-architecture-full-scan.md", "docs/operations/codecompass-worker-retrieval-flags.md"],
+      "description": "Dokumentiere Bedienung, Settings, Artefakte und Debugging.",
+      "acceptance_criteria": [
+        "Doku zeigt Beispiel-Fragen fuer schnellen Modus vs Full-Scan-Modus.",
+        "Doku zeigt Beispiel fuer architecture-plan.json und architecture-summary.json.",
+        "Doku erklaert, wie /snake/ask debug=true fuer Coverage genutzt wird.",
+        "Doku nennt Grenzen: lokale Modelle, Tokenbudget, Resume, Partial Results.",
+        "Doku verweist auf Settings und sichere Defaults."
+      ]
+    },
+    {
+      "id": "AWAFS-018",
+      "title": "Update existing todos with cross references",
+      "type": "maintenance",
+      "source_files": ["todos/todo.codecompass-relevant-snippet-handoff.json", "todos/todo.codecompass-retrieval-profile-source-policy.json", "todos/todo.master-implementation-roadmap.json"],
+      "description": "Verknuepfe diese Todo mit den bestehenden CodeCompass-/Profile-Todos, damit keine parallelen, widerspruechlichen Pfade entstehen.",
+      "acceptance_criteria": [
+        "Snippet-Handoff bleibt Grundlage fuer genaue Abschnitte.",
+        "RetrievalProfile/SourcePolicy bleibt Grundlage fuer Domain-/Source-Auswahl.",
+        "Diese Todo definiert den Vollanalyse-/Rolling-Summary-Layer darueber.",
+        "Master-Roadmap bekommt optional eine Referenz auf AWAFS.",
+        "Keine vorhandenen Tasks werden stillschweigend umdefiniert."
+      ]
+    }
+  ],
+  "acceptance_summary": [
+    "Eine Architekturdiagramm-Frage fuehrt nicht nur zu Top-N-RAG, sondern zu einem expliziten architecture_full_scan Plan.",
+    "Der Worker verarbeitet alle geplanten Quellen oder dokumentiert sauber, warum Quellen ausgelassen wurden.",
+    "Zwischenergebnisse werden strukturiert persistiert und bleiben ueber Kontextfenstergrenzen hinweg erhalten.",
+    "Finale Mermaid-/Markdown-Ergebnisse enthalten Quellenbezug und Coverage-Hinweis.",
+    "Schnelle AI-Snake-Chatfragen bleiben weiterhin leichtgewichtig und werden nicht automatisch zum Full-Scan.",
+    "Alle neuen Pfade sind durch deterministische Tests ohne echtes LLM abgesichert."
+  ],
+  "test_commands": [
+    "pytest tests/test_sgpt_route.py",
+    "pytest tests/test_ananta_worker_architecture_full_scan.py",
+    "pytest tests/test_snake_ask_full_scan.py",
+    "pytest tests/test_codecompass_worker_retrieval_flags.py"
+  ],
+  "notes": [
+    "Der neue Commit 2eb48668 mit Trace-Logging ist eine gute Basis, aber Trace muss fuer Full-Scan um Plan-/Coverage-Daten erweitert werden.",
+    "Der aktuelle sgpt.py Stand hat Snippet-/Line-Range-Handoff bereits deutlich verbessert; diese Todo baut bewusst darauf auf.",
+    "Fuer Architekturdiagramme ist Vollstaendigkeit wichtiger als maximale Score-Top-N-Praezision. RAG/CodeCompass soll den Scope planen, nicht alle nicht-top Treffer abschneiden."
+  ]
+}
