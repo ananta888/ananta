@@ -36,3 +36,15 @@ Der Worker nutzt inkrementelles, hybrides Retrieval statt Full-Repository-Prompt
 - Cache-Strategie bindet an `index_version`, `embedding_model_version`, `content_hash`
 - Latenz- und Qualitätsgrenzen werden profilbezogen interpretiert
 
+## Embedding Provider Configuration
+
+Der kanonische Provider-Contract ist in
+[`docs/worker/embedding-provider-config.md`](embedding-provider-config.md)
+dokumentiert. Kurzfassung:
+
+- Default ist `local_hash`, offline und deterministisch.
+- Externe/OpenAI-kompatible Embeddings benötigen `external_calls_allowed=true`.
+- `allowed_base_urls` wird gegen Scheme, Host, Port und Pfadgrenze geprüft.
+- Provider-, Modell- oder Dimensionswechsel invalidieren alte Vektoren oder
+  erzeugen einen degraded Status.
+- API-Key-Werte dürfen nicht in Index-State, Diagnostik oder Logs landen.
