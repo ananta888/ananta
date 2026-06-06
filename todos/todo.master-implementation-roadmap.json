@@ -304,7 +304,7 @@
       "task_ids": [
         "ROADMAP-005"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "ROADMAP-M3",
@@ -312,7 +312,7 @@
       "task_ids": [
         "ROADMAP-006"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "ROADMAP-M4",
@@ -468,10 +468,10 @@
       "title": "Phase 2: EPC Track vollständig abschließen (alle 20 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M2",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 95,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-002"
       ],
@@ -493,7 +493,8 @@
       ],
       "notes": [
         "Subtrack EPC ist 17/20 abgeschlossen; RHF-002 geschlossen, EPC-019/020 bleiben offen.",
-        "2026-06-06: EPC-001 und EPC-020 abgeschlossen; offen bleibt EPC-019 Benchmark-Profil."
+        "2026-06-06: EPC-001 und EPC-020 abgeschlossen; offen bleibt EPC-019 Benchmark-Profil.",
+        "2026-06-06: EPC Track vollständig abgeschlossen (20/20)."
       ]
     },
     {
@@ -501,10 +502,10 @@
       "title": "Phase 3: CWFH Track vollständig abschließen (alle 15 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M3",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 53,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-005",
         "ROADMAP-002"
@@ -531,7 +532,8 @@
         "Worker-v2 Payload-Tests weiterhin grün (Rückwärtskompatibilität)."
       ],
       "notes": [
-        "Subtrack CWFH ist 8/15 abgeschlossen; RHF-001 geschlossen, mehrere CWFH-Tasks bleiben offen."
+        "Subtrack CWFH ist 8/15 abgeschlossen; RHF-001 geschlossen, mehrere CWFH-Tasks bleiben offen.",
+        "2026-06-06: CWFH Track vollständig abgeschlossen (15/15)."
       ]
     },
     {
@@ -775,12 +777,12 @@
     "total": 12,
     "by_status": {
       "todo": 2,
-      "in_progress": 3,
+      "in_progress": 1,
       "partial": 0,
       "blocked": 0,
-      "done": 7
+      "done": 9
     },
-    "progress_percent_done": 58.3,
+    "progress_percent_done": 75.0,
     "by_priority": {
       "P0": 10,
       "P1": 2
@@ -792,15 +794,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 6,
-      "remaining": 4
+      "done": 8,
+      "remaining": 2
     },
     "milestones": {
       "total": 6,
       "todo": 1,
-      "in_progress": 3,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 2
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -864,16 +866,16 @@
       },
       "track-gate": {
         "total": 7,
-        "done": 4,
+        "done": 6,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 89.6,
+        "progress_percent": 97.0,
         "by_status": {
           "todo": 0,
-          "in_progress": 3,
+          "in_progress": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 4
+          "done": 6
         }
       },
       "track-partial-gate": {
@@ -895,12 +897,12 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 2,
-    "in_progress": 3,
+    "in_progress": 1,
     "partial": 0,
     "blocked": 0,
-    "done": 7,
+    "done": 9,
     "total": 12,
-    "progress_percent": 58.3
+    "progress_percent": 75.0
   },
   "summary_notes": [
     "Diese Master-Datei ist kein weiterer Feature-Track, sondern der Navigationsanker für alle 7 Sub-Tracks.",
@@ -916,7 +918,9 @@
     "SCTR-005 am 2026-06-06 implementiert; SCTR steht jetzt bei 5/8 Tasks, SCTR-006..008 bleiben offen.",
     "SCTR vollständig abgeschlossen am 2026-06-06: ROADMAP-010 ist done.",
     "EPC steht bei 19/20 Tasks; nur EPC-019 Benchmark-Profil bleibt offen.",
-    "AMR steht bei 19/24 Tasks; offene Tasks sind AMR-015, AMR-018, AMR-019, AMR-023, AMR-024."
+    "AMR steht bei 19/24 Tasks; offene Tasks sind AMR-015, AMR-018, AMR-019, AMR-023, AMR-024.",
+    "EPC vollständig abgeschlossen am 2026-06-06.",
+    "CWFH vollständig abgeschlossen am 2026-06-06."
   ],
   "end_summaries": [
     {
