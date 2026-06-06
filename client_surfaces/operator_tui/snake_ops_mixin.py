@@ -745,7 +745,8 @@ class SnakeOpsMixin:
         game["clipboard"] = copied
         if copied:
             self._copy_to_clipboard_bg(copied)
-        game["_copy_status_message"] = "ask copy: Antwort in Zwischenablage"
+        _nchars = len(copied)
+        game["_copy_status_message"] = f"ask copy: {_nchars} Zeichen in Zwischenablage"
 
     def _clear_selection_state(self, game: dict[str, object]) -> None:
         """Reset all mouse selection fields after a copy so stale state can't affect future ops."""
