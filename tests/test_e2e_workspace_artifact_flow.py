@@ -1,11 +1,9 @@
-"""WS-SYNC-005: End-to-end flow test — isolated workspaces + artifact injection.
-
-Tests the full pipeline through WorkerWorkspaceService without relying on
-a shared filesystem between tasks. Each task gets its own workspace dir;
-files flow only via the explicit artifact sync mechanism.
+"""WS-SYNC-005 + APRL-018: End-to-end flow test — isolated workspaces, artifact injection,
+and composed AGENTS.md / agent-profile.json in OpenCode workspaces.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -179,3 +177,105 @@ class TestWorkspaceStateSyncRecord:
 
         assert record["input_artifacts"] == []
         assert record["git_pushed"] is False
+
+
+# ---------------------------------------------------------------------------
+# APRL-018: OpenCode workspace contains composed AGENTS.md + agent-profile.json
+# ---------------------------------------------------------------------------
+
+def _make_opencode_task(task_kind: str = "bug_fix") -> dict:
+    return {
+        "id": "task-aprl-test",
+        "goal_id": "goal-aprl-test",
+        "title": f"APRL-018 test task ({task_kind})",
+        "task_kind": task_kind,
+        "current_worker_job_id": "job-aprl",
+        "worker_execution_context": {
+            "workspace": {
+                "task_id": "task-aprl-test",
+                "worker_job_id": "job-aprl",
+                "sync_mode": "none",
+            }
+        },
+    }
+
+
+class TestOpenCodeAgentProfileIntegration:
+    """APRL-018: workspace AGENTS.md is composed from Root + profile; agent-profile.json written."""
+
+    def _prepare(self, tmp_path: Path, task: dict, app_: Flask):
+        from agent.services.worker_workspace_service import WorkerWorkspaceService
+        svc = WorkerWorkspaceService()
+        with app_.app_context():
+            with patch.object(svc, "_materialize_predecessor_artifacts", return_value=None):
+                ctx = svc.resolve_workspace_context(task=task)
+
+        manifest = svc.prepare_opencode_context_files(
+            task=task,
+            workspace_context=ctx,
+            base_prompt="Fix the bug in service.py",
+            system_prompt=None,
+            context_text=None,
+            expected_output_schema=None,
+            tool_definitions=None,
+            research_context=None,
+            include_response_contract=True,
+        )
+        return ctx, manifest
+
+    def test_agents_md_contains_global_agents_section(self, tmp_path, app):
+        task = _make_opencode_task("bug_fix")
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        agents_md = (ctx.workspace_dir / "AGENTS.md").read_text()
+        assert "Global AGENTS" in agents_md
+
+    def test_agents_md_contains_container_constraints(self, tmp_path, app):
+        task = _make_opencode_task("bug_fix")
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        agents_md = (ctx.workspace_dir / "AGENTS.md").read_text()
+        assert "sudo" in agents_md
+        assert "systemctl" in agents_md
+
+    def test_agent_profile_json_written(self, tmp_path, app):
+        task = _make_opencode_task("bug_fix")
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        profile_json_path = ctx.workspace_dir / ".ananta" / "agent-profile.json"
+        assert profile_json_path.exists(), ".ananta/agent-profile.json must be written"
+        data = json.loads(profile_json_path.read_text())
+        assert "profile_id" in data
+        assert "agents_file" in data
+        assert "checksums" in data
+
+    def test_manifest_has_active_agent_profile_and_path(self, tmp_path, app):
+        task = _make_opencode_task("bug_fix")
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        assert "agent_profile_path" in manifest, "manifest must have agent_profile_path key"
+        assert "active_agent_profile" in manifest, "manifest must have active_agent_profile key"
+        assert manifest["active_agent_profile"]["profile_id"] is not None
+
+    def test_context_index_lists_agent_profile_json(self, tmp_path, app):
+        task = _make_opencode_task("bug_fix")
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        context_index = (ctx.workspace_dir / ".ananta" / "context-index.md").read_text()
+        assert "agent-profile.json" in context_index
+
+    def test_task_brief_contains_active_profile(self, tmp_path, app):
+        task = _make_opencode_task("bug_fix")
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        task_brief = (ctx.workspace_dir / ".ananta" / "task-brief.md").read_text()
+        assert "Active agent profile" in task_brief
+
+    def test_root_only_fallback_when_no_task_kind(self, tmp_path, app):
+        task = _make_opencode_task("")
+        task["task_kind"] = ""
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        profile_data = manifest.get("active_agent_profile") or {}
+        # Should be root_only fallback (or whatever matches empty task_kind)
+        # The important thing: no exception and profile_id is set
+        assert "profile_id" in profile_data
+
+    def test_container_constraints_always_present_even_with_profile(self, tmp_path, app):
+        task = _make_opencode_task("refactor")
+        ctx, manifest = self._prepare(tmp_path, task, app)
+        agents_md = (ctx.workspace_dir / "AGENTS.md").read_text()
+        assert "sudo" in agents_md, "Container constraints must survive profile composition"

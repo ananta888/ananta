@@ -1056,6 +1056,16 @@ class ChatMixin:
             "{depth_instruction}", depth_instruction
         ).replace("{project_name}", project_name)
 
+        # APRL-014: prepend ai_snake_chat AGENTS.md profile so Snake stays explain/navigate only
+        try:
+            from agent.services.agent_profile_service import get_agent_profile_service
+            _snake_profile = get_agent_profile_service().resolve_by_profile_id("ai_snake_chat")
+            if _snake_profile.profile_agents_content:
+                _profile_header = _snake_profile.profile_agents_content.strip()
+                system_content = f"{_profile_header}\n\n---\n\n{system_content}"
+        except Exception:
+            pass
+
         # Build message list: use pre-built messages from ChatPromptBuilder if available
         if _messages_override:
             messages = list(_messages_override)

@@ -12,9 +12,11 @@ from agent.services.instruction_stack_artifact_service import InstructionStackAr
 from agent.services.instruction_stack_artifact_service import get_instruction_stack_artifact_service
 from agent.services.task_template_resolution import resolve_task_role_template
 
-_LAYER_MODEL_VERSION = "instruction-layer-model-v1"
-_STACK_VERSION = "instruction-stack-v1"
-_PRECEDENCE = ["governance", "blueprint_template", "user_profile", "task_overlay", "task_input"]
+_LAYER_MODEL_VERSION = "instruction-layer-model-v2"
+_STACK_VERSION = "instruction-stack-v2"
+# APRL-010: agent_profile_template sits between governance and blueprint_template;
+# it is non-overridable and populated from AgentProfileService.
+_PRECEDENCE = ["governance", "agent_profile_template", "blueprint_template", "user_profile", "task_overlay", "task_input"]
 _ALLOWED_USER_INFLUENCE = {"style", "language", "detail_level", "working_mode", "formatting"}
 _FORBIDDEN_METADATA_KEYS = {
     "approval",
@@ -102,6 +104,7 @@ class InstructionLayerService:
             "version": _LAYER_MODEL_VERSION,
             "layers": [
                 {"id": "governance", "source": "hub_policy", "overridable": False},
+                {"id": "agent_profile_template", "source": "agent_profile_service", "overridable": False},
                 {"id": "blueprint_template", "source": "team_role_template", "overridable": False},
                 {"id": "user_profile", "source": "persistent_profile", "overridable": True},
                 {"id": "task_overlay", "source": "task_goal_session_overlay", "overridable": True},
@@ -596,8 +599,27 @@ class InstructionLayerService:
 
         role_template_context = resolve_task_role_template(task_payload, repos=get_repository_registry())
         role_template_prompt = str(role_template_context.get("template_prompt") or "").strip() or None
+
+        # APRL-010: resolve agent profile template layer (non-overridable)
+        from agent.services.agent_profile_service import get_agent_profile_service
+        _profile_result = get_agent_profile_service().resolve_for_task(task_payload)
+        agent_profile_prompt = _profile_result.composed_content.strip() or None
+
         if system_prompt:
             applied_layers.append({"layer": "governance", "source": "system_prompt"})
+        if agent_profile_prompt:
+            applied_layers.append(
+                {
+                    "layer": "agent_profile_template",
+                    "source": "agent_profile_service",
+                    "profile_id": _profile_result.profile_id,
+                    "agents_file": _profile_result.agents_file,
+                    "primary_role": _profile_result.primary_role,
+                    "activation_source": _profile_result.activation_source,
+                    "is_fallback": _profile_result.is_fallback,
+                    "checksums": dict(_profile_result.checksums),
+                }
+            )
         if role_template_prompt:
             applied_layers.append(
                 {
@@ -698,6 +720,8 @@ class InstructionLayerService:
         rendered_sections: list[str] = []
         if system_prompt:
             rendered_sections.append(system_prompt)
+        if agent_profile_prompt:
+            rendered_sections.append(f"[AGENT PROFILE: {_profile_result.profile_id}]\n{agent_profile_prompt}")
         if role_template_prompt:
             rendered_sections.append(f"[ROLE TEMPLATE]\n{role_template_prompt}")
         if render_profile:
@@ -726,6 +750,7 @@ class InstructionLayerService:
             "role_template_context": role_template_context,
             "template_compatibility": compatibility,
             "template_compatibility_enforcement": compatibility_enforcement,
+            "active_agent_profile": _profile_result.to_metadata(),
         }
         artifact = get_instruction_stack_artifact_service().build_artifact(
             task_id=diagnostics.get("task_id"),

@@ -19,12 +19,15 @@ codecompass_graph_bp = Blueprint("codecompass_graph", __name__)
 
 _GRAPH_INDEX_FILENAME = "cc_graph_index.json"
 
-_VALID_PROFILES = {
-    "bugfix_local",
-    "refactor_navigation",
-    "architecture_review",
-    "config_integration",
+# APRL-015: graph expansion profiles mapped to agent profile IDs where applicable.
+# Keys are the graph-expansion profile names; values are the corresponding agent profile_id.
+_PROFILE_TO_AGENT_PROFILE: dict[str, str] = {
+    "bugfix_local": "bug_fix",
+    "refactor_navigation": "refactor",
+    "architecture_review": "architecture_review",
+    "config_integration": "feature",
 }
+_VALID_PROFILES = set(_PROFILE_TO_AGENT_PROFILE.keys())
 
 
 def _knowledge_index_repo():
@@ -143,6 +146,16 @@ def expand_graph():
     expansion = expand_codecompass_graph(store=store, seed_node_ids=[seed_id], profile=profile)
     nodes = list(expansion.get("nodes") or [])
     paths = list(expansion.get("paths") or [])
+    # APRL-015: resolve agent profile metadata for this graph profile
+    agent_profile_meta: dict = {}
+    _agent_profile_id = _PROFILE_TO_AGENT_PROFILE.get(profile)
+    if _agent_profile_id:
+        try:
+            from agent.services.agent_profile_service import get_agent_profile_service
+            _ap = get_agent_profile_service().resolve_by_profile_id(_agent_profile_id)
+            agent_profile_meta = _ap.to_metadata()
+        except Exception:
+            pass
     return api_response(data={
         "schema": "domain_graph_artifact.v1",
         "source_kind": "codecompass_graph_expansion",
@@ -154,6 +167,7 @@ def expand_graph():
             "seed_node_id": seed_id,
             "profile": profile,
             "node_count": len(nodes),
+            "active_agent_profile": agent_profile_meta or None,
         },
         "warnings": [],
     })

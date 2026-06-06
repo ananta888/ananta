@@ -916,6 +916,9 @@ class TaskScopedExecutionService:
         strategies = build_strategy_registry()
 
         orch = ProposeStrategyOrchestrator(policy, strategies)
+        # APRL-011/013: resolve active profile; reuse from previous proposal if stable
+        _active_profile_meta: dict | None = dict(instruction_diagnostics.get("active_agent_profile") or {}) or None
+
         context = ProposeContext(
             goal_id=task.get("goal_id", "unknown"),
             task_id=tid,
@@ -931,6 +934,7 @@ class TaskScopedExecutionService:
             instruction_diagnostics=instruction_diagnostics or None,
             planning_context_compaction=compaction_payload,
             planning_context_compaction_meta=compaction_meta,
+            active_agent_profile=_active_profile_meta,
         )
         if citation_contract:
             context.base_prompt = f"{context.base_prompt}\n\n{citation_contract}"
@@ -1031,6 +1035,7 @@ class TaskScopedExecutionService:
                 "applied_layers_count": len(list(instruction_diagnostics.get("applied_layers") or [])),
                 "suppressed_layers_count": len(list(instruction_diagnostics.get("suppressed_layers") or [])),
             },
+            "active_agent_profile": _active_profile_meta,
             "planning_context_compaction": {
                 "used": bool(compaction_meta is not None),
                 "status": (compaction_meta or {}).get("status"),

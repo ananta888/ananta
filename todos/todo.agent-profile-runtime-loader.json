@@ -71,38 +71,65 @@
     {
       "id": "APRL-M1",
       "title": "Ist-Zustand und Contract klaeren",
-      "task_ids": ["APRL-001", "APRL-002"],
-      "status": "todo"
+      "task_ids": [
+        "APRL-001",
+        "APRL-002"
+      ],
+      "status": "done"
     },
     {
       "id": "APRL-M2",
       "title": "AgentProfileLoader implementieren",
-      "task_ids": ["APRL-003", "APRL-004", "APRL-005", "APRL-006"],
-      "status": "todo"
+      "task_ids": [
+        "APRL-003",
+        "APRL-004",
+        "APRL-005",
+        "APRL-006"
+      ],
+      "status": "done"
     },
     {
       "id": "APRL-M3",
       "title": "OpenCode Workspace-AGENTS.md aus Profilen generieren",
-      "task_ids": ["APRL-007", "APRL-008", "APRL-009"],
-      "status": "todo"
+      "task_ids": [
+        "APRL-007",
+        "APRL-008",
+        "APRL-009"
+      ],
+      "status": "done"
     },
     {
       "id": "APRL-M4",
       "title": "ananta-worker und Propose/Execute-Kontext verdrahten",
-      "task_ids": ["APRL-010", "APRL-011", "APRL-012", "APRL-013"],
-      "status": "todo"
+      "task_ids": [
+        "APRL-010",
+        "APRL-011",
+        "APRL-012",
+        "APRL-013"
+      ],
+      "status": "done"
     },
     {
       "id": "APRL-M5",
       "title": "AI-Snake-Chat und CodeCompass-Handoff absichern",
-      "task_ids": ["APRL-014", "APRL-015", "APRL-016"],
-      "status": "todo"
+      "task_ids": [
+        "APRL-014",
+        "APRL-015",
+        "APRL-016"
+      ],
+      "status": "done"
     },
     {
       "id": "APRL-M6",
       "title": "Tests, Diagnostik, Migration und Dokumentation",
-      "task_ids": ["APRL-017", "APRL-018", "APRL-019", "APRL-020", "APRL-021"],
-      "status": "todo"
+      "task_ids": [
+        "APRL-017",
+        "APRL-018",
+        "APRL-019",
+        "APRL-020",
+        "APRL-021"
+      ],
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -110,7 +137,7 @@
       "id": "APRL-001",
       "title": "Aktuelle AGENTS.md-/Profil-Verwendung im Code dokumentieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "low",
       "source_code_refs": [
@@ -132,7 +159,7 @@
       "id": "APRL-002",
       "title": "Profil-Contract fuer Standardpfade definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "medium",
       "source_code_refs": [
@@ -153,7 +180,7 @@
       "id": "APRL-003",
       "title": "AgentProfileService / AgentProfileLoader einfuehren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "medium",
       "source_code_refs": [
@@ -174,7 +201,7 @@
       "id": "APRL-004",
       "title": "Profil-Aufloesung aus Task-Daten implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "medium",
       "source_code_refs": [
@@ -196,7 +223,7 @@
       "id": "APRL-005",
       "title": "Profil-Komposition Root + lokal ohne Policy-Bypass definieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "high",
       "source_code_refs": [
@@ -217,7 +244,7 @@
       "id": "APRL-006",
       "title": "AgentProfileDiagnostics und Audit-Metadaten einfuehren",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "low",
       "source_code_refs": [
@@ -238,7 +265,7 @@
       "id": "APRL-007",
       "title": "WorkerWorkspaceService nutzt AgentProfileService fuer OpenCode-AGENTS.md",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "medium",
       "source_code_refs": [
@@ -258,7 +285,7 @@
       "id": "APRL-008",
       "title": "OpenCode-Workspace bekommt Profil-Metadaten-Datei",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "low",
       "source_code_refs": [
@@ -277,7 +304,7 @@
       "id": "APRL-009",
       "title": "OpenCode-Task-Brief referenziert aktives Profil",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2-medium",
       "risk": "low",
       "source_code_refs": [
@@ -295,7 +322,7 @@
       "id": "APRL-010",
       "title": "InstructionLayerService bekommt AGENTS.md-Profil als Blueprint-/Role-Layer",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "high",
       "source_code_refs": [
@@ -316,7 +343,7 @@
       "id": "APRL-011",
       "title": "ProposeContext mit aktivem Agent-Profil erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "medium",
       "source_code_refs": [
@@ -337,7 +364,7 @@
       "id": "APRL-012",
       "title": "ContextBundle um active_agent_profile erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "medium",
       "source_code_refs": [
@@ -358,7 +385,7 @@
       "id": "APRL-013",
       "title": "Propose/Execute-Loop nutzt Profil konsistent ueber mehrere Schritte",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "medium",
       "source_code_refs": [
@@ -378,7 +405,7 @@
       "id": "APRL-014",
       "title": "AI-Snake-Chat-Profil nur fuer Erklaeren/Navigieren aktivieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "medium",
       "source_code_refs": [
@@ -399,7 +426,7 @@
       "id": "APRL-015",
       "title": "CodeCompass-Handoff respektiert aktives Profil",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "medium",
       "source_code_refs": [
@@ -421,7 +448,7 @@
       "id": "APRL-016",
       "title": "WorkerContextRequest mit Profil- und Policy-Kontext verbinden",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "high",
       "source_code_refs": [
@@ -442,7 +469,7 @@
       "id": "APRL-017",
       "title": "Unit-Tests fuer AgentProfileService schreiben",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0-critical",
       "risk": "low",
       "source_code_refs": [
@@ -463,7 +490,7 @@
       "id": "APRL-018",
       "title": "OpenCode Workspace-Tests fuer komponierte AGENTS.md erweitern",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P1-high",
       "risk": "low",
       "source_code_refs": [
@@ -558,13 +585,13 @@
   "tasks_status_summary": {
     "total": 21,
     "by_status": {
-      "todo": 21,
+      "todo": 3,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 18
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 86,
     "by_priority": {
       "P0-critical": 6,
       "P1-high": 11,
@@ -579,15 +606,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 0,
-      "remaining": 10
+      "done": 9,
+      "remaining": 1
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -604,12 +631,12 @@
     }
   },
   "progress_summary": {
-    "state": "planned",
-    "todo_remaining": 21,
+    "state": "in_progress",
+    "todo_remaining": 3,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 18
   },
   "summary_notes": [
     "Diese Todo ersetzt keine sofortige Runtime-Aenderung, sondern beschreibt die saubere Implementierung der Profil-Verdrahtung.",
