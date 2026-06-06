@@ -338,7 +338,7 @@
     {
       "id": "EPC-008",
       "title": "Semantic Output Correction auf zentralen Config-Service umstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "integration",
@@ -354,12 +354,13 @@
         "Provider-Diagnostics werden im Correction-Report sichtbar.",
         "Bei Provider-Ausfall bleibt Payload unverändert und reason ist embedding_provider_unavailable.",
         "Bestehende Tests bleiben grün."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-009",
       "title": "CodeCompass Vector Engine an zentrale Provider-Auflösung anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -375,7 +376,8 @@
         "Provider-Metadaten landen im Vector-Index-State.",
         "Fehler beim Provider führen zu degraded Retrieval statt Crash.",
         "Tests prüfen lokale Hash-Konfiguration und OpenAI-kompatible Mock-Konfiguration."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-010",
@@ -552,7 +554,7 @@
     {
       "id": "EPC-018",
       "title": "CodeCompass-Integrationstests für Embedding-Konfiguration schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "tests",
@@ -568,7 +570,8 @@
         "Test: Provider-Wechsel invalidiert alten Vector-Index.",
         "Test: Dimensions-Mismatch erzeugt degraded Diagnostic.",
         "Test: Suche bleibt bei Provider-Ausfall ohne Crash."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "EPC-019",

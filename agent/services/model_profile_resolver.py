@@ -162,6 +162,28 @@ class RoutingRules:
         return rules
 
 
+class ProviderHealthCache:
+    """Simple in-memory cache for provider availability (AMR-017)."""
+
+    def __init__(self) -> None:
+        self._unavailable: dict[str, float] = {}
+        self._ttl_seconds: float = 60.0
+
+    def mark_unavailable(self, provider_id: str) -> None:
+        import time
+        self._unavailable[provider_id] = time.time()
+
+    def is_available(self, provider_id: str) -> bool:
+        import time
+        last_fail = self._unavailable.get(provider_id)
+        if last_fail is None:
+            return True
+        return (time.time() - last_fail) > self._ttl_seconds
+
+    def reset(self, provider_id: str) -> None:
+        self._unavailable.pop(provider_id, None)
+
+
 class ModelProfileResolver:
     """
     Deterministic, traceable profile resolver.
@@ -174,11 +196,13 @@ class ModelProfileResolver:
         profiles: list[ModelProfile],
         security_policy: SecurityPolicyChecker | None = None,
         routing_rules: RoutingRules | None = None,
+        health_cache: ProviderHealthCache | None = None,
     ):
         self._by_id: dict[str, ModelProfile] = {p.profile_id: p for p in profiles if p.enabled}
         self._all_enabled: list[ModelProfile] = [p for p in profiles if p.enabled]
         self.security = security_policy or SecurityPolicyChecker()
         self.rules = routing_rules or RoutingRules()
+        self.health = health_cache or ProviderHealthCache()
 
     def resolve(self, ctx: RoutingContext) -> ResolutionResult:
         decisions: list[ResolutionDecision] = []
@@ -312,8 +336,55 @@ class ModelProfileResolver:
                     ResolutionDecision(10, "capability_match", prof.profile_id, False, cap_reason)
                 )
                 continue
+            if not self.health.is_available(prof.provider_id):
+                decisions.append(
+                    ResolutionDecision(10, "capability_match", prof.profile_id, False,
+                                       f"provider_health:unavailable:{prof.provider_id}")
+                )
+                continue
             decisions.append(
                 ResolutionDecision(10, "capability_match", prof.profile_id, True, "best_capability_match")
             )
             return prof
         return None
+
+    def resolve_with_fallback(
+        self,
+        ctx: RoutingContext,
+        *,
+        legacy_provider: str = "lmstudio",
+        legacy_model: str = "auto",
+    ) -> tuple[ResolutionResult, dict[str, str]]:
+        """
+        AMR-017: Resolve with graceful degradation to legacy provider/model.
+
+        Returns (result, fallback_info). fallback_info is empty if resolver succeeded.
+        fallback_info keys: legacy_provider, legacy_model, reason.
+        """
+        result = self.resolve(ctx)
+        if result.ok:
+            return result, {}
+
+        # Exhausted all profiles — degrade to legacy
+        fallback_info = {
+            "legacy_provider": legacy_provider,
+            "legacy_model": legacy_model,
+            "reason": "no_profile_resolved:degraded_to_legacy_provider_model",
+        }
+        logger.warning(
+            "model_profile_resolver: no profile resolved for ctx=%s, falling back to %s/%s",
+            ctx.model_role,
+            legacy_provider,
+            legacy_model,
+        )
+        return result, fallback_info
+
+    def report_provider_failure(self, provider_id: str) -> None:
+        """AMR-017: Called after a provider request fails; marks it temporarily unavailable."""
+        self.health.mark_unavailable(provider_id)
+        logger.warning("model_profile_resolver: provider marked unavailable: %s", provider_id)
+
+    def report_provider_recovery(self, provider_id: str) -> None:
+        """AMR-017: Called when a provider recovers."""
+        self.health.reset(provider_id)
+        logger.info("model_profile_resolver: provider recovered: %s", provider_id)

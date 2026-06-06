@@ -281,6 +281,72 @@ def get_config_profile(profile_id: str):
     return api_response(data=profile)
 
 
+@read_models_bp.route("/config/model-routing/read-model", methods=["GET"])
+@check_auth
+def model_routing_read_model():
+    """AMR-014: Read-model for current model routing state."""
+    import os
+    agent_cfg = dict(current_app.config.get("AGENT_CONFIG") or {})
+    legacy_provider = str(agent_cfg.get("default_provider") or os.environ.get("DEFAULT_PROVIDER") or "lmstudio").strip()
+    legacy_model = str(agent_cfg.get("default_model") or os.environ.get("DEFAULT_MODEL") or "auto").strip()
+
+    profiles_info: dict = {"status": "not_configured", "count": 0, "profiles": []}
+    resolver_info: dict = {"status": "not_configured"}
+
+    try:
+        from agent.services.model_invocation_service import ModelInvocationService
+        resolver = ModelInvocationService._get_resolver()
+        if resolver is not None:
+            profiles = list(resolver._all_enabled)
+            profiles_info = {
+                "status": "loaded",
+                "count": len(profiles),
+                "profiles": [
+                    {
+                        "profile_id": p.profile_id,
+                        "provider_id": p.provider_id,
+                        "model": p.model,
+                        "model_role": p.model_role,
+                        "local": p.local,
+                        "cloud": p.cloud,
+                        "cloud_allowed": p.cloud_allowed,
+                        "block_secret_context": p.block_secret_context,
+                        "enabled": p.enabled,
+                    }
+                    for p in profiles
+                ],
+            }
+            resolver_info = {"status": "ready", "rules_source": "MODEL_PROFILES_PATH"}
+    except Exception as exc:
+        resolver_info = {"status": "error", "reason": str(exc)}
+
+    try:
+        from agent.services.template_model_policy_service import TemplateModelPolicyService
+        template_policies = [
+            {"template_id": p.template_id, "profile_id": p.preferred_profile_id, "source": p.source}
+            for p in TemplateModelPolicyService.build_from_app_config(agent_cfg).all_policies()
+        ]
+    except Exception:
+        template_policies = []
+
+    legacy_info = {
+        "default_provider": legacy_provider,
+        "default_model": legacy_model,
+        "legacy_active": profiles_info["status"] != "loaded",
+        "deprecation_hint": (
+            "Set MODEL_PROFILES_PATH to a model_profiles YAML/JSON file to enable profile-based routing."
+            if profiles_info["status"] != "loaded" else None
+        ),
+    }
+
+    return api_response(data={
+        "profiles": profiles_info,
+        "resolver": resolver_info,
+        "template_policies": template_policies,
+        "legacy": legacy_info,
+    })
+
+
 @read_models_bp.route("/diagnostics/embedding-provider", methods=["GET"])
 @check_auth
 def embedding_provider_diagnostics():

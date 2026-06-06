@@ -16,6 +16,51 @@ OUTPUT_FILENAME_BY_KEY = {
     "graph_edges": "graph_edges.jsonl",
 }
 
+# CWFH-002: Canonical field priority for extracting the relative file path from each record type.
+# First matching non-empty field wins.
+_FILE_PATH_FIELD_PRIORITY: dict[str, list[str]] = {
+    "index":       ["path", "file", "relative_path", "source"],
+    "details":     ["path", "file", "relative_path", "source"],
+    "context":     ["path", "file", "relative_path", "source", "context_file"],
+    "embedding":   ["path", "file", "relative_path", "source"],
+    "relations":   ["source_path", "path", "file", "from_path"],
+    "graph_nodes": ["path", "file", "source_path", "relative_path"],
+    "graph_edges": ["source_path", "target_path", "path", "from_path"],
+}
+
+_DEFAULT_FILE_PATH_FIELDS = ["path", "file", "relative_path", "source"]
+
+
+def extract_file_path_from_record(
+    record: dict[str, Any],
+    output_kind: str = "index",
+) -> str | None:
+    """
+    CWFH-002: Extract the canonical relative file path from a CodeCompass output record.
+
+    Returns the first non-empty value from the priority field list for the given output_kind,
+    or None if no path can be determined. Never returns absolute paths (strips leading '/').
+    """
+    fields = _FILE_PATH_FIELD_PRIORITY.get(output_kind, _DEFAULT_FILE_PATH_FIELDS)
+    for field in fields:
+        raw = record.get(field)
+        if not raw:
+            continue
+        path = str(raw).strip()
+        if not path:
+            continue
+        # Strip leading slash to ensure relative paths
+        path = path.lstrip("/")
+        if path:
+            return path
+    # Also try provenance
+    prov = record.get("_provenance")
+    if isinstance(prov, dict):
+        raw = prov.get("file") or prov.get("path")
+        if raw:
+            return str(raw).strip().lstrip("/") or None
+    return None
+
 
 @dataclass(frozen=True)
 class ReaderDiagnostics:

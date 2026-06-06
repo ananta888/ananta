@@ -532,10 +532,10 @@
       "title": "Phase 4a: AMR Track M1-M3 abschließen (Schicht-1, parallel zu CWFH)",
       "type": "track-partial-gate",
       "milestone": "ROADMAP-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-001"
       ],
@@ -565,10 +565,10 @@
       "title": "Phase 4b: MPM Track nach AMR-M3 abschließen (alle 3 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-007"
       ],

@@ -93,7 +93,7 @@
         "AMR-012",
         "AMR-013"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -111,7 +111,7 @@
         "AMR-016",
         "AMR-017"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M7",
@@ -458,10 +458,10 @@
       "title": "TaskRoutingContract und Responses erweitern",
       "type": "backend",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-010"
       ],
@@ -488,10 +488,10 @@
       "title": "Blueprint Role config um model_policy erweitern",
       "type": "blueprint",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-009",
         "AMR-011"
@@ -521,10 +521,10 @@
       "title": "Template model_policy einführen",
       "type": "backend",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-009",
         "AMR-011"
@@ -554,10 +554,10 @@
       "title": "Zentrale Config-API und Read-Models erweitern",
       "type": "api",
       "milestone": "M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-011",
         "AMR-012",
@@ -621,10 +621,10 @@
       "title": "Policy-first Secret/Cloud Enforcement absichern",
       "type": "security",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-008",
         "AMR-010",
@@ -656,10 +656,10 @@
       "title": "Fallback- und Provider-Ausfallverhalten implementieren",
       "type": "backend",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-010",
         "AMR-016"
@@ -757,10 +757,10 @@
       "title": "Migration und Backwards Compatibility absichern",
       "type": "migration",
       "milestone": "M8",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-007",
         "AMR-010",
@@ -792,10 +792,10 @@
       "title": "End-to-End Tests für Modellrouting ergänzen",
       "type": "e2e",
       "milestone": "M8",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-016",
         "AMR-017",
