@@ -1767,7 +1767,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         )
         game_out = dict(next_state.header_logo_game or game)
         game_out["visual_viewport_enabled"] = True
-        game_out["visual_viewport"] = {"enabled": True}
         self._set_state(next_state.with_updates(
             header_logo_game=game_out,
             status_message="lange Chatnachricht: Originalausgabe",

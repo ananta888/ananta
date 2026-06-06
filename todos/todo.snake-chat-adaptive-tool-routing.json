@@ -46,6 +46,8 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
+      "cross_track_dependencies": ["AMR-001", "AMR-002"],
+      "cross_track_note": "Das Routing-Entscheidungsmodell (simple_tool/rag_required/llm_required/blocked_by_policy) muss mit der AMR-Routing-Taxonomie (ModelRole/Blueprint-Zuordnung) kompatibel sein. AMR-001/002 Bestandsaufnahme zuerst, dann SCTR-001 definieren.",
       "target_files": [
         "docs/**/snake*.md",
         "docs/**/tool-routing*.md",
@@ -74,6 +76,8 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
+      "cross_track_dependencies": ["AMR-016"],
+      "cross_track_note": "AMR-016 implementiert Security Enforcement für Model-Routing (Cloud-Policy). Die SCTR-002 Policy-Regeln müssen mit dem AMR-Security-Framework konsistent sein — PolicyGuard-Konzept ist in AMR bereits definiert.",
       "target_files": [
         "agent/**/policy*.py",
         "agent/**/tool*.py",
@@ -135,6 +139,8 @@
       "risk": "high",
       "progress_percent": 0,
       "dependencies": ["SCTR-001", "SCTR-002", "SCTR-003"],
+      "cross_track_dependencies": ["CWFH-007"],
+      "cross_track_note": "SnakeChatCommandRouter muss wissen, wann er einen strukturierten Worker-Payload (CWFH-007 worker_context_handoff.v3) statt einem direkten Tool-Call auslöst. Ohne CWFH-007 kann der Router nicht zwischen simple_tool und worker_required unterscheiden.",
       "target_files": [
         "agent/**/snake_chat_command_router.py",
         "agent/**/snake*.py",
@@ -166,6 +172,8 @@
       "risk": "medium",
       "progress_percent": 0,
       "dependencies": ["SCTR-004"],
+      "cross_track_dependencies": ["CWFH-010"],
+      "cross_track_note": "TodoReadTool muss mit WorkerContextRequest-Contracts (CWFH-010) kompatibel sein — Worker könnten Todo-Informationen als Kontext über Hub nachfordern. Schnittstelle abstimmen.",
       "target_files": [
         "agent/**/git_read_tool.py",
         "agent/**/todo_read_tool.py",

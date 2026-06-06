@@ -1,6 +1,7 @@
 {
+  "$schema": "./todo.track.schema.json",
   "version": "1.0",
-  "owner": "Peter Stuiber",
+  "owner": "Peter Stuiber / Ananta",
   "track": "embedding-provider-rag-codecompass-config",
   "purpose": "Feingranulare Verbesserungs-TODO für eine zentrale, sichere und testbare Embedding-Konfiguration in Ananta. Ziel ist, Embeddings nicht nur punktuell in semantic_output_correction, sondern sauber für Worker Retrieval, CodeCompass Vector Store, RAG Helper und spätere lokale Open-Source-Modelle konfigurierbar zu machen.",
   "goal": "Ananta soll einen kanonischen EmbeddingProvider-Config-Pfad erhalten, der deterministische Fallbacks, echte lokale/OpenAI-kompatible Embedding-Endpunkte, Index-Versionierung, Rebuild-Regeln, Diagnostik und Tests sauber verbindet. Default muss sicher, reproduzierbar und ohne heimliche externe Calls bleiben.",

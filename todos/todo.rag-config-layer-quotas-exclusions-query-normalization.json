@@ -234,6 +234,8 @@
       "dependencies": [
         "RCFG-004"
       ],
+      "cross_track_overlap": "RTS-003",
+      "cross_track_note": "RTS-003 (todo.rag-query-translation-strategies-de-en.json) implementiert dasselbe Feature umfangreicher (Glossary-Erweiterung, EN→DE, Mixed-Code-Query) in derselben Zieldatei. Koordination über ROADMAP-003 nötig. Optionen: (a) RCFG-005 implementiert Basis-Mapping, RTS-003 baut drauf auf; (b) RCFG-005 wird status=done via RTS-003 markiert sobald RTS-003 abgeschlossen ist. Kein paralleles unkoordiniertes Schreiben.",
       "target_files": [
         "agent/**/rag_query_normalizer.py",
         "tests/**/test_*rag*query*normalizer*.py"
