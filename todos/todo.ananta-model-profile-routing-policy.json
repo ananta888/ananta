@@ -102,7 +102,7 @@
         "AMR-014",
         "AMR-015"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -120,7 +120,7 @@
         "AMR-018",
         "AMR-019"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M8",
@@ -139,7 +139,7 @@
         "AMR-023",
         "AMR-024"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -588,10 +588,10 @@
       "title": "Dashboard/UI Modellmatrix ergänzen",
       "type": "frontend",
       "milestone": "M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-014"
       ],
@@ -614,7 +614,9 @@
         "Angular Unit-Test rendert blocked_candidates und policy_decisions.",
         "Bestehende Dashboard-Tests bleiben grün."
       ],
-      "notes": []
+      "notes": [
+        "2026-06-06: Dashboard-Readmodel und Angular Dashboard zeigen Modellrouting-Matrix, Profil-Details mit Secret-Redaction, blocked_candidates und policy_decisions read-only."
+      ]
     },
     {
       "id": "AMR-016",
@@ -691,10 +693,10 @@
       "title": "Benchmarks und Learning Loop an Profile anbinden",
       "type": "backend",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-008",
         "AMR-017"
@@ -717,17 +719,19 @@
         "Unit-Test: Benchmark versucht Cloud-Profil, wird aber bei Secret blockiert.",
         "Regression-Test für bestehende benchmark_retention und benchmark_identity_precedence bleibt grün."
       ],
-      "notes": []
+      "notes": [
+        "2026-06-06: Benchmark-Samples speichern profile_id; Benchmark-Ranking sortiert nur bereits erlaubte Profile und überschreibt keine Security-Policy."
+      ]
     },
     {
       "id": "AMR-019",
       "title": "OpenCode und externe Worker mit Model Profiles verbinden",
       "type": "worker",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-008",
         "AMR-014"
@@ -752,7 +756,9 @@
         "Integrationstest für three-worker-local-planning Erwartungen bleibt grün oder wird auf Profile erweitert.",
         "Security-Test blockiert Remote Worker bei nicht erlaubtem Secret-Kontext."
       ],
-      "notes": []
+      "notes": [
+        "2026-06-06: OpenCode runtime akzeptiert target_profile/target_model; Worker runtime_targets koennen Profile referenzieren; RoutingDecisionService blockiert Secret-Kontext fuer Remote/Cloud-Targets."
+      ]
     },
     {
       "id": "AMR-020",
@@ -859,10 +865,10 @@
       "title": "Optional: Schreibbare UI/API für Profile vorbereiten, aber nicht unkontrolliert aktivieren",
       "type": "frontend-api",
       "milestone": "M9",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-014",
         "AMR-015"
@@ -885,17 +891,19 @@
         "Test prüft Audit Event bei Änderung.",
         "Test prüft, dass api_key_env erlaubt ist, echte api_key-Werte aber nicht zurückgegeben werden."
       ],
-      "notes": []
+      "notes": [
+        "2026-06-06: Writable Profile Admin API als read-only-by-default Entwurf dokumentiert; Admin/Review, Validierung, Audit und Secret-Redaction festgelegt."
+      ]
     },
     {
       "id": "AMR-024",
       "title": "Abschlussreview, Konsolidierung und Archivierungsentscheidung",
       "type": "review",
       "milestone": "M9",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-021",
         "AMR-022"
@@ -917,7 +925,9 @@
         "Schema-Validierung aller Beispiel-Dateien.",
         "Manueller Dry-Run mit Mock-Provider für Planning/Coding/Review."
       ],
-      "notes": []
+      "notes": [
+        "2026-06-06: Abschlussreview lokal unter test-reports/model-routing-final-review.md erstellt; relevante Backend- und Frontend-Tests dokumentiert und ausgefuehrt."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -936,13 +946,13 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 19
+      "done": 24
     },
-    "progress_percent_done": 79.2,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 13,
       "P1": 8,
@@ -956,15 +966,15 @@
     },
     "critical_path": {
       "total": 11,
-      "done": 10,
-      "remaining": 1
+      "done": 11,
+      "remaining": 0
     },
     "milestones": {
       "total": 9,
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 6
+      "done": 9
     }
   },
   "tasks_type_summary": {
@@ -1183,21 +1193,22 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 5,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 19,
+    "done": 24,
     "total": 24,
-    "progress_percent": 79.2
+    "progress_percent": 100.0
   },
   "summary_notes": [
     "Diese TODO-Datei ist bewusst umfangreich, weil das Modellrouting ein Kernstück von Ananta wird und nicht nur eine DEFAULT_MODEL-Erweiterung ist.",
     "Die Umsetzung hat zuerst Schemas, Resolver und Policy-Sicherheit stabilisiert, bevor UI-Schreibfunktionen aktiviert werden.",
     "18 von 24 Tasks abgeschlossen: Loader, Resolver, Normalisierung, Blueprint/Template-Policy, Invocation-Service-Integration, Diagnose-Endpoint, Security- und E2E-Tests.",
     "Offen (P2/P3 oder Spätprojekte): AMR-015 (Dashboard/UI), AMR-018 (Benchmarks), AMR-019 (OpenCode/externe Worker), AMR-022 (Operator-Doku), AMR-023 (Writable UI), AMR-024 (Final Review).",
-    "AMR-022 abgeschlossen: Operator Guide und Migration Guide für Model Routing ergänzt."
+    "AMR-022 abgeschlossen: Operator Guide und Migration Guide für Model Routing ergänzt.",
+    "2026-06-06: AMR-015/018/019/023/024 abgeschlossen; AMR Track vollstaendig done."
   ],
   "end_summaries": [
     {
@@ -1245,6 +1256,22 @@
         "AMR-024"
       ],
       "all_tests_green": true
+    },
+    {
+      "date": "2026-06-06",
+      "session": "AMR Abschluss M5-M9",
+      "implemented": [
+        "Dashboard-Readmodel und Angular Dashboard zeigen Modellrouting-Matrix, Profil-Details mit Secret-Redaction, blocked_candidates und policy_decisions read-only.",
+        "Benchmark-Samples speichern profile_id; Benchmark-Ranking sortiert nur bereits erlaubte Profile und überschreibt keine Security-Policy.",
+        "OpenCode runtime akzeptiert target_profile/target_model; Worker runtime_targets koennen Profile referenzieren; RoutingDecisionService blockiert Secret-Kontext fuer Remote/Cloud-Targets.",
+        "Writable Profile Admin API als read-only-by-default Entwurf dokumentiert; Admin/Review, Validierung, Audit und Secret-Redaction festgelegt.",
+        "Abschlussreview lokal unter test-reports/model-routing-final-review.md erstellt; relevante Backend- und Frontend-Tests dokumentiert und ausgefuehrt."
+      ],
+      "tests": [
+        "pytest -q tests/test_model_profile_benchmark_routing.py tests/test_worker_model_profile_routing.py tests/test_system_integration_planning_pipeline.py tests/test_model_profile_resolver.py tests/test_routing_decision_service.py tests/test_cwfh_handoff_services.py",
+        "pytest -q tests/test_config_api.py::test_set_config_validates_opencode_execution_mode",
+        "npm run test:unit -- dashboard.component.spec.ts"
+      ]
     }
   ]
 }

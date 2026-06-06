@@ -18,6 +18,7 @@ import {
   HubCopilotStatus,
   LlmEffectiveRuntime,
   LlmModelReference,
+  ModelRoutingReadModel,
   ResearchBackendStatus,
   RoleEntry,
   RuntimeTelemetry,
@@ -71,6 +72,7 @@ export class DashboardFacade {
   artifactFlowStatus: ArtifactFlowStatus | null = null;
   researchBackendStatus: ResearchBackendStatus | null = null;
   runtimeTelemetry: RuntimeTelemetry | null = null;
+  modelRouting: ModelRoutingReadModel | null = null;
   taskTimeline: TimelineEvent[] = [];
   benchmarkTaskKind: BenchmarkTaskKind = 'analysis';
 
@@ -227,6 +229,7 @@ export class DashboardFacade {
     this.artifactFlowStatus = rm?.llm_configuration?.artifact_flow ?? null;
     this.researchBackendStatus = rm?.llm_configuration?.research_backend ?? null;
     this.runtimeTelemetry = rm?.llm_configuration?.runtime_telemetry ?? null;
+    this.modelRouting = rm?.llm_configuration?.model_routing ?? null;
     this.activeTeam = this.teams.find(t => t.is_active) ?? null;
     const recentTasks = (sharedTasks as Array<{ id: string; status?: string; updated_at?: number; created_at?: number }>)
       .slice()

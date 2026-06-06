@@ -216,11 +216,15 @@ def set_config():
         target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
         if target_provider not in {None, "ollama", "lmstudio"}:
             return api_response(status="error", message="invalid_opencode_target_provider", code=400)
+        target_profile = str(opencode_runtime_cfg.get("target_profile") or "").strip() or None
+        target_model = str(opencode_runtime_cfg.get("target_model") or opencode_runtime_cfg.get("model") or "").strip() or None
         new_cfg["opencode_runtime"] = {
             "tool_mode": tool_mode,
             "execution_mode": execution_mode,
             "interactive_launch_mode": interactive_launch_mode,
+            "target_profile": target_profile,
             "target_provider": target_provider,
+            "target_model": target_model,
         }
     if "worker_runtime" in new_cfg:
         worker_runtime_cfg = new_cfg.get("worker_runtime")

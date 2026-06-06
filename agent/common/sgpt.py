@@ -1013,7 +1013,21 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
     tool_mode = _normalize_opencode_tool_mode(opencode_runtime_cfg.get("tool_mode"))
     execution_mode = _normalize_opencode_execution_mode(opencode_runtime_cfg.get("execution_mode"))
+    target_profile = str(opencode_runtime_cfg.get("target_profile") or "").strip() or None
     forced_target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
+    forced_target_model = str(opencode_runtime_cfg.get("target_model") or opencode_runtime_cfg.get("model") or "").strip() or None
+    resolved_profile = None
+    if target_profile:
+        try:
+            from agent.services.model_invocation_service import ModelInvocationService
+
+            resolver = ModelInvocationService._get_resolver()
+            resolved_profile = (getattr(resolver, "_by_id", {}) or {}).get(target_profile) if resolver is not None else None
+            if resolved_profile is not None:
+                forced_target_provider = str(getattr(resolved_profile, "provider_id", "") or "").strip().lower() or forced_target_provider
+                forced_target_model = str(getattr(resolved_profile, "model", "") or "").strip() or forced_target_model
+        except Exception:
+            resolved_profile = None
     # "native" or any OpenCode built-in provider name → let OpenCode use its own auth (e.g. Big Pickle).
     # "ollama" / "lmstudio" → inject a local OpenAI-compatible provider config.
     # anything else → discard (unknown provider).
@@ -1024,7 +1038,8 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     elif forced_target_provider not in {"ollama", "lmstudio"}:
         forced_target_provider = None
     configured_default_model = (
-        str(agent_cfg.get("opencode_default_model") or "").strip()
+        forced_target_model
+        or str(agent_cfg.get("opencode_default_model") or "").strip()
         or str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip()
         or str(settings.opencode_default_model or "").strip()
     )
@@ -1149,6 +1164,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     diagnostics = _build_opencode_runtime_diagnostics(base_url=base_url) if (target_provider in {"ollama", "lmstudio"} or local_target) else []
     return {
         "model": cli_model,
+        "target_profile": target_profile,
         "target_provider": target_provider,
         "target_model": target_model,
         "base_url": base_url,

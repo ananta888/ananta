@@ -21,6 +21,100 @@ from agent.services.task_state_machine_service import build_task_state_machine_c
 class ConfigReadModelService:
     """Read-model builders for assistant and dashboard configuration views."""
 
+    def _build_model_routing_read_model(self, cfg: dict, *, task_kind: str) -> dict:
+        try:
+            from agent.services.model_invocation_service import ModelInvocationService
+            from agent.services.model_profile_resolver import RoutingContext
+
+            resolver = ModelInvocationService._get_resolver()
+        except Exception as exc:
+            return {"status": "error", "reason": str(exc), "profiles": [], "matrix": [], "effective_winner": None}
+        if resolver is None:
+            return {
+                "status": "not_configured",
+                "profiles": [],
+                "matrix": [],
+                "effective_winner": None,
+                "legacy": {
+                    "default_provider": (cfg or {}).get("default_provider"),
+                    "default_model": (cfg or {}).get("default_model"),
+                },
+            }
+
+        profiles = list(getattr(resolver, "_all_enabled", []) or [])
+
+        def _profile_row(profile) -> dict:
+            return {
+                "profile_id": profile.profile_id,
+                "provider_id": profile.provider_id,
+                "model": profile.model,
+                "endpoint": profile.base_url,
+                "model_role": profile.model_role,
+                "context_tokens": profile.context_tokens,
+                "cost_class": profile.cost_class,
+                "quality_class": profile.quality_class,
+                "cloud_allowed": profile.cloud_allowed,
+                "block_secret_context": profile.block_secret_context,
+                "api_key_env": profile.api_key_env,
+                "api_key_redacted": True if profile.api_key_env else None,
+                "capabilities": {
+                    "tools": bool(profile.supports_tools),
+                    "json": bool(profile.supports_json),
+                    "streaming": bool(profile.supports_streaming),
+                },
+            }
+
+        roles = sorted({str(p.model_role or "any") for p in profiles} | {"planner", "coder", "reviewer", "summarizer"})
+        matrix = []
+        for role in roles:
+            result = resolver.resolve(RoutingContext(model_role=role, task_kind=task_kind))
+            selected = result.profile
+            matrix.append(
+                {
+                    "task_kind": task_kind,
+                    "model_role": role,
+                    "primary": selected.profile_id if selected else None,
+                    "fallbacks": list(getattr(resolver.rules, "fallback_chain", []) or []),
+                    "cloud_allowed": bool(selected.cloud_allowed) if selected else False,
+                    "secret_allowed": bool(selected.is_usable_with_secrets()) if selected else False,
+                    "supports_tools": bool(selected.supports_tools) if selected else False,
+                    "supports_json": bool(selected.supports_json) if selected else False,
+                    "final_source": result.final_source,
+                    "policy_decisions": [
+                        {
+                            "rank": decision.rank,
+                            "source": decision.source,
+                            "profile_id": decision.profile_id,
+                            "accepted": decision.accepted,
+                            "reason": decision.reason,
+                        }
+                        for decision in result.decisions
+                    ],
+                    "blocked_candidates": [
+                        {"profile_id": profile_id, "reason": reason}
+                        for profile_id, reason in result.blocked_candidates
+                    ],
+                }
+            )
+        winner = resolver.resolve(RoutingContext(model_role="planner", task_kind=task_kind))
+        return {
+            "status": "loaded",
+            "profiles": [_profile_row(profile) for profile in profiles],
+            "matrix": matrix,
+            "benchmark_ranking": resolver.benchmark_ranking_read_model() if hasattr(resolver, "benchmark_ranking_read_model") else {},
+            "effective_winner": {
+                "profile_id": winner.profile.profile_id if winner.profile else None,
+                "provider_id": winner.profile.provider_id if winner.profile else None,
+                "model": winner.profile.model if winner.profile else None,
+                "final_source": winner.final_source,
+                "final_rank": winner.final_rank,
+                "blocked_candidates": [
+                    {"profile_id": profile_id, "reason": reason}
+                    for profile_id, reason in winner.blocked_candidates
+                ],
+            },
+        }
+
     def _build_retrieval_bundle_telemetry(self, tasks: list[dict], *, max_tasks: int = 200) -> dict:
         repos = get_repository_registry()
         recent_tasks = sorted(
@@ -414,6 +508,7 @@ class ConfigReadModelService:
                 },
                 "explicit_override": explicit_override,
                 "effective_runtime": effective_runtime,
+                "model_routing": self._build_model_routing_read_model(cfg, task_kind=valid_task_kind),
                 "hub_copilot": hub_copilot_summary_builder(cfg),
                 "context_bundle_policy": context_policy_summary_builder(cfg),
                 "artifact_flow": artifact_flow_summary_builder(cfg),

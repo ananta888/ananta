@@ -322,7 +322,7 @@
         "ROADMAP-008",
         "ROADMAP-009"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "ROADMAP-M5",
@@ -339,7 +339,7 @@
         "ROADMAP-011",
         "ROADMAP-012"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -604,10 +604,10 @@
       "title": "Phase 4c: AMR Track M4-M9 abschließen (Schicht-2, nach CWFH-M3)",
       "type": "track-gate",
       "milestone": "ROADMAP-M4",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 79,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-007",
         "ROADMAP-006"
@@ -641,7 +641,8 @@
       ],
       "notes": [
         "AMR M4/M6 und Teile von M8 sind implementiert; RHF-003 geschlossen, AMR-018/019/022/023/024 bleiben offen.",
-        "2026-06-06: AMR-022 Operator-/Migrationsdoku abgeschlossen; AMR-015/018/019/023/024 bleiben offen."
+        "2026-06-06: AMR-022 Operator-/Migrationsdoku abgeschlossen; AMR-015/018/019/023/024 bleiben offen.",
+        "2026-06-06: AMR Track M4-M9 abgeschlossen; alle 24 AMR-Tasks sind done."
       ]
     },
     {
@@ -697,10 +698,10 @@
       "title": "Systemintegration: End-to-End Test aller 5 Phasen zusammen",
       "type": "backend-test",
       "milestone": "ROADMAP-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-010"
       ],
@@ -716,6 +717,9 @@
         "E2E-Test-Suite läuft ohne echten LLM und ohne Netzwerk.",
         "Alle Track-Tests (RCFG-009, RTS-008, EPC-Tests, CWFH-013, AMR-022, SCTR) laufen zusammen grün.",
         "Kein Regression in bestehenden Tests."
+      ],
+      "notes": [
+        "2026-06-06: Systemintegrationstest fuer Query/RAG-Handoff/AMR-Routing/SCTR-Direct-Tool/Security ohne Netzwerk ergaenzt."
       ]
     },
     {
@@ -723,10 +727,10 @@
       "title": "Deployment-Readiness: Migrations-Guide, .env.example und Operator-Doku finalisieren",
       "type": "docs",
       "milestone": "ROADMAP-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-011"
       ],
@@ -740,6 +744,9 @@
       "test_expectations": [
         "Docs-Review: alle Variablennamen in .env.example stimmen exakt mit agent/config.py überein.",
         "Smoke-Test: Settings aus Test-.env laden korrekt ohne Validierungsfehler."
+      ],
+      "notes": [
+        "2026-06-06: Deployment-Readiness durch .env.example, docker-compose Overrides und docs/deployment/model-routing-rag-readiness.md finalisiert."
       ]
     }
   ],
@@ -776,13 +783,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 9
+      "done": 12
     },
-    "progress_percent_done": 75.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 10,
       "P1": 2
@@ -794,15 +801,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 8,
-      "remaining": 2
+      "done": 10,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -895,14 +902,14 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 2,
-    "in_progress": 1,
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 9,
+    "done": 12,
     "total": 12,
-    "progress_percent": 75.0
+    "progress_percent": 100.0
   },
   "summary_notes": [
     "Diese Master-Datei ist kein weiterer Feature-Track, sondern der Navigationsanker für alle 7 Sub-Tracks.",
@@ -920,7 +927,8 @@
     "EPC steht bei 19/20 Tasks; nur EPC-019 Benchmark-Profil bleibt offen.",
     "AMR steht bei 19/24 Tasks; offene Tasks sind AMR-015, AMR-018, AMR-019, AMR-023, AMR-024.",
     "EPC vollständig abgeschlossen am 2026-06-06.",
-    "CWFH vollständig abgeschlossen am 2026-06-06."
+    "CWFH vollständig abgeschlossen am 2026-06-06.",
+    "2026-06-06: ROADMAP-009/011/012 abgeschlossen; Master-Roadmap vollstaendig done."
   ],
   "end_summaries": [
     {
@@ -951,7 +959,7 @@
     {
       "file": "todos/todo.review-hardening-findings-2026-06-06.json",
       "summary": "Review-Befunde aus den letzten Commits: Workspace-Prefix-Bypass, Embedding-Allowlist-Bypass und Provider-Health-Precedence.",
-      "status": "in_progress"
+      "status": "done"
     }
   ]
 }
