@@ -12,6 +12,7 @@ Endpunkte:
   POST   /snakes/<id>/chat/ack           – Gelesene Nachrichten bestätigen
   GET    /snakes/participants            – Teilnehmerliste mit Status
   POST   /snake/ask                      – Synchrone AI-Antwort (TUI worker mode)
+  POST   /worker-context                 – WorkerContextHandoffV3 mit CandidateFiles (CWFH-009)
 """
 from __future__ import annotations
 
@@ -693,6 +694,75 @@ def _worker_propose(grounded_prompt: str, model: str | None, *, limits: SnakeAsk
         text = text[:effective_limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
     trace["answer_chars"] = len(text)
     return text, trace
+
+
+@snakes_bp.route("/worker-context", methods=["POST"])
+def worker_context():
+    """POST /worker-context — CWFH-009: Build WorkerContextHandoffV3 from a question.
+
+    Accepts:
+      {
+        "question": str,
+        "output_dir": str,            # CodeCompass output directory
+        "memory_context": str?,
+        "manifest_hash": str?,
+        "depth": str?,
+        "workspace_root": str?,
+        "max_candidates": int?        # default 40
+      }
+
+    Returns WorkerContextHandoffV3 dict with candidate_files + context_files.
+    """
+    if not _is_local_request():
+        auth = _optional_user_auth()
+        if not auth:
+            return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
+
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    question = str(body.get("question") or "").strip()[:2000]
+    output_dir = str(body.get("output_dir") or "").strip()
+    memory_context = str(body.get("memory_context") or "").strip() or None
+    manifest_hash = str(body.get("manifest_hash") or "").strip() or None
+    depth = str(body.get("depth") or "").strip() or None
+    workspace_root = str(body.get("workspace_root") or "").strip() or None
+    max_candidates = int(body.get("max_candidates") or 40)
+
+    if not question:
+        return jsonify({"error": "question required"}), 400
+    if not output_dir:
+        return jsonify({"error": "output_dir required"}), 400
+
+    try:
+        from worker.retrieval.codecompass_candidate_resolver import CodeCompassCandidateResolver
+        from agent.services.context_file_reader_service import (
+            ContextFileReaderService, FileReadPolicy,
+        )
+        from agent.services.worker_contract_service import get_worker_contract_service
+
+        resolver = CodeCompassCandidateResolver(max_candidates=max(1, min(max_candidates, 100)))
+        candidates = resolver.resolve(
+            question=question,
+            output_dir=output_dir,
+            memory_context=memory_context,
+            manifest_hash=manifest_hash,
+        )
+
+        policy = FileReadPolicy(workspace_root=workspace_root or output_dir)
+        reader = ContextFileReaderService(policy=policy)
+        context_files = reader.read_required_files(candidates)
+
+        handoff = get_worker_contract_service().build_worker_context_handoff_v3(
+            question=question,
+            candidate_files=candidates,
+            context_files=context_files,
+            depth=depth,
+            memory_context=memory_context,
+            manifest_hash=manifest_hash,
+        )
+        return jsonify(handoff), 200
+    except Exception as exc:
+        logging.getLogger(__name__).warning("worker-context failed: %s", exc, exc_info=True)
+        return jsonify({"error": f"worker-context error: {str(exc)[:200]}"}), 500
 
 
 @snakes_bp.route("/snake/ask", methods=["POST"])

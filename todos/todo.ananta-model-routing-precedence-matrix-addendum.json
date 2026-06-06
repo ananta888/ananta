@@ -123,7 +123,7 @@
       "title": "Precedence Matrix in Hauptarchitektur übernehmen",
       "type": "docs",
       "milestone": "MPM-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
@@ -154,7 +154,7 @@
       "title": "Resolver-Tests für alte vs. neue Konfiguration ergänzen",
       "type": "backend-test",
       "milestone": "MPM-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -186,7 +186,7 @@
       "title": "Read-Model muss effektive Gewinnerquelle anzeigen",
       "type": "api-test",
       "milestone": "MPM-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -220,35 +220,20 @@
   "tasks_status_summary": {
     "total": 3,
     "by_status": {
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 2,
-      "P1": 1,
-      "P2": 0,
-      "P3": 0
+      "P1": 1
     },
     "by_risk": {
-      "low": 0,
       "medium": 2,
       "high": 1
-    },
-    "critical_path": {
-      "total": 2,
-      "done": 0,
-      "remaining": 2
-    },
-    "milestones": {
-      "total": 1,
-      "todo": 1,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 0
     }
   },
   "tasks_type_summary": {
@@ -299,28 +284,33 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 3,
+    "state": "complete",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 3,
+    "total": 3,
+    "progress_percent": 100
   },
   "summary_notes": [
     "Diese Datei ergänzt die Haupt-TODO um eine eindeutige Gewinner-Reihenfolge.",
     "Wichtigste Regel: Security Policy gewinnt immer, DEFAULT_PROVIDER/DEFAULT_MODEL ist finaler Legacy-Fallback.",
-    "Alte Overrides bleiben funktionsfähig, werden aber in neue ModelPolicy-Objekte normalisiert und verlieren gegen explizite neue Policies auf derselben oder konkreteren Ebene."
+    "Track vollständig abgeschlossen: Doku, Tests und Read-Model sind implementiert."
   ],
   "end_summaries": [
     {
-      "summary_id": "effective_rule",
-      "title": "Effektive Regel",
-      "items": [
-        "Neue spezifische Policy gewinnt vor alter allgemeiner Config.",
-        "Alte Config bleibt als Fallback erhalten.",
-        "Security Policy schlägt alles.",
-        "Read-Model und Tests müssen die Gewinnerquelle sichtbar machen."
-      ]
+      "date": "2026-06-06",
+      "session": "MPM-001..003",
+      "implemented": [
+        "MPM-001: Precedence-Matrix in docs/architecture/model-routing-profiles-policy.md eingebaut",
+        "MPM-002: 19 Tests für Legacy (DEFAULT_PROVIDER) vs. Profiles-Resolver",
+        "MPM-003: GET /config/model-routing/read-model?resolve=true zeigt effective_winner mit Source/Rank"
+      ],
+      "remaining": [],
+      "test_count": 19,
+      "all_tests_green": true,
+      "track_complete": true
     }
   ]
 }

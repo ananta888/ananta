@@ -623,5 +623,63 @@
     "Provider-Wechsel und Dimensionswechsel lösen Rebuild oder klaren Degraded-Status aus.",
     "Tests decken Default, Overrides, externe Blockierung, Redaction und CodeCompass-Integration ab.",
     "Doku erklärt lokale Open-Source-Embeddings und Risiken externer Provider verständlich."
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 3,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 17
+    },
+    "progress_percent_done": 85,
+    "by_priority": {
+      "P0": 14,
+      "P1": 5,
+      "P2": 1
+    },
+    "by_risk": {
+      "medium": 7,
+      "high": 7,
+      "critical": 5,
+      "low": 1
+    }
+  },
+  "progress_summary": {
+    "state": "mostly_done",
+    "todo_remaining": 3,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 17,
+    "total": 20,
+    "progress_percent": 85
+  },
+  "summary_notes": [
+    "17 von 20 Tasks abgeschlossen. Kernarchitektur EmbeddingProviderConfigService, TextBuilder, Index-Rebuild-Detection und Vector-Engine-Integration ist fertig.",
+    "Offen: EPC-001 (Code-Inventar/Analyse), EPC-019 (Benchmark real vs. hash), EPC-020 (finale Doku)."
+  ],
+  "end_summaries": [
+    {
+      "date": "2026-06-06",
+      "session": "EPC-005..018",
+      "implemented": [
+        "EPC-005: POST /config embedding_provider Block-Handler",
+        "EPC-008: SemanticOutputCorrection nutzt EmbeddingProviderConfigService",
+        "EPC-009: CodeCompassVectorEngine.build_from_config() Classmethod",
+        "EPC-011: EmbeddingTextBuilder — build_embedding_text, build_query_embedding_text, Batch",
+        "EPC-012: provider_changed_since_last_build() + state_dict['embedding_provider'] Persistenz",
+        "EPC-013: GET /diagnostics/embedding-provider Endpoint",
+        "EPC-018: 17 EPC-Integrationstests (TextBuilder, Rebuild-Detection, VectorEngine, SemanticCorrection)"
+      ],
+      "remaining": [
+        "EPC-001",
+        "EPC-019",
+        "EPC-020"
+      ],
+      "test_count": 17,
+      "all_tests_green": true
+    }
   ]
 }

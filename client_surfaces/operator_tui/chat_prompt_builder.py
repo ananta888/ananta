@@ -16,6 +16,7 @@ class PromptBuildResult:
     messages: list[dict[str, str]]        # OpenAI-style for LMStudio/local
     prompt_text: str                       # Plain text for propose/worker
     worker_v2_payload: dict[str, Any]     # Structured for /snake/ask v2
+    worker_v3_payload: dict[str, Any]     # Structured for /snake/ask v3 (CWFH-006)
     included_sections: dict[str, int]     # section name → char count
     total_chars: int
 
@@ -104,11 +105,27 @@ class ChatPromptBuilder:
             },
         }
 
+        # CWFH-006: v3 handoff — candidate_files and context_files filled by caller
+        worker_v3 = {
+            "schema": "worker_context_handoff.v3",
+            "question": self._question,
+            "context": context_text,
+            "depth": self._depth,
+            "memory_context": self._memory.rolling_summary,
+            "candidate_files": [],   # populated by SnakeChat backend via CWFH-007
+            "context_files": [],     # populated by ContextFileReaderService via CWFH-005
+            "manifest_hash": self._memory.metadata.get("manifest_hash"),
+            "policy_version": "v3.0",
+            "required_reads": [],
+            "worker_context_requests": [],
+        }
+
         included = {k: len(v) for k, v in sections.items()}
         return PromptBuildResult(
             messages=messages,
             prompt_text=prompt_text,
             worker_v2_payload=worker_v2,
+            worker_v3_payload=worker_v3,
             included_sections=included,
             total_chars=sum(included.values()),
         )
