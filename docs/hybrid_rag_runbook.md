@@ -30,6 +30,11 @@ Relevante Variablen:
 - `RAG_AGENTIC_TIMEOUT_SECONDS`
 - `RAG_SEMANTIC_PERSIST_DIR`
 - `RAG_REDACT_SENSITIVE`
+- `ANANTA_WORKER_CONTEXT_FILES_PER_BATCH` (default 3) — Dateien/Chunks pro Worker-Iterations-Batch
+- `ANANTA_WORKER_CONTEXT_PER_FILE_CHARS` (default 4000) — Max. Zeichen pro Kontextblock
+- `ANANTA_WORKER_CONTEXT_MAX_ITERATIONS` (default 8) — Max. Batches pro Worker-Lauf
+- `ANANTA_WORKER_CONTEXT_LINE_WINDOW` (default 5) — Kontextzeilen vor/nach CodeCompass Line-Range
+- `ANANTA_WORKER_CONTEXT_MAX_SNIPPET_CHARS` (default 8000) — Max. Zeichen für direkte Snippets
 - `RAG_SOURCE_REPO_ENABLED`
 - `RAG_SOURCE_ARTIFACT_ENABLED`
 - `RAG_SOURCE_TASK_MEMORY_ENABLED`
@@ -191,3 +196,17 @@ Wofuer sie nicht gedacht ist:
   - Knowledge-Indizes: `<DATA_DIR>/knowledge_indices/<source_scope>/<knowledge_index_id>/<run_id>`
 - Retrieval darf nicht von implizitem In-Memory-Shared-State zwischen Hub/Worker abhaengen.
 - Reindex und Recovery werden ueber Hub-APIs/Jobruns gesteuert, nicht ueber direkte Worker-zu-Worker-Pfade.
+
+## CodeCompass-Handoff an ananta-worker
+
+Wenn CodeCompass `rag_helper/research-context.json` schreibt, lädt `_load_source_file_batches` in `agent/common/sgpt.py` die Kontext-Blöcke in dieser Priorität:
+
+1. `path` + `start_line`/`end_line` → Dateiausschnitt aus `rag_repo_root`
+2. `chunks[]` im ref-Eintrag → Chunk-Inhalte direkt
+3. `path` only → Dateianfang bis `per_file_chars`
+4. `snippet` ohne gültigen Pfad → Snippet-Text direkt
+5. `.ananta/hub-context.md` → letzter Fallback
+
+**Wichtig:** Ananta lädt *nicht* mehr pauschal den Dateianfang, wenn CodeCompass line ranges liefert. Prompts zeigen den `source_kind` (z.B. `[line_range score=0.91]`) im Abschnitts-Header.
+
+Details: [docs/codecompass-relevant-snippet-handoff.md](codecompass-relevant-snippet-handoff.md)

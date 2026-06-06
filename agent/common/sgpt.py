@@ -551,6 +551,82 @@ _EXT_LANG: dict[str, str] = {
     "sh": "bash", "bash": "bash",
 }
 
+# CCSH-004: Accepted alias names for line-range and snippet fields
+_LR_START_ALIASES: tuple[str, ...] = ("start_line", "line_start", "start", "from_line")
+_LR_END_ALIASES: tuple[str, ...] = ("end_line", "line_end", "end", "to_line")
+_SNIPPET_FIELD_ALIASES: tuple[str, ...] = ("snippet", "content", "excerpt")
+
+_MAX_LINE_SPAN: int = 5000   # refuse spans wider than this
+_MAX_LINE_WINDOW: int = 200  # cap context_lines to this
+
+
+def _get_ref_alias(ref: dict, aliases: tuple[str, ...]) -> object:
+    for k in aliases:
+        v = ref.get(k)
+        if v is not None:
+            return v
+    return None
+
+
+def _normalize_line_range(ref: dict) -> "tuple[int, int] | None":
+    start = _get_ref_alias(ref, _LR_START_ALIASES)
+    end = _get_ref_alias(ref, _LR_END_ALIASES)
+    if start is None or end is None:
+        return None
+    try:
+        s, e = int(start), int(end)
+    except (TypeError, ValueError):
+        return None
+    if s < 1 or e < s or (e - s) > _MAX_LINE_SPAN:
+        return None
+    return (s, e)
+
+
+def _read_line_window(
+    full_path: pathlib.Path,
+    start: int,
+    end: int,
+    context_lines: int,
+    per_file_chars: int,
+) -> "tuple[str, int, int]":
+    """Read lines [start..end] + context_lines margin from file (1-indexed).
+
+    Returns (content, actual_start_line, actual_end_line), or ("", 0, 0) on failure.
+    """
+    try:
+        raw = full_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return "", 0, 0
+    lines = raw.splitlines()
+    total = len(lines)
+    if total == 0:
+        return "", 0, 0
+    context_lines = max(0, min(context_lines, _MAX_LINE_WINDOW))
+    lo = max(0, start - 1 - context_lines)
+    hi = min(total, end + context_lines)
+    excerpt = "\n".join(lines[lo:hi])
+    if len(excerpt) > per_file_chars:
+        excerpt = excerpt[:per_file_chars].rstrip() + "\n# [… gekürzt]"
+    return excerpt, lo + 1, min(hi, total)
+
+
+def _get_worker_context_cfg() -> dict:
+    """Return ananta_worker_context_* settings from AGENT_CONFIG or settings."""
+    agent_cfg = _get_agent_config() if has_app_context() else {}
+    ctx_cfg = dict(agent_cfg.get("ananta_worker_context") or {})
+    return ctx_cfg
+
+
+def _bounded_worker_int(key: str, default: int, lo: int, hi: int) -> int:
+    ctx_cfg = _get_worker_context_cfg()
+    raw = ctx_cfg.get(key)
+    if raw is not None:
+        try:
+            return max(lo, min(hi, int(raw)))
+        except (TypeError, ValueError):
+            pass
+    return max(lo, min(hi, getattr(settings, key, default)))
+
 
 def _resolve_repo_root() -> pathlib.Path | None:
     """Return the configured project/repo root generically via settings.rag_repo_root."""
@@ -573,15 +649,23 @@ def _load_source_file_batches(
     files_per_batch: int = 3,
     per_file_chars: int = 4_000,
     max_files: int = 30,
-) -> list[list[tuple[str, str, str]]]:
+    context_lines: int = 5,
+    max_snippet_chars: int = 8_000,
+) -> "list[list[dict]]":
     """Load relevant source files from workspace and split into batches.
 
     Reads rag_helper/research-context.json for repo_scope_refs, resolves each
-    path against settings.rag_repo_root, and returns batches of
-    (rel_path, lang, content). Falls back to hub-context.md as a single batch
-    if no file refs are found.
+    ref against settings.rag_repo_root using this priority (CCSH-004/005):
+      1. path + start_line/end_line  → read line-range window from file
+      2. ref.chunks[]                → use pre-built chunk content blocks
+      3. path only                   → read file beginning (legacy fallback)
+      4. snippet without valid path  → embed snippet text directly
+      5. .ananta/hub-context.md      → when no refs are usable at all
+
+    Returns batches of context-block dicts with keys:
+      rel_path, lang, content, source_kind, start_line, end_line, score, reason, symbol
     """
-    batches: list[list[tuple[str, str, str]]] = []
+    batches: list[list[dict]] = []
     if not workdir:
         return batches
     root = pathlib.Path(workdir)
@@ -591,64 +675,228 @@ def _load_source_file_batches(
     repo_root = _resolve_repo_root()
     research_json = root / "rag_helper" / "research-context.json"
 
+    blocks: list[dict] = []
+    seen_keys: set[str] = set()  # dedup by (rel_path, start, end[, content_hash]) — CCSH-005
+
+    def _dedup_key(rel: str, s: "int | None", e: "int | None", content: str = "") -> str:
+        # When both line coords are None (e.g. chunks without metadata), include a
+        # content hash so two different chunks from the same source are not collapsed.
+        if s is None and e is None and content:
+            import hashlib
+            suffix = hashlib.md5(content[:200].encode(), usedforsecurity=False).hexdigest()[:8]
+            return f"{rel}:h:{suffix}"
+        return f"{rel}:{s}:{e}"
+
     if research_json.exists() and repo_root is not None:
         try:
             data = json.loads(research_json.read_text(encoding="utf-8", errors="replace"))
             refs = [dict(r or {}) for r in list(data.get("repo_scope_refs") or []) if r]
             resolved_root = repo_root.resolve()
-            current_batch: list[tuple[str, str, str]] = []
-            loaded = 0
+
             for ref in refs:
-                if loaded >= max_files:
-                    break
                 rel_path = str(ref.get("path") or "").strip()
-                if not rel_path:
+                score_raw = ref.get("score")
+                score = float(score_raw) if score_raw is not None else None
+                reason = str(ref.get("reason") or "").strip() or None
+                symbol = str(ref.get("symbol") or "").strip() or None
+                snippet_raw = _get_ref_alias(ref, _SNIPPET_FIELD_ALIASES)
+                line_range = _normalize_line_range(ref)
+
+                # Resolve path safely against rag_repo_root
+                full: pathlib.Path | None = None
+                if rel_path:
+                    try:
+                        candidate = (repo_root / rel_path).resolve()
+                        candidate.relative_to(resolved_root)
+                        if candidate.is_file():
+                            full = candidate
+                    except (ValueError, OSError):
+                        pass
+
+                # Priority 1: path + line-range → read window from current file
+                if full is not None and line_range is not None:
+                    content, actual_start, actual_end = _read_line_window(
+                        full, line_range[0], line_range[1], context_lines, per_file_chars
+                    )
+                    if content:
+                        dk = _dedup_key(rel_path, actual_start, actual_end)
+                        if dk not in seen_keys:
+                            seen_keys.add(dk)
+                            lang = _EXT_LANG.get(full.suffix.lstrip("."), full.suffix.lstrip(".") or "text")
+                            blocks.append({
+                                "rel_path": rel_path,
+                                "lang": lang,
+                                "content": content,
+                                "source_kind": "line_range",
+                                "start_line": actual_start,
+                                "end_line": actual_end,
+                                "score": score,
+                                "reason": reason,
+                                "symbol": symbol,
+                            })
+                        continue
+
+                # Priority 2: ref.chunks[] — use embedded chunk content
+                ref_chunks = [dict(c or {}) for c in list(ref.get("chunks") or []) if c]
+                if ref_chunks:
+                    for chunk in ref_chunks:
+                        chunk_content = str(chunk.get("content") or chunk.get("excerpt") or "").strip()
+                        if not chunk_content:
+                            continue
+                        chunk_source = str(chunk.get("source") or rel_path or "").strip()
+                        chunk_meta = dict(chunk.get("metadata") or {})
+                        c_start = chunk_meta.get("start_line")
+                        c_end = chunk_meta.get("end_line")
+                        try:
+                            c_start = int(c_start) if c_start is not None else None
+                            c_end = int(c_end) if c_end is not None else None
+                        except (TypeError, ValueError):
+                            c_start = c_end = None
+                        dk = _dedup_key(chunk_source, c_start, c_end, chunk_content)
+                        if dk in seen_keys:
+                            continue
+                        seen_keys.add(dk)
+                        ext = pathlib.Path(chunk_source).suffix.lstrip(".")
+                        lang = _EXT_LANG.get(ext, ext or "text")
+                        c_score_raw = chunk.get("score")
+                        c_score = float(c_score_raw) if c_score_raw is not None else score
+                        chunk_content_clipped = chunk_content[:per_file_chars]
+                        if len(chunk_content) > per_file_chars:
+                            chunk_content_clipped = chunk_content_clipped.rstrip() + "\n# [… gekürzt]"
+                        blocks.append({
+                            "rel_path": chunk_source,
+                            "lang": lang,
+                            "content": chunk_content_clipped,
+                            "source_kind": "chunk",
+                            "start_line": c_start,
+                            "end_line": c_end,
+                            "score": c_score,
+                            "reason": reason,
+                            "symbol": symbol,
+                        })
                     continue
-                try:
-                    full = (repo_root / rel_path).resolve()
-                    full.relative_to(resolved_root)
-                except (ValueError, OSError):
-                    continue
-                if not full.is_file():
-                    continue
-                try:
-                    raw = full.read_text(encoding="utf-8", errors="replace").strip()
-                except OSError:
-                    continue
-                if not raw:
-                    continue
-                content = raw[:per_file_chars]
-                if len(raw) > per_file_chars:
-                    content = content.rstrip() + "\n# [… gekürzt]"
-                lang = _EXT_LANG.get(full.suffix.lstrip("."), full.suffix.lstrip(".") or "text")
-                current_batch.append((rel_path, lang, content))
-                loaded += 1
-                if len(current_batch) >= files_per_batch:
-                    batches.append(current_batch)
-                    current_batch = []
-            if current_batch:
-                batches.append(current_batch)
+
+                # Priority 3: path only → file beginning (legacy fallback)
+                if full is not None:
+                    try:
+                        raw = full.read_text(encoding="utf-8", errors="replace").strip()
+                    except OSError:
+                        raw = ""
+                    if raw:
+                        dk = _dedup_key(rel_path, None, None)
+                        if dk not in seen_keys:
+                            seen_keys.add(dk)
+                            content = raw[:per_file_chars]
+                            if len(raw) > per_file_chars:
+                                content = content.rstrip() + "\n# [… gekürzt]"
+                            lang = _EXT_LANG.get(full.suffix.lstrip("."), full.suffix.lstrip(".") or "text")
+                            blocks.append({
+                                "rel_path": rel_path,
+                                "lang": lang,
+                                "content": content,
+                                "source_kind": "file_excerpt",
+                                "start_line": None,
+                                "end_line": None,
+                                "score": score,
+                                "reason": reason,
+                                "symbol": symbol,
+                            })
+                        continue
+
+                # Priority 4: snippet without valid path
+                if snippet_raw:
+                    snippet_text = str(snippet_raw).strip()[:max_snippet_chars]
+                    if snippet_text:
+                        s_start = line_range[0] if line_range else None
+                        s_end = line_range[1] if line_range else None
+                        dk = _dedup_key(rel_path or "(snippet)", s_start, s_end)
+                        if dk not in seen_keys:
+                            seen_keys.add(dk)
+                            ext = pathlib.Path(rel_path).suffix.lstrip(".") if rel_path else ""
+                            lang = _EXT_LANG.get(ext, ext or "text")
+                            blocks.append({
+                                "rel_path": rel_path or "(codecompass_snippet)",
+                                "lang": lang,
+                                "content": snippet_text,
+                                "source_kind": "codecompass_snippet",
+                                "start_line": s_start,
+                                "end_line": s_end,
+                                "score": score,
+                                "reason": reason,
+                                "symbol": symbol,
+                            })
         except Exception:
             pass
 
-    # Fallback: hub-context.md contains pre-assembled RAG chunk excerpts
+    # Sort by score descending (stable, keeps insertion order when score is None/equal)
+    blocks.sort(key=lambda b: -(b["score"] or 0.0))
+
+    # Apply max_files budget AFTER sorting so highest-scored blocks survive (CCSH-013)
+    if len(blocks) > max_files:
+        omitted = len(blocks) - max_files
+        logging.debug(
+            "ananta-worker context budget: keeping top %s/%s blocks, omitting %s lower-scored",
+            max_files, len(blocks), omitted,
+        )
+        blocks = blocks[:max_files]
+
+    # Split into batches
+    for i in range(0, len(blocks), files_per_batch):
+        batches.append(blocks[i : i + files_per_batch])
+
+    # Priority 5: hub-context.md fallback when nothing else loaded
     if not batches:
         hub_path = root / ".ananta" / "hub-context.md"
         if hub_path.exists():
             try:
                 content = hub_path.read_text(encoding="utf-8", errors="replace").strip()
                 if content:
-                    batches.append([("hub-context.md", "markdown", content[:12_000])])
+                    batches.append([{
+                        "rel_path": "hub-context.md",
+                        "lang": "markdown",
+                        "content": content[:12_000],
+                        "source_kind": "hub_context",
+                        "start_line": None,
+                        "end_line": None,
+                        "score": None,
+                        "reason": None,
+                        "symbol": None,
+                    }])
             except OSError:
                 pass
 
     return batches
 
 
+def _format_block_header(block: dict) -> str:
+    """Build the ### header for a context block (CCSH-002)."""
+    rel_path = block.get("rel_path") or ""
+    source_kind = block.get("source_kind") or "file_excerpt"
+    start_line = block.get("start_line")
+    end_line = block.get("end_line")
+    score = block.get("score")
+    symbol = block.get("symbol")
+
+    # path:start-end when line range is known
+    if start_line is not None and end_line is not None:
+        location = f"{rel_path}:{start_line}-{end_line}"
+    else:
+        location = rel_path
+
+    # annotation tag
+    tag_parts = [source_kind]
+    if symbol:
+        tag_parts.append(f"symbol={symbol}")
+    if score is not None:
+        tag_parts.append(f"score={score:.2f}")
+    tag = " ".join(tag_parts)
+    return f"### {location} [{tag}]"
+
+
 def _build_iteration_prompt(
     original_prompt: str,
     *,
-    batch: list[tuple[str, str, str]],
+    batch: "list[dict]",
     progress_so_far: str,
     step: int,
     total_steps: int,
@@ -683,8 +931,11 @@ def _build_iteration_prompt(
                 "Analysiere die weiteren Quelldateien und ergänze deinen Fortschritt."
             )
         parts.append(header + "\n\n")
-        for rel_path, lang, content in batch:
-            parts.append(f"### {rel_path}\n```{lang}\n{content}\n```\n\n")
+        for block in batch:
+            h = _format_block_header(block)
+            lang = block.get("lang") or "text"
+            content = block.get("content") or ""
+            parts.append(f"{h}\n```{lang}\n{content}\n```\n\n")
 
     return "".join(parts)
 
@@ -710,11 +961,20 @@ def _run_ananta_worker_iterative(
     - A final synthesis call assembles the complete result from all steps
     - Falls back to a single-shot call when no batches / workdir not available
     """
+    # Read configurable limits (CCSH-006)
+    files_per_batch = _bounded_worker_int("ananta_worker_context_files_per_batch", files_per_batch, 1, 20)
+    per_file_chars = _bounded_worker_int("ananta_worker_context_per_file_chars", per_file_chars, 500, 40_000)
+    max_iterations = _bounded_worker_int("ananta_worker_context_max_iterations", max_iterations, 1, 32)
+    context_lines = _bounded_worker_int("ananta_worker_context_line_window", 5, 0, _MAX_LINE_WINDOW)
+    max_snippet_chars = _bounded_worker_int("ananta_worker_context_max_snippet_chars", 8_000, 200, 40_000)
+
     batches = _load_source_file_batches(
         workdir,
         files_per_batch=files_per_batch,
         per_file_chars=per_file_chars,
         max_files=max_iterations * files_per_batch,
+        context_lines=context_lines,
+        max_snippet_chars=max_snippet_chars,
     )
 
     # No workspace context → plain single-shot call
@@ -725,7 +985,8 @@ def _run_ananta_worker_iterative(
     if len(batches) == 1:
         batch = batches[0]
         file_blocks = "\n\n".join(
-            f"### {rp}\n```{lg}\n{ct}\n```" for rp, lg, ct in batch
+            f"{_format_block_header(b)}\n```{b.get('lang', 'text')}\n{b.get('content', '')}\n```"
+            for b in batch
         )
         enriched = f"{prompt.rstrip()}\n\n---\n\n{file_blocks}"
         return run_sgpt_command(prompt=enriched, options=options, timeout=timeout, model=model, workdir=workdir)
@@ -752,8 +1013,18 @@ def _run_ananta_worker_iterative(
         last_rc, last_err = rc, err
         if out:
             last_out = out
-            file_names = ", ".join(rp for rp, _, _ in batch)
-            progress_parts.append(f"## Schritt {step} — {file_names}\n\n{out.strip()}")
+            # CCSH-007: progress header shows source kind + path:range for each block
+            source_labels = []
+            for b in batch:
+                sk = b.get("source_kind") or "file_excerpt"
+                rp = b.get("rel_path") or ""
+                s, e = b.get("start_line"), b.get("end_line")
+                if s is not None and e is not None:
+                    source_labels.append(f"{rp}:{s}-{e} [{sk}]")
+                else:
+                    source_labels.append(f"{rp} [{sk}]")
+            step_header = f"## Schritt {step} — {', '.join(source_labels)}"
+            progress_parts.append(f"{step_header}\n\n{out.strip()}")
             if progress_path:
                 try:
                     progress_path.parent.mkdir(parents=True, exist_ok=True)
