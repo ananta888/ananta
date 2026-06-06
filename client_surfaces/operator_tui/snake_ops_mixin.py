@@ -734,26 +734,48 @@ class SnakeOpsMixin:
             self._copy_to_clipboard_bg(copied)
         game["_copy_status_message"] = "ask copy: Antwort in Zwischenablage"
 
-    def _snake_copy_selection_to_game(self, game: dict[str, object]) -> None:
-        # :ask mode: copy the raw AI answer directly so spaces are preserved
-        if str(game.get("tutor_ask_question") or "").strip():
-            # Only bypass if no drag selection is active (user may want to select a snippet)
-            _has_drag = bool(game.get("mouse_selection_range") or game.get("mouse_selection_committed_ranges"))
-            if not _has_drag:
-                self._copy_ask_answer_to_game(game)
-                return
+    def _clear_selection_state(self, game: dict[str, object]) -> None:
+        """Reset all mouse selection fields after a copy so stale state can't affect future ops."""
+        game["mouse_selection_range"] = None
+        game["mouse_selection_committed_ranges"] = []
+        game["mouse_selection_active"] = False
+        game["mouse_selection_dragged"] = False
+        game["selection_cells"] = []
+        game["selection_regions"] = []
+        game["selection_anchor"] = None
 
-        # Mouse drag selection takes priority over cell-based snake selection
+    def _snake_copy_selection_to_game(self, game: dict[str, object]) -> None:
+        # In :ask mode always copy the raw AI answer — stale mouse_selection_range from
+        # a previous drag must not redirect to the full-screen render path.
+        if str(game.get("tutor_ask_question") or "").strip():
+            self._copy_ask_answer_to_game(game)
+            self._clear_selection_state(game)
+            return
+
+        # Mouse drag selection takes priority over cell-based snake selection.
+        # Only use drag ranges that are actually non-degenerate (start != end).
         _active_range = game.get("mouse_selection_range")
-        if _active_range and isinstance(_active_range, dict):
-            _all_ranges: list[dict] = [_active_range]
-            for _c in (game.get("mouse_selection_committed_ranges") or []):
-                if isinstance(_c, dict):
-                    _all_ranges.append(_c)
+        _committed = [c for c in (game.get("mouse_selection_committed_ranges") or []) if isinstance(c, dict)]
+        _has_real_drag = False
+        if isinstance(_active_range, dict):
+            _sx = int(_active_range.get("start_x", 0))
+            _sy = int(_active_range.get("start_y", 0))
+            _ex = int(_active_range.get("end_x", 0))
+            _ey = int(_active_range.get("end_y", 0))
+            _has_real_drag = (_sx, _sy) != (_ex, _ey)
+        if not _has_real_drag and _committed:
+            _has_real_drag = True
+
+        if _has_real_drag:
+            _all_ranges: list[dict] = []
+            if isinstance(_active_range, dict):
+                _all_ranges.append(_active_range)
+            _all_ranges.extend(_committed)
             try:
                 _plain_lines = self._snake_render_plain_lines()
             except Exception:
                 game["_copy_status_message"] = "copy: Render-Fehler"
+                self._clear_selection_state(game)
                 return
             _chunks: list[str] = []
             for _r in _all_ranges:
@@ -784,9 +806,9 @@ class SnakeOpsMixin:
             copied = "\n".join(_chunks).rstrip("\n")
             game["clipboard"] = copied
             if copied:
-                game["message"] = copied
                 self._copy_to_clipboard_bg(copied)
             game["_copy_status_message"] = "copy: Zwischenablage"
+            self._clear_selection_state(game)
             return
 
         cells_raw = game.get("selection_cells") or []
@@ -833,9 +855,9 @@ class SnakeOpsMixin:
         copied = "\n".join(chunks).rstrip("\n")
         game["clipboard"] = copied
         if copied:
-            game["message"] = copied
             self._copy_to_clipboard_bg(copied)
         game["_copy_status_message"] = "snake copy: Zwischenablage"
+        self._clear_selection_state(game)
 
     def _copy_to_clipboard_bg(self, text: str) -> None:
         """Fire-and-forget clipboard copy in a daemon thread to avoid blocking the UI."""
