@@ -1,0 +1,78 @@
+{
+  "schema": "ananta.agent_profile_map.v1",
+  "description": "Maps standard planning/task paths to task-specific AGENTS.md guidance. The map is documentation-first today and intended as runtime loader input later.",
+  "global_profile": "AGENTS.md",
+  "profiles": {
+    "ai_snake_chat": {
+      "activation": ["client_surfaces/operator_tui", "ai-snake-chat", "operator_tui"],
+      "agents_file": "client_surfaces/operator_tui/AGENTS.md",
+      "primary_role": "architecture_explainer"
+    },
+    "new_software_project": {
+      "activation": ["new_software_project", "new software project", "neues softwareprojekt"],
+      "agents_file": "docs/agent-profiles/new_software_project/AGENTS.md",
+      "legacy_profile": "docs/agent-profiles/new-software-project.md",
+      "primary_role": "bounded_project_architect_and_implementation_worker"
+    },
+    "bug_fix": {
+      "activation": ["bug_fix", "bug", "fix", "fehler", "crash"],
+      "agents_file": "docs/agent-profiles/bug_fix/AGENTS.md",
+      "primary_role": "reproduce_diagnose_fix_verify"
+    },
+    "code_fix": {
+      "activation": ["code_fix", "codeproblem", "patch"],
+      "agents_file": "docs/agent-profiles/code_fix/AGENTS.md",
+      "primary_role": "minimal_code_patch_worker"
+    },
+    "refactor": {
+      "activation": ["refactor", "cleanup", "optimieren", "verbessern"],
+      "agents_file": "docs/agent-profiles/refactor/AGENTS.md",
+      "primary_role": "behavior_preserving_refactor_worker"
+    },
+    "repo_analysis": {
+      "activation": ["repo_analysis", "analyse", "projekt analysieren"],
+      "agents_file": "docs/agent-profiles/repo_analysis/AGENTS.md",
+      "primary_role": "evidence_based_repository_analyst"
+    },
+    "project_evolution": {
+      "activation": ["project_evolution", "weiterentwicklung", "bestehendes projekt"],
+      "agents_file": "docs/agent-profiles/project_evolution/AGENTS.md",
+      "primary_role": "incremental_existing_project_evolution_worker"
+    },
+    "architecture_review": {
+      "activation": ["architecture_review", "architekturreview", "design review"],
+      "agents_file": "docs/agent-profiles/architecture_review/AGENTS.md",
+      "primary_role": "architecture_reviewer"
+    },
+    "feature": {
+      "activation": ["feature", "implement", "add", "neu", "create"],
+      "agents_file": "docs/agent-profiles/feature/AGENTS.md",
+      "primary_role": "bounded_feature_implementation_worker"
+    },
+    "test": {
+      "activation": ["test", "testing", "coverage", "unit test", "integration test"],
+      "agents_file": "docs/agent-profiles/test/AGENTS.md",
+      "primary_role": "test_design_and_verification_worker"
+    },
+    "tdd": {
+      "activation": ["tdd", "test-driven", "test first", "red green"],
+      "agents_file": "docs/agent-profiles/tdd/AGENTS.md",
+      "primary_role": "test_first_implementation_worker"
+    },
+    "sys_diag": {
+      "activation": ["sys_diag", "systemdiagnose", "diagnose", "logs", "docker"],
+      "agents_file": "docs/agent-profiles/sys_diag/AGENTS.md",
+      "primary_role": "bounded_system_diagnostics_worker"
+    },
+    "admin_repair": {
+      "activation": ["admin_repair", "admin repair", "bounded repair", "diagnosis only"],
+      "agents_file": "docs/agent-profiles/admin_repair/AGENTS.md",
+      "primary_role": "dry_run_first_admin_repair_planner"
+    },
+    "incident": {
+      "activation": ["incident", "notfall", "ausfall", "down", "kritisch"],
+      "agents_file": "docs/agent-profiles/incident/AGENTS.md",
+      "primary_role": "incident_triage_and_mitigation_planner"
+    }
+  }
+}
