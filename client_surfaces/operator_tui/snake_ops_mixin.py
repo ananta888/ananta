@@ -693,32 +693,45 @@ class SnakeOpsMixin:
             self._set_state(self.state.with_updates(status_message="copy: Fehler (TUI stabil)"))
 
     def _copy_ask_answer_to_game(self, game: dict[str, object]) -> None:
-        """In :ask mode, copy the raw AI answer from chat_state directly.
+        """In :ask mode, copy the raw AI answer directly from game state.
 
-        Terminal-native copy strips trailing spaces and smashes lines together.
-        This extracts the answer text before any screen-rendering so spaces
-        are always preserved.
+        Priority:
+        1. tutor_ask_answer — the final completed answer (authoritative, full text)
+        2. llm_streaming_partial — in-progress partial (only while answer not yet finalized)
+        3. chat_state channel messages — fallback, searches ALL channels
+
+        get_active_channel() returns room:main, but the tutor answer lives in ai:tutor
+        (or whichever channel ai_pending_msg_channel resolves to). Reading tutor_ask_answer
+        directly avoids the wrong-channel lookup that caused truncated clipboard text.
         """
-        from client_surfaces.operator_tui.chat_state import get_active_channel
         question = str(game.get("tutor_ask_question") or "").strip()
-        chat = game.get("chat_state") if isinstance(game.get("chat_state"), dict) else {}
-        channel = (get_active_channel(chat) or {}) if chat else {}
-        messages = list(channel.get("messages") or []) if isinstance(channel, dict) else []
-        answer_text = ""
-        sender_label = "AI-Snake"
-        for msg in reversed(messages):
-            if not isinstance(msg, dict):
-                continue
-            if str(msg.get("sender_kind") or "") == "ai":
-                t = str(msg.get("text") or "").strip()
-                if t:
-                    answer_text = t
-                    sender_label = str(msg.get("sender_id") or "AI-Snake")
+        answer_text = str(game.get("tutor_ask_answer") or "").strip()
+        sender_label = "s-ai"
+
+        if not answer_text:
+            # Still streaming — use whatever partial text is available
+            partial = str(game.get("llm_streaming_partial") or "").strip()
+            if partial:
+                answer_text = partial
+
+        if not answer_text:
+            # Last resort: scan all channels in chat_state for latest AI message
+            chat = game.get("chat_state") if isinstance(game.get("chat_state"), dict) else {}
+            channels = chat.get("channels") or {} if isinstance(chat, dict) else {}
+            for channel in (channels.values() if isinstance(channels, dict) else []):
+                if not isinstance(channel, dict):
+                    continue
+                for msg in reversed(list(channel.get("messages") or [])):
+                    if not isinstance(msg, dict):
+                        continue
+                    if str(msg.get("sender_kind") or "") == "ai":
+                        t = str(msg.get("text") or "").strip()
+                        if t:
+                            answer_text = t
+                            sender_label = str(msg.get("sender_id") or "s-ai")
+                            break
+                if answer_text:
                     break
-        # Also check streaming partial
-        partial = str(game.get("llm_streaming_partial") or "").strip()
-        if partial:
-            answer_text = partial
         lines_out: list[str] = []
         if question:
             lines_out.append(f"Frage: {question}")

@@ -302,9 +302,24 @@ def _make_ask_game_with_stale_range(question: str, answer: str) -> dict:
     }
 
 
+def test_copy_ask_answer_uses_tutor_ask_answer_directly():
+    """tutor_ask_answer must be used as primary source, not chat_state (wrong channel)."""
+    full_answer = "CodeCompass ist der Retrieval-Service in Ananta und liefert Dateipfade."
+    game = _make_ask_game_with_stale_range("Was ist CodeCompass?", "truncated partial")
+    # tutor_ask_answer is the authoritative completed answer
+    game["tutor_ask_answer"] = full_answer
+    # llm_streaming_partial is a stale mid-stream value that must NOT win
+    game["llm_streaming_partial"] = "CodeCompass ist der Retrieval-Ser"
+    host = _MinimalCopyHost()
+    host._copy_ask_answer_to_game(game)
+    assert full_answer in host._last_clipboard, "Full tutor_ask_answer must be used, not stale partial"
+    assert "truncated partial" not in host._last_clipboard
+
+
 def test_copy_ask_answer_preserves_spaces():
     answer = "CodeCompass ist der Retrieval-Service in Ananta."
     game = _make_ask_game_with_stale_range("Was ist CodeCompass?", answer)
+    game["tutor_ask_answer"] = answer
     host = _MinimalCopyHost()
     host._copy_ask_answer_to_game(game)
     assert "CodeCompass ist der Retrieval-Service" in host._last_clipboard, (
