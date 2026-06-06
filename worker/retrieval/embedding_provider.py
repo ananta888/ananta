@@ -5,6 +5,7 @@ from hashlib import sha256
 import json
 from typing import Any, Protocol
 from urllib import error, request
+from urllib.parse import urlparse
 
 
 class EmbeddingProvider(Protocol):
@@ -35,6 +36,39 @@ def _hash_vector(value: str, *, dimensions: int) -> list[float]:
         bucket[index % dims] += float(byte) / 255.0
     normalized = max(sum(abs(item) for item in bucket), 1e-9)
     return [item / normalized for item in bucket]
+
+
+def _default_url_port(scheme: str) -> int | None:
+    if scheme.lower() == "http":
+        return 80
+    if scheme.lower() == "https":
+        return 443
+    return None
+
+
+def _base_url_allowed(base_url: str, allowed_base_urls: list[str]) -> bool:
+    candidate = urlparse(str(base_url or "").rstrip("/"))
+    if not candidate.scheme or not candidate.netloc:
+        return False
+    candidate_path = (candidate.path or "").rstrip("/")
+    for raw_allowed in allowed_base_urls:
+        allowed = urlparse(str(raw_allowed or "").rstrip("/"))
+        if not allowed.scheme or not allowed.netloc:
+            continue
+        if candidate.scheme.lower() != allowed.scheme.lower():
+            continue
+        if candidate.hostname != allowed.hostname:
+            continue
+        if (candidate.port or _default_url_port(candidate.scheme)) != (
+            allowed.port or _default_url_port(allowed.scheme)
+        ):
+            continue
+        allowed_path = (allowed.path or "").rstrip("/")
+        if not allowed_path:
+            return True
+        if candidate_path == allowed_path or candidate_path.startswith(f"{allowed_path}/"):
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -113,7 +147,7 @@ def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingP
     if is_external and payload.get("allowed_base_urls"):
         base_url = str(payload.get("base_url") or "").rstrip("/")
         allowed = [str(u).rstrip("/") for u in payload["allowed_base_urls"]]
-        if base_url and not any(base_url.startswith(a) for a in allowed):
+        if base_url and not _base_url_allowed(base_url, allowed):
             raise ValueError(
                 f"embedding_provider_base_url_not_allowed:{base_url!r}"
             )

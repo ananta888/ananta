@@ -82,7 +82,7 @@
         "CWFH-001",
         "CWFH-002"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CWFH-2",
@@ -92,7 +92,7 @@
         "CWFH-004",
         "CWFH-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CWFH-3",
@@ -102,7 +102,7 @@
         "CWFH-007",
         "CWFH-008"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CWFH-4",
@@ -112,7 +112,7 @@
         "CWFH-010",
         "CWFH-011"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CWFH-5",
@@ -123,7 +123,7 @@
         "CWFH-014",
         "CWFH-015"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -222,7 +222,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-002",
         "CWFH-003"
@@ -257,7 +257,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-003",
         "CWFH-004"
@@ -286,6 +286,9 @@
         "Unit-Test blockiert ../, absoluten Pfad ausserhalb Root und Symlink-Ausbruch.",
         "Unit-Test blockiert oder redacted .env/private key Fixture.",
         "Unit-Test prueft max_total_bytes und max_bytes_per_file."
+      ],
+      "notes": [
+        "RHF-001: Workspace-Grenze am 2026-06-06 von String-Prefix auf Path.is_relative_to umgestellt."
       ]
     },
     {
@@ -296,7 +299,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-003",
         "CWFH-004",
@@ -336,7 +339,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-003",
         "CWFH-005",
@@ -405,7 +408,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-003",
         "CWFH-004",
@@ -545,7 +548,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "CWFH-005",
         "CWFH-009",
@@ -569,6 +572,9 @@
         "pytest tests/security/test_worker_context_file_policy.py",
         "pytest tests/security/test_worker_context_request_policy.py",
         "Snapshot prueft denied_files ohne Inhalt."
+      ],
+      "notes": [
+        "RHF-001: Regressionstest für Workspace-Prefix-Sibling-Ausbruch ergänzt."
       ]
     },
     {
@@ -664,33 +670,214 @@
       "blocked": 0,
       "done": 8
     },
-    "progress_percent_done": 53,
+    "progress_percent_done": 53.3,
     "by_priority": {
       "P0": 12,
       "P1": 3
     },
     "by_risk": {
-      "medium": 5,
       "high": 9,
-      "low": 1
+      "low": 1,
+      "medium": 5
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 8,
+      "remaining": 4
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 0,
+      "in_progress": 4,
+      "blocked": 0,
+      "done": 1
     }
   },
   "tasks_type_summary": {
     "total": 15,
     "by_type": {
-      "architecture-analysis": 1,
-      "retrieval-design": 1,
-      "contract-model": 1,
-      "backend-feature": 1,
-      "security-feature": 1,
-      "backend-integration": 3,
-      "api-feature": 1,
-      "worker-feature": 1,
-      "worker-integration": 1,
-      "e2e-test": 1,
-      "security-test": 1,
-      "observability": 1,
-      "migration": 1
+      "api-feature": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "architecture-analysis": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-feature": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "backend-integration": {
+        "total": 3,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 66.7,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "contract-model": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "e2e-test": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "migration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "observability": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "retrieval-design": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "security-feature": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "security-test": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "worker-feature": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "worker-integration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
     }
   },
   "progress_summary": {
@@ -701,7 +888,7 @@
     "blocked": 0,
     "done": 8,
     "total": 15,
-    "progress_percent": 53
+    "progress_percent": 53.3
   },
   "summary_notes": [
     "Dieser Track baut auf dem vorhandenen Chat-Memory-/CodeCompass-/Worker-v2-Flow auf und ersetzt ihn nicht abrupt.",

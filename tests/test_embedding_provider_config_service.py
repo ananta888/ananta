@@ -88,6 +88,16 @@ def test_build_embedding_provider_blocks_url_not_in_allowlist() -> None:
         })
 
 
+def test_build_embedding_provider_blocks_hostname_prefix_allowlist_bypass() -> None:
+    with pytest.raises(ValueError, match="base_url_not_allowed"):
+        build_embedding_provider({
+            "provider": "openai_compatible",
+            "base_url": "https://api.example.com.evil/v1",
+            "external_calls_allowed": True,
+            "allowed_base_urls": ["https://api.example.com"],
+        })
+
+
 def test_build_embedding_provider_allows_localhost_with_flag() -> None:
     """Localhost with explicit allow should not raise at build time (no actual network call)."""
     provider = build_embedding_provider({
@@ -181,6 +191,20 @@ def test_service_diagnostic_blocked_for_external_without_allow() -> None:
     )
     diag = svc.diagnostic("worker_retrieval")
     assert diag.status == "blocked"
+
+
+def test_service_diagnostic_blocks_hostname_prefix_allowlist_bypass() -> None:
+    svc = EmbeddingProviderConfigService(
+        global_config={
+            "provider": "openai_compatible",
+            "base_url": "https://api.example.com.evil/v1",
+            "external_calls_allowed": True,
+            "allowed_base_urls": ["https://api.example.com"],
+        }
+    )
+    diag = svc.diagnostic("worker_retrieval")
+    assert diag.status == "blocked"
+    assert diag.reason == "base_url_not_in_allowed_list"
 
 
 def test_service_all_diagnostics_returns_list() -> None:

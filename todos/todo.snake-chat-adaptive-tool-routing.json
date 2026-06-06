@@ -39,7 +39,7 @@
         "SCTR-001",
         "SCTR-002"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SCTR-2",
@@ -49,7 +49,7 @@
         "SCTR-004",
         "SCTR-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SCTR-3",
@@ -71,7 +71,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "cross_track_dependencies": [
         "AMR-001",
         "AMR-002"
@@ -104,7 +104,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "cross_track_dependencies": [
         "AMR-016"
       ],
@@ -128,6 +128,9 @@
         "Policy-Test blockiert .env oder redacted den Inhalt.",
         "Policy-Test erlaubt normales Listing im Projektroot.",
         "Policy-Test beweist, dass kein beliebiger Shell-Befehl ausgeführt wird."
+      ],
+      "notes": [
+        "RHF-001: Direkte SnakeChat-Dateitools blockieren Workspace-Prefix-Sibling-Ausbrüche."
       ]
     },
     {
@@ -138,7 +141,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "SCTR-002"
       ],
@@ -160,6 +163,9 @@
         "Unit-Test prüft max_depth-Verhalten.",
         "Unit-Test prüft deterministische Sortierung.",
         "Unit-Test prüft Policy-Block bei verbotenem Pfad."
+      ],
+      "notes": [
+        "RHF-001: FilesystemReadTool nutzt Path.is_relative_to und hat Regressionstest."
       ]
     },
     {
@@ -170,7 +176,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "SCTR-001",
         "SCTR-002",
@@ -206,10 +212,10 @@
       "title": "Direkte Read-Only Toolfamilien für Git und Todos ergänzen",
       "type": "backend-feature",
       "milestone": "SCTR-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "SCTR-004"
       ],
@@ -236,6 +242,10 @@
         "Unit-Tests prüfen GitReadTool mit Fixture-Repo oder Mock.",
         "Unit-Tests prüfen TodoReadTool mit todos Fixture.",
         "Router-Test prüft Git-/Todo-Intent ohne RAG."
+      ],
+      "notes": [
+        "2026-06-06: GitReadTool implementiert mit status, changed_files, current_branch und recent_commits.",
+        "2026-06-06: TodoReadTool implementiert mit list_active_tracks, list_todos und find_task_by_id."
       ]
     },
     {
@@ -347,13 +357,13 @@
   "tasks_status_summary": {
     "total": 8,
     "by_status": {
-      "todo": 4,
+      "todo": 3,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 5
     },
-    "progress_percent_done": 50,
+    "progress_percent_done": 62.5,
     "by_priority": {
       "P0": 4,
       "P1": 3,
@@ -361,8 +371,20 @@
     },
     "by_risk": {
       "high": 4,
-      "medium": 3,
-      "low": 1
+      "low": 1,
+      "medium": 3
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 4,
+      "remaining": 2
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 1,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -370,10 +392,52 @@
     "by_type": {
       "architecture": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "backend-feature": {
+        "total": 3,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 66.7,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "backend-integration": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "backend-optimization": {
+        "total": 1,
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -384,58 +448,16 @@
       },
       "security-design": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "backend-feature": {
-        "total": 3,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 3,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "backend-integration": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "backend-optimization": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "ui-backend": {
@@ -443,7 +465,7 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -456,19 +478,21 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 4,
+    "todo_remaining": 3,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 4,
+    "done": 5,
     "total": 8,
-    "progress_percent": 50
+    "progress_percent": 62.5
   },
   "summary_notes": [
     "Der wichtige Unterschied: Das LLM darf anfangs entscheiden, aber die Ausführung einfacher Tools und deren Ausgabe muss nicht erneut durch das LLM laufen.",
     "Mit Routing-Erinnerung kann Ananta wiederkehrende sichere Simple-Read-Anfragen später komplett ohne LLM erkennen.",
     "SCTR-001 bis SCTR-004 implementiert: Architektur-Doku, Security Policy, FilesystemReadTool und SnakeChatCommandRouter.",
-    "Offen: SCTR-005 (GitReadTool), SCTR-006 (TodoReadTool), SCTR-007 (Adaptive Routing Fallback), SCTR-008 (Telemetrie)."
+    "Offen: SCTR-005 (GitReadTool), SCTR-006 (TodoReadTool), SCTR-007 (Adaptive Routing Fallback), SCTR-008 (Telemetrie).",
+    "SCTR-005 implementiert: Read-only GitReadTool und TodoReadTool mit Unit-Tests ergänzt.",
+    "Offen bleiben SCTR-006 bis SCTR-008: adaptive Routing-Erinnerung, No-LLM-Pfad und Telemetrie/UX."
   ],
   "end_summaries": [
     {

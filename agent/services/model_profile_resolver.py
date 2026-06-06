@@ -227,6 +227,17 @@ class ModelProfileResolver:
             if not cap_ok:
                 decisions.append(ResolutionDecision(rank, source, pid, False, cap_reason))
                 return None
+            if not self.health.is_available(prof.provider_id):
+                decisions.append(
+                    ResolutionDecision(
+                        rank,
+                        source,
+                        pid,
+                        False,
+                        f"provider_health:unavailable:{prof.provider_id}",
+                    )
+                )
+                return None
             decisions.append(ResolutionDecision(rank, source, pid, True, "accepted"))
             return prof
 
