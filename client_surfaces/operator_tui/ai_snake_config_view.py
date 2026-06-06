@@ -43,6 +43,12 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "input_history_chat_enabled",
     "input_history_command_enabled",
     "input_history_max_entries",
+    # Advanced chat configuration (env-mapped features)
+    "chat_system_prompt",
+    "chat_streaming",
+    "chat_use_embedding_api",
+    "chat_embedding_model",
+    "chat_embedding_api_max_records",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -74,6 +80,14 @@ def _resolve_bool_pref(game: dict[str, object], key: str, env_key: str, default:
     token = str(os.environ.get(env_key, "1" if default else "0")).strip().lower()
     enabled = token not in {"0", "false", "no", "off"}
     return enabled if default else token in {"1", "true", "yes", "on"}
+
+
+def _resolve_text_pref(game: dict[str, object], key: str, env_key: str, default: str) -> str:
+    """Resolve a text preference: game state first, then env var, then default."""
+    value = game.get(key)
+    if isinstance(value, str):
+        return value
+    return str(os.environ.get(env_key, default))
 
 
 def _lmstudio_base_candidates() -> list[str]:
@@ -175,6 +189,43 @@ def _persist_tui_chat_settings(game: dict[str, object]) -> None:
         pass
     # Fallback: legacy tui_chat_settings.json for backward compatibility
     save_tui_chat_settings(payload)
+    # Propagate env-mapped advanced settings to os.environ so the
+    # consumer code (chat_mixin.py, tutorial_ai_mixin.py) sees the
+    # current TUI choice without requiring a restart. The TUI-side
+    # _resolve_*_pref() helpers also re-read game state at display
+    # time, so this setenv is what bridges to the env-only consumers.
+    _propagate_advanced_chat_to_env(game)
+
+
+# Mapping from game-state key to the ANANTA_TUI_CHAT_* env var the
+# consumer code reads. Keep in sync with the consumer call-sites in
+# chat_mixin.py and tutorial_ai_mixin.py.
+_ADVANCED_CHAT_ENV_MAP: dict[str, str] = {
+    "chat_system_prompt": "ANANTA_TUI_CHAT_SYSTEM_PROMPT",
+    "chat_streaming": "ANANTA_TUI_CHAT_STREAMING",
+    "chat_use_embedding_api": "ANANTA_TUI_CHAT_USE_EMBEDDING_API",
+    "chat_embedding_model": "ANANTA_TUI_CHAT_EMBEDDING_MODEL",
+    "chat_embedding_api_max_records": "ANANTA_TUI_CHAT_EMBEDDING_API_MAX_RECORDS",
+}
+
+
+def _propagate_advanced_chat_to_env(game: dict[str, object]) -> None:
+    """Mirror the env-mapped advanced chat settings into os.environ.
+
+    Only writes when the game value is set; never deletes an env var
+    (a pre-set env var is treated as the fallback/default).
+    """
+    for game_key, env_key in _ADVANCED_CHAT_ENV_MAP.items():
+        value = game.get(game_key)
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            os.environ[env_key] = "1" if value else "0"
+        elif isinstance(value, (int, float)):
+            os.environ[env_key] = str(int(value))
+        elif isinstance(value, str):
+            if value:
+                os.environ[env_key] = value
 
 
 def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
@@ -397,6 +448,37 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "options": ["20", "50", "100", "200", "500"],
             "group": "Input-Verlauf",
         },
+        # ── Advanced Chat (env-mapped features) ─────────────────────────────
+        {
+            "key": "chat_system_prompt",
+            "label": "Chat System Prompt",
+            "type": "text",
+            "value": _resolve_text_pref(game, "chat_system_prompt", "ANANTA_TUI_CHAT_SYSTEM_PROMPT", ""),
+            "group": "Advanced Chat",
+        },
+        {"key": "chat_streaming", "label": "Chat Streaming",
+         "type": "bool",
+         "value": _resolve_bool_pref(game, "chat_streaming", "ANANTA_TUI_CHAT_STREAMING", True),
+         "group": "Advanced Chat"},
+        {"key": "chat_use_embedding_api", "label": "Chat Embedding API",
+         "type": "bool",
+         "value": _resolve_bool_pref(game, "chat_use_embedding_api", "ANANTA_TUI_CHAT_USE_EMBEDDING_API", False),
+         "group": "Advanced Chat"},
+        {
+            "key": "chat_embedding_model",
+            "label": "Chat Embedding Model",
+            "type": "text",
+            "value": _resolve_text_pref(game, "chat_embedding_model", "ANANTA_TUI_CHAT_EMBEDDING_MODEL", ""),
+            "group": "Advanced Chat",
+        },
+        {
+            "key": "chat_embedding_api_max_records",
+            "label": "Chat Embedding Max",
+            "type": "choice",
+            "value": str(max(1, min(128, int(str(game.get("chat_embedding_api_max_records") or 64))))),
+            "options": ["16", "32", "64", "96", "128"],
+            "group": "Advanced Chat",
+        },
     ]
 
 
@@ -539,6 +621,13 @@ def ai_snake_config_options(game: dict[str, object], *, key: str) -> list[str]:
     typ = str(row.get("type") or "")
     if typ == "bool":
         return ["AN", "AUS"]
+    if typ == "text":
+        value = str(row.get("value") or "").strip()
+        if not value:
+            return []
+        # Show truncated as the only option; user types new value in filter
+        truncated = value if len(value) <= 80 else value[:77] + "…"
+        return [truncated]
     options = [str(item).strip() for item in (row.get("options") or []) if str(item).strip()]
     value = str(game.get("chat_backend_model") if key == "chat_model" else row.get("value") or "").strip()
     if value and value not in options:
@@ -735,6 +824,42 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         game[key] = raw_value
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"
+
+    # ── Advanced Chat handlers ────────────────────────────────────────────
+    if typ == "text":
+        # Free-form text: store the raw value (may contain spaces).
+        # An empty value resets to default (no override).
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        if not raw_value:
+            return f"ai config: {label} zurueckgesetzt (default)"
+        preview = raw_value if len(raw_value) <= 60 else raw_value[:57] + "…"
+        return f"ai config: {label} -> {preview}"
+
+    if key == "chat_streaming":
+        parsed = _parse_bool_value(raw_value)
+        if parsed is None:
+            return f"ai config: {label} erwartet AN/AUS"
+        game["chat_streaming"] = parsed
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} {'AN' if parsed else 'AUS'}"
+
+    if key == "chat_use_embedding_api":
+        parsed = _parse_bool_value(raw_value)
+        if parsed is None:
+            return f"ai config: {label} erwartet AN/AUS"
+        game["chat_use_embedding_api"] = parsed
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} {'AN' if parsed else 'AUS'}"
+
+    if key == "chat_embedding_api_max_records":
+        try:
+            value_int = max(1, min(128, int(raw_value)))
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        game["chat_embedding_api_max_records"] = value_int
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {value_int}"
 
     return "ai config: keine änderung"
 

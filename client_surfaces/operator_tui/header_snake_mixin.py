@@ -80,6 +80,14 @@ class HeaderSnakeMixin:
                 if isinstance(v, (str, int, float, bool)):
                     if k in explicit_user_keys or (k in persisted_cfg and v != _DEFAULTS.get(k)):
                         persisted_cfg[k] = v
+            # Mirror env-mapped advanced chat settings into os.environ
+            # at boot so consumer code (chat_mixin, tutorial_ai_mixin)
+            # sees the persisted TUI choices on first prompt.
+            try:
+                from client_surfaces.operator_tui.ai_snake_config_view import _propagate_advanced_chat_to_env
+                _propagate_advanced_chat_to_env(persisted_cfg)
+            except Exception:
+                pass
         except Exception:
             pass
         board_w, board_h = 18, 6

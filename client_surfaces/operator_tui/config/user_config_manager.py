@@ -60,6 +60,12 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "input_history_max_entries",
     "chat_input_history",     # list[str]
     "command_input_history",  # list[str]
+    # Advanced chat configuration (env-mapped features)
+    "chat_system_prompt",
+    "chat_streaming",
+    "chat_use_embedding_api",
+    "chat_embedding_model",
+    "chat_embedding_api_max_records",
 })
 
 _DEFAULTS: dict[str, Any] = {
@@ -95,6 +101,12 @@ _DEFAULTS: dict[str, Any] = {
     "input_history_max_entries": 100,
     "chat_input_history": [],
     "command_input_history": [],
+    # Advanced chat configuration
+    "chat_system_prompt": "",
+    "chat_streaming": True,
+    "chat_use_embedding_api": False,
+    "chat_embedding_model": "",
+    "chat_embedding_api_max_records": 64,
 }
 
 
