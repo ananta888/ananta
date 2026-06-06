@@ -5,6 +5,16 @@
 This inventory documents the current hardcoded planning template behavior in
 `agent/services/planning_utils.py` as baseline for the catalog migration.
 
+Task-specific agent behavior is documented separately in:
+
+```text
+docs/agent-profiles/README.md
+docs/agent-profiles/new-software-project.md
+client_surfaces/operator_tui/AGENTS.md
+```
+
+The inventory below describes template resolution and baseline task shapes. The agent profiles describe how a selected path should behave once active.
+
 ### Hardcoded sources
 
 1. `GOAL_TEMPLATES` (fachliche planning templates, keywords, subtasks)
@@ -22,21 +32,21 @@ This inventory documents the current hardcoded planning template behavior in
 
 ## Template matrix (all current GOAL_TEMPLATES entries)
 
-| Template ID | Keywords | Subtasks | Metadata fields in subtasks | Mapping assessment | Related standard blueprints |
-| --- | --- | ---: | --- | --- | --- |
-| `bug_fix` | bug, fix, fehler, error, crash, broken, kaputt | 5 | none | clean | Code-Repair |
-| `feature` | feature, implement, add, neu, new, create, erstellen, erstelle, baue | 5 | none | partial | Scrum, Kanban |
-| `refactor` | refactor, cleanup, improve, optimieren, verbessern, clean | 4 | none | partial | Code-Repair, TDD |
-| `test` | test, testing, coverage, unit test, integration test | 4 | none | partial | TDD, Code-Repair |
-| `tdd` | tdd, test-driven, test driven, test-first, red green, red-green | 7 | `depends_on` | clean | TDD |
-| `repo_analysis` | repo_analysis, projekt analysieren, analyse, struktur, risiken | 5 | none | partial | Research |
-| `sys_diag` | sys_diag, systemdiagnose, diagnose, fehler, logs, docker, testfehler | 5 | none | partial | Security-Review, Release-Prep |
-| `admin_repair` | admin_repair, admin repair, windows 11 repair, ubuntu repair, bounded repair, diagnosis only | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus`, `review_focus` | partial | Release-Prep, Security-Review |
-| `incident` | incident, notfall, ausfall, down, kritisch | 4 | none | partial | Security-Review, Release-Prep |
-| `architecture_review` | architecture_review, architekturreview, architektur, design review | 4 | none | partial | Research, Research-Evolution |
-| `code_fix` | code_fix, codeproblem, beheben, patch | 5 | none | clean | Code-Repair |
-| `new_software_project` | new_software_project, neues softwareprojekt, neues projekt anlegen, projektstart | 6 | `artifact`, `depends_on`, `test_focus`, `review_focus` | planning-only/partial | Scrum, Kanban |
-| `project_evolution` | project_evolution, existierendes projekt weiterentwickeln, weiterentwicklung, bestehendes projekt | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus` | partial | Research-Evolution, Scrum-OpenCode |
+| Template ID | Keywords | Subtasks | Metadata fields in subtasks | Mapping assessment | Related standard blueprints | Agent profile |
+| --- | --- | ---: | --- | --- | --- | --- |
+| `bug_fix` | bug, fix, fehler, error, crash, broken, kaputt | 5 | none | clean | Code-Repair | pending |
+| `feature` | feature, implement, add, neu, new, create, erstellen, erstelle, baue | 5 | none | partial | Scrum, Kanban | pending |
+| `refactor` | refactor, cleanup, improve, optimieren, verbessern, clean | 4 | none | partial | Code-Repair, TDD | pending |
+| `test` | test, testing, coverage, unit test, integration test | 4 | none | partial | TDD, Code-Repair | pending |
+| `tdd` | tdd, test-driven, test driven, test-first, red green, red-green | 7 | `depends_on` | clean | TDD | pending |
+| `repo_analysis` | repo_analysis, projekt analysieren, analyse, struktur, risiken | 5 | none | partial | Research | pending |
+| `sys_diag` | sys_diag, systemdiagnose, diagnose, fehler, logs, docker, testfehler | 5 | none | partial | Security-Review, Release-Prep | pending |
+| `admin_repair` | admin_repair, admin repair, windows 11 repair, ubuntu repair, bounded repair, diagnosis only | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus`, `review_focus` | partial | Release-Prep, Security-Review | pending |
+| `incident` | incident, notfall, ausfall, down, kritisch | 4 | none | partial | Security-Review, Release-Prep | pending |
+| `architecture_review` | architecture_review, architekturreview, architektur, design review | 4 | none | partial | Research, Research-Evolution | pending |
+| `code_fix` | code_fix, codeproblem, beheben, patch | 5 | none | clean | Code-Repair | pending |
+| `new_software_project` | new_software_project, neues softwareprojekt, neues projekt anlegen, projektstart | 6 | `artifact`, `depends_on`, `test_focus`, `review_focus` | planning-only/partial | Scrum, Kanban | `docs/agent-profiles/new-software-project.md` |
+| `project_evolution` | project_evolution, existierendes projekt weiterentwickeln, weiterentwicklung, bestehendes projekt | 6 | `artifact`, `depends_on`, `risk_focus`, `test_focus` | partial | Research-Evolution, Scrum-OpenCode | pending |
 
 ## Per-template details (keywords + subtasks)
 
@@ -152,6 +162,7 @@ This inventory documents the current hardcoded planning template behavior in
 ### new_software_project
 
 - Keywords: `new_software_project`, `neues softwareprojekt`, `neues projekt anlegen`, `projektstart`
+- Agent profile: `docs/agent-profiles/new-software-project.md`
 - Subtasks:
   - Projektidee und Grenzen klaeren
   - Projekt-Blueprint erstellen
@@ -180,3 +191,24 @@ This inventory documents the current hardcoded planning template behavior in
   3. execute and validate tests
   4. summarize changed files
 - This fallback is independent behavior and must stay explicitly modeled during migration.
+
+## Profile Migration Notes
+
+The current state is mixed:
+
+- `new_software_project` now has an explicit agent profile.
+- AI-Snake-Chat has a local `client_surfaces/operator_tui/AGENTS.md`.
+- Other templates still rely on root `AGENTS.md`, planning prompts, and hardcoded subtasks.
+
+Future cleanup should add profiles for at least:
+
+```text
+bug_fix
+code_fix
+refactor
+repo_analysis
+project_evolution
+architecture_review
+```
+
+Each profile should stay task-specific and must not change behavior for unrelated paths.
