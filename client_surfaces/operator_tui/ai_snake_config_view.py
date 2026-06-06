@@ -194,7 +194,7 @@ def _persist_tui_chat_settings(game: dict[str, object]) -> None:
     # current TUI choice without requiring a restart. The TUI-side
     # _resolve_*_pref() helpers also re-read game state at display
     # time, so this setenv is what bridges to the env-only consumers.
-    _propagate_advanced_chat_to_env(game)
+    _propagate_advanced_chat_to_env(game, override_existing=True)
 
 
 # Mapping from game-state key to the ANANTA_TUI_CHAT_* env var the
@@ -209,15 +209,49 @@ _ADVANCED_CHAT_ENV_MAP: dict[str, str] = {
 }
 
 
-def _propagate_advanced_chat_to_env(game: dict[str, object]) -> None:
+def _propagate_advanced_chat_to_env(
+    game: dict[str, object],
+    *,
+    override_existing: bool = False,
+) -> None:
     """Mirror the env-mapped advanced chat settings into os.environ.
 
-    Only writes when the game value is set; never deletes an env var
-    (a pre-set env var is treated as the fallback/default).
+    Resolution priority (highest to lowest):
+    1. game[game_key] when it differs from the user_config_manager default
+       AND override_existing=True → explicit user choice in the TUI
+       overrides everything else (used at runtime when the user changes
+       a value).
+    2. pre-existing env var → operator / tester / .env choice at process
+       start. NEVER silently overridden at boot.
+    3. game[game_key] when it differs from the default AND the env var
+       is unset → fill the env from user.json on first boot.
+    4. user_config_manager default → never written to env here.
+
+    Args:
+        game:            Persisted user-config dict.
+        override_existing: When True (runtime TUI change), the env var
+            is overwritten even if it was pre-set. When False (boot
+            load), a pre-set env var wins so testers / operators can
+            override stale user.json values per-process.
     """
+    try:
+        from client_surfaces.operator_tui.config.user_config_manager import (
+            _DEFAULTS as _ADV_CHAT_DEFAULTS,
+        )
+    except ImportError:
+        _ADV_CHAT_DEFAULTS = {}
+
     for game_key, env_key in _ADVANCED_CHAT_ENV_MAP.items():
-        value = game.get(game_key)
-        if value is None:
+        if game_key not in game:
+            continue
+        value = game[game_key]
+        default = _ADV_CHAT_DEFAULTS.get(game_key)
+        if value == default:
+            # user.json holds the default → don't touch a pre-set env var.
+            continue
+        if not override_existing and env_key in os.environ:
+            # Boot-time load: a pre-set env var wins. The persisted value
+            # in user.json cannot silently override it.
             continue
         if isinstance(value, bool):
             os.environ[env_key] = "1" if value else "0"
