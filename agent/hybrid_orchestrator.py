@@ -401,7 +401,18 @@ class AgenticSearchEngine:
 class SemanticSearchEngine:
     """LlamaIndex retrieval with persistent index and ingestion manifest."""
 
-    TEXT_EXTENSIONS = {".md", ".txt", ".rst", ".pdf", ".log", ".jsonl"}
+    TEXT_EXTENSIONS = {".md", ".txt", ".rst", ".pdf"}
+    # .jsonl and .log are internal data files, not semantic documentation
+    _FALLBACK_STOP_TOKENS: frozenset = frozenset({
+        "der", "die", "das", "den", "dem", "des", "ein", "eine", "einer",
+        "mir", "dir", "ihm", "ihr", "uns", "ich", "du", "er", "sie", "wir",
+        "und", "oder", "aber", "nicht", "auch", "noch", "von", "mit", "bei",
+        "aus", "zur", "zum", "ist", "sind", "war", "wird", "hat", "haben",
+        "auf", "in", "an", "zu", "am", "im", "als", "bitte", "mal",
+        "the", "and", "for", "are", "but", "not", "you", "all", "can",
+        "has", "its", "was", "use", "one", "how", "our", "out", "that",
+        "this", "with", "from", "have", "will", "been", "they", "their",
+    })
 
     def __init__(
         self,
@@ -525,7 +536,10 @@ class SemanticSearchEngine:
             except Exception as e:
                 logging.warning(f"LlamaIndex semantic search failed for query '{query[:50]}...': {e}")
 
-        tokens = [t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query) if len(t) > 2]
+        tokens = [
+            t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query)
+            if len(t) >= 3 and t.lower() not in self._FALLBACK_STOP_TOKENS
+        ]
         fallback: list[ContextChunk] = []
         for source, text in self._fallback_docs:
             lower = text.lower()
