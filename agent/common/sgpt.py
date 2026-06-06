@@ -567,26 +567,26 @@ def _resolve_repo_root() -> pathlib.Path | None:
     return None
 
 
-def _embed_workspace_files_in_prompt(prompt: str, workdir: str | None, *, max_chars: int = 20_000) -> str:
-    """Embed relevant source files from the project into the prompt for ananta-worker.
+def _load_source_file_batches(
+    workdir: str | None,
+    *,
+    files_per_batch: int = 3,
+    per_file_chars: int = 4_000,
+    max_files: int = 30,
+) -> list[list[tuple[str, str, str]]]:
+    """Load relevant source files from workspace and split into batches.
 
-    Reads rag_helper/research-context.json to find repo_scope_refs (file paths
-    identified as relevant by CodeCompass for this task), then reads the actual
-    source files from settings.rag_repo_root.
-
-    Works generically for any project — the repo root comes from configuration,
-    not a hardcoded path. Falls back to hub-context.md RAG excerpts if no file
-    refs are present.
+    Reads rag_helper/research-context.json for repo_scope_refs, resolves each
+    path against settings.rag_repo_root, and returns batches of
+    (rel_path, lang, content). Falls back to hub-context.md as a single batch
+    if no file refs are found.
     """
+    batches: list[list[tuple[str, str, str]]] = []
     if not workdir:
-        return prompt
+        return batches
     root = pathlib.Path(workdir)
     if not root.is_dir():
-        return prompt
-
-    sections: list[str] = []
-    remaining = max_chars
-    embedded_files = False
+        return batches
 
     repo_root = _resolve_repo_root()
     research_json = root / "rag_helper" / "research-context.json"
@@ -596,56 +596,202 @@ def _embed_workspace_files_in_prompt(prompt: str, workdir: str | None, *, max_ch
             data = json.loads(research_json.read_text(encoding="utf-8", errors="replace"))
             refs = [dict(r or {}) for r in list(data.get("repo_scope_refs") or []) if r]
             resolved_root = repo_root.resolve()
-            for ref in refs[:14]:
+            current_batch: list[tuple[str, str, str]] = []
+            loaded = 0
+            for ref in refs:
+                if loaded >= max_files:
+                    break
                 rel_path = str(ref.get("path") or "").strip()
                 if not rel_path:
                     continue
                 try:
                     full = (repo_root / rel_path).resolve()
-                    full.relative_to(resolved_root)  # guard against path traversal
+                    full.relative_to(resolved_root)
                 except (ValueError, OSError):
                     continue
                 if not full.is_file():
                     continue
                 try:
-                    content = full.read_text(encoding="utf-8", errors="replace").strip()
+                    raw = full.read_text(encoding="utf-8", errors="replace").strip()
                 except OSError:
                     continue
-                if not content:
+                if not raw:
                     continue
-                per_file = min(remaining, 5_000)
-                chunk = content[:per_file]
-                if len(content) > per_file:
-                    chunk = chunk.rstrip() + "\n# [… gekürzt]"
+                content = raw[:per_file_chars]
+                if len(raw) > per_file_chars:
+                    content = content.rstrip() + "\n# [… gekürzt]"
                 lang = _EXT_LANG.get(full.suffix.lstrip("."), full.suffix.lstrip(".") or "text")
-                sections.append(f"### {rel_path}\n```{lang}\n{chunk}\n```")
-                remaining -= len(chunk)
-                embedded_files = True
-                if remaining <= 0:
-                    break
+                current_batch.append((rel_path, lang, content))
+                loaded += 1
+                if len(current_batch) >= files_per_batch:
+                    batches.append(current_batch)
+                    current_batch = []
+            if current_batch:
+                batches.append(current_batch)
         except Exception:
             pass
 
     # Fallback: hub-context.md contains pre-assembled RAG chunk excerpts
-    if not embedded_files:
+    if not batches:
         hub_path = root / ".ananta" / "hub-context.md"
-        if hub_path.exists() and remaining > 0:
+        if hub_path.exists():
             try:
                 content = hub_path.read_text(encoding="utf-8", errors="replace").strip()
                 if content:
-                    chunk = content[:remaining]
-                    if len(content) > remaining:
-                        chunk = chunk.rstrip() + "\n\n[… gekürzt]"
-                    sections.append(f"### Projektkontext (CodeCompass)\n\n{chunk}")
-                    remaining -= len(chunk)
-                    embedded_files = True
+                    batches.append([("hub-context.md", "markdown", content[:12_000])])
             except OSError:
                 pass
 
-    if not sections:
-        return prompt
-    injected = "\n\n---\n\n".join(sections)
-    return f"{prompt}\n\n---\n\n{injected}"
+    return batches
+
+
+def _build_iteration_prompt(
+    original_prompt: str,
+    *,
+    batch: list[tuple[str, str, str]],
+    progress_so_far: str,
+    step: int,
+    total_steps: int,
+    is_synthesis: bool = False,
+) -> str:
+    """Assemble the prompt for one iteration step of the ananta-worker loop."""
+    parts: list[str] = [original_prompt.rstrip(), "\n\n---\n\n"]
+
+    if progress_so_far:
+        # Keep progress concise — truncate oldest content if very large
+        prog = progress_so_far if len(progress_so_far) <= 6_000 else "…\n" + progress_so_far[-6_000:]
+        parts.append(f"**Bisheriger Arbeitsfortschritt:**\n\n{prog}\n\n---\n\n")
+
+    if is_synthesis:
+        parts.append(
+            "Alle relevanten Quelldateien wurden analysiert. "
+            "Erstelle jetzt das vollständige, abschließende Ergebnis "
+            "basierend auf dem gesamten Arbeitsfortschritt oben. "
+            "Antworte direkt ohne weitere Schritte anzukündigen."
+        )
+    else:
+        if not progress_so_far:
+            header = (
+                f"**Schritt {step}/{total_steps}** — "
+                "Analysiere die folgenden Quelldateien und halte deine "
+                "Teilergebnisse und Erkenntnisse strukturiert fest. "
+                "Antworte nur mit deinem Fortschritt, noch nicht dem Endergebnis."
+            )
+        else:
+            header = (
+                f"**Schritt {step}/{total_steps}** — "
+                "Analysiere die weiteren Quelldateien und ergänze deinen Fortschritt."
+            )
+        parts.append(header + "\n\n")
+        for rel_path, lang, content in batch:
+            parts.append(f"### {rel_path}\n```{lang}\n{content}\n```\n\n")
+
+    return "".join(parts)
+
+
+def _run_ananta_worker_iterative(
+    prompt: str,
+    workdir: str | None,
+    *,
+    options: list,
+    timeout: int,
+    model: str | None,
+    files_per_batch: int = 3,
+    per_file_chars: int = 4_000,
+    max_iterations: int = 8,
+) -> tuple[int, str, str]:
+    """Iterative execution loop for ananta-worker.
+
+    Mirrors how OpenCode works with its workdir:
+    - Source files are loaded in batches from CodeCompass repo_scope_refs
+    - Each sgpt call processes one batch and writes its output to
+      rag_helper/progress.md in the workspace (= persisted intermediate state)
+    - Subsequent calls receive the accumulated progress as context
+    - A final synthesis call assembles the complete result from all steps
+    - Falls back to a single-shot call when no batches / workdir not available
+    """
+    batches = _load_source_file_batches(
+        workdir,
+        files_per_batch=files_per_batch,
+        per_file_chars=per_file_chars,
+        max_files=max_iterations * files_per_batch,
+    )
+
+    # No workspace context → plain single-shot call
+    if not batches:
+        return run_sgpt_command(prompt=prompt, options=options, timeout=timeout, model=model, workdir=workdir)
+
+    # Single batch → embed files directly, no iteration overhead
+    if len(batches) == 1:
+        batch = batches[0]
+        file_blocks = "\n\n".join(
+            f"### {rp}\n```{lg}\n{ct}\n```" for rp, lg, ct in batch
+        )
+        enriched = f"{prompt.rstrip()}\n\n---\n\n{file_blocks}"
+        return run_sgpt_command(prompt=enriched, options=options, timeout=timeout, model=model, workdir=workdir)
+
+    # Multiple batches → iterative loop
+    capped = batches[:max_iterations]
+    total = len(capped)
+    progress_path = (pathlib.Path(workdir) / "rag_helper" / "progress.md") if workdir else None
+    progress_parts: list[str] = []
+    last_rc, last_out, last_err = 0, "", ""
+
+    for step, batch in enumerate(capped, start=1):
+        iter_prompt = _build_iteration_prompt(
+            original_prompt=prompt,
+            batch=batch,
+            progress_so_far="\n\n---\n\n".join(progress_parts),
+            step=step,
+            total_steps=total,
+            is_synthesis=False,
+        )
+        rc, out, err = run_sgpt_command(
+            prompt=iter_prompt, options=options, timeout=timeout, model=model, workdir=workdir
+        )
+        last_rc, last_err = rc, err
+        if out:
+            last_out = out
+            file_names = ", ".join(rp for rp, _, _ in batch)
+            progress_parts.append(f"## Schritt {step} — {file_names}\n\n{out.strip()}")
+            if progress_path:
+                try:
+                    progress_path.parent.mkdir(parents=True, exist_ok=True)
+                    progress_path.write_text(
+                        "\n\n---\n\n".join(progress_parts), encoding="utf-8"
+                    )
+                except OSError:
+                    pass
+        if rc != 0 and not out:
+            logging.warning("ananta-worker iteration %s/%s failed (rc=%s), stopping early", step, total, rc)
+            break
+
+    # Synthesis call: assemble final result from all intermediate steps
+    if progress_parts:
+        synthesis_prompt = _build_iteration_prompt(
+            original_prompt=prompt,
+            batch=[],
+            progress_so_far="\n\n---\n\n".join(progress_parts),
+            step=total + 1,
+            total_steps=total + 1,
+            is_synthesis=True,
+        )
+        rc, out, err = run_sgpt_command(
+            prompt=synthesis_prompt, options=options, timeout=timeout, model=model, workdir=workdir
+        )
+        if out:
+            last_rc, last_out, last_err = rc, out, err
+            if progress_path:
+                try:
+                    final_text = (
+                        "\n\n---\n\n".join(progress_parts)
+                        + f"\n\n---\n\n## Finales Ergebnis\n\n{out.strip()}"
+                    )
+                    progress_path.write_text(final_text, encoding="utf-8")
+                except OSError:
+                    pass
+
+    return last_rc, last_out, last_err
 
 
 def run_sgpt_command(
@@ -1527,8 +1673,13 @@ def run_llm_cli_command(
         if name == "sgpt":
             rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model, workdir=workdir)
         elif name == "ananta-worker":
-            enriched = _embed_workspace_files_in_prompt(prompt, workdir)
-            rc, out, err = run_sgpt_command(prompt=enriched, options=options or [], timeout=timeout, model=model, workdir=workdir)
+            rc, out, err = _run_ananta_worker_iterative(
+                prompt=prompt,
+                workdir=workdir,
+                options=options or [],
+                timeout=timeout,
+                model=model,
+            )
         elif name == "codex":
             rc, out, err = run_codex_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "opencode":
