@@ -1112,17 +1112,17 @@ class ChatMixin:
                 if stream_enabled and "text/event-stream" in content_type.lower():
                     streamed = self._read_chat_stream_response(resp)
                     if streamed:
-                        return streamed[:600]
+                        return streamed
                     return "⚠ LLM Streaming-Fehler: keine Antwort erhalten"
                 raw_response = resp.read().decode("utf-8", errors="replace")
                 if stream_enabled:
                     streamed = self._read_chat_stream(raw_response)
                     if streamed:
-                        return streamed[:600]
+                        return streamed
                 data = _json_mod.loads(raw_response)
                 choices = data.get("choices") or []
                 if choices:
-                    return str(choices[0].get("message", {}).get("content", "")).strip()[:600]
+                    return str(choices[0].get("message", {}).get("content", "")).strip()
         except urllib.error.HTTPError as exc:
             detail = ""
             try:
