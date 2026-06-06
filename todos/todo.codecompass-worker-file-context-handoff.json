@@ -219,7 +219,7 @@
       "title": "CodeCompassCandidateResolver fuer Fragen, Embeddings und Graphnachbarschaft bauen",
       "type": "backend-feature",
       "milestone": "CWFH-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -254,7 +254,7 @@
       "title": "Policy-geprueften Originaldatei-Reader fuer ContextFiles einfuehren",
       "type": "security-feature",
       "milestone": "CWFH-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -293,7 +293,7 @@
       "title": "ChatPromptBuilder auf worker_context_handoff.v3 erweitern",
       "type": "backend-integration",
       "milestone": "CWFH-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -333,7 +333,7 @@
       "title": "WorkerContractService und ContextBundler um File-Handoff erweitern",
       "type": "backend-integration",
       "milestone": "CWFH-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -402,7 +402,7 @@
       "title": "Hub-Endpoint fuer WorkerContextRequest einfuehren",
       "type": "api-feature",
       "milestone": "CWFH-4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -542,7 +542,7 @@
       "title": "Security- und Least-Privilege-Testmatrix fuer Datei-Handoff ergaenzen",
       "type": "security-test",
       "milestone": "CWFH-5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -658,35 +658,21 @@
   "tasks_status_summary": {
     "total": 15,
     "by_status": {
-      "todo": 15,
+      "todo": 7,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 53,
     "by_priority": {
       "P0": 12,
-      "P1": 3,
-      "P2": 0,
-      "P3": 0
+      "P1": 3
     },
     "by_risk": {
-      "low": 1,
-      "medium": 7,
-      "high": 7
-    },
-    "critical_path": {
-      "total": 12,
-      "done": 0,
-      "remaining": 12
-    },
-    "milestones": {
-      "total": 5,
-      "todo": 5,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 0
+      "medium": 5,
+      "high": 9,
+      "low": 1
     }
   },
   "tasks_type_summary": {
@@ -708,30 +694,44 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 15,
+    "state": "in_progress",
+    "todo_remaining": 7,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 8,
+    "total": 15,
+    "progress_percent": 53
   },
   "summary_notes": [
     "Dieser Track baut auf dem vorhandenen Chat-Memory-/CodeCompass-/Worker-v2-Flow auf und ersetzt ihn nicht abrupt.",
-    "Kernentscheidung: CodeCompass routet und erklaert Kontextauswahl; Originaldateien liefern Wahrheit.",
-    "Wichtigster technischer Schnitt: worker_context_handoff.v3 mit candidate_files, context_files und worker_context_request/response.",
-    "Sicherheitsregel: Worker fordern Dateien ueber Hub an, nicht ueber unkontrollierten Direktzugriff ausserhalb des erlaubten Workspace-Vertrags."
+    "Kernentscheidung: CodeCompass routet und erklärt Kontextauswahl; Originaldateien liefern Wahrheit.",
+    "CWFH-004 bis CWFH-007, CWFH-009 und CWFH-013 sind implementiert: Resolver, Reader, Prompt-Builder, Contract-Service, Hub-Endpoint und Security-Tests.",
+    "Offen: CWFH-001 (Doku), CWFH-008 (Version-Selection im Backend), CWFH-010/011 (Worker-Tool/OpenCode), CWFH-012 (E2E-Test), CWFH-014/015 (UI + Migration-Doku)."
   ],
   "end_summaries": [
     {
-      "summary_id": "CWFH-END-001",
-      "title": "Erwarteter Zielzustand",
-      "items": [
-        "AI-Snake-Fragen koennen CodeCompass nutzen, um passende Dateien zu finden.",
-        "Der Worker bekommt strukturierte Kandidaten und optional bereits gelesene Originaldateien.",
-        "Der Worker kann ueber Hub/CodeCompass weitere Dateien oder Graph-Nachbarschaften nachfordern.",
-        "Antworten und Codeaenderungen basieren nachvollziehbar auf Originaldateien, nicht nur auf Index-Snippets.",
-        "Policy, Provenance, Budget und Rueckwaertskompatibilitaet sind getestet."
-      ]
+      "date": "2026-06-06",
+      "session": "CWFH-004..013",
+      "implemented": [
+        "CWFH-004: CodeCompassCandidateResolver — Scoring aus allen Output-Kinds",
+        "CWFH-005: ContextFileReaderService — Policy-geprüfter Datei-Reader",
+        "CWFH-006: ChatPromptBuilder — worker_v3_payload ergänzt",
+        "CWFH-007: WorkerContractService.build_worker_context_handoff_v3()",
+        "CWFH-009: POST /worker-context Hub-Endpoint",
+        "CWFH-013: 28 Security-Tests (Traversal, Symlink, Secrets, Binary, Cross-WS)"
+      ],
+      "remaining": [
+        "CWFH-001",
+        "CWFH-008",
+        "CWFH-010",
+        "CWFH-011",
+        "CWFH-012",
+        "CWFH-014",
+        "CWFH-015"
+      ],
+      "test_count": 28,
+      "all_tests_green": true
     }
   ]
 }

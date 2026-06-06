@@ -932,35 +932,23 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 24,
+      "todo": 6,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 18
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 75,
     "by_priority": {
-      "P0": 12,
+      "P0": 13,
       "P1": 8,
       "P2": 2,
       "P3": 1
     },
     "by_risk": {
-      "low": 4,
-      "medium": 16,
+      "low": 3,
+      "medium": 17,
       "high": 4
-    },
-    "critical_path": {
-      "total": 11,
-      "done": 0,
-      "remaining": 11
-    },
-    "milestones": {
-      "total": 9,
-      "todo": 9,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 0
     }
   },
   "tasks_type_summary": {
@@ -1179,18 +1167,20 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 24,
+    "state": "mostly_done",
+    "todo_remaining": 6,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 18,
+    "total": 24,
+    "progress_percent": 75
   },
   "summary_notes": [
     "Diese TODO-Datei ist bewusst umfangreich, weil das Modellrouting ein Kernstück von Ananta wird und nicht nur eine DEFAULT_MODEL-Erweiterung ist.",
-    "Die Umsetzung soll zuerst Schemas, Resolver und Policy-Sicherheit stabilisieren, bevor UI-Schreibfunktionen aktiviert werden.",
-    "Cloud-Modelle dürfen bei Secret-/Customer-confidential-Kontext niemals durch Fallback oder Request Override versehentlich genutzt werden.",
-    "Blueprints und Templates sollen portable Modellanforderungen ausdrücken, nicht zwingend harte Provider-URLs enthalten."
+    "Die Umsetzung hat zuerst Schemas, Resolver und Policy-Sicherheit stabilisiert, bevor UI-Schreibfunktionen aktiviert werden.",
+    "18 von 24 Tasks abgeschlossen: Loader, Resolver, Normalisierung, Blueprint/Template-Policy, Invocation-Service-Integration, Diagnose-Endpoint, Security- und E2E-Tests.",
+    "Offen (P2/P3 oder Spätprojekte): AMR-015 (Dashboard/UI), AMR-018 (Benchmarks), AMR-019 (OpenCode/externe Worker), AMR-022 (Operator-Doku), AMR-023 (Writable UI), AMR-024 (Final Review)."
   ],
   "end_summaries": [
     {
@@ -1212,6 +1202,32 @@
         "AMR-016 muss früh folgen, damit Security nicht erst nachträglich angeklebt wird.",
         "UI und Learning/Benchmark-Routing sollten erst nach stabiler Resolver-Logik kommen."
       ]
+    },
+    {
+      "date": "2026-06-06",
+      "session": "AMR-007..021 (abgeschlossen)",
+      "implemented": [
+        "AMR-007: ModelProfileLoader — YAML/JSON laden, Validierung, Cloud-Pflichtfelder",
+        "AMR-008+017: ModelProfileResolver — 11-Rang-Matrix, ProviderHealthCache, resolve_with_fallback",
+        "AMR-009: ModelOverrideNormalizationService — Legacy-Alias-Normalisierung",
+        "AMR-010+020: ModelInvocationService — _get_resolver(), _make_chat_call() Integration, Deprecation-Warning",
+        "AMR-011: TaskRoutingContract — 8 neue Routing-Felder",
+        "AMR-012: BlueprintModelPolicyService",
+        "AMR-013: TemplateModelPolicyService",
+        "AMR-014: GET /config/model-routing/read-model + GET /diagnostics/embedding-provider",
+        "AMR-016: 18 Security-Policy-Tests",
+        "AMR-021: 18 E2E-Tests"
+      ],
+      "status": "18/24 done",
+      "remaining_p2_p3": [
+        "AMR-015",
+        "AMR-018",
+        "AMR-019",
+        "AMR-022",
+        "AMR-023",
+        "AMR-024"
+      ],
+      "all_tests_green": true
     }
   ]
 }

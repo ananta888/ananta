@@ -277,6 +277,42 @@ class WorkerContractService:
         }
 
 
+    def build_worker_context_handoff_v3(
+        self,
+        *,
+        question: str,
+        candidate_files: list[dict] | None = None,
+        context_files: list[dict] | None = None,
+        context_text: str | None = None,
+        depth: str | None = None,
+        memory_context: str | None = None,
+        manifest_hash: str | None = None,
+        policy_version: str = "v3.0",
+    ) -> dict:
+        """
+        CWFH-007: Build a WorkerContextHandoffV3 payload combining candidate file scores
+        (from CodeCompassCandidateResolver) with read file contents (from ContextFileReaderService).
+        """
+        required_reads = [
+            str(c.get("path") or "")
+            for c in (candidate_files or [])
+            if c.get("requires_read") and str(c.get("path") or "")
+        ]
+        return {
+            "schema": "worker_context_handoff.v3",
+            "question": str(question or "").strip(),
+            "context": str(context_text or "").strip() or None,
+            "depth": str(depth or "").strip() or None,
+            "memory_context": str(memory_context or "").strip() or None,
+            "candidate_files": [dict(c) for c in (candidate_files or [])],
+            "context_files": [dict(f) for f in (context_files or [])],
+            "manifest_hash": str(manifest_hash or "").strip() or None,
+            "policy_version": str(policy_version or "v3.0").strip() or "v3.0",
+            "required_reads": required_reads,
+            "worker_context_requests": [],
+        }
+
+
 worker_contract_service = WorkerContractService()
 
 

@@ -5,9 +5,24 @@
   "track": "snake-chat-adaptive-tool-routing",
   "purpose": "AI-Snake-Chat soll einfache deterministische Aufgaben nicht unnötig über RAG/LLM ausführen, sondern sichere Tools direkt nutzen. Das LLM entscheidet initial über Intent und Ausführungsplan, aber Tool-Ausführung und rohe/strukturierte Ausgabe laufen deterministisch außerhalb des LLM. Wiederkehrende einfache Muster können später ohne LLM über Erinnerungs-/Routing-Regeln erkannt werden.",
   "goal": "Schnelle, sichere und kostengünstige Snake-Chat-Antworten für einfache Projekt-/Dateisystem-/Git-/Todo-Abfragen, mit LLM als lernendem Router statt als unnötigem Ausführungs- und Formatierungszwang.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "routing_principles": [
     "LLM darf initial entscheiden, ob eine Anfrage einfach/deterministisch ist und welches Tool geeignet ist.",
     "Tool-Ausführung läuft außerhalb des LLM über erlaubte, sichere Tool-APIs.",
@@ -20,19 +35,30 @@
     {
       "id": "SCTR-1",
       "title": "Routing-Architektur und Policy definieren",
-      "task_ids": ["SCTR-001", "SCTR-002"],
+      "task_ids": [
+        "SCTR-001",
+        "SCTR-002"
+      ],
       "status": "todo"
     },
     {
       "id": "SCTR-2",
       "title": "Deterministische Toolpfade für Snake-Chat implementieren",
-      "task_ids": ["SCTR-003", "SCTR-004", "SCTR-005"],
+      "task_ids": [
+        "SCTR-003",
+        "SCTR-004",
+        "SCTR-005"
+      ],
       "status": "todo"
     },
     {
       "id": "SCTR-3",
       "title": "Adaptive Erinnerung und LLM-Verzicht für bekannte Muster",
-      "task_ids": ["SCTR-006", "SCTR-007", "SCTR-008"],
+      "task_ids": [
+        "SCTR-006",
+        "SCTR-007",
+        "SCTR-008"
+      ],
       "status": "todo"
     }
   ],
@@ -42,11 +68,14 @@
       "title": "SnakeChat Routing-Entscheidungsmodell definieren",
       "type": "architecture",
       "milestone": "SCTR-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "cross_track_dependencies": ["AMR-001", "AMR-002"],
+      "cross_track_dependencies": [
+        "AMR-001",
+        "AMR-002"
+      ],
       "cross_track_note": "Das Routing-Entscheidungsmodell (simple_tool/rag_required/llm_required/blocked_by_policy) muss mit der AMR-Routing-Taxonomie (ModelRole/Blueprint-Zuordnung) kompatibel sein. AMR-001/002 Bestandsaufnahme zuerst, dann SCTR-001 definieren.",
       "target_files": [
         "docs/**/snake*.md",
@@ -72,11 +101,13 @@
       "title": "Security Policy für direkte Snake-Chat-Tools festlegen",
       "type": "security-design",
       "milestone": "SCTR-1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "cross_track_dependencies": ["AMR-016"],
+      "cross_track_dependencies": [
+        "AMR-016"
+      ],
       "cross_track_note": "AMR-016 implementiert Security Enforcement für Model-Routing (Cloud-Policy). Die SCTR-002 Policy-Regeln müssen mit dem AMR-Security-Framework konsistent sein — PolicyGuard-Konzept ist in AMR bereits definiert.",
       "target_files": [
         "agent/**/policy*.py",
@@ -104,11 +135,13 @@
       "title": "FilesystemReadTool für deterministische Projektabfragen implementieren",
       "type": "backend-feature",
       "milestone": "SCTR-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "dependencies": ["SCTR-002"],
+      "dependencies": [
+        "SCTR-002"
+      ],
       "target_files": [
         "agent/**/filesystem_read_tool.py",
         "agent/**/tools*.py",
@@ -134,12 +167,18 @@
       "title": "SnakeChatCommandRouter mit LLM-Entscheidung und direkter Tool-Ausgabe einführen",
       "type": "backend-integration",
       "milestone": "SCTR-2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["SCTR-001", "SCTR-002", "SCTR-003"],
-      "cross_track_dependencies": ["CWFH-007"],
+      "dependencies": [
+        "SCTR-001",
+        "SCTR-002",
+        "SCTR-003"
+      ],
+      "cross_track_dependencies": [
+        "CWFH-007"
+      ],
       "cross_track_note": "SnakeChatCommandRouter muss wissen, wann er einen strukturierten Worker-Payload (CWFH-007 worker_context_handoff.v3) statt einem direkten Tool-Call auslöst. Ohne CWFH-007 kann der Router nicht zwischen simple_tool und worker_required unterscheiden.",
       "target_files": [
         "agent/**/snake_chat_command_router.py",
@@ -171,8 +210,12 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "dependencies": ["SCTR-004"],
-      "cross_track_dependencies": ["CWFH-010"],
+      "dependencies": [
+        "SCTR-004"
+      ],
+      "cross_track_dependencies": [
+        "CWFH-010"
+      ],
       "cross_track_note": "TodoReadTool muss mit WorkerContextRequest-Contracts (CWFH-010) kompatibel sein — Worker könnten Todo-Informationen als Kontext über Hub nachfordern. Schnittstelle abstimmen.",
       "target_files": [
         "agent/**/git_read_tool.py",
@@ -204,7 +247,9 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "dependencies": ["SCTR-004"],
+      "dependencies": [
+        "SCTR-004"
+      ],
       "target_files": [
         "agent/**/snake_chat_routing_memory.py",
         "agent/**/user_preferences*.py",
@@ -234,7 +279,9 @@
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
-      "dependencies": ["SCTR-006"],
+      "dependencies": [
+        "SCTR-006"
+      ],
       "target_files": [
         "agent/**/snake_chat_command_router.py",
         "agent/**/snake_chat_routing_memory.py",
@@ -263,7 +310,10 @@
       "priority": "P2",
       "risk": "low",
       "progress_percent": 0,
-      "dependencies": ["SCTR-004", "SCTR-007"],
+      "dependencies": [
+        "SCTR-004",
+        "SCTR-007"
+      ],
       "target_files": [
         "agent/**/snake*.py",
         "agent/**/chat*.py",
@@ -286,45 +336,157 @@
       ]
     }
   ],
-  "critical_path_tasks": ["SCTR-001", "SCTR-002", "SCTR-003", "SCTR-004", "SCTR-006", "SCTR-007"],
+  "critical_path_tasks": [
+    "SCTR-001",
+    "SCTR-002",
+    "SCTR-003",
+    "SCTR-004",
+    "SCTR-006",
+    "SCTR-007"
+  ],
   "tasks_status_summary": {
     "total": 8,
-    "by_status": {"todo": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"P0": 4, "P1": 3, "P2": 1, "P3": 0},
-    "by_risk": {"low": 1, "medium": 3, "high": 4},
-    "critical_path": {"total": 6, "done": 0, "remaining": 6},
-    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 4,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 4
+    },
+    "progress_percent_done": 50,
+    "by_priority": {
+      "P0": 4,
+      "P1": 3,
+      "P2": 1
+    },
+    "by_risk": {
+      "high": 4,
+      "medium": 3,
+      "low": 1
+    }
   },
   "tasks_type_summary": {
     "total": 8,
     "by_type": {
-      "architecture": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "security-design": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "backend-feature": {"total": 3, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "backend-integration": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "backend-optimization": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
-      "ui-backend": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}}
+      "architecture": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security-design": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-feature": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-integration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend-optimization": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "ui-backend": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
     }
   },
-  "progress_summary": {"state": "not_started", "todo_remaining": 8, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 4,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 4,
+    "total": 8,
+    "progress_percent": 50
+  },
   "summary_notes": [
     "Der wichtige Unterschied: Das LLM darf anfangs entscheiden, aber die Ausführung einfacher Tools und deren Ausgabe muss nicht erneut durch das LLM laufen.",
     "Mit Routing-Erinnerung kann Ananta wiederkehrende sichere Simple-Read-Anfragen später komplett ohne LLM erkennen.",
-    "Direkte Toolpfade brauchen harte Security-Grenzen, weil sie näher am Projekt und Dateisystem arbeiten.",
-    "Dieser Track ergänzt RAG-Config und Query-Translation: Nicht jede Anfrage ist RAG; manche sind sichere deterministische Tool-Aufgaben."
+    "SCTR-001 bis SCTR-004 implementiert: Architektur-Doku, Security Policy, FilesystemReadTool und SnakeChatCommandRouter.",
+    "Offen: SCTR-005 (GitReadTool), SCTR-006 (TodoReadTool), SCTR-007 (Adaptive Routing Fallback), SCTR-008 (Telemetrie)."
   ],
   "end_summaries": [
     {
-      "summary_id": "effective_rule",
-      "title": "Effektive Regel",
-      "items": [
-        "LLM entscheidet initial über den Weg, aber führt einfache Tools nicht selbst aus.",
-        "Direkte Read-Only-Toolausgabe darf direkt an den User gehen.",
-        "RAG/LLM nur bei Erklärung, Bewertung, Planung, Synthese oder unklarer Suche.",
-        "Bekannte sichere Muster können später ohne LLM über Routing-Memory laufen.",
-        "PolicyGuard ist Pflicht vor jeder Tool-Ausführung."
-      ]
+      "date": "2026-06-06",
+      "session": "SCTR-001..004",
+      "implemented": [
+        "SCTR-001: docs/architecture/snakechat-routing-decision-model.md",
+        "SCTR-002: snake_chat_security_policy.py — Sanitization, denied globs, dispatch guard",
+        "SCTR-003: tools/filesystem_read_tool.py — list_dir, list_root_files, read_file",
+        "SCTR-004: snake_chat_command_router.py — Keyword-Klassifier, LLM-Stub, Health-Tracking"
+      ],
+      "remaining": [
+        "SCTR-005",
+        "SCTR-006",
+        "SCTR-007",
+        "SCTR-008"
+      ],
+      "all_tests_green": true
     }
   ]
 }

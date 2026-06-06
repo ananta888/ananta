@@ -339,11 +339,36 @@ def model_routing_read_model():
         ),
     }
 
+    # MPM-003: optional sample resolution to show effective winner
+    winner_info: dict = {}
+    if request.args.get("resolve") and resolver_info.get("status") == "ready":
+        try:
+            from agent.services.model_profile_resolver import RoutingContext
+            model_role = str(request.args.get("model_role") or "any").strip()
+            sample_result = resolver.resolve(RoutingContext(model_role=model_role))
+            winner_info = {
+                "profile_id": sample_result.profile.profile_id if sample_result.profile else None,
+                "final_source": sample_result.final_source,
+                "final_rank": sample_result.final_rank,
+                "resolved": sample_result.ok,
+                "policy_decisions": [
+                    {"rank": d.rank, "source": d.source, "accepted": d.accepted, "reason": d.reason}
+                    for d in (sample_result.decisions or [])
+                ],
+                "blocked_candidates": [
+                    {"profile_id": pid, "reason": reason}
+                    for pid, reason in (sample_result.blocked_candidates or [])
+                ],
+            }
+        except Exception as exc:
+            winner_info = {"error": str(exc)}
+
     return api_response(data={
         "profiles": profiles_info,
         "resolver": resolver_info,
         "template_policies": template_policies,
         "legacy": legacy_info,
+        "effective_winner": winner_info or None,
     })
 
 

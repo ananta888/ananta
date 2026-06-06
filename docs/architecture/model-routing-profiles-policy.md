@@ -135,3 +135,102 @@ api_key_env: OPENAI_API_KEY
 | `agent/services/model_profile_loader.py` | Lädt und validiert Profile |
 | `agent/services/model_profile_resolver.py` | Deterministischer Resolver |
 | `agent/services/model_override_normalization_service.py` | Legacy-Normalisierung |
+
+---
+
+## Implementierter Precedence-Matrix (MPM — final)
+
+Die folgende Tabelle beschreibt das **aktuell implementierte** Verhalten in
+`agent/services/model_profile_resolver.py`. Sie ersetzt das obige Planungs-Diagramm als
+kanonische Referenz.
+
+| Rang | Name | Auslöser | Implementierung |
+|------|------|----------|-----------------|
+| 0 | `security_policy` | `cloud=True` + Secrets in `context_text` | `SecurityPolicyChecker` regex-Scan; blockiert Cloud-Profiles |
+| 1 | `task_override` | `RoutingContext.env_profile_id` gesetzt | Direktes Profil-Lookup nach ID |
+| 2 | `blueprint` | `RoutingContext.blueprint_id` gesetzt | `BlueprintModelPolicyService.extract()` |
+| 3 | `template` | `RoutingContext.template_id` gesetzt | `TemplateModelPolicyService.resolve()` |
+| 4 | `team` | `RoutingContext.team_id` gesetzt | Team-Level-Profil-Konfiguration |
+| 5 | `risk_class` | `RoutingContext.risk_class` gesetzt | Risk-Class→Profile-Mapping |
+| 6 | `model_role` | `RoutingContext.model_role != "any"` | Erstes Profil mit passendem `model_role` |
+| 7 | `global` | immer als Fallback (vor env/user) | Erstes Profil in der Profile-Liste |
+| 8 | `env` | `RoutingContext.env_profile_id` (zweite Chance) | Wie Rang 1, aber nach global |
+| 9 | `user_runtime` | `RoutingContext.user_profile_id` gesetzt | Benutzerdefiniertes Profil |
+| 10 | `capability_match` | `requires_tools`, `requires_json`, `requires_streaming` | Iteriert Profile; überspringt unhealthy Provider |
+| 11 | `fallback_chain` | Kein Profil gefunden | Legacy `DEFAULT_PROVIDER` / `DEFAULT_MODEL` |
+
+### Security Policy Detail (Rang 0)
+
+Der `SecurityPolicyChecker` erkennt Secrets via Regex:
+- Env-Variablen-Muster: `SECRET=`, `API_KEY=`, `PASSWORD=`
+- PEM-Header: `-----BEGIN`
+- Token-Präfixe: `sk-`, `ghp_`, `ghs_`, `xoxb-`
+- Base64-artige lange Strings (>40 Zeichen, keine Spaces)
+
+Bei Erkennung wird der Cloud-Provider blockiert und `policy_decisions` um einen Eintrag erweitert.
+
+### Provider Health Cache
+
+`ProviderHealthCache` hält einen 60-Sekunden-TTL-Cache pro `provider_id`:
+
+```python
+resolver.report_provider_failure("openai")   # markiert 60s unavailable
+resolver.report_provider_recovery("openai")  # sofortiges Reset
+```
+
+`capability_match` (Rang 10) überspringt Provider mit `is_available() == False`.
+
+### TaskRoutingContract-Felder
+
+Nach der Auflösung werden folgende Felder in `TaskRoutingContract` befüllt:
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `model_profile_id` | `str?` | Aufgelöstes Profil |
+| `model_role` | `str?` | Verwendete Rolle |
+| `model_resolver_source` | `str?` | Gewinnender Rang-Name |
+| `model_resolver_rank` | `int?` | Numerischer Rang |
+| `model_policy_decisions` | `list[str]` | Audit-Trail |
+| `model_blocked_candidates` | `list[str]` | Übersprungene Profile |
+| `model_cloud_allowed` | `bool?` | Cloud erlaubt |
+| `model_block_secret_context` | `bool?` | Secret-Blocking aktiv |
+
+### Migration von Legacy-Env-Vars
+
+```bash
+# Alt
+DEFAULT_PROVIDER=lmstudio
+DEFAULT_MODEL=qwen2.5-coder-7b
+
+# Neu
+MODEL_PROFILES_PATH=/etc/ananta/profiles.yaml
+# beide gesetzt → Deprecation-Warning, Profile-Resolver hat Vorrang
+```
+
+Legacy-Provider-Aliasse werden normalisiert (`lm_studio`, `lm-studio`, `local` → `lmstudio`)
+durch `ModelOverrideNormalizationService`.
+
+### Diagnostics-Endpunkt
+
+```http
+GET /config/model-routing/read-model
+```
+
+Gibt Resolver-Status, geladene Profile, Template-Policies und Legacy-Config zurück.
+
+### Vollständige Datei-Referenz
+
+| Datei | Rolle |
+|-------|-------|
+| `agent/services/model_profile_loader.py` | Load + Validierung |
+| `agent/services/model_profile_resolver.py` | Resolver + RoutingContext + ProviderHealthCache |
+| `agent/services/model_override_normalization_service.py` | Legacy-Alias-Normalisierung |
+| `agent/services/blueprint_model_policy_service.py` | Blueprint-Policy-Extraktion |
+| `agent/services/template_model_policy_service.py` | Template-Policy-Extraktion |
+| `agent/models.py` | `TaskRoutingContract`-Felder |
+| `agent/services/model_invocation_service.py` | `_get_resolver()`, `_make_chat_call()` |
+| `agent/routes/config/read_models.py` | GET /config/model-routing/read-model |
+| `tests/test_model_profile_loader.py` | Loader-Unit-Tests |
+| `tests/test_model_profile_resolver.py` | Resolver-Unit-Tests |
+| `tests/test_model_routing_security_policy.py` | Security-Policy-Tests |
+| `tests/test_model_routing_e2e.py` | E2E-Integrationstests |
