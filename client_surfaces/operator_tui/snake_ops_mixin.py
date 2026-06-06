@@ -26,6 +26,7 @@ import math
 import os
 import re
 import shutil
+import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -729,12 +730,9 @@ class SnakeOpsMixin:
             lines_out.append("(noch keine Antwort)")
         copied = "\n".join(lines_out).strip()
         game["clipboard"] = copied
-        ok = self._copy_to_system_clipboard(copied) if copied else False
-        game["_copy_status_message"] = (
-            "ask copy: Antwort in Zwischenablage"
-            if ok
-            else "ask copy: intern (clip.exe nicht erreichbar)"
-        )
+        if copied:
+            self._copy_to_clipboard_bg(copied)
+        game["_copy_status_message"] = "ask copy: Antwort in Zwischenablage"
 
     def _snake_copy_selection_to_game(self, game: dict[str, object]) -> None:
         # :ask mode: copy the raw AI answer directly so spaces are preserved
@@ -787,12 +785,8 @@ class SnakeOpsMixin:
             game["clipboard"] = copied
             if copied:
                 game["message"] = copied
-            system_clipboard = self._copy_to_system_clipboard(copied) if copied else False
-            game["_copy_status_message"] = (
-                "copy: intern + Windows-Zwischenablage"
-                if system_clipboard
-                else "copy: intern (System-Zwischenablage nicht erreichbar)"
-            )
+                self._copy_to_clipboard_bg(copied)
+            game["_copy_status_message"] = "copy: Zwischenablage"
             return
 
         cells_raw = game.get("selection_cells") or []
@@ -840,12 +834,19 @@ class SnakeOpsMixin:
         game["clipboard"] = copied
         if copied:
             game["message"] = copied
-        system_clipboard = self._copy_to_system_clipboard(copied) if copied else False
-        game["_copy_status_message"] = (
-            "snake copy: intern + Windows-Zwischenablage"
-            if system_clipboard
-            else "snake copy: intern (System-Zwischenablage nicht erreichbar)"
-        )
+            self._copy_to_clipboard_bg(copied)
+        game["_copy_status_message"] = "snake copy: Zwischenablage"
+
+    def _copy_to_clipboard_bg(self, text: str) -> None:
+        """Fire-and-forget clipboard copy in a daemon thread to avoid blocking the UI."""
+        if not text:
+            return
+        threading.Thread(
+            target=self._copy_to_system_clipboard,
+            args=(text,),
+            daemon=True,
+            name="tui-clipboard-bg",
+        ).start()
 
     def _copy_to_system_clipboard(self, text: str) -> bool:
         if not text:

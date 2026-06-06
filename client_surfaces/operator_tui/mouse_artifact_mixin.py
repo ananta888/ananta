@@ -107,18 +107,29 @@ class MouseArtifactMixin:
             "hover_started_at": self._mouse_state.hover_started_at,
         }
 
-        region_index = build_region_index(self.state, width=width, height=height)
-        target = region_index.get_target_at(self._mouse_state.x, self._mouse_state.y)
-        if target is not None:
-            game["mouse_target"] = {
-                "kind": target.kind,
-                "section_id": target.section_id,
-                "pane": target.pane,
-                "label": target.label,
-                "payload": dict(target.payload),
-            }
+        # Fast path: during active drag selection, skip the expensive region-index rebuild,
+        # intent evaluation, and artifact intent application — none of them matter for drag.
+        _is_drag_move = (
+            event_type == "move"
+            and buttons == 1
+            and bool(game.get("mouse_selection_active"))
+        )
+
+        if not _is_drag_move:
+            region_index = build_region_index(self.state, width=width, height=height)
+            target = region_index.get_target_at(self._mouse_state.x, self._mouse_state.y)
+            if target is not None:
+                game["mouse_target"] = {
+                    "kind": target.kind,
+                    "section_id": target.section_id,
+                    "pane": target.pane,
+                    "label": target.label,
+                    "payload": dict(target.payload),
+                }
+            else:
+                game["mouse_target"] = None
         else:
-            game["mouse_target"] = None
+            target = None
 
         if event_type == "down" and buttons == 1:
             shortcut_action = self._shortcut_action_at(self._mouse_state.x, self._mouse_state.y)
@@ -136,15 +147,16 @@ class MouseArtifactMixin:
             buttons=buttons,
         )
 
-        intent = self._intent_detector.evaluate(
-            now=ts,
-            mouse=self._mouse_state,
-            target=target,
-            selected_index=self.state.selected_index,
-            current_section_id=self.state.section_id,
-            user_feed=str(game.get("tutorial_user_feed") or ""),
-        )
-        self._apply_artifact_intent(game, intent=intent, now=ts, width=width, height=height)
+        if not _is_drag_move:
+            intent = self._intent_detector.evaluate(
+                now=ts,
+                mouse=self._mouse_state,
+                target=target,
+                selected_index=self.state.selected_index,
+                current_section_id=self.state.section_id,
+                user_feed=str(game.get("tutorial_user_feed") or ""),
+            )
+            self._apply_artifact_intent(game, intent=intent, now=ts, width=width, height=height)
 
         # Mouse wheel: route to focused/hovered panel scroll context
         if scroll_delta != 0 and event_type in ("scroll_up", "scroll_down"):
@@ -159,6 +171,18 @@ class MouseArtifactMixin:
             buttons=buttons,
             ctrl_held=ctrl_held,
         )
+
+        # Debounce: skip re-render if drag end-coords haven't changed
+        if _is_drag_move:
+            _new_range = game.get("mouse_selection_range")
+            _old_range = (self.state.header_logo_game or {}).get("mouse_selection_range") or {}
+            if (
+                isinstance(_new_range, dict)
+                and int(_new_range.get("end_x", -1)) == int(_old_range.get("end_x", -2))
+                and int(_new_range.get("end_y", -1)) == int(_old_range.get("end_y", -2))
+            ):
+                return
+
         delayed_click = bool(game.pop("_mouse_selection_click", False))
         if delayed_click and target is not None:
             _section_before_click = self.state.section_id
@@ -409,7 +433,13 @@ class MouseArtifactMixin:
         buttons: int,
         ctrl_held: bool = False,
     ) -> bool:
-        selection_enabled = self._snake_mode_active(game) or (target is not None and target.pane == "content")
+        # mouse_selection_active means selection was already enabled at drag-start;
+        # target may be None for drag-move events (fast-path skips region index).
+        selection_enabled = (
+            self._snake_mode_active(game)
+            or bool(game.get("mouse_selection_active"))
+            or (target is not None and target.pane == "content")
+        )
         if not selection_enabled:
             return False
         if event_type == "down" and buttons == 3:
