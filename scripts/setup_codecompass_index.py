@@ -127,7 +127,7 @@ def _login(hub: str, username: str, password: str) -> str:
 
 def _post_index(hub: str, token: str, records: list[dict], source_id: str) -> dict:
     payload = json.dumps({
-        "source_scope": "repo_path",
+        "source_scope": "artifact",
         "source_id": source_id,
         "records": records,
         "async": False,
