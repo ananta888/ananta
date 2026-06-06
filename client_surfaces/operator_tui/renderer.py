@@ -1142,7 +1142,8 @@ def _content_chat_plain_ask_lines(
     if not answer_text:
         # Noch keine Antwort — Wartezustand
         lines.append("  \x1b[2m…warte auf Antwort\x1b[0m")
-        return [_clip(l, width) for l in lines]
+        out = [_clip(l, width) for l in lines]
+        return _truncate_to_height(out, height)
 
     # Plain-Text-Antwort, hart an width gewrappt (kein visuelles Viewport-Wrapping).
     body_width = max(8, width - 2)
@@ -1155,15 +1156,62 @@ def _content_chat_plain_ask_lines(
         body.extend(_wrap_plain(raw_line, body_width) or [""])
     lines.extend("  " + row for row in body)
 
-    # Optionaler scroll-Footer
-    total = len(lines)
-    avail = int(height) if height else 0
-    if avail and total > avail:
-        hidden = total - avail
-        lines.append("  " + "─" * max(4, width - 4))
-        lines.append(_clip(f"  \x1b[2m({hidden} weitere Zeilen — Scroll mit Shift+Up/Down)\x1b[0m", width))
+    out = [_clip(l, width) for l in lines]
 
-    return [_clip(l, width) for l in lines]
+    # Wenn der Renderer eine Höhe vorgibt, MUSS die Ausgabe exakt diese Höhe haben.
+    # Lange Antworten werden gescrollt; der Scroll-Offset wird im game-state gehalten.
+    return _clip_with_scroll(out, game=game, height=height, width=width)
+
+
+def _truncate_to_height(out: list[str], height: int | None) -> list[str]:
+    if not height or height <= 0:
+        return out
+    if len(out) <= height:
+        return out
+    return out[:height]
+
+
+def _clip_with_scroll(
+    out: list[str], *, game: dict, height: int | None, width: int
+) -> list[str]:
+    """Clip *out* to *height* lines, honouring game['chat_long_message_scroll_offset'].
+
+    A status row at the bottom (showing "lines N-M / TOTAL  ↑↓ scroll") is always
+    appended when there is more content than visible room. Without height we
+    return the unmodified list (other callers may not need the limit).
+    """
+    if not height or height <= 0:
+        return out
+    total = len(out)
+    if total <= height:
+        return out
+
+    # Reserve one row for the scroll indicator
+    visible_rows = max(1, height - 1)
+    raw_offset = int(game.get("chat_long_message_scroll_offset") or 0)
+    max_offset = max(0, total - visible_rows)
+    offset = max(0, min(raw_offset, max_offset))
+    window = out[offset : offset + visible_rows]
+    if len(window) < visible_rows:
+        window = window + [""] * (visible_rows - len(window))
+
+    above = offset
+    below = total - (offset + visible_rows)
+    if above <= 0 and below <= 0:
+        indicator = ""
+    elif above > 0 and below > 0:
+        indicator = (
+            f"  \x1b[2m↑{above} ↓{below}  Zeilen {offset+1}-{offset+visible_rows}/{total}\x1b[0m"
+        )
+    elif above > 0:
+        indicator = (
+            f"  \x1b[2m↑{above}  Zeilen {offset+1}-{offset+visible_rows}/{total}  ↓ Ende\x1b[0m"
+        )
+    else:
+        indicator = (
+            f"  \x1b[2m↑ Anfang  Zeilen 1-{visible_rows}/{total}  ↓{below}\x1b[0m"
+        )
+    return window + [_clip(indicator, width)]
 
 
 def _content_visual_viewport_lines(state: OperatorState, width: int) -> list[str]:

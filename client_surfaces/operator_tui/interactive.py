@@ -1124,6 +1124,25 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             delta_map = {"page_up": -10, "page_down": 10, "line_up": -1, "line_down": 1, "home": -9999, "end": 9999}
             self._chat_scroll(delta_map.get(direction, 0))
             return
+        # :ask-Modus: lange AI-Antwort im mittleren Pane scrollen
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        if (
+            str(game.get("tutor_ask_question") or "").strip()
+            and self.state.focus is FocusPane.CONTENT
+        ):
+            delta_map = {"page_up": -10, "page_down": 10, "line_up": -1, "line_down": 1, "home": -9999, "end": 9999}
+            delta = delta_map.get(direction, 0)
+            if delta:
+                raw_offset = game.get("chat_long_message_scroll_offset") or 0
+                try:
+                    cur = int(str(raw_offset))
+                except (TypeError, ValueError):
+                    cur = 0
+                # Obergrenze wird im Renderer geclampt; hier großzügig lassen.
+                new_offset = max(0, cur + delta)
+                game["chat_long_message_scroll_offset"] = new_offset
+                self._set_state(self.state.with_updates(header_logo_game=game))
+                return
         sm = self._get_scroll_manager()
         fm = self._get_focus_manager()
         ctx_id = fm.active_scroll_context_id()
