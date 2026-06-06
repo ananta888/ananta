@@ -205,22 +205,40 @@ The inventory below describes template resolution and baseline task shapes. The 
   4. summarize changed files
 - This fallback is independent behavior and must stay explicitly modeled during migration.
 
-## Profile Migration Notes
+## Profile Status (runtime-active from APRL)
 
-The profile documentation state is now explicit:
+All profiles listed in the template matrix above are **runtime-active** via `AgentProfileService`:
 
-- Root rules live in `AGENTS.md`.
-- AI-Snake-Chat has `client_surfaces/operator_tui/AGENTS.md`.
-- Each current hardcoded standard planning template has a corresponding `docs/agent-profiles/<template_id>/AGENTS.md`.
-- `docs/agent-profiles/profile-map.json` records the mapping.
+| Layer | Status | Source |
+|---|---|---|
+| Root `AGENTS.md` | runtime-active (global, non-overridable) | loaded by `AgentProfileService` |
+| `docs/agent-profiles/<id>/AGENTS.md` | **runtime-active** | composed into OpenCode workspace + InstructionLayer |
+| `client_surfaces/operator_tui/AGENTS.md` | runtime-active | prepended in `chat_mixin._tutorial_ai_llm_ask` |
 
-Runtime cleanup still needed:
+Resolution order (deterministic, no LLM guessing):
 
-```text
-AgentProfileLoader
-  -> resolve active profile by task mode/template/path
-  -> compose root AGENTS.md + active AGENTS.md
-  -> inject into OpenCode workspace AGENTS.md and ananta-worker context
+```
+1. explicit profile_id  (worker_execution_context.active_agent_profile_id)
+2. template_id          (worker_execution_context.template_id / agent_template)
+3. task_kind            (task.task_kind, normalised via _KIND_ALIASES)
+4. mode                 (task.mode)
+5. keyword_fallback     (title + description text, marked in diagnostics)
+6. root_only            (fallback; warning emitted)
 ```
 
-Each profile should stay task-specific and must not change behavior for unrelated paths.
+Profile governance rules:
+- Root `AGENTS.md` is globally dominant. Local profiles **may not** weaken root rules.
+- If a profile text matches conflict patterns (e.g. worker-to-worker orchestration), a warning is emitted and root remains dominant.
+- The `ai_snake_chat` profile has `code_change_policy: none` — it must not become an implementation agent.
+- Implementation profiles (`bug_fix`, `feature`, `refactor`, `new_software_project`, etc.) have `code_change_policy: via_hub_task_worker`.
+- Analyse/review profiles (`repo_analysis`, `architecture_review`) have `code_change_policy: none`.
+- Diagnostic profiles (`sys_diag`, `admin_repair`, `incident`) have `code_change_policy: plan_only`.
+
+### Adding a new standard path
+
+1. Create `docs/agent-profiles/<profile_id>/AGENTS.md`.
+2. Add an entry in `docs/agent-profiles/profile-map.json` with: `activation`, `agents_file`, `primary_role`, `allowed_task_kinds`, `code_change_policy`, `context_policy_hint`.
+3. Add unit test in `tests/test_agent_profile_service.py`.
+4. Add entry to this table above.
+
+No restart required; `AgentProfileService` reads the map on first call per process.
