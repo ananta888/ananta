@@ -1,10 +1,10 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-retrieval-profile-source-policy",
   "created": "2026-06-06",
-  "status": "todo",
+  "status": "done",
   "purpose": "AI-Snake, Hub-RAG und Worker-Handoff sollen CodeCompass-Kontext nicht mehr nur ueber einfache UI-Flags und source_types steuern, sondern ueber generische, domainfaehige RetrievalProfile mit SourcePolicy, Intent, ChunkPolicy, Ranking- und Explainability-Vertrag.",
   "goal": "Aus User-Frage, UI-Konfiguration, Domain-Hinweisen und globaler RAG-Konfiguration wird deterministisch ein RetrievalProfile erzeugt. Dieses Profile steuert source_types, Source-Prioritaeten, Source-Gewichte, negative Domains, Chunk-/Snippet-Strategien, Graph-/Relation-Expansion und Prompt-Rendering. Dadurch erklaert die AI-Snake bei implementierten Code-Fragen tatsaechlich Code und nicht zufaellig Game-, Tutorial- oder TUI-Doku.",
   "source_review": {
@@ -222,7 +222,7 @@
     {
       "id": "CRPS-M1",
       "title": "Ist-Zustand und Profile-Vertrag absichern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRPS-001",
         "CRPS-002",
@@ -232,7 +232,7 @@
     {
       "id": "CRPS-M2",
       "title": "RetrievalProfileResolver implementieren und in AI-Snake anbinden",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRPS-004",
         "CRPS-005",
@@ -243,7 +243,7 @@
     {
       "id": "CRPS-M3",
       "title": "RetrievalService/ContextBundler profilfaehig machen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRPS-008",
         "CRPS-009",
@@ -254,7 +254,7 @@
     {
       "id": "CRPS-M4",
       "title": "Regressionstests gegen falschen AI-Snake-Kontext und Doku",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRPS-012",
         "CRPS-013",
@@ -265,7 +265,7 @@
     {
       "id": "CRPS-M5",
       "title": "Dokumentation, Config und Rollout",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRPS-016",
         "CRPS-017",
@@ -279,10 +279,10 @@
       "title": "Aktuellen AI-Snake Retrieval-Flow als Architekturvertrag dokumentieren",
       "type": "analysis-documentation",
       "milestone": "CRPS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "target_files": [
         "agent/routes/snakes.py",
@@ -312,10 +312,10 @@
       "title": "RetrievalProfile-Dataclass und JSON-Vertrag definieren",
       "type": "schema-contract",
       "milestone": "CRPS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-001"
       ],
@@ -347,10 +347,10 @@
       "title": "Domain-/Intent-Heuristik fuer Fragen extrahieren",
       "type": "resolver",
       "milestone": "CRPS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-002"
       ],
@@ -381,10 +381,10 @@
       "title": "RetrievalProfileResolver mit UI-Config und Defaults implementieren",
       "type": "service",
       "milestone": "CRPS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-002",
         "CRPS-003"
@@ -418,10 +418,10 @@
       "title": "AI-Snake _build_grounded_snake_prompt auf RetrievalProfile umstellen",
       "type": "route-refactor",
       "milestone": "CRPS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-004"
       ],
@@ -454,10 +454,10 @@
       "title": "RagService API profilfaehig erweitern",
       "type": "api-refactor",
       "milestone": "CRPS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-004"
       ],
@@ -488,10 +488,10 @@
       "title": "Konfigurierbare Profil-Defaults in AI-Snake/User-Config einfuehren",
       "type": "config",
       "milestone": "CRPS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-004"
       ],
@@ -523,10 +523,10 @@
       "title": "RetrievalService source_type_weights aus RetrievalProfile uebernehmen",
       "type": "retrieval",
       "milestone": "CRPS-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-006"
       ],
@@ -558,10 +558,10 @@
       "title": "Negative Source Patterns und Domain-Ausschluesse implementieren",
       "type": "retrieval-filter",
       "milestone": "CRPS-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-008"
       ],
@@ -592,10 +592,10 @@
       "title": "ContextBundler context_policy um RetrievalProfile und SourcePolicy erweitern",
       "type": "bundle",
       "milestone": "CRPS-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-006",
         "CRPS-008"
@@ -626,10 +626,10 @@
       "title": "build_grounded_prompt chunks-aware und profile-aware rendern",
       "type": "prompt-contract",
       "milestone": "CRPS-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-010"
       ],
@@ -661,10 +661,10 @@
       "title": "Regressionstest fuer AI-Snake: implementierter CodeCompass zieht Repo-Kontext",
       "type": "regression-test",
       "milestone": "CRPS-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-005"
       ],
@@ -694,10 +694,10 @@
       "title": "Regressionstest fuer Retrieval Ranking: Repo vor Game-/Tutorial-Doku",
       "type": "regression-test",
       "milestone": "CRPS-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-008",
         "CRPS-009"
@@ -727,10 +727,10 @@
       "title": "Regressionstest fuer Worker-Handoff-Erklaerung statt falscher WorkerRuntimeSelection-Antwort",
       "type": "regression-test",
       "milestone": "CRPS-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-011",
         "CRPS-012"
@@ -760,10 +760,10 @@
       "title": "End-to-End-light Test fuer /snake/ask mit profile-aware Grounding",
       "type": "integration-test",
       "milestone": "CRPS-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-005",
         "CRPS-011"
@@ -794,10 +794,10 @@
       "title": "Dokumentation fuer Profile, Domainen und SourcePolicy schreiben",
       "type": "documentation",
       "milestone": "CRPS-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-015"
       ],
@@ -827,10 +827,10 @@
       "title": "Config-/Settings-Grenzen fuer Profile pruefen und absichern",
       "type": "config-test",
       "milestone": "CRPS-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-004",
         "CRPS-008"
@@ -863,10 +863,10 @@
       "title": "Rollout-Plan und Migration ohne Breaking Changes abschliessen",
       "type": "rollout",
       "milestone": "CRPS-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "CRPS-016",
         "CRPS-017"
@@ -892,5 +892,26 @@
         "pytest -q tests/test_retrieval_profile_service.py tests/test_snake_ask_retrieval_profile.py"
       ]
     }
-  ]
+  ],
+  "completed": "2026-06-06",
+  "implementation_refs": {
+    "commits_reviewed": [
+      "49d1fd511d7161649d42127b36905302fa97b91f",
+      "f5d4ac950ae1bf39014cb7c9f99b01b13c3a9c8a"
+    ],
+    "finalization": "working-tree update before next commit",
+    "tests": [
+      "pytest -q tests/test_retrieval_profile_service.py tests/test_retrieval_service_profiles.py tests/test_snake_ask_retrieval_profile.py",
+      "python -m json.tool todos/archiv/todo.codecompass-retrieval-profile-source-policy.json"
+    ]
+  },
+  "completion_summary": {
+    "result": "RetrievalProfile resolver, source policy metadata, AI-Snake integration, RAG propagation, negative source filtering, profile-aware context bundling, profile-aware prompt rendering, observability, docs, and regression tests are complete.",
+    "solid_check": {
+      "srp": "Profile resolution remains isolated in retrieval_profile_service; routes consume the resolved contract.",
+      "ocp": "New profile fields are additive and preserve legacy source_types/retrieval_intent callers.",
+      "isp": "RetrievalProfile exposes small policy dictionaries instead of forcing callers to depend on retrieval internals.",
+      "dip": "Routes depend on the RAG facade and profile contract, not concrete retrieval adapters."
+    }
+  }
 }

@@ -287,7 +287,11 @@ Output ONLY valid JSON matching schema."""
                 "profile_id": (retrieval_profile or {}).get("profile_id"),
                 "profile_domain": (retrieval_profile or {}).get("domain"),
                 "profile_intent": (retrieval_profile or {}).get("intent"),
+                "profile_selected_by": (retrieval_profile or {}).get("selected_by"),
                 "profile_source_type_weights": (retrieval_profile or {}).get("source_type_weights"),
+                "profile_source_policy": (retrieval_profile or {}).get("source_policy"),
+                "profile_chunk_policy": (retrieval_profile or {}).get("chunk_policy"),
+                "profile_expansion_policy": (retrieval_profile or {}).get("expansion_policy"),
                 "profile_negative_source_patterns": (retrieval_profile or {}).get("negative_source_patterns"),
             },
             "retrieval_trace": retrieval_trace,
@@ -413,9 +417,11 @@ pip install fastapi
                 range_str = f" | {start_line}-{end_line}" if start_line is not None and end_line is not None else ""
                 symbol = str(metadata.get("symbol") or "").strip()
                 symbol_str = f" | {symbol}" if symbol else ""
+                selected_by = str(metadata.get("selected_by") or metadata.get("selected_by_policy") or "").strip()
+                selected_by_str = f" | selected_by={selected_by}" if selected_by else ""
                 type_str = f" | {source_type}" if source_type else ""
                 content = str(chunk.get("content") or chunk.get("text") or "").strip()
-                context_lines.append(f"[{idx}] {source}{type_str}{score_str}{range_str}{symbol_str}")
+                context_lines.append(f"[{idx}] {source}{type_str}{score_str}{range_str}{symbol_str}{selected_by_str}")
                 context_lines.append(content[:1200])
                 context_lines.append("")
 

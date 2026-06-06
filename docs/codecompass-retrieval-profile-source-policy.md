@@ -87,6 +87,12 @@ class RetrievalProfile:
     negative_source_patterns: list[str] # z.B. ["book-of-ananta", "snake_tutor"]
     feature_flag: str                   # "auto" | "legacy" | "repo_first" | "docs_first"
     warnings: list[str]                 # z.B. ["source_type_disabled_by_ui_config:wiki"]
+    selected_by: str                    # "retrieval_profile_resolver.v1" oder "raw_profile"
+    reasons: list[str]                  # maschinenlesbare Entscheidungsgründe
+    source_policy: dict                 # requested_source_types, priority_order, weights, negative patterns
+    chunk_policy: dict                  # Granularität, max_chunks, max_per_source_type
+    expansion_policy: dict              # graph/relation/neighbor expansion
+    explainability: dict                # welche Profil-/Reject-Infos sichtbar werden
 ```
 
 ---
@@ -132,6 +138,26 @@ Bei `implemented_code_explanation`-Profilen werden folgende Quellen gefiltert/pe
 - `markdown_mermaid` — Mermaid-Renderer (irrelevant für Code-Erklärungen)
 
 Wenn nach dem Filter keine positiven Quellen übrig bleiben, enthält das Bundle `strategy.fusion.profile_constraints.insufficient_positive_sources: true`.
+
+---
+
+## Explainability und Observability
+
+Der Resolver setzt `selected_by="retrieval_profile_resolver.v1"` und füllt `reasons`, z.B.
+`classified_domain:codecompass`, `classified_intent:implemented_code_explanation` oder
+`ui_disabled_source_type:wiki`.
+
+`RagService` und `ContextBundler` übernehmen diese Profil-Metadaten in `retrieval_profile` und
+`context_policy`. Die AI-Snake-Route loggt nur nicht-sensitive Metadaten:
+
+- `profile_id`
+- `domain`
+- `intent`
+- `feature_flag`
+- `source_type_counts`
+- `warnings`
+
+Prompt-Inhalte, User-Fragen und Chunk-Text werden nicht geloggt.
 
 ---
 
@@ -196,6 +222,21 @@ Neue Felder in `user.json` / `ai_snake_config.py`:
 | `tests/test_retrieval_profile_service.py` | Unit-Tests für Resolver + Classifier |
 | `tests/test_snake_ask_retrieval_profile.py` | Regressionstests AI-Snake |
 | `tests/test_retrieval_service_profiles.py` | Ranking-Tests mit Profil-Gewichten |
+
+---
+
+## Rollout
+
+1. `chat_retrieval_profile="legacy"` hält den generischen Pfad verfügbar.
+2. `chat_retrieval_profile="auto"` ist der Default und nutzt den Resolver.
+3. `repo_first` und `docs_first` sind additive Profil-Modi für gezielte Korrekturen.
+4. Legacy darf erst entfernt werden, wenn AI-Snake-/RAG-/Worker-Handoff-Tests den Auto-Pfad dauerhaft abdecken.
+
+Validierte Tests:
+
+```bash
+pytest -q tests/test_retrieval_profile_service.py tests/test_retrieval_service_profiles.py tests/test_snake_ask_retrieval_profile.py
+```
 
 ---
 

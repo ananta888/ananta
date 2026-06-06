@@ -161,10 +161,20 @@ def _build_grounded_snake_prompt(user_text: str, *, limits: SnakeAskLimits | Non
                 metadata = dict((chunk or {}).get("metadata") or {})
                 st = str(metadata.get("source_type") or (chunk or {}).get("engine") or "unknown").strip().lower() or "unknown"
                 src_type_counts[st] = int(src_type_counts.get(st, 0)) + 1
+            logging.getLogger(__name__).info(
+                "ai_snake_retrieval_profile_selected profile_id=%s domain=%s intent=%s feature_flag=%s source_type_counts=%s warnings=%s",
+                profile.profile_id,
+                profile.domain,
+                profile.intent,
+                profile.feature_flag,
+                src_type_counts,
+                list(profile.warnings),
+            )
             summary_parts = [f"{k}:{v}" for k, v in sorted(src_type_counts.items())]
             summary = f"Kontext: {len(chunks)} Treffer ({', '.join(summary_parts)}) [{profile.profile_id}]"
             return grounded, True, summary
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).debug("ai_snake_retrieval_profile_failed: %s", exc)
         pass
     local_fallback = _build_local_repo_fallback_context(prompt)
     if local_fallback:

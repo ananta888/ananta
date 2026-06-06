@@ -114,16 +114,38 @@ class TestBuildGroundedSnakePromptProfileIntegration:
 
             from agent.routes.snakes import _build_grounded_snake_prompt, SnakeAskLimits
 
-            grounded, has_context, summary = _build_grounded_snake_prompt(
-                "den codecompass der schon implementiert ist erklären",
-                limits=SnakeAskLimits(),
-            )
+            with self._capture_profile_log() as profile_logs:
+                grounded, has_context, summary = _build_grounded_snake_prompt(
+                    "den codecompass der schon implementiert ist erklären",
+                    limits=SnakeAskLimits(),
+                )
 
         assert has_context is True
         # Summary must contain source_type counts (repo:2, artifact:1) not raw paths
         assert "repo:" in summary or "artifact:" in summary or "knowledge_index:" in summary
         # Must include profile_id
         assert "codecompass/implemented_code_explanation" in summary
+        assert any("ai_snake_retrieval_profile_selected" in record.getMessage() for record in profile_logs)
+
+    def _capture_profile_log(self):
+        import logging
+
+        class _Capture:
+            def __enter__(self):
+                self.records = []
+                self.handler = logging.Handler()
+                self.handler.emit = self.records.append
+                self.logger = logging.getLogger("agent.routes.snakes")
+                self.old_level = self.logger.level
+                self.logger.setLevel(logging.INFO)
+                self.logger.addHandler(self.handler)
+                return self.records
+
+            def __exit__(self, exc_type, exc, tb):
+                self.logger.removeHandler(self.handler)
+                self.logger.setLevel(self.old_level)
+
+        return _Capture()
 
     def test_build_execution_context_receives_retrieval_profile_kwarg(self):
         """CRPS-012: build_execution_context must be called with retrieval_profile kwarg."""
@@ -284,6 +306,7 @@ class TestCRPS015E2ELight:
             "profile_id": "codecompass/implemented_code_explanation",
             "domain": "codecompass",
             "intent": "implemented_code_explanation",
+            "selected_by": "retrieval_profile_resolver.v1",
         }
 
         prompt = ContextBundler.build_grounded_prompt(
@@ -330,7 +353,7 @@ class TestCRPS015E2ELight:
                 "source": "agent/routes/snakes.py",
                 "content": "def _build_grounded_snake_prompt(...):",
                 "score": 0.88,
-                "metadata": {"source_type": "repo"},
+                "metadata": {"source_type": "repo", "selected_by": "profile_weight"},
             },
         ]
         prompt = ContextBundler.build_grounded_prompt(
@@ -340,3 +363,4 @@ class TestCRPS015E2ELight:
         )
         assert "repo" in prompt
         assert "snakes.py" in prompt
+        assert "selected_by=profile_weight" in prompt
