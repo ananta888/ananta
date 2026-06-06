@@ -44,6 +44,7 @@ class RagService:
         goal_id: str | None = None,
         neighbor_task_ids: list[str] | None = None,
         source_types: list[str] | None = None,
+        retrieval_profile: dict | None = None,
     ) -> dict[str, object]:
         context_payload = self._retrieval_service.retrieve_context(
             query,
@@ -53,6 +54,7 @@ class RagService:
             goal_id=goal_id,
             neighbor_task_ids=neighbor_task_ids,
             source_types=source_types,
+            retrieval_profile=retrieval_profile,
         )
         bundle = self._context_bundle_service.build_bundle(
             query=query,
@@ -69,6 +71,7 @@ class RagService:
             window_profile=window_profile,
             provenance_visibility=provenance_visibility,
             llm_scope=llm_scope or "local_only",
+            retrieval_profile=retrieval_profile,
         )
         if not list(bundle.get("chunks") or []):
             fallback_chunks = list(context_payload.get("chunks") or [])
@@ -121,6 +124,14 @@ class RagService:
         explainability["sources"] = sources[:10]
         bundle["explainability"] = explainability
         bundle["provenance_policy"] = {"visibility_level": visibility}
+        # CRPS-006: attach retrieval_profile summary to bundle
+        if retrieval_profile and isinstance(retrieval_profile, dict):
+            bundle["retrieval_profile"] = {
+                "profile_id": retrieval_profile.get("profile_id"),
+                "domain": retrieval_profile.get("domain"),
+                "intent": retrieval_profile.get("intent"),
+                "feature_flag": retrieval_profile.get("feature_flag"),
+            }
         if bool(getattr(settings, "rag_redact_sensitive", False)):
             bundle["explainability"] = self._redact_sensitive(bundle.get("explainability") or {})
             bundle["why_this_context"] = self._redact_sensitive(bundle.get("why_this_context") or {})
@@ -137,19 +148,33 @@ class RagService:
         retrieval_intent: str | None = None,
         source_types: list[str] | None = None,
         max_chunks: int | None = None,
+        retrieval_profile: dict | None = None,
     ) -> tuple[dict[str, object], str]:
+        # CRPS-006: if retrieval_profile provided, derive source_types and retrieval_intent from it
+        effective_source_types = source_types
+        effective_intent = retrieval_intent
+        if retrieval_profile and isinstance(retrieval_profile, dict):
+            if effective_source_types is None:
+                profile_st = list(retrieval_profile.get("source_types") or [])
+                if profile_st:
+                    effective_source_types = profile_st
+            if not effective_intent:
+                effective_intent = str(retrieval_profile.get("retrieval_intent") or "").strip() or None
+
         bundle = self.retrieve_context_bundle(
             prompt,
             include_context_text=True,
             max_chunks=max_chunks,
             task_kind=task_kind,
-            retrieval_intent=retrieval_intent,
-            source_types=source_types,
+            retrieval_intent=effective_intent,
+            source_types=effective_source_types,
+            retrieval_profile=retrieval_profile,
         )
         grounded_prompt = self._context_bundle_service.build_grounded_prompt(
             prompt=prompt,
             context_text=str(bundle.get("context_text") or ""),
             chunks=list(bundle.get("chunks") or []),
+            retrieval_profile=retrieval_profile,
         )
         return bundle, grounded_prompt
 

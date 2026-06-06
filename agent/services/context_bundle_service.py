@@ -120,6 +120,8 @@ Output ONLY valid JSON matching schema."""
         memory_tree_retrieval_result: "Any | None" = None,
         # APRL-012: active agent profile metadata; None is valid for old bundles
         active_agent_profile: "dict | None" = None,
+        # CRPS-010: retrieval profile for context_policy enrichment
+        retrieval_profile: "dict | None" = None,
         **kwargs: Any,
     ) -> dict:
         """FA-T012: Build a governed context bundle with scope-aware filtering."""
@@ -281,6 +283,12 @@ Output ONLY valid JSON matching schema."""
                 "default_deny": llm_scope in {"external_cloud_allowed", "trusted_private_cloud"},
                 "llm_scope": llm_scope,
                 "retrieval_policy_filter": "retrieval_policy_filter.v1",
+                # CRPS-010: retrieval profile fields
+                "profile_id": (retrieval_profile or {}).get("profile_id"),
+                "profile_domain": (retrieval_profile or {}).get("domain"),
+                "profile_intent": (retrieval_profile or {}).get("intent"),
+                "profile_source_type_weights": (retrieval_profile or {}).get("source_type_weights"),
+                "profile_negative_source_patterns": (retrieval_profile or {}).get("negative_source_patterns"),
             },
             "retrieval_trace": retrieval_trace,
             "selection_trace": {
@@ -305,7 +313,12 @@ Output ONLY valid JSON matching schema."""
             },
             "why_this_context": {
                 "mode": policy_mode,
-                "summary": f"task_kind={str(task_kind or 'unknown')} | selected_chunks={len(filtered)} | mode={policy_mode}",
+                "summary": (
+                    f"task_kind={str(task_kind or 'unknown')} | selected_chunks={len(filtered)} | mode={policy_mode}"
+                    + (f" | profile_id={(retrieval_profile or {}).get('profile_id')}" if retrieval_profile else "")
+                    + (f" | domain={(retrieval_profile or {}).get('domain')}" if retrieval_profile else "")
+                    + (f" | intent={(retrieval_profile or {}).get('intent')}" if retrieval_profile else "")
+                ),
                 "compaction_summary": {"provenance_preserved": True},
             },
             "provenance_policy": {"visibility_level": str(kwargs.get("provenance_visibility") or "standard")},
@@ -366,8 +379,56 @@ pip install fastapi
         return resolve_context_bundle_policy(cfg)
 
     @staticmethod
-    def build_grounded_prompt(*, prompt: str, context_text: str, chunks: list[dict[str, Any]] | None = None) -> str:
-        del chunks
+    def build_grounded_prompt(
+        *,
+        prompt: str,
+        context_text: str,
+        chunks: list[dict[str, Any]] | None = None,
+        retrieval_profile: dict | None = None,
+    ) -> str:
+        # CRPS-011: render chunks-aware structured prompt when chunks are available
+        valid_chunks = [c for c in (chunks or []) if c and (c.get("content") or c.get("text"))]
+        if valid_chunks:
+            profile_id = (retrieval_profile or {}).get("profile_id") or ""
+            domain = (retrieval_profile or {}).get("domain") or ""
+            intent = (retrieval_profile or {}).get("intent") or ""
+            profile_header = ""
+            if profile_id:
+                profile_header = f" ({profile_id}"
+                if domain:
+                    profile_header += f" | domain={domain}"
+                if intent:
+                    profile_header += f" | intent={intent}"
+                profile_header += ")"
+
+            context_lines: list[str] = []
+            for idx, chunk in enumerate(valid_chunks[:12], start=1):
+                metadata = dict(chunk.get("metadata") or {})
+                source = str(chunk.get("source") or metadata.get("file") or "").strip()
+                source_type = str(metadata.get("source_type") or chunk.get("engine") or "").strip()
+                score = chunk.get("score")
+                score_str = f" | score={round(float(score), 3)}" if score is not None else ""
+                start_line = metadata.get("start_line")
+                end_line = metadata.get("end_line")
+                range_str = f" | {start_line}-{end_line}" if start_line is not None and end_line is not None else ""
+                symbol = str(metadata.get("symbol") or "").strip()
+                symbol_str = f" | {symbol}" if symbol else ""
+                type_str = f" | {source_type}" if source_type else ""
+                content = str(chunk.get("content") or chunk.get("text") or "").strip()
+                context_lines.append(f"[{idx}] {source}{type_str}{score_str}{range_str}{symbol_str}")
+                context_lines.append(content[:1200])
+                context_lines.append("")
+
+            rule = ""
+            if intent == "implemented_code_explanation":
+                rule = "\nRegel: Antworte nur auf Basis der aufgeführten Code-Quellen. Nenne konkrete Dateien und Funktionen."
+            elif intent == "architecture_overview":
+                rule = "\nRegel: Erkläre die Architektur auf Basis der aufgeführten Quellen. Nenne konkrete Komponenten."
+
+            context_block = "\n".join(context_lines).strip()
+            return f"Frage:\n{prompt}\n\nKontext{profile_header}:\n{context_block}{rule}"
+
+        # Fallback: context_text only (backward-compatible)
         effective_context = str(context_text or "").strip()
         if not effective_context:
             return f"Frage:\n{prompt}"
