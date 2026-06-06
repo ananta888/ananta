@@ -1188,15 +1188,14 @@ def _clip_with_scroll(
     if len(out) <= height:
         return out
 
-    # Identify the body offset: the first row starting with "  " followed by
-    # the sender label (e.g. "  \x1b[38;2;120;180;255ms-ai:\x1b[0m") or any
-    # content line. Anything before it is fixed chrome.
+    # Identify the body offset: chrome = everything up to AND INCLUDING the
+    # sender row ("  \x1b[38;2;120;180;255ms-ai:\x1b[0m"). Only the answer
+    # text below it scrolls. We detect the sender row by the cyan colour
+    # sequence; chrome ends just after the first such row.
     body_start = 0
     for idx, line in enumerate(out):
-        # The sender line starts with two spaces and contains the cyan
-        # colour sequence; everything from there on is body.
         if "\x1b[38;2;120;180;255m" in line and line.lstrip().startswith("\x1b"):
-            body_start = idx
+            body_start = idx + 1
             break
     # If we did not find a sender line, fall back to fixed first 4 lines.
     if body_start == 0 and out and not out[0].startswith("  "):
