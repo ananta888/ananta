@@ -130,7 +130,7 @@
         "AMR-021",
         "AMR-022"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M9",
@@ -827,10 +827,10 @@
       "title": "Operator-Dokumentation und Schnellstart schreiben",
       "type": "docs",
       "milestone": "M8",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "dependencies": [
         "AMR-020",
         "AMR-021"
@@ -850,7 +850,9 @@
         "Docs-Links auf neue Beispiel-Dateien funktionieren.",
         "README oder zentrale Docs-Navigation verweist auf das neue Dokument."
       ],
-      "notes": []
+      "notes": [
+        "2026-06-06: docs/operator/model-routing.md und docs/migrations/model-routing-profiles-migration.md ergänzt."
+      ]
     },
     {
       "id": "AMR-023",
@@ -934,13 +936,13 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 6,
+      "todo": 5,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 18
+      "done": 19
     },
-    "progress_percent_done": 75.0,
+    "progress_percent_done": 79.2,
     "by_priority": {
       "P0": 13,
       "P1": 8,
@@ -960,9 +962,9 @@
     "milestones": {
       "total": 9,
       "todo": 2,
-      "in_progress": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -1054,16 +1056,16 @@
       },
       "docs": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "e2e": {
@@ -1182,19 +1184,20 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 6,
+    "todo_remaining": 5,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 18,
+    "done": 19,
     "total": 24,
-    "progress_percent": 75.0
+    "progress_percent": 79.2
   },
   "summary_notes": [
     "Diese TODO-Datei ist bewusst umfangreich, weil das Modellrouting ein Kernstück von Ananta wird und nicht nur eine DEFAULT_MODEL-Erweiterung ist.",
     "Die Umsetzung hat zuerst Schemas, Resolver und Policy-Sicherheit stabilisiert, bevor UI-Schreibfunktionen aktiviert werden.",
     "18 von 24 Tasks abgeschlossen: Loader, Resolver, Normalisierung, Blueprint/Template-Policy, Invocation-Service-Integration, Diagnose-Endpoint, Security- und E2E-Tests.",
-    "Offen (P2/P3 oder Spätprojekte): AMR-015 (Dashboard/UI), AMR-018 (Benchmarks), AMR-019 (OpenCode/externe Worker), AMR-022 (Operator-Doku), AMR-023 (Writable UI), AMR-024 (Final Review)."
+    "Offen (P2/P3 oder Spätprojekte): AMR-015 (Dashboard/UI), AMR-018 (Benchmarks), AMR-019 (OpenCode/externe Worker), AMR-022 (Operator-Doku), AMR-023 (Writable UI), AMR-024 (Final Review).",
+    "AMR-022 abgeschlossen: Operator Guide und Migration Guide für Model Routing ergänzt."
   ],
   "end_summaries": [
     {

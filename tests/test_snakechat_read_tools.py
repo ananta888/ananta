@@ -8,6 +8,9 @@ from pathlib import Path
 import pytest
 
 from client_surfaces.operator_tui.tools.git_read_tool import GitReadTool
+from client_surfaces.operator_tui.tools.direct_tool_response_formatter import (
+    format_direct_tool_response,
+)
 from client_surfaces.operator_tui.tools.todo_read_tool import TodoReadTool
 
 
@@ -83,3 +86,21 @@ def test_todo_read_tool_blocks_paths_outside_todos(tmp_path: Path) -> None:
 
     assert result.ok is False
     assert result.error == "todo_path_denied"
+
+
+def test_direct_tool_response_formatter_keeps_raw_and_compacts_text() -> None:
+    result = {
+        "ok": True,
+        "data": {
+            "branch": "main",
+            "changed_files": [{"path": "a.py", "status": "M"}],
+        },
+        "error": None,
+    }
+
+    payload = format_direct_tool_response("git_read", result)
+
+    assert payload["route"] == "git_read"
+    assert payload["route_source"] == "direct_tool"
+    assert "Branch: main" in payload["text"]
+    assert payload["raw"] == result

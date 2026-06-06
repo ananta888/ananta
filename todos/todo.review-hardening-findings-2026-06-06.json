@@ -42,7 +42,7 @@
         "RHF-004",
         "RHF-005"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -131,10 +131,10 @@
       "title": "Master- und Track-Todo-Summaries nach Review-Befunden konsistent halten",
       "type": "planning-maintenance",
       "milestone": "RHF-M2",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 60,
+      "progress_percent": 100,
       "target_files": [
         "todos/todo.master-implementation-roadmap.json",
         "todos/todo.embedding-provider-rag-codecompass-config.json",
@@ -152,17 +152,20 @@
         "JSON-Dateien bleiben parsebar.",
         "Planungs-Summary-Widersprüche werden nicht weiter vergrößert."
       ],
-      "solid_review": "SRP für Planung: Review-Befunde werden in einem eigenen Track geführt, bestehende Feature-Tracks erhalten nur Verweise und Statuskorrekturen."
+      "solid_review": "SRP für Planung: Review-Befunde werden in einem eigenen Track geführt, bestehende Feature-Tracks erhalten nur Verweise und Statuskorrekturen.",
+      "notes": [
+        "2026-06-06: Master- und Track-Summaries nach SCTR/EPC/AMR-Fortschritt erneut konsistent neu berechnet."
+      ]
     },
     {
       "id": "RHF-005",
       "title": "Abschlussreview für verbleibende AMR- und SCTR-Gates durchführen",
       "type": "review",
       "milestone": "RHF-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "todos/todo.master-implementation-roadmap.json",
         "todos/todo.ananta-model-profile-routing-policy.json",
@@ -177,7 +180,10 @@
       "test_expectations": [
         "Track-spezifische Tests plus relevante E2E-Suites laufen vor Abschluss."
       ],
-      "solid_review": "Verhindert versteckte Verantwortungsvermischung zwischen Feature-Abschluss, Review-Hardening und Systemintegration."
+      "solid_review": "Verhindert versteckte Verantwortungsvermischung zwischen Feature-Abschluss, Review-Hardening und Systemintegration.",
+      "notes": [
+        "2026-06-06: Verbleibende Gates geprüft; SCTR geschlossen, AMR/EPC/CWFH Resttasks bleiben explizit offen."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -190,13 +196,13 @@
   "tasks_status_summary": {
     "total": 5,
     "by_status": {
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 3
+      "done": 5
     },
-    "progress_percent_done": 60.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 3,
       "P1": 2
@@ -208,61 +214,62 @@
     },
     "critical_path": {
       "total": 5,
-      "done": 3,
-      "remaining": 2
+      "done": 5,
+      "remaining": 0
     },
     "milestones": {
       "total": 2,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 1,
-    "in_progress": 1,
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 3,
+    "done": 5,
     "total": 5,
-    "progress_percent": 60.0
+    "progress_percent": 100.0
   },
   "summary_notes": [
     "Dieser Track ist ein Review-Hardening-Overlay und ersetzt nicht die Feature-Tracks.",
     "Die drei reproduzierbaren Bugs wurden im selben Arbeitsblock behoben und mit Regressionstests abgesichert.",
-    "Verbleibende Arbeit liegt in Planungs-Konsistenz, Abschlussreview und noch offenen AMR/SCTR-Gates."
+    "Verbleibende Arbeit liegt in Planungs-Konsistenz, Abschlussreview und noch offenen AMR/SCTR-Gates.",
+    "Review-Hardening-Track abgeschlossen; verbleibende Feature-Arbeit bleibt in den jeweiligen Tracks."
   ],
   "tasks_type_summary": {
     "total": 5,
     "by_type": {
       "planning-maintenance": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 60.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
-          "in_progress": 1,
+          "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "review": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "routing": {

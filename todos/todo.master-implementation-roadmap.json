@@ -330,7 +330,7 @@
       "task_ids": [
         "ROADMAP-010"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "ROADMAP-M6",
@@ -471,7 +471,7 @@
       "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 85,
+      "progress_percent": 95,
       "dependencies": [
         "ROADMAP-002"
       ],
@@ -492,7 +492,8 @@
         "Secret-Test prüft: kein API-Key in Diagnostik-Logs oder Index-Dateien."
       ],
       "notes": [
-        "Subtrack EPC ist 17/20 abgeschlossen; RHF-002 geschlossen, EPC-019/020 bleiben offen."
+        "Subtrack EPC ist 17/20 abgeschlossen; RHF-002 geschlossen, EPC-019/020 bleiben offen.",
+        "2026-06-06: EPC-001 und EPC-020 abgeschlossen; offen bleibt EPC-019 Benchmark-Profil."
       ]
     },
     {
@@ -604,7 +605,7 @@
       "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 60,
+      "progress_percent": 79,
       "dependencies": [
         "ROADMAP-007",
         "ROADMAP-006"
@@ -637,7 +638,8 @@
         "Security-Test: Cloud-Model ohne erlaubte Policy wird geblockt."
       ],
       "notes": [
-        "AMR M4/M6 und Teile von M8 sind implementiert; RHF-003 geschlossen, AMR-018/019/022/023/024 bleiben offen."
+        "AMR M4/M6 und Teile von M8 sind implementiert; RHF-003 geschlossen, AMR-018/019/022/023/024 bleiben offen.",
+        "2026-06-06: AMR-022 Operator-/Migrationsdoku abgeschlossen; AMR-015/018/019/023/024 bleiben offen."
       ]
     },
     {
@@ -645,10 +647,10 @@
       "title": "Phase 5: SCTR Track vollständig abschließen (alle 8 Tasks done)",
       "type": "track-gate",
       "milestone": "ROADMAP-M5",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 62.5,
+      "progress_percent": 100,
       "dependencies": [
         "ROADMAP-004",
         "ROADMAP-005",
@@ -684,7 +686,8 @@
       ],
       "notes": [
         "SCTR-001..004 sind implementiert; RHF-001 geschlossen, SCTR-005..008 bleiben offen.",
-        "SCTR-005 am 2026-06-06 implementiert; SCTR steht jetzt bei 5/8 Tasks, SCTR-006..008 bleiben offen."
+        "SCTR-005 am 2026-06-06 implementiert; SCTR steht jetzt bei 5/8 Tasks, SCTR-006..008 bleiben offen.",
+        "2026-06-06: SCTR-001..008 abgeschlossen; direkte Read-Tools, Routing-Memory, No-LLM-Pfad und Telemetrie implementiert."
       ]
     },
     {
@@ -772,12 +775,12 @@
     "total": 12,
     "by_status": {
       "todo": 2,
-      "in_progress": 4,
+      "in_progress": 3,
       "partial": 0,
       "blocked": 0,
-      "done": 6
+      "done": 7
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 58.3,
     "by_priority": {
       "P0": 10,
       "P1": 2
@@ -789,15 +792,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 5,
-      "remaining": 5
+      "done": 6,
+      "remaining": 4
     },
     "milestones": {
       "total": 6,
       "todo": 1,
-      "in_progress": 4,
+      "in_progress": 3,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -861,16 +864,16 @@
       },
       "track-gate": {
         "total": 7,
-        "done": 3,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 80.1,
+        "progress_percent": 89.6,
         "by_status": {
           "todo": 0,
-          "in_progress": 4,
+          "in_progress": 3,
           "partial": 0,
           "blocked": 0,
-          "done": 3
+          "done": 4
         }
       },
       "track-partial-gate": {
@@ -892,12 +895,12 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 2,
-    "in_progress": 4,
+    "in_progress": 3,
     "partial": 0,
     "blocked": 0,
-    "done": 6,
+    "done": 7,
     "total": 12,
-    "progress_percent": 50.0
+    "progress_percent": 58.3
   },
   "summary_notes": [
     "Diese Master-Datei ist kein weiterer Feature-Track, sondern der Navigationsanker für alle 7 Sub-Tracks.",
@@ -910,7 +913,10 @@
     "Review-Hardening-Track ergänzt: todos/todo.review-hardening-findings-2026-06-06.json.",
     "Roadmap-Gates ROADMAP-005/006 wurden von done auf in_progress korrigiert, weil die Subtrack-Dateien noch offene Tasks ausweisen.",
     "RHF-001/RHF-002/RHF-003 am 2026-06-06 umgesetzt und mit fokussierten Regressionstests abgesichert.",
-    "SCTR-005 am 2026-06-06 implementiert; SCTR steht jetzt bei 5/8 Tasks, SCTR-006..008 bleiben offen."
+    "SCTR-005 am 2026-06-06 implementiert; SCTR steht jetzt bei 5/8 Tasks, SCTR-006..008 bleiben offen.",
+    "SCTR vollständig abgeschlossen am 2026-06-06: ROADMAP-010 ist done.",
+    "EPC steht bei 19/20 Tasks; nur EPC-019 Benchmark-Profil bleibt offen.",
+    "AMR steht bei 19/24 Tasks; offene Tasks sind AMR-015, AMR-018, AMR-019, AMR-023, AMR-024."
   ],
   "end_summaries": [
     {

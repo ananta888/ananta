@@ -18,6 +18,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from client_surfaces.operator_tui.snake_chat_routing_memory import SnakeChatRoutingMemory
 from client_surfaces.operator_tui.snake_chat_security_policy import (
     SnakeChatSecurityPolicy,
     check_tool_dispatch_allowed,
@@ -58,6 +59,9 @@ class RoutingDecision:
     latency_ms: float = 0.0
     blocked: bool = False
     block_reason: str | None = None
+    output_mode: str = "structured"
+    route_source: str = "keyword"
+    policy_reason: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -68,6 +72,9 @@ class RoutingDecision:
             "latency_ms": self.latency_ms,
             "blocked": self.blocked,
             "block_reason": self.block_reason,
+            "output_mode": self.output_mode,
+            "route_source": self.route_source,
+            "policy_reason": self.policy_reason,
         }
 
 
@@ -86,10 +93,12 @@ class SnakeChatCommandRouter:
         policy: SnakeChatSecurityPolicy | None = None,
         enable_llm_classifier: bool = False,
         llm_classifier_timeout: float = 2.0,
+        routing_memory: SnakeChatRoutingMemory | None = None,
     ) -> None:
         self._policy = policy or SnakeChatSecurityPolicy()
         self._use_llm = enable_llm_classifier
         self._llm_timeout = llm_classifier_timeout
+        self._memory = routing_memory
         self._error_count = 0
         self._last_error_at: float = 0.0
 
@@ -104,7 +113,25 @@ class SnakeChatCommandRouter:
 
         # Greeting — answer inline
         if _GREETING_KEYWORDS.match(q):
-            return RoutingDecision(route="direct_answer", confidence=0.95, method="keyword")
+            return RoutingDecision(
+                route="direct_answer",
+                confidence=0.95,
+                method="keyword",
+                output_mode="raw",
+                route_source="keyword",
+            )
+
+        memory_entry = self._memory.match(q) if self._memory is not None else None
+        if memory_entry is not None:
+            decision = RoutingDecision(
+                route=memory_entry.route,
+                confidence=memory_entry.confidence,
+                method="memory_pattern",
+                tool_args=dict(memory_entry.tool_args),
+                output_mode="structured",
+                route_source="memory_pattern",
+            )
+            return self._finalize_decision(decision, t0)
 
         # Keyword classification
         decision = self._keyword_classify(q)
@@ -115,15 +142,38 @@ class SnakeChatCommandRouter:
             if llm_decision is not None:
                 decision = llm_decision
 
-        # Security check
+        return self._finalize_decision(decision, t0)
+
+    def learn_safe_pattern(
+        self,
+        *,
+        question: str,
+        route: str,
+        tool_args: dict[str, Any] | None = None,
+    ) -> bool:
+        """Store a safe read-only routing pattern when memory is enabled."""
+        if self._memory is None:
+            return False
+        return self._memory.learn(
+            question=question,
+            route=route,
+            tool_args=tool_args,
+            policy=self._policy,
+        )
+
+    def _finalize_decision(self, decision: RoutingDecision, started_at: float) -> RoutingDecision:
+        """Apply policy and telemetry fields to a routing decision."""
         allowed, reason = check_tool_dispatch_allowed(decision.route, policy=self._policy)
         if not allowed:
             decision = RoutingDecision(
                 route="llm_answer", confidence=0.5, method="security_fallback",
-                blocked=True, block_reason=reason,
+                blocked=True, block_reason=reason, route_source="blocked_by_policy",
+                policy_reason=reason,
             )
+        else:
+            decision.policy_reason = reason
 
-        decision.latency_ms = round((time.monotonic() - t0) * 1000, 1)
+        decision.latency_ms = round((time.monotonic() - started_at) * 1000, 1)
         return decision
 
     def _keyword_classify(self, question: str) -> RoutingDecision:
@@ -147,9 +197,17 @@ class SnakeChatCommandRouter:
                 confidence=best_score,
                 method="keyword",
                 tool_args=tool_args,
+                output_mode="structured",
+                route_source="direct_tool",
             )
 
-        return RoutingDecision(route="llm_answer", confidence=0.5, method="keyword_fallback")
+        return RoutingDecision(
+            route="llm_answer",
+            confidence=0.5,
+            method="keyword_fallback",
+            output_mode="summary",
+            route_source="rag_or_llm",
+        )
 
     def _extract_tool_args(self, question: str, route: str) -> dict[str, Any]:
         if route == "filesystem_read":
