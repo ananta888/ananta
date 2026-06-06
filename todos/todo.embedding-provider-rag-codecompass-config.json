@@ -133,7 +133,7 @@
         "EPC-002",
         "EPC-003"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -185,7 +185,7 @@
     {
       "id": "EPC-001",
       "title": "Embedding-Nutzer im Code verbindlich inventarisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "analysis",
@@ -205,7 +205,10 @@
         "Unklare oder doppelte Provider-Auflösungen sind als Refactoring-Kandidaten markiert.",
         "Keine Runtime-Änderung durch diese Analyse."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "2026-06-06: Embedding-Nutzer in docs/worker/embedding-provider-config.md inventarisiert."
+      ]
     },
     {
       "id": "EPC-002",
@@ -604,7 +607,7 @@
     {
       "id": "EPC-020",
       "title": "Embedding-Konfiguration in Retrieval-Doku final dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "docs",
@@ -621,7 +624,10 @@
         "Doku erklärt Rebuild-Gründe bei Provider-/Modell-/Dimensionswechsel.",
         "Doku enthält Troubleshooting für missing_embedding_api_key, response_size_mismatch und dimension_mismatch."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "2026-06-06: Embedding-Konfiguration in docs/worker/embedding-provider-config.md dokumentiert und aus retrieval_and_indexing.md verlinkt."
+      ]
     }
   ],
   "done_definition": [
@@ -636,13 +642,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 3,
+      "todo": 1,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 17
+      "done": 19
     },
-    "progress_percent_done": 85.0,
+    "progress_percent_done": 95.0,
     "by_priority": {
       "P0": 14,
       "P1": 5,
@@ -662,24 +668,25 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 3,
+    "todo_remaining": 1,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 17,
+    "done": 19,
     "total": 20,
-    "progress_percent": 85.0
+    "progress_percent": 95.0
   },
   "summary_notes": [
     "17 von 20 Tasks abgeschlossen. Kernarchitektur EmbeddingProviderConfigService, TextBuilder, Index-Rebuild-Detection und Vector-Engine-Integration ist fertig.",
-    "Offen: EPC-001 (Code-Inventar/Analyse), EPC-019 (Benchmark real vs. hash), EPC-020 (finale Doku)."
+    "Offen: EPC-001 (Code-Inventar/Analyse), EPC-019 (Benchmark real vs. hash), EPC-020 (finale Doku).",
+    "EPC-001 und EPC-020 abgeschlossen; offen bleibt EPC-019 Benchmark-Profil."
   ],
   "end_summaries": [
     {
@@ -708,16 +715,16 @@
     "by_type": {
       "analysis": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "api": {
@@ -792,16 +799,16 @@
       },
       "docs": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "docs_security": {
