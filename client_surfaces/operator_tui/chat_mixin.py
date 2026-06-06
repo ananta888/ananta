@@ -1085,7 +1085,15 @@ class ChatMixin:
             messages.extend(trimmed)
             messages.append({"role": "user", "content": question})
 
-        stream_enabled = str(os.environ.get("ANANTA_TUI_CHAT_STREAMING", "1")).strip().lower() not in {"0", "false", "no", "off"}
+        # Honour the UI config first; fall back to env var
+        _game_streaming = game.get("chat_streaming")
+        if _game_streaming is None:
+            stream_enabled = str(os.environ.get("ANANTA_TUI_CHAT_STREAMING", "1")).strip().lower() not in {"0", "false", "no", "off"}
+        else:
+            stream_enabled = bool(_game_streaming)
+        # For non-streaming the server holds the connection while generating — use the
+        # ask-timeout so the request doesn't die after 8s for a 30s generation.
+        timeout = self._chat_ask_timeout_seconds() if not stream_enabled else timeout
         try:
             body = _json_mod.dumps({
                 "model": model,
