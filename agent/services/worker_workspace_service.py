@@ -413,19 +413,12 @@ class WorkerWorkspaceService:
                 manifest[key] = rel
             return rel
 
-        agents_dst = workspace_dir / "AGENTS.md"
-        agents_lines = [
-            "# AGENTS.md",
-            "",
-            "This is a scoped OpenCode workspace for the Ananta project.",
-            "",
-            "## Mandatory architecture rules",
-            "- The hub remains the control plane and owns orchestration, routing, policy, and the task queue.",
-            "- Workers execute delegated work only.",
-            "- Do not introduce worker-to-worker orchestration.",
-            "- Preserve container boundaries and avoid implicit shared state.",
-            "- Prefer additive, backward-compatible changes over breaking redesigns.",
-            "",
+        # APRL-007: compose AGENTS.md from Root + active profile + runtime constraints
+        from agent.services.agent_profile_service import get_agent_profile_service
+        _profile_svc = get_agent_profile_service()
+        _active_profile = _profile_svc.resolve_for_task(task)
+
+        _runtime_constraints_lines = [
             "## Execution environment constraints",
             "- Do NOT use `sudo` — the execution environment is a Docker container without root privileges.",
             "- Do NOT use `su`, `sudo -i`, or any privilege escalation command.",
@@ -434,29 +427,40 @@ class WorkerWorkspaceService:
             "- Do NOT use `ss` — not installed. Use `netstat -tlnp` or `cat /proc/net/tcp` for port info.",
             "- To check if a process is running use `pgrep -x <name>` or `ps aux`.",
             "- To check open ports use `netstat -tlnp` or `cat /proc/net/tcp`.",
-            "- If a task requires systemd/root/service management, describe the required manual step in a comment instead of running it.",
             "- Shell commands must work as a non-root user inside a container.",
-            "- If the target software (nginx, apache, mysql, etc.) is not installed in this container: do NOT run the command directly. Instead use a `write_file` tool_call to write the commands as a shell script file in the artifacts directory.",
-            "",
-            "## Engineering rules",
-            "- Keep changes small, testable, and SOLID.",
-            "- Reuse existing abstractions before adding new ones.",
-            "- Keep behavior observable; do not hide failures.",
-            "- Respect the task workspace as the primary place for new files and generated context.",
-            "- The workspace may be reused across related delegated tasks; keep state intentional and auditable.",
+            "- If the target software (nginx, apache, mysql, etc.) is not installed: write commands as a shell script file in the artifacts directory instead.",
             "",
             "## Workspace guidance",
             "- Read `.ananta/context-index.md` first for task-specific context files.",
+            "- Read `.ananta/agent-profile.json` for the active agent profile metadata.",
             "- Use `rag_helper/` for retrieved research and knowledge files when present.",
         ]
         if include_response_contract:
-            agents_lines.append("- Follow `.ananta/response-contract.md` for the required response format.")
+            _runtime_constraints_lines.append("- Follow `.ananta/response-contract.md` for the required response format.")
         else:
-            agents_lines.append("- Apply the requested changes directly in the workspace; results are collected from workspace diffs.")
-        self._write_text(agents_dst, "\n".join(agents_lines).strip() + "\n")
+            _runtime_constraints_lines.append("- Apply the requested changes directly in the workspace; results are collected from workspace diffs.")
+
+        _composed_agents = _profile_svc.compose_content(
+            _active_profile,
+            runtime_constraints="\n".join(_runtime_constraints_lines),
+        )
+
+        agents_dst = workspace_dir / "AGENTS.md"
+        self._write_text(agents_dst, _composed_agents)
         _record(agents_dst, key="agents_path")
 
+        # APRL-008: write .ananta/agent-profile.json
+        _profile_meta_path = bundle_dir / "agent-profile.json"
+        self._write_json(_profile_meta_path, _active_profile.to_metadata())
+        _record(_profile_meta_path, key="agent_profile_path")
+        manifest["active_agent_profile"] = _active_profile.to_metadata()
+
         task_brief = bundle_dir / "task-brief.md"
+        # APRL-009: include active agent profile in task-brief
+        _profile_line = (
+            f"- Active agent profile: {_active_profile.profile_id}"
+            + (" (root-only fallback)" if _active_profile.is_fallback else "")
+        )
         brief_assignment = self._truncate_text(str(base_prompt or "").strip(), limit=task_brief_char_limit).strip()
         task_lines = [
             "# Task Brief",
@@ -464,6 +468,7 @@ class WorkerWorkspaceService:
             f"- Task ID: {str(task.get('id') or '').strip() or 'unknown'}",
             f"- Title: {str(task.get('title') or '').strip() or 'unknown'}",
             f"- Execution mode: {'structured-json-proposal' if include_response_contract else 'interactive-workspace-execution'}",
+            _profile_line,
             "",
             "## Current assignment (source of truth)",
             brief_assignment or "No task prompt available.",
@@ -574,6 +579,7 @@ class WorkerWorkspaceService:
         ]
         preferred_keys = [
             "agents_path",
+            "agent_profile_path",  # APRL-008: profile metadata second
             "task_brief_path",
             "system_prompt_path",
             "hub_context_path",

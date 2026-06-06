@@ -34,6 +34,8 @@ class ProposeContext:
     instruction_diagnostics: dict[str, Any] | None = None
     planning_context_compaction: dict[str, Any] | None = None
     planning_context_compaction_meta: dict[str, Any] | None = None
+    # APRL-011: active agent profile metadata; non-overridable by strategies
+    active_agent_profile: dict[str, Any] | None = None
 
 
 class ProposeStrategy(ABC):

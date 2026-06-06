@@ -118,6 +118,8 @@ Output ONLY valid JSON matching schema."""
         budget_tokens_by_mode: dict | None = None,
         # OHA-014: optional MemoryTree view to include alongside standard chunks
         memory_tree_retrieval_result: "Any | None" = None,
+        # APRL-012: active agent profile metadata; None is valid for old bundles
+        active_agent_profile: "dict | None" = None,
         **kwargs: Any,
     ) -> dict:
         """FA-T012: Build a governed context bundle with scope-aware filtering."""
@@ -326,6 +328,9 @@ Output ONLY valid JSON matching schema."""
         }
         if memory_tree_view is not None:
             bundle["memory_tree_view"] = memory_tree_view
+        # APRL-012: attach active agent profile metadata (no full text, only identifiers)
+        if active_agent_profile is not None:
+            bundle["active_agent_profile"] = dict(active_agent_profile)
         if include_context_text is False:
             bundle.pop("context_text", None)
         return bundle

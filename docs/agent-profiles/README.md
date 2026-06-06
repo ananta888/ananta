@@ -107,16 +107,39 @@ build the next structured step from task state, approved context, available arti
 
 For explanation paths, `propose` is optional and should only be used when a structured next step or task handoff is needed.
 
-## Runtime Gap
+## Runtime Status (APRL — implemented)
 
-The profile files are now present and mapped, but code still needs a loader that attaches the active profile to OpenCode/ananta-worker handoffs.
+Profiles are **runtime-active** from the APRL implementation:
 
-Required follow-up:
+| Component | Status | File |
+|---|---|---|
+| `AGENTS.md` (root) | **runtime-active** — global governance, non-overridable | `AGENTS.md` |
+| `client_surfaces/operator_tui/AGENTS.md` | **runtime-active** — loaded by AI-Snake-Chat | `chat_mixin._tutorial_ai_llm_ask` |
+| `docs/agent-profiles/*/AGENTS.md` | **runtime-active** — loaded by `AgentProfileService` | `agent/services/agent_profile_service.py` |
+| OpenCode workspace `AGENTS.md` | **runtime-active** — composed Root + Profile + Constraints | `worker_workspace_service.prepare_opencode_context_files` |
+| `.ananta/agent-profile.json` | **runtime-active** — metadata file in OpenCode workspace | same |
+| InstructionLayer `agent_profile_template` layer | **runtime-active** — non-user-overridable | `instruction_layer_service.assemble_for_task` |
+| `ProposeContext.active_agent_profile` | **runtime-active** — carried through propose/execute loop | `propose_orchestrator.ProposeContext` |
+| `ContextBundle.active_agent_profile` | **runtime-active** — attached to all bundles with a profile | `context_bundle_service.ContextBundler.build_bundle` |
+| `ContextDeliveryResult.active_agent_profile` | **runtime-active** — included in worker context delivery | `context_delivery_service.ContextDeliveryService.deliver` |
 
-```text
-AgentProfileLoader
-  -> resolve profile by task mode/template/path
-  -> read root AGENTS.md
-  -> read active profile AGENTS.md
-  -> compose worker workspace AGENTS.md or prompt context
+## Loader Resolution Order
+
 ```
+1. explicit profile_id  (worker_execution_context.active_agent_profile_id)
+2. template_id          (worker_execution_context.template_id / agent_template)
+3. task_kind            (task.task_kind, normalised)
+4. mode                 (task.mode)
+5. keyword_fallback     (title + description, marked as fallback in diagnostics)
+6. root_only            (fallback when nothing matches, warning emitted)
+```
+
+## Adding a New Profile
+
+1. Create `docs/agent-profiles/<profile_id>/AGENTS.md` with scope, role, behavior, and constraints.
+2. Add an entry in `docs/agent-profiles/profile-map.json` under `profiles` with:
+   - `activation`: list of `task_kind` values and keywords
+   - `agents_file`: `docs/agent-profiles/<profile_id>/AGENTS.md`
+   - `primary_role`, `allowed_task_kinds`, `code_change_policy`, `context_policy_hint`
+3. The `AgentProfileService` singleton picks it up automatically on next call (no restart needed).
+4. Add a unit test in `tests/test_agent_profile_service.py`.

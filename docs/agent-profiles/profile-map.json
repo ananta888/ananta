@@ -1,78 +1,128 @@
 {
-  "schema": "ananta.agent_profile_map.v1",
-  "description": "Maps standard planning/task paths to task-specific AGENTS.md guidance. The map is documentation-first today and intended as runtime loader input later.",
+  "schema": "ananta.agent_profile_map.v2",
+  "description": "Maps standard planning/task paths to AGENTS.md profiles. Runtime-active from APRL implementation: AgentProfileService uses this as loader input.",
   "global_profile": "AGENTS.md",
+  "schema_fields": {
+    "activation": "list[str] — task_kind values, template_id substrings, or keywords that trigger this profile",
+    "agents_file": "str — path relative to repo root; must exist and stay within the repo",
+    "primary_role": "str — role identifier used in diagnostics and applied_layers",
+    "allowed_task_kinds": "list[str] — task_kind values explicitly mapped to this profile",
+    "code_change_policy": "enum: via_hub_task_worker | direct_workspace | none",
+    "context_policy_hint": "enum: explain_navigate | implement | analyse | diagnose | plan_only"
+  },
   "profiles": {
     "ai_snake_chat": {
-      "activation": ["client_surfaces/operator_tui", "ai-snake-chat", "operator_tui"],
+      "activation": ["client_surfaces/operator_tui", "ai-snake-chat", "operator_tui", "ai_snake_chat"],
       "agents_file": "client_surfaces/operator_tui/AGENTS.md",
-      "primary_role": "architecture_explainer"
+      "primary_role": "architecture_explainer",
+      "allowed_task_kinds": [],
+      "code_change_policy": "none",
+      "context_policy_hint": "explain_navigate"
     },
     "new_software_project": {
       "activation": ["new_software_project", "new software project", "neues softwareprojekt"],
       "agents_file": "docs/agent-profiles/new_software_project/AGENTS.md",
       "legacy_profile": "docs/agent-profiles/new-software-project.md",
-      "primary_role": "bounded_project_architect_and_implementation_worker"
+      "primary_role": "bounded_project_architect_and_implementation_worker",
+      "allowed_task_kinds": ["new_software_project"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "bug_fix": {
-      "activation": ["bug_fix", "bug", "fix", "fehler", "crash"],
+      "activation": ["bug_fix", "bug", "fehler", "crash"],
       "agents_file": "docs/agent-profiles/bug_fix/AGENTS.md",
-      "primary_role": "reproduce_diagnose_fix_verify"
+      "primary_role": "reproduce_diagnose_fix_verify",
+      "allowed_task_kinds": ["bug_fix"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "code_fix": {
       "activation": ["code_fix", "codeproblem", "patch"],
       "agents_file": "docs/agent-profiles/code_fix/AGENTS.md",
-      "primary_role": "minimal_code_patch_worker"
+      "primary_role": "minimal_code_patch_worker",
+      "allowed_task_kinds": ["code_fix"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "refactor": {
       "activation": ["refactor", "cleanup", "optimieren", "verbessern"],
       "agents_file": "docs/agent-profiles/refactor/AGENTS.md",
-      "primary_role": "behavior_preserving_refactor_worker"
+      "primary_role": "behavior_preserving_refactor_worker",
+      "allowed_task_kinds": ["refactor"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "repo_analysis": {
       "activation": ["repo_analysis", "analyse", "projekt analysieren"],
       "agents_file": "docs/agent-profiles/repo_analysis/AGENTS.md",
-      "primary_role": "evidence_based_repository_analyst"
+      "primary_role": "evidence_based_repository_analyst",
+      "allowed_task_kinds": ["repo_analysis", "analysis"],
+      "code_change_policy": "none",
+      "context_policy_hint": "analyse"
     },
     "project_evolution": {
       "activation": ["project_evolution", "weiterentwicklung", "bestehendes projekt"],
       "agents_file": "docs/agent-profiles/project_evolution/AGENTS.md",
-      "primary_role": "incremental_existing_project_evolution_worker"
+      "primary_role": "incremental_existing_project_evolution_worker",
+      "allowed_task_kinds": ["project_evolution"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "architecture_review": {
       "activation": ["architecture_review", "architekturreview", "design review"],
       "agents_file": "docs/agent-profiles/architecture_review/AGENTS.md",
-      "primary_role": "architecture_reviewer"
+      "primary_role": "architecture_reviewer",
+      "allowed_task_kinds": ["architecture_review", "review"],
+      "code_change_policy": "none",
+      "context_policy_hint": "analyse"
     },
     "feature": {
       "activation": ["feature", "implement", "add", "neu", "create"],
       "agents_file": "docs/agent-profiles/feature/AGENTS.md",
-      "primary_role": "bounded_feature_implementation_worker"
+      "primary_role": "bounded_feature_implementation_worker",
+      "allowed_task_kinds": ["feature"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "test": {
       "activation": ["test", "testing", "coverage", "unit test", "integration test"],
       "agents_file": "docs/agent-profiles/test/AGENTS.md",
-      "primary_role": "test_design_and_verification_worker"
+      "primary_role": "test_design_and_verification_worker",
+      "allowed_task_kinds": ["test", "testing"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "tdd": {
       "activation": ["tdd", "test-driven", "test first", "red green"],
       "agents_file": "docs/agent-profiles/tdd/AGENTS.md",
-      "primary_role": "test_first_implementation_worker"
+      "primary_role": "test_first_implementation_worker",
+      "allowed_task_kinds": ["tdd"],
+      "code_change_policy": "via_hub_task_worker",
+      "context_policy_hint": "implement"
     },
     "sys_diag": {
       "activation": ["sys_diag", "systemdiagnose", "diagnose", "logs", "docker"],
       "agents_file": "docs/agent-profiles/sys_diag/AGENTS.md",
-      "primary_role": "bounded_system_diagnostics_worker"
+      "primary_role": "bounded_system_diagnostics_worker",
+      "allowed_task_kinds": ["sys_diag"],
+      "code_change_policy": "none",
+      "context_policy_hint": "diagnose"
     },
     "admin_repair": {
       "activation": ["admin_repair", "admin repair", "bounded repair", "diagnosis only"],
       "agents_file": "docs/agent-profiles/admin_repair/AGENTS.md",
-      "primary_role": "dry_run_first_admin_repair_planner"
+      "primary_role": "dry_run_first_admin_repair_planner",
+      "allowed_task_kinds": ["admin_repair"],
+      "code_change_policy": "plan_only",
+      "context_policy_hint": "diagnose"
     },
     "incident": {
       "activation": ["incident", "notfall", "ausfall", "down", "kritisch"],
       "agents_file": "docs/agent-profiles/incident/AGENTS.md",
-      "primary_role": "incident_triage_and_mitigation_planner"
+      "primary_role": "incident_triage_and_mitigation_planner",
+      "allowed_task_kinds": ["incident"],
+      "code_change_policy": "plan_only",
+      "context_policy_hint": "diagnose"
     }
   }
 }

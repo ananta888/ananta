@@ -27,6 +27,8 @@ class ContextDeliveryResult:
     selected_count: int = 0
     excluded_count: int = 0
     exclusion_reasons: dict[str, str] = field(default_factory=dict)
+    # APRL-016: active agent profile metadata for this delivery
+    active_agent_profile: Optional[dict] = None
 
 
 class ContextDeliveryService:
@@ -47,7 +49,18 @@ class ContextDeliveryService:
             agent_template = str((task or {}).get("agent_template") or "") or None
             policy = get_workspace_context_policy_resolver().resolve(effective_config, task_kind, agent_template)
 
-        result = ContextDeliveryResult(policy_scope_mode=policy.scope_mode)
+        # APRL-016: resolve active agent profile for this task delivery
+        try:
+            from agent.services.agent_profile_service import get_agent_profile_service
+            _active_profile = get_agent_profile_service().resolve_for_task(task)
+            _active_profile_meta = _active_profile.to_metadata()
+        except Exception:
+            _active_profile_meta = None
+
+        result = ContextDeliveryResult(
+            policy_scope_mode=policy.scope_mode,
+            active_agent_profile=_active_profile_meta,
+        )
         llm_scope = self._resolve_llm_scope(task=task)
         effective_config = dict((task or {}).get("effective_config") or {})
         llm_config = dict(effective_config.get("llm_config") or {})
