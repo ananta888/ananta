@@ -146,17 +146,38 @@ class ManagedLiveTerminalSession:
             self._condition.notify_all()
 
     def _read_loop(self) -> None:
-        while True:
-            process = getattr(self.bridge, "process", None)
-            if process is None:
-                break
-            chunks = self.bridge.drain()
-            if chunks:
-                for chunk in chunks:
-                    self._append_chunk(chunk)
-            elif process.poll() is not None:
-                break
-            time.sleep(_TERMINAL_READ_IDLE_SLEEP_SECONDS)
+        # Defensive wrapper: ``self.bridge.drain`` is documented to never
+        # raise, but during the test suite's teardown phase the bridge
+        # can be torn down concurrently and ``drain`` may end up touching
+        # a closed pipe / fd in a way that the interpreter can't recover
+        # from. We catch BaseException (without re-raising) so a misbehaving
+        # bridge cannot segfault the entire pytest process. The exception
+        # path marks the session as closed so callers see a clean shutdown
+        # rather than a hung ``read_from`` wait.
+        try:
+            while True:
+                process = getattr(self.bridge, "process", None)
+                if process is None:
+                    break
+                try:
+                    chunks = self.bridge.drain()
+                except Exception as exc:  # noqa: BLE001 — last-line defence
+                    logging.getLogger(__name__).debug(
+                        "live_terminal_session_service: bridge.drain failed, closing session: %s",
+                        exc,
+                    )
+                    break
+                if chunks:
+                    for chunk in chunks:
+                        self._append_chunk(chunk)
+                elif process.poll() is not None:
+                    break
+                time.sleep(_TERMINAL_READ_IDLE_SLEEP_SECONDS)
+        except BaseException as exc:  # noqa: BLE001 — see comment above
+            logging.getLogger(__name__).debug(
+                "live_terminal_session_service: _read_loop crashed, closing session: %s",
+                exc,
+            )
         with self._condition:
             self._closed = True
             self.updated_at = time.time()
