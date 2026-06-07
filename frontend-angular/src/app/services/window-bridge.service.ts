@@ -17,11 +17,18 @@ export interface BridgeConnectionStatus {
   lastError: string | null;
 }
 
+export interface TuiAuthContext {
+  hubUrl: string;
+  hubToken: string;
+  oidcToken: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WindowBridgeService implements OnDestroy {
   private bridgeUrl = '';
   private token = '';
   private pollHandle: ReturnType<typeof setInterval> | null = null;
+  private _tuiAuth: TuiAuthContext = { hubUrl: '', hubToken: '', oidcToken: '' };
 
   readonly state$ = new BehaviorSubject<BridgeState | null>(null);
   readonly connection$ = new BehaviorSubject<BridgeConnectionStatus>({
@@ -34,6 +41,10 @@ export class WindowBridgeService implements OnDestroy {
     return this.connection$.value.active;
   }
 
+  get tuiAuthContext(): TuiAuthContext {
+    return this._tuiAuth;
+  }
+
   initFromUrlParams(): void {
     const params = new URLSearchParams(window.location.search);
     const bridge = params.get('bridge');
@@ -41,6 +52,11 @@ export class WindowBridgeService implements OnDestroy {
     if (!bridge || !token) return;
     this.bridgeUrl = bridge;
     this.token = token;
+    this._tuiAuth = {
+      hubUrl: params.get('hub_url') ?? '',
+      hubToken: params.get('hub_token') ?? '',
+      oidcToken: params.get('oidc_token') ?? '',
+    };
     this.connection$.next({ active: false, bridgeUrl: bridge, lastError: null });
     this.startPolling();
   }

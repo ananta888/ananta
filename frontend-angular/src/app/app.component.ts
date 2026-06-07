@@ -297,6 +297,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.shell.init();
     this.bridge.initFromUrlParams();
+    this._applyTuiAuthIfPresent();
     void this.bootstrapEmbeddedRuntime();
     this.authSub = this.auth.token$.subscribe((token) => {
       if (token) {
@@ -333,6 +334,20 @@ export class AppComponent implements OnInit, OnDestroy {
 
   navGroups(role?: string | null) {
     return this.shell.navGroups(role);
+  }
+
+  private _applyTuiAuthIfPresent(): void {
+    const ctx = this.bridge.tuiAuthContext;
+    if (!ctx.hubToken && !ctx.oidcToken) return;
+    if (ctx.hubToken && !this.auth.isLoggedIn()) {
+      this.auth.setTokens(ctx.hubToken);
+    }
+    if (ctx.oidcToken) {
+      this.auth.setOidcAccessToken(ctx.oidcToken);
+    }
+    if (ctx.hubUrl) {
+      this.dir.upsert({ name: 'hub', role: 'hub', url: ctx.hubUrl, token: '' });
+    }
   }
 
   private startEventStream() {

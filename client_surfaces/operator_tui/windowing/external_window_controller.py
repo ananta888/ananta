@@ -65,6 +65,7 @@ class ExternalWindowController:
         self._bridge = bridge
         self._opened_once = False
         self._current_url = ""
+        self._auth_context: dict[str, str] | None = None
         self._fallback_server_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
 
     def _ensure_frontend_reachable(self, angular_base: str) -> None:
@@ -89,14 +90,26 @@ class ExternalWindowController:
             if _is_url_reachable(angular_base, timeout=0.2):
                 break
 
-    def open(self) -> ExternalWindowStatus:
+    def open(self, *, auth_context: dict[str, str] | None = None) -> ExternalWindowStatus:
+        if auth_context is not None:
+            self._auth_context = auth_context
         self._bridge.start()
         angular_base = os.environ.get("ANANTA_ANGULAR_URL", "http://127.0.0.1:4200").strip()
         if angular_base:
             self._ensure_frontend_reachable(angular_base)
             bridge_status = self._bridge.status()
-            params = urlencode({"bridge": f"http://127.0.0.1:{bridge_status.port}", "token": self._bridge.session_token})
-            self._current_url = f"{angular_base.rstrip('/')}?{params}"
+            params: dict[str, str] = {
+                "bridge": f"http://127.0.0.1:{bridge_status.port}",
+                "token": self._bridge.session_token,
+            }
+            ctx = self._auth_context or {}
+            if ctx.get("hub_url"):
+                params["hub_url"] = ctx["hub_url"]
+            if ctx.get("hub_token"):
+                params["hub_token"] = ctx["hub_token"]
+            if ctx.get("oidc_token"):
+                params["oidc_token"] = ctx["oidc_token"]
+            self._current_url = f"{angular_base.rstrip('/')}?{urlencode(params)}"
         else:
             self._current_url = self._bridge.window_url()
         health = self._surface.open_window(url=self._current_url)
@@ -116,7 +129,7 @@ class ExternalWindowController:
 
     def restart(self) -> ExternalWindowStatus:
         _ = self.close()
-        return self.open()
+        return self.open(auth_context=self._auth_context)
 
     def publish_state(self, payload: dict[str, Any]) -> None:
         self._bridge.publish_state(payload)
