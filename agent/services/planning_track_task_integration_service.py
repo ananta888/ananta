@@ -79,6 +79,72 @@ class PlanningTrackTaskIntegrationService:
         self._artifact_service = goal_artifact_service or GoalArtifactService()
         self._artifact_repo = goal_artifact_repository or GoalArtifactRepository()
 
+    def _append_handoff_events_for_step(
+        self,
+        *,
+        task_payload: TaskDB,
+        goal_id: str,
+        output_artifact_id: str,
+        plan_task_id: str,
+        workflow_step: dict[str, Any],
+        depends_internal_ids: list[str],
+    ) -> None:
+        """WFG-015: emit a handoff event per dependency edge for one
+        materialised step. Idempotent: re-running materialization for
+        the same task does not double-emit, because the workflow
+        event service dedupes by deterministic event id.
+        """
+        from agent.services.workflow_event_service import (
+            append_handoff_to_task,
+            build_handoff_event,
+            record_handoff_to_audit_log,
+        )
+        step_id = str(workflow_step.get("step_id") or plan_task_id).strip()
+        step_role = str(workflow_step.get("role") or "").strip()
+        produces = list(workflow_step.get("produces") or [])
+        is_gate = bool(workflow_step.get("gate", False))
+        existing_ctx = dict(task_payload.worker_execution_context or {})
+        emitted: list[Any] = []
+        for dep_task_id in depends_internal_ids:
+            dep_step_id = str(dep_task_id)
+            event = build_handoff_event(
+                goal_id=goal_id,
+                plan_id=output_artifact_id,
+                workflow_id=str(
+                    existing_ctx.get("workflow_step", {}).get("workflow_id")
+                    or output_artifact_id
+                ),
+                from_step=dep_step_id,
+                to_step=step_id,
+                from_role="",
+                to_role=step_role,
+                task_ids=[str(task_payload.id)],
+                artifact_refs=produces,
+                gate_required=is_gate,
+                gate_task_id=str(task_payload.id) if is_gate else None,
+                status="created",
+                reason_code="materialized",
+                actor="system:planning_track_integration",
+                blueprint_id=str(
+                    existing_ctx.get("workflow_step", {}).get("blueprint_id")
+                    or ""
+                ),
+                blueprint_version=str(
+                    existing_ctx.get("workflow_step", {}).get("blueprint_version")
+                    or ""
+                ),
+            )
+            new_ctx = append_handoff_to_task(
+                task={"worker_execution_context": existing_ctx},
+                event=event,
+            )
+            existing_ctx = new_ctx
+            emitted.append(event)
+        if emitted:
+            task_payload.worker_execution_context = existing_ctx
+            for event in emitted:
+                record_handoff_to_audit_log(event=event)
+
     def _load_output(self, *, goal_id: str, output_artifact_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         graph = self._artifact_service.get_goal_graph(goal_id)
         output = next(
@@ -157,6 +223,18 @@ class PlanningTrackTaskIntegrationService:
             }
             if workflow_step:
                 existing_ctx["workflow_step"] = workflow_step
+            # WFG-015: persist a handoff event per dependency edge so the
+            # audit query (WFG-017) and the UI views (WFG-022/023) can
+            # render the chain from a single source.
+            if workflow_step and depends_internal_ids:
+                self._append_handoff_events_for_step(
+                    task_payload=task_payload,
+                    goal_id=goal_id,
+                    output_artifact_id=output_artifact_id,
+                    plan_task_id=plan_task_id,
+                    workflow_step=workflow_step,
+                    depends_internal_ids=depends_internal_ids,
+                )
             task_payload.worker_execution_context = existing_ctx
             if bool(workflow_step.get("gate", False)) and workflow_step.get("checks"):
                 # Surface gate check expectations on the task itself so
