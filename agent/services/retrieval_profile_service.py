@@ -201,6 +201,40 @@ def _default_full_scan_budgets() -> dict[str, int]:
 
 
 def _is_full_scan_intent(query: str, intent: str, cfg: dict[str, Any]) -> bool:
+    """Decide whether the active query should trigger the heavy architecture
+    full_scan path.
+
+    Decision order (highest priority first):
+
+    1. Explicit user setting via ``chat_architecture_analysis_mode``:
+         - ``full_scan`` / ``architecture_full_scan`` / ``force_full_scan``  → ON
+         - ``off`` / ``disabled`` / ``quick`` / ``standard``               → OFF
+       This is the contract: a user's explicit choice is always honored,
+       regardless of keywords in the question. ``auto`` is treated as
+       "user has not decided" and falls through to the heuristics below.
+    2. Upstream classifier intent: if ``INTENT_ARCHITECTURE_FULL_SCAN`` was
+       selected by ``classify_retrieval_intent`` (e.g. because the
+       ``intent_override`` or a domain-specific profile set it), full_scan
+       is on.
+    3. Heuristic word triggers — only meaningful when the question is
+       unambiguously asking for a broad multi-file analysis:
+
+       a. Mermaid intent + explicit architecture-diagram phrasing
+          (e.g. "mermaid architekturdiagramm"). ``codecompass`` is
+          deliberately **excluded** — it is a domain name, not an intent
+          signal, and would otherwise cause every CodeCompass question to
+          escalate to the expensive full_scan path.
+       b. Standalone full-scan keywords ("architekturdiagramm",
+          "architecture diagram", "gesamtarchitektur", "vollanalyse",
+          "full scan"). These are unambiguous "I want the whole picture"
+          requests and may trigger full_scan even outside the mermaid
+          intent.
+
+    The legacy "architektur", "architecture", "gesamt", "worker handoff"
+    markers were removed: they fired on incidental mentions of architecture
+    in code questions and forced the user onto the slow path against their
+    explicit ``auto`` / ``off`` preference.
+    """
     mode = str(cfg.get("chat_architecture_analysis_mode") or cfg.get("analysis_mode") or "").strip().lower()
     if mode in {"architecture_full_scan", "full_scan", "force_full_scan"}:
         return True
@@ -209,8 +243,18 @@ def _is_full_scan_intent(query: str, intent: str, cfg: dict[str, Any]) -> bool:
     q = str(query or "").lower()
     if intent == INTENT_ARCHITECTURE_FULL_SCAN:
         return True
-    if intent == INTENT_MERMAID and any(marker in q for marker in ("architektur", "architecture", "gesamt", "worker handoff", "codecompass")):
+    # Mermaid intent + unambiguous architecture-diagram phrasing. The
+    # ``codecompass`` token was removed from this list because it is the
+    # domain name (a noun users mention freely) and was hijacking every
+    # CodeCompass-related question into the expensive full_scan path.
+    if intent == INTENT_MERMAID and any(
+        marker in q
+        for marker in ("architekturdiagramm", "architecture diagram", "gesamtarchitektur")
+    ):
         return True
+    # Standalone full-scan keywords — explicit "give me the whole picture"
+    # requests. These remain a valid trigger even outside the mermaid intent
+    # because they are unambiguous.
     if any(marker in q for marker in ("architekturdiagramm", "architecture diagram", "gesamtarchitektur", "vollanalyse", "full scan")):
         return True
     return False
