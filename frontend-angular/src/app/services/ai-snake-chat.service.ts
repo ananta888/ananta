@@ -38,6 +38,7 @@ export class AiSnakeChatService implements OnDestroy {
   readonly participants$ = new BehaviorSubject<SnakeParticipant[]>([]);
   readonly messages$ = new BehaviorSubject<SnakeChatMessage[]>([]);
   readonly error$ = new BehaviorSubject<string>('');
+  readonly awaitingReply$ = new BehaviorSubject<boolean>(false);
 
   private snakeToken = '';
   private messageCursor = '0';
@@ -104,6 +105,7 @@ export class AiSnakeChatService implements OnDestroy {
     const content = String(text || '').trim();
     if (!base || !snakeId || !this.snakeToken || !content) return;
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    this.awaitingReply$.next(true);
     this.http.post(
       `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages`,
       { id, channel_type: 'room', visibility: 'room', text: content },
@@ -114,6 +116,7 @@ export class AiSnakeChatService implements OnDestroy {
         this.messages$.next([...this.messages$.value, own].slice(-300));
       },
       error: (err) => {
+        this.awaitingReply$.next(false);
         if (this.isSessionGoneError(err)) {
           this.resetSessionState('Snake-Session abgelaufen. Bitte neu verbinden.');
           return;
@@ -121,6 +124,18 @@ export class AiSnakeChatService implements OnDestroy {
         this.error$.next('Senden fehlgeschlagen');
       },
     });
+  }
+
+  cancelChat(): void {
+    const base = this.hubUrl();
+    const snakeId = this.snakeId$.value;
+    if (!base || !snakeId) return;
+    this.awaitingReply$.next(false);
+    this.http.post(
+      `${base}/snakes/${encodeURIComponent(snakeId)}/chat/cancel`,
+      {},
+      { headers: this.withSnakeHeaders() },
+    ).subscribe({ error: () => {} });
   }
 
   private startLoops(): void {
@@ -188,6 +203,9 @@ export class AiSnakeChatService implements OnDestroy {
         const fresh = incoming.filter((m) => !known.has(m.id));
         if (!fresh.length) return;
         this.messages$.next([...this.messages$.value, ...fresh].slice(-300));
+        if (fresh.some((m) => m.sender_id !== this.snakeId$.value)) {
+          this.awaitingReply$.next(false);
+        }
         this.messageCursor = String(res.cursor || this.messageCursor);
       },
       error: (err) => {
