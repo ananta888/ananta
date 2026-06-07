@@ -1,8 +1,8 @@
 {
-  "$schema": "./todo.track.schema.json",
-  "version": "1.0",
-  "owner": "Peter Stuiber / Ananta",
-  "track": "workflow-gates-blueprint-orchestration",
+  "$schema": "./todo.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "workflow_gates_blueprint_orchestration",
   "purpose": "Ananta um einen expliziten, deterministischen, gut konfigurierbaren Workflow-/Gate-Layer erweitern. Blueprints sollen nicht nur Rollen und Artefakte beschreiben, sondern Prozessketten, Übergaben, Gates, Checks, Artefaktanforderungen und Worker-Routing verbindlich modellieren.",
   "goal": "Aus einem Blueprint soll ein prüfbarer Workflow-Graph entstehen. Planner-, Developer-, Reviewer-, QA-, Security- und Scrum-Master-/Coordinator-Schritte werden deterministisch materialisiert, über depends_on blockiert/freigegeben, mit Artefakten verknüpft und per Event-Log nachvollziehbar gemacht. Ein Developer darf erst arbeiten, wenn seine vorgelagerten Gates erfolgreich abgeschlossen sind.",
   "non_goals": [
@@ -39,6 +39,96 @@
     "medium",
     "high"
   ],
+  "existing_workflow_stack": {
+    "purpose": "Dieser Stack existiert BEREITS und ist die Grundlage, auf der der WFG-Plan (WFG-001..028) aufsetzt. Pflichtlektüre vor jedem WFG-Task: was leisten die existierenden Module schon, was fehlt noch?",
+    "modules": [
+      {
+        "path": "agent/services/workflow_registry.py",
+        "loc": 96,
+        "purpose": "WorkflowDescriptor + WorkflowRegistry: lädt, normalisiert (Defaults capability=read, risk_class=medium, approval_required = capability in {write,admin}), sortiert; list/get/state.",
+        "covers_for_wfg": "WFG-004 (teilweise): Load + Normalize existiert für *integration workflows* (n8n, generic_webhook), noch nicht für *blueprint* workflows. Schema-Validierung WFG-001 fehlt komplett."
+      },
+      {
+        "path": "agent/services/workflow_policy_adapter.py",
+        "loc": 19,
+        "purpose": "decide_workflow_policy(descriptor, approved, safe_read_auto_allow). safe_read auto-allow, write/admin/approval_required → confirm_required, approved → allow.",
+        "covers_for_wfg": "WFG-011/012 (teilweise): Policy-Decision-Mechanik existiert, aber nur für Integrations-Workflows. Gate-Check-Engine für Blueprint-Workflows (PO → Gate → Dev → QA) fehlt."
+      },
+      {
+        "path": "agent/services/workflow_execution_adapter.py",
+        "loc": 86,
+        "purpose": "execute(payload) → registry.get → decide_workflow_policy → provider.dispatch mit audit (policy_decision, execution_started/finished/failed).",
+        "covers_for_wfg": "WFG-007 (teilweise): Materialisierungs- und Dispatch-Mechanik existiert, aber für Integration-Calls, nicht für Blueprint-internal Tasks."
+      },
+      {
+        "path": "agent/services/workflow_auth.py",
+        "loc": 24,
+        "purpose": "sign_callback / verify_callback_signature. HMAC-SHA256 über provider:correlation_id:ts, max_age_default 300s.",
+        "covers_for_wfg": "Eigenständig; nicht im WFG-Plan referenziert."
+      },
+      {
+        "path": "agent/services/critical_workflow_state_service.py",
+        "loc": 346,
+        "purpose": "CriticalWorkflowStateService: initialize/transition/apply_fallback/handle_timeout/replay mit Materialize-Records und Guard-Enforcement. WorkflowTransitionError(code, details).",
+        "covers_for_wfg": "WFG-013 (teilweise): Queue-Reconciliation-Mechanik für state transitions existiert. WFG-015 (Handoff-Events) ist verwandt, aber nicht 1:1 dasselbe Konzept."
+      },
+      {
+        "path": "agent/services/blueprint_planning_adapter.py",
+        "loc": 209,
+        "purpose": "BlueprintPlanningAdapter.resolve und _build_subtasks erzeugen Subtasks MIT depends_on aus dem Blueprint. Liest aktuell nur roles+artifacts, NICHT workflow.steps.",
+        "covers_for_wfg": "WFG-006 (sehr teilweise): Adapter existiert und gibt Subtasks mit depends_on aus, ignoriert aber explizite workflow.steps. WFG-010 (DAG-Topologie über depends_on) ist in der Mechanik da, aber nicht blueprint-getrieben."
+      }
+    ],
+    "tests_existing": {
+      "count_workflow_files": 13,
+      "count_critical_state": 1,
+      "count_smoke": 1,
+      "total_locally_green": 31,
+      "verification_run": "pytest 13 files: 31 passed in 5.12s — verifiziert 2025",
+      "files": [
+        "tests/test_workflow_registry.py",
+        "tests/test_workflow_policy_adapter.py",
+        "tests/test_workflow_execution_adapter.py",
+        "tests/test_workflow_auth.py",
+        "tests/test_workflow_descriptor_schema.py",
+        "tests/test_workflow_execution_models.py",
+        "tests/test_workflow_artifact_mapping.py",
+        "tests/test_workflow_audit_events.py",
+        "tests/test_workflow_callback_receiver.py",
+        "tests/test_workflow_n8n_provider.py",
+        "tests/test_workflow_generic_webhook_provider.py",
+        "tests/test_workflow_provider_contract.py",
+        "tests/test_critical_workflow_state_service.py",
+        "tests/smoke/test_workflow_integration_smoke.py"
+      ]
+    },
+    "open_followups": [
+      {
+        "id": "WF-FU1",
+        "title": "Cast-Test: integrations_workflows Route gegen laufenden Hub",
+        "priority": "P2",
+        "risk": "low",
+        "scope": "cast",
+        "plan": [
+          "Hub via docker compose up -d hub starten",
+          "curl http://localhost:5000/api/integrations/workflows → erwarte 200 + enabled=True + items aus config/integrations/workflows.json",
+          "Optional: registrierten Workflow mit safe_read triggern → erwarte 200 + status=ok",
+          "Optional: unbekannten workflow_id triggern → erwarte 200 + status=blocked (nicht 500)",
+          "Antworten in artifacts/workflow/cast-result.json ablegen"
+        ]
+      },
+      {
+        "id": "WF-FU2",
+        "title": "Docs-Update: Workflow-ADR / planning-blueprint-flow falls Cast Lücken zeigt",
+        "priority": "P2",
+        "risk": "low",
+        "scope": "docs",
+        "depends_on": [
+          "WF-FU1"
+        ]
+      }
+    ]
+  },
   "proposed_blueprint_contract": {
     "workflow": {
       "mode": "gated",
@@ -1094,56 +1184,16 @@
       ]
     }
   ],
-  "tasks_status_summary": {
-    "total": 28,
-    "by_status": {
-      "todo": 28,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
-    },
-    "progress_percent_done": 0.0,
-    "by_priority": {
-      "P0": 13,
-      "P1": 9,
-      "P2": 6,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 1,
-      "medium": 18,
-      "high": 9
-    },
-    "critical_path": {
-      "total": 13,
-      "done": 0,
-      "remaining": 13,
-      "task_ids": [
-        "WFG-001",
-        "WFG-003",
-        "WFG-004",
-        "WFG-006",
-        "WFG-007",
-        "WFG-009",
-        "WFG-011",
-        "WFG-012",
-        "WFG-013",
-        "WFG-015",
-        "WFG-016",
-        "WFG-018",
-        "WFG-025"
-      ]
-    },
-    "milestones": {
-      "total": 8,
-      "todo": 8,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
-    }
-  },
+  "definition_of_done": [
+    "Scrum-OpenCode Blueprint enthält einen expliziten gated Workflow.",
+    "Planner-Output wird durch ein Scrum-Master-/Coordinator-Gate geprüft, bevor Developer-Tasks claimbar sind.",
+    "Gate-Checks sind deterministisch testbar.",
+    "Queue blockiert downstream Tasks zuverlässig bis Gate approval.",
+    "Handoff-Events und Artifact-Refs machen den Prozess auditierbar.",
+    "Workflow-Status ist per API und mindestens in einer UI-Fläche sichtbar.",
+    "Tests beweisen den zentralen Prozess: PO/Planner -> Gate -> Developer -> QA -> Final Gate.",
+    "Alte Tests sind angepasst oder bewusst entfernt, statt falsche Legacy-Semantik mitzuschleppen."
+  ],
   "recommended_implementation_order": [
     "WFG-001",
     "WFG-002",
@@ -1172,14 +1222,73 @@
     "WFG-027",
     "WFG-028"
   ],
-  "definition_of_done": [
-    "Scrum-OpenCode Blueprint enthält einen expliziten gated Workflow.",
-    "Planner-Output wird durch ein Scrum-Master-/Coordinator-Gate geprüft, bevor Developer-Tasks claimbar sind.",
-    "Gate-Checks sind deterministisch testbar.",
-    "Queue blockiert downstream Tasks zuverlässig bis Gate approval.",
-    "Handoff-Events und Artifact-Refs machen den Prozess auditierbar.",
-    "Workflow-Status ist per API und mindestens in einer UI-Fläche sichtbar.",
-    "Tests beweisen den zentralen Prozess: PO/Planner -> Gate -> Developer -> QA -> Final Gate.",
-    "Alte Tests sind angepasst oder bewusst entfernt, statt falsche Legacy-Semantik mitzuschleppen."
-  ]
+  "tasks_status_summary": {
+    "total": 28,
+    "by_status": {
+      "todo": 28,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 13,
+      "P1": 11,
+      "P2": 4
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 17,
+      "high": 11
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "existing_stack_foundation": {
+      "modules": 6,
+      "tests_passing": 31,
+      "tests_files": 14
+    }
+  },
+  "annotations": {
+    "what_already_exists": [
+      "Mechanik für load/normalize/list/get von Workflows (registry) — aber nur für *Integration*-Workflows, nicht für Blueprints",
+      "Policy-Gate-Entscheidung (policy_adapter) — aber nur für Integrations, nicht für Blueprint-Workflows",
+      "depends_on-basierte Subtask-Generierung (blueprint_planning_adapter._build_subtasks) — aber liest workflow.steps nicht",
+      "Queue-Reconciliation für State-Transitions (critical_workflow_state_service) — generisch genug, könnte für WFG-Gates wiederverwendet werden",
+      "TaskDB-Felder: task_kind, required_capabilities, depends_on, plan_id, plan_node_id, verification_spec — Substrat für WFG-Materialisierung"
+    ],
+    "what_is_missing": [
+      "Blueprint-Schema-Key 'workflow' mit mode/steps/defaults (WFG-001)",
+      "WorkflowDefinitionService als eigene Komponente (WFG-004)",
+      "Eigenes WorkflowStep-DB-Modell (WFG-005) — alternativ: nur JSON im BlueprintArtifactDB, ohne DB-Migration",
+      "Workflow-Kontrakt-ADR (WFG-002)",
+      "ANANTA_WORKFLOW_MODE-Settings-Toggle (WFG-003)",
+      "Gate-Check-Engine, die PO→Gate→Dev→QA-Workflows deterministisch blockiert/freigibt (WFG-011/012)",
+      "Handoff-Event-Persistenz mit from_step/to_step/from_role/to_role/artifact_refs (WFG-015)",
+      "Materielle Workflow-Definition für Scrum-OpenCode (WFG-018) und Code-Repair/TDD/Security-Review (WFG-019)",
+      "End-to-End-Test eines gated Workflows (WFG-025)"
+    ],
+    "decision_points": [
+      {
+        "id": "WFG-D1",
+        "question": "Soll WFG-005 (eigenes WorkflowStep-DB-Modell) umgesetzt werden, oder bleibt es bei einer JSON-in-BlueprintArtifactDB-Lösung?",
+        "context": "DB-Migration ist teurer; JSON im Artifact erlaubt freiere Schema-Iteration. Trade-off: Abfragbarkeit vs. Evolvability."
+      },
+      {
+        "id": "WFG-D2",
+        "question": "Wo lebt WorkflowDefinitionService? (a) Neuer Service agent/services/workflow_definition_service.py, (b) Erweiterung von team_blueprint_service.py, (c) Erweiterung von blueprint_planning_adapter.py",
+        "context": "SRP-Argument für (a); geringerer Diff für (b/c). Aktuell existiert (a) nicht — wäre der geradlinige Pfad."
+      },
+      {
+        "id": "WFG-D3",
+        "question": "WFG-001 vor WFG-003? Aktuell empfohlene Reihenfolge 001→002→003→004…",
+        "context": "Schema vor Config vor Service ist sinnvoll; aber WFG-003 (Config) kann parallel zu 001 beginnen, wenn 002 (ADR) als Architektur-Anker dient."
+      }
+    ]
+  }
 }
