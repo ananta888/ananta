@@ -292,6 +292,132 @@ def _append_room_ai_message(*, text: str) -> None:
         _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
 
 
+def _worker_chat_full_scan(
+    question: str,
+    *,
+    provider: str = "lmstudio",
+    model: str | None = None,
+    limits: "SnakeAskLimits | None" = None,
+) -> tuple[str, dict[str, Any]]:
+    """Multi-batch source-code-only analysis for chat full_scan mode.
+
+    Reads Python source files from the repo root in batches, sends each
+    batch to the LLM for analysis, then synthesises the results into one answer.
+    """
+    import pathlib as _pl
+    from agent.common.sgpt import _resolve_repo_root
+    from agent.routes.ai_snake_config import _current_config
+
+    effective_limits = limits or SnakeAskLimits()
+    cfg = _current_config()
+    trace: dict[str, Any] = {"mode": "full_scan_chat"}
+
+    try:
+        max_batches = max(1, min(16, int(float(cfg.get("chat_full_scan_max_batches") or 8))))
+        files_per_batch = max(1, min(10, int(float(cfg.get("chat_full_scan_files_per_batch") or 3))))
+        source_only_val = cfg.get("chat_full_scan_source_only")
+        source_only = source_only_val if isinstance(source_only_val, bool) else True
+    except (TypeError, ValueError):
+        max_batches, files_per_batch, source_only = 8, 3, True
+
+    repo_root = _resolve_repo_root()
+    if not repo_root:
+        trace["error"] = "no_repo_root"
+        return "", trace
+
+    _SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache",
+                  ".tox", "dist", "build", ".eggs", "project-workspaces", "tests", "test"}
+    exts = (".py",) if source_only else (".py", ".ts")
+
+    all_files: list[_pl.Path] = []
+    for ext in exts:
+        for f in repo_root.rglob(f"*{ext}"):
+            if not any(part in _SKIP_DIRS for part in f.parts):
+                all_files.append(f)
+    all_files.sort(key=lambda f: str(f.relative_to(repo_root)))
+
+    trace["files_found"] = len(all_files)
+    if not all_files:
+        trace["error"] = "no_source_files"
+        return "", trace
+
+    max_files = max_batches * files_per_batch
+    selected = all_files[:max_files]
+    batches = [selected[i:i + files_per_batch] for i in range(0, len(selected), files_per_batch)]
+    trace["batches_planned"] = len(batches)
+    trace["files_selected"] = len(selected)
+
+    _PER_FILE_CHARS = 3500
+    timeout_s = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
+    batch_summaries: list[str] = []
+
+    for step, batch in enumerate(batches, 1):
+        file_blocks: list[str] = []
+        for f in batch:
+            try:
+                content = f.read_text(encoding="utf-8", errors="replace")[:_PER_FILE_CHARS]
+                rel = str(f.relative_to(repo_root))
+                lang = f.suffix.lstrip(".") or "text"
+                file_blocks.append(f"### {rel}\n```{lang}\n{content}\n```")
+            except OSError:
+                pass
+
+        if not file_blocks:
+            continue
+
+        file_labels = ", ".join(str(f.relative_to(repo_root)) for f in batch)
+        batch_prompt = (
+            f"Frage: {question}\n\n"
+            f"Analysiere Quellcode-Batch {step}/{len(batches)} [{file_labels}]:\n\n"
+            + "\n\n".join(file_blocks)
+            + f"\n\nExtrahiere alle relevanten Erkenntnisse zur Frage aus diesem Quellcode-Batch. Kurze, präzise Antwort."
+        )
+        try:
+            batch_answer = generate_text(
+                prompt=batch_prompt,
+                provider=provider,
+                model=model,
+                history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+                timeout=timeout_s,
+            )
+            batch_answer = str(batch_answer or "").strip()
+        except Exception as exc:
+            logging.getLogger(__name__).debug("full_scan batch %d failed: %s", step, exc)
+            batch_answer = ""
+
+        if batch_answer:
+            batch_summaries.append(f"**Batch {step}** [{file_labels}]:\n{batch_answer}")
+
+    trace["batches_completed"] = len(batch_summaries)
+
+    if not batch_summaries:
+        trace["error"] = "all_batches_empty"
+        return "", trace
+
+    combined = "\n\n---\n\n".join(batch_summaries)
+    synthesis_prompt = (
+        f"Ursprüngliche Frage: {question}\n\n"
+        f"Quellcode-Analyse aus {len(batch_summaries)} Batches "
+        f"({len(selected)} Dateien, nur {exts[0]}-Quellcode):\n\n"
+        + combined
+        + "\n\nErstelle eine vollständige, strukturierte Antwort basierend ausschließlich auf dem analysierten Quellcode."
+    )
+    try:
+        final_answer = generate_text(
+            prompt=synthesis_prompt,
+            provider=provider,
+            model=model,
+            history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+            timeout=timeout_s,
+        )
+        final_answer = str(final_answer or "").strip()
+    except Exception as exc:
+        logging.getLogger(__name__).debug("full_scan synthesis failed: %s", exc)
+        final_answer = ""
+
+    return final_answer, trace
+
+
 def _spawn_ai_chat_reply(*, user_text: str) -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
@@ -302,6 +428,26 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
     def _runner() -> None:
         try:
             provider, model = _resolve_ai_snake_chat_provider()
+
+            # Check for full_scan mode
+            try:
+                from agent.routes.ai_snake_config import _current_config
+                from agent.services.retrieval_profile_service import _is_full_scan_intent
+                _cfg = _current_config()
+                if _is_full_scan_intent(prompt, "", _cfg):
+                    answer, scan_trace = _worker_chat_full_scan(prompt, provider=provider, model=model)
+                    files_found = scan_trace.get("files_found", 0)
+                    batches_done = scan_trace.get("batches_completed", 0)
+                    scan_summary = f"full_scan: {batches_done} Batches, {files_found} Dateien"
+                    if not answer:
+                        answer = "Full-Scan ergab keine Antwort."
+                    if len(answer) > 5800:
+                        answer = answer[:5800].rstrip() + "\n\n[gekuerzt]"
+                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]")
+                    return
+            except Exception as exc:
+                logging.getLogger(__name__).debug("full_scan check failed, falling back: %s", exc)
+
             grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(prompt)
             q = prompt.lower()
             asks_for_concrete_local_facts = any(
@@ -914,9 +1060,30 @@ def snake_ask():
         "rag_top_k": limits.rag_top_k,
     }
 
-    _, hub_model = _resolve_ai_snake_chat_provider()
+    provider, hub_model = _resolve_ai_snake_chat_provider()
     # TUI-configured model takes precedence over hub default
     model = request_model or hub_model
+
+    # full_scan mode: multi-batch source-code analysis bypasses standard propose
+    try:
+        from agent.routes.ai_snake_config import _current_config
+        from agent.services.retrieval_profile_service import _is_full_scan_intent
+        _eff_cfg = _current_config()
+        _eff_cfg.update(dict(retrieval_config_overrides or {}))
+        if _is_full_scan_intent(question, "", _eff_cfg):
+            answer, worker_trace = _worker_chat_full_scan(question, provider=provider, model=model, limits=limits)
+            if answer:
+                files_found = worker_trace.get("files_found", 0)
+                batches_done = worker_trace.get("batches_completed", 0)
+                summary = f"full_scan: {batches_done} Batches, {files_found} Quelldateien"
+                if len(answer) > limits.answer_chars:
+                    answer = answer[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
+                resp: dict[str, Any] = {"answer": answer, "path": "full_scan", "context_summary": summary}
+                if debug:
+                    resp["trace"] = {"worker": worker_trace}
+                return jsonify(resp), 200
+    except Exception as exc:
+        logging.getLogger(__name__).debug("full_scan routing failed, falling back: %s", exc)
 
     # Primary path: route through registered ananta-worker
     answer, worker_trace = _worker_propose(
@@ -926,7 +1093,7 @@ def snake_ask():
         retrieval_profile_trace=rag_trace.get("retrieval_profile") if isinstance(rag_trace.get("retrieval_profile"), dict) else None,
     )
     if answer:
-        resp: dict[str, Any] = {"answer": answer, "path": "worker"}
+        resp = {"answer": answer, "path": "worker"}
         if debug:
             resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
         return jsonify(resp), 200
