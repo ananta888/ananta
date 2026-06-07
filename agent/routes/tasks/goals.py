@@ -416,6 +416,44 @@ def goal_governance_summary(goal_id: str):
     return api_response(data=_goal_service().sanitize_governance_summary(summary, _is_admin_request()))
 
 
+@goals_bp.route("/goals/<goal_id>/gates/<gate_task_id>/human-decision", methods=["POST"])
+@check_auth
+def goal_gate_human_decision(goal_id: str, gate_task_id: str):
+    """WFG-024: submit an operator decision on a pending gate.
+
+    Body (JSON)::
+      {
+        "outcome": "approved" | "rejected" | "deferred",
+        "operator": "alice",
+        "reason": "verified manually"
+      }
+
+    Returns the updated ``workflow_gate_decision.v1`` block.
+    """
+    goal = _repos().goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    body = request.get_json(silent=True) or {}
+    outcome = str(body.get("outcome") or "").strip()
+    operator = str(body.get("operator") or _current_username() or "").strip()
+    reason = str(body.get("reason") or "").strip()
+    from agent.services.human_approval_service import (
+        HumanApprovalError,
+        submit_human_decision_via_repo,
+    )
+    try:
+        block = submit_human_decision_via_repo(
+            goal_id=goal_id,
+            gate_task_id=gate_task_id,
+            operator=operator,
+            outcome=outcome,
+            reason=reason,
+        )
+    except HumanApprovalError as exc:
+        return api_response(status="error", message=str(exc), code=400)
+    return api_response(data={"decision": block})
+
+
 @goals_bp.route("/goals/<goal_id>/workflow-status", methods=["GET"])
 @check_auth
 def goal_workflow_status(goal_id: str):
