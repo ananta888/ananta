@@ -316,10 +316,11 @@ def _worker_chat_full_scan(
         max_batches = max(1, min(16, int(float(cfg.get("chat_full_scan_max_batches") or 8))))
         files_per_batch = max(1, min(10, int(float(cfg.get("chat_full_scan_files_per_batch") or 3))))
         parallel_batches = max(1, min(8, int(float(cfg.get("chat_full_scan_parallel_batches") or 4))))
+        timeout_s = max(60, min(7200, int(float(cfg.get("chat_full_scan_timeout_s") or 1800))))
         source_only_val = cfg.get("chat_full_scan_source_only")
         source_only = source_only_val if isinstance(source_only_val, bool) else True
     except (TypeError, ValueError):
-        max_batches, files_per_batch, parallel_batches, source_only = 8, 3, 4, True
+        max_batches, files_per_batch, parallel_batches, timeout_s, source_only = 8, 3, 4, 1800, True
 
     repo_root = _resolve_repo_root()
     if not repo_root:
@@ -353,7 +354,6 @@ def _worker_chat_full_scan(
     import concurrent.futures as _cf
 
     _PER_FILE_CHARS = 3500
-    timeout_s = int(getattr(settings, "http_timeout", 300) or 300)
 
     def _run_batch(args: tuple[int, list]) -> tuple[int, str, str]:
         step, batch = args

@@ -57,6 +57,7 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_full_scan_max_batches",
     "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches",
+    "chat_full_scan_timeout_s",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -465,6 +466,14 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(game.get("chat_full_scan_parallel_batches") or "4"),
             "options": ["1", "2", "3", "4", "6", "8"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_full_scan_timeout_s",
+            "label": "Full-Scan: Timeout (s)",
+            "type": "choice",
+            "value": str(game.get("chat_full_scan_timeout_s") or "1800"),
+            "options": ["300", "600", "900", "1200", "1800", "3600"],
             "group": "Kontext / RAG",
         },
         {
@@ -900,7 +909,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {bool_val}"
 
-    if key in {"chat_full_scan_max_batches", "chat_full_scan_files_per_batch", "chat_full_scan_parallel_batches"}:
+    if key in {"chat_full_scan_max_batches", "chat_full_scan_files_per_batch", "chat_full_scan_parallel_batches", "chat_full_scan_timeout_s"}:
         try:
             value_int = int(raw_value)
         except ValueError:
@@ -909,6 +918,8 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             lo, hi = 1, 16
         elif key == "chat_full_scan_parallel_batches":
             lo, hi = 1, 8
+        elif key == "chat_full_scan_timeout_s":
+            lo, hi = 60, 7200
         else:
             lo, hi = 1, 10
         game[key] = max(lo, min(hi, value_int))
