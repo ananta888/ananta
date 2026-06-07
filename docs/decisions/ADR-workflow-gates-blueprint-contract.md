@@ -71,6 +71,23 @@ queue code.
    authoritative execution order. Workflow steps carry their own
    `sort_order` and topological sequence (WFG-010).
 
+   Concretely, when both signals are present on a single task:
+
+   | Signal | Source | Authority | Used for |
+   |--------|--------|-----------|----------|
+   | `workflow.steps[].depends_on` | blueprint | **authoritative** | execution order, gate blocking, depends_on in TaskDB |
+   | `workflow.steps[].sort_order` | blueprint | tie-break only | stable ordering when a step has no `depends_on` |
+   | `TaskDB.pipeline_order` | legacy catalog | **fallback** | queue ordering for tasks with no workflow_step block |
+   | `TaskDB.depends_on` | planner | **authoritative** | queue-side blocking (mirrors workflow depends_on) |
+
+   A task with `worker_execution_context.workflow_step` set always
+   follows the workflow DAG, never the legacy `pipeline_order`. The
+   planner materializer (WFG-007) and the queue reconciler (WFG-013)
+   enforce this precedence. A regression test in
+   `tests/test_planning_track_task_integration_service.py`
+   (`test_workflow_steps_take_precedence_over_pipeline_order`) locks
+   it in.
+
 6. **The hub remains the owner of the workflow contract.** Workers
    never read the blueprint's workflow block directly; the planner
    materializes it into TaskDB rows, audit events, and gate state

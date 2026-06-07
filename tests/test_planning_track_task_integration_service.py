@@ -373,3 +373,58 @@ def test_materialize_tasks_backward_compatible_for_legacy_track(
         assert "workflow_step" not in wf_ctx
         # Planning-track provenance is still there.
         assert "planning_track" in wf_ctx
+
+
+def test_workflow_steps_take_precedence_over_pipeline_order(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """WFG-010: when a plan task carries a workflow step with
+    depends_on edges, the materializer must propagate those edges
+    to the internal TaskDB row's depends_on. Any pipeline_order
+    hint on the plan task is informational only and must not
+    override the workflow DAG.
+
+    This locks in the precedence table documented in the ADR
+    (decision 5) and in docs/architecture/workflow-gates.md.
+    """
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    goal_id = "goal-track-wf-precedence"
+    service = _artifact_service(tmp_path)
+    output_id = _persist_track_with_workflow(service, goal_id)
+    integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
+
+    materialized = integration.materialize_tasks(
+        goal_id=goal_id, output_artifact_id=output_id
+    )
+    mapping = dict(materialized.get("plan_task_to_internal_task") or {})
+
+    # The gate task (T03) must depend on the planner task (T02)
+    # via internal task ids, even if a legacy pipeline_order hint
+    # would have suggested a different ordering.
+    gate_internal = mapping["T03"]
+    planner_internal = mapping["T02"]
+    intake_internal = mapping["T01"]
+
+    gate_task = task_repo.get_by_id(gate_internal)
+    planner_task = task_repo.get_by_id(planner_internal)
+    intake_task = task_repo.get_by_id(intake_internal)
+
+    # depends_on is the internal id of the planner task, not of
+    # the intake task (which would be the natural pipeline_order
+    # adjacency for a "review everything" hint).
+    assert planner_internal in list(gate_task.depends_on or [])
+    assert intake_internal not in list(gate_task.depends_on or [])
+
+    # Planner depends on intake — but only through the workflow
+    # DAG, not through any implicit pipeline_order adjacency.
+    assert intake_internal in list(planner_task.depends_on or [])
+
+    # workflow_step provenance is preserved on the gate task so
+    # downstream code (WFG-009 routing, WFG-013 reconciliation)
+    # can confirm the precedence.
+    step = dict(gate_task.worker_execution_context or {}).get("workflow_step")
+    assert step is not None
+    assert step["step_id"] == "step-3"
+    assert step["role"] == "scrum_master"
