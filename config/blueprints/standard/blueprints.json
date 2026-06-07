@@ -217,7 +217,98 @@
             }
           }
         }
-      ]
+      ],
+      "workflow": {
+        "schema": "blueprint_workflow.v1",
+        "id": "scrum_opencode",
+        "version": 1,
+        "steps": [
+          {
+            "id": "intake",
+            "role": "Product Owner",
+            "task_kind": "planning",
+            "task_ref": "Backlog Intake And Story Slicing",
+            "consumes": [
+              "goal_brief",
+              "acceptance_criteria"
+            ],
+            "produces": [
+              "execution_plan",
+              "task_breakdown"
+            ]
+          },
+          {
+            "id": "cascade",
+            "role": "Scrum Master",
+            "task_kind": "coordination",
+            "task_ref": "Execution Cascade Agreement",
+            "consumes": [
+              "execution_plan"
+            ],
+            "produces": [
+              "execution_contract"
+            ]
+          },
+          {
+            "id": "sync",
+            "role": "Scrum Master",
+            "task_kind": "coordination",
+            "task_ref": "Workspace And Artifact Sync",
+            "consumes": [
+              "execution_contract"
+            ],
+            "produces": [
+              "workspace_sync_receipt"
+            ]
+          },
+          {
+            "id": "implementation",
+            "role": "Developer",
+            "task_kind": "coding",
+            "task_ref": "Vertical Slice Delivery",
+            "consumes": [
+              "execution_plan",
+              "workspace_sync_receipt"
+            ],
+            "produces": [
+              "code_changes",
+              "verification_evidence"
+            ]
+          },
+          {
+            "id": "review_gate",
+            "role": "Scrum Master",
+            "task_kind": "review",
+            "task_ref": "Review And Definition Of Done",
+            "consumes": [
+              "code_changes",
+              "verification_evidence"
+            ],
+            "produces": [
+              "dod_signoff"
+            ],
+            "gate": true,
+            "gate_decision_policy": "all_artifact_refs_present",
+            "checks": [
+              {
+                "name": "code_changes_present",
+                "type": "file_exists",
+                "ref": "code_changes"
+              },
+              {
+                "name": "verification_evidence_present",
+                "type": "file_exists",
+                "ref": "verification_evidence"
+              }
+            ],
+            "failure_policy": "block_until_human_approval"
+          }
+        ],
+        "seed_artifact_keys": [
+          "goal_brief",
+          "acceptance_criteria"
+        ]
+      }
     },
     {
       "name": "Kanban",
@@ -436,7 +527,76 @@
             "verification_required": true
           }
         }
-      ]
+      ],
+      "workflow": {
+        "schema": "blueprint_workflow.v1",
+        "id": "code_repair",
+        "version": 1,
+        "steps": [
+          {
+            "id": "triage",
+            "role": "Repair Lead",
+            "task_kind": "triage",
+            "task_ref": "Incident Triage",
+            "consumes": [
+              "goal_brief",
+              "incident_report"
+            ],
+            "produces": [
+              "repro_steps",
+              "blast_radius_assessment",
+              "repair_plan"
+            ]
+          },
+          {
+            "id": "fix",
+            "role": "Fix Engineer",
+            "task_kind": "coding",
+            "task_ref": "Repair Implementation",
+            "consumes": [
+              "repro_steps",
+              "repair_plan"
+            ],
+            "produces": [
+              "code_changes",
+              "fix_evidence"
+            ]
+          },
+          {
+            "id": "regression",
+            "role": "QA Verifier",
+            "task_kind": "verification",
+            "task_ref": "Regression Validation",
+            "consumes": [
+              "code_changes",
+              "fix_evidence",
+              "repro_steps"
+            ],
+            "produces": [
+              "regression_report"
+            ],
+            "gate": true,
+            "gate_decision_policy": "all_artifact_refs_present",
+            "checks": [
+              {
+                "name": "fix_evidence_present",
+                "type": "file_exists",
+                "ref": "fix_evidence"
+              },
+              {
+                "name": "regression_report_present",
+                "type": "file_exists",
+                "ref": "regression_report"
+              }
+            ],
+            "failure_policy": "block_until_human_approval"
+          }
+        ],
+        "seed_artifact_keys": [
+          "goal_brief",
+          "incident_report"
+        ]
+      }
     },
     {
       "name": "TDD",
@@ -539,7 +699,86 @@
             "red_failure_is_expected": true
           }
         }
-      ]
+      ],
+      "workflow": {
+        "schema": "blueprint_workflow.v1",
+        "id": "tdd",
+        "version": 1,
+        "steps": [
+          {
+            "id": "behavior",
+            "role": "Behavior Analyst",
+            "task_kind": "analysis",
+            "task_ref": "TestPlanArtifact",
+            "consumes": [
+              "goal_brief",
+              "acceptance_criteria"
+            ],
+            "produces": [
+              "test_plan",
+              "behavior_statement"
+            ]
+          },
+          {
+            "id": "red",
+            "role": "Test Driver",
+            "task_kind": "verification",
+            "task_ref": "RedTestResultArtifact",
+            "consumes": [
+              "test_plan",
+              "behavior_statement"
+            ],
+            "produces": [
+              "red_test_result"
+            ]
+          },
+          {
+            "id": "patch",
+            "role": "Test Driver",
+            "task_kind": "coding",
+            "task_ref": "PatchPlanArtifact",
+            "consumes": [
+              "red_test_result"
+            ],
+            "produces": [
+              "code_changes",
+              "green_test_result"
+            ]
+          },
+          {
+            "id": "refactor",
+            "role": "Refactor Verifier",
+            "task_kind": "verification",
+            "task_ref": "RefactorChecklist",
+            "consumes": [
+              "code_changes",
+              "green_test_result"
+            ],
+            "produces": [
+              "refactor_signoff"
+            ],
+            "gate": true,
+            "gate_decision_policy": "all_artifact_refs_present",
+            "checks": [
+              {
+                "name": "green_test_result_present",
+                "type": "file_exists",
+                "ref": "green_test_result"
+              },
+              {
+                "name": "refactor_signoff_present",
+                "type": "file_exists",
+                "ref": "refactor_signoff"
+              }
+            ],
+            "failure_policy": "block_until_human_approval"
+          }
+        ],
+        "seed_artifact_keys": [
+          "goal_brief",
+          "acceptance_criteria"
+        ]
+      }
     },
     {
       "name": "Security-Review",
@@ -619,7 +858,75 @@
             "verification_required": true
           }
         }
-      ]
+      ],
+      "workflow": {
+        "schema": "blueprint_workflow.v1",
+        "id": "security_review",
+        "version": 1,
+        "steps": [
+          {
+            "id": "threat_review",
+            "role": "Security Lead",
+            "task_kind": "analysis",
+            "task_ref": "Threat Review",
+            "consumes": [
+              "goal_brief",
+              "code_changes"
+            ],
+            "produces": [
+              "threat_model",
+              "attack_surface_map"
+            ]
+          },
+          {
+            "id": "control_validation",
+            "role": "Security Analyst",
+            "task_kind": "verification",
+            "task_ref": "Control Validation",
+            "consumes": [
+              "threat_model",
+              "attack_surface_map"
+            ],
+            "produces": [
+              "control_validation_report",
+              "policy_check_evidence"
+            ]
+          },
+          {
+            "id": "findings_gate",
+            "role": "Compliance Reviewer",
+            "task_kind": "review",
+            "task_ref": "Security Findings Report",
+            "consumes": [
+              "control_validation_report",
+              "policy_check_evidence"
+            ],
+            "produces": [
+              "findings_report",
+              "remediation_plan"
+            ],
+            "gate": true,
+            "gate_decision_policy": "all_artifact_refs_present",
+            "checks": [
+              {
+                "name": "findings_report_present",
+                "type": "file_exists",
+                "ref": "findings_report"
+              },
+              {
+                "name": "remediation_plan_present",
+                "type": "file_exists",
+                "ref": "remediation_plan"
+              }
+            ],
+            "failure_policy": "block_until_human_approval"
+          }
+        ],
+        "seed_artifact_keys": [
+          "goal_brief",
+          "code_changes"
+        ]
+      }
     },
     {
       "name": "Release-Prep",
