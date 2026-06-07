@@ -286,7 +286,7 @@
         "WFG-013",
         "WFG-014"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WFG-5",
@@ -296,7 +296,7 @@
         "WFG-016",
         "WFG-017"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WFG-6",
@@ -659,10 +659,11 @@
       "title": "Bestehende pipeline_order und neue workflow.steps entkoppeln",
       "type": "refactor",
       "milestone": "WFG-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "commit": "240fb709",
       "target_files": [
         "config.json",
         "agent/config.py",
@@ -688,10 +689,10 @@
       "title": "Gate Check Engine implementieren",
       "type": "backend-service",
       "milestone": "WFG-4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/services/gate_check_engine.py",
         "agent/services/workflow_gate_service.py",
@@ -713,17 +714,18 @@
         "Unit-Test prüft unbekannten Check in strict_gated.",
         "Unit-Test prüft blocked statt pass bei unbekanntem Check.",
         "Unit-Test prüft evidence_refs im Ergebnis."
-      ]
+      ],
+      "commit": "9cccf909"
     },
     {
       "id": "WFG-012",
       "title": "Gate Decision Modell und Zustände ergänzen",
       "type": "backend-model",
       "milestone": "WFG-4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/models/**/*.py",
         "agent/services/task_lifecycle_service.py",
@@ -745,17 +747,18 @@
         "Unit-Test rejected blockiert/failt downstream gemäß Policy.",
         "Unit-Test waiver ohne Begründung wird abgelehnt.",
         "Unit-Test needs_human_review verhindert automatische Developer-Ausführung."
-      ]
+      ],
+      "commit": "9cccf909"
     },
     {
       "id": "WFG-013",
       "title": "Queue-Reconciliation für Gate-Zustände härten",
       "type": "backend-feature",
       "milestone": "WFG-4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/services/task_queue_service.py",
         "agent/services/task_lifecycle_service.py",
@@ -775,17 +778,18 @@
         "Unit-Test completed ohne decision bleibt blockiert.",
         "Unit-Test failed Gate blockiert downstream.",
         "Unit-Test Reconciliation mehrfach hintereinander bleibt stabil."
-      ]
+      ],
+      "commit": "9cccf909"
     },
     {
       "id": "WFG-014",
       "title": "Konfigurierbare Gate Failure Policies ergänzen",
       "type": "backend-config",
       "milestone": "WFG-4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/config.py",
         ".env.example",
@@ -806,17 +810,18 @@
         "Policy-Test prüft Step-Override.",
         "Policy-Test prüft Rework-Task-Erzeugung.",
         "Policy-Test prüft Security-Gate blockiert statt auto-waive."
-      ]
+      ],
+      "commit": "9cccf909"
     },
     {
       "id": "WFG-015",
       "title": "Workflow-Handoff-Events persistieren",
       "type": "backend-audit",
       "milestone": "WFG-5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/services/workflow_event_service.py",
         "agent/services/task_lifecycle_service.py",
@@ -837,7 +842,8 @@
         "Integrationstest erzeugt released Event nach Gate approval.",
         "Test prüft, dass Secret-Werte nicht im Event landen.",
         "Test prüft Event-Reihenfolge nach timestamp."
-      ]
+      ],
+      "commit": "e10c53b0"
     },
     {
       "id": "WFG-016",
