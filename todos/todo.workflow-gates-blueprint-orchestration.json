@@ -626,10 +626,11 @@
       "title": "Worker-Routing um workflow role und step kind erweitern",
       "type": "backend-routing",
       "milestone": "WFG-3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "commit": "6e326fc5",
       "target_files": [
         "src/hub/planning.py",
         "agent/services/task_queue_service.py",
