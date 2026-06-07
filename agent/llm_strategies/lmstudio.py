@@ -157,7 +157,25 @@ class LMStudioStrategy(LLMStrategy):
     ):
         max_tokens = int(max_output_tokens or 1024)
         temp = 0.2 if temperature is None else float(temperature)
-        context_limit = max_context_tokens or model_context or settings.lmstudio_max_context_tokens
+        # Resolve effective context window: explicit param > model_info context_length
+        # > per-model lookup map (settings.lmstudio_model_contexts) > global default.
+        # This prevents silent context-overflow returns for models that omit context_length
+        # from /v1/models (e.g. phi-3.5-mini-instruct: actual 4K, not the 32K default).
+        try:
+            from agent.config import lookup_model_context_tokens
+
+            _model_lookup_ctx = lookup_model_context_tokens(model_id)
+        except Exception:
+            _model_lookup_ctx = None
+        context_limit = (
+            int(max_context_tokens) if max_context_tokens
+            else int(model_context) if model_context
+            else _model_lookup_ctx
+            if _model_lookup_ctx
+            else int(settings.lmstudio_max_context_tokens)
+        )
+        if not context_limit or context_limit < 256:
+            context_limit = int(settings.lmstudio_max_context_tokens)
 
         if is_chat:
             messages = self._build_chat_messages(prompt, history)
@@ -207,14 +225,43 @@ class LMStudioStrategy(LLMStrategy):
 
         result_text = ""
         usage = {}
+        empty_reason: str | None = None
         if isinstance(resp, dict):
             result_text = self._extract_lmstudio_text(resp)
             usage = self._extract_lmstudio_usage(resp)
+            # Heuristic: LMStudio returns HTTP 200 with empty content + no usage when
+            # the request exceeds the model's context window. The model silently bails.
+            # We try to estimate whether the prompt would have overflowed the resolved
+            # context_limit to surface a useful hint to the caller.
+            if not str(result_text).strip():
+                if not usage:
+                    try:
+                        est_tokens = self._estimate_tokens(
+                            self._build_history_prompt(prompt, history) if not is_chat
+                            else "".join(str(m.get("content", "")) for m in (history or []) if isinstance(m, dict))
+                            + str(prompt or "")
+                        )
+                    except Exception:
+                        est_tokens = 0
+                    if context_limit and est_tokens > context_limit:
+                        empty_reason = "context_overflow_likely"
+                        logging.warning(
+                            "LMStudio empty response: estimated prompt ~%d tokens exceeds "
+                            "resolved context_limit=%d for model=%s; likely context overflow.",
+                            est_tokens, context_limit, model_id,
+                        )
+                    else:
+                        empty_reason = "empty_response_unknown_cause"
         elif isinstance(resp, str):
             result_text = resp
 
         self._update_lmstudio_history(model_id, bool(str(result_text).strip()))
-        return {"text": result_text, "usage": usage}
+        metadata: dict[str, Any] = {}
+        if empty_reason:
+            metadata["empty_reason"] = empty_reason
+            metadata["context_limit"] = int(context_limit) if context_limit else 0
+            metadata["model_id"] = str(model_id or "")
+        return {"text": result_text, "usage": usage, "metadata": metadata}
 
     def _post_lmstudio(self, url, payload, timeout, idempotency_key=None):
         import requests as _requests

@@ -328,6 +328,20 @@ def extract_llm_text_and_usage(result: Any) -> tuple[str, dict[str, int]]:
     return "", usage
 
 
+def extract_llm_call_metadata(result: Any) -> dict[str, Any]:
+    """Extract provider-attached metadata (e.g. context_overflow hints) from a result.
+
+    Strategies may attach a `metadata` dict carrying diagnostic info such as
+    `empty_reason`, `context_limit`, `model_id`. This helper keeps the existing
+    `extract_llm_text_and_usage` signature stable while making that metadata
+    available to callers that want to react to it.
+    """
+    if not isinstance(result, dict):
+        return {}
+    raw = result.get("metadata")
+    return dict(raw) if isinstance(raw, dict) else {}
+
+
 def _load_lmstudio_history() -> dict:
     data_dir = get_data_dir()
     path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
@@ -1372,6 +1386,23 @@ def _call_llm(
                 source="llm_integration",
                 estimated=False,
             )
+            # Capture strategy-attached metadata (e.g. context_overflow hints) so
+            # callers can distinguish an empty response caused by prompt overflow
+            # from other failure modes. The metadata is folded into the profile
+            # entry's error fields when the call produced no usable text.
+            call_metadata = extract_llm_call_metadata(res)
+            if not (text_out and text_out.strip()) and call_metadata:
+                success_entry["error_type"] = str(
+                    call_metadata.get("empty_reason") or "empty_response"
+                )
+                ctx_limit = call_metadata.get("context_limit")
+                model_id_meta = call_metadata.get("model_id")
+                msg_parts = [f"empty_reason={call_metadata.get('empty_reason')}"]
+                if ctx_limit:
+                    msg_parts.append(f"context_limit={ctx_limit}")
+                if model_id_meta:
+                    msg_parts.append(f"model={model_id_meta}")
+                success_entry["error_message"] = ", ".join(msg_parts)
             if has_request_context():
                 g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [success_entry]
             res = _attach_llm_call_profile(res, success_entry)

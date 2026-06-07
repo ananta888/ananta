@@ -58,6 +58,8 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches",
     "chat_full_scan_timeout_s",
+    "chat_full_scan_chars_per_file",
+    "chat_full_scan_max_input_tokens",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -474,6 +476,22 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(game.get("chat_full_scan_timeout_s") or "1800"),
             "options": ["300", "600", "900", "1200", "1800", "3600"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_full_scan_chars_per_file",
+            "label": "Full-Scan: Zeichen/Datei",
+            "type": "choice",
+            "value": str(game.get("chat_full_scan_chars_per_file") or "600"),
+            "options": ["300", "600", "1200", "2000", "3500"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_full_scan_max_input_tokens",
+            "label": "Full-Scan: Max. Input-Tokens",
+            "type": "choice",
+            "value": str(game.get("chat_full_scan_max_input_tokens") or "auto"),
+            "options": ["auto", "1500", "3000", "6000", "12000", "24000"],
             "group": "Kontext / RAG",
         },
         {
@@ -925,6 +943,28 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         game[key] = max(lo, min(hi, value_int))
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {game[key]}"
+
+    if key == "chat_full_scan_chars_per_file":
+        try:
+            value_int = int(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        game[key] = max(100, min(20000, value_int))
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {game[key]}"
+
+    if key == "chat_full_scan_max_input_tokens":
+        token = str(raw_value or "").strip().lower()
+        if token in {"", "auto"}:
+            game.pop("chat_full_scan_max_input_tokens", None)
+        else:
+            try:
+                value_int = int(token)
+            except ValueError:
+                return f"ai config: {label} erwartet zahl oder 'auto'"
+            game[key] = max(256, min(200000, value_int))
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {game.get(key, 'auto')}"
 
     if key == "chat_retrieval_domain_hint":
         game[key] = raw_value
