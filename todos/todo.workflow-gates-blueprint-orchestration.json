@@ -1662,19 +1662,49 @@
         "id": "WFG-D1",
         "question": "Soll WFG-005 (eigenes WorkflowStep-DB-Modell) umgesetzt werden, oder bleibt es bei einer JSON-in-BlueprintArtifactDB-Lösung?",
         "context": "DB-Migration ist teurer; JSON im Artifact erlaubt freiere Schema-Iteration. Trade-off: Abfragbarkeit vs. Evolvability.",
-        "decision": "Eigenes DB-Modell (BlueprintWorkflowStepDB) mit JSON-Feldern für produces/consumes/depends_on/checks. Pattern-konsistent mit blueprint_roles/blueprint_artifacts."
+        "user_acknowledged": true,
+        "status": "decided",
+        "decision": "Eigenes DB-Modell BlueprintWorkflowStepDB mit JSON-Feldern für produces / consumes / depends_on / checks. Pattern-konsistent mit blueprint_roles und blueprint_artifacts (eigene Tabelle).",
+        "rationale": "FK-Referenzierbarkeit für WFG-015 (Handoff-Events) und WFG-013 (Queue-Reconciliation) ist sauberer als String-Re-Parse. JSON-Felder für flexible Prozessdetails. Pattern-Konsistenz mit existierenden Blueprint-Substrukturen. Trade-off: schwerere DB-Migration, aber dafür querybar.",
+        "decided_at": "2026-06-07T18:58:40Z"
       },
       {
         "id": "WFG-D2",
         "question": "Wo lebt WorkflowDefinitionService?",
         "context": "SRP-Argument für neuen Service; geringerer Diff für Erweiterung.",
-        "decision": "Erweiterung von team_blueprint_service — ABER team_blueprint_service wird VORHER aufgeteilt (WFG-029..033). Workflow-Logik landet in team_blueprint_reconciliation_service."
+        "decision": "Erweiterung von team_blueprint_service — ABER team_blueprint_service wird VORHER aufgeteilt (WFG-029..033). Workflow-Logik landet in team_blueprint_reconciliation_service.",
+        "user_acknowledged": true,
+        "status": "decided"
       },
       {
         "id": "WFG-D3",
         "question": "Strikt sequenziell 001→002→003→004, oder 001/003 parallel mit 002 als ADR-Anker?",
-        "context": "Schema vor Config vor Service ist sinnvoll; aber WFG-003 (Config) kann parallel zu 001 beginnen, wenn 002 (ADR) als Architektur-Anker dient.",
-        "decision": "Welle 1: 001 + 002 + 003 parallel. Welle 2: 004 + 005 + 006 als eine zusammenhängende PR (im richtigen Submodul nach WFG-029). Welle 3: 007 alleine. Dann weiter mit 008/009/010, dann Welle 5 mit 011/012/013/014."
+        "context": "Schema vor Config vor Service ist sinnvoll; aber WFG-003 (Config) kann parallel zu 001 beginnen, wenn 002 (ADR) als Arch...",
+        "user_acknowledged": true,
+        "status": "decided",
+        "decision": "Wellen-basierte Parallelisierung. Welle 1: WFG-001 (Schema) + WFG-002 (ADR) + WFG-003 (Config) parallel. Welle 2: WFG-004 + WFG-005 + WFG-006 als eine zusammenhängende PR (im richtigen Submodul nach WFG-029). Welle 3: WFG-007 alleine. Dann Welle 4: WFG-008/009/010. Welle 5: WFG-011/012/013/014.",
+        "rationale": "WFG-002 (ADR) MUSS vor WFG-004/005/006 committed sein, weil es die Begriffe definiert. WFG-003 (Config) ist autonom und kann parallel laufen. WFG-004/005/006 zusammen = eine PR, ein Review, eine Test-Suite-Iteration. Verhindert Verzettelung. Klare Schicht-Trennung mit Review-Phasen.",
+        "decided_at": "2026-06-07T18:58:40Z"
+      },
+      {
+        "id": "WFG-D4",
+        "question": "5-Module-Layout für team_blueprint_service-Split ok?",
+        "context": "Vorgeschlagen: 5 Sub-Module (template_bootstrap, persistence, reconciliation, instantiation, system_prompt_reconciliation) + Shim. Alternativen: 3-Module-Layout (gröber), 7-Module-Layout (feiner, aber mehr Indirektion).",
+        "user_acknowledged": true,
+        "status": "decided",
+        "decision": "5-Module-Layout: team_template_bootstrap_service (130 LOC), team_blueprint_persistence_service (240 LOC), team_blueprint_reconciliation_service (190 LOC), team_blueprint_instantiation_service (95 LOC), team_system_prompt_reconciliation_service (75 LOC). Plus Shim-Modul team_blueprint_service (30-50 LOC, Re-Exports).",
+        "rationale": "3-Module-Layout wäre zu grob (Template-Bootstrap und System-Prompt-Reconciliation sind wirklich unterschiedliche Domänen). 7-Module-Layout wäre zu fein (Snapshot/Serialization bleibt bei Instantiation, 11 LOC ist kein eigenes Modul wert). 5 Module = sweet spot: jedes < 250 LOC, eine klare SRP-Verantwortung, keine zirkulären Imports.",
+        "decided_at": "2026-06-07T18:58:40Z"
+      },
+      {
+        "id": "WFG-D5",
+        "question": "Shim-Strategie: 12 Monate Re-Export mit DeprecationWarning, dann harter Cut?",
+        "context": "Bricht keine externen Importe. CI-Detector-Script (WFG-032) zeigt an, wann Shim ungenutzt ist. Alternative: sofortiger harter Cut (riskanter, da agent/routes/teams.py auch umgestellt werden muss in einer PR).",
+        "user_acknowledged": true,
+        "status": "decided",
+        "decision": "12 Monate Re-Export-Shim mit DeprecationWarning, dann harter Cut in einer Cleanup-PR. WFG-032 CI-Detector-Script (scripts/check_shim_imports.py) zeigt an, wann 0 Importe mehr übrig sind und der Shim entfernt werden kann.",
+        "rationale": "Sofortiger harter Cut würde agent/routes/teams.py in derselben PR anfassen, was den Diff aufbläht und das Review erschwert. Shim mit DeprecationWarning gibt Konsumenten Zeit zur Migration. CI-Detector verhindert, dass der Shim vergessen wird. 12 Monate = genug Zeit für 1-2 Quarterly-Cleanup-Sprints.",
+        "decided_at": "2026-06-07T18:58:40Z"
       }
     ]
   },
@@ -1684,5 +1714,56 @@
     "consequence": "WFG-001..028 zielen nicht mehr auf team_blueprint_service, sondern auf die Submodule. WFG-029 ist jetzt P0-Blocker für WFG-001, WFG-004, WFG-005, WFG-006, WFG-007, WFG-018, WFG-019.",
     "shim_strategy": "12 Monate Rückwärtskompatibilität über Re-Export-Shim. CI-Detector zeigt an, wann der Shim entfernt werden kann.",
     "anti_pattern_avoided": "Wenn wir WFG-001..028 direkt in die 765-LOC-Datei einbauen, wären wir bei ~1200 LOC in einer Datei. Schlechte Test-Isolation, lange Ladezeit, schweres Onboarding."
-  }
+  },
+  "decision_log": [
+    {
+      "id": "WFG-D2",
+      "decided_at": "2026-06-07T18:58:40Z",
+      "decided_by": "user",
+      "mode": "direct_pick",
+      "topic": "WorkflowDefinitionService-Lokation",
+      "decision": "Erweiterung von team_blueprint_service / blueprint_planning_adapter — KEIN neuer Service.",
+      "consequence": "WFG-029..033 wurde als Refactoring-Voraussetzung in den Plan aufgenommen, damit die Erweiterung in das richtige Submodul (team_blueprint_reconciliation_service) statt in eine 1200-LOC-Datei landet."
+    },
+    {
+      "id": "WFG-D1",
+      "decided_at": "2026-06-07T18:58:40Z",
+      "decided_by": "user (akzeptiert Empfehlung)",
+      "mode": "recommendation_accepted",
+      "topic": "WorkflowStep-Persistenz",
+      "decision": "Eigenes DB-Modell BlueprintWorkflowStepDB mit JSON-Feldern für produces / consumes / depends_on / checks. Pattern-konsistent mit blueprint_roles und blueprint_artifacts (eigene Tabelle).",
+      "rationale": "FK-Referenzierbarkeit für WFG-015 (Handoff-Events) und WFG-013 (Queue-Reconciliation) ist sauberer als String-Re-Parse. JSON-Felder für flexible Prozessdetails. Pattern-Konsistenz mit existierenden Blueprint-Substrukturen. Trade-off: schwerere DB-Migration, aber dafür querybar.",
+      "consequence": "WFG-005 wird um eine SQLModel-Migration erweitert (Alembic oder DB-Init-Script). FK auf blueprint_workflow_steps ermöglicht WFG-015 (Handoff-Events) und WFG-013 (Queue-Reconciliation)."
+    },
+    {
+      "id": "WFG-D3",
+      "decided_at": "2026-06-07T18:58:40Z",
+      "decided_by": "user (akzeptiert Empfehlung)",
+      "mode": "recommendation_accepted",
+      "topic": "Implementation-Order",
+      "decision": "Wellen-basierte Parallelisierung. Welle 1: WFG-001 (Schema) + WFG-002 (ADR) + WFG-003 (Config) parallel. Welle 2: WFG-004 + WFG-005 + WFG-006 als eine zusammenhängende PR (im richtigen Submodul nach WFG-029). Welle 3: WFG-007 alleine. Dann Welle 4: WFG-008/009/010. Welle 5: WFG-011/012/013/014.",
+      "rationale": "WFG-002 (ADR) MUSS vor WFG-004/005/006 committed sein, weil es die Begriffe definiert. WFG-003 (Config) ist autonom und kann parallel laufen. WFG-004/005/006 zusammen = eine PR, ein Review, eine Test-Suite-Iteration. Verhindert Verzettelung. Klare Schicht-Trennung mit Review-Phasen.",
+      "consequence": "WFG-002 (ADR) wird zum kritischen Sequenzpunkt vor WFG-004/005/006. Welle-2-PR muss atomar sein (alle 3 Tasks in einer PR), Welle-3-PR eigenständig."
+    },
+    {
+      "id": "WFG-D4",
+      "decided_at": "2026-06-07T18:58:40Z",
+      "decided_by": "user (akzeptiert Empfehlung)",
+      "mode": "recommendation_accepted",
+      "topic": "team_blueprint_service Split-Layout",
+      "decision": "5-Module-Layout: team_template_bootstrap_service (130 LOC), team_blueprint_persistence_service (240 LOC), team_blueprint_reconciliation_service (190 LOC), team_blueprint_instantiation_service (95 LOC), team_system_prompt_reconciliation_service (75 LOC). Plus Shim-Modul team_blueprint_service (30-50 LOC, Re-Exports).",
+      "rationale": "3-Module-Layout wäre zu grob (Template-Bootstrap und System-Prompt-Reconciliation sind wirklich unterschiedliche Domänen). 7-Module-Layout wäre zu fein (Snapshot/Serialization bleibt bei Instantiation, 11 LOC ist kein eigenes Modul wert). 5 Module = sweet spot: jedes < 250 LOC, eine klare SRP-Verantwortung, keine zirkulären Imports.",
+      "consequence": "WFG-029 hat jetzt ein fixes 5-Module-Ziel. Die LOC-Schätzungen (130+240+190+95+75 = 730 LOC) summieren sich auf ~5% unter dem Original (765 LOC) wegen entfallender Duplikate und Doc-Strings."
+    },
+    {
+      "id": "WFG-D5",
+      "decided_at": "2026-06-07T18:58:40Z",
+      "decided_by": "user (akzeptiert Empfehlung)",
+      "mode": "recommendation_accepted",
+      "topic": "Shim-Rückwärtskompatibilität",
+      "decision": "12 Monate Re-Export-Shim mit DeprecationWarning, dann harter Cut in einer Cleanup-PR. WFG-032 CI-Detector-Script (scripts/check_shim_imports.py) zeigt an, wann 0 Importe mehr übrig sind und der Shim entfernt werden kann.",
+      "rationale": "Sofortiger harter Cut würde agent/routes/teams.py in derselben PR anfassen, was den Diff aufbläht und das Review erschwert. Shim mit DeprecationWarning gibt Konsumenten Zeit zur Migration. CI-Detector verhindert, dass der Shim vergessen wird. 12 Monate = genug Zeit für 1-2 Quarterly-Cleanup-Sprints.",
+      "consequence": "WFG-031 (Shim) und WFG-032 (CI-Detector) sind im Plan. Cleanup-Trigger für Shim-Entfernung ist explizit dokumentiert. Ticket-Tracking: 12 Monate ab WFG-029-Merge."
+    }
+  ]
 }
