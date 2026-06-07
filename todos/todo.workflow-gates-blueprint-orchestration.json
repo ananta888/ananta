@@ -1,0 +1,1185 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "workflow-gates-blueprint-orchestration",
+  "purpose": "Ananta um einen expliziten, deterministischen, gut konfigurierbaren Workflow-/Gate-Layer erweitern. Blueprints sollen nicht nur Rollen und Artefakte beschreiben, sondern Prozessketten, Übergaben, Gates, Checks, Artefaktanforderungen und Worker-Routing verbindlich modellieren.",
+  "goal": "Aus einem Blueprint soll ein prüfbarer Workflow-Graph entstehen. Planner-, Developer-, Reviewer-, QA-, Security- und Scrum-Master-/Coordinator-Schritte werden deterministisch materialisiert, über depends_on blockiert/freigegeben, mit Artefakten verknüpft und per Event-Log nachvollziehbar gemacht. Ein Developer darf erst arbeiten, wenn seine vorgelagerten Gates erfolgreich abgeschlossen sind.",
+  "non_goals": [
+    "Scrum nicht als Meeting-Theater 1:1 nachbauen.",
+    "Keine harte Rückwärtskompatibilität zu alten experimentellen Blueprint-Strukturen erzwingen, wenn dadurch die neue Lösung schlechter wird.",
+    "Keine LLM-freie Entscheidung über Prozessstruktur zulassen: LLMs dürfen Vorschläge liefern, aber der Workflow-Graph wird deterministisch validiert.",
+    "Keine produktive Legacy-Migration priorisieren, solange keine realen Fremdnutzer Ananta produktiv einsetzen."
+  ],
+  "architecture_principles": [
+    "Blueprints beschreiben Rollen, Artefakte und explizite Workflow-Schritte.",
+    "Workflow-Struktur ist ein deterministischer DAG, kein freier Text.",
+    "Gates sind normale blockierende Tasks mit zusätzlichen Check-/Approval-Regeln.",
+    "Die bestehende Queue-Logik mit depends_on soll weiter genutzt und nicht parallel neu erfunden werden.",
+    "Jeder Handoff erzeugt ein nachvollziehbares Event mit from_step, to_step, from_role, to_role und artifact_refs.",
+    "Worker-Routing basiert auf role, task_kind, required_capabilities und optionalen blueprint_role_hints.",
+    "Security-/Least-Privilege-Prinzip: jeder Step bekommt nur die Artefakte und Tool-Rechte, die er für seine Aufgabe braucht.",
+    "Tests sind wichtiger als UI: zuerst Workflow-Validierung und Materialisierung absichern, danach Darstellung."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "proposed_blueprint_contract": {
+    "workflow": {
+      "mode": "gated",
+      "steps": [
+        {
+          "id": "intake",
+          "role": "product_owner",
+          "task_kind": "planning",
+          "produces": [
+            "goal_brief",
+            "acceptance_criteria"
+          ],
+          "gate": false
+        },
+        {
+          "id": "planning",
+          "role": "planner",
+          "task_kind": "planning",
+          "depends_on": [
+            "intake"
+          ],
+          "produces": [
+            "execution_plan",
+            "task_breakdown"
+          ],
+          "gate": false
+        },
+        {
+          "id": "planning_review",
+          "role": "scrum_master",
+          "task_kind": "gate_review",
+          "depends_on": [
+            "planning"
+          ],
+          "consumes": [
+            "execution_plan",
+            "task_breakdown",
+            "acceptance_criteria"
+          ],
+          "produces": [
+            "planning_gate_decision"
+          ],
+          "gate": true,
+          "checks": [
+            "plan_has_small_tasks",
+            "tasks_have_acceptance_criteria",
+            "dependencies_are_acyclic",
+            "required_capabilities_present",
+            "security_review_needed_if_tools_or_credentials_are_used"
+          ]
+        },
+        {
+          "id": "implementation",
+          "role": "developer",
+          "task_kind": "coding",
+          "depends_on": [
+            "planning_review"
+          ],
+          "consumes": [
+            "execution_plan",
+            "task_breakdown"
+          ],
+          "produces": [
+            "code_changes",
+            "implementation_notes"
+          ],
+          "gate": false
+        },
+        {
+          "id": "verification",
+          "role": "qa_verifier",
+          "task_kind": "testing",
+          "depends_on": [
+            "implementation"
+          ],
+          "consumes": [
+            "code_changes",
+            "acceptance_criteria"
+          ],
+          "produces": [
+            "test_results",
+            "verification_report"
+          ],
+          "gate": true,
+          "checks": [
+            "tests_pass",
+            "acceptance_criteria_checked",
+            "regression_risk_recorded"
+          ]
+        },
+        {
+          "id": "final_review",
+          "role": "scrum_master",
+          "task_kind": "gate_review",
+          "depends_on": [
+            "verification"
+          ],
+          "consumes": [
+            "verification_report",
+            "implementation_notes",
+            "artifact_refs"
+          ],
+          "produces": [
+            "final_gate_decision",
+            "follow_up_tasks"
+          ],
+          "gate": true,
+          "checks": [
+            "definition_of_done_met",
+            "artifacts_attached",
+            "followups_created_or_marked_not_needed"
+          ]
+        }
+      ]
+    }
+  },
+  "milestones": [
+    {
+      "id": "WFG-1",
+      "title": "Workflow-Blueprint-Vertrag und Schema definieren",
+      "task_ids": [
+        "WFG-001",
+        "WFG-002",
+        "WFG-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WFG-2",
+      "title": "Workflow-Definition laden, validieren und normalisieren",
+      "task_ids": [
+        "WFG-004",
+        "WFG-005",
+        "WFG-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WFG-3",
+      "title": "Materialisierung: Workflow-Steps, Gate-Tasks und Dependencies",
+      "task_ids": [
+        "WFG-007",
+        "WFG-008",
+        "WFG-009",
+        "WFG-010"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WFG-4",
+      "title": "Gate-Ausführung, Check-Engine und Blockierlogik",
+      "task_ids": [
+        "WFG-011",
+        "WFG-012",
+        "WFG-013",
+        "WFG-014"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WFG-5",
+      "title": "Handoff-Provenance, Artefaktfluss und Audit-Events",
+      "task_ids": [
+        "WFG-015",
+        "WFG-016",
+        "WFG-017"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WFG-6",
+      "title": "Konfiguration, Standard-Blueprints und Admin-Doku",
+      "task_ids": [
+        "WFG-018",
+        "WFG-019",
+        "WFG-020",
+        "WFG-021"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WFG-7",
+      "title": "TUI/Angular-Sichtbarkeit und Bedienung",
+      "task_ids": [
+        "WFG-022",
+        "WFG-023",
+        "WFG-024"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WFG-8",
+      "title": "Tests, Migration und Aufräumen alter Annahmen",
+      "task_ids": [
+        "WFG-025",
+        "WFG-026",
+        "WFG-027",
+        "WFG-028"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WFG-001",
+      "title": "Blueprint-Schema um workflow.steps erweitern",
+      "type": "schema",
+      "milestone": "WFG-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "schemas/blueprints/seed_blueprint_catalog.v1.json",
+        "schemas/blueprints/seed_template_catalog.v1.json",
+        "config/blueprints/standard/blueprints.json",
+        "docs/standard-blueprints.md"
+      ],
+      "acceptance_criteria": [
+        "Blueprints unterstützen ein top-level Feld workflow mit mode, steps und optional defaults.",
+        "workflow.steps ist eine Liste von deterministischen Step-Definitionen mit id, role, task_kind, depends_on, consumes, produces, gate, checks und config.",
+        "id ist innerhalb eines Workflows eindeutig und maschinenlesbar.",
+        "role referenziert eine im Blueprint definierte Rolle oder eine global registrierte Standardrolle.",
+        "task_kind erlaubt mindestens planning, coding, review, testing, security_review, gate_review, handoff und documentation.",
+        "gate=true kennzeichnet blockierende Prüfschritte, deren Ergebnis downstream Tasks freigibt oder blockiert.",
+        "checks ist für gate=true verpflichtend und für gate=false optional.",
+        "consumes/produces sind Artefakt-Typen oder Artefakt-Keys und keine freien Romantexte.",
+        "Alte Blueprints ohne workflow dürfen während der Umstellung entweder explizit als legacy markiert oder über eine Default-Workflow-Policy behandelt werden.",
+        "Die neue Struktur ist in docs/standard-blueprints.md mit einem vollständigen Scrum-OpenCode-Beispiel dokumentiert."
+      ],
+      "test_expectations": [
+        "Schema-Test akzeptiert einen vollständigen gated workflow.",
+        "Schema-Test lehnt Steps ohne id ab.",
+        "Schema-Test lehnt gate=true ohne checks ab.",
+        "Schema-Test lehnt ungültige task_kind Werte ab.",
+        "Schema-Test prüft, dass role und step-id maschinenlesbar bleiben."
+      ]
+    },
+    {
+      "id": "WFG-002",
+      "title": "Workflow-Kontrakt dokumentieren: Rollen sind nicht gleich Prozess",
+      "type": "architecture-docs",
+      "milestone": "WFG-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/architecture/workflow-gates.md",
+        "docs/architecture/planning-blueprint-flow.md",
+        "docs/decisions/ADR-workflow-gates-blueprint-contract.md"
+      ],
+      "acceptance_criteria": [
+        "Doku trennt sauber zwischen role, step, task, gate, artifact und worker.",
+        "Doku erklärt: Scrum Master ist in Ananta ein Flow-/Gate-/Coordinator-Agent, kein Chef und kein Meeting-Simulator.",
+        "Doku erklärt mindestens zwei Prozessvarianten: direct handoff und gated handoff.",
+        "Doku stellt klar, dass Developer-Spezialisierungen Ananta-spezifisch sind und nicht vom Scrum Guide vorgegeben werden.",
+        "Doku enthält Sequenzbeispiel: product_owner -> planner -> scrum_master_gate -> developer -> qa -> final_gate.",
+        "Doku enthält Mermaid-Diagramm für Workflow-DAG und Handoff-Events.",
+        "Doku nennt explizit, welche Teile deterministisch sind und wo LLMs nur Inhalte liefern dürfen."
+      ],
+      "test_expectations": [
+        "Docs-Review prüft, dass role/step/task/gate getrennt definiert sind.",
+        "Docs-Review prüft, dass Scrum nicht als 1:1 Meeting-Simulation beschrieben wird.",
+        "Mermaid-Beispiel rendert ohne Syntaxfehler."
+      ]
+    },
+    {
+      "id": "WFG-003",
+      "title": "Konfigurierbare Default-Workflow-Policies festlegen",
+      "type": "backend-config",
+      "milestone": "WFG-1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        ".env.example",
+        "config/**/*.json",
+        "tests/**/test_*config*.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine zentrale Einstellung ANANTA_WORKFLOW_MODE mit mindestens off, direct, gated und strict_gated.",
+        "Default ist gated für neue Blueprints.",
+        "off deaktiviert Workflow-Gates nur für Debug/Legacy und ist in Doku als unsicherer Modus markiert.",
+        "direct erlaubt step-to-step ohne zusätzliche Gate-Insertion.",
+        "gated nutzt definierte Gates und kann Default-Gates einfügen, wenn ein Blueprint diese ausdrücklich anfordert.",
+        "strict_gated verbietet Ausführung, wenn ein Blueprint keine gültige workflow Definition enthält.",
+        "Konfiguration ist über .env, zentrale config und Test-Fixtures überschreibbar.",
+        "Aktive Policy wird im Worker-Kontext und in Audit-Events sichtbar."
+      ],
+      "test_expectations": [
+        "Settings-Test prüft Default gated.",
+        "Settings-Test prüft Override auf strict_gated.",
+        "Settings-Test prüft, dass off nicht versehentlich in Standard-Testumgebung aktiv ist.",
+        "Config-Test prüft Priorität zwischen .env und config.json gemäß bestehender Konfigurationslogik."
+      ]
+    },
+    {
+      "id": "WFG-004",
+      "title": "WorkflowDefinitionService implementieren",
+      "type": "backend-service",
+      "milestone": "WFG-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/workflow_definition_service.py",
+        "agent/services/team_blueprint_service.py",
+        "agent/services/blueprint_planning_adapter.py",
+        "tests/**/test_*workflow_definition*.py"
+      ],
+      "acceptance_criteria": [
+        "WorkflowDefinitionService lädt workflow.steps aus einem Blueprint.",
+        "Service normalisiert fehlende optionale Felder auf deterministische Defaults.",
+        "Service validiert eindeutige Step-IDs.",
+        "Service validiert role-Referenzen gegen Blueprint-Rollen.",
+        "Service validiert depends_on-Referenzen gegen existierende Steps.",
+        "Service erkennt Zyklen im Step-Graph.",
+        "Service validiert gate=true mit mindestens einem Check.",
+        "Service erzeugt eine stabile topologische Reihenfolge.",
+        "Service liefert klare Fehlerobjekte statt unstrukturierter Exception-Texte.",
+        "Service ist unabhängig von LLM, Netzwerk und konkreten Worker-Implementierungen."
+      ],
+      "test_expectations": [
+        "Unit-Test lädt minimalen direct workflow.",
+        "Unit-Test lädt vollständigen gated workflow.",
+        "Unit-Test lehnt unbekannte Rollen ab.",
+        "Unit-Test lehnt zyklische depends_on ab.",
+        "Unit-Test prüft stabile Sortierung bei parallelen Steps.",
+        "Unit-Test prüft verständliche Fehlermeldung bei fehlender Dependency."
+      ]
+    },
+    {
+      "id": "WFG-005",
+      "title": "Workflow-Step-Modell und interne DTOs ergänzen",
+      "type": "backend-model",
+      "milestone": "WFG-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/models/**/*.py",
+        "agent/schemas/**/*.py",
+        "agent/services/**/*.py",
+        "tests/**/test_*workflow*model*.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt ein internes WorkflowStep-Modell mit id, title, role, task_kind, depends_on, gate, checks, consumes, produces, required_capabilities, tool_policy und config.",
+        "Es gibt ein WorkflowDefinition-Modell mit blueprint_id, blueprint_version, mode, steps und normalized_at.",
+        "Modelle sind serialisierbar und im Worker-/Task-Kontext nutzbar.",
+        "Keine Step-Information wird nur als freier Prompttext weitergereicht.",
+        "task_kind und role bleiben getrennte Felder.",
+        "required_capabilities wird aus Rolle, Step und expliziter Config zusammengeführt.",
+        "tool_policy kann pro Step enger sein als die globale Policy, aber nicht weiter als erlaubt."
+      ],
+      "test_expectations": [
+        "Serialization-Test roundtripped WorkflowDefinition ohne Datenverlust.",
+        "Test prüft Trennung von role und task_kind.",
+        "Test prüft, dass tool_policy nicht durch Step-Config erweitert werden kann, wenn globale Policy enger ist."
+      ]
+    },
+    {
+      "id": "WFG-006",
+      "title": "BlueprintPlanningAdapter an WorkflowDefinitionService anbinden",
+      "type": "backend-integration",
+      "milestone": "WFG-2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/blueprint_planning_adapter.py",
+        "agent/services/planning_service.py",
+        "tests/**/test_*blueprint_planning_adapter*.py"
+      ],
+      "acceptance_criteria": [
+        "BlueprintPlanningAdapter lädt bei Blueprint-Verwendung immer auch die WorkflowDefinition.",
+        "Plan-/Subtask-Erzeugung erhält Workflow-Step-Kontext.",
+        "Subtasks können eindeutig einem workflow_step_id zugeordnet werden.",
+        "Bestehende blueprint_role_hints bleiben erhalten, werden aber durch workflow_step_id ergänzt.",
+        "Bei strict_gated und fehlendem Workflow bricht der Adapter mit klarer Fehlermeldung ab.",
+        "Bei gated kann optional ein Standardworkflow erzeugt werden, wenn der Blueprint dafür explizit default_workflow=true setzt.",
+        "Planner-Prompt enthält nicht nur Rollenhinweise, sondern auch die erlaubte Step-Struktur."
+      ],
+      "test_expectations": [
+        "Integrationstest prüft, dass ein Scrum-Blueprint WorkflowStep IDs in Subtasks weitergibt.",
+        "Integrationstest prüft strict_gated Fehler bei Blueprint ohne Workflow.",
+        "Integrationstest prüft, dass Rollenhinweise nicht verloren gehen.",
+        "Snapshot-Test prüft Planner-Kontext mit Workflow-Abschnitt."
+      ]
+    },
+    {
+      "id": "WFG-007",
+      "title": "Materialisierung von Workflow-Steps in interne Tasks einbauen",
+      "type": "backend-feature",
+      "milestone": "WFG-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/planning_track_task_integration_service.py",
+        "agent/services/planning_service.py",
+        "agent/services/task_lifecycle_service.py",
+        "tests/**/test_*workflow_materialization*.py"
+      ],
+      "acceptance_criteria": [
+        "Workflow-Steps werden zu internen Tasks materialisiert oder mit PlanningTrack-Tasks deterministisch gemappt.",
+        "Jeder materialisierte Task enthält workflow_id, workflow_step_id, workflow_step_role, workflow_step_kind und gate flag.",
+        "depends_on wird aus Workflow-Step-Dependencies und PlanningTrack-Dependencies zusammengeführt.",
+        "Gate-Steps erzeugen echte blockierende Tasks, keine reinen Kommentare.",
+        "Wenn ein Developer-Step von einem Gate abhängt, ist der Developer-Task blockiert, bis der Gate-Task completed ist.",
+        "Parallel erlaubte Steps bleiben parallel, solange keine Depends-on-Kante sie blockiert.",
+        "Materialisierung ist idempotent: wiederholtes Materialisieren erzeugt keine doppelten Tasks.",
+        "Materialisierung schreibt nachvollziehbare Provenance in den Task-Kontext."
+      ],
+      "test_expectations": [
+        "Unit-Test materialisiert PO -> Planner -> Gate -> Developer.",
+        "Unit-Test prüft, dass Developer von Gate abhängt.",
+        "Unit-Test prüft Idempotenz bei erneutem Materialisieren.",
+        "Unit-Test prüft parallele Steps ohne künstliche Sequenzialisierung.",
+        "Integrationstest prüft Task-Kontext mit workflow_step_id."
+      ]
+    },
+    {
+      "id": "WFG-008",
+      "title": "Default-Gate-Insertion für Planner-zu-Developer ergänzen",
+      "type": "backend-feature",
+      "milestone": "WFG-3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/workflow_gate_insertion_service.py",
+        "agent/services/planning_track_task_integration_service.py",
+        "tests/**/test_*gate_insertion*.py"
+      ],
+      "acceptance_criteria": [
+        "Wenn ein Blueprint default planner_to_developer_gate aktiviert, wird zwischen planning und coding ein Gate-Step eingefügt.",
+        "Eingefügte Gates bekommen stabile IDs, z.B. auto_gate_planning_to_implementation.",
+        "Auto-Gates werden im Audit als generated=true markiert.",
+        "Auto-Gates nutzen konfigurierbare Checks aus Workflow-Defaults.",
+        "Auto-Gates werden nicht doppelt eingefügt, wenn der Blueprint bereits ein passendes Gate enthält.",
+        "strict_gated kann Auto-Insertion verbieten, wenn allow_generated_gates=false gesetzt ist."
+      ],
+      "test_expectations": [
+        "Test fügt Gate zwischen planner und developer ein.",
+        "Test fügt kein Gate doppelt ein.",
+        "Test prüft generated=true Provenance.",
+        "Test prüft strict_gated mit allow_generated_gates=false."
+      ]
+    },
+    {
+      "id": "WFG-009",
+      "title": "Worker-Routing um workflow role und step kind erweitern",
+      "type": "backend-routing",
+      "milestone": "WFG-3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "src/hub/planning.py",
+        "agent/services/task_queue_service.py",
+        "agent/services/**/*routing*.py",
+        "tests/**/test_*routing*.py"
+      ],
+      "acceptance_criteria": [
+        "Routing berücksichtigt workflow_step_role, task_kind, required_capabilities und blueprint_role_hints.",
+        "Gate-Review-Tasks bevorzugen Coordinator/Scrum-Master/Reviewer Worker und nicht Coder Worker.",
+        "Coding-Tasks bevorzugen Developer/Coder Worker.",
+        "Testing-Tasks bevorzugen QA/Tester Worker.",
+        "Security-Review-Tasks bevorzugen Security Worker.",
+        "Wenn kein passender Worker verfügbar ist, bleibt der Task blockiert oder pending_with_reason statt an falschen Worker zu gehen.",
+        "Routing-Entscheidung wird im Task-Kontext und Event-Log gespeichert.",
+        "Routing ist testbar ohne laufende echte LLM-Worker."
+      ],
+      "test_expectations": [
+        "Unit-Test mappt gate_review auf scrum_master/reviewer.",
+        "Unit-Test mappt coding auf developer/coder.",
+        "Unit-Test blockiert Task bei fehlender required_capability.",
+        "Unit-Test prüft Routing-Provenance."
+      ]
+    },
+    {
+      "id": "WFG-010",
+      "title": "Bestehende pipeline_order und neue workflow.steps entkoppeln",
+      "type": "refactor",
+      "milestone": "WFG-3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "config.json",
+        "agent/config.py",
+        "src/hub/planning.py",
+        "docs/architecture/workflow-gates.md"
+      ],
+      "acceptance_criteria": [
+        "pipeline_order wird nicht mehr als primärer Workflow-Mechanismus für neue Blueprints verwendet.",
+        "Doku erklärt Unterschied zwischen legacy pipeline_order und blueprint.workflow.steps.",
+        "Wenn pipeline_order noch genutzt wird, ist es explizit legacy oder fallback.",
+        "Tests prüfen, dass workflow.steps Vorrang vor pipeline_order hat.",
+        "Bei Konflikten zwischen pipeline_order und workflow.steps gewinnt workflow.steps.",
+        "Konflikt wird als Warnung/Event protokolliert."
+      ],
+      "test_expectations": [
+        "Config-Test prüft Vorrang von workflow.steps.",
+        "Test prüft Warnung bei widersprüchlicher pipeline_order.",
+        "Regressionstest stellt sicher, dass alte Tests entweder angepasst oder bewusst entfernt werden."
+      ]
+    },
+    {
+      "id": "WFG-011",
+      "title": "Gate Check Engine implementieren",
+      "type": "backend-service",
+      "milestone": "WFG-4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/gate_check_engine.py",
+        "agent/services/workflow_gate_service.py",
+        "tests/**/test_*gate_check*.py"
+      ],
+      "acceptance_criteria": [
+        "Gate Check Engine führt benannte Checks deterministisch aus.",
+        "Checks liefern structured result mit check_id, status, message, evidence_refs und severity.",
+        "Mindestchecks: plan_has_small_tasks, tasks_have_acceptance_criteria, dependencies_are_acyclic, required_capabilities_present, artifacts_attached, tests_pass, definition_of_done_met.",
+        "Unbekannte Checks führen im strict_gated Modus zu Fehler.",
+        "Unbekannte Checks können im gated Modus als blocked_with_unknown_check behandelt werden, aber nicht stillschweigend bestanden werden.",
+        "LLM-basierte Bewertungen sind optional und dürfen deterministische Checks nicht ersetzen.",
+        "Check-Ergebnisse werden im Gate-Task gespeichert.",
+        "Gate completed nur, wenn alle required Checks pass oder explizit waived sind."
+      ],
+      "test_expectations": [
+        "Unit-Test prüft passende Planstruktur.",
+        "Unit-Test prüft fehlende Acceptance Criteria.",
+        "Unit-Test prüft unbekannten Check in strict_gated.",
+        "Unit-Test prüft blocked statt pass bei unbekanntem Check.",
+        "Unit-Test prüft evidence_refs im Ergebnis."
+      ]
+    },
+    {
+      "id": "WFG-012",
+      "title": "Gate Decision Modell und Zustände ergänzen",
+      "type": "backend-model",
+      "milestone": "WFG-4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/models/**/*.py",
+        "agent/services/task_lifecycle_service.py",
+        "agent/services/task_queue_service.py",
+        "tests/**/test_*gate_decision*.py"
+      ],
+      "acceptance_criteria": [
+        "Gate-Tasks können decision=approved, rejected, blocked, waived oder needs_human_review speichern.",
+        "approved schaltet abhängige Tasks frei.",
+        "rejected blockiert oder failt abhängige Tasks gemäß konfigurierter failure_policy.",
+        "blocked hält abhängige Tasks blockiert und schreibt reason.",
+        "waived ist nur erlaubt, wenn allow_gate_waiver=true und eine Begründung vorhanden ist.",
+        "needs_human_review stoppt automatische Weitergabe und ist in TUI/Angular sichtbar.",
+        "Decision enthält actor_type: system, agent, human oder policy.",
+        "Decision enthält timestamp und artifact/evidence refs."
+      ],
+      "test_expectations": [
+        "Unit-Test approved entsperrt downstream.",
+        "Unit-Test rejected blockiert/failt downstream gemäß Policy.",
+        "Unit-Test waiver ohne Begründung wird abgelehnt.",
+        "Unit-Test needs_human_review verhindert automatische Developer-Ausführung."
+      ]
+    },
+    {
+      "id": "WFG-013",
+      "title": "Queue-Reconciliation für Gate-Zustände härten",
+      "type": "backend-feature",
+      "milestone": "WFG-4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/task_queue_service.py",
+        "agent/services/task_lifecycle_service.py",
+        "tests/**/test_*dependency*gate*.py"
+      ],
+      "acceptance_criteria": [
+        "Downstream-Tasks bleiben blocked, solange Gate-Dependency nicht approved/completed ist.",
+        "Ein completed Gate ohne approved Decision gilt nicht automatisch als bestanden, außer die Policy erlaubt legacy_completed_gate_pass.",
+        "Fehlgeschlagene Gate-Tasks setzen abhängige Tasks in blocked oder failed gemäß failure_policy.",
+        "Reconciliation ist idempotent.",
+        "Race Conditions zwischen Gate-Abschluss und Worker-Polling werden durch Statusprüfung beim Claim verhindert.",
+        "Worker kann einen Task nicht claimen, wenn eine Gate-Dependency noch nicht approved ist.",
+        "Blockierungsgrund nennt konkrete gate_task_id und missing decision."
+      ],
+      "test_expectations": [
+        "Concurrency-naher Unit-Test: Worker-Poll sieht Developer-Task erst nach Gate approval.",
+        "Unit-Test completed ohne decision bleibt blockiert.",
+        "Unit-Test failed Gate blockiert downstream.",
+        "Unit-Test Reconciliation mehrfach hintereinander bleibt stabil."
+      ]
+    },
+    {
+      "id": "WFG-014",
+      "title": "Konfigurierbare Gate Failure Policies ergänzen",
+      "type": "backend-config",
+      "milestone": "WFG-4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        ".env.example",
+        "config/**/*.json",
+        "tests/**/test_*gate_policy*.py"
+      ],
+      "acceptance_criteria": [
+        "Gate failure_policy unterstützt block_downstream, fail_downstream, create_rework_task und require_human_review.",
+        "Default für Planner-Gates ist block_downstream plus create_rework_task.",
+        "Default für Security-Gates ist require_human_review oder block_downstream.",
+        "Policy ist pro Blueprint, Workflow-Step und global konfigurierbar.",
+        "Engere Step-Policy gewinnt gegenüber globaler Default-Policy.",
+        "Policy-Resolution wird dokumentiert und getestet.",
+        "Bei create_rework_task wird ein Task mit Link auf fehlgeschlagenes Gate erzeugt."
+      ],
+      "test_expectations": [
+        "Policy-Test prüft Default für planning_review.",
+        "Policy-Test prüft Step-Override.",
+        "Policy-Test prüft Rework-Task-Erzeugung.",
+        "Policy-Test prüft Security-Gate blockiert statt auto-waive."
+      ]
+    },
+    {
+      "id": "WFG-015",
+      "title": "Workflow-Handoff-Events persistieren",
+      "type": "backend-audit",
+      "milestone": "WFG-5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/workflow_event_service.py",
+        "agent/services/task_lifecycle_service.py",
+        "migrations/versions/*workflow*.py",
+        "tests/**/test_*workflow_event*.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder Übergang zwischen Workflow-Steps erzeugt ein workflow_handoff Event.",
+        "Event enthält goal_id, plan_id, workflow_id, from_step, to_step, from_role, to_role, task_ids und artifact_refs.",
+        "Event enthält gate_required und gate_task_id, wenn ein Gate zwischen den Schritten liegt.",
+        "Event enthält status: created, blocked, released, rejected oder waived.",
+        "Events sind zeitlich sortierbar.",
+        "Events können später für TUI/Angular und Audit abgefragt werden.",
+        "Events enthalten keine Secret-Inhalte, sondern nur Referenzen."
+      ],
+      "test_expectations": [
+        "Integrationstest erzeugt Handoff-Events bei Materialisierung.",
+        "Integrationstest erzeugt released Event nach Gate approval.",
+        "Test prüft, dass Secret-Werte nicht im Event landen.",
+        "Test prüft Event-Reihenfolge nach timestamp."
+      ]
+    },
+    {
+      "id": "WFG-016",
+      "title": "Artefaktfluss zwischen Steps erzwingen",
+      "type": "backend-feature",
+      "milestone": "WFG-5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/artifact*.py",
+        "agent/services/workflow_gate_service.py",
+        "agent/services/task_lifecycle_service.py",
+        "tests/**/test_*artifact_flow*.py"
+      ],
+      "acceptance_criteria": [
+        "consumes eines Steps muss durch produces vorgelagerter Steps oder vorhandene Goal-Artefakte erfüllbar sein.",
+        "Gate-Checks können fehlende Artefakte blockieren.",
+        "Developer-Step erhält nur die Artefakt-Refs, die laut consumes erlaubt sind.",
+        "QA-Step erhält Code-/Test-Artefakte und Acceptance Criteria, aber nicht automatisch komplette Projektkontexte.",
+        "Artefakt-Refs werden im Worker-Kontext explizit benannt.",
+        "Wenn ein Step required artifacts nicht findet, wird er blocked_with_missing_artifacts.",
+        "Follow-up Tasks übernehmen relevante Artefakt-Refs vom Gate-Ergebnis."
+      ],
+      "test_expectations": [
+        "Unit-Test blockiert Step bei fehlendem execution_plan.",
+        "Unit-Test erlaubt Developer erst mit planning_gate_decision.",
+        "Unit-Test prüft minimale Artifact-Refs im Worker-Kontext.",
+        "Unit-Test prüft Weitergabe von Follow-up-Artefakten."
+      ]
+    },
+    {
+      "id": "WFG-017",
+      "title": "Workflow-Audit-Abfrage und Debug-Output bauen",
+      "type": "backend-api",
+      "milestone": "WFG-5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/routes/**/*.py",
+        "client_surfaces/common/client_api.py",
+        "docs/backend.md",
+        "tests/**/test_*workflow_audit_api*.py"
+      ],
+      "acceptance_criteria": [
+        "API kann Workflow-Status für goal_id oder plan_id liefern.",
+        "Antwort enthält Steps, Tasks, Gate-Decisions, blocked reasons, artifact_refs und Handoff-Events.",
+        "API kann eine kompakte Debug-Zusammenfassung liefern: welcher Step blockiert warum.",
+        "API redigiert Secret-/Credential-Inhalte.",
+        "Client-API stellt Methode get_workflow_status bereit.",
+        "Fehlerhafte oder nicht vorhandene goal_id liefert klare 404/empty Antwort."
+      ],
+      "test_expectations": [
+        "API-Test liest Workflow-Status nach Materialisierung.",
+        "API-Test zeigt blockierten Developer-Task vor Gate approval.",
+        "API-Test zeigt released nach Gate approval.",
+        "API-Test prüft Redaction."
+      ]
+    },
+    {
+      "id": "WFG-018",
+      "title": "Scrum-OpenCode Blueprint auf expliziten Workflow umbauen",
+      "type": "config-blueprint",
+      "milestone": "WFG-6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "config/blueprints/standard/blueprints.json",
+        "docs/standard-blueprints.md",
+        "tests/**/fixtures/**/*blueprint*.json"
+      ],
+      "acceptance_criteria": [
+        "Scrum-OpenCode enthält workflow.steps mit Product Owner, Planner, Scrum Master Gate, Developer, QA/Verifier und Final Review.",
+        "Planner-Output wird explizit durch Scrum-Master-Gate geprüft, bevor Developer-Tasks freigegeben werden.",
+        "Developer-Blackbox kann optional über Substeps wie architecture, coding, tests, review aufgelöst werden.",
+        "Definition of Done ist als Gate-Check oder final_review Check modelliert.",
+        "Blueprint enthält konkrete consumes/produces für relevante Artefakte.",
+        "Blueprint enthält required_capabilities für OpenCode/Terminal/SGPT je Step.",
+        "Doku zeigt dieselbe Kette wie die Konfiguration."
+      ],
+      "test_expectations": [
+        "Fixture-Test lädt Scrum-OpenCode Blueprint erfolgreich.",
+        "WorkflowDefinitionService validiert Scrum-OpenCode ohne Fehler.",
+        "Materialisierungstest erzeugt Gate zwischen Planner und Developer.",
+        "Snapshot-Test vergleicht dokumentierte Step-Reihenfolge."
+      ]
+    },
+    {
+      "id": "WFG-019",
+      "title": "Standard-Workflows für Code-Repair, TDD und Security-Review definieren",
+      "type": "config-blueprint",
+      "milestone": "WFG-6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "config/blueprints/standard/blueprints.json",
+        "docs/standard-blueprints.md",
+        "tests/**/fixtures/**/*workflow*.json"
+      ],
+      "acceptance_criteria": [
+        "Code-Repair Workflow enthält Intake/Diagnosis, Fix, QA Verification und Final Review.",
+        "TDD Workflow enthält Behavior Analysis, Test Driver, Implementation, Refactor Verification und Review.",
+        "Security-Review Workflow enthält Scope, Static Review, Risk Finding, Compliance Review und Security Gate.",
+        "Jeder Workflow hat mindestens ein Gate.",
+        "Security-Review Gate kann downstream Coding blockieren, wenn high-risk Findings offen sind.",
+        "Workflows nutzen gemeinsame Check-IDs, wo möglich, statt duplizierter Sonderlogik.",
+        "Doku erklärt, wann welcher Workflow sinnvoll ist."
+      ],
+      "test_expectations": [
+        "Alle Standard-Workflows validieren ohne Fehler.",
+        "Code-Repair materialisiert QA Gate.",
+        "TDD materialisiert Test-first Dependencies.",
+        "Security-Review blockiert bei high-risk Finding."
+      ]
+    },
+    {
+      "id": "WFG-020",
+      "title": "Blueprint-Admin-Doku und Beispiele erweitern",
+      "type": "docs",
+      "milestone": "WFG-6",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/blueprint-admin.md",
+        "docs/demo-flows.md",
+        "docs/testing.md"
+      ],
+      "acceptance_criteria": [
+        "Admin-Doku erklärt, wie ein neuer Workflow konfiguriert wird.",
+        "Doku enthält gutes und schlechtes Beispiel.",
+        "Doku erklärt Fehlermeldungen bei unbekannten Rollen, Zyklen und fehlenden Checks.",
+        "Doku erklärt Gate Failure Policies.",
+        "Doku enthält Minimalbeispiel für direct workflow und vollständiges Beispiel für gated workflow.",
+        "Doku enthält Hinweise, welche Tests bei Blueprint-Änderungen laufen müssen."
+      ],
+      "test_expectations": [
+        "Docs-Review prüft, dass alle Pflichtfelder beschrieben sind.",
+        "JSON-Beispiele aus Doku sind parsebar.",
+        "Mermaid-Beispiele rendern."
+      ]
+    },
+    {
+      "id": "WFG-021",
+      "title": "Legacy-/Test-Anpassungsstrategie festlegen",
+      "type": "migration",
+      "milestone": "WFG-6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/decisions/ADR-workflow-gates-blueprint-contract.md",
+        "tests/**/*",
+        "todos/**/*"
+      ],
+      "acceptance_criteria": [
+        "ADR hält fest: keine harte Rückwärtskompatibilität, da keine produktiven Fremdsysteme bekannt sind.",
+        "Alte Tests werden angepasst, wenn sie alte implizite pipeline_order Annahmen prüfen.",
+        "Alte Tests werden gelöscht, wenn sie fachlich falsche Legacy-Semantik erzwingen.",
+        "Für wichtige Legacy-Fälle gibt es bewusst gekennzeichnete fallback Tests.",
+        "Migrationsstrategie nennt klare Grenze: config ohne workflow ist im strict_gated Modus ungültig.",
+        "Breaking Changes werden im Changelog oder einer Upgrade-Notiz gesammelt."
+      ],
+      "test_expectations": [
+        "Test-Suite läuft nach Anpassung ohne stillschweigende Legacy-Annahmen.",
+        "Ein Test beweist, dass strict_gated Blueprints ohne workflow ablehnt.",
+        "Ein Test beweist, dass gated mit explizitem default_workflow kompatibel bleibt."
+      ]
+    },
+    {
+      "id": "WFG-022",
+      "title": "TUI Workflow-Status sichtbar machen",
+      "type": "tui-feature",
+      "milestone": "WFG-7",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/cli/**/*.py",
+        "client_surfaces/**/*.py",
+        "tests/**/test_*tui*workflow*.py"
+      ],
+      "acceptance_criteria": [
+        "TUI kann aktive Workflow-Kette kompakt anzeigen.",
+        "Blockierte Steps zeigen reason und blockierendes Gate.",
+        "Gate-Decisions sind sichtbar: approved, blocked, rejected, needs_human_review.",
+        "Artifact-Refs werden als kurze IDs oder Titel angezeigt.",
+        "Ansicht ist optional und stört Snake-/Chat-UI nicht.",
+        "TUI kann einen Debug-Dump des Workflow-Status ausgeben."
+      ],
+      "test_expectations": [
+        "Snapshot-Test prüft kompakte Workflow-Anzeige.",
+        "Test prüft Darstellung eines blockierten Developer-Steps.",
+        "Test prüft Darstellung eines approved Gates."
+      ]
+    },
+    {
+      "id": "WFG-023",
+      "title": "Angular Workflow-Ansicht ergänzen",
+      "type": "frontend-angular",
+      "milestone": "WFG-7",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "frontend-angular/src/app/**/*.ts",
+        "frontend-angular/src/app/**/*.html",
+        "frontend-angular/src/app/**/*.scss",
+        "frontend-angular/src/app/services/hub-teams-api.client.ts"
+      ],
+      "acceptance_criteria": [
+        "Angular zeigt Workflow-Steps als Liste oder Graph.",
+        "Aktueller Step, blockierte Steps und completed Steps sind unterscheidbar.",
+        "Gate-Details mit Checks und Evidence-Refs sind aufklappbar.",
+        "Handoff-Events können pro Goal/Plan angezeigt werden.",
+        "API-Client nutzt get_workflow_status oder äquivalente Methode.",
+        "Fehler/empty State ist sauber dargestellt."
+      ],
+      "test_expectations": [
+        "Component-Test rendert Workflow mit Gate.",
+        "Component-Test rendert blocked reason.",
+        "API-Client-Test prüft Mapping der Statusantwort.",
+        "E2E- oder Playwright-Test kann optional später ergänzt werden."
+      ]
+    },
+    {
+      "id": "WFG-024",
+      "title": "Human Approval für Gate-Ausnahmen vorbereiten",
+      "type": "ui-backend-integration",
+      "milestone": "WFG-7",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/routes/**/*.py",
+        "frontend-angular/src/app/**/*.ts",
+        "agent/cli/**/*.py",
+        "tests/**/test_*human*gate*.py"
+      ],
+      "acceptance_criteria": [
+        "Gate mit needs_human_review kann durch explizite Human-Action approved, rejected oder waived werden.",
+        "Waiver verlangt Begründung.",
+        "Human-Action wird als actor_type=human im Event-Log gespeichert.",
+        "API verhindert Human-Approval ohne passende Berechtigung, sobald Auth/Permissions aktiv sind.",
+        "TUI/Angular zeigen klar, dass automatische Ausführung pausiert ist.",
+        "Default bleibt sicher: keine automatische Waiver-Erteilung."
+      ],
+      "test_expectations": [
+        "API-Test approved Gate via Human-Action.",
+        "API-Test lehnt Waiver ohne Begründung ab.",
+        "API-Test protokolliert actor_type=human.",
+        "Security-Test stellt sicher, dass fehlende Berechtigung blockiert wird, falls Auth aktiv ist."
+      ]
+    },
+    {
+      "id": "WFG-025",
+      "title": "End-to-End-Test für gated Scrum-OpenCode Workflow",
+      "type": "integration-test",
+      "milestone": "WFG-8",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "tests/**/test_*scrum_opencode_workflow*.py",
+        "tests/fixtures/**/*scrum*.json"
+      ],
+      "acceptance_criteria": [
+        "Test startet mit einem Goal und Scrum-OpenCode Blueprint.",
+        "Planner-Step erzeugt Plan/Tasks.",
+        "Scrum-Master-Gate wird nach Planner materialisiert.",
+        "Developer-Task ist vor Gate approval blockiert.",
+        "Gate approval entsperrt Developer-Task.",
+        "QA-Step wartet auf Developer.",
+        "Final Review wartet auf QA.",
+        "Workflow-Status zeigt vollständige Kette und Events."
+      ],
+      "test_expectations": [
+        "E2E-Test läuft ohne echte LLM-Calls mit Fake-Worker/Fake-Responses.",
+        "E2E-Test prüft konkrete Statusübergänge.",
+        "E2E-Test prüft, dass kein Developer-Task vor Gate approval claimbar ist.",
+        "E2E-Test prüft Handoff-Events."
+      ]
+    },
+    {
+      "id": "WFG-026",
+      "title": "Regressionstests für alte PlanningTrack-Materialisierung anpassen",
+      "type": "test-refactor",
+      "milestone": "WFG-8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "tests/**/test_*planning_track*.py",
+        "tests/**/test_*task_queue*.py",
+        "tests/**/test_*planning_service*.py"
+      ],
+      "acceptance_criteria": [
+        "Bestehende PlanningTrack-Tests erwarten workflow_step_id, wenn Workflow aktiv ist.",
+        "Tests, die nur lineare depends_on Reihenfolge prüfen, werden um Gate-Fälle erweitert.",
+        "Tests, die alte implizite Sequenzialisierung erwarten, werden korrigiert oder entfernt.",
+        "Fake-Fixtures enthalten gültige WorkflowDefinition oder setzen bewusst workflow mode off/direct.",
+        "Testnamen unterscheiden klar zwischen legacy direct und gated workflow."
+      ],
+      "test_expectations": [
+        "pytest läuft für PlanningTrack-/Queue-Tests grün.",
+        "Mindestens ein Test beweist, dass direct workflow ohne Gate noch möglich ist.",
+        "Mindestens ein Test beweist, dass gated workflow Gate erzwingt."
+      ]
+    },
+    {
+      "id": "WFG-027",
+      "title": "Property-/Fuzz-Tests für Workflow-DAG ergänzen",
+      "type": "test-hardening",
+      "milestone": "WFG-8",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "tests/**/test_*workflow_dag*.py",
+        "tests/**/strategies/**/*workflow*.py"
+      ],
+      "acceptance_criteria": [
+        "Generator erzeugt zufällige valide DAG-Workflows.",
+        "Validator akzeptiert valide DAGs und lehnt Zyklen ab.",
+        "Topologische Sortierung ist stabil.",
+        "Materialisierung erzeugt keine doppelten Tasks.",
+        "Reconciliation bleibt idempotent bei zufälligen Statuskombinationen.",
+        "Fuzz-Tests laufen mit begrenzter Laufzeit in CI."
+      ],
+      "test_expectations": [
+        "Property-Test validiert zufällige DAGs.",
+        "Property-Test erzeugt gezielt Zyklen und erwartet Ablehnung.",
+        "Property-Test prüft Idempotenz der Materialisierung.",
+        "Property-Test prüft Reconciliation-Idempotenz."
+      ]
+    },
+    {
+      "id": "WFG-028",
+      "title": "CI, Linting und Qualitäts-Gates für Workflow-Layer ergänzen",
+      "type": "ci-quality",
+      "milestone": "WFG-8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        ".github/workflows/**/*.yml",
+        "pyproject.toml",
+        "tests/**/*",
+        "docs/testing.md"
+      ],
+      "acceptance_criteria": [
+        "CI führt Workflow-Schema-, Service-, Materialisierungs- und Queue-Gate-Tests aus.",
+        "JSON-Beispiele in Standard-Blueprints werden validiert.",
+        "Docs-Beispiele mit JSON werden zumindest parsebar geprüft oder manuell dokumentiert.",
+        "Linting verhindert versehentliche Verwendung freier String-Statuswerte, wo Enums existieren.",
+        "Test-Doku nennt schnellen lokalen Testbefehl für Workflow-Layer.",
+        "CI trennt schnelle Unit-Tests von optionalen langsamen E2E/UI-Tests."
+      ],
+      "test_expectations": [
+        "CI-Job workflow-gates-unit läuft grün.",
+        "CI-Job blueprint-json-validation läuft grün.",
+        "Lokaler Testbefehl aus docs/testing.md funktioniert.",
+        "Keine echten LLM-/Netzwerkzugriffe in Workflow-Unit-Tests."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 28,
+    "by_status": {
+      "todo": 28,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 13,
+      "P1": 9,
+      "P2": 6,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 18,
+      "high": 9
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 0,
+      "remaining": 13,
+      "task_ids": [
+        "WFG-001",
+        "WFG-003",
+        "WFG-004",
+        "WFG-006",
+        "WFG-007",
+        "WFG-009",
+        "WFG-011",
+        "WFG-012",
+        "WFG-013",
+        "WFG-015",
+        "WFG-016",
+        "WFG-018",
+        "WFG-025"
+      ]
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "recommended_implementation_order": [
+    "WFG-001",
+    "WFG-002",
+    "WFG-003",
+    "WFG-004",
+    "WFG-005",
+    "WFG-006",
+    "WFG-007",
+    "WFG-011",
+    "WFG-012",
+    "WFG-013",
+    "WFG-015",
+    "WFG-016",
+    "WFG-018",
+    "WFG-025",
+    "WFG-009",
+    "WFG-010",
+    "WFG-014",
+    "WFG-019",
+    "WFG-020",
+    "WFG-021",
+    "WFG-022",
+    "WFG-023",
+    "WFG-024",
+    "WFG-026",
+    "WFG-027",
+    "WFG-028"
+  ],
+  "definition_of_done": [
+    "Scrum-OpenCode Blueprint enthält einen expliziten gated Workflow.",
+    "Planner-Output wird durch ein Scrum-Master-/Coordinator-Gate geprüft, bevor Developer-Tasks claimbar sind.",
+    "Gate-Checks sind deterministisch testbar.",
+    "Queue blockiert downstream Tasks zuverlässig bis Gate approval.",
+    "Handoff-Events und Artifact-Refs machen den Prozess auditierbar.",
+    "Workflow-Status ist per API und mindestens in einer UI-Fläche sichtbar.",
+    "Tests beweisen den zentralen Prozess: PO/Planner -> Gate -> Developer -> QA -> Final Gate.",
+    "Alte Tests sind angepasst oder bewusst entfernt, statt falsche Legacy-Semantik mitzuschleppen."
+  ]
+}
