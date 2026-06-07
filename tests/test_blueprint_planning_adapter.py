@@ -31,7 +31,16 @@ def test_blueprint_planning_adapter_resolves_seed_blueprint_subtasks(app, client
     assert resolution.artifact_refs
     first = resolution.subtasks[0]
     assert first["blueprint_name"] == "TDD"
-    assert first["blueprint_artifact_id"]
+    # WFG-006: when the blueprint has a workflow block
+    # (which all standard blueprints do after WFG-018),
+    # the subtask key is ``blueprint_workflow_step_id``.
+    # The legacy ``blueprint_artifact_id`` key is only
+    # present on the legacy subtask path. We accept
+    # either, depending on which path the resolver took.
+    assert (
+        first.get("blueprint_workflow_step_id")
+        or first.get("blueprint_artifact_id")
+    ), first
     assert isinstance(first.get("blueprint_role_hints"), list)
     assert isinstance(first.get("blueprint_role_template_hints"), list)
 

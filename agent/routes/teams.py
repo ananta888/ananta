@@ -23,10 +23,10 @@ from agent.db_models import (
     TemplateDB,
 )
 from agent.models import (
+    BlueprintArtifactDefinition,
     BlueprintBundleDefinition,
     BlueprintBundleMemberAssignment,
     BlueprintBundleTeamDefinition,
-    BlueprintArtifactDefinition,
     BlueprintRoleDefinition,
     RoleCreateRequest,
     TeamBlueprintBundleImportRequest,
@@ -57,11 +57,20 @@ from agent.services.team_blueprint_instantiation_service import (
 )
 from agent.services.team_blueprint_persistence_service import (
     persist_blueprint_children as persist_blueprint_children_service,
+)
+from agent.services.team_blueprint_persistence_service import (
     save_blueprint as save_blueprint_service,
 )
 from agent.services.team_blueprint_reconciliation_service import (
     reconcile_seed_blueprints as reconcile_seed_blueprints_service,
+)
+from agent.services.team_blueprint_reconciliation_service import (
     reconcile_seed_templates as reconcile_seed_templates_service,
+)
+from agent.services.team_definition_version_service import (
+    build_team_blueprint_diff,
+    enrich_blueprint_payload,
+    team_definition_metadata,
 )
 from agent.services.team_system_prompt_reconciliation_service import (
     reconcile_system_prompts as reconcile_system_prompts_service,
@@ -69,12 +78,9 @@ from agent.services.team_system_prompt_reconciliation_service import (
 from agent.services.team_template_bootstrap_service import (
     RoleLinkSpec,
     TemplateBootstrapSpec,
-    ensure_default_templates as ensure_default_templates_service,
 )
-from agent.services.team_definition_version_service import (
-    build_team_blueprint_diff,
-    enrich_blueprint_payload,
-    team_definition_metadata,
+from agent.services.team_template_bootstrap_service import (
+    ensure_default_templates as ensure_default_templates_service,
 )
 from agent.utils import validate_request
 
@@ -455,7 +461,53 @@ def _serialize_blueprint(
     blueprint_artifacts = artifacts if artifacts is not None else _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
     blueprint_dict["roles"] = [role.model_dump() for role in blueprint_roles]
     blueprint_dict["artifacts"] = [artifact.model_dump() for artifact in blueprint_artifacts]
+    # WFG-033: include the persisted workflow block. The
+    # DB rows are the source of truth after a deploy; the
+    # in-memory catalog is what the materialiser uses at
+    # runtime. Both views are kept in sync by
+    # team_blueprint_reconciliation_service.
+    blueprint_dict["workflow"] = _serialize_blueprint_workflow(blueprint.id)
     return enrich_blueprint_payload(blueprint_dict, blueprint, blueprint_roles, blueprint_artifacts)
+
+
+def _serialize_blueprint_workflow(blueprint_id: str) -> dict | None:
+    """Return the workflow block for a blueprint as a dict.
+
+    The function reads from
+    ``blueprint_workflow_step_repo.get_by_blueprint`` (the
+    authoritative, persisted view after a deploy). When
+    the blueprint has no workflow steps, returns ``None``
+    so the API consumer can distinguish "no workflow" from
+    "empty workflow".
+    """
+    repo = getattr(_repos(), "blueprint_workflow_step_repo", None)
+    if repo is None:
+        return None
+    rows = list(repo.get_by_blueprint(blueprint_id) or [])
+    if not rows:
+        return None
+    return {
+        "mode": "gated",
+        "default_failure_policy": "manual",
+        "steps": [
+            {
+                "id": r.step_id,
+                "role": r.role_name,
+                "task_kind": r.task_kind,
+                "title": r.title,
+                "description": r.description,
+                "produces": list(r.produces or []),
+                "consumes": list(r.consumes or []),
+                "depends_on": list(r.depends_on or []),
+                "gate": bool(r.gate),
+                "checks": dict(r.checks or {}),
+                "failure_policy": r.failure_policy,
+                "required_capabilities": list(r.required_capabilities or []),
+                "sort_order": int(r.sort_order),
+            }
+            for r in rows
+        ],
+    }
 
 
 def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:

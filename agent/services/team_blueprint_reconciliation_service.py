@@ -20,7 +20,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import TemplateDB, TeamBlueprintDB
+from agent.db_models import (
+    BlueprintWorkflowStepDB,
+    TeamBlueprintDB,
+    TemplateDB,
+)
 from agent.models import BlueprintArtifactDefinition, BlueprintRoleDefinition
 from agent.services.team_blueprint_persistence_service import (
     persist_blueprint_children_in_session,
@@ -115,11 +119,22 @@ def _reconcile_seed_blueprints_once(
                 for artifact_definition in blueprint_definition["artifacts"]
             ]
             result = persist_blueprint_children_in_session(session, blueprint.id, role_definitions, artifact_definitions)
-            if blueprint_field_changes or result.changed:
+            # WFG-033: persist the optional workflow block.
+            # The catalog normalizer (``SeedBlueprintCatalog.
+            # _normalize_workflow``) is the source of truth for
+            # step ids and DAG edges. The reconciler mirrors
+            # them into ``blueprint_workflow_steps`` so the
+            # planner and queue layers can query steps
+            # without re-parsing the catalog JSON.
+            workflow = blueprint_definition.get("workflow")
+            workflow_changed = _reconcile_blueprint_workflow_steps(
+                session, blueprint.id, workflow
+            )
+            if blueprint_field_changes or result.changed or workflow_changed:
                 blueprint.updated_at = time.time()
                 session.add(blueprint)
             session.commit()
-            if blueprint_field_changes or result.changed:
+            if blueprint_field_changes or result.changed or workflow_changed:
                 reconcile_reports.append(
                     {
                         "blueprint_id": blueprint.id,
@@ -128,11 +143,112 @@ def _reconcile_seed_blueprints_once(
                             "blueprint_fields": blueprint_field_changes,
                             "roles": result.changes["roles"],
                             "artifacts": result.changes["artifacts"],
+                            "workflow_steps": workflow_changed,
                             "changed": True,
                         },
                     }
                 )
     return reconcile_reports
+
+
+def _reconcile_blueprint_workflow_steps(
+    session, blueprint_id: str, workflow: dict | None
+) -> int:
+    """Idempotently sync a blueprint's workflow steps.
+
+    Returns the number of changed rows (created + updated +
+    deleted). The function is called from the seed-blueprint
+    reconciliation path (WFG-033) and may be re-invoked on
+    every deploy; the implementation MUST be safe to call
+    repeatedly without producing duplicates.
+
+    The function:
+
+      1. Lists all ``BlueprintWorkflowStepDB`` rows for the
+         blueprint.
+      2. For each catalog step, upserts a row (matched by
+         ``(blueprint_id, step_id)``).
+      3. Deletes rows whose step_id is no longer in the
+         catalog. This is the only path that removes steps
+         after a blueprint is trimmed.
+      4. Returns the total number of changes.
+
+    When ``workflow`` is None or empty, all existing rows
+    for the blueprint are deleted. This is the
+    backward-compat escape hatch (WFG-021): a legacy
+    blueprint that loses its workflow block reverts to the
+    artifact-based subtask path.
+    """
+    existing = {
+        row.step_id: row
+        for row in session.exec(
+            select(BlueprintWorkflowStepDB).where(
+                BlueprintWorkflowStepDB.blueprint_id == blueprint_id
+            )
+        ).all()
+    }
+    catalog_step_ids: set[str] = set()
+    changes = 0
+    if isinstance(workflow, dict):
+        for index, step in enumerate(list(workflow.get("steps") or [])):
+            if not isinstance(step, dict):
+                continue
+            step_id = str(step.get("id") or "").strip()
+            if not step_id:
+                continue
+            catalog_step_ids.add(step_id)
+            row = existing.get(step_id)
+            if row is None:
+                row = BlueprintWorkflowStepDB(
+                    blueprint_id=blueprint_id,
+                    step_id=step_id,
+                )
+                changes += 1
+            new_role_name = str(step.get("role") or "")
+            new_task_kind = str(step.get("task_kind") or "coding")
+            new_title = str(step.get("title") or "") or None
+            new_description = str(step.get("description") or "") or None
+            new_produces = list(step.get("produces") or [])
+            new_consumes = list(step.get("consumes") or [])
+            new_depends_on = list(step.get("depends_on") or [])
+            new_gate = bool(step.get("gate", False))
+            new_checks = dict(step.get("checks") or {}) if isinstance(step.get("checks"), dict) else {}
+            new_failure_policy = str(step.get("failure_policy") or "") or None
+            new_required_caps = list(step.get("required_capabilities") or [])
+            if (
+                row.role_name != new_role_name
+                or row.task_kind != new_task_kind
+                or row.title != new_title
+                or row.description != new_description
+                or row.produces != new_produces
+                or row.consumes != new_consumes
+                or row.depends_on != new_depends_on
+                or row.gate != new_gate
+                or row.checks != new_checks
+                or row.failure_policy != new_failure_policy
+                or row.required_capabilities != new_required_caps
+            ):
+                row.role_name = new_role_name
+                row.task_kind = new_task_kind
+                row.title = new_title
+                row.description = new_description
+                row.produces = new_produces
+                row.consumes = new_consumes
+                row.depends_on = new_depends_on
+                row.gate = new_gate
+                row.checks = new_checks
+                row.failure_policy = new_failure_policy
+                row.required_capabilities = new_required_caps
+                row.sort_order = int(step.get("sort_order") or index)
+                row.updated_at = time.time()
+                session.add(row)
+                changes += 1
+    # Delete rows for steps that vanished from the catalog.
+    for stale_step_id, stale_row in existing.items():
+        if stale_step_id not in catalog_step_ids:
+            session.delete(stale_row)
+            changes += 1
+    return changes
 
 
 def reconcile_seed_templates(catalog) -> list[dict]:

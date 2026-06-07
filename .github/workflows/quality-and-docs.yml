@@ -29,6 +29,9 @@ jobs:
       - name: Run unified check pipeline (standard backend gate)
         run: python scripts/check_pipeline.py --mode standard --skip-style --skip-types
 
+      - name: WFG-028 workflow-gates quality gate
+        run: python scripts/check_workflow_gates.py
+
   backend-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 10
