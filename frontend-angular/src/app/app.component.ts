@@ -339,14 +339,15 @@ export class AppComponent implements OnInit, OnDestroy {
   private _applyTuiAuthIfPresent(): void {
     const ctx = this.bridge.tuiAuthContext;
     if (!ctx.hubToken && !ctx.oidcToken) return;
-    if (ctx.hubToken && !this.auth.isLoggedIn()) {
+    if (ctx.hubUrl) {
+      this.dir.upsert({ name: 'hub', role: 'hub', url: ctx.hubUrl, token: '' });
+    }
+    if (ctx.hubToken) {
+      // Always apply TUI token — replaces expired tokens too
       this.auth.setTokens(ctx.hubToken);
     }
     if (ctx.oidcToken) {
       this.auth.setOidcAccessToken(ctx.oidcToken);
-    }
-    if (ctx.hubUrl) {
-      this.dir.upsert({ name: 'hub', role: 'hub', url: ctx.hubUrl, token: '' });
     }
   }
 

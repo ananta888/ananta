@@ -45,7 +45,11 @@ export class AiSnakeConfigService {
     if (!url) return;
     this.core.get<{ ok: boolean; config: AiSnakeConfig }>(`${url}/ai-snake/config`, url).subscribe({
       next: r => { if (r?.config) this.config$.next(r.config); },
-      error: () => {},
+      error: (err) => {
+        if (err?.status === 401) {
+          try { this.userAuth.refreshToken().subscribe({ error: () => {} }); } catch {}
+        }
+      },
     });
     this.core.get<AiSnakeConfigOptions>(`${url}/ai-snake/config/options`, url).subscribe({
       next: r => { if (r) this.options$.next(r); },
