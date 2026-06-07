@@ -42,12 +42,20 @@ class ChatMixin:
 
     def _chat_ask_timeout_seconds(self) -> float:
         game = dict(self.state.header_logo_game or {})
+        # For full_scan mode, use chat_full_scan_timeout_s if set
+        full_scan_timeout = game.get("chat_full_scan_timeout_s")
+        arch_mode = str(game.get("chat_architecture_analysis_mode") or "auto")
+        if arch_mode == "full_scan" and full_scan_timeout:
+            try:
+                return max(60.0, float(full_scan_timeout))
+            except (TypeError, ValueError):
+                pass
         configured = game.get("chat_ask_timeout_s")
         if isinstance(configured, (int, float)):
-            return max(3.0, min(180.0, float(configured)))
+            return max(3.0, float(configured))
         if isinstance(configured, str) and configured.strip():
             try:
-                return max(3.0, min(180.0, float(configured.strip())))
+                return max(3.0, float(configured.strip()))
             except ValueError:
                 pass
         raw = str(
@@ -59,7 +67,7 @@ class ChatMixin:
             value = float(raw)
         except ValueError:
             value = 45.0
-        return max(3.0, min(180.0, value))
+        return max(3.0, value)
 
     # ── E03: Chat send ────────────────────────────────────────────────────────
 
@@ -207,6 +215,38 @@ class ChatMixin:
                 append_message(chat, msg)
             set_chat_state(game, chat)
             self._set_state(self.state.with_updates(header_logo_game=game, status_message="note saved"))
+            return
+
+        # /cancel — abort running full_scan or AI request
+        if buf.strip().lower() in {"/cancel", "/abbrechen", "/stop"}:
+            chat["ai_typing"] = False
+            chat["ai_pending_msg_channel"] = None
+            game["tutor_ask_answered"] = True
+            set_chat_state(game, chat)
+            try:
+                hub_url = str(game.get("hub_url") or "")
+                snake_id = str(game.get("local_snake_id") or "")
+                snake_token = str(game.get("local_snake_token") or "")
+                if hub_url and snake_id and snake_token:
+                    req = urllib.request.Request(
+                        f"{hub_url}/snakes/{snake_id}/chat/cancel",
+                        data=b"{}",
+                        method="POST",
+                    )
+                    req.add_header("Content-Type", "application/json")
+                    req.add_header("X-Snake-Token", snake_token)
+                    urllib.request.urlopen(req, timeout=3)
+            except Exception:
+                pass
+            cancel_msg = make_message(
+                channel_id=ch_id, channel_type=ch_type,
+                sender_id="system", sender_kind="system",
+                text="[TUI] Anfrage abgebrochen.", visibility="local_only",
+                delivery_state="received",
+            )
+            append_message(chat, cancel_msg)
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="anfrage abgebrochen"))
             return
 
         if ch_type == "ai":
