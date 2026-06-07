@@ -45,6 +45,20 @@ class Settings(BaseSettings):
     default_provider: str = Field(default="lmstudio", validation_alias="DEFAULT_PROVIDER")
     default_model: str = Field(default="auto", validation_alias="DEFAULT_MODEL")
     lmstudio_max_context_tokens: int = Field(default=32768, validation_alias="LMSTUDIO_MAX_CONTEXT_TOKENS")
+    # JSON-encoded map of model_id -> context_token_limit. Used by LMStudio strategy when
+    # /v1/models does not return per-model context_length. Keys are lowercased substrings
+    # matched against the model id. Override via env: LMSTUDIO_MODEL_CONTEXTS='{"phi-3.5-mini":4096}'
+    lmstudio_model_contexts: str = Field(
+        default=(
+            '{"phi-3.5-mini":4096,"phi-3-mini":4096,"phi-3":4096,'
+            '"llama-3.2-1b":131072,"llama-3.2-3b":131072,"llama-3.1-8b":131072,'
+            '"llama-3.1-70b":131072,"llama-3-8b":8192,"llama-3-70b":8192,'
+            '"qwen2.5-3b":32768,"qwen2.5-7b":32768,"qwen2.5-coder":32768,'
+            '"gemma-4-e4b":8192,"gemma-2":8192,'
+            '"mistral-7b":32768,"mixtral-8x7b":32768,"command-r":131072}'
+        ),
+        validation_alias="LMSTUDIO_MODEL_CONTEXTS",
+    )
 
     # Logging
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
@@ -452,6 +466,68 @@ class Settings(BaseSettings):
         if Path("defaults.json").exists():
             sources.append(JsonConfigSettingsSource(settings_cls, json_file="defaults.json"))
         return tuple(sources)
+
+
+# Per-model context token map (parsed lazily). Used by LMStudio strategy to size
+# prompts/batches when the /v1/models endpoint omits per-model context_length.
+def _parse_model_contexts(raw: str | None) -> dict[str, int]:
+    """Parse the JSON-encoded model->context_tokens map from settings.
+
+    Returns an empty dict on parse errors. Keys are kept lowercase; values are
+    positive int context-window sizes.
+    """
+    if not raw or not isinstance(raw, str):
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    result: dict[str, int] = {}
+    for k, v in parsed.items():
+        if not isinstance(k, str) or not k.strip():
+            continue
+        try:
+            tok = int(v)
+        except (TypeError, ValueError):
+            continue
+        if tok > 0:
+            result[k.strip().lower()] = tok
+    return result
+
+
+def lookup_model_context_tokens(model_id: str | None) -> int | None:
+    """Best-effort lookup of a model's context window from the configured map.
+
+    Returns the longest matching substring key's value, or None if nothing matches.
+    Substring match is bidirectional to handle both short ids and full ids.
+    """
+    if not model_id:
+        return None
+    needle = str(model_id).strip().lower()
+    if not needle:
+        return None
+    try:
+        contexts = _parse_model_contexts(getattr(settings, "lmstudio_model_contexts", None))
+    except Exception:
+        return None
+    if not contexts:
+        return None
+    # 1) exact match
+    if needle in contexts:
+        return int(contexts[needle])
+    # 2) bidirectional substring: pick the key with the longest overlap
+    best_key: str | None = None
+    best_len = 0
+    for key in contexts:
+        if key in needle or needle in key:
+            if len(key) > best_len:
+                best_key = key
+                best_len = len(key)
+    if best_key is not None:
+        return int(contexts[best_key])
+    return None
 
 
 # Instanz erstellen

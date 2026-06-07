@@ -307,9 +307,18 @@ def _worker_chat_full_scan(
 
     Reads Python source files from the repo root in batches, sends each
     batch to the LLM for analysis, then synthesises the results into one answer.
+
+    Per-batch prompt size is sized to fit the resolved model context window
+    (model_info.context_length → settings.lmstudio_model_contexts lookup
+    → settings.lmstudio_max_context_tokens fallback). When the configured
+    ``files_per_batch`` would overflow the window, the function auto-shrinks
+    the batch down to the largest file count that fits. The original
+    configuration is preserved in the trace so the caller can surface a
+    hint about what to change in user.json.
     """
     import pathlib as _pl
     from agent.common.sgpt import _resolve_repo_root
+    from agent.config import lookup_model_context_tokens
     from agent.routes.ai_snake_config import _current_config
 
     effective_limits = limits or SnakeAskLimits()
@@ -322,13 +331,46 @@ def _worker_chat_full_scan(
 
     try:
         max_batches = max(1, min(16, int(float(cfg.get("chat_full_scan_max_batches") or 8))))
-        files_per_batch = max(1, min(10, int(float(cfg.get("chat_full_scan_files_per_batch") or 3))))
+        files_per_batch_cfg = max(1, min(10, int(float(cfg.get("chat_full_scan_files_per_batch") or 3))))
         parallel_batches = max(1, min(8, int(float(cfg.get("chat_full_scan_parallel_batches") or 4))))
         timeout_s = max(60, min(7200, int(float(cfg.get("chat_full_scan_timeout_s") or 1800))))
         source_only_val = cfg.get("chat_full_scan_source_only")
         source_only = source_only_val if isinstance(source_only_val, bool) else True
+        # New: per-file char budget. Default 600 chars (~150 tokens) keeps 8-file
+        # batches well inside 4K-context models like phi-3.5-mini-instruct.
+        try:
+            chars_per_file = max(100, min(20000, int(float(cfg.get("chat_full_scan_chars_per_file") or 600))))
+        except (TypeError, ValueError):
+            chars_per_file = 600
+        # Optional explicit input-token budget; if absent we derive from the model map.
+        try:
+            cfg_max_in = cfg.get("chat_full_scan_max_input_tokens")
+            cfg_max_input_tokens = int(float(cfg_max_in)) if cfg_max_in not in (None, "") else None
+        except (TypeError, ValueError):
+            cfg_max_input_tokens = None
     except (TypeError, ValueError):
-        max_batches, files_per_batch, parallel_batches, timeout_s, source_only = 8, 3, 4, 1800, True
+        max_batches, files_per_batch_cfg, parallel_batches, timeout_s = 8, 3, 4, 1800
+        source_only = True
+        chars_per_file = 600
+        cfg_max_input_tokens = None
+
+    # Resolve model context window. Prefer model_info (when caller passes it via
+    # model parameter from /v1/models) → per-model map → global default.
+    from agent.config import settings as _cfg_settings
+    model_context_tokens = lookup_model_context_tokens(model) or int(
+        _cfg_settings.lmstudio_max_context_tokens
+    )
+    if cfg_max_input_tokens and cfg_max_input_tokens > 0:
+        effective_max_input_tokens = min(cfg_max_input_tokens, max(model_context_tokens - 256, 256))
+    else:
+        # Reserve 256 tokens for the system prompt + framing + completion budget.
+        effective_max_input_tokens = max(model_context_tokens - 256, 256)
+
+    trace["model"] = model or ""
+    trace["model_context_tokens"] = int(model_context_tokens)
+    trace["max_input_tokens"] = int(effective_max_input_tokens)
+    trace["chars_per_file_cfg"] = int(chars_per_file)
+    trace["files_per_batch_cfg"] = int(files_per_batch_cfg)
 
     repo_root = _resolve_repo_root()
     if not repo_root:
@@ -363,30 +405,52 @@ def _worker_chat_full_scan(
         trace["error"] = "no_source_files"
         return "", trace
 
-    max_files = max_batches * files_per_batch
+    def _estimate_batch_tokens(batch: list) -> int:
+        # Rough char-based estimate (1 token ≈ 4 chars). The system prompt
+        # _SNAKE_CHAT_PROMPT is short (~400 chars) so we add a small overhead
+        # for it plus per-file framing ("### path\n```lang\n...\n```").
+        framing_per_file = 40
+        system_overhead = 400
+        total_chars = system_overhead + sum(
+            chars_per_file + framing_per_file for _ in batch
+        )
+        return max(1, total_chars // 4)
+
+    # Auto-size files_per_batch to fit the resolved input-token budget. This is
+    # the actual safeguard against the silent context-overflow failure mode.
+    effective_files_per_batch = files_per_batch_cfg
+    while (
+        effective_files_per_batch > 1
+        and _estimate_batch_tokens(all_files[:effective_files_per_batch]) > effective_max_input_tokens
+    ):
+        effective_files_per_batch -= 1
+    if effective_files_per_batch < files_per_batch_cfg:
+        trace["files_per_batch_auto_shrunk_from"] = int(files_per_batch_cfg)
+        trace["files_per_batch_auto_shrunk_reason"] = "context_budget"
+
+    max_files = max_batches * effective_files_per_batch
     selected = all_files[:max_files]
-    batches = [selected[i:i + files_per_batch] for i in range(0, len(selected), files_per_batch)]
+    batches = [selected[i:i + effective_files_per_batch] for i in range(0, len(selected), effective_files_per_batch)]
     trace["batches_planned"] = len(batches)
     trace["files_selected"] = len(selected)
+    trace["files_per_batch_used"] = int(effective_files_per_batch)
     trace["timeout_per_batch_s"] = timeout_s
 
     import concurrent.futures as _cf
 
-    _PER_FILE_CHARS = 3500
-
-    def _run_batch(args: tuple[int, list]) -> tuple[int, str, str]:
+    def _run_batch(args: tuple[int, list]) -> tuple[int, str, str, dict[str, Any]]:
         step, batch = args
         file_blocks: list[str] = []
         for f in batch:
             try:
-                content = f.read_text(encoding="utf-8", errors="replace")[:_PER_FILE_CHARS]
+                content = f.read_text(encoding="utf-8", errors="replace")[:chars_per_file]
                 rel = str(f.relative_to(repo_root))
                 lang = f.suffix.lstrip(".") or "text"
                 file_blocks.append(f"### {rel}\n```{lang}\n{content}\n```")
             except OSError:
                 pass
         if not file_blocks:
-            return step, "", ""
+            return step, "", "", {"error": "no_file_blocks"}
         file_labels = ", ".join(str(f.relative_to(repo_root)) for f in batch)
         batch_prompt = (
             f"Frage: {question}\n\n"
@@ -403,13 +467,36 @@ def _worker_chat_full_scan(
                 timeout=timeout_s,
                 max_retries=0,
             )
-            return step, file_labels, str(answer or "").strip()
+            text = str(answer or "").strip()
+            batch_meta: dict[str, Any] = {
+                "estimated_input_tokens": _estimate_batch_tokens(batch),
+                "chars_in_prompt": len(batch_prompt),
+            }
+            if not text:
+                # Empty response: pull the metadata (empty_reason) from the result.
+                try:
+                    from agent.llm_integration import extract_llm_call_metadata
+                    meta = extract_llm_call_metadata(answer) if isinstance(answer, dict) else {}
+                    if meta:
+                        batch_meta["empty_reason"] = meta.get("empty_reason")
+                        if meta.get("context_limit"):
+                            batch_meta["context_limit"] = int(meta["context_limit"])
+                        if meta.get("model_id"):
+                            batch_meta["model_id"] = str(meta["model_id"])
+                except Exception:
+                    pass
+            return step, file_labels, text, batch_meta
         except Exception as exc:
-            logging.getLogger(__name__).debug("full_scan batch %d failed: %s", step, exc)
-            return step, file_labels, ""
+            # Promote DEBUG→WARNING so silent context-overflow failures become
+            # visible in standard logs and easy to grep / alert on.
+            logging.getLogger(__name__).warning(
+                "full_scan batch %d failed: %s", step, exc, exc_info=False
+            )
+            return step, file_labels, "", {"error": str(exc), "error_type": type(exc).__name__}
 
     batch_summaries: list[str] = []
     results = [None] * len(batches)
+    batch_metas: list[dict[str, Any]] = []
     try:
         with _cf.ThreadPoolExecutor(max_workers=parallel_batches) as pool:
             futures = {pool.submit(_run_batch, (i + 1, b)): i for i, b in enumerate(batches)}
@@ -419,8 +506,9 @@ def _worker_chat_full_scan(
                         f.cancel()
                     trace["cancelled"] = True
                     break
-                step, file_labels, batch_answer = fut.result()
+                step, file_labels, batch_answer, batch_meta = fut.result()
                 results[step - 1] = (step, file_labels, batch_answer)
+                batch_metas.append({"step": step, **batch_meta})
     finally:
         if cancel_key:
             _SCAN_CANCELS.pop(cancel_key, None)
@@ -431,9 +519,27 @@ def _worker_chat_full_scan(
                 batch_summaries.append(f"**Batch {step}** [{file_labels}]:\n{batch_answer}")
 
     trace["batches_completed"] = len(batch_summaries)
+    trace["batch_metas"] = batch_metas
 
     if not batch_summaries:
-        trace["error"] = "all_batches_empty"
+        # Derive a useful error hint from the per-batch metas. If every batch
+        # came back with empty_reason=context_overflow_likely, that's almost
+        # certainly the root cause and we can tell the user what to change.
+        overflow_count = sum(
+            1 for m in batch_metas if m.get("empty_reason") == "context_overflow_likely"
+        )
+        if overflow_count and overflow_count == len(batch_metas):
+            trace["error"] = "context_overflow"
+            trace["error_hint"] = (
+                "Alle Batches haben leere Antworten wegen wahrscheinlichem "
+                "Context-Overflow. Reduziere chat_full_scan_files_per_batch "
+                "oder chat_full_scan_chars_per_file, oder verwende ein Modell "
+                "mit groesserem Context-Window."
+            )
+        elif any(m.get("error_type") for m in batch_metas):
+            trace["error"] = "all_batches_failed_with_exception"
+        else:
+            trace["error"] = "all_batches_empty"
         return "", trace
 
     combined = "\n\n---\n\n".join(batch_summaries)
@@ -454,7 +560,9 @@ def _worker_chat_full_scan(
         )
         final_answer = str(final_answer or "").strip()
     except Exception as exc:
-        logging.getLogger(__name__).debug("full_scan synthesis failed: %s", exc)
+        logging.getLogger(__name__).warning(
+            "full_scan synthesis failed: %s", exc, exc_info=False
+        )
         final_answer = ""
 
     return final_answer, trace
