@@ -307,7 +307,7 @@
         "WFG-020",
         "WFG-021"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WFG-7",
@@ -317,7 +317,7 @@
         "WFG-023",
         "WFG-024"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WFG-8",
@@ -913,10 +913,10 @@
       "title": "Scrum-OpenCode Blueprint auf expliziten Workflow umbauen",
       "type": "config-blueprint",
       "milestone": "WFG-6",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "config/blueprints/standard/blueprints.json",
         "docs/standard-blueprints.md",
@@ -940,17 +940,18 @@
       "depends_on": [
         "WFG-029"
       ],
-      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]",
+      "commit": "61c53f23"
     },
     {
       "id": "WFG-019",
       "title": "Standard-Workflows für Code-Repair, TDD und Security-Review definieren",
       "type": "config-blueprint",
       "milestone": "WFG-6",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "config/blueprints/standard/blueprints.json",
         "docs/standard-blueprints.md",
@@ -974,17 +975,18 @@
       "depends_on": [
         "WFG-029"
       ],
-      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]",
+      "commit": "61c53f23"
     },
     {
       "id": "WFG-020",
       "title": "Blueprint-Admin-Doku und Beispiele erweitern",
       "type": "docs",
       "milestone": "WFG-6",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/blueprint-admin.md",
         "docs/demo-flows.md",
@@ -1002,17 +1004,18 @@
         "Docs-Review prüft, dass alle Pflichtfelder beschrieben sind.",
         "JSON-Beispiele aus Doku sind parsebar.",
         "Mermaid-Beispiele rendern."
-      ]
+      ],
+      "commit": "bf0780eb"
     },
     {
       "id": "WFG-021",
       "title": "Legacy-/Test-Anpassungsstrategie festlegen",
       "type": "migration",
       "milestone": "WFG-6",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/decisions/ADR-workflow-gates-blueprint-contract.md",
         "tests/**/*",
@@ -1030,7 +1033,8 @@
         "Test-Suite läuft nach Anpassung ohne stillschweigende Legacy-Annahmen.",
         "Ein Test beweist, dass strict_gated Blueprints ohne workflow ablehnt.",
         "Ein Test beweist, dass gated mit explizitem default_workflow kompatibel bleibt."
-      ]
+      ],
+      "commit": "bf0780eb"
     },
     {
       "id": "WFG-022",
