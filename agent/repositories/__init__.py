@@ -32,6 +32,7 @@ from .operations import StatsRepository
 from .organization import (
     BlueprintArtifactRepository,
     BlueprintRoleRepository,
+    BlueprintWorkflowStepRepository,
     RoleRepository,
     TeamBlueprintRepository,
     TeamMemberRepository,
@@ -62,6 +63,7 @@ __all__ = [
     "BannedIPRepository",
     "BlueprintArtifactRepository",
     "BlueprintRoleRepository",
+    "BlueprintWorkflowStepRepository",
     "ConfigRepository",
     "ContextBundleRepository",
     "ContextAccessPolicyRepository",

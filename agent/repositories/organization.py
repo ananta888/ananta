@@ -6,6 +6,7 @@ from agent.database import engine
 from agent.db_models import (
     BlueprintArtifactDB,
     BlueprintRoleDB,
+    BlueprintWorkflowStepDB,
     RoleDB,
     TeamBlueprintDB,
     TeamMemberDB,
@@ -189,6 +190,39 @@ class BlueprintArtifactRepository:
             from sqlmodel import delete
 
             session.exec(delete(BlueprintArtifactDB).where(BlueprintArtifactDB.blueprint_id == blueprint_id))
+            session.commit()
+
+
+class BlueprintWorkflowStepRepository:
+    """WFG-006: persistence layer for BlueprintWorkflowStepDB rows."""
+
+    def get_by_blueprint(self, blueprint_id: str) -> List[BlueprintWorkflowStepDB]:
+        with Session(engine) as session:
+            statement = (
+                select(BlueprintWorkflowStepDB)
+                .where(BlueprintWorkflowStepDB.blueprint_id == blueprint_id)
+                .order_by(BlueprintWorkflowStepDB.sort_order.asc())
+            )
+            return session.exec(statement).all()
+
+    def get_by_step_id(self, blueprint_id: str, step_id: str) -> BlueprintWorkflowStepDB | None:
+        with Session(engine) as session:
+            statement = (
+                select(BlueprintWorkflowStepDB)
+                .where(BlueprintWorkflowStepDB.blueprint_id == blueprint_id)
+                .where(BlueprintWorkflowStepDB.step_id == step_id)
+            )
+            return session.exec(statement).first()
+
+    def delete_by_blueprint(self, blueprint_id: str) -> None:
+        with Session(engine) as session:
+            from sqlmodel import delete
+
+            session.exec(
+                delete(BlueprintWorkflowStepDB).where(
+                    BlueprintWorkflowStepDB.blueprint_id == blueprint_id
+                )
+            )
             session.commit()
 
 

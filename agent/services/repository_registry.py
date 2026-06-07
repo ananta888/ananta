@@ -15,6 +15,7 @@ from agent.repository import (
     banned_ip_repo,
     blueprint_artifact_repo,
     blueprint_role_repo,
+    blueprint_workflow_step_repo,
     config_repo,
     context_access_policy_repo,
     context_bundle_repo,
@@ -77,6 +78,7 @@ class RepositoryRegistry:
     banned_ip_repo: object
     blueprint_artifact_repo: object
     blueprint_role_repo: object
+    blueprint_workflow_step_repo: object
     config_repo: object
     context_access_policy_repo: object
     context_bundle_repo: object
@@ -138,6 +140,7 @@ def build_repository_registry() -> RepositoryRegistry:
         banned_ip_repo=banned_ip_repo,
         blueprint_artifact_repo=blueprint_artifact_repo,
         blueprint_role_repo=blueprint_role_repo,
+        blueprint_workflow_step_repo=blueprint_workflow_step_repo,
         config_repo=config_repo,
         context_access_policy_repo=context_access_policy_repo,
         context_bundle_repo=context_bundle_repo,
