@@ -101,6 +101,14 @@ class SeedBlueprintCatalog:
                 "roles": copy.deepcopy(list(blueprint.get("roles") or [])),
                 "artifacts": copy.deepcopy(list(blueprint.get("artifacts") or [])),
             }
+            # Pass through the optional workflow block (WFG-001) so
+            # callers (the team-instantiation API, the workflow-status
+            # endpoint, the planner) see the deterministic step DAG.
+            # ``copy.deepcopy`` ensures callers cannot mutate the
+            # internal cache by reference.
+            workflow = blueprint.get("workflow")
+            if isinstance(workflow, dict) and workflow:
+                result[name]["workflow"] = copy.deepcopy(workflow)
         return result
 
     def _ensure_loaded(self) -> bool:

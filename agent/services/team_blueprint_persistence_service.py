@@ -281,4 +281,58 @@ def serialize_blueprint_snapshot(
     payload = blueprint.model_dump()
     payload["roles"] = [role.model_dump() for role in roles]
     payload["artifacts"] = [artifact.model_dump() for artifact in artifacts]
+    # WFG-033: include the persisted workflow block in the
+    # snapshot. The team stores the snapshot at instantiation
+    # time, so a later change to the catalog workflow DOES
+    # NOT propagate automatically. The reconciliation report
+    # flags drifted snapshots via the ``definition_metadata``
+    # field. The e2e gate-decision flow (WFG-025) asserts
+    # on the snapshot's ``workflow`` field directly.
+    payload["workflow"] = _workflow_from_db(blueprint.id)
     return enrich_blueprint_payload(payload, blueprint, roles, artifacts)
+
+
+def _workflow_from_db(blueprint_id: str) -> dict | None:
+    """Read the workflow block from blueprint_workflow_steps.
+
+    The function is safe to call outside of a session (it
+    opens its own) and returns ``None`` when the blueprint
+    has no workflow block (the legacy / artifact-based
+    path).
+    """
+    from sqlmodel import Session, select
+
+    from agent.database import engine
+    from agent.db_models import BlueprintWorkflowStepDB
+    with Session(engine) as session:
+        rows = list(
+            session.exec(
+                select(BlueprintWorkflowStepDB)
+                .where(BlueprintWorkflowStepDB.blueprint_id == blueprint_id)
+                .order_by(BlueprintWorkflowStepDB.sort_order.asc())
+            ).all()
+        )
+    if not rows:
+        return None
+    return {
+        "mode": "gated",
+        "default_failure_policy": "manual",
+        "steps": [
+            {
+                "id": r.step_id,
+                "role": r.role_name,
+                "task_kind": r.task_kind,
+                "title": r.title,
+                "description": r.description,
+                "produces": list(r.produces or []),
+                "consumes": list(r.consumes or []),
+                "depends_on": list(r.depends_on or []),
+                "gate": bool(r.gate),
+                "checks": dict(r.checks or {}),
+                "failure_policy": r.failure_policy,
+                "required_capabilities": list(r.required_capabilities or []),
+                "sort_order": int(r.sort_order),
+            }
+            for r in rows
+        ],
+    }
