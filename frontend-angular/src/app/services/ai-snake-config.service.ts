@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Subject, debounceTime } from 'rxjs';
+import { BehaviorSubject, Subject, debounceTime, distinctUntilChanged, filter } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { WindowBridgeService } from './window-bridge.service';
+import { UserAuthService } from './user-auth.service';
 
 export interface AiSnakeConfig {
   [key: string]: string | number | boolean | null;
@@ -19,6 +20,7 @@ export class AiSnakeConfigService {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
   private bridge = inject(WindowBridgeService);
+  private userAuth = inject(UserAuthService);
 
   readonly config$ = new BehaviorSubject<AiSnakeConfig>({});
   readonly options$ = new BehaviorSubject<AiSnakeConfigOptions | null>(null);
@@ -27,6 +29,11 @@ export class AiSnakeConfigService {
 
   constructor() {
     this.saveQueue$.pipe(debounceTime(500)).subscribe(patch => this.flushPatch(patch));
+    // Reload whenever the user logs in or the token refreshes
+    this.userAuth.token$.pipe(
+      filter(t => !!t),
+      distinctUntilChanged(),
+    ).subscribe(() => this.load());
   }
 
   private get hubUrl(): string {
