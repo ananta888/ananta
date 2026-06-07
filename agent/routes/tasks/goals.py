@@ -416,6 +416,79 @@ def goal_governance_summary(goal_id: str):
     return api_response(data=_goal_service().sanitize_governance_summary(summary, _is_admin_request()))
 
 
+@goals_bp.route("/goals/<goal_id>/workflow-status", methods=["GET"])
+@check_auth
+def goal_workflow_status(goal_id: str):
+    """WFG-017: full workflow audit / debug snapshot for a goal.
+
+    Returns the schema ``workflow_status.v1`` response built by
+    ``agent.services.workflow_status_service.build_workflow_status``.
+    Includes steps, gate decisions, blocker reasons, handoff
+    events, and the system audit-log actions for the goal.
+
+    The query parameter ``?debug=1`` returns a compact,
+    human-readable text summary (the same shape the TUI's
+    ``:workflow status <goal_id>`` command prints).
+    """
+    goal = _repos().goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    from agent.services.workflow_status_service import (
+        build_workflow_status, debug_workflow_status,
+    )
+    from agent.repository import task_repo
+    # Pull the goal's tasks and the planning-track output so the
+    # service has the inputs it needs. Empty / missing inputs
+    # produce a valid empty response (the goal simply has no
+    # materialised workflow yet).
+    try:
+        tasks = list(task_repo.list_by_goal(goal_id) or [])
+    except Exception:  # noqa: BLE001
+        tasks = []
+    plan_id = str(getattr(goal, "plan_id", "") or "")
+    blueprint_id = str(getattr(goal, "blueprint_id", "") or "")
+    blueprint_version = str(getattr(goal, "blueprint_version", "") or "")
+    steps: list = []
+    produced_artifact_keys: list = []
+    try:
+        from agent.artifacts.goal_artifact_service import GoalArtifactService
+        graph = GoalArtifactService().get_goal_graph(goal_id)
+        for output in list(graph.get("output_artifacts") or []):
+            if isinstance(output, dict):
+                if not plan_id:
+                    plan_id = str(output.get("output_artifact_id") or "")
+                payload = dict((output.get("extensions") or {}).get("payload") or {})
+                for t in list(payload.get("tasks") or []):
+                    if isinstance(t, dict):
+                        steps.append(t)
+                        for prod in list(t.get("produces") or []):
+                            if isinstance(prod, str):
+                                produced_artifact_keys.append(prod)
+    except Exception:  # noqa: BLE001
+        pass
+    if str(request.args.get("debug") or "").strip() in {"1", "true", "yes"}:
+        text = debug_workflow_status(
+            goal_id=goal_id,
+            steps=steps,
+            tasks=tasks,
+            produced_artifact_keys=produced_artifact_keys,
+            plan_id=plan_id,
+            blueprint_id=blueprint_id,
+            blueprint_version=blueprint_version,
+        )
+        return api_response(data={"text": text, "goal_id": goal_id})
+    payload = build_workflow_status(
+        goal_id=goal_id,
+        steps=steps,
+        tasks=tasks,
+        produced_artifact_keys=produced_artifact_keys,
+        plan_id=plan_id,
+        blueprint_id=blueprint_id,
+        blueprint_version=blueprint_version,
+    )
+    return api_response(data=payload)
+
+
 @goals_bp.route("/goals/<goal_id>/purge", methods=["DELETE"])
 @check_auth
 def purge_goal(goal_id: str):
