@@ -315,10 +315,11 @@ def _worker_chat_full_scan(
     try:
         max_batches = max(1, min(16, int(float(cfg.get("chat_full_scan_max_batches") or 8))))
         files_per_batch = max(1, min(10, int(float(cfg.get("chat_full_scan_files_per_batch") or 3))))
+        parallel_batches = max(1, min(8, int(float(cfg.get("chat_full_scan_parallel_batches") or 4))))
         source_only_val = cfg.get("chat_full_scan_source_only")
         source_only = source_only_val if isinstance(source_only_val, bool) else True
     except (TypeError, ValueError):
-        max_batches, files_per_batch, source_only = 8, 3, True
+        max_batches, files_per_batch, parallel_batches, source_only = 8, 3, 4, True
 
     repo_root = _resolve_repo_root()
     if not repo_root:
@@ -347,11 +348,13 @@ def _worker_chat_full_scan(
     trace["batches_planned"] = len(batches)
     trace["files_selected"] = len(selected)
 
+    import concurrent.futures as _cf
+
     _PER_FILE_CHARS = 3500
     timeout_s = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
-    batch_summaries: list[str] = []
 
-    for step, batch in enumerate(batches, 1):
+    def _run_batch(args: tuple[int, list]) -> tuple[int, str, str]:
+        step, batch = args
         file_blocks: list[str] = []
         for f in batch:
             try:
@@ -361,30 +364,36 @@ def _worker_chat_full_scan(
                 file_blocks.append(f"### {rel}\n```{lang}\n{content}\n```")
             except OSError:
                 pass
-
         if not file_blocks:
-            continue
-
+            return step, "", ""
         file_labels = ", ".join(str(f.relative_to(repo_root)) for f in batch)
         batch_prompt = (
             f"Frage: {question}\n\n"
             f"Analysiere Quellcode-Batch {step}/{len(batches)} [{file_labels}]:\n\n"
             + "\n\n".join(file_blocks)
-            + f"\n\nExtrahiere alle relevanten Erkenntnisse zur Frage aus diesem Quellcode-Batch. Kurze, präzise Antwort."
+            + "\n\nExtrahiere alle relevanten Erkenntnisse zur Frage aus diesem Quellcode-Batch. Kurze, präzise Antwort."
         )
         try:
-            batch_answer = generate_text(
+            answer = generate_text(
                 prompt=batch_prompt,
                 provider=provider,
                 model=model,
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
                 timeout=timeout_s,
             )
-            batch_answer = str(batch_answer or "").strip()
+            return step, file_labels, str(answer or "").strip()
         except Exception as exc:
             logging.getLogger(__name__).debug("full_scan batch %d failed: %s", step, exc)
-            batch_answer = ""
+            return step, file_labels, ""
 
+    batch_summaries: list[str] = []
+    with _cf.ThreadPoolExecutor(max_workers=parallel_batches) as pool:
+        futures = {pool.submit(_run_batch, (i + 1, b)): i for i, b in enumerate(batches)}
+        results = [None] * len(batches)
+        for fut in _cf.as_completed(futures):
+            step, file_labels, batch_answer = fut.result()
+            results[step - 1] = (step, file_labels, batch_answer)
+    for step, file_labels, batch_answer in (r for r in results if r):
         if batch_answer:
             batch_summaries.append(f"**Batch {step}** [{file_labels}]:\n{batch_answer}")
 
