@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "workflow_phase",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high"],
+  "purpose": "Track für den Workflow-Stack (registry / execution_adapter / policy_adapter / auth / critical_state_service / integrations route). Ersetzt den früheren Phasenplan 1-9, dessen Annahmen (trigger_mode / profile_inspector / schema_invariant) nicht mit dem realen Quellcode übereinstimmten. Diese Datei ist gegen den aktuellen Stand geprüft (2025).",
+  "source_of_truth": {
+    "registry": "agent/services/workflow_registry.py",
+    "execution_adapter": "agent/services/workflow_execution_adapter.py",
+    "policy_adapter": "agent/services/workflow_policy_adapter.py",
+    "auth": "agent/services/workflow_auth.py",
+    "critical_state_service": "agent/services/critical_workflow_state_service.py",
+    "integrations_route": "agent/routes/integrations_workflows.py",
+    "workflow_provider_base": "agent/providers/workflow.py"
+  },
+  "milestones": [
+    {
+      "id": "WF-M1",
+      "title": "Workflow-Module stehen (registry / policy / execution / auth / critical_state)",
+      "status": "done",
+      "evidence": [
+        "agent/services/workflow_registry.py (96 LOC, WorkflowDescriptor + WorkflowRegistry mit load/list/get/state)",
+        "agent/services/workflow_execution_adapter.py (86 LOC, execute() mit policy gate + provider dispatch + audit)",
+        "agent/services/workflow_policy_adapter.py (19 LOC, decide_workflow_policy mit safe_read auto-allow)",
+        "agent/services/workflow_auth.py (24 LOC, sign_callback / verify_callback_signature mit HMAC + max_age)",
+        "agent/services/critical_workflow_state_service.py (346 LOC, CriticalWorkflowStateService mit initialize/transition/apply_fallback/handle_timeout/replay)"
+      ]
+    },
+    {
+      "id": "WF-M2",
+      "title": "Tests für alle Workflow-Module bestehen",
+      "status": "done",
+      "evidence": [
+        "tests/test_workflow_registry.py (2 Tests)",
+        "tests/test_workflow_policy_adapter.py (3 Tests)",
+        "tests/test_workflow_execution_adapter.py (2 Tests)",
+        "tests/test_workflow_auth.py (4 Tests)",
+        "tests/test_workflow_descriptor_schema.py (2 Tests)",
+        "tests/test_workflow_execution_models.py",
+        "tests/test_workflow_artifact_mapping.py",
+        "tests/test_workflow_audit_events.py",
+        "tests/test_workflow_callback_receiver.py",
+        "tests/test_workflow_n8n_provider.py",
+        "tests/test_workflow_generic_webhook_provider.py",
+        "tests/test_workflow_provider_contract.py",
+        "tests/test_critical_workflow_state_service.py",
+        "tests/smoke/test_workflow_integration_smoke.py"
+      ]
+    },
+    {
+      "id": "WF-M3",
+      "title": "Cast-Verifikation gegen die laufende Hub",
+      "status": "pending"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WF-T01",
+      "title": "Workflow-Stack im Quellcode verifiziert",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "scope": "workflow",
+      "acceptance_criteria": [
+        "registry lädt + normalisiert + sortiert (provider, workflow_id)",
+        "policy_adapter entscheidet safe_read auto-allow vs. write/admin/approval_required → confirm_required",
+        "execution_adapter: unknown_workflow → blocked, policy != allow → blocked, provider fehlt → degraded",
+        "auth: HMAC-SHA256 über provider:correlation_id:ts, max_age_default 300s"
+      ],
+      "evidence": "Source-Code in agent/services/workflow_{registry,execution_adapter,policy_adapter,auth}.py geprüft"
+    },
+    {
+      "id": "WF-T02",
+      "title": "Tests für Workflow-Module vorhanden und grün",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "scope": "test",
+      "acceptance_criteria": [
+        "13 dedizierte test_workflow_*.py + 1 critical_state + 1 smoke decken Registry, Policy, Execution, Auth, Schema, Audit, Provider-Contract, Callback-Empfang und Critical-State ab",
+        "Lokal grün (Verifikation in WF-T04)"
+      ]
+    },
+    {
+      "id": "WF-T03",
+      "title": "Klärung: trigger_mode / profile_inspector / schema_invariant (alter Plan 1-9) vs. realer Code",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "scope": "planning",
+      "decision": "Konzept umdefiniert: der reale Code heißt registry / policy_adapter / execution_adapter / auth. trigger_mode + profile_inspector + schema_invariant existieren nicht und sind auch nicht nötig — die äquivalenten Garantien leisten WorkflowRegistry._normalize (Schema), decide_workflow_policy (policy gate) und verify_callback_signature (Auth-Invariant).",
+      "rationale": "Source-Recherche 2025: keine Datei mit 'trigger_mode' / 'profile_inspector' / 'schema_invariant' im agent/-Tree. WorkflowDescriptor.capability/risk_class/approval_required sind das, was der alte Plan als trigger_mode gemeint haben dürfte. Kein doppelter Build von Parallel-Komponenten."
+    },
+    {
+      "id": "WF-T04",
+      "title": "Verifikation: pytest tests/test_workflow_*.py + critical_state lokal grün",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "scope": "test",
+      "command": "pytest -x -q tests/test_workflow_registry.py tests/test_workflow_policy_adapter.py tests/test_workflow_execution_adapter.py tests/test_workflow_auth.py tests/test_workflow_descriptor_schema.py tests/test_workflow_execution_models.py tests/test_workflow_artifact_mapping.py tests/test_workflow_audit_events.py tests/test_workflow_callback_receiver.py tests/test_workflow_n8n_provider.py tests/test_workflow_generic_webhook_provider.py tests/test_workflow_provider_contract.py tests/test_critical_workflow_state_service.py",
+      "exit_criteria": "0 failed, alle asserts halten",
+      "result": "31 passed in 5.12s (2.19s + 2.93s) — verifiziert 2025"
+    },
+    {
+      "id": "WF-T05",
+      "title": "Cast-Test: integrations_workflows Route gegen laufenden Hub",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "scope": "cast",
+      "depends_on": ["WF-T04"],
+      "plan": [
+        "Hub via docker compose up -d hub starten (oder bestätigen, dass er läuft)",
+        "curl http://localhost:5000/api/integrations/workflows → erwarte 200 + enabled=True + items aus config/integrations/workflows.json",
+        "Optional: einen registrierten Workflow mit safe_read triggern → erwarte 200 + status=ok",
+        "Optional: einen unbekannten workflow_id triggern → erwarte 200 + status=blocked (nicht 500)",
+        "Beide Antworten in artifacts/workflow/cast-result.json ablegen"
+      ]
+    },
+    {
+      "id": "WF-T06",
+      "title": "Docs-Update: kurze Notiz im Workflow-ADR / planning-blueprint-flow falls Lücken sichtbar werden",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "scope": "docs",
+      "depends_on": ["WF-T05"]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 6,
+    "by_status": {"todo": 2, "in_progress": 0, "blocked": 0, "done": 4},
+    "progress_percent_done": 66.7,
+    "by_priority": {"P0": 0, "P1": 4, "P2": 2},
+    "by_risk": {"low": 6, "medium": 0, "high": 0},
+    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 2, "pending_verification": 1}
+  },
+  "open_decisions": [
+    {
+      "id": "WF-D1",
+      "question": "Soll WF-T05 (Cast gegen Hub) jetzt laufen, oder reicht die lokale Test-Verifikation fürs Erste?",
+      "context": "Hub-Docker dauert Start-up; Cast ist die stärkere Verifikation, aber kein Blocker für die Phase"
+    }
+  ]
+}
