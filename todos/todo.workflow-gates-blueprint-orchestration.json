@@ -329,6 +329,18 @@
         "WFG-028"
       ],
       "status": "todo"
+    },
+    {
+      "id": "WFG-9",
+      "title": "Refactoring: team_blueprint_service in SRP-Module aufteilen",
+      "status": "todo",
+      "task_ids": [
+        "WFG-029",
+        "WFG-030",
+        "WFG-031",
+        "WFG-032",
+        "WFG-033"
+      ]
     }
   ],
   "tasks": [
@@ -365,7 +377,11 @@
         "Schema-Test lehnt gate=true ohne checks ab.",
         "Schema-Test lehnt ungültige task_kind Werte ab.",
         "Schema-Test prüft, dass role und step-id maschinenlesbar bleiben."
-      ]
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
     },
     {
       "id": "WFG-002",
@@ -438,9 +454,8 @@
       "risk": "high",
       "progress_percent": 0,
       "target_files": [
-        "agent/services/workflow_definition_service.py",
-        "agent/services/team_blueprint_service.py",
-        "agent/services/blueprint_planning_adapter.py",
+        "agent/services/team_blueprint_reconciliation_service.py (NEU nach WFG-029 — Sub-Funktion _reconcile_blueprint_workflow_steps)",
+        "agent/services/team_blueprint_persistence_service.py (NEU nach WFG-029 — Persistenz-Anker)",
         "tests/**/test_*workflow_definition*.py"
       ],
       "acceptance_criteria": [
@@ -462,7 +477,11 @@
         "Unit-Test lehnt zyklische depends_on ab.",
         "Unit-Test prüft stabile Sortierung bei parallelen Steps.",
         "Unit-Test prüft verständliche Fehlermeldung bei fehlender Dependency."
-      ]
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
     },
     {
       "id": "WFG-005",
@@ -492,7 +511,11 @@
         "Serialization-Test roundtripped WorkflowDefinition ohne Datenverlust.",
         "Test prüft Trennung von role und task_kind.",
         "Test prüft, dass tool_policy nicht durch Step-Config erweitert werden kann, wenn globale Policy enger ist."
-      ]
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
     },
     {
       "id": "WFG-006",
@@ -522,7 +545,11 @@
         "Integrationstest prüft strict_gated Fehler bei Blueprint ohne Workflow.",
         "Integrationstest prüft, dass Rollenhinweise nicht verloren gehen.",
         "Snapshot-Test prüft Planner-Kontext mit Workflow-Abschnitt."
-      ]
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
     },
     {
       "id": "WFG-007",
@@ -555,7 +582,11 @@
         "Unit-Test prüft Idempotenz bei erneutem Materialisieren.",
         "Unit-Test prüft parallele Steps ohne künstliche Sequenzialisierung.",
         "Integrationstest prüft Task-Kontext mit workflow_step_id."
-      ]
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
     },
     {
       "id": "WFG-008",
@@ -567,8 +598,9 @@
       "risk": "medium",
       "progress_percent": 0,
       "target_files": [
-        "agent/services/workflow_gate_insertion_service.py",
-        "agent/services/planning_track_task_integration_service.py",
+        "agent/services/team_blueprint_reconciliation_service.py (NEU nach WFG-029 — _insert_default_gates)",
+        "agent/config.py (ANANTA_WORKFLOW_DEFAULT_GATE_POLICY)",
+        "tests/**/test_*default_gates*.py",
         "tests/**/test_*gate_insertion*.py"
       ],
       "acceptance_criteria": [
@@ -892,7 +924,11 @@
         "WorkflowDefinitionService validiert Scrum-OpenCode ohne Fehler.",
         "Materialisierungstest erzeugt Gate zwischen Planner und Developer.",
         "Snapshot-Test vergleicht dokumentierte Step-Reihenfolge."
-      ]
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
     },
     {
       "id": "WFG-019",
@@ -922,7 +958,11 @@
         "Code-Repair materialisiert QA Gate.",
         "TDD materialisiert Test-first Dependencies.",
         "Security-Review blockiert bei high-risk Finding."
-      ]
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "notes": "[WFG-029 blocker: Service-Must-Split-First]"
     },
     {
       "id": "WFG-020",
@@ -1182,6 +1222,350 @@
         "Lokaler Testbefehl aus docs/testing.md funktioniert.",
         "Keine echten LLM-/Netzwerkzugriffe in Workflow-Unit-Tests."
       ]
+    },
+    {
+      "id": "WFG-029",
+      "title": "team_blueprint_service.py in Module mit klarer SRP aufteilen",
+      "type": "refactor",
+      "milestone": "WFG-9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "rationale": "Aktueller Stand: 765 LOC, 7 vermischte Verantwortlichkeiten, 3 importierende Stellen. Vor WFG-001..028 muss der Service aufgeteilt werden, damit neue Workflow-Logik in das richtige Modul landet und nicht in einer weiteren 800-LOC-Datei verschwindet.",
+      "context": {
+        "current_file": "agent/services/team_blueprint_service.py",
+        "current_loc": 765,
+        "importers": [
+          {
+            "file": "agent/routes/teams.py",
+            "imports": [
+              "RoleLinkSpec",
+              "TemplateBootstrapSpec",
+              "ensure_default_templates",
+              "instantiate_blueprint",
+              "persist_blueprint_children",
+              "reconcile_seed_blueprints",
+              "reconcile_seed_templates",
+              "reconcile_system_prompts",
+              "save_blueprint"
+            ]
+          },
+          {
+            "file": "tests/test_team_blueprints.py",
+            "monkeypatches": [
+              "team_blueprint_service.persist_blueprint_children_in_session",
+              "team_blueprint_service._materialize_blueprint_artifacts_in_session"
+            ]
+          }
+        ],
+        "current_clusters": [
+          {
+            "name": "Template Bootstrap",
+            "loc": 114,
+            "funcs": [
+              "TemplateBootstrapSpec",
+              "RoleLinkSpec",
+              "PersistBlueprintChildrenResult",
+              "BlueprintSaveResult",
+              "ensure_default_templates",
+              "_ensure_default_templates_once"
+            ]
+          },
+          {
+            "name": "Blueprint Persistence",
+            "loc": 230,
+            "funcs": [
+              "persist_blueprint_children",
+              "persist_blueprint_children_in_session",
+              "save_blueprint"
+            ]
+          },
+          {
+            "name": "Blueprint Reconciliation",
+            "loc": 174,
+            "funcs": [
+              "reconcile_seed_blueprints",
+              "_reconcile_seed_blueprints_once",
+              "reconcile_seed_templates",
+              "_reconcile_seed_templates_once"
+            ]
+          },
+          {
+            "name": "Blueprint Instantiation",
+            "loc": 79,
+            "funcs": [
+              "instantiate_blueprint"
+            ]
+          },
+          {
+            "name": "Materialization helpers",
+            "loc": 58,
+            "funcs": [
+              "_ensure_role_for_blueprint_role_in_session",
+              "_materialize_blueprint_artifacts_in_session"
+            ]
+          },
+          {
+            "name": "System-Prompt Reconciliation",
+            "loc": 66,
+            "funcs": [
+              "reconcile_system_prompts",
+              "_reconcile_system_prompts_once"
+            ]
+          },
+          {
+            "name": "Snapshot/Serialization",
+            "loc": 11,
+            "funcs": [
+              "_serialize_blueprint_snapshot"
+            ]
+          }
+        ]
+      },
+      "target_module_layout": {
+        "new_files": [
+          {
+            "path": "agent/services/team_template_bootstrap_service.py",
+            "loc_estimate": 130,
+            "responsibility": "TeamType + Role + Template seeds",
+            "moves": [
+              "TemplateBootstrapSpec",
+              "RoleLinkSpec",
+              "PersistBlueprintChildrenResult",
+              "BlueprintSaveResult",
+              "ensure_default_templates",
+              "_ensure_default_templates_once"
+            ],
+            "depends_on": [
+              "agent/db_models.py (RoleDB, TeamTypeDB, TemplateDB, TeamTypeRoleLink)"
+            ]
+          },
+          {
+            "path": "agent/services/team_blueprint_persistence_service.py",
+            "loc_estimate": 240,
+            "responsibility": "Blueprint JSON load + save + validate",
+            "moves": [
+              "persist_blueprint_children",
+              "persist_blueprint_children_in_session",
+              "save_blueprint"
+            ],
+            "depends_on": [
+              "agent/db_models.py (TeamBlueprintDB, BlueprintRoleDB, BlueprintArtifactDB)",
+              "agent/services/team_template_bootstrap_service.py (Result-Dataclasses)"
+            ]
+          },
+          {
+            "path": "agent/services/team_blueprint_reconciliation_service.py",
+            "loc_estimate": 190,
+            "responsibility": "Seed-Blueprint und Seed-Template Reconciliation (file → DB)",
+            "moves": [
+              "reconcile_seed_blueprints",
+              "_reconcile_seed_blueprints_once",
+              "reconcile_seed_templates",
+              "_reconcile_seed_templates_once"
+            ],
+            "depends_on": [
+              "agent/services/team_blueprint_persistence_service.py"
+            ]
+          },
+          {
+            "path": "agent/services/team_blueprint_instantiation_service.py",
+            "loc_estimate": 95,
+            "responsibility": "Materialize team from blueprint (team_type, members, artifacts)",
+            "moves": [
+              "instantiate_blueprint",
+              "_ensure_role_for_blueprint_role_in_session",
+              "_materialize_blueprint_artifacts_in_session",
+              "_serialize_blueprint_snapshot"
+            ],
+            "depends_on": [
+              "agent/services/team_template_bootstrap_service.py",
+              "agent/db_models.py (TeamDB, TeamMemberDB)"
+            ]
+          },
+          {
+            "path": "agent/services/team_system_prompt_reconciliation_service.py",
+            "loc_estimate": 75,
+            "responsibility": "SystemPrompt-Catalog → DB",
+            "moves": [
+              "reconcile_system_prompts",
+              "_reconcile_system_prompts_once"
+            ],
+            "depends_on": [
+              "agent/services/system_prompt_catalog.py"
+            ]
+          }
+        ],
+        "deprecated_file": {
+          "path": "agent/services/team_blueprint_service.py",
+          "action": "Reduce to a 30-50 line re-export shim that re-exports the 8 public symbols for backward compat. Mark as deprecated with a DeprecationWarning at import time. Remove in a later cleanup PR after WFG-001..028 are done."
+        }
+      },
+      "acceptance_criteria": [
+        "agent/services/team_blueprint_service.py ist < 60 LOC und enthält nur Re-Exporte + DeprecationWarning",
+        "5 neue Module mit jeweils < 250 LOC und einer klaren SRP-Verantwortung existieren",
+        "agent/routes/teams.py importiert weiterhin alle 8 Symbole ohne Verhaltensänderung (entweder direkt aus den neuen Modulen oder über den Shim)",
+        "tests/test_team_blueprints.py läuft grün ohne monkeypatch-Pfade zu ändern (entweder monkeypatch.team_blueprint_service.X funktioniert weiter über den Shim, ODER die Tests werden auf das neue Submodul umgestellt — siehe WFG-030)",
+        "Keine zirkulären Imports: agent/services/team_blueprint_*.py → agent/db_models.py, NICHT zueinander über mehr als eine Indirektion",
+        "Keine Verhaltensänderung: 31/31 existierende Tests grün nach der Aufteilung"
+      ],
+      "test_expectations": [
+        "pytest tests/test_team_blueprints.py grün (volle Suite)",
+        "pytest tests/ smoke-Tests grün",
+        "Import-Smoke-Test: from agent.services.team_blueprint_service import ensure_default_templates funktioniert und gibt DeprecationWarning aus",
+        "Import-Smoke-Test: from agent.services.team_template_bootstrap_service import ensure_default_templates funktioniert ohne Warning"
+      ],
+      "depends_on": [],
+      "blocks": [
+        "WFG-001",
+        "WFG-004",
+        "WFG-005",
+        "WFG-006",
+        "WFG-007",
+        "WFG-018",
+        "WFG-019",
+        "WFG-030"
+      ]
+    },
+    {
+      "id": "WFG-030",
+      "title": "Monkeypatch-Pfade in tests/test_team_blueprints.py auf neue Submodule umstellen",
+      "type": "test-cleanup",
+      "milestone": "WFG-9",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "context": "Aktuell monkeypatchen 2 Tests private Symbole auf team_blueprint_service.persist_blueprint_children_in_session und team_blueprint_service._materialize_blueprint_artifacts_in_session. Nach WFG-029 leben diese in team_blueprint_persistence_service und team_blueprint_instantiation_service. Tests müssen mitziehen, sonst brechen sie.",
+      "current_test_paths": [
+        "tests/test_team_blueprints.py:1132 — monkeypatch(team_blueprint_service, 'persist_blueprint_children_in_session', fail_persist)",
+        "tests/test_team_blueprints.py:1163 — monkeypatch(team_blueprint_service, '_materialize_blueprint_artifacts_in_session', fail_materialization)"
+      ],
+      "target_test_paths": [
+        "tests/test_team_blueprints.py:1132 — monkeypatch(team_blueprint_persistence_service, 'persist_blueprint_children_in_session', fail_persist)",
+        "tests/test_team_blueprints.py:1163 — monkeypatch(team_blueprint_instantiation_service, '_materialize_blueprint_artifacts_in_session', fail_materialization)"
+      ],
+      "acceptance_criteria": [
+        "Beide monkeypatch-Aufrufe zeigen auf die neuen Submodule",
+        "Test-Verhalten identisch (Failure-Pfade werden weiterhin ausgelöst)",
+        "Keine Referenz mehr auf team_blueprint_service.X in tests/",
+        "Suite grün"
+      ],
+      "test_expectations": [
+        "pytest tests/test_team_blueprints.py grün",
+        "Beide Failure-Pfade werden ausgelöst (assert 'fail_persist' in caplog / 'fail_materialization' in caplog)"
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "blocks": []
+    },
+    {
+      "id": "WFG-031",
+      "title": "Public-API Shim team_blueprint_service mit DeprecationWarning einrichten",
+      "type": "refactor",
+      "milestone": "WFG-9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "context": "8 öffentliche Symbole werden aus team_blueprint_service importiert. Direkter Umstieg in agent/routes/teams.py ist ein weiterer großer Diff. Saubere Strategie: Shim-Modul hält 12 Monate Rückwärtskompatibilität, dann harter Cut in einer Cleanup-PR.",
+      "shim_content_template": "'\\'\\'\\'Backward-compat re-export shim. Importierte Symbole leben jetzt in Submodulen:\\n- ensure_default_templates, _ensure_default_templates_once, TemplateBootstrapSpec,\\n  RoleLinkSpec, PersistBlueprintChildrenResult, BlueprintSaveResult\\n  → agent.services.team_template_bootstrap_service\\n- persist_blueprint_children, persist_blueprint_children_in_session, save_blueprint\\n  → agent.services.team_blueprint_persistence_service\\n- reconcile_seed_blueprints, _reconcile_seed_blueprints_once,\\n  reconcile_seed_templates, _reconcile_seed_templates_once\\n  → agent.services.team_blueprint_reconciliation_service\\n- instantiate_blueprint, _ensure_role_for_blueprint_role_in_session,\\n  _materialize_blueprint_artifacts_in_session, _serialize_blueprint_snapshot\\n  → agent.services.team_blueprint_instantiation_service\\n- reconcile_system_prompts, _reconcile_system_prompts_once\\n  → agent.services.team_system_prompt_reconciliation_service\\n\\nDieses Modul bleibt 12 Monate als Kompat-Shim, danach wird es in einer Cleanup-PR\\nentfernt. Bitte neue Importe direkt auf die Submodule umstellen.\\'\\'\\'",
+      "acceptance_criteria": [
+        "team_blueprint_service.py ist 30-50 LOC (nur re-exports + warning)",
+        "import warnings.warn('agent.services.team_blueprint_service is deprecated; use agent.services.team_*_service directly', DeprecationWarning, stacklevel=2) wird beim ersten Import emittiert",
+        "Alle 8 öffentlichen Symbole sind über das Shim-Modul weiterhin importierbar",
+        "agent/routes/teams.py funktioniert unverändert (entweder direkt aus Submodulen ODER über Shim — Entscheidung beim Implementierer; PR-Review stellt Konsistenz sicher)"
+      ],
+      "test_expectations": [
+        "pytest -W error::DeprecationWarning tests/test_team_blueprints.py grün, wenn agent/routes/teams.py umgestellt ist (kein DeprecationWarning mehr aus team_blueprint_service)",
+        "Expliziter Deprecation-Test: import agent.services.team_blueprint_service löst DeprecationWarning aus, import agent.services.team_template_bootstrap_service nicht"
+      ],
+      "depends_on": [
+        "WFG-029"
+      ],
+      "blocks": []
+    },
+    {
+      "id": "WFG-032",
+      "title": "Migration-Script für CI: detect-imports-from-shim",
+      "type": "ci-quality",
+      "milestone": "WFG-9",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "context": "Damit der Shim 12 Monate später sauber entfernt werden kann, wollen wir von Anfang an wissen, welche Stellen ihn noch nutzen.",
+      "plan": [
+        "scripts/check_shim_imports.py schreiben, das agent/ + tests/ nach Imports aus team_blueprint_service scannt",
+        "pyproject.toml: neuer pytest-marker 'shim_imports' und ein eigener CI-Job, der das Script laufen lässt",
+        "CI failed, sobald 0 Importe mehr da sind (Sanity-Check für Shim-Entfernung)",
+        "Aktuell: 8 Importe in agent/routes/teams.py → tracked, muss in Cleanup-PR mit abgebaut werden"
+      ],
+      "acceptance_criteria": [
+        "Script listet alle Stellen, die aus team_blueprint_service importieren",
+        "CI-Job läuft und meldet '0 imports' sobald der Shim ungenutzt ist",
+        "Doku in docs/testing.md erwähnt das Script und seinen Cleanup-Trigger"
+      ],
+      "test_expectations": [
+        "python scripts/check_shim_imports.py gibt Exit-Code 0 + Liste der 8 Importe aus",
+        "CI workflow-gates-unit Job läuft das Script und ist grün"
+      ],
+      "depends_on": [
+        "WFG-031"
+      ]
+    },
+    {
+      "id": "WFG-033",
+      "title": "Workflow-Logik (WFG-001..028) in den richtigen Submodulen verankern",
+      "type": "planning-doc",
+      "milestone": "WFG-9",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "context": "Nachdem WFG-029 das team_blueprint_service-Monolith aufgeteilt hat, MUSS die Workflow-Logik aus WFG-001..028 in die richtigen Submodule. Sonst landet sie wieder in einer 800-LOC-Datei.",
+      "mapping": [
+        {
+          "wfg_task": "WFG-001 (Blueprint-Schema workflow.steps)",
+          "target_module": "schemas/blueprints/* (Config-Validierung) — KEIN Service, aber Konsumenten müssen neu denken: Reconciliation liest steps aus JSON, nicht aus DB"
+        },
+        {
+          "wfg_task": "WFG-004 (WorkflowDefinitionService)",
+          "target_module": "agent/services/team_blueprint_reconciliation_service.py (Erweiterung) — Sub-Funktion _reconcile_blueprint_workflow_steps; siehe auch WFG-D2-Empfehlung"
+        },
+        {
+          "wfg_task": "WFG-005 (BlueprintWorkflowStepDB)",
+          "target_module": "agent/db_models.py (neue Tabelle)"
+        },
+        {
+          "wfg_task": "WFG-006 (BlueprintPlanningAdapter liest Steps)",
+          "target_module": "agent/services/blueprint_planning_adapter.py (Erweiterung)"
+        },
+        {
+          "wfg_task": "WFG-007 (Materialisierung in planning_track_task_integration_service)",
+          "target_module": "agent/services/planning_track_task_integration_service.py (Erweiterung)"
+        },
+        {
+          "wfg_task": "WFG-008 (Default-Gate-Insertion)",
+          "target_module": "agent/services/team_blueprint_reconciliation_service.py (Sub-Funktion _insert_default_gates)"
+        },
+        {
+          "wfg_task": "WFG-018 (Scrum-OpenCode Blueprint umbauen)",
+          "target_module": "config/blueprints/standard/blueprints.json (Config-Änderung); Reconciliation in team_blueprint_reconciliation_service"
+        }
+      ],
+      "acceptance_criteria": [
+        "Jede WFG-001..028-Task hat einen klaren Eintrag, in welchem Modul die Logik leben wird",
+        "Keine WFG-Task zielt auf team_blueprint_service (das ist nur Shim)",
+        "Im WFG-001..028 Plan sind die target_files in jedem Task auf die neuen Module aktualisiert"
+      ],
+      "depends_on": [
+        "WFG-029",
+        "WFG-030",
+        "WFG-031"
+      ]
     }
   ],
   "definition_of_done": [
@@ -1223,27 +1607,27 @@
     "WFG-028"
   ],
   "tasks_status_summary": {
-    "total": 28,
+    "total": 33,
     "by_status": {
-      "todo": 28,
+      "todo": 33,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 13,
-      "P1": 11,
-      "P2": 4
+      "P0": 17,
+      "P1": 10,
+      "P2": 6
     },
     "by_risk": {
-      "low": 0,
-      "medium": 17,
-      "high": 11
+      "high": 10,
+      "medium": 18,
+      "low": 5
     },
     "milestones": {
-      "total": 8,
-      "todo": 8,
+      "total": 9,
+      "todo": 9,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
@@ -1277,18 +1661,28 @@
       {
         "id": "WFG-D1",
         "question": "Soll WFG-005 (eigenes WorkflowStep-DB-Modell) umgesetzt werden, oder bleibt es bei einer JSON-in-BlueprintArtifactDB-Lösung?",
-        "context": "DB-Migration ist teurer; JSON im Artifact erlaubt freiere Schema-Iteration. Trade-off: Abfragbarkeit vs. Evolvability."
+        "context": "DB-Migration ist teurer; JSON im Artifact erlaubt freiere Schema-Iteration. Trade-off: Abfragbarkeit vs. Evolvability.",
+        "decision": "Eigenes DB-Modell (BlueprintWorkflowStepDB) mit JSON-Feldern für produces/consumes/depends_on/checks. Pattern-konsistent mit blueprint_roles/blueprint_artifacts."
       },
       {
         "id": "WFG-D2",
-        "question": "Wo lebt WorkflowDefinitionService? (a) Neuer Service agent/services/workflow_definition_service.py, (b) Erweiterung von team_blueprint_service.py, (c) Erweiterung von blueprint_planning_adapter.py",
-        "context": "SRP-Argument für (a); geringerer Diff für (b/c). Aktuell existiert (a) nicht — wäre der geradlinige Pfad."
+        "question": "Wo lebt WorkflowDefinitionService?",
+        "context": "SRP-Argument für neuen Service; geringerer Diff für Erweiterung.",
+        "decision": "Erweiterung von team_blueprint_service — ABER team_blueprint_service wird VORHER aufgeteilt (WFG-029..033). Workflow-Logik landet in team_blueprint_reconciliation_service."
       },
       {
         "id": "WFG-D3",
-        "question": "WFG-001 vor WFG-003? Aktuell empfohlene Reihenfolge 001→002→003→004…",
-        "context": "Schema vor Config vor Service ist sinnvoll; aber WFG-003 (Config) kann parallel zu 001 beginnen, wenn 002 (ADR) als Architektur-Anker dient."
+        "question": "Strikt sequenziell 001→002→003→004, oder 001/003 parallel mit 002 als ADR-Anker?",
+        "context": "Schema vor Config vor Service ist sinnvoll; aber WFG-003 (Config) kann parallel zu 001 beginnen, wenn 002 (ADR) als Architektur-Anker dient.",
+        "decision": "Welle 1: 001 + 002 + 003 parallel. Welle 2: 004 + 005 + 006 als eine zusammenhängende PR (im richtigen Submodul nach WFG-029). Welle 3: 007 alleine. Dann weiter mit 008/009/010, dann Welle 5 mit 011/012/013/014."
       }
     ]
+  },
+  "refactor_rationale": {
+    "trigger": "WFG-D2-User-Entscheidung: Workflow-Logik in team_blueprint_service / blueprint_planning_adapter einbauen — NICHT einen neuen Service. Aber: 765 LOC sind zu viel für eine weitere Erweiterung.",
+    "decision": "Vor WFG-001..028 muss team_blueprint_service aufgeteilt werden. Erst SRP-konforme Module, dann Workflow-Logik ins richtige Modul.",
+    "consequence": "WFG-001..028 zielen nicht mehr auf team_blueprint_service, sondern auf die Submodule. WFG-029 ist jetzt P0-Blocker für WFG-001, WFG-004, WFG-005, WFG-006, WFG-007, WFG-018, WFG-019.",
+    "shim_strategy": "12 Monate Rückwärtskompatibilität über Re-Export-Shim. CI-Detector zeigt an, wann der Shim entfernt werden kann.",
+    "anti_pattern_avoided": "Wenn wir WFG-001..028 direkt in die 765-LOC-Datei einbauen, wären wir bei ~1200 LOC in einer Datei. Schlechte Test-Isolation, lange Ladezeit, schweres Onboarding."
   }
 }
