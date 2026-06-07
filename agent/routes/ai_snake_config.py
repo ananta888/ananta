@@ -27,6 +27,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     # CRPS-007: retrieval profile config
     "chat_retrieval_profile", "chat_retrieval_domain_hint", "chat_code_questions_repo_first",
     "chat_architecture_analysis_mode",
+    # Full-scan chat budget
+    "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
 })
 
 _DEFAULTS: dict[str, Any] = {
@@ -64,6 +66,9 @@ _DEFAULTS: dict[str, Any] = {
     "chat_retrieval_domain_hint": "",
     "chat_code_questions_repo_first": False,
     "chat_architecture_analysis_mode": "auto",
+    "chat_full_scan_source_only": True,
+    "chat_full_scan_max_batches": 8,
+    "chat_full_scan_files_per_batch": 3,
 }
 
 _OPTIONS: dict[str, list[str]] = {
@@ -88,6 +93,8 @@ _OPTIONS: dict[str, list[str]] = {
     "input_history_max_entries": ["20", "50", "100", "200", "500"],
     "chat_retrieval_profile": ["auto", "repo_first", "docs_first", "legacy"],
     "chat_architecture_analysis_mode": ["auto", "standard", "full_scan", "off"],
+    "chat_full_scan_max_batches": ["2", "4", "6", "8", "12", "16"],
+    "chat_full_scan_files_per_batch": ["1", "2", "3", "5", "8"],
 }
 
 _BOOL_KEYS = frozenset(k for k, v in _DEFAULTS.items() if isinstance(v, bool))

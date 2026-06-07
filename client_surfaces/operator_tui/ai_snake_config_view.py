@@ -53,6 +53,9 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_retrieval_domain_hint",
     "chat_code_questions_repo_first",
     "chat_architecture_analysis_mode",
+    "chat_full_scan_source_only",
+    "chat_full_scan_max_batches",
+    "chat_full_scan_files_per_batch",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -430,6 +433,29 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(game.get("chat_architecture_analysis_mode") or "auto"),
             "options": ["auto", "standard", "full_scan", "off"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_full_scan_source_only",
+            "label": "Full-Scan: Nur Quellcode",
+            "type": "bool",
+            "value": bool(game.get("chat_full_scan_source_only", True)),
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_full_scan_max_batches",
+            "label": "Full-Scan: Max. Batches",
+            "type": "choice",
+            "value": str(game.get("chat_full_scan_max_batches") or "8"),
+            "options": ["2", "4", "6", "8", "12", "16"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_full_scan_files_per_batch",
+            "label": "Full-Scan: Dateien/Batch",
+            "type": "choice",
+            "value": str(game.get("chat_full_scan_files_per_batch") or "3"),
+            "options": ["1", "2", "3", "5", "8"],
             "group": "Kontext / RAG",
         },
         {
@@ -858,6 +884,22 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         game[key] = raw_value
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"
+
+    if key == "chat_full_scan_source_only":
+        bool_val = str(raw_value).lower() not in {"false", "0", "nein", "no", "off"}
+        game[key] = bool_val
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {bool_val}"
+
+    if key in {"chat_full_scan_max_batches", "chat_full_scan_files_per_batch"}:
+        try:
+            value_int = int(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        lo, hi = (1, 16) if key == "chat_full_scan_max_batches" else (1, 10)
+        game[key] = max(lo, min(hi, value_int))
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {game[key]}"
 
     if key == "chat_retrieval_domain_hint":
         game[key] = raw_value
