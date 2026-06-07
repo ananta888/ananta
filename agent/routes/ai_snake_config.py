@@ -97,24 +97,39 @@ def _user_json_path() -> Path:
     return Path(os.environ.get("ANANTA_USER_JSON", "user.json")).resolve()
 
 
-def _load() -> dict[str, Any]:
+def _load_raw() -> dict[str, Any]:
+    """Read the raw file content without schema interpretation."""
     p = _user_json_path()
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def _load() -> dict[str, Any]:
+    """Read settings, supporting TUI format ({settings: {...}}) and legacy flat format."""
+    raw = _load_raw()
+    nested = raw.get("settings")
+    if isinstance(nested, dict):
+        return nested
+    return raw
 
 
 def _save(data: dict[str, Any]) -> None:
     p = _user_json_path()
     tmp = p.with_suffix(".json.tmp")
     try:
-        existing = _load()
-        existing.update(data)
-        existing["_updated_at"] = time.time()
-        tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+        raw = _load_raw()
+        # Write into the nested "settings" key if TUI format is present, otherwise flat
+        if isinstance(raw.get("settings"), dict):
+            raw["settings"].update(data)
+        else:
+            raw.update(data)
+        raw["_updated_at"] = time.time()
+        tmp.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, p)
     except Exception:
         if tmp.exists():
