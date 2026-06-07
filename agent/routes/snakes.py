@@ -52,6 +52,9 @@ _MAX_ROOM_MSGS = 200
 _VALID_CHANNEL_TYPES = {"room", "direct", "ai", "system"}
 _VALID_VISIBILITY = {"room", "direct", "ai_context", "system"}  # local_only is REJECTED
 
+# Cancel events for running full_scan operations keyed by snake_id or "room"
+_SCAN_CANCELS: dict[str, threading.Event] = {}
+
 _VALID_ROLES = {"player", "tutor", "critic", "coach", "viewer"}
 _VALID_COLORS = {"mint", "amber", "rose", "violet", "sky", "coral", "lime", "ice", "cyan"}
 
@@ -298,6 +301,7 @@ def _worker_chat_full_scan(
     provider: str = "lmstudio",
     model: str | None = None,
     limits: "SnakeAskLimits | None" = None,
+    cancel_key: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Multi-batch source-code-only analysis for chat full_scan mode.
 
@@ -311,6 +315,10 @@ def _worker_chat_full_scan(
     effective_limits = limits or SnakeAskLimits()
     cfg = _current_config()
     trace: dict[str, Any] = {"mode": "full_scan_chat"}
+
+    cancel_event = threading.Event()
+    if cancel_key:
+        _SCAN_CANCELS[cancel_key] = cancel_event
 
     try:
         max_batches = max(1, min(16, int(float(cfg.get("chat_full_scan_max_batches") or 8))))
@@ -393,6 +401,7 @@ def _worker_chat_full_scan(
                 model=model,
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
                 timeout=timeout_s,
+                max_retries=0,
             )
             return step, file_labels, str(answer or "").strip()
         except Exception as exc:
@@ -401,11 +410,20 @@ def _worker_chat_full_scan(
 
     batch_summaries: list[str] = []
     results = [None] * len(batches)
-    with _cf.ThreadPoolExecutor(max_workers=parallel_batches) as pool:
-        futures = {pool.submit(_run_batch, (i + 1, b)): i for i, b in enumerate(batches)}
-        for fut in _cf.as_completed(futures):
-            step, file_labels, batch_answer = fut.result()
-            results[step - 1] = (step, file_labels, batch_answer)
+    try:
+        with _cf.ThreadPoolExecutor(max_workers=parallel_batches) as pool:
+            futures = {pool.submit(_run_batch, (i + 1, b)): i for i, b in enumerate(batches)}
+            for fut in _cf.as_completed(futures):
+                if cancel_event.is_set():
+                    for f in futures:
+                        f.cancel()
+                    trace["cancelled"] = True
+                    break
+                step, file_labels, batch_answer = fut.result()
+                results[step - 1] = (step, file_labels, batch_answer)
+    finally:
+        if cancel_key:
+            _SCAN_CANCELS.pop(cancel_key, None)
     for r in results:
         if r:
             step, file_labels, batch_answer = r
@@ -459,7 +477,7 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
                 from agent.services.retrieval_profile_service import _is_full_scan_intent
                 _cfg = _current_config()
                 if _is_full_scan_intent(prompt, "", _cfg):
-                    answer, scan_trace = _worker_chat_full_scan(prompt, provider=provider, model=model)
+                    answer, scan_trace = _worker_chat_full_scan(prompt, provider=provider, model=model, cancel_key="room")
                     files_found = scan_trace.get("files_found", 0)
                     batches_done = scan_trace.get("batches_completed", 0)
                     scan_summary = f"full_scan: {batches_done} Batches, {files_found} Dateien"
@@ -799,6 +817,20 @@ def chat_receive(snake_id: str):
     return jsonify({"messages": all_msgs, "cursor": new_cursor}), 200
 
 
+@snakes_bp.route("/snakes/<snake_id>/chat/cancel", methods=["POST"])
+def chat_cancel(snake_id: str):
+    """POST /snakes/<id>/chat/cancel – Laufenden full_scan abbrechen."""
+    if not _verify_token(snake_id):
+        return jsonify({"error": "Ungültiger Token"}), 401
+    cancelled = False
+    for key in ("room", "snake_ask", snake_id):
+        event = _SCAN_CANCELS.get(key)
+        if event:
+            event.set()
+            cancelled = True
+    return jsonify({"ok": True, "cancelled": cancelled}), 200
+
+
 @snakes_bp.route("/snakes/<snake_id>/chat/ack", methods=["POST"])
 def chat_ack(snake_id: str):
     """POST /snakes/<id>/chat/ack – Gelesene Nachrichten bestätigen."""
@@ -1095,7 +1127,7 @@ def snake_ask():
         _eff_cfg = _current_config()
         _eff_cfg.update(dict(retrieval_config_overrides or {}))
         if _is_full_scan_intent(question, "", _eff_cfg):
-            answer, worker_trace = _worker_chat_full_scan(question, provider=provider, model=model, limits=limits)
+            answer, worker_trace = _worker_chat_full_scan(question, provider=provider, model=model, limits=limits, cancel_key="snake_ask")
             if answer:
                 files_found = worker_trace.get("files_found", 0)
                 batches_done = worker_trace.get("batches_completed", 0)

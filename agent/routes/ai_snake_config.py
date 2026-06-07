@@ -70,7 +70,7 @@ _DEFAULTS: dict[str, Any] = {
     "chat_full_scan_source_only": True,
     "chat_full_scan_max_batches": 8,
     "chat_full_scan_files_per_batch": 3,
-    "chat_full_scan_parallel_batches": 4,
+    "chat_full_scan_parallel_batches": 1,
     "chat_full_scan_timeout_s": 1800,
 }
 

@@ -153,9 +153,13 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
             }
           </div>
           <div class="send">
-            <input [(ngModel)]="draft" (keydown.enter)="send()" placeholder="Nachricht an room..." />
-            <button (click)="send()" [disabled]="!draft.trim()">Senden</button>
-            <button class="ghost" (click)="disconnect()">Trennen</button>
+            <input [(ngModel)]="draft" (keydown.enter)="send()" placeholder="Nachricht an room..." [disabled]="!!(svc.awaitingReply$ | async)" />
+            <button (click)="send()" [disabled]="!draft.trim() || !!(svc.awaitingReply$ | async)">Senden</button>
+            @if (svc.awaitingReply$ | async) {
+              <button class="cancel-btn" (click)="cancelChat()">⏹ Abbrechen</button>
+            } @else {
+              <button class="ghost" (click)="disconnect()">Trennen</button>
+            }
           </div>
         </div>
       }
@@ -195,6 +199,7 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
     .msg { margin-bottom: 5px; font-size: 12px; word-break: break-word; }
     .send { border-top: 1px solid #1a2d4a; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
     .ghost { color: #6b8ab8; }
+    .cancel-btn { color: #ff6b6b; border-color: #ff6b6b; background: #1a0a0a; }
     .divider { border: none; border-top: 1px solid #1a2d4a; margin: 6px 0; }
     .login-status { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; }
     .login-status.ok { color: #7fffd4; }
@@ -278,6 +283,10 @@ export class AiSnakeChatPanelComponent {
     if (!text) return;
     this.svc.sendRoomMessage(text);
     this.draft = '';
+  }
+
+  cancelChat(): void {
+    this.svc.cancelChat();
   }
 
   mode(): string {
