@@ -465,7 +465,6 @@ def _worker_chat_full_scan(
                 model=model,
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
                 timeout=timeout_s,
-                max_retries=0,
             )
             text = str(answer or "").strip()
             batch_meta: dict[str, Any] = {
