@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Subject, debounceTime, distinctUntilChanged, filter } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
@@ -16,7 +16,7 @@ export interface AiSnakeConfigOptions {
 }
 
 @Injectable({ providedIn: 'root' })
-export class AiSnakeConfigService {
+export class AiSnakeConfigService implements OnDestroy {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
   private bridge = inject(WindowBridgeService);
@@ -26,6 +26,7 @@ export class AiSnakeConfigService {
   readonly options$ = new BehaviorSubject<AiSnakeConfigOptions | null>(null);
   private saveQueue$ = new Subject<AiSnakeConfig>();
   private pendingPatch: AiSnakeConfig = {};
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.saveQueue$.pipe(debounceTime(500)).subscribe(patch => this.flushPatch(patch));
@@ -34,6 +35,16 @@ export class AiSnakeConfigService {
       filter(t => !!t),
       distinctUntilChanged(),
     ).subscribe(() => this.load());
+    // Periodic reload every 60s so stale/empty configs recover automatically
+    this.pollTimer = setInterval(() => {
+      if (this.hubUrl && Object.keys(this.config$.value).length === 0) {
+        this.load();
+      }
+    }, 60_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollTimer) clearInterval(this.pollTimer);
   }
 
   private get hubUrl(): string {
