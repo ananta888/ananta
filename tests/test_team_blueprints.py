@@ -1121,7 +1121,7 @@ def test_blueprint_constraints_block_duplicate_rows_on_db_level():
 
 
 def test_create_blueprint_rolls_back_on_child_persist_failure(client, monkeypatch):
-    import agent.services.team_blueprint_service as team_blueprint_service
+    import agent.services.team_blueprint_persistence_service as team_blueprint_persistence_service
 
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
@@ -1129,7 +1129,7 @@ def test_create_blueprint_rolls_back_on_child_persist_failure(client, monkeypatc
     def fail_persist(*args, **kwargs):
         raise RuntimeError("persist failed")
 
-    monkeypatch.setattr(team_blueprint_service, "persist_blueprint_children_in_session", fail_persist)
+    monkeypatch.setattr(team_blueprint_persistence_service, "persist_blueprint_children_in_session", fail_persist)
 
     response = client.post(
         "/teams/blueprints",
@@ -1149,7 +1149,7 @@ def test_create_blueprint_rolls_back_on_child_persist_failure(client, monkeypatc
 
 
 def test_instantiate_blueprint_rolls_back_when_materialization_fails(client, monkeypatch):
-    import agent.services.team_blueprint_service as team_blueprint_service
+    import agent.services.team_blueprint_instantiation_service as team_blueprint_instantiation_service
 
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
@@ -1160,7 +1160,7 @@ def test_instantiate_blueprint_rolls_back_when_materialization_fails(client, mon
     def fail_materialization(*args, **kwargs):
         raise RuntimeError("materialization failed")
 
-    monkeypatch.setattr(team_blueprint_service, "_materialize_blueprint_artifacts_in_session", fail_materialization)
+    monkeypatch.setattr(team_blueprint_instantiation_service, "_materialize_blueprint_artifacts_in_session", fail_materialization)
 
     with Session(engine) as session:
         before_team_count = len(session.exec(select(TeamDB)).all())

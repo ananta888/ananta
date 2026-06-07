@@ -52,16 +52,24 @@ from agent.services.repository_registry import get_repository_registry
 from agent.services.seed_blueprint_catalog import get_seed_blueprint_catalog
 from agent.services.seed_template_catalog import get_seed_template_catalog
 from agent.services.system_prompt_catalog import get_system_prompt_catalog
-from agent.services.team_blueprint_service import (
+from agent.services.team_blueprint_instantiation_service import (
+    instantiate_blueprint as instantiate_blueprint_service,
+)
+from agent.services.team_blueprint_persistence_service import (
+    persist_blueprint_children as persist_blueprint_children_service,
+    save_blueprint as save_blueprint_service,
+)
+from agent.services.team_blueprint_reconciliation_service import (
+    reconcile_seed_blueprints as reconcile_seed_blueprints_service,
+    reconcile_seed_templates as reconcile_seed_templates_service,
+)
+from agent.services.team_system_prompt_reconciliation_service import (
+    reconcile_system_prompts as reconcile_system_prompts_service,
+)
+from agent.services.team_template_bootstrap_service import (
     RoleLinkSpec,
     TemplateBootstrapSpec,
     ensure_default_templates as ensure_default_templates_service,
-    instantiate_blueprint as instantiate_blueprint_service,
-    persist_blueprint_children as persist_blueprint_children_service,
-    reconcile_seed_blueprints as reconcile_seed_blueprints_service,
-    reconcile_seed_templates as reconcile_seed_templates_service,
-    reconcile_system_prompts as reconcile_system_prompts_service,
-    save_blueprint as save_blueprint_service,
 )
 from agent.services.team_definition_version_service import (
     build_team_blueprint_diff,
