@@ -28,3 +28,9 @@ class WorkerSelection:
     matched_capabilities: list[str]
     matched_roles: list[str]
     strategy: str
+    # WFG-009: workflow routing provenance. All fields are optional and
+    # default to None/empty so existing call sites stay unchanged.
+    workflow_step_id: str | None = None
+    workflow_step_role: str | None = None
+    workflow_task_kind: str | None = None
+    routing_origin: str | None = None
