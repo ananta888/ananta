@@ -182,3 +182,157 @@ def test_topological_order_raises_on_unknown_dep(session: Session) -> None:
 
 def test_topological_order_empty_returns_empty() -> None:
     assert WorkflowDefinitionService().topological_order([]) == []
+
+
+# ── WFG-008: default-gate insertion tests ─────────────────────────────
+
+
+def test_insert_default_gates_empty_returns_empty() -> None:
+    assert WorkflowDefinitionService().insert_default_gates([], blueprint_name="x") == []
+
+
+def test_insert_default_gates_no_planner_returns_unchanged() -> None:
+    steps = [
+        {"id": "a", "role": "Reviewer", "task_kind": "review", "sort_order": 0, "depends_on": []},
+    ]
+    assert WorkflowDefinitionService().insert_default_gates(
+        steps, blueprint_name="x"
+    ) == steps
+
+
+def test_insert_default_gates_no_developer_returns_unchanged() -> None:
+    steps = [
+        {"id": "a", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
+    ]
+    assert WorkflowDefinitionService().insert_default_gates(
+        steps, blueprint_name="x"
+    ) == steps
+
+
+def test_insert_default_gates_planner_to_developer_adds_reviewer() -> None:
+    """The classic case: Planner writes spec, Developer writes code.
+    A Reviewer gate must sit between them."""
+    steps = [
+        {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
+        {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 1, "depends_on": ["plan"]},
+    ]
+    out = WorkflowDefinitionService().insert_default_gates(
+        steps, blueprint_name="x"
+    )
+    assert len(out) == 3
+    gate = next(s for s in out if s["task_kind"] == "gate_review")
+    assert gate["role"] == "Reviewer"
+    assert gate["gate"] is True
+    assert gate["depends_on"] == ["plan"]
+    assert gate["checks"]["policy"] == "wfg008_default_planner_to_developer"
+    # Developer's dependency was rewired to point at the gate
+    build = next(s for s in out if s["id"] == "build")
+    assert build["depends_on"] == [gate["id"]]
+
+
+def test_insert_default_gates_idempotent_when_explicit_gate_present() -> None:
+    """If the workflow already has a gate between Planner and Developer,
+    no default gate is inserted."""
+    steps = [
+        {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
+        {"id": "gate", "role": "Reviewer", "task_kind": "gate_review", "gate": True,
+         "sort_order": 1, "depends_on": ["plan"],
+         "checks": {"min_artifacts": ["x"]}, "failure_policy": "block"},
+        {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 2, "depends_on": ["gate"]},
+    ]
+    out = WorkflowDefinitionService().insert_default_gates(
+        steps, blueprint_name="x"
+    )
+    # No new step inserted, and the explicit gate's id is preserved
+    assert len(out) == 3
+    assert sum(1 for s in out if s["task_kind"] == "gate_review") == 1
+    assert any(s["id"] == "gate" for s in out)
+
+
+def test_insert_default_gates_uses_deployment_default_policy() -> None:
+    from agent.services.workflow_settings import (
+        GateFailurePolicy,
+        WorkflowMode,
+        WorkflowSettings,
+    )
+    settings = WorkflowSettings(
+        mode=WorkflowMode.AUTO,
+        default_gate_policy=GateFailurePolicy.SKIP,
+        gate_timeout_seconds=86400,
+        audit_enabled=True,
+        artifact_flow_enforced=True,
+    )
+    steps = [
+        {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
+        {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 1, "depends_on": ["plan"]},
+    ]
+    out = WorkflowDefinitionService().insert_default_gates(
+        steps, blueprint_name="x", settings=settings
+    )
+    gate = next(s for s in out if s["task_kind"] == "gate_review")
+    assert gate["failure_policy"] == "skip"
+
+
+def test_insert_default_gates_per_step_policy_overrides() -> None:
+    """A per-step failure_policy on the developer step is used (this is
+    a pragmatic place to look because the developer step is the one
+    being gated; the catalog normalizer is responsible for the broader
+    policy resolution)."""
+    from agent.services.workflow_settings import (
+        GateFailurePolicy,
+        WorkflowMode,
+        WorkflowSettings,
+    )
+    settings = WorkflowSettings(
+        mode=WorkflowMode.AUTO,
+        default_gate_policy=GateFailurePolicy.BLOCK,
+        gate_timeout_seconds=86400,
+        audit_enabled=True,
+        artifact_flow_enforced=True,
+    )
+    steps = [
+        {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
+        {"id": "build", "role": "Developer", "task_kind": "coding",
+         "failure_policy": "manual", "sort_order": 1, "depends_on": ["plan"]},
+    ]
+    out = WorkflowDefinitionService().insert_default_gates(
+        steps, blueprint_name="x", settings=settings
+    )
+    gate = next(s for s in out if s["task_kind"] == "gate_review")
+    assert gate["failure_policy"] == "manual"
+
+
+def test_insert_default_gates_preserves_dag_validity() -> None:
+    """After insertion, the workflow DAG must still be acyclic with all
+    references resolvable."""
+    steps = [
+        {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
+        {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 1, "depends_on": ["plan"]},
+        {"id": "deploy", "role": "Operator", "task_kind": "ops", "sort_order": 2, "depends_on": ["build"]},
+    ]
+    out = WorkflowDefinitionService().insert_default_gates(
+        steps, blueprint_name="x"
+    )
+    # Validate DAG
+    ids = {s["id"] for s in out}
+    for s in out:
+        for d in s.get("depends_on", []):
+            assert d in ids, f"step {s['id']!r} has unknown dep {d!r}"
+    # Validate acyclic
+    in_deg = {s["id"]: 0 for s in out}
+    edges = {s["id"]: [] for s in out}
+    for s in out:
+        for d in s.get("depends_on", []):
+            in_deg[s["id"]] += 1
+            edges[d].append(s["id"])
+    from collections import deque
+    ready = deque(sid for sid, deg in in_deg.items() if deg == 0)
+    seen = 0
+    while ready:
+        sid = ready.popleft()
+        seen += 1
+        for succ in edges[sid]:
+            in_deg[succ] -= 1
+            if in_deg[succ] == 0:
+                ready.append(succ)
+    assert seen == len(out), "default-gate insertion introduced a cycle"
