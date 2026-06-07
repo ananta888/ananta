@@ -347,11 +347,13 @@ def _worker_chat_full_scan(
     batches = [selected[i:i + files_per_batch] for i in range(0, len(selected), files_per_batch)]
     trace["batches_planned"] = len(batches)
     trace["files_selected"] = len(selected)
+    trace["timeout_per_batch_s"] = timeout_s
+    trace["batch_budget_s"] = _batch_budget_s
 
     import concurrent.futures as _cf
 
     _PER_FILE_CHARS = 3500
-    timeout_s = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
+    timeout_s = int(getattr(settings, "http_timeout", 300) or 300)
 
     def _run_batch(args: tuple[int, list]) -> tuple[int, str, str]:
         step, batch = args
@@ -387,15 +389,17 @@ def _worker_chat_full_scan(
             return step, file_labels, ""
 
     batch_summaries: list[str] = []
+    results = [None] * len(batches)
     with _cf.ThreadPoolExecutor(max_workers=parallel_batches) as pool:
         futures = {pool.submit(_run_batch, (i + 1, b)): i for i, b in enumerate(batches)}
-        results = [None] * len(batches)
         for fut in _cf.as_completed(futures):
             step, file_labels, batch_answer = fut.result()
             results[step - 1] = (step, file_labels, batch_answer)
-    for step, file_labels, batch_answer in (r for r in results if r):
-        if batch_answer:
-            batch_summaries.append(f"**Batch {step}** [{file_labels}]:\n{batch_answer}")
+    for r in results:
+        if r:
+            step, file_labels, batch_answer = r
+            if batch_answer:
+                batch_summaries.append(f"**Batch {step}** [{file_labels}]:\n{batch_answer}")
 
     trace["batches_completed"] = len(batch_summaries)
 

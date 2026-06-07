@@ -80,7 +80,7 @@ _OPTIONS: dict[str, list[str]] = {
         "http://localhost:1234/v1", "http://localhost:8080/v1",
         "http://localhost:11434/v1", "http://127.0.0.1:1234/v1",
     ],
-    "chat_ask_timeout_s": ["20", "30", "45", "60", "90", "120", "180"],
+    "chat_ask_timeout_s": ["20", "30", "45", "60", "90", "120", "180", "300", "600", "1200", "1800"],
     "chat_source_pack_id": ["ananta-dev-default", "ananta-default", "ananta-local-only"],
     "chat_context_chars": ["1000", "2000", "3000", "5000", "8000", "12000"],
     "chat_max_tokens": ["400", "800", "1200", "2000", "4000", "8000"],
