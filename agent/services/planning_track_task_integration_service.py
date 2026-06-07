@@ -30,6 +30,45 @@ def _normalize_task_kind(value: str) -> str:
     return "coding"
 
 
+def _extract_workflow_step(plan_task: dict[str, Any]) -> dict[str, Any]:
+    """WFG-007: pull the workflow-step provenance that the
+    BlueprintPlanningAdapter (WFG-006) attaches to a planning track task.
+
+    The adapter writes a flat set of keys onto each subtask
+    (blueprint_workflow_step_id, blueprint_role_name, task_kind, gate,
+    checks, failure_policy, required_capabilities, produces, consumes).
+    This helper normalizes that into a single ``workflow_step`` block so
+    the materializer can persist it onto ``worker_execution_context``
+    and downstream queue/worker code can consume a stable shape.
+
+    Returns an empty dict when the plan task is not backed by a
+    blueprint workflow step (legacy/manual tracks), which keeps
+    materialize_tasks() fully backward compatible.
+    """
+    if not isinstance(plan_task, dict):
+        return {}
+    step_id = str(plan_task.get("blueprint_workflow_step_id") or "").strip()
+    if not step_id:
+        return {}
+    step_label = str(plan_task.get("blueprint_workflow_step_id_label") or "").strip()
+    role = str(plan_task.get("blueprint_role_name") or "").strip()
+    task_kind = str(plan_task.get("task_kind") or "").strip()
+    failure_policy = plan_task.get("failure_policy")
+    return {
+        "schema": "workflow_step_provenance.v1",
+        "step_id": step_id,
+        "step_label": step_label or step_id,
+        "role": role,
+        "task_kind": task_kind,
+        "gate": bool(plan_task.get("gate", False)),
+        "checks": dict(plan_task.get("checks") or {}) or None,
+        "failure_policy": str(failure_policy) if failure_policy else None,
+        "required_capabilities": list(plan_task.get("required_capabilities") or []),
+        "produces": list(plan_task.get("produces") or []),
+        "consumes": list(plan_task.get("consumes") or []),
+    }
+
+
 class PlanningTrackTaskIntegrationService:
     def __init__(
         self,
@@ -87,24 +126,48 @@ class PlanningTrackTaskIntegrationService:
                 _task_id_for_plan_task(goal_id=goal_id, output_artifact_id=output_artifact_id, plan_task_id=dep)
                 for dep in depends_plan_ids
             ]
+            workflow_step = _extract_workflow_step(plan_task)
+            required_capabilities = list(workflow_step.get("required_capabilities") or [])
             task_payload = existing or TaskDB(id=internal_task_id, created_at=time.time())
             task_payload.title = title
             task_payload.description = description
             task_payload.status = status if status in {"todo", "in_progress", "blocked", "completed", "failed"} else "todo"
+            # WFG-007: gate tasks remain blocked until their depends_on are
+            # satisfied; otherwise the queue lets them run too early.
+            if bool(workflow_step.get("gate", False)) and task_payload.status == "todo":
+                task_payload.status = "blocked"
             task_payload.priority = str(plan_task.get("priority") or "Medium")
             task_payload.goal_id = goal_id
             task_payload.plan_id = output_artifact_id
             task_payload.plan_node_id = plan_task_id
-            task_payload.task_kind = _normalize_task_kind(str(plan_task.get("type") or ""))
+            workflow_task_kind = str(workflow_step.get("task_kind") or "").strip()
+            task_payload.task_kind = (
+                workflow_task_kind or _normalize_task_kind(str(plan_task.get("type") or ""))
+            )
             task_payload.depends_on = depends_internal_ids
-            task_payload.worker_execution_context = {
-                **dict(task_payload.worker_execution_context or {}),
-                "planning_track": {
-                    "output_artifact_id": output_artifact_id,
-                    "plan_task_id": plan_task_id,
-                    "milestone_id": milestone_id,
-                },
+            if required_capabilities:
+                task_payload.required_capabilities = required_capabilities
+            # Preserve existing planning_track context; only refresh the
+            # workflow_step block so repeated materialization is idempotent.
+            existing_ctx = dict(task_payload.worker_execution_context or {})
+            existing_ctx["planning_track"] = {
+                "output_artifact_id": output_artifact_id,
+                "plan_task_id": plan_task_id,
+                "milestone_id": milestone_id,
             }
+            if workflow_step:
+                existing_ctx["workflow_step"] = workflow_step
+            task_payload.worker_execution_context = existing_ctx
+            if bool(workflow_step.get("gate", False)) and workflow_step.get("checks"):
+                # Surface gate check expectations on the task itself so
+                # downstream queue/worker code can verify without
+                # re-reading the workflow definition.
+                task_payload.verification_spec = {
+                    **dict(task_payload.verification_spec or {}),
+                    "schema": "workflow_gate_checks.v1",
+                    "checks": dict(workflow_step.get("checks") or {}),
+                    "failure_policy": str(workflow_step.get("failure_policy") or "block"),
+                }
             task_payload.updated_at = time.time()
             task_repo.save(task_payload)
             created_ids.append(internal_task_id)
