@@ -328,7 +328,8 @@ def _worker_chat_full_scan(
         return "", trace
 
     _SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache",
-                  ".tox", "dist", "build", ".eggs", "project-workspaces", "tests", "test"}
+                  ".tox", "dist", "build", ".eggs", "project-workspaces", "tests", "test",
+                  ".claude", ".idea", ".vscode"}
     exts = (".py",) if source_only else (".py", ".ts")
 
     all_files: list[_pl.Path] = []
@@ -336,7 +337,18 @@ def _worker_chat_full_scan(
         for f in repo_root.rglob(f"*{ext}"):
             if not any(part in _SKIP_DIRS for part in f.parts):
                 all_files.append(f)
-    all_files.sort(key=lambda f: str(f.relative_to(repo_root)))
+
+    # Score files by keyword relevance to the question so topic-specific files are prioritized
+    _STOPWORDS = {"bitte", "mir", "den", "die", "das", "der", "und", "oder", "wie", "was",
+                  "ist", "sind", "in", "im", "mit", "von", "zu", "an", "auf", "für", "the",
+                  "a", "an", "and", "or", "how", "what", "is", "please", "explain", "me"}
+    _keywords = [w.lower() for w in question.replace("/", " ").split() if len(w) > 3 and w.lower() not in _STOPWORDS]
+
+    def _score(f: _pl.Path) -> int:
+        rel = str(f.relative_to(repo_root)).lower()
+        return sum(1 for kw in _keywords if kw in rel)
+
+    all_files.sort(key=lambda f: (-_score(f), str(f.relative_to(repo_root))))
 
     trace["files_found"] = len(all_files)
     if not all_files:
@@ -349,7 +361,6 @@ def _worker_chat_full_scan(
     trace["batches_planned"] = len(batches)
     trace["files_selected"] = len(selected)
     trace["timeout_per_batch_s"] = timeout_s
-    trace["batch_budget_s"] = _batch_budget_s
 
     import concurrent.futures as _cf
 
