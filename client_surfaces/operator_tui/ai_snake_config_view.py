@@ -23,6 +23,7 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_use_codecompass",
     "chat_include_local_project",
     "chat_include_wikipedia",
+    "chat_include_task_memory",
     "chat_source_pack_id",
     "chat_context_chars",
     "chat_max_tokens",
@@ -51,6 +52,7 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_embedding_api_max_records",
     "chat_retrieval_profile",
     "chat_retrieval_domain_hint",
+    "chat_codecompass_trigger_mode",
     "chat_code_questions_repo_first",
     "chat_architecture_analysis_mode",
     "chat_full_scan_source_only",
@@ -303,6 +305,7 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     chat_use_codecompass = _resolve_bool_pref(game, "chat_use_codecompass", "ANANTA_TUI_CHAT_USE_CODECOMPASS", True)
     chat_include_local_project = _resolve_bool_pref(game, "chat_include_local_project", "ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", True)
     chat_include_wikipedia = _resolve_bool_pref(game, "chat_include_wikipedia", "ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", False)
+    chat_include_task_memory = _resolve_bool_pref(game, "chat_include_task_memory", "ANANTA_TUI_CHAT_INCLUDE_TASK_MEMORY", True)
     chat_code_questions_repo_first = _resolve_bool_pref(game, "chat_code_questions_repo_first", "", False)
     chat_source_pack_id = str(
         game.get("chat_source_pack_id")
@@ -429,6 +432,29 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(game.get("chat_retrieval_profile") or "auto"),
             "options": ["auto", "repo_first", "docs_first", "legacy"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_codecompass_trigger_mode",
+            "label": "CodeCompass Trigger",
+            "type": "choice",
+            "value": str(game.get("chat_codecompass_trigger_mode") or "auto"),
+            "options": ["auto", "force_codecompass", "force_repo_first", "disabled"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_include_task_memory",
+            "label": "Chat Task-Memory",
+            "type": "bool",
+            "value": chat_include_task_memory,
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_retrieval_domain_hint",
+            "label": "Retrieval Domain",
+            "type": "choice",
+            "value": str(game.get("chat_retrieval_domain_hint") or ""),
+            "options": ["", "codecompass", "ai_snake", "worker", "ananta_game", "operator_tui", "ops", "generic"],
             "group": "Kontext / RAG",
         },
         {
@@ -815,11 +841,13 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             game["chat_include_local_project"] = parsed
         elif key == "chat_include_wikipedia":
             game["chat_include_wikipedia"] = parsed
+        elif key == "chat_include_task_memory":
+            game["chat_include_task_memory"] = parsed
         elif key in {"chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status", "chat_code_questions_repo_first"}:
             game[key] = parsed
         if key in {
             "visual_enabled", "chat_panel_open", "visual_codecompass", "chat_use_codecompass",
-            "chat_include_local_project", "chat_include_wikipedia",
+            "chat_include_local_project", "chat_include_wikipedia", "chat_include_task_memory",
             "chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status",
             "chat_code_questions_repo_first",
         }:
@@ -914,6 +942,22 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"
 
+    if key == "chat_codecompass_trigger_mode":
+        # Valid values mirror the backend resolve_profile enum.
+        if raw_value not in {"auto", "force_codecompass", "force_repo_first", "disabled"}:
+            return f"ai config: {label} erwartet auto/force_codecompass/force_repo_first/disabled"
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value}"
+
+    if key == "chat_retrieval_domain_hint":
+        # Choice values: empty (auto) + 7 known DOMAIN_* constants.
+        if raw_value not in {"", "codecompass", "ai_snake", "worker", "ananta_game", "operator_tui", "ops", "generic"}:
+            return f"ai config: {label} erwartet eine Domain oder leer"
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value or 'auto'}"
+
     if key == "chat_architecture_analysis_mode":
         if raw_value not in {"auto", "standard", "full_scan", "off"}:
             return f"ai config: {label} erwartet auto/standard/full_scan/off"
@@ -965,11 +1009,6 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             game[key] = max(256, min(200000, value_int))
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {game.get(key, 'auto')}"
-
-    if key == "chat_retrieval_domain_hint":
-        game[key] = raw_value
-        _persist_tui_chat_settings(game)
-        return f"ai config: {label} -> {raw_value or '-'}"
 
     if key == "chat_history_turns":
         try:

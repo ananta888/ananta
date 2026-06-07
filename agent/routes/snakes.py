@@ -243,6 +243,12 @@ def _resolve_snake_retrieval_profile_trace(
             "coverage_policy": profile.coverage_policy,
             "summary_policy": profile.summary_policy,
             "source_types": list(profile.source_types),
+            "source_type_weights": dict(profile.source_type_weights),
+            "feature_flag": profile.feature_flag,
+            "trigger_mode": str(cfg.get("chat_codecompass_trigger_mode") or "auto").strip().lower(),
+            "selected_by": profile.selected_by,
+            "reasons": list(profile.reasons),
+            "negative_source_patterns": list(profile.negative_source_patterns),
             "warnings": list(profile.warnings),
         }
     except Exception as exc:
@@ -388,19 +394,69 @@ def _worker_chat_full_scan(
             if not any(part in _SKIP_DIRS for part in f.parts):
                 all_files.append(f)
 
-    # Score files by keyword relevance to the question so topic-specific files are prioritized
+    # Score files by keyword relevance to the question. We use a weighted scheme
+    # that prefers *content* matches over path-only matches — a file whose body
+    # actually discusses "codecompass" outranks one that just happens to live in
+    # a directory with that name. The previous path-substring heuristic caused
+    # topic-relevant files to be skipped when their names didn't contain the
+    # keyword. See AGENTS.md / planning-pipeline for the full rationale.
     _STOPWORDS = {"bitte", "mir", "den", "die", "das", "der", "und", "oder", "wie", "was",
                   "ist", "sind", "in", "im", "mit", "von", "zu", "an", "auf", "für", "the",
                   "a", "an", "and", "or", "how", "what", "is", "please", "explain", "me"}
-    _keywords = [w.lower() for w in question.replace("/", " ").split() if len(w) > 3 and w.lower() not in _STOPWORDS]
+    # Lowered length threshold from 3 to >=3 so short but high-signal tokens
+    # like "rag", "api", "tui", "mcp", "hub" survive the filter. (Previous >3
+    # dropped "rag" which is central to CodeCompass retrieval questions.)
+    _keywords = [w.lower() for w in question.replace("/", " ").split()
+                 if len(w) >= 3 and w.lower() not in _STOPWORDS]
+
+    # Pre-read a small content prefix per file for the ranking pass. Bounded
+    # to keep ranking cheap on large repos (1435 files × 2KB ≈ 3MB of I/O).
+    _RANK_CONTENT_PREFIX = 2000
+    _file_content_cache: dict[str, str] = {}
+
+    def _read_prefix(f: _pl.Path) -> str:
+        cached = _file_content_cache.get(str(f))
+        if cached is not None:
+            return cached
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")[:_RANK_CONTENT_PREFIX]
+        except OSError:
+            text = ""
+        _file_content_cache[str(f)] = text
+        return text
 
     def _score(f: _pl.Path) -> int:
         rel = str(f.relative_to(repo_root)).lower()
-        return sum(1 for kw in _keywords if kw in rel)
+        name = f.name.lower()
+        content = _read_prefix(f).lower()
+        # Weighting (chosen so a strong name match beats a weak content match,
+        # and a strong content match beats a weak directory match):
+        #   filename match  : 3 points per keyword
+        #   directory match : 2 points per keyword
+        #   content match   : 1 point per occurrence, capped at 5 per keyword
+        s = 0
+        for kw in _keywords:
+            if kw in name:
+                s += 3
+            if kw in rel:
+                s += 2
+            if kw in content:
+                s += min(5, content.count(kw))
+        return s
 
     all_files.sort(key=lambda f: (-_score(f), str(f.relative_to(repo_root))))
 
     trace["files_found"] = len(all_files)
+    trace["ranking_keywords"] = list(_keywords)
+    # Surface the top-ranked files in the trace so operators can verify the
+    # new content-weighted scoring actually picks topic-relevant files.
+    if all_files:
+        top = all_files[: min(5, len(all_files))]
+        trace["ranking_top_files"] = [
+            {"path": str(f.relative_to(repo_root)), "score": _score(f)}
+            for f in top
+        ]
+        trace["ranking_files_with_hits"] = sum(1 for f in all_files if _score(f) > 0)
     if not all_files:
         trace["error"] = "no_source_files"
         return "", trace
@@ -1211,7 +1267,12 @@ def snake_ask():
         rag_trace["source"] = "hub_rag"
         rag_trace["has_context"] = has_context
         rag_trace["summary"] = context_summary
-        if debug:
+        # CRPS-007: always surface the retrieval profile trace when the TUI
+        # sent a retrieval_config override. The TUI profile inspector depends
+        # on this being present so the user can verify which domain/intent/
+        # trigger_mode was used. `debug=true` is the legacy opt-in for cast
+        # tests that don't send retrieval_config.
+        if debug or retrieval_config_overrides:
             rag_trace["retrieval_profile"] = _resolve_snake_retrieval_profile_trace(
                 question,
                 retrieval_config_overrides=retrieval_config_overrides,
@@ -1242,8 +1303,14 @@ def snake_ask():
                 if len(answer) > limits.answer_chars:
                     answer = answer[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
                 resp: dict[str, Any] = {"answer": answer, "path": "full_scan", "context_summary": summary}
+                # CRPS-007: include the rag profile trace so callers (TUI
+                # profile inspector + cast tests) can verify which domain /
+                # intent / trigger_mode the full_scan path chose. Same rule
+                # as the worker branch above.
                 if debug:
-                    resp["trace"] = {"worker": worker_trace}
+                    resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
+                elif retrieval_config_overrides and isinstance(rag_trace.get("retrieval_profile"), dict):
+                    resp["trace"] = {"rag": rag_trace}
                 return jsonify(resp), 200
     except Exception as exc:
         logging.getLogger(__name__).debug("full_scan routing failed, falling back: %s", exc)
@@ -1257,8 +1324,14 @@ def snake_ask():
     )
     if answer:
         resp = {"answer": answer, "path": "worker"}
+        # CRPS-007: surface the retrieval profile trace to the TUI whenever
+        # the TUI sent a retrieval_config override. The trace is small (~1KB)
+        # and powers the Kontext/RAG inspector footer. `debug=true` remains
+        # the opt-in for full trace (worker internals + rag).
         if debug:
             resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
+        elif retrieval_config_overrides and isinstance(rag_trace.get("retrieval_profile"), dict):
+            resp["trace"] = {"rag": rag_trace}
         return jsonify(resp), 200
 
     # Fallback: direct LMStudio call from hub
@@ -1289,6 +1362,11 @@ def snake_ask():
                     "reason": "hub_direct_fallback",
                     "analysis_mode": (rag_trace.get("retrieval_profile") or {}).get("analysis_mode"),
                 },
+            }
+        elif retrieval_config_overrides and isinstance(rag_trace.get("retrieval_profile"), dict):
+            resp["trace"] = {
+                "rag": rag_trace,
+                "fallback_reason": "worker_empty",
             }
         return jsonify(resp), 200
     except Exception as exc:
