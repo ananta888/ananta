@@ -296,7 +296,7 @@
         "WFG-016",
         "WFG-017"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WFG-6",
@@ -307,7 +307,7 @@
         "WFG-020",
         "WFG-021"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WFG-7",
@@ -850,10 +850,10 @@
       "title": "Artefaktfluss zwischen Steps erzwingen",
       "type": "backend-feature",
       "milestone": "WFG-5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/services/artifact*.py",
         "agent/services/workflow_gate_service.py",
@@ -874,17 +874,18 @@
         "Unit-Test erlaubt Developer erst mit planning_gate_decision.",
         "Unit-Test prüft minimale Artifact-Refs im Worker-Kontext.",
         "Unit-Test prüft Weitergabe von Follow-up-Artefakten."
-      ]
+      ],
+      "commit": "3b8152c8"
     },
     {
       "id": "WFG-017",
       "title": "Workflow-Audit-Abfrage und Debug-Output bauen",
       "type": "backend-api",
       "milestone": "WFG-5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/routes/**/*.py",
         "client_surfaces/common/client_api.py",
@@ -904,7 +905,8 @@
         "API-Test zeigt blockierten Developer-Task vor Gate approval.",
         "API-Test zeigt released nach Gate approval.",
         "API-Test prüft Redaction."
-      ]
+      ],
+      "commit": "d8c0a6a7"
     },
     {
       "id": "WFG-018",
