@@ -25,7 +25,7 @@ const FIELDS: ConfigField[] = [
   { key: 'chat_backend_api_base', label: 'Chat API Base', group: 'Chat Backend', type: 'choice',
     options: ['http://localhost:1234/v1', 'http://localhost:8080/v1', 'http://localhost:11434/v1'] },
   { key: 'chat_ask_timeout_s', label: 'Timeout (s)', group: 'Chat Backend', type: 'choice',
-    options: ['20', '30', '45', '60', '90', '120', '180'] },
+    options: ['20', '30', '45', '60', '90', '120', '180', '300', '600', '1200', '1800'] },
   { key: 'chat_backend_fallback', label: 'Fallback', group: 'Chat Backend', type: 'choice',
     options: ['none', 'lmstudio', 'local_knowledge'] },
   { key: 'chat_worker_mode', label: 'Worker Modus', group: 'Chat Backend', type: 'choice',
