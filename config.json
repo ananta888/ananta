@@ -189,6 +189,7 @@
     "DevOps Engineer",
     "Scrum Master / Product Owner"
   ],
+  "_pipeline_order_legacy_notice": "WFG-010: pipeline_order is a legacy worker-routing hint. New blueprints should declare an explicit workflow.steps DAG in the blueprint catalog. Tasks with worker_execution_context.workflow_step set follow the workflow DAG and ignore this list. See ADR-workflow-gates-blueprint-contract.md.",
   "prompt_templates": {
     "Architect": "Du bist der Software-Architekt f\u00fcr das Projekt. Analysiere Anforderungen: {{anforderungen}}. Schlage ein modulares Systemdesign vor mit Komponenten, Schnittstellen, Tech-Stack, Datenfl\u00fcssen, Skalierungsstrategie und Risiken. Gib API-Spezifikation (Endpunkte, Datenformate) und nicht-funktionale Anforderungen in stichpunktartiger Form.",
     "Backend Developer": "Du bist Backend-Entwickler. Ausgehend vom Architektur-Design: implementiere Endpoint {{endpoint_name}} mit Beschreibung: {{beschreibung}}. Gib vollst\u00e4ndigen Code (inkl. Validierung, Fehlerbehandlung, Tests) in {{sprache}}. Zeige auch Beispiel-Anfragen und erwartete Antworten. Achte auf Sicherheit und Performance.",
