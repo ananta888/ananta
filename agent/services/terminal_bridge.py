@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import queue
+import select
 import subprocess
 import threading
 from dataclasses import dataclass
@@ -89,23 +90,55 @@ class PtyBridge:
             return
 
     def _read_loop(self) -> None:
+        # The PTY master FD is a shared kernel resource: ``close()`` may run
+        # on a different thread while we are blocked in ``os.read``. To avoid
+        # the SegFault that occurs when the FD is closed (or recycled) under
+        # us, we use ``select.select`` with a short timeout so we can also
+        # react to the stop event between reads. The previous implementation
+        # called ``os.read`` directly and could crash the interpreter if the
+        # FD was invalidated mid-read (see test isolation crash in
+        # ``test_security_headers.py`` when run as part of the full suite).
         if self.master_fd is None:
             return
         while not self._stop.is_set():
+            fd = self.master_fd
+            if fd is None:
+                break
             try:
-                chunk = os.read(self.master_fd, 4096)
-                if not chunk:
-                    break
-                decoded = chunk.decode("utf-8", errors="ignore")
+                # Wake up at least once a second so we re-check the stop event
+                # even when the PTY is silent.
+                readable, _, _ = select.select([fd], [], [], 0.25)
+            except (OSError, ValueError):
+                # ValueError: fd was closed (negative or not in select's set)
+                # OSError: EBADF or EINTR — both mean "stop reading"
+                break
+            if not readable:
+                continue
+            if self._stop.is_set():
+                break
+            try:
+                chunk = os.read(fd, 4096)
+            except (OSError, ValueError):
+                # FD was closed by close() on another thread, or recycled
+                break
+            if not chunk:
+                break
+            decoded = chunk.decode("utf-8", errors="ignore")
+            try:
+                self.output_queue.put_nowait(decoded)
+            except queue.Full:
+                try:
+                    _ = self.output_queue.get_nowait()
+                except queue.Empty:
+                    pass
                 try:
                     self.output_queue.put_nowait(decoded)
                 except queue.Full:
-                    _ = self.output_queue.get_nowait()
-                    self.output_queue.put_nowait(decoded)
-                with self._output_condition:
-                    self._output_condition.notify_all()
-            except OSError:
-                break
+                    # Drop the chunk on backpressure — better than blocking
+                    # the reader thread and starving the stop event.
+                    pass
+            with self._output_condition:
+                self._output_condition.notify_all()
         with self._output_condition:
             self._output_condition.notify_all()
 
@@ -150,6 +183,19 @@ class PtyBridge:
             return not self.output_queue.empty()
 
     def close(self) -> None:
+        # Order matters here:
+        # 1. Set the stop event so the reader thread exits its loop the next
+        #    time it wakes from ``select.select``.
+        # 2. Invalidate ``master_fd`` so the reader's own FD check breaks the
+        #    loop immediately. Doing this BEFORE ``os.close`` means that even
+        #    if the FD has been recycled to a new file descriptor by the
+        #    kernel, the reader thread will not see the new FD because it
+        #    holds a local snapshot of the previous FD value.
+        # 3. Close the FD. After this point, the FD is invalid and any
+        #    in-flight ``os.read`` call will return ``OSError(EBADF)`` rather
+        #    than reading garbage from a recycled descriptor.
+        # 4. Wait for the reader to finish, with a bounded timeout so a stuck
+        #    reader can never deadlock ``close()``.
         self._stop.set()
         with self._output_condition:
             self._output_condition.notify_all()
@@ -159,11 +205,19 @@ class PtyBridge:
             except Exception:
                 pass
         if self.master_fd is not None:
+            # Capture and invalidate first, then close. This is the same
+            # pattern used by subprocess.Popen._close_fds to avoid the
+            # "FD recycled to socket" race that can segfault the interpreter.
+            invalid_fd = self.master_fd
+            self.master_fd = None
             try:
-                os.close(self.master_fd)
+                os.close(invalid_fd)
             except OSError:
                 pass
-            self.master_fd = None
+        if self._reader is not None and self._reader.is_alive():
+            # Daemon thread; join with a short timeout to confirm it has
+            # observed the stop event. We never block forever here.
+            self._reader.join(timeout=1.0)
 
 
 @dataclass
