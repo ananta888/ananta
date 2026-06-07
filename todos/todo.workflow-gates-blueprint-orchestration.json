@@ -1247,7 +1247,7 @@
       "title": "team_blueprint_service.py in Module mit klarer SRP aufteilen",
       "type": "refactor",
       "milestone": "WFG-9",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -1445,14 +1445,15 @@
         "WFG-018",
         "WFG-019",
         "WFG-030"
-      ]
+      ],
+      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
     },
     {
       "id": "WFG-030",
       "title": "Monkeypatch-Pfade in tests/test_team_blueprints.py auf neue Submodule umstellen",
       "type": "test-cleanup",
       "milestone": "WFG-9",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
@@ -1478,14 +1479,15 @@
       "depends_on": [
         "WFG-029"
       ],
-      "blocks": []
+      "blocks": [],
+      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
     },
     {
       "id": "WFG-031",
       "title": "Public-API Shim team_blueprint_service mit DeprecationWarning einrichten",
       "type": "refactor",
       "milestone": "WFG-9",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -1504,14 +1506,15 @@
       "depends_on": [
         "WFG-029"
       ],
-      "blocks": []
+      "blocks": [],
+      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
     },
     {
       "id": "WFG-032",
       "title": "Migration-Script f\u00fcr CI: detect-imports-from-shim",
       "type": "ci-quality",
       "milestone": "WFG-9",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "low",
       "progress_percent": 0,
@@ -1533,7 +1536,8 @@
       ],
       "depends_on": [
         "WFG-031"
-      ]
+      ],
+      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
     },
     {
       "id": "WFG-033",
