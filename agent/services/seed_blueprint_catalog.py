@@ -189,12 +189,188 @@ class SeedBlueprintCatalog:
         if not normalized_artifacts:
             raise ValueError(f"seed blueprint {name} has no artifacts")
 
+        # Optional workflow block (WFG-001). When absent, the blueprint
+        # is task-list only and falls back to the legacy planning-track
+        # materialization path (WFG-021 backward compatibility).
+        workflow = SeedBlueprintCatalog._normalize_workflow(
+            raw.get("workflow"),
+            blueprint_name=name,
+            role_names=seen_role_names,
+        )
         return {
             "name": name,
             "description": description,
             "base_team_type_name": base_team_type_name,
             "roles": normalized_roles,
             "artifacts": normalized_artifacts,
+            "workflow": workflow,
+        }
+
+    @staticmethod
+    def _normalize_workflow(
+        raw: Any,
+        *,
+        blueprint_name: str,
+        role_names: set[str],
+    ) -> dict[str, Any] | None:
+        """Validate and normalize the optional `workflow` block.
+
+        Raises ValueError on:
+          - step id collisions
+          - step id pattern violations (caught earlier by JSON schema)
+          - `role` references that are not in the blueprint's roles
+          - `depends_on` references to unknown steps (DAG edge integrity)
+          - cycles in the `depends_on` graph (after closure)
+
+        Returns None when `raw` is None or empty. The normalized shape:
+          {
+            "mode": "off" | "direct" | "gated" | "strict_gated",
+            "default_failure_policy": "block" | "skip" | "manual",
+            "steps": [
+              {
+                "id": str,
+                "role": str,           # validated against role_names
+                "task_kind": str,
+                "title": str | None,
+                "description": str | None,
+                "produces": [str],
+                "consumes": [str],
+                "depends_on": [str],
+                "gate": bool,
+                "checks": dict | None,
+                "failure_policy": str | None,
+                "required_capabilities": [str],
+                "sort_order": int,
+              }
+            ],
+          }
+        """
+        if not raw:
+            return None
+        if not isinstance(raw, dict):
+            raise ValueError(f"seed blueprint {blueprint_name} workflow must be an object")
+
+        mode = str(raw.get("mode") or "gated")
+        if mode not in {"off", "direct", "gated", "strict_gated"}:
+            raise ValueError(f"seed blueprint {blueprint_name} workflow.mode invalid: {mode}")
+
+        default_failure_policy = str(raw.get("default_failure_policy") or "block")
+        if default_failure_policy not in {"block", "skip", "manual"}:
+            raise ValueError(
+                f"seed blueprint {blueprint_name} workflow.default_failure_policy invalid: "
+                f"{default_failure_policy}"
+            )
+
+        raw_steps = list(raw.get("steps") or [])
+        normalized_steps: list[dict[str, Any]] = []
+        seen_step_ids: set[str] = set()
+        # step_id -> normalized dict (for DAG validation)
+        by_id: dict[str, dict[str, Any]] = {}
+
+        for index, step in enumerate(raw_steps, start=1):
+            if not isinstance(step, dict):
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{index}] must be an object"
+                )
+            step_id = str(step.get("id") or "").strip()
+            if not step_id:
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{index}] missing id"
+                )
+            if step_id in seen_step_ids:
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} has duplicate workflow step id: {step_id}"
+                )
+            seen_step_ids.add(step_id)
+
+            role_name = str(step.get("role") or "").strip()
+            if not role_name:
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}] missing role"
+                )
+            if role_name.lower() not in role_names:
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}].role "
+                    f"'{role_name}' is not in the blueprint's roles"
+                )
+
+            task_kind = str(step.get("task_kind") or "coding")
+            gate = bool(step.get("gate", False))
+            checks = step.get("checks")
+            if gate and not checks:
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}].gate=true "
+                    f"requires a non-empty 'checks' object"
+                )
+            if checks is not None and not isinstance(checks, dict):
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}].checks "
+                    f"must be an object"
+                )
+
+            failure_policy = step.get("failure_policy")
+            if failure_policy is not None and failure_policy not in {"block", "skip", "manual"}:
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}].failure_policy "
+                    f"invalid: {failure_policy}"
+                )
+
+            normalized = {
+                "id": step_id,
+                "role": role_name,
+                "task_kind": task_kind,
+                "title": str(step.get("title") or step_id).strip() or step_id,
+                "description": str(step.get("description") or "").strip(),
+                "produces": [str(x) for x in (step.get("produces") or [])],
+                "consumes": [str(x) for x in (step.get("consumes") or [])],
+                "depends_on": [str(x) for x in (step.get("depends_on") or [])],
+                "gate": gate,
+                "checks": copy.deepcopy(checks) if checks else None,
+                "failure_policy": failure_policy,
+                "required_capabilities": [str(x) for x in (step.get("required_capabilities") or [])],
+                "sort_order": int(step.get("sort_order") or 0),
+            }
+            normalized_steps.append(normalized)
+            by_id[step_id] = normalized
+
+        # DAG edge integrity: every depends_on entry must point to a known step
+        for step in normalized_steps:
+            for dep in step["depends_on"]:
+                if dep not in by_id:
+                    raise ValueError(
+                        f"seed blueprint {blueprint_name} workflow.steps[{step['id']}].depends_on "
+                        f"references unknown step: {dep}"
+                    )
+
+        # Cycle detection (Kahn's algorithm). Sort order within a topo
+        # layer is the step's explicit sort_order, then id for stability.
+        indeg: dict[str, int] = {sid: 0 for sid in by_id}
+        for step in normalized_steps:
+            for _ in step["depends_on"]:
+                indeg[step["id"]] += 1
+        ready: list[str] = sorted(
+            [sid for sid, d in indeg.items() if d == 0],
+            key=lambda s: (by_id[s]["sort_order"], s),
+        )
+        topo: list[str] = []
+        while ready:
+            nxt = ready.pop(0)
+            topo.append(nxt)
+            for step in normalized_steps:
+                if nxt in step["depends_on"]:
+                    indeg[step["id"]] -= 1
+                    if indeg[step["id"]] == 0:
+                        ready.append(step["id"])
+            ready.sort(key=lambda s: (by_id[s]["sort_order"], s))
+        if len(topo) != len(by_id):
+            raise ValueError(
+                f"seed blueprint {blueprint_name} workflow.steps contain a cycle"
+            )
+
+        return {
+            "mode": mode,
+            "default_failure_policy": default_failure_policy,
+            "steps": normalized_steps,
         }
 
 

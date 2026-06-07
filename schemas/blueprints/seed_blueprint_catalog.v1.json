@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ananta.local/schemas/blueprints/seed_blueprint_catalog.v1.json",
   "title": "Seed Blueprint Catalog v1",
+  "description": "Ananta blueprint catalog. A blueprint defines a team type, its roles, and the artifacts the team owns. Optionally a blueprint carries a deterministic workflow graph (workflow.steps) that the planner materializes into tasks. A blueprint without a workflow is treated as 'task-list' only and is fully supported for backward compatibility.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "version", "blueprints"],
@@ -51,6 +52,31 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/artifact"
+          }
+        },
+        "workflow": {
+          "description": "Optional deterministic workflow graph. When present, the planner materializes steps as tasks in topological order; gates block downstream steps until approved.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "steps"],
+          "properties": {
+            "mode": {
+              "description": "Workflow enforcement mode. 'off' skips materialization (artifacts-only). 'direct' materializes steps without gate enforcement. 'gated' (default for new blueprints) enforces gates. 'strict_gated' additionally blocks goal completion while any gate is pending.",
+              "type": "string",
+              "enum": ["off", "direct", "gated", "strict_gated"]
+            },
+            "default_failure_policy": {
+              "description": "What to do when a gate check fails. 'block' (default) halts downstream steps; 'skip' marks downstream as skipped; 'manual' returns to operator for a human decision.",
+              "type": "string",
+              "enum": ["block", "skip", "manual"]
+            },
+            "steps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/workflow_step"
+              }
+            }
           }
         }
       }
@@ -105,6 +131,112 @@
         },
         "payload": {
           "type": "object"
+        }
+      }
+    },
+    "workflow_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "task_kind"],
+      "dependencies": {
+        "gate": {
+          "oneOf": [
+            {
+              "properties": {
+                "gate": { "const": false }
+              }
+            },
+            {
+              "properties": {
+                "gate": { "const": true },
+                "checks": { "type": "object" }
+              },
+              "required": ["checks"]
+            }
+          ]
+        }
+      },
+      "properties": {
+        "id": {
+          "description": "Local step id within the blueprint. Must be unique within a blueprint, lowercase, [a-z0-9_-]+.",
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "role": {
+          "description": "Must match the name of a role in the same blueprint's roles array. Validated at reconciliation time.",
+          "type": "string",
+          "minLength": 1
+        },
+        "task_kind": {
+          "description": "Maps to TaskDB.task_kind. 'gate_review' marks the step as a blocking gate.",
+          "type": "string",
+          "enum": ["planning", "coding", "review", "testing", "documentation", "gate_review", "handoff"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "produces": {
+          "description": "Artifact titles this step is expected to produce. Used by WFG-016 artifact-flow enforcement.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "consumes": {
+          "description": "Artifact titles this step requires. Used by WFG-016 artifact-flow enforcement.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "depends_on": {
+          "description": "Step ids within the same blueprint that must complete before this step can start. Forms the DAG.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
+          "uniqueItems": true
+        },
+        "gate": {
+          "description": "Marks this step as a gate. Gates block downstream steps until their checks pass.",
+          "type": "boolean",
+          "default": false
+        },
+        "checks": {
+          "description": "Required when gate=true. Defines deterministic checks the gate performs. Each check is evaluated against the step's produced artifacts and the blueprint's role/role-tasks.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min_artifacts": {
+              "type": "array",
+              "description": "Artifact titles that MUST be present before the gate can pass.",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "approval_role": {
+              "type": "string",
+              "description": "Role name whose assignment must approve the gate (e.g. 'scrum_master')."
+            },
+            "verification_required": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        },
+        "failure_policy": {
+          "description": "Per-step override of workflow.default_failure_policy.",
+          "type": "string",
+          "enum": ["block", "skip", "manual"]
+        },
+        "required_capabilities": {
+          "description": "Additional capabilities the worker must have to execute this step. Merged with the role's defaults.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "sort_order": {
+          "type": "integer",
+          "default": 0
         }
       }
     }
