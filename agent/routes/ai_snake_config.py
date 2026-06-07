@@ -29,6 +29,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_architecture_analysis_mode",
     # Full-scan chat budget
     "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
+    "chat_full_scan_parallel_batches",
 })
 
 _DEFAULTS: dict[str, Any] = {
@@ -69,6 +70,7 @@ _DEFAULTS: dict[str, Any] = {
     "chat_full_scan_source_only": True,
     "chat_full_scan_max_batches": 8,
     "chat_full_scan_files_per_batch": 3,
+    "chat_full_scan_parallel_batches": 4,
 }
 
 _OPTIONS: dict[str, list[str]] = {
@@ -95,6 +97,7 @@ _OPTIONS: dict[str, list[str]] = {
     "chat_architecture_analysis_mode": ["auto", "standard", "full_scan", "off"],
     "chat_full_scan_max_batches": ["2", "4", "6", "8", "12", "16"],
     "chat_full_scan_files_per_batch": ["1", "2", "3", "5", "8"],
+    "chat_full_scan_parallel_batches": ["1", "2", "3", "4", "6", "8"],
 }
 
 _BOOL_KEYS = frozenset(k for k, v in _DEFAULTS.items() if isinstance(v, bool))

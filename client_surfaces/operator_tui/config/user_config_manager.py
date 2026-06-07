@@ -45,6 +45,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_full_scan_source_only",
     "chat_full_scan_max_batches",
     "chat_full_scan_files_per_batch",
+    "chat_full_scan_parallel_batches",
     # Context budgets
     "chat_context_chars",
     "chat_max_tokens",
@@ -95,6 +96,7 @@ _DEFAULTS: dict[str, Any] = {
     "chat_full_scan_source_only": True,
     "chat_full_scan_max_batches": 8,
     "chat_full_scan_files_per_batch": 3,
+    "chat_full_scan_parallel_batches": 4,
     "chat_context_chars": 12000,
     "chat_max_tokens": 8000,
     "chat_rag_top_k": 120,

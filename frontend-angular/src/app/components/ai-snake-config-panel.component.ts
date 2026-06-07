@@ -51,6 +51,8 @@ const FIELDS: ConfigField[] = [
     options: ['2', '4', '6', '8', '12', '16'] },
   { key: 'chat_full_scan_files_per_batch', label: 'Full-Scan: Dateien/Batch', group: 'Kontext / RAG', type: 'choice',
     options: ['1', '2', '3', '5', '8'] },
+  { key: 'chat_full_scan_parallel_batches', label: 'Full-Scan: Parallele Batches', group: 'Kontext / RAG', type: 'choice',
+    options: ['1', '2', '3', '4', '6', '8'] },
   { key: 'chat_retrieval_domain_hint', label: 'Retrieval Domain Hint', group: 'Kontext / RAG', type: 'text' },
   { key: 'chat_code_questions_repo_first', label: 'Codefragen Repo-first', group: 'Kontext / RAG', type: 'bool' },
   { key: 'chat_max_tokens', label: 'Max Tokens', group: 'Kontext / RAG', type: 'choice',

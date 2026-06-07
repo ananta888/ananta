@@ -56,6 +56,7 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_full_scan_source_only",
     "chat_full_scan_max_batches",
     "chat_full_scan_files_per_batch",
+    "chat_full_scan_parallel_batches",
 }
 
 def _append_unique(values: list[str], candidate: str) -> None:
@@ -456,6 +457,14 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(game.get("chat_full_scan_files_per_batch") or "3"),
             "options": ["1", "2", "3", "5", "8"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_full_scan_parallel_batches",
+            "label": "Full-Scan: Parallele Batches",
+            "type": "choice",
+            "value": str(game.get("chat_full_scan_parallel_batches") or "4"),
+            "options": ["1", "2", "3", "4", "6", "8"],
             "group": "Kontext / RAG",
         },
         {
@@ -891,12 +900,17 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {bool_val}"
 
-    if key in {"chat_full_scan_max_batches", "chat_full_scan_files_per_batch"}:
+    if key in {"chat_full_scan_max_batches", "chat_full_scan_files_per_batch", "chat_full_scan_parallel_batches"}:
         try:
             value_int = int(raw_value)
         except ValueError:
             return f"ai config: {label} erwartet zahl"
-        lo, hi = (1, 16) if key == "chat_full_scan_max_batches" else (1, 10)
+        if key == "chat_full_scan_max_batches":
+            lo, hi = 1, 16
+        elif key == "chat_full_scan_parallel_batches":
+            lo, hi = 1, 8
+        else:
+            lo, hi = 1, 10
         game[key] = max(lo, min(hi, value_int))
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {game[key]}"
