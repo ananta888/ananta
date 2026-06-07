@@ -15,6 +15,7 @@ from agent.repositories import (
     BannedIPRepository,
     BlueprintArtifactRepository,
     BlueprintRoleRepository,
+    BlueprintWorkflowStepRepository,
     ConfigRepository,
     ContextBundleRepository,
     ExtractedDocumentRepository,
@@ -111,6 +112,7 @@ team_member_repo = TeamMemberRepository()
 team_blueprint_repo = TeamBlueprintRepository()
 blueprint_role_repo = BlueprintRoleRepository()
 blueprint_artifact_repo = BlueprintArtifactRepository()
+blueprint_workflow_step_repo = BlueprintWorkflowStepRepository()
 team_type_role_link_repo = TeamTypeRoleLinkRepository()
 planning_run_repo = PlanningRunRepository()
 planning_prompt_version_repo = PlanningPromptVersionRepository()
@@ -135,6 +137,7 @@ __all__ = [
     "BannedIPRepository",
     "BlueprintArtifactRepository",
     "BlueprintRoleRepository",
+    "BlueprintWorkflowStepRepository",
     "ConfigRepository",
     "ContextBundleRepository",
     "ContextAccessPolicyRepository",

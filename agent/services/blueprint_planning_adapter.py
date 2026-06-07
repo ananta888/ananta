@@ -37,6 +37,7 @@ class BlueprintPlanningAdapter:
             if blueprint is None:
                 return None
 
+            workflow_steps = self._load_workflow_steps(repos, blueprint.id)
             artifacts = repos.blueprint_artifact_repo.get_by_blueprint(blueprint.id)
             roles = repos.blueprint_role_repo.get_by_blueprint(blueprint.id)
             template_name_by_id = self._resolve_template_names(
@@ -56,17 +57,34 @@ class BlueprintPlanningAdapter:
                 for role in list(roles or [])
                 if str(role.name or "").strip()
             ]
-            subtasks = self._build_subtasks(
-                blueprint_id=str(blueprint.id),
-                blueprint_name=str(blueprint.name),
-                artifacts=list(artifacts or []),
-                role_template_hints=role_template_hints,
-            )
-            artifact_refs = [
-                f"blueprint_artifact:{artifact.id}"
-                for artifact in list(artifacts or [])
-                if getattr(artifact, "id", None)
-            ]
+            if workflow_steps:
+                # WFG-006: a validated workflow block is the explicit contract
+                # for this blueprint. Build subtasks from the workflow DAG in
+                # topological order; fall back to artifacts only when the
+                # workflow block is absent or empty.
+                subtasks = self._build_subtasks_from_workflow(
+                    blueprint_id=str(blueprint.id),
+                    blueprint_name=str(blueprint.name),
+                    workflow_steps=workflow_steps,
+                    role_template_hints=role_template_hints,
+                )
+                artifact_refs = [
+                    f"blueprint_workflow_step:{step.id}"
+                    for step in workflow_steps
+                    if getattr(step, "id", None)
+                ]
+            else:
+                subtasks = self._build_subtasks(
+                    blueprint_id=str(blueprint.id),
+                    blueprint_name=str(blueprint.name),
+                    artifacts=list(artifacts or []),
+                    role_template_hints=role_template_hints,
+                )
+                artifact_refs = [
+                    f"blueprint_artifact:{artifact.id}"
+                    for artifact in list(artifacts or [])
+                    if getattr(artifact, "id", None)
+                ]
             return BlueprintPlanningResolution(
                 blueprint_id=str(blueprint.id),
                 blueprint_name=str(blueprint.name),
@@ -94,6 +112,80 @@ class BlueprintPlanningAdapter:
         if resolution.degraded or not resolution.subtasks:
             return None
         return list(resolution.subtasks)
+
+    @staticmethod
+    def _load_workflow_steps(repos: Any, blueprint_id: str) -> list[Any]:
+        """WFG-006: load BlueprintWorkflowStepDB rows for a blueprint.
+
+        Returns an empty list when the repository is unavailable or
+        the blueprint has no workflow block. The presence of a
+        non-empty list is the trigger for the workflow-first
+        subtask builder; the artifacts-first builder is the
+        WFG-021 backward-compat path.
+        """
+        repo = getattr(repos, "blueprint_workflow_step_repo", None)
+        if repo is None:
+            return []
+        try:
+            steps = repo.get_by_blueprint(blueprint_id)
+        except SQLAlchemyError:
+            return []
+        return list(steps or [])
+
+    @staticmethod
+    def _build_subtasks_from_workflow(
+        *,
+        blueprint_id: str,
+        blueprint_name: str,
+        workflow_steps: list[Any],
+        role_template_hints: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """WFG-006: build subtasks from a blueprint's workflow DAG.
+
+        Output order follows topological execution order (depends_on
+        first), not sort_order. The catalog normalizer has already
+        validated that the DAG is acyclic, so a stable topological
+        sort by step_id suffices here.
+        """
+        ordered = _stable_topo_order(workflow_steps)
+        subtasks: list[dict[str, Any]] = []
+        for step in ordered:
+            role_name = str(getattr(step, "role_name", "") or "").strip()
+            task_kind = str(getattr(step, "task_kind", "coding") or "coding").strip() or "coding"
+            step_id = str(getattr(step, "step_id", "") or "").strip()
+            title = (
+                str(getattr(step, "title", "") or f"{blueprint_name} → {role_name} ({step_id})").strip()[:200]
+            )
+            description = (
+                str(getattr(step, "description", "") or "").strip()[:2000]
+            )
+            depends_on = [str(d).strip() for d in list(getattr(step, "depends_on", []) or []) if str(d).strip()]
+            subtasks.append({
+                "title": title,
+                "description": description,
+                "priority": "Medium",
+                "depends_on": depends_on,
+                "artifact": f"blueprint_workflow_step:{getattr(step, 'id', '')}",
+                "blueprint_id": blueprint_id,
+                "blueprint_name": blueprint_name,
+                "blueprint_workflow_step_id": str(getattr(step, "id", "")).strip(),
+                "blueprint_workflow_step_id_label": step_id,
+                "blueprint_role_name": role_name,
+                "task_kind": task_kind,
+                "gate": bool(getattr(step, "gate", False)),
+                "checks": dict(getattr(step, "checks", {}) or {}),
+                "failure_policy": getattr(step, "failure_policy", None),
+                "required_capabilities": list(getattr(step, "required_capabilities", []) or []),
+                "produces": list(getattr(step, "produces", []) or []),
+                "consumes": list(getattr(step, "consumes", []) or []),
+                "blueprint_role_hints": [
+                    str(hint.get("role_name") or "").strip()
+                    for hint in role_template_hints
+                    if str(hint.get("role_name") or "").strip()
+                ],
+                "blueprint_role_template_hints": [dict(hint) for hint in role_template_hints],
+            })
+        return subtasks
 
     @staticmethod
     def _match_blueprint(query: str, repos) -> Any | None:  # noqa: ANN401
@@ -208,3 +300,55 @@ def get_blueprint_planning_adapter() -> BlueprintPlanningAdapter:
 
 def _normalize_key(value: str) -> str:
     return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(value or "")).strip("_")
+
+
+def _stable_topo_order(steps: list[Any]) -> list[Any]:
+    """Stable topological sort by step.depends_on (Kahn, ties by step_id).
+
+    The catalog normalizer has already validated the DAG is acyclic, so
+    this routine does not re-validate cycles. It still raises on
+    unknown dependencies (defense-in-depth) and on a leftover cycle
+    that the normalizer somehow missed.
+    """
+    if not steps:
+        return []
+    by_id: dict[str, Any] = {}
+    for step in steps:
+        sid = str(getattr(step, "step_id", "") or "").strip()
+        if not sid:
+            continue
+        by_id[sid] = step
+    in_degree: dict[str, int] = {sid: 0 for sid in by_id}
+    edges: dict[str, list[str]] = {sid: [] for sid in by_id}
+    for step in steps:
+        sid = str(getattr(step, "step_id", "") or "").strip()
+        if not sid:
+            continue
+        for dep in list(getattr(step, "depends_on", []) or []):
+            dep_id = str(dep or "").strip()
+            if dep_id not in by_id:
+                # Unknown dep means a stale BlueprintWorkflowStepDB row.
+                # Skip defensively; the catalog normalizer is the
+                # authoritative gate.
+                continue
+            in_degree[sid] += 1
+            edges[dep_id].append(sid)
+
+    from collections import deque
+    ready: deque[str] = deque(sorted(sid for sid, d in in_degree.items() if d == 0))
+    out: list[Any] = []
+    while ready:
+        sid = ready.popleft()
+        out.append(by_id[sid])
+        succs = sorted(edges[sid])
+        for succ in succs:
+            in_degree[succ] -= 1
+            if in_degree[succ] == 0:
+                ready.append(succ)
+    if len(out) != len(by_id):
+        # Defensive: cycle that escaped the normalizer. Surface it loudly.
+        from agent.services.workflow_definition_service import WorkflowDefinitionError
+        raise WorkflowDefinitionError(
+            f"workflow DAG cycle detected at materialization time; reached {len(out)} of {len(by_id)} steps"
+        )
+    return out
