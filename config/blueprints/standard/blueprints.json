@@ -219,94 +219,96 @@
         }
       ],
       "workflow": {
-        "schema": "blueprint_workflow.v1",
-        "id": "scrum_opencode",
-        "version": 1,
+        "mode": "gated",
+        "default_failure_policy": "manual",
         "steps": [
           {
             "id": "intake",
             "role": "Product Owner",
             "task_kind": "planning",
-            "task_ref": "Backlog Intake And Story Slicing",
-            "consumes": [
-              "goal_brief",
-              "acceptance_criteria"
-            ],
+            "title": "Backlog Intake And Story Slicing",
             "produces": [
-              "execution_plan",
-              "task_breakdown"
+              "Execution Plan",
+              "Task Breakdown"
+            ],
+            "consumes": [
+              "Goal Brief",
+              "Acceptance Criteria"
             ]
           },
           {
             "id": "cascade",
             "role": "Scrum Master",
-            "task_kind": "coordination",
-            "task_ref": "Execution Cascade Agreement",
-            "consumes": [
-              "execution_plan"
-            ],
+            "task_kind": "handoff",
+            "title": "Execution Cascade Agreement",
             "produces": [
-              "execution_contract"
+              "Execution Contract"
+            ],
+            "consumes": [
+              "Execution Plan"
+            ],
+            "depends_on": [
+              "intake"
             ]
           },
           {
             "id": "sync",
             "role": "Scrum Master",
-            "task_kind": "coordination",
-            "task_ref": "Workspace And Artifact Sync",
-            "consumes": [
-              "execution_contract"
-            ],
+            "task_kind": "handoff",
+            "title": "Workspace And Artifact Sync",
             "produces": [
-              "workspace_sync_receipt"
+              "Workspace Sync Receipt"
+            ],
+            "consumes": [
+              "Execution Contract"
+            ],
+            "depends_on": [
+              "cascade"
             ]
           },
           {
             "id": "implementation",
             "role": "Developer",
             "task_kind": "coding",
-            "task_ref": "Vertical Slice Delivery",
-            "consumes": [
-              "execution_plan",
-              "workspace_sync_receipt"
-            ],
+            "title": "Vertical Slice Delivery",
             "produces": [
-              "code_changes",
-              "verification_evidence"
+              "Code Changes",
+              "Verification Evidence"
+            ],
+            "consumes": [
+              "Execution Plan",
+              "Workspace Sync Receipt"
+            ],
+            "depends_on": [
+              "sync"
             ]
           },
           {
             "id": "review_gate",
             "role": "Scrum Master",
-            "task_kind": "review",
-            "task_ref": "Review And Definition Of Done",
-            "consumes": [
-              "code_changes",
-              "verification_evidence"
-            ],
+            "task_kind": "gate_review",
+            "title": "Review And Definition Of Done",
             "produces": [
-              "dod_signoff"
+              "DOD Signoff"
+            ],
+            "consumes": [
+              "Code Changes",
+              "Verification Evidence"
+            ],
+            "depends_on": [
+              "implementation"
             ],
             "gate": true,
-            "gate_decision_policy": "all_artifact_refs_present",
-            "checks": [
-              {
-                "name": "code_changes_present",
-                "type": "file_exists",
-                "ref": "code_changes"
-              },
-              {
-                "name": "verification_evidence_present",
-                "type": "file_exists",
-                "ref": "verification_evidence"
-              }
-            ],
-            "failure_policy": "block_until_human_approval"
+            "checks": {
+              "min_artifacts": [
+                "Code Changes",
+                "Verification Evidence"
+              ],
+              "approval_role": "Scrum Master",
+              "verification_required": true
+            },
+            "failure_policy": "manual"
           }
-        ],
-        "seed_artifact_keys": [
-          "goal_brief",
-          "acceptance_criteria"
         ]
       }
     },
@@ -529,72 +531,68 @@
         }
       ],
       "workflow": {
-        "schema": "blueprint_workflow.v1",
-        "id": "code_repair",
-        "version": 1,
+        "mode": "gated",
+        "default_failure_policy": "manual",
         "steps": [
           {
             "id": "triage",
             "role": "Repair Lead",
-            "task_kind": "triage",
-            "task_ref": "Incident Triage",
-            "consumes": [
-              "goal_brief",
-              "incident_report"
-            ],
+            "task_kind": "planning",
+            "title": "Incident Triage",
             "produces": [
-              "repro_steps",
-              "blast_radius_assessment",
-              "repair_plan"
+              "Repro Steps",
+              "Blast Radius Assessment",
+              "Repair Plan"
+            ],
+            "consumes": [
+              "Goal Brief",
+              "Incident Report"
             ]
           },
           {
             "id": "fix",
             "role": "Fix Engineer",
             "task_kind": "coding",
-            "task_ref": "Repair Implementation",
-            "consumes": [
-              "repro_steps",
-              "repair_plan"
-            ],
+            "title": "Repair Implementation",
             "produces": [
-              "code_changes",
-              "fix_evidence"
+              "Code Changes",
+              "Fix Evidence"
+            ],
+            "consumes": [
+              "Repro Steps",
+              "Repair Plan"
+            ],
+            "depends_on": [
+              "triage"
             ]
           },
           {
             "id": "regression",
             "role": "QA Verifier",
-            "task_kind": "verification",
-            "task_ref": "Regression Validation",
-            "consumes": [
-              "code_changes",
-              "fix_evidence",
-              "repro_steps"
-            ],
+            "task_kind": "testing",
+            "title": "Regression Validation",
             "produces": [
-              "regression_report"
+              "Regression Report"
+            ],
+            "consumes": [
+              "Code Changes",
+              "Fix Evidence",
+              "Repro Steps"
+            ],
+            "depends_on": [
+              "fix"
             ],
             "gate": true,
-            "gate_decision_policy": "all_artifact_refs_present",
-            "checks": [
-              {
-                "name": "fix_evidence_present",
-                "type": "file_exists",
-                "ref": "fix_evidence"
-              },
-              {
-                "name": "regression_report_present",
-                "type": "file_exists",
-                "ref": "regression_report"
-              }
-            ],
-            "failure_policy": "block_until_human_approval"
+            "checks": {
+              "min_artifacts": [
+                "Fix Evidence",
+                "Regression Report"
+              ],
+              "approval_role": "QA Verifier",
+              "verification_required": true
+            },
+            "failure_policy": "manual"
           }
-        ],
-        "seed_artifact_keys": [
-          "goal_brief",
-          "incident_report"
         ]
       }
     },
@@ -701,82 +699,81 @@
         }
       ],
       "workflow": {
-        "schema": "blueprint_workflow.v1",
-        "id": "tdd",
-        "version": 1,
+        "mode": "gated",
+        "default_failure_policy": "manual",
         "steps": [
           {
             "id": "behavior",
             "role": "Behavior Analyst",
-            "task_kind": "analysis",
-            "task_ref": "TestPlanArtifact",
-            "consumes": [
-              "goal_brief",
-              "acceptance_criteria"
-            ],
+            "task_kind": "planning",
+            "title": "TestPlanArtifact",
             "produces": [
-              "test_plan",
-              "behavior_statement"
+              "Test Plan",
+              "Behavior Statement"
+            ],
+            "consumes": [
+              "Goal Brief",
+              "Acceptance Criteria"
             ]
           },
           {
             "id": "red",
             "role": "Test Driver",
-            "task_kind": "verification",
-            "task_ref": "RedTestResultArtifact",
-            "consumes": [
-              "test_plan",
-              "behavior_statement"
-            ],
+            "task_kind": "testing",
+            "title": "RedTestResultArtifact",
             "produces": [
-              "red_test_result"
+              "Red Test Result"
+            ],
+            "consumes": [
+              "Test Plan",
+              "Behavior Statement"
+            ],
+            "depends_on": [
+              "behavior"
             ]
           },
           {
             "id": "patch",
             "role": "Test Driver",
             "task_kind": "coding",
-            "task_ref": "PatchPlanArtifact",
-            "consumes": [
-              "red_test_result"
-            ],
+            "title": "PatchPlanArtifact",
             "produces": [
-              "code_changes",
-              "green_test_result"
+              "Code Changes",
+              "Green Test Result"
+            ],
+            "consumes": [
+              "Red Test Result"
+            ],
+            "depends_on": [
+              "red"
             ]
           },
           {
             "id": "refactor",
             "role": "Refactor Verifier",
-            "task_kind": "verification",
-            "task_ref": "RefactorChecklist",
-            "consumes": [
-              "code_changes",
-              "green_test_result"
-            ],
+            "task_kind": "review",
+            "title": "RefactorChecklist",
             "produces": [
-              "refactor_signoff"
+              "Refactor Signoff"
+            ],
+            "consumes": [
+              "Code Changes",
+              "Green Test Result"
+            ],
+            "depends_on": [
+              "patch"
             ],
             "gate": true,
-            "gate_decision_policy": "all_artifact_refs_present",
-            "checks": [
-              {
-                "name": "green_test_result_present",
-                "type": "file_exists",
-                "ref": "green_test_result"
-              },
-              {
-                "name": "refactor_signoff_present",
-                "type": "file_exists",
-                "ref": "refactor_signoff"
-              }
-            ],
-            "failure_policy": "block_until_human_approval"
+            "checks": {
+              "min_artifacts": [
+                "Green Test Result",
+                "Refactor Signoff"
+              ],
+              "approval_role": "Refactor Verifier",
+              "verification_required": true
+            },
+            "failure_policy": "manual"
           }
-        ],
-        "seed_artifact_keys": [
-          "goal_brief",
-          "acceptance_criteria"
         ]
       }
     },
@@ -860,71 +857,67 @@
         }
       ],
       "workflow": {
-        "schema": "blueprint_workflow.v1",
-        "id": "security_review",
-        "version": 1,
+        "mode": "gated",
+        "default_failure_policy": "manual",
         "steps": [
           {
             "id": "threat_review",
             "role": "Security Lead",
-            "task_kind": "analysis",
-            "task_ref": "Threat Review",
-            "consumes": [
-              "goal_brief",
-              "code_changes"
-            ],
+            "task_kind": "planning",
+            "title": "Threat Review",
             "produces": [
-              "threat_model",
-              "attack_surface_map"
+              "Threat Model",
+              "Attack Surface Map"
+            ],
+            "consumes": [
+              "Goal Brief",
+              "Code Changes"
             ]
           },
           {
             "id": "control_validation",
             "role": "Security Analyst",
-            "task_kind": "verification",
-            "task_ref": "Control Validation",
-            "consumes": [
-              "threat_model",
-              "attack_surface_map"
-            ],
+            "task_kind": "testing",
+            "title": "Control Validation",
             "produces": [
-              "control_validation_report",
-              "policy_check_evidence"
+              "Control Validation Report",
+              "Policy Check Evidence"
+            ],
+            "consumes": [
+              "Threat Model",
+              "Attack Surface Map"
+            ],
+            "depends_on": [
+              "threat_review"
             ]
           },
           {
             "id": "findings_gate",
             "role": "Compliance Reviewer",
-            "task_kind": "review",
-            "task_ref": "Security Findings Report",
-            "consumes": [
-              "control_validation_report",
-              "policy_check_evidence"
-            ],
+            "task_kind": "gate_review",
+            "title": "Security Findings Report",
             "produces": [
-              "findings_report",
-              "remediation_plan"
+              "Findings Report",
+              "Remediation Plan"
+            ],
+            "consumes": [
+              "Control Validation Report",
+              "Policy Check Evidence"
+            ],
+            "depends_on": [
+              "control_validation"
             ],
             "gate": true,
-            "gate_decision_policy": "all_artifact_refs_present",
-            "checks": [
-              {
-                "name": "findings_report_present",
-                "type": "file_exists",
-                "ref": "findings_report"
-              },
-              {
-                "name": "remediation_plan_present",
-                "type": "file_exists",
-                "ref": "remediation_plan"
-              }
-            ],
-            "failure_policy": "block_until_human_approval"
+            "checks": {
+              "min_artifacts": [
+                "Findings Report",
+                "Remediation Plan"
+              ],
+              "approval_role": "Compliance Reviewer",
+              "verification_required": true
+            },
+            "failure_policy": "manual"
           }
-        ],
-        "seed_artifact_keys": [
-          "goal_brief",
-          "code_changes"
         ]
       }
     },
