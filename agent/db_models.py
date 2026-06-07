@@ -169,6 +169,51 @@ class BlueprintArtifactDB(SQLModel, table=True):
     payload: dict = Field(default={}, sa_column=Column(JSON))
 
 
+class BlueprintWorkflowStepDB(SQLModel, table=True):
+    """Persistent representation of a blueprint's optional workflow step.
+
+    WFG-005: Introduced alongside the workflow block in
+    seed_blueprint_catalog.v1 (WFG-001). One row per workflow step, scoped
+    to a blueprint via FK. The catalog normalizer
+    (SeedBlueprintCatalog._normalize_workflow) is the authoritative
+    source of step ids; this table mirrors them at materialization time
+    so the planner and queue layers can query steps without re-parsing
+    the catalog JSON on every request.
+
+    The DAG (depends_on, produces, consumes) lives in dedicated JSON
+    columns rather than relational tables. This is a deliberate
+    trade-off: the step DAG is small (<20 steps per blueprint at the
+    time of writing) and read-heavy; relational edges would force the
+    planner to do an extra roundtrip per step to walk predecessors.
+    WFG-027 evaluates the trade-off as the catalog grows.
+
+    Sort order uses the blueprint-catalog sort_order; the topological
+    execution order is computed at materialization time (WFG-007).
+    """
+    __tablename__ = "blueprint_workflow_steps"
+    __table_args__ = (
+        sa.UniqueConstraint("blueprint_id", "step_id", name="uq_blueprint_workflow_steps_blueprint_step_id"),
+        sa.UniqueConstraint("blueprint_id", "sort_order", name="uq_blueprint_workflow_steps_blueprint_sort_order"),
+    )
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    blueprint_id: str = Field(foreign_key="team_blueprints.id", index=True)
+    step_id: str = Field(index=True)
+    role_name: str = Field(index=True)
+    task_kind: str = "coding"
+    title: Optional[str] = None
+    description: Optional[str] = None
+    sort_order: int = 0
+    produces: List[str] = Field(default=[], sa_column=Column(JSON))
+    consumes: List[str] = Field(default=[], sa_column=Column(JSON))
+    depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
+    gate: bool = False
+    checks: dict = Field(default={}, sa_column=Column(JSON))
+    failure_policy: Optional[str] = None
+    required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class ArtifactDB(SQLModel, table=True):
     __tablename__ = "artifacts"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
