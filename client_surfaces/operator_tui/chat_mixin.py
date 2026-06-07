@@ -23,6 +23,48 @@ from typing import TYPE_CHECKING, Any
 from client_surfaces.operator_tui.chat_long_message import configure_middle_view_for_message
 from client_surfaces.operator_tui.keybindings_config import display_for_action
 
+
+def _capture_snake_ask_trace(game: dict[str, object], data: dict[str, Any]) -> None:
+    """CRPS-007: capture the retrieval profile trace from a /snake/ask response.
+
+    Stored at ``game["last_snake_ask_trace"]`` so the Profile Inspector footer
+    (renderer / chat channel status) can display which domain/intent/trigger_mode
+    was resolved for the most recent :ask. The trace is a thin subset of what
+    the Hub returns — only the fields a user can act on. The full Hub trace is
+    dropped because it can include worker internals and is not UI-safe.
+    """
+    trace = data.get("trace") if isinstance(data, dict) else None
+    if not isinstance(trace, dict):
+        return
+    rag = trace.get("rag")
+    if not isinstance(rag, dict):
+        return
+    profile = rag.get("retrieval_profile")
+    if not isinstance(profile, dict):
+        return
+    # Pick only the fields a human wants to see in the inspector footer.
+    inspector = {
+        "profile_id": str(profile.get("profile_id") or "?"),
+        "domain": str(profile.get("domain") or "?"),
+        "intent": str(profile.get("intent") or "?"),
+        "analysis_mode": str(profile.get("analysis_mode") or "standard"),
+        "trigger_mode": str(profile.get("trigger_mode") or "auto"),
+        "feature_flag": str(profile.get("feature_flag") or "auto"),
+        "selected_by": str(profile.get("selected_by") or "?"),
+        "source_types": list(profile.get("source_types") or []),
+        "reasons": list(profile.get("reasons") or [])[:5],
+    }
+    game["last_snake_ask_trace"] = inspector
+    # Bump a sequence number so the renderer can detect a new trace arrival.
+    seq = int(game.get("last_snake_ask_trace_seq") or 0) + 1
+    game["last_snake_ask_trace_seq"] = seq
+    # Also surface the high-level summary line (matches what the TUI already
+    # shows as "Kontext: N Treffer (...) [profile_id]") for convenience.
+    summary = str(rag.get("summary") or "")
+    if summary:
+        game["last_snake_ask_summary"] = summary
+
+
 _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
     f"TUI: Focus [{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}], Command [:], "
     f"Snake [{display_for_action('toggle_snake_mode', 'Ctrl+S')}], "
@@ -826,8 +868,10 @@ class ChatMixin:
                         for _cfg_key in (
                             "chat_retrieval_profile",
                             "chat_retrieval_domain_hint",
+                            "chat_codecompass_trigger_mode",
                             "chat_code_questions_repo_first",
                             "chat_architecture_analysis_mode",
+                            "chat_include_task_memory",
                         ):
                             if _cfg_key in game:
                                 _cfg_value = game.get(_cfg_key)
@@ -872,6 +916,10 @@ class ChatMixin:
                         with urllib.request.urlopen(req, timeout=ask_timeout) as resp:
                             data = _json_mod.loads(resp.read().decode())
                             answer = str(data.get("answer") or data.get("text") or "")
+                            # CRPS-007: capture the retrieval profile trace so
+                            # the Profile Inspector footer can show which
+                            # domain/intent/trigger_mode was used.
+                            _capture_snake_ask_trace(game, data)
                             if answer:
                                 elapsed = (_time_mod.perf_counter() - t_start) * 1000
                                 _record_diagnostics("worker_v2", elapsed)

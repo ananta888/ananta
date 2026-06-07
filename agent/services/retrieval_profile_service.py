@@ -356,8 +356,35 @@ def classify_retrieval_intent(
             best_intent_hits = hits
             intent = int_type
 
+    # UI config signals: chat_codecompass_trigger_mode (explicit user override)
+    # Takes precedence over the keyword-based classification so the user can
+    # force a specific domain regardless of question wording. Valid values:
+    #   "auto"             — no override, fall through to keyword classification
+    #   "force_codecompass" — domain locked to CODECOMPASS, intent preserved
+    #   "force_repo_first"  — domain stays as classified, intent locked to
+    #                         code_explanation with repo_first weights
+    #   "disabled"          — domain/intent forced to generic_chat (no RAG)
+    # See TUI choice "CodeCompass Trigger" in the Kontext/RAG group.
+    _trigger_mode = str(cfg.get("chat_codecompass_trigger_mode") or "auto").strip().lower()
+    if _trigger_mode == "disabled":
+        domain = DOMAIN_GENERIC
+        intent = INTENT_GENERIC_CHAT
+    elif _trigger_mode == "force_codecompass":
+        domain = DOMAIN_CODECOMPASS
+        # Keep the classified intent unless we are still on generic — in that
+        # case upgrade to code_explanation because the user explicitly asked
+        # for CodeCompass-driven retrieval.
+        if intent == INTENT_GENERIC_CHAT:
+            intent = INTENT_CODE_EXPLANATION
+    elif _trigger_mode == "force_repo_first":
+        # Domain stays as classified by keywords (likely codecompass/worker/
+        # ai_snake). Lock the intent to code_explanation because repo_first
+        # is a code-centric weight profile.
+        if intent == INTENT_GENERIC_CHAT:
+            intent = INTENT_CODE_EXPLANATION
+
     # UI config signals: codecompass active + no domain hit → lean codecompass
-    if bool(cfg.get("chat_use_codecompass")) and domain == DOMAIN_GENERIC and best_domain_hits == 0:
+    if bool(cfg.get("chat_use_codecompass")) and domain == DOMAIN_GENERIC and best_domain_hits == 0 and _trigger_mode == "auto":
         domain = DOMAIN_CODECOMPASS
 
     # tutorial_mode active + generic intent → tutorial help
@@ -568,6 +595,11 @@ def resolve_profile(
 
     domain, intent = classify_retrieval_intent(query, cfg)
     reasons = [f"classified_domain:{domain}", f"classified_intent:{intent}"]
+    # Surface the trigger_mode in reasons so the TUI Profile Inspector can
+    # show WHY a particular domain/intent was chosen.
+    _trigger_mode_resolved = str(cfg.get("chat_codecompass_trigger_mode") or "auto").strip().lower()
+    if _trigger_mode_resolved != "auto":
+        reasons.append(f"trigger_mode:{_trigger_mode_resolved}")
     full_scan = _is_full_scan_intent(query, intent, cfg)
     output_intent = _resolve_output_intent(query, intent)
     if full_scan:
@@ -577,8 +609,20 @@ def resolve_profile(
             output_intent = "architecture_overview"
 
     if domain_hint and str(domain_hint).strip():
-        domain = str(domain_hint).strip()
-        reasons.append(f"domain_hint:{domain}")
+        # CRPS-007: restrict domain_hint to the known DOMAIN_* constants so
+        # the TUI choice values (auto/codecompass/ai_snake/worker/ananta_game/
+        # operator_tui/ops/generic) map 1:1 to backend constants. Unknown
+        # values fall back to the classified domain — never raise.
+        _known_domains = {
+            DOMAIN_CODECOMPASS, DOMAIN_AI_SNAKE, DOMAIN_WORKER,
+            DOMAIN_ANANTA_GAME, DOMAIN_OPERATOR_TUI, DOMAIN_OPS, DOMAIN_GENERIC,
+        }
+        _hint = str(domain_hint).strip()
+        if _hint in _known_domains:
+            domain = _hint
+            reasons.append(f"domain_hint:{domain}")
+        else:
+            reasons.append(f"domain_hint_unknown:{_hint}:ignored")
     if intent_override and str(intent_override).strip():
         intent = str(intent_override).strip()
         reasons.append(f"intent_override:{intent}")
@@ -600,6 +644,27 @@ def resolve_profile(
         if ensure_st and ensure_st not in list(spec.get("source_types") or []):
             spec["source_types"] = [ensure_st] + list(spec.get("source_types") or [])
             reasons.append(f"ensured_source_type:{ensure_st}")
+
+    # Apply explicit chat_codecompass_trigger_mode patches AFTER the
+    # profile_mode override so the user choice wins over chat_retrieval_profile.
+    # force_repo_first: drop all source types except repo + task_memory.
+    if _trigger_mode_resolved == "force_repo_first":
+        spec["source_types"] = [st for st in list(spec.get("source_types") or [])
+                                if st in {"repo", "task_memory"}]
+        # Boost repo weight so it dominates the fusion ranking.
+        weights = dict(spec.get("source_type_weights") or {})
+        weights["repo"] = max(float(weights.get("repo", 1.0)), 1.5)
+        spec["source_type_weights"] = weights
+        reasons.append("trigger_mode_force_repo_first:source_types=repo,task_memory")
+    # force_codecompass: ensure artifact (CodeCompass output) is in source_types
+    # and heavily weighted, regardless of which domain/intent was classified.
+    elif _trigger_mode_resolved == "force_codecompass":
+        if "artifact" not in list(spec.get("source_types") or []):
+            spec["source_types"] = ["artifact"] + list(spec.get("source_types") or [])
+        weights = dict(spec.get("source_type_weights") or {})
+        weights["artifact"] = max(float(weights.get("artifact", 1.0)), 1.4)
+        spec["source_type_weights"] = weights
+        reasons.append("trigger_mode_force_codecompass:ensured_artifact")
 
     # Apply ui_config source constraints (hard boundary)
     source_types = _apply_ui_source_constraints(list(spec.get("source_types") or []), cfg)
@@ -644,7 +709,13 @@ def resolve_profile(
 
 
 def _apply_ui_source_constraints(source_types: list[str], cfg: dict[str, Any]) -> list[str]:
-    """Remove source types disabled by ui_config flags."""
+    """Remove source types disabled by ui_config flags.
+
+    CRPS-007: `chat_include_task_memory` is the user-facing toggle for the
+    `task_memory` source type. There is no legacy equivalent — the
+    `task_memory` source was previously always-on. Default: True (preserve
+    old behaviour for users upgrading).
+    """
     result = list(source_types)
     if not bool(cfg.get("chat_use_codecompass", True)):
         result = [st for st in result if st != "artifact"]
@@ -652,6 +723,10 @@ def _apply_ui_source_constraints(source_types: list[str], cfg: dict[str, Any]) -
         result = [st for st in result if st != "repo"]
     if not bool(cfg.get("chat_include_wikipedia", False)):
         result = [st for st in result if st != "wiki"]
+    # Default for the new key: True (opt-out rather than opt-in) so existing
+    # users see no behaviour change.
+    if not bool(cfg.get("chat_include_task_memory", True)):
+        result = [st for st in result if st != "task_memory"]
     return result
 
 

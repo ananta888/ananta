@@ -1164,7 +1164,121 @@ def _content_chat_plain_ask_lines(
 
     # Wenn der Renderer eine Höhe vorgibt, MUSS die Ausgabe exakt diese Höhe haben.
     # Lange Antworten werden gescrollt; der Scroll-Offset wird im game-state gehalten.
-    return _clip_with_scroll(out, game=game, height=height, width=width)
+    out = _clip_with_scroll(out, game=game, height=height, width=width)
+
+    # CRPS-007: Profile Inspector footer — re-insert AFTER scroll clipping
+    # so it stays visible regardless of scroll offset. We splice it into the
+    # first available chrome slot (just below the cyan sender line). This
+    # works for both short (no scroll) and long (scrolled) answers because
+    # we always shrink the visible body by the inspector's height first.
+    inspector_lines = _profile_inspector_lines(game, width)
+    if inspector_lines and out:
+        out = _splice_inspector_into_chrome(out, inspector_lines, height)
+
+    return out
+
+
+def _splice_inspector_into_chrome(
+    out: list[str], inspector: list[str], height: int | None
+) -> list[str]:
+    """CRPS-007: insert the Profile Inspector lines into the visible chrome.
+
+    Strategy:
+    1. Find the first cyan-coloured sender line (the ``s-ai:`` row).
+    2. Insert the inspector directly AFTER it.
+    3. If a height is set, truncate the LAST N lines (bottom of body /
+       scroll indicator) by the inspector's line count so the total height
+       stays constant. The user sees the inspector at the top, the body
+       shrinks slightly, the scroll indicator stays at the bottom.
+    4. If no height is set, just append at the natural splice point.
+
+    The first-line-sender anchor is the same one ``_clip_with_scroll`` uses
+    to detect chrome — by splicing directly after it we never interfere
+    with the scroll indicator at the bottom.
+    """
+    if not out:
+        return out
+    sender_idx = -1
+    for idx, line in enumerate(out):
+        if "\x1b[38;2;120;180;255m" in line and line.lstrip().startswith("\x1b"):
+            sender_idx = idx
+            break
+    if sender_idx < 0:
+        # No sender line found — append at end (fallback).
+        out = out + inspector
+    else:
+        insert_at = sender_idx + 1
+        out = out[:insert_at] + inspector + out[insert_at:]
+
+    # Respect a fixed height: trim from the bottom (which holds the body
+    # tail and possibly the scroll indicator). Trimming keeps the chrome
+    # (title, question, sender, inspector) intact at the top.
+    if height and height > 0 and len(out) > height:
+        out = out[:height]
+    return out
+
+
+def _profile_inspector_lines(game: dict, width: int) -> list[str]:
+    """CRPS-007: build the Profile Inspector footer lines for the AI-Snake
+    answer pane.
+
+    Returns 0-2 lines. The first line is the compact one-liner that the user
+    sees in 99% of cases. The second line is the reasons trace (only shown
+    when the env-flag ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE=1 is set).
+
+    The inspector is fed by ``game['last_snake_ask_trace']`` (set by
+    ``_capture_snake_ask_trace`` in chat_mixin). It is intentionally compact
+    so it does not crowd the response pane:
+
+      [Profil] ananta-codecompass • domain=codecompass • intent=code_explanation
+              • trigger=auto • flag=auto • Kontext: 7 Treffer (...) [ananta-codecompass]
+    """
+    trace = game.get("last_snake_ask_trace")
+    if not isinstance(trace, dict):
+        return []
+    # Match the seq bump set by _capture_snake_ask_trace. If the trace was
+    # never refreshed (e.g. a previous :ask from an older session), still
+    # render it — it is informative even when stale. We do NOT add a "stale"
+    # marker because the user can see the timestamp implicitly through the
+    # question they asked.
+    profile_id = str(trace.get("profile_id") or "?").strip() or "?"
+    domain = str(trace.get("domain") or "?").strip() or "?"
+    intent = str(trace.get("intent") or "?").strip() or "?"
+    trigger_mode = str(trace.get("trigger_mode") or "auto").strip() or "auto"
+    feature_flag = str(trace.get("feature_flag") or "auto").strip() or "auto"
+    src_types = trace.get("source_types") or []
+    if isinstance(src_types, list):
+        src_str = ",".join(str(s) for s in src_types if str(s).strip())
+    else:
+        src_str = ""
+    src_str = src_str or "-"
+
+    summary = str(game.get("last_snake_ask_summary") or "").strip()
+    compact = (
+        f"  \x1b[2m[Profil]\x1b[0m \x1b[38;2;120;180;255m{profile_id}\x1b[0m"
+        f"  \x1b[2m•\x1b[0m  d={domain}"
+        f"  \x1b[2m•\x1b[0m  i={intent}"
+        f"  \x1b[2m•\x1b[0m  trig={trigger_mode}"
+        f"  \x1b[2m•\x1b[0m  flag={feature_flag}"
+    )
+    if summary:
+        compact += f"  \x1b[2m•\x1b[0m  {summary[: max(0, width - 2)]}"
+    lines: list[str] = [_clip(compact, width)]
+
+    # Optional second line: reasons trace, only in verbose mode. The flag
+    # is read on every render so a developer can toggle verbosity without
+    # restarting the TUI. Default: off (single-line inspector is enough for
+    # 99% of the users).
+    verbose = str(os.environ.get("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE") or "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+    if verbose:
+        reasons = trace.get("reasons") or []
+        if isinstance(reasons, list) and reasons:
+            reason_text = "  ".join(str(r) for r in reasons[:5])
+            lines.append(_clip(f"  \x1b[2mreasons: {reason_text}\x1b[0m", width))
+        lines.append(_clip(f"  \x1b[2msources: {src_str}\x1b[0m", width))
+    return lines
 
 
 def _truncate_to_height(out: list[str], height: int | None) -> list[str]:
