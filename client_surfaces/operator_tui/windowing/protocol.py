@@ -19,6 +19,7 @@ _ALLOWED_ACTIONS = frozenset(
         "focus.nav",
         "scroll.page_up",
         "scroll.page_down",
+        "settings.reload",
     }
 )
 

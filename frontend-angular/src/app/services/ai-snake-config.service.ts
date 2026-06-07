@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Subject, debounceTime } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
+import { WindowBridgeService } from './window-bridge.service';
 
 export interface AiSnakeConfig {
   [key: string]: string | number | boolean | null;
@@ -17,6 +18,7 @@ export interface AiSnakeConfigOptions {
 export class AiSnakeConfigService {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
+  private bridge = inject(WindowBridgeService);
 
   readonly config$ = new BehaviorSubject<AiSnakeConfig>({});
   readonly options$ = new BehaviorSubject<AiSnakeConfigOptions | null>(null);
@@ -56,6 +58,7 @@ export class AiSnakeConfigService {
     if (!url || !Object.keys(patch).length) return;
     this.pendingPatch = {};
     this.core.patch<{ ok: boolean }>(`${url}/ai-snake/config`, patch, url).subscribe({
+      next: () => { void this.bridge.sendAction('settings.reload'); },
       error: () => {},
     });
   }

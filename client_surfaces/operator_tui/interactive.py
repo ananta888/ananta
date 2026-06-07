@@ -396,7 +396,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         if command:
             ctrl = self._ensure_external_window_controller()
             if command == "center.window.open":
-                st = ctrl.open()
+                st = ctrl.open(auth_context=self._build_auth_context_for_window())
                 game["center_window_url"] = ctrl.view_url()
             elif command == "center.window.close":
                 st = ctrl.close()
@@ -449,7 +449,10 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self.state = self.state.with_updates(header_logo_game=game)
         ctrl.publish_state(self._build_external_window_state_payload())
         for event in ctrl.drain_events():
-            self._apply_external_window_action(str(getattr(event, "action_id", "")))
+            self._apply_external_window_action(
+                str(getattr(event, "action_id", "")),
+                dict(getattr(event, "args", {}) or {}),
+            )
 
     def _build_external_window_state_payload(self) -> dict[str, Any]:
         game = dict(self.state.header_logo_game or {})
@@ -467,7 +470,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             "snake": snake_model,
         }
 
-    def _apply_external_window_action(self, action_id: str) -> None:
+    def _apply_external_window_action(self, action_id: str, args: dict[str, Any] | None = None) -> None:
         aid = str(action_id or "").strip()
         if not aid:
             return
@@ -510,6 +513,48 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             if bool(game.get("snake_mode")) and bool(game.get("paused")):
                 self._toggle_snake_pause()
             return
+        if aid == "settings.reload":
+            self._apply_settings_from_browser()
+            return
+
+    def _apply_settings_from_browser(self) -> None:
+        from client_surfaces.operator_tui.config.user_config_manager import load_user_config
+        _SKIP = frozenset({"chat_input_history", "command_input_history"})
+        try:
+            fresh = load_user_config()
+        except Exception:
+            return
+        game = dict(self.state.header_logo_game or {})
+        for key, value in fresh.items():
+            if key not in _SKIP:
+                game[key] = value
+        self._set_state(self.state.with_updates(
+            header_logo_game=game,
+            status_message="Browser: Einstellungen übernommen",
+        ))
+
+    def _build_auth_context_for_window(self) -> dict[str, str]:
+        game = dict(self.state.header_logo_game or {})
+        oidc_token = str(game.get("oidc_token") or "")
+        hub_url = str(self.state.endpoint or "").rstrip("/")
+        hub_token = ""
+        if hub_url:
+            try:
+                hub_raw = (
+                    os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or ""
+                ).strip()
+                if not hub_raw:
+                    from client_surfaces.operator_tui.app import _load_env_file
+                    _env = _load_env_file()
+                    hub_raw = (
+                        _env.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_PASSWORD") or ""
+                    ).strip()
+                if hub_raw:
+                    from client_surfaces.operator_tui.hub_loader import resolve_token
+                    hub_token = resolve_token(hub_url, hub_raw)
+            except Exception:
+                pass
+        return {"hub_url": hub_url, "hub_token": hub_token, "oidc_token": oidc_token}
 
     async def _splash_loop(self) -> None:
         while self._splash is not None:
