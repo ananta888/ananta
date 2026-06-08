@@ -1,0 +1,901 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "emergence_simulation_governance_lab",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Ananta um ein vollständiges Multi-Agenten-Simulations- und Governance-Labor erweitern: autonome Agenten handeln in simulierten Welten, aber nur innerhalb deterministischer Ananta-Regeln, Policies, Budgets, Replay- und Audit-Grenzen.",
+  "goal": "Eine Emergence-World-inspirierte Endstufen-Lösung bauen, in der Ananta Agentenprofile, Weltzustand, simulierte Tools, Aktionen, Gesetze, Ressourcen, Beziehungen, Modellrouting, Kostenlimits, Metriken, Reports, Replay und optionale Runner-Backends verwaltet. Agenten schlagen Aktionen vor; Ananta validiert und mutiert den WorldState deterministisch.",
+  "non_goals": [
+    "Kein Human-in-the-loop pro Simulationsaktion; Menschen konfigurieren vorher und werten nachher aus.",
+    "Kein n8n als Simulationskern; n8n höchstens als Trigger-/Reporting-/Automation-Wrapper.",
+    "Kein harter LangGraph-Zwang; LangGraph höchstens als optionales Runtime-Backend.",
+    "Keine reale Toolausführung durch Simulationsagenten ohne explizite Sandbox-Bridge.",
+    "LLM-Ausgaben dürfen niemals direkt WorldState mutieren.",
+    "Keine exakte Behauptung einer Emergence-World-Replikation, solange deren vollständige Runtime nicht öffentlich verfügbar ist."
+  ],
+  "architecture_principles": [
+    "Agenten produzieren ActionProposal JSON, keine direkten Side Effects.",
+    "Die PolicyEngine entscheidet deterministisch allowed, denied, invalid, crime, fatal oder noop.",
+    "WorldState ist serialisierbar, versioniert, checkpointbar und replayfähig.",
+    "Jede Aktion erzeugt ein Event mit actor, action, validation, model, cost, tick und state_hash.",
+    "Simulationstools sind getrennt von echten Ananta-Tools wie Shell, Git, Netzwerk oder Dateisystem.",
+    "Lokale Modelle und Dummy-Adapter müssen ohne API-Key funktionieren.",
+    "Remote-Modelle brauchen harte Kosten-, Token-, Timeout- und Fail-Limits.",
+    "CodeCompass/RAG wird primär für Szenarioanalyse und Run-QA genutzt, nicht blind in jeden Agentenprompt geworfen.",
+    "Tests und Replay sind wichtiger als UI.",
+    "Endstufe soll als seriöses Governance-Labor erklärbar sein, nicht nur als lustige KI-Stadt."
+  ],
+  "recommended_paths": {
+    "core_package": "agent/simulation/",
+    "scenario_examples": "examples/simulation/",
+    "docs": "docs/simulation/",
+    "artifacts": "artifacts/simulations/<run_id>/",
+    "tests": "tests/simulation/"
+  },
+  "existing_stack_to_reuse": [
+    {
+      "path": "agent/services/workflow_registry.py",
+      "use_for": "Registry-/Descriptor-Idee für Szenarien, Runner und optionale Simulation-Workflows wiederverwenden."
+    },
+    {
+      "path": "agent/services/workflow_policy_adapter.py",
+      "use_for": "Policy-Decision-Muster übernehmen, aber für Simulation getrennte PolicyEngine bauen."
+    },
+    {
+      "path": "agent/services/workflow_execution_adapter.py",
+      "use_for": "Audit-/Dispatch-Idee als Vorbild, nicht direkt als Simulationsloop missbrauchen."
+    },
+    {
+      "path": "agent/services/critical_workflow_state_service.py",
+      "use_for": "State-Transition, Guard-Enforcement, Replay- und Timeout-Ideen für Simulation-Checkpointing prüfen."
+    },
+    {
+      "path": "agent/services/blueprint_planning_adapter.py",
+      "use_for": "Später Agent-Task/Blueprint-Simulation mit depends_on und Artefakten verbinden."
+    },
+    {
+      "path": "CodeCompass/RAG-Komponenten",
+      "use_for": "Szenarioassets, Reports, Eventlogs und Auswertungen indexieren; Q&A über Runs ermöglichen."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SIM-001",
+      "title": "Simulation-Paketstruktur anlegen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "type": "implementation",
+      "paths": [
+        "agent/simulation/__init__.py",
+        "agent/simulation/world/",
+        "agent/simulation/scenario/",
+        "agent/simulation/actions/",
+        "agent/simulation/policy/",
+        "agent/simulation/runner/",
+        "agent/simulation/models/",
+        "agent/simulation/metrics/",
+        "agent/simulation/replay/",
+        "agent/simulation/reports/",
+        "agent/simulation/adapters/"
+      ],
+      "acceptance_criteria": [
+        "Alle Module sind importierbar ohne Netzwerk-, Modell- oder Dateisystem-Side-Effects.",
+        "Keine harte Abhängigkeit auf LangGraph, n8n oder Remote-APIs.",
+        "Öffentliche Entry-Points sind dokumentiert.",
+        "Ein Smoke-Test importiert agent.simulation erfolgreich."
+      ]
+    },
+    {
+      "id": "SIM-002",
+      "title": "ScenarioConfig Schema definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "ScenarioConfig unterstützt Name, Beschreibung, Seed, Tick-Limit, Zeitmodus, Runner, Modellstrategie und Budgets.",
+        "Agenten, Startorte, Ressourcen, erlaubte Aktionen, Gesetze und Policy-Sets sind konfigurierbar.",
+        "human_in_loop ist explizit vorhanden und für Standard-Simulationen false.",
+        "Ungültige Konfigurationen liefern klare Validierungsfehler.",
+        "Mindestens eine Beispielkonfiguration läuft mit Dummy-Modell ohne API-Key."
+      ]
+    },
+    {
+      "id": "SIM-003",
+      "title": "WorldState Modell versioniert und deterministisch machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "WorldState enthält Agents, Locations, Resources, Laws, Relationships, Institutions, Events, Tick und State-Hash.",
+        "WorldState kann verlustfrei nach JSON serialisiert und daraus wiederhergestellt werden.",
+        "State-Mutation ist nur über validierte Apply-Funktionen möglich.",
+        "Gleiche validierte Eventfolge erzeugt gleichen final_state_hash.",
+        "Tests prüfen Roundtrip, Hash-Stabilität und verbotene Direktmutation."
+      ]
+    },
+    {
+      "id": "SIM-004",
+      "title": "AgentProfile Schema und Loader bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "AgentProfile unterstützt name, role, personality, goals, values, fears, survival_priority, cooperation_tendency und model_hints.",
+        "Loader unterstützt JSON/YAML und Markdown mit Frontmatter.",
+        "Öffentliche und private Profilbereiche werden sauber getrennt.",
+        "Profile werden validiert und geben lesbare Fehler bei fehlenden Pflichtfeldern.",
+        "Tests decken valide, invalide und minimalistische Profile ab."
+      ]
+    },
+    {
+      "id": "SIM-005",
+      "title": "ActionProposal JSON Schema strikt definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "ActionProposal enthält agent_id, action_type, target, args, reason und confidence.",
+        "Malformed JSON wird als invalid_action Event geloggt und mutiert keinen State.",
+        "Unbekannte Actions werden abgelehnt.",
+        "Schema ist versioniert und erweiterbar.",
+        "Tests prüfen Halluzinationen, unbekannte Felder, falsche Typen und leere Antworten."
+      ]
+    },
+    {
+      "id": "SIM-006",
+      "title": "Basis-Aktionen implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "actions": [
+        "move",
+        "observe",
+        "talk",
+        "rest",
+        "gather_food",
+        "gather_wood",
+        "trade",
+        "help",
+        "steal",
+        "attack",
+        "build",
+        "propose_law",
+        "vote",
+        "write_law"
+      ],
+      "acceptance_criteria": [
+        "Jede Aktion hat ein typisiertes Args-Schema.",
+        "Jede Aktion hat explizite Preconditions und Effects.",
+        "Ungültige Aktionen erzeugen Events ohne State-Mutation.",
+        "Gefährliche Aktionen wie steal/attack sind simulierbar, aber gesetzlich/policy-seitig kontrollierbar.",
+        "Für jede Aktion existieren mindestens je ein positiver und ein negativer Test."
+      ]
+    },
+    {
+      "id": "SIM-007",
+      "title": "PolicyEngine für simulierte Weltregeln bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "PolicyEngine nimmt WorldState + ActionProposal und liefert ActionValidationResult.",
+        "Entscheidungen unterscheiden allowed, denied, invalid, crime, fatal und noop.",
+        "PolicyEngine ruft niemals ein LLM auf.",
+        "Gesetze und Fähigkeiten sind szenariobasiert konfigurierbar.",
+        "Jede Policy-Entscheidung enthält maschinenlesbare reason_codes."
+      ]
+    },
+    {
+      "id": "SIM-008",
+      "title": "Survival-, Health-, Energy- und Death-Modell implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Agenten besitzen hunger, health, energy, morale und shelter_status.",
+        "Decay pro Tick ist konfigurierbar.",
+        "Tod durch Hunger, Angriff, Krankheit oder Regelereignis ist deterministisch nachvollziehbar.",
+        "Polite-starvation-Szenario ist reproduzierbar: Agenten reden, handeln aber nicht überlebenswirksam.",
+        "Metriken erfassen Todesursachen und Überlebensdauer."
+      ]
+    },
+    {
+      "id": "SIM-009",
+      "title": "Crime-, Law- und Consequence-Modell bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Crimes verlinken actor, victim, law_id, action_id, tick und location.",
+        "Konsequenzen wie Reputation, Strafe, Exil, Haft oder Ressourcenverlust sind konfigurierbar.",
+        "Gesetze können durch Governance-Aktionen entstehen oder geändert werden.",
+        "Crime-Trends werden über Zeit berechnet.",
+        "Reports unterscheiden verbotene Aktion, erfolgreiches Verbrechen und policy-denied Versuch."
+      ]
+    },
+    {
+      "id": "SIM-010",
+      "title": "Voting- und Governance-System implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Agenten können Vorschläge einreichen und mit yes/no/abstain abstimmen.",
+        "Abstimmungen enthalten Begründungen und werden als Events gespeichert.",
+        "Angenommene Vorschläge können Laws oder Institutionen ändern.",
+        "Metriken messen approval_rate, dissent_rate, participation_rate und proposal_count.",
+        "Abnick-Dynamik wird anhand hoher Zustimmung bei niedrigem Widerspruch markiert."
+      ]
+    },
+    {
+      "id": "SIM-011",
+      "title": "RelationshipGraph modellieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Beziehungen unterstützen trust, fear, friendship, hostility, obligation und reputation.",
+        "Aktionen können Beziehungskanten deterministisch verändern.",
+        "Agenten sehen nur konfigurierbare lokale/relevante Beziehungsausschnitte.",
+        "Graph ist als JSON und Mermaid exportierbar.",
+        "Reports zeigen Normdrift und Gruppendruck-Indikatoren."
+      ]
+    },
+    {
+      "id": "SIM-012",
+      "title": "Economy- und Resource-System ausbauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Locations können Ressourcen generieren oder verbrauchen.",
+        "Agenten können sammeln, handeln, horten, teilen und bauen.",
+        "Knappheit, Überfluss und Blockaden sind konfigurierbar.",
+        "Metriken zeigen Ressourcenbalance, Hoarding, Trade-Rate und Scarcity-Spikes.",
+        "Tests prüfen Handel, Knappheit und Ressourcenverlust."
+      ]
+    },
+    {
+      "id": "SIM-013",
+      "title": "PromptRenderer für Simulation-Agenten bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Prompt enthält Profil, Ziele, lokale Weltansicht, relevante Erinnerung, erlaubte Aktionen und JSON-Schema.",
+        "Prompt trennt Systemregeln klar von simulierter Agentensprache.",
+        "Globale Omniscience ist standardmäßig aus.",
+        "Gerenderte Prompts können debug-fähig gespeichert werden.",
+        "Prompt-Injection aus Agentensprache kann Policy- und Output-Regeln nicht überschreiben."
+      ]
+    },
+    {
+      "id": "SIM-014",
+      "title": "Agent Memory Layers einführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Short-term memory pro Agent speichert aktuelle Ereignisse.",
+        "Long-term memory kann zusammengefasst werden.",
+        "Memory-Größe ist konfigurierbar.",
+        "Memory kann pro Experiment bewusst gelöscht werden, um Kontextverlust zu testen.",
+        "Checkpoints enthalten Memory-State."
+      ]
+    },
+    {
+      "id": "SIM-015",
+      "title": "SimulationModelAdapter Interface bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Gemeinsame Schnittstelle für Dummy, Ollama, OpenRouter und spätere Provider existiert.",
+        "Adapter liefern raw_text, parsed_proposal, latency, token_estimate und cost_estimate.",
+        "Adapter dürfen keinen WorldState verändern.",
+        "Timeouts und Providerfehler erzeugen kontrollierte Events.",
+        "Tests laufen ohne echte Provider."
+      ]
+    },
+    {
+      "id": "SIM-016",
+      "title": "DummyModelAdapter für Tests und CI bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "DummyAdapter erzeugt deterministische ActionProposals aus Fixture-Daten.",
+        "Mini-Simulation läuft komplett ohne LLM.",
+        "CI kann alle Simulation-Kerntests ohne externe Dienste ausführen.",
+        "Fixtures können Fehlerfälle wie invalid JSON, no-op und attack simulieren."
+      ]
+    },
+    {
+      "id": "SIM-017",
+      "title": "OllamaAdapter local-first implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Adapter kann ein konfiguriertes Ollama-Modell ansprechen.",
+        "Timeout, Retry und JSON-only-Modus sind konfigurierbar.",
+        "Fehlendes Ollama deaktiviert nur Live-Test, nicht Unit-Tests.",
+        "Modellname wird pro Aktion geloggt.",
+        "Keine Secrets oder lokale Pfade werden in Reports geleakt."
+      ]
+    },
+    {
+      "id": "SIM-018",
+      "title": "OpenRouterAdapter mit Kostenkontrolle bauen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Adapter unterstützt per-agent model assignment.",
+        "API-Key kommt aus bestehendem sicheren Config-Mechanismus.",
+        "Kosten und Token werden pro Call und Run aggregiert.",
+        "BudgetGuard stoppt vor Überschreitung.",
+        "Remote-Adapter ist standardmäßig deaktiviert."
+      ]
+    },
+    {
+      "id": "SIM-019",
+      "title": "ModelStrategy Resolver implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "strategies": [
+        "local_only",
+        "local_first",
+        "free_remote_first",
+        "fixed_per_agent",
+        "same_model_world",
+        "mixed_model_world",
+        "fallback_on_timeout",
+        "fallback_on_invalid_json"
+      ],
+      "acceptance_criteria": [
+        "ScenarioConfig kann Modellstrategien definieren.",
+        "Jeder Agent kann ein eigenes Modell oder Default erben.",
+        "Fallbacks sind deterministisch und geloggt.",
+        "Mixed-Model-Welten sind möglich.",
+        "Jeder ActionDecisionEvent enthält gewählten Provider und Modell."
+      ]
+    },
+    {
+      "id": "SIM-020",
+      "title": "BudgetGuard und Run-Limits erzwingen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "security",
+      "acceptance_criteria": [
+        "Simulation stoppt bei max_ticks, max_wall_time, max_tokens, max_cost, max_failures oder extinction.",
+        "Nach Stop werden keine weiteren Modellcalls ausgeführt.",
+        "StopReason wird als Event und im Report gespeichert.",
+        "Remote-Modelle ohne explizites Budget werden verweigert.",
+        "Tests prüfen, dass Kosten- und Tick-Limits hart greifen."
+      ]
+    },
+    {
+      "id": "SIM-021",
+      "title": "Native Ananta TickRunner implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Runner verarbeitet Ticks und Agent Turns gemäß ScenarioConfig.",
+        "Tote oder inaktive Agenten werden übersprungen.",
+        "LLM-Ausgaben werden geparst, validiert und nur über PolicyEngine angewendet.",
+        "Jeder Turn schreibt Events und aktualisiert Metriken.",
+        "Single-step, fixed-ticks und until-stop Modi funktionieren."
+      ]
+    },
+    {
+      "id": "SIM-022",
+      "title": "Checkpointing und Resume bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "WorldState, Memory, Metrics, Budgets und RunConfig können checkpointed werden.",
+        "Resume prüft Config-Kompatibilität.",
+        "Checkpoint-Format ist versioniert.",
+        "Resume erzeugt eigenes Event mit Ursprung.",
+        "Tests prüfen Resume aus Zwischenstand."
+      ]
+    },
+    {
+      "id": "SIM-023",
+      "title": "Deterministic Replay Engine bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Replay läuft ohne Modellcalls.",
+        "Replay nutzt gespeicherte Proposals und Policy-Entscheidungen.",
+        "State-Hash-Divergenz wird erkannt.",
+        "Replay erzeugt reproduzierbaren final_state_hash.",
+        "Replay-Report zeigt divergiert/nicht divergiert."
+      ]
+    },
+    {
+      "id": "SIM-024",
+      "title": "Run Artifact Layout standardisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "paths": [
+        "artifacts/simulations/<run_id>/config.json",
+        "artifacts/simulations/<run_id>/events.jsonl",
+        "artifacts/simulations/<run_id>/metrics.json",
+        "artifacts/simulations/<run_id>/final_state.json",
+        "artifacts/simulations/<run_id>/replay.json",
+        "artifacts/simulations/<run_id>/report.md"
+      ],
+      "acceptance_criteria": [
+        "Jeder Run schreibt alle Kernartefakte.",
+        "events.jsonl ist streaming-freundlich und enthält action_id/event_id.",
+        "Artifacts reichen für Audit und Replay.",
+        "Pfad des Reports wird nach Run-Ende angezeigt.",
+        "Keine Secrets in Artefakten."
+      ]
+    },
+    {
+      "id": "SIM-025",
+      "title": "Core Metrics Engine implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "metrics": [
+        "survival_count",
+        "death_causes",
+        "crime_count",
+        "crime_trend",
+        "cooperation_count",
+        "trade_success_rate",
+        "vote_count",
+        "approval_rate",
+        "dissent_rate",
+        "invalid_action_rate",
+        "noop_rate",
+        "talk_without_survival_action_rate",
+        "model_cost",
+        "model_latency",
+        "json_failure_rate"
+      ],
+      "acceptance_criteria": [
+        "Metriken werden nach jedem Tick aktualisiert.",
+        "Metriken werden als JSON und optional CSV exportiert.",
+        "Metriken unterscheiden Agentenverhalten von Policy-Denials.",
+        "Deterministische Fixture-Tests prüfen Berechnung.",
+        "Final Report enthält kompakte Metrik-Zusammenfassung."
+      ]
+    },
+    {
+      "id": "SIM-026",
+      "title": "FailureModeClassifier bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "failure_modes": [
+        "violent_collapse",
+        "polite_starvation",
+        "governance_abnick_dynamic",
+        "resource_deadlock",
+        "crime_spiral",
+        "tool_misuse",
+        "invalid_json_loop",
+        "model_timeout_collapse",
+        "memory_drift",
+        "over_cooperation_without_execution"
+      ],
+      "acceptance_criteria": [
+        "Failure Modes werden deterministisch aus Events und Metrics abgeleitet.",
+        "LLM-Interpretation ist optional und klar markiert.",
+        "Jede erkannte Failure Mode nennt konkrete Event-/Metric-Belege.",
+        "Polite-starvation und crime-spiral werden in Fixture-Runs erkannt."
+      ]
+    },
+    {
+      "id": "SIM-027",
+      "title": "Report-Generator für Simulationen bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Report enthält Scenario, Modelle, Budgets, Regeln, Metriken, Failure Modes und wichtige Events.",
+        "Fakten und Interpretation sind getrennt.",
+        "Reports enthalten Mermaid Graphen für Locations, Relationships und Governance.",
+        "Reports verweisen auf Event-IDs.",
+        "Deterministischer Report-Modus funktioniert ohne LLM."
+      ]
+    },
+    {
+      "id": "SIM-028",
+      "title": "Emergence-style Importer bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Importer liest externe agent_profiles, landmarks, tools und rules aus Verzeichnissen.",
+        "Markdown-Profile werden in AgentProfile umgewandelt.",
+        "Landmarks werden in Locations umgewandelt.",
+        "Toolbeschreibungen werden, soweit möglich, auf simulierte Actions gemappt.",
+        "Nicht unterstützte Tools werden als disabled/import_review markiert."
+      ]
+    },
+    {
+      "id": "SIM-029",
+      "title": "Import-Report und Attribution erzeugen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "documentation",
+      "acceptance_criteria": [
+        "Import-Report listet importierte, übersprungene und unklare Assets.",
+        "Externe Quelle und Lizenz-/Attributionshinweise werden gespeichert.",
+        "Ananta-native und importierte Szenarien sind klar unterscheidbar.",
+        "Keine externe Runtime wird behauptet, wenn nur Beschreibungsdaten importiert wurden."
+      ]
+    },
+    {
+      "id": "SIM-030",
+      "title": "Standard-Szenarien für Experiment-Suite anlegen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "scenarios": [
+        "cooperative_survival",
+        "scarcity_conflict",
+        "constitution_building",
+        "mixed_model_city",
+        "memory_reset_society",
+        "tool_abuse_lab",
+        "polite_starvation_test",
+        "crime_spiral_test",
+        "abnick_democracy_test"
+      ],
+      "acceptance_criteria": [
+        "Jedes Szenario hat klare Erfolgs- und Fehlkriterien.",
+        "Jedes Szenario läuft mit DummyAdapter in CI.",
+        "Szenarien sind dokumentiert.",
+        "Batch-Runner kann mehrere Szenarien ausführen."
+      ]
+    },
+    {
+      "id": "SIM-031",
+      "title": "Batch Experiment Runner bauen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Mehrere Szenarien und Modellstrategien können in Serie laufen.",
+        "Globales Kosten- und Zeitlimit wird beachtet.",
+        "Vergleichsreport normalisiert Metriken über Runs.",
+        "Batch-Läufe können lokal-only betrieben werden."
+      ]
+    },
+    {
+      "id": "SIM-032",
+      "title": "Prompt-Intervention Experimente ermöglichen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Masterprompt, survival_priority, law_respect und cooperation_bias können variiert werden.",
+        "Before/after Runs werden vergleichbar ausgegeben.",
+        "Promptversionen sind in Run-Artefakten gespeichert.",
+        "Damit kann getestet werden, ob instabile Agenten durch bessere Regeln stabilisiert werden."
+      ]
+    },
+    {
+      "id": "SIM-033",
+      "title": "Security Boundary: simulierte Tools strikt von echten Tools trennen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "security",
+      "acceptance_criteria": [
+        "Simulation Actions haben keine Shell-, Git-, Netzwerk- oder Dateisystemrechte.",
+        "Brücken zu echten Tools brauchen explizite Capability und separate Boundary Policy.",
+        "Malicious ActionProposal kann keine realen Befehle ausführen.",
+        "Security Regression Tests decken Prompt Injection, Tool Escape und Secret Leakage ab."
+      ]
+    },
+    {
+      "id": "SIM-034",
+      "title": "Capability-Modell für Simulation Actions bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "security",
+      "acceptance_criteria": [
+        "Jede Action deklariert required_capabilities.",
+        "ScenarioConfig granted capabilities explizit.",
+        "PolicyEngine verweigert nicht gewährte Capabilities.",
+        "Capability-Denials sind im Eventlog sichtbar."
+      ]
+    },
+    {
+      "id": "SIM-035",
+      "title": "Prompt-Injection-Schutz für Agentensprache testen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "acceptance_criteria": [
+        "Agentensprache und Landmark-Texte gelten als untrusted input.",
+        "PromptRenderer markiert In-World-Content klar.",
+        "Fixture-Agent versucht Outputschema und Policy zu überschreiben und scheitert.",
+        "Report kann verdächtige Injection-Versuche markieren."
+      ]
+    },
+    {
+      "id": "SIM-036",
+      "title": "CodeCompass/RAG Integration für Run-Analyse",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Szenarioassets, Events, Reports und Metriken können indexiert werden.",
+        "User kann post-run Fragen stellen wie: Warum starb Agent X?",
+        "Antworten referenzieren Event-IDs und Artefakte.",
+        "Q&A mutiert niemals Simulation-State.",
+        "Agentenprompt nutzt RAG nur explizit konfiguriert, nicht automatisch."
+      ]
+    },
+    {
+      "id": "SIM-037",
+      "title": "CLI/TUI Commands für Simulation einbauen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "CLI/TUI kann Szenarien listen.",
+        "Simulation kann gestartet, einzelgeschrittet und gestoppt werden.",
+        "Aktueller WorldState und letzte Events sind sichtbar.",
+        "Latest Report kann geöffnet werden.",
+        "TUI blockiert Runner nicht unnötig."
+      ]
+    },
+    {
+      "id": "SIM-038",
+      "title": "Angular Dashboard für Simulation Runs planen und später bauen",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Dashboard listet Runs mit Status und StopReason.",
+        "Metriken werden über Zeit visualisiert.",
+        "Events sind filterbar nach agent, action, crime, location und policy_decision.",
+        "Mehrere Runs können verglichen werden.",
+        "Replay-Ansicht ist vorgesehen oder implementiert."
+      ]
+    },
+    {
+      "id": "SIM-039",
+      "title": "Optionalen LangGraph Runner Adapter entwerfen",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "medium",
+      "type": "architecture",
+      "acceptance_criteria": [
+        "LangGraph bleibt hinter Runner-Interface isoliert.",
+        "Ananta PolicyEngine bleibt autoritativ.",
+        "Kein Core-Modul importiert LangGraph direkt.",
+        "Architekturentscheidung dokumentiert Nutzen, Kosten und Debug-Komplexität.",
+        "Native Runner bleibt vollständig lauffähig."
+      ]
+    },
+    {
+      "id": "SIM-040",
+      "title": "Optionalen n8n Wrapper für Trigger und Reporting entwerfen",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "type": "architecture",
+      "acceptance_criteria": [
+        "n8n darf Simulationen starten oder Reports empfangen, aber keine Policy umgehen.",
+        "Webhook-Trigger übergibt scenario_id und Run-Parameter.",
+        "Extern getriggerte Runs sind markiert.",
+        "Hooks sind standardmäßig aus.",
+        "Hook-Fehler korrumpieren keine Simulation-Artefakte."
+      ]
+    },
+    {
+      "id": "SIM-041",
+      "title": "Dokumentation schreiben",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "documentation",
+      "paths": [
+        "docs/simulation/architecture.md",
+        "docs/simulation/security_model.md",
+        "docs/simulation/scenario_format.md",
+        "docs/simulation/replay_and_metrics.md",
+        "docs/simulation/langgraph_and_n8n_positioning.md"
+      ],
+      "acceptance_criteria": [
+        "Docs erklären Agent proposes / Ananta applies.",
+        "Docs erklären kein Human-in-the-loop im Run.",
+        "Docs erklären Security Boundaries und simulierte Tools.",
+        "Docs enthalten Mermaid Diagramme.",
+        "Docs vermeiden übertriebene Wissenschaftsclaims."
+      ]
+    },
+    {
+      "id": "SIM-042",
+      "title": "Portfolio-/Demo-Narrativ ergänzen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "documentation",
+      "acceptance_criteria": [
+        "Demo erklärt Ananta als Governance-Labor für autonome Agenten.",
+        "Ein stabiler und ein kollabierender Run werden gezeigt.",
+        "Rekrutierer verstehen den Bezug zu Security, Policy, RAG, Agenten und Tool-Governance.",
+        "Text stellt LangGraph/n8n korrekt als optional dar."
+      ]
+    },
+    {
+      "id": "SIM-043",
+      "title": "Unit-Tests für Schemas und WorldState",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "test",
+      "acceptance_criteria": [
+        "ScenarioConfig, AgentProfile, ActionProposal und WorldState sind getestet.",
+        "Serialization Roundtrip ist getestet.",
+        "Ungültige Inputs liefern lesbare Fehler.",
+        "State-Hash-Stabilität ist getestet."
+      ]
+    },
+    {
+      "id": "SIM-044",
+      "title": "Unit-Tests für PolicyEngine und Actions",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "test",
+      "acceptance_criteria": [
+        "Allowed Actions mutieren State korrekt.",
+        "Denied Actions mutieren State nicht.",
+        "Crimes werden korrekt erfasst.",
+        "Survival und Death Logic sind getestet.",
+        "Voting und Law-Updates sind getestet."
+      ]
+    },
+    {
+      "id": "SIM-045",
+      "title": "Integrationstest für komplette Mini-Simulation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "test",
+      "acceptance_criteria": [
+        "Mini-Simulation läuft mit DummyAdapter komplett durch.",
+        "Run erzeugt config, events, metrics, final_state, replay und report.",
+        "Replay reproduziert final_state.",
+        "Test benötigt keine API-Keys und keinen Ollama-Server."
+      ]
+    },
+    {
+      "id": "SIM-046",
+      "title": "Security Regression Tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "test",
+      "acceptance_criteria": [
+        "Malicious ActionProposal kann keine Shell-Befehle ausführen.",
+        "Prompt Injection aus Agentensprache überschreibt keine Policy.",
+        "Secrets werden nicht in Artefakte geschrieben.",
+        "BudgetGuard stoppt Runs hart."
+      ]
+    }
+  ],
+  "endstate_acceptance_criteria": [
+    "Ananta kann mindestens 10 Agenten, 30 Locations und 50 simulierte Action/Tool-Definitionen in einer Welt verwalten.",
+    "Agenten handeln während des Runs autonom ohne Human Approval pro Aktion.",
+    "Alle WorldState-Mutationen laufen ausschließlich über deterministische PolicyEngine.",
+    "Lokale-only Simulationen laufen ohne API-Key.",
+    "Mixed-model Simulationen sind optional möglich.",
+    "Runs stoppen sicher bei Budget, Zeit, Ticklimit, Extinction oder Zielerreichung.",
+    "Jeder Run erzeugt replayfähige Artefakte.",
+    "Replay reproduziert final_state ohne Modellcalls.",
+    "Reports zeigen Survival, Crimes, Kooperation, Governance, Kosten, Latenz, Invalid Actions und Failure Modes.",
+    "Simulation Actions sind strikt von realen Ananta Tools getrennt.",
+    "LangGraph ist optionales Backend oder dokumentiert deferred.",
+    "n8n ist optionaler Wrapper oder dokumentiert deferred.",
+    "Das Feature ist als seriöse Ananta-Governance-Fähigkeit demonstrierbar."
+  ],
+  "recommended_first_implementation_order": [
+    "SIM-001",
+    "SIM-002",
+    "SIM-003",
+    "SIM-004",
+    "SIM-005",
+    "SIM-006",
+    "SIM-007",
+    "SIM-008",
+    "SIM-013",
+    "SIM-015",
+    "SIM-016",
+    "SIM-020",
+    "SIM-021",
+    "SIM-023",
+    "SIM-024",
+    "SIM-025",
+    "SIM-033",
+    "SIM-034",
+    "SIM-043",
+    "SIM-044",
+    "SIM-045",
+    "SIM-046"
+  ],
+  "architecture_decisions": [
+    {
+      "id": "ADR-SIM-001",
+      "decision": "Native Ananta Runner zuerst",
+      "reason": "Der Kernloop ist einfach genug und Ananta muss Ownership über Policy, Logs, Replay und Artefakte behalten."
+    },
+    {
+      "id": "ADR-SIM-002",
+      "decision": "LangGraph optional",
+      "reason": "LangGraph ist gut für komplexe State Machines, soll aber nicht Ananta-Governance ersetzen."
+    },
+    {
+      "id": "ADR-SIM-003",
+      "decision": "n8n optionaler Wrapper",
+      "reason": "n8n ist gut für Trigger, Webhooks und Reports, aber nicht als deterministischer Simulationskern."
+    },
+    {
+      "id": "ADR-SIM-004",
+      "decision": "Kein Human-in-the-loop während Simulationsticks",
+      "reason": "Menschliche Freigaben würden das Autonomie-Experiment verfälschen."
+    },
+    {
+      "id": "ADR-SIM-005",
+      "decision": "LLM Output ist nie direkte State-Mutation",
+      "reason": "Agenten dürfen denken, lügen, halluzinieren oder JSON kaputt machen; State bleibt deterministisch."
+    }
+  ]
+}
