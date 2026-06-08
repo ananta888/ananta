@@ -14,11 +14,13 @@ import { SystemFacade } from './features/system/system.facade';
 import { AppShellStateService } from './services/app-shell-state.service';
 import { PythonRuntimeService } from './services/python-runtime.service';
 import { WindowBridgeService } from './services/window-bridge.service';
+import { SnakeOverlayService } from './services/snake-overlay.service';
+import { SnakeOverlayComponent } from './components/snake-overlay.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterLink, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent],
+  imports: [RouterLink, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent],
   template: `
     <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
     <app-notifications />
@@ -52,6 +54,9 @@ import { WindowBridgeService } from './services/window-bridge.service';
             <button (click)="toggleMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Navigationstiefe umschalten">
               {{ shell.mode() === 'simple' ? 'Experte' : 'Einfach' }}
             </button>
+            <button (click)="snakeOverlay.toggle()" class="secondary snake-toggle"
+                    [class.snake-on]="snakeOverlay.visible$ | async"
+                    style="padding: 4px 8px; font-size: 12px;" title="AI-Snake Overlay ein/aus">🐍</button>
             <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;" aria-label="Logout">Abmelden</button>
           </div>
         }
@@ -120,6 +125,9 @@ import { WindowBridgeService } from './services/window-bridge.service';
     </main>
     @if (headerUser) {
       <app-ai-assistant data-testid="assistant-feature-root" />
+    }
+    @if ((snakeOverlay.visible$ | async) && headerUser) {
+      <app-snake-overlay />
     }
   `,
   styles: [`
@@ -269,6 +277,8 @@ import { WindowBridgeService } from './services/window-bridge.service';
         display: none;
       }
     }
+    .snake-toggle { transition: box-shadow 0.2s; }
+    .snake-toggle.snake-on { box-shadow: 0 0 6px 1px #3affaa44; outline: 1px solid #3affaa88; }
   `]
 })
 export class AppComponent implements OnInit, OnDestroy {
@@ -278,6 +288,7 @@ export class AppComponent implements OnInit, OnDestroy {
   mobile = inject(MobileRuntimeService);
   private system = inject(SystemFacade);
   shell = inject(AppShellStateService);
+  readonly snakeOverlay = inject(SnakeOverlayService);
   private pythonRuntime = inject(PythonRuntimeService);
   readonly bridge = inject(WindowBridgeService);
 
