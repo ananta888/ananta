@@ -1804,6 +1804,14 @@ def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
         lines.append("    Enter: send")
         lines.append("    Esc: leave input")
         lines.append(f"    {display_for_action('clear_chat_input', 'Ctrl+L')}: clear input")
+        lines.append("")
+        lines.append("  Sessions:")
+        lines.append("    /session             liste alle sessions")
+        lines.append("    /session <id>        wechsle session")
+        lines.append("    /session new <name>  neue session")
+        lines.append("    /session delete <id> session löschen")
+        lines.append("    /session rename <id> <name>")
+        lines.append("    /clear               verlauf löschen")
     lines.append("")
     lines.append("  Commands:")
     lines.append("    :help full help")
@@ -1847,6 +1855,22 @@ def _chat_detail_lines(
         header_lines.append(f"  unread: {unread_total}")
     selector = _plain_channel_selector(active_ch_id)
     header_lines.append(f"  {selector}")
+    # Session indicator
+    try:
+        from client_surfaces.operator_tui.chat_state import get_sessions, get_active_session
+        _active_sess = get_active_session(chat)
+        _all_sessions = get_sessions(chat)
+        if _active_sess:
+            _sicon = str(_active_sess.get("icon") or "💬")
+            _sname = str(_active_sess.get("name") or _active_sess.get("id") or "?")
+            _sback = str((_active_sess.get("settings") or {}).get("chat_backend") or "")
+            _scc = bool((_active_sess.get("settings") or {}).get("chat_use_codecompass"))
+            _cc_tag = " CC" if _scc else ""
+            _back_tag = f" [{_sback}]" if _sback else ""
+            _n = len(_all_sessions)
+            header_lines.append(f"  {_sicon} {_sname}{_back_tag}{_cc_tag}  ({_n} sessions)")
+    except Exception:
+        pass
     header_lines.append("  " + "-" * max(8, width - 4))
 
     messages: list[dict] = []
@@ -1887,6 +1911,15 @@ def _chat_detail_lines(
             cursor = int(chat.get("chat_input_cursor") or len(buf))
         prompt_map = {"room": "#room>", "direct": "@>", "ai": "AI>", "notes": "notes>", "system": ">"}
         prompt = prompt_map.get(ch_type, ">")
+        if ch_type == "ai":
+            try:
+                from client_surfaces.operator_tui.chat_state import get_active_session as _gas3
+                _ps = _gas3(chat)
+                if _ps:
+                    _pname = str(_ps.get("name") or "AI")
+                    prompt = f"{_pname}>"
+            except Exception:
+                pass
         # History indicator: show ▲N if history available (↑/↓ to navigate)
         history = [str(h) for h in (chat.get("chat_input_history") or []) if str(h).strip()]
         hist_note = f" \x1b[2m▲{len(history)}\x1b[0m" if history else ""
