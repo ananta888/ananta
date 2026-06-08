@@ -143,10 +143,323 @@ def make_message(
 # ── Chat state (top-level game dict key: "chat_state") ────────────────────────
 
 
+# ── AI Chat Sessions ─────────────────────────────────────────────────────────
+#
+# A ChatSession is a named, settings-bound AI conversation thread. Each
+# session has its own message history, system prompt, and chat settings
+# (chat_backend, code compass scope, source pack, model, ...). The user
+# can have multiple sessions in parallel (e.g. "Code-Help", "Writing",
+# "General") and switch between them without losing context. Sessions
+# are persisted in user.json via user_config_manager.
+#
+# Each session also appears as an `ai:<session_id>` channel in the
+# channels dict for backward compat with the rest of the chat pipeline
+# (which expects messages to live in channels).
+# ───────────────────────────────────────────────────────────────────────────
+
+# Default settings: applied to new sessions when nothing is configured.
+# Mirrors the legacy "user.json scalar settings" so existing behavior
+# is preserved for the default sessions.
+_DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
+    "chat_backend": "ananta-worker",
+    "chat_backend_model": "google/gemma-4-e4b",
+    "chat_source_pack_id": "ananta-dev-default",
+    "chat_use_codecompass": True,
+    "chat_codecompass_trigger_mode": "auto",
+    "chat_retrieval_profile": "auto",
+    "chat_code_questions_repo_first": True,
+    "chat_architecture_analysis_mode": False,
+    "chat_max_tokens": 1024,
+    "chat_answer_chars": 1800,
+    "chat_context_chars": 4000,
+    "chat_rag_top_k": 12,
+    "chat_history_turns": 6,
+    "chat_history_chars": 1800,
+    "chat_use_history": True,
+    "chat_use_summary": True,
+    "chat_summary_chars": 600,
+    "chat_include_local_project": True,
+    "chat_include_wikipedia": False,
+    "chat_include_task_memory": True,
+}
+
+# Built-in sessions — these are the three templates the user gets
+# out of the box. They cover the most common use cases; the user can
+# create more via :new-session or the Angular UI.
+DEFAULT_SESSIONS: list[dict[str, Any]] = [
+    {
+        "id": "code-help",
+        "name": "Code-Help",
+        "icon": "💻",
+        "system_prompt": (
+            "You are a focused code assistant for the Ananta project. "
+            "When answering, prefer concrete file paths, function names, "
+            "and code snippets from the workspace. Be direct and brief. "
+            "Use German if the user writes in German."
+        ),
+        "settings": {
+            "chat_backend": "ananta-worker",
+            "chat_use_codecompass": True,
+            "chat_retrieval_profile": "code_first",
+            "chat_code_questions_repo_first": True,
+            "chat_architecture_analysis_mode": False,
+        },
+    },
+    {
+        "id": "writing-coach",
+        "name": "Schreib-Coach",
+        "icon": "✍️",
+        "system_prompt": (
+            "You are a writing coach. Help the user clarify their thinking, "
+            "structure their arguments, and improve their prose. Do not "
+            "reference code or project files unless explicitly asked. "
+            "Respond in the language the user uses."
+        ),
+        "settings": {
+            "chat_backend": "lmstudio",
+            "chat_use_codecompass": False,
+            "chat_retrieval_profile": "none",
+            "chat_code_questions_repo_first": False,
+            "chat_include_local_project": False,
+            "chat_include_wikipedia": True,
+        },
+    },
+    {
+        "id": "general",
+        "name": "Allgemein",
+        "icon": "💬",
+        "system_prompt": (
+            "You are a helpful, friendly AI assistant. Use the project's "
+            "CodeCompass context when it seems relevant, but don't force it. "
+            "Match the user's language and tone."
+        ),
+        "settings": {
+            "chat_backend": "ananta-worker",
+            "chat_use_codecompass": True,
+            "chat_retrieval_profile": "auto",
+        },
+    },
+]
+
+
+def make_session(
+    *,
+    session_id: str,
+    name: str,
+    system_prompt: str = "",
+    settings: dict[str, Any] | None = None,
+    icon: str = "💬",
+) -> dict[str, Any]:
+    """Create a new chat session. Settings are merged over the default
+    session settings so a session can override individual fields without
+    having to repeat the whole defaults table."""
+    # Start from a fresh copy of the defaults so each session has its
+    # own settings dict (no shared references that would let sessions
+    # accidentally clobber each other).
+    import copy as _copy
+    merged_settings = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS)
+    if settings:
+        for k, v in settings.items():
+            if v is not None:
+                merged_settings[k] = v
+    return {
+        "id": str(session_id),
+        "name": str(name or session_id),
+        "icon": str(icon or "💬"),
+        "system_prompt": str(system_prompt or ""),
+        "settings": merged_settings,
+        "created_at": time.time(),
+        "updated_at": time.time(),
+    }
+
+
+def default_sessions() -> list[dict[str, Any]]:
+    """Return a fresh list of the built-in default sessions. Each session
+    is built via `make_session`, which means its settings dict starts
+    from a full copy of the default session settings — not just the
+    overrides. Without this, a session created from a DEFAULT_SESSIONS
+    entry would be missing keys like `chat_max_tokens` or
+    `chat_history_turns` that the rest of the chat pipeline expects."""
+    return [
+        make_session(
+            session_id=str(s.get("id") or ""),
+            name=str(s.get("name") or s.get("id") or ""),
+            system_prompt=str(s.get("system_prompt") or ""),
+            settings=dict(s.get("settings") or {}),
+            icon=str(s.get("icon") or "💬"),
+        )
+        for s in DEFAULT_SESSIONS
+    ]
+
+
+# ── Session registry inside chat_state ───────────────────────────────────────
+# The active chat_state carries the list of sessions. The current
+# "active session" is `active_session_id`; the active *channel* stays
+# `ai:<active_session_id>`. We keep both for backward compat with the
+# existing channel-based message rendering. ──────────────────────────────
+
+def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the list of session dicts. Always non-empty — returns the
+    default sessions if the chat state has none yet (legacy / freshly
+    initialised)."""
+    sessions = chat.get("ai_sessions")
+    if not isinstance(sessions, list) or not sessions:
+        sessions = default_sessions()
+        chat["ai_sessions"] = sessions
+    return sessions
+
+
+def get_session(chat: dict[str, Any], session_id: str) -> dict[str, Any] | None:
+    for s in get_sessions(chat):
+        if isinstance(s, dict) and str(s.get("id") or "") == str(session_id):
+            return s
+    return None
+
+
+def get_active_session(chat: dict[str, Any]) -> dict[str, Any] | None:
+    sessions = get_sessions(chat)
+    active_id = str(chat.get("active_session_id") or "")
+    for s in sessions:
+        if isinstance(s, dict) and str(s.get("id") or "") == active_id:
+            return s
+    # Fall back to first session
+    if sessions and isinstance(sessions[0], dict):
+        return sessions[0]
+    return None
+
+
+def active_session_channel_id(chat: dict[str, Any]) -> str:
+    """Return the channel_id corresponding to the active session. This is
+    the bridge between sessions and the existing channel-based pipeline:
+    each session maps 1:1 to an `ai:<session_id>` channel."""
+    session = get_active_session(chat)
+    if session is None:
+        return "ai:tutor"
+    return f"ai:{str(session.get('id') or 'tutor')}"
+
+
+def add_session(chat: dict[str, Any], session: dict[str, Any]) -> None:
+    sessions = get_sessions(chat)
+    sessions.append(session)
+    chat["updated_at"] = time.time()
+
+
+def delete_session(chat: dict[str, Any], session_id: str) -> bool:
+    """Remove a session and its channel. If the deleted session was the
+    active one, switch to the first remaining session (or none)."""
+    sessions = get_sessions(chat)
+    target_id = str(session_id)
+    kept = [s for s in sessions if str((s or {}).get("id") or "") != target_id]
+    if len(kept) == len(sessions):
+        return False
+    chat["ai_sessions"] = kept
+    # Drop the channel too so the chat pipeline stops trying to write
+    # messages into a dead channel.
+    channels = chat.get("channels") or {}
+    channel_id = f"ai:{target_id}"
+    if channel_id in channels:
+        try:
+            del channels[channel_id]
+        except Exception:
+            pass
+    # Switch active if we just removed the active one
+    if str(chat.get("active_session_id") or "") == target_id:
+        if kept and isinstance(kept[0], dict):
+            chat["active_session_id"] = str(kept[0].get("id") or "")
+            chat["active_channel"] = f"ai:{chat['active_session_id']}"
+        else:
+            chat["active_session_id"] = None
+            chat["active_channel"] = "room:main"
+    chat["updated_at"] = time.time()
+    return True
+
+
+def set_active_session(chat: dict[str, Any], session_id: str) -> bool:
+    """Switch the active session. Mirrors switch_channel() so callers
+    don't have to know whether they have a session_id or channel_id.
+    Ensures the corresponding channel exists so the chat pipeline can
+    immediately write to it."""
+    target_id = str(session_id)
+    if get_session(chat, target_id) is None:
+        return False
+    chat["active_session_id"] = target_id
+    chat["active_channel"] = f"ai:{target_id}"
+    # Make sure the channel exists — important when callers switch to
+    # a session that was added after the initial ensure_session_channels
+    # call (e.g. a freshly added custom session).
+    ensure_session_channels(chat)
+    return True
+
+
+def update_session_settings(
+    chat: dict[str, Any],
+    session_id: str,
+    settings: dict[str, Any],
+) -> bool:
+    """Merge new settings into a session. Existing settings are preserved
+    for keys that are not in the update."""
+    session = get_session(chat, session_id)
+    if session is None:
+        return False
+    current = dict(session.get("settings") or {})
+    for k, v in (settings or {}).items():
+        if v is not None:
+            current[k] = v
+    session["settings"] = current
+    session["updated_at"] = time.time()
+    chat["updated_at"] = time.time()
+    return True
+
+
+def ensure_session_channels(chat: dict[str, Any]) -> None:
+    """Make sure every session has a corresponding channel. The channel
+    is the storage location for messages — the rest of the chat pipeline
+    writes to channels, so we keep that abstraction. Sessions that have
+    no channel yet get a fresh empty one (preserving any existing
+    messages if the channel already exists)."""
+    channels = chat.get("channels")
+    if not isinstance(channels, dict):
+        channels = {}
+        chat["channels"] = channels
+    for session in get_sessions(chat):
+        if not isinstance(session, dict):
+            continue
+        sid = str(session.get("id") or "")
+        if not sid:
+            continue
+        channel_id = f"ai:{sid}"
+        existing = channels.get(channel_id)
+        if isinstance(existing, dict):
+            # Keep existing messages; just refresh display metadata
+            existing["display_name"] = f"{session.get('icon', '💬')} {session.get('name', sid)}"
+            existing.setdefault("id", channel_id)
+            existing.setdefault("channel_type", ChannelType.AI)
+            existing.setdefault("visibility", Visibility.AI_CONTEXT)
+            existing.setdefault("participants", ["s-ai"])
+            existing.setdefault("persistence_policy", "local")
+            existing.setdefault("messages", [])
+            existing.setdefault("unread", 0)
+            existing.setdefault("scroll_offset", 0)
+            continue
+        channels[channel_id] = make_channel(
+            channel_id=channel_id,
+            channel_type=ChannelType.AI,
+            display_name=f"{session.get('icon', '💬')} {session.get('name', sid)}",
+            participants=["s-ai"],
+            visibility=Visibility.AI_CONTEXT,
+        )
+
+
+# ── default_chat_state (updated to include sessions) ────────────────────────
+
 def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:
+    sessions = default_sessions()
+    first_id = str(sessions[0].get("id") or "code-help")
     return {
         "local_snake_id": local_snake_id,
-        "active_channel": "room:main",
+        "active_channel": f"ai:{first_id}",
+        "active_session_id": first_id,
+        "ai_sessions": sessions,
         "channels": default_channels(),
         "chat_focus": False,
         "chat_input_buffer": "",
@@ -156,15 +469,53 @@ def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:
         "chat_input_saved_draft": "",
         "notes_context_released": False,
         "ai_typing": False,
+        "created_at": time.time(),
+        "updated_at": time.time(),
     }
 
 
 def get_chat_state(game: dict[str, Any]) -> dict[str, Any]:
     raw = game.get("chat_state")
     if isinstance(raw, dict):
+        # Migrate legacy state that has no sessions yet — first call after
+        # upgrade to the sessions-aware build. We preserve the existing
+        # `ai:tutor` channel as the active session so existing chat
+        # history is not lost. This is the Backward-Compat shim.
+        if not isinstance(raw.get("ai_sessions"), list) or not raw["ai_sessions"]:
+            legacy_session = make_session(
+                session_id="tutor",
+                name="AI Tutor",
+                icon="🤖",
+                system_prompt="",
+                settings={},
+            )
+            raw["ai_sessions"] = [legacy_session]
+            raw["active_session_id"] = "tutor"
+            # Re-key existing ai:tutor channel as ai:tutor
+            channels = raw.get("channels")
+            if not isinstance(channels, dict):
+                channels = default_channels()
+                raw["channels"] = channels
+            elif "ai:tutor" in channels:
+                ch = channels.pop("ai:tutor")
+                if isinstance(ch, dict):
+                    ch["id"] = "ai:tutor"
+                    ch.setdefault("display_name", "🤖 AI Tutor")
+                    channels["ai:tutor"] = ch
+            # Backfill any missing default channels (room, notes, system)
+            # so the chat pipeline still has them after the migration.
+            for default_ch in default_channels().values():
+                cid = str(default_ch.get("id") or "")
+                if cid and cid not in channels:
+                    channels[cid] = default_ch
+            raw.setdefault("active_channel", "ai:tutor")
+        # Always make sure each session has a corresponding channel
+        ensure_session_channels(raw)
         return raw
     local_id = str(game.get("local_snake_id") or "s1")
-    return default_chat_state(local_id)
+    chat = default_chat_state(local_id)
+    ensure_session_channels(chat)
+    return chat
 
 
 # ── ChatAnswerBlock ───────────────────────────────────────────────────────────
