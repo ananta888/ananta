@@ -1,6 +1,7 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
@@ -14,6 +15,7 @@ import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
 import { ChatSessionsService } from '../services/chat-sessions.service';
+import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
@@ -143,58 +145,68 @@ import { ChatSessionsService } from '../services/chat-sessions.service';
       } @else {
         <div class="body">
 
-          <!-- ── Aktive Session ── -->
-          @if (sessions.activeSessionId$ | async; as activeId) {
-            @if (activeSessionFor(activeId); as sess) {
-              <div class="session-bar">
-                <span class="sess-label">
-                  <span class="sess-dot">●</span>
-                  {{ sess.icon || '💬' }} {{ sess.name }}
-                  <span class="sess-meta">{{ sessBackend(sess) }}</span>
-                  @if (sessCodeCompass(sess)) { <span class="sess-cc">CC</span> }
-                </span>
-                <button class="sess-switch-btn" (click)="setTab('sessions')" title="Session wechseln">⇄</button>
-              </div>
-            }
-          }
+          <!-- ── Chat-Auswahl: Combobox + Neu-Button ── -->
+          <div class="chat-switcher">
+            <select class="sess-select"
+                    [ngModel]="sessions.activeSessionId$ | async"
+                    (ngModelChange)="switchSession($event)">
+              @for (s of (sessions.sessions$ | async) || []; track s.id) {
+                <option [value]="s.id">{{ s.icon || '💬' }} {{ s.name }}</option>
+              }
+            </select>
+            <button class="new-chat-btn" (click)="newChatMode = !newChatMode" title="Neuen Chat anlegen">＋</button>
+            <button class="sess-mgr-btn" (click)="setTab('sessions')" title="Chats verwalten">⚙</button>
+          </div>
 
-          <!-- ── Session-Combobox ── -->
-          @if (((sessions.sessions$ | async) || []).length > 0) {
-            <div class="sess-select-row">
-              <select class="sess-select"
-                      [ngModel]="sessions.activeSessionId$ | async"
-                      (ngModelChange)="switchSession($event)">
-                @for (s of (sessions.sessions$ | async) || []; track s.id) {
-                  <option [value]="s.id">{{ s.icon || '💬' }} {{ s.name }}</option>
-                }
-              </select>
-              <button class="sess-mgr-btn" (click)="setTab('sessions')" title="Sessions verwalten">⚙</button>
+          <!-- ── Neuen Chat anlegen ── -->
+          @if (newChatMode) {
+            <div class="new-chat-form">
+              <input [(ngModel)]="newChatName" placeholder="Chat-Name *" (keydown.enter)="createChat()" class="new-chat-input" />
+              <button (click)="createChat()" [disabled]="!newChatName.trim()" class="new-chat-ok">Anlegen</button>
+              <button (click)="newChatMode = false" class="ghost">✕</button>
             </div>
           }
 
-          <div class="participants">
-            <div class="title">Teilnehmer</div>
-            @for (p of (svc.participants$ | async) || []; track p.id) {
-              <div class="row">
-                <span>{{ p.name }} ({{ p.role }})</span>
-                <span class="status" [class.on]="p.status==='online'">{{ p.status }}</span>
+          <!-- ── Aktive-Session-Info ── -->
+          @if (sessions.activeSessionId$ | async; as activeId) {
+            @if (activeSessionFor(activeId); as sess) {
+              <div class="session-bar">
+                <span class="sess-dot">●</span>
+                <span class="sess-name-label">{{ sess.name }}</span>
+                <span class="sess-meta">{{ sessBackend(sess) }}</span>
+                @if (sessCodeCompass(sess)) { <span class="sess-cc">CC</span> }
+                <span class="msg-count">{{ chatMessages().length }} Nachrichten</span>
               </div>
             }
-          </div>
-          <div class="messages">
-            @for (m of (svc.messages$ | async) || []; track m.id) {
-              <div class="msg">
-                <strong>{{ m.sender_id }}:</strong> {{ m.text }}
+          }
+
+          <div class="messages" #messagesEl>
+            @if (chatMessages().length === 0) {
+              <div class="no-msgs-hint">
+                Noch keine Nachrichten in diesem Chat.<br>
+                Schreib etwas unten um zu starten.
+              </div>
+            }
+            @for (m of chatMessages(); track m.id) {
+              <div class="msg" [class.msg-ai]="m.isAI">
+                <span class="msg-who">{{ m.isAI ? '🤖' : '👤' }}</span>
+                <span class="msg-body">{{ m.text }}</span>
+              </div>
+            }
+            @if (svc.awaitingReply$ | async) {
+              <div class="msg msg-ai typing">
+                <span class="msg-who">🤖</span>
+                <span class="msg-body">…</span>
               </div>
             }
           </div>
           <div class="send">
-            <input [(ngModel)]="draft" (keydown.enter)="send()" placeholder="Nachricht an room..." [disabled]="!!(svc.awaitingReply$ | async)" />
+            <input [(ngModel)]="draft" (keydown.enter)="send()"
+                   [placeholder]="sendPlaceholder()"
+                   [disabled]="!!(svc.awaitingReply$ | async)" />
             <button (click)="send()" [disabled]="!draft.trim() || !!(svc.awaitingReply$ | async)">Senden</button>
             @if (svc.awaitingReply$ | async) {
-              <button class="cancel-btn" (click)="cancelChat()">⏹ Abbrechen</button>
-            } @else {
-              <button class="ghost" (click)="disconnect()">Trennen</button>
+              <button class="cancel-btn" (click)="cancelChat()">⏹</button>
             }
           </div>
         </div>
@@ -221,44 +233,65 @@ import { ChatSessionsService } from '../services/chat-sessions.service';
     .connect label { display: grid; gap: 4px; font-size: 11px; }
     input, select, button { background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8; padding: 5px 7px; font-family: inherit; font-size: 12px; }
     button { cursor: pointer; }
-    .body { flex: 1; min-height: 0; display: grid; grid-template-rows: auto 1fr auto; }
+    .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     .mode-shell { flex: 1; min-height: 0; padding: 10px; display: grid; gap: 10px; align-content: start; }
     .mode-group { display: grid; gap: 6px; }
     .mode-tabs { display: flex; gap: 6px; }
     .mode-tabs button { border: 1px solid #1a2d4a; color: #6b8ab8; background: transparent; }
     .mode-tabs button.active { color: #7fffd4; border-color: #7fffd4; background: #102238; }
     .settings-shell { flex: 1; min-height: 0; overflow: hidden; }
-    .session-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 5px 10px; background: #0d1e34; border-bottom: 1px solid #1a3050;
-      font-size: 11px; flex-shrink: 0;
-    }
-    .sess-label { display: flex; align-items: center; gap: 5px; color: #c8d8f8; }
-    .sess-dot { color: #7fffd4; font-size: 8px; }
-    .sess-meta { color: #4a7aaa; font-size: 10px; }
-    .sess-cc { background: #0a2a1a; border: 1px solid #1a6a3a; color: #3affaa; padding: 1px 4px; font-size: 9px; border-radius: 2px; }
-    .sess-switch-btn { background: transparent; border: 1px solid #1a3050; color: #4a6a9a; padding: 2px 6px; cursor: pointer; font-size: 12px; }
-    .sess-switch-btn:hover { color: #7fffd4; border-color: #2a5080; }
-    .sess-select-row {
+    /* ── Chat-Switcher ── */
+    .chat-switcher {
       display: flex; align-items: center; gap: 4px;
-      padding: 4px 8px; background: #09172a;
-      border-bottom: 1px solid #152040; flex-shrink: 0;
+      padding: 5px 8px; background: #09172a; border-bottom: 1px solid #152040; flex-shrink: 0;
     }
     .sess-select {
       flex: 1; background: #0f1c30; border: 1px solid #1a3050; color: #c8d8f8;
-      padding: 4px 6px; font-size: 12px; font-family: inherit; border-radius: 2px; cursor: pointer;
+      padding: 5px 7px; font-size: 12px; font-family: inherit; border-radius: 3px; cursor: pointer;
     }
+    .new-chat-btn {
+      background: #0a2238; border: 1px solid #2a5080; color: #7fffd4;
+      padding: 3px 9px; cursor: pointer; font-size: 15px; border-radius: 3px;
+    }
+    .new-chat-btn:hover { background: #103050; }
     .sess-mgr-btn {
       background: transparent; border: 1px solid #1a3050; color: #4a6a9a;
-      padding: 3px 7px; cursor: pointer; font-size: 13px; border-radius: 2px; flex-shrink: 0;
+      padding: 3px 7px; cursor: pointer; font-size: 13px; border-radius: 3px;
     }
-    .sess-mgr-btn:hover { color: #7fffd4; border-color: #2a5080; }
-    .participants { padding: 8px 10px; border-bottom: 1px solid #1a2d4a; max-height: 150px; overflow: auto; }
-    .title { color: #6b8ab8; font-size: 11px; margin-bottom: 4px; }
-    .row { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
-    .status { color: #6b8ab8; } .status.on { color: #7fffd4; }
-    .messages { padding: 8px 10px; overflow: auto; }
-    .msg { margin-bottom: 5px; font-size: 12px; word-break: break-word; }
+    .sess-mgr-btn:hover { color: #7fffd4; }
+    .new-chat-form {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 8px; background: #08131f; border-bottom: 1px solid #152040; flex-shrink: 0;
+    }
+    .new-chat-input {
+      flex: 1; background: #0f1c30; border: 1px solid #2a4070; color: #c8d8f8;
+      padding: 4px 7px; font-size: 12px; font-family: inherit; border-radius: 3px;
+    }
+    .new-chat-ok {
+      background: #102238; border: 1px solid #2a5090; color: #7fffd4;
+      padding: 4px 9px; cursor: pointer; font-size: 12px; border-radius: 3px;
+    }
+    .new-chat-ok:disabled { opacity: 0.35; cursor: default; }
+    /* ── Session-Info-Bar ── */
+    .session-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 10px; background: #0d1e34; border-bottom: 1px solid #152040;
+      font-size: 11px; flex-shrink: 0;
+    }
+    .sess-dot { color: #7fffd4; font-size: 7px; }
+    .sess-name-label { color: #c8d8f8; font-weight: 500; }
+    .sess-meta { color: #4a7aaa; }
+    .sess-cc { background: #0a2a1a; border: 1px solid #1a6a3a; color: #3affaa; padding: 1px 4px; font-size: 9px; border-radius: 2px; }
+    .msg-count { margin-left: auto; color: #2a4a6a; font-size: 10px; }
+    /* ── Messages ── */
+    .messages { padding: 8px 10px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+    .no-msgs-hint { color: #2a4a6a; font-size: 11px; text-align: center; padding: 20px 10px; line-height: 1.6; }
+    .msg { display: flex; gap: 6px; font-size: 12px; word-break: break-word; align-items: flex-start; }
+    .msg-ai .msg-body { color: #b8d8b0; }
+    .msg-who { flex-shrink: 0; font-size: 13px; }
+    .msg-body { flex: 1; min-width: 0; white-space: pre-wrap; }
+    .typing .msg-body { color: #4a8a6a; animation: blink 1s infinite; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
     .send { border-top: 1px solid #1a2d4a; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
     .ghost { color: #6b8ab8; }
     .cancel-btn { color: #ff6b6b; border-color: #ff6b6b; background: #1a0a0a; }
@@ -288,12 +321,13 @@ import { ChatSessionsService } from '../services/chat-sessions.service';
     .error { color: #fb7185; font-size: 11px; padding: 6px 10px; border-top: 1px solid #4a1a1a; }
   `],
 })
-export class AiSnakeChatPanelComponent {
+export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   readonly svc = inject(AiSnakeChatService);
   readonly cfg = inject(AiSnakeConfigService);
   readonly oidc = inject(OidcAuthService);
   readonly signaling = inject(WebrtcSignalingService);
   readonly sessions = inject(ChatSessionsService);
+  readonly history = inject(ChatHistoryService);
 
   name = 'web-ai-snake';
   role = 'viewer';
@@ -303,7 +337,11 @@ export class AiSnakeChatPanelComponent {
   webrtcBaseUrl = PUBLIC_WEBRTC_BASE_URL;
   loginBusy = false;
   loginError = '';
+  newChatMode = false;
+  newChatName = '';
   readonly keycloakPresets = [PUBLIC_KEYCLOAK_BASE_URL];
+
+  private historySub?: Subscription;
 
   @Input() tab: 'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
@@ -316,6 +354,33 @@ export class AiSnakeChatPanelComponent {
     this.cfg.load();
     this.restoreRuntimeEndpoints();
     this.sessions.load();
+  }
+
+  ngOnInit(): void {
+    this.historySub = this.history.updated$.subscribe(() => {});
+  }
+
+  ngOnDestroy(): void {
+    this.historySub?.unsubscribe();
+  }
+
+  chatMessages(): ChatHistoryMessage[] {
+    const sid = this.sessions.activeSessionId$.value || 'default';
+    return this.history.getMessages(sid);
+  }
+
+  sendPlaceholder(): string {
+    const sid = this.sessions.activeSessionId$.value;
+    const sess = sid ? this.activeSessionFor(sid) : null;
+    return sess ? `Nachricht in "${sess.name}"…` : 'Nachricht senden…';
+  }
+
+  createChat(): void {
+    const name = this.newChatName.trim();
+    if (!name) return;
+    this.sessions.create({ name, icon: '💬', system_prompt: '', settings: {} });
+    this.newChatName = '';
+    this.newChatMode = false;
   }
 
   async keycloakLogin(): Promise<void> {
