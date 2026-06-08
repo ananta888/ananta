@@ -1,0 +1,165 @@
+{
+  "schema": "seed_blueprint_catalog.v1",
+  "version": "1.0.0",
+  "blueprints": [
+    {
+      "name": "Story-Domain-Implementation",
+      "description": "Story- and domain-first delivery blueprint: define the user story, derive domain language and boundaries, implement against that contract, then verify against story and domain evidence.",
+      "base_team_type_name": "Story-Domain-Implementation",
+      "roles": [
+        {
+          "name": "Story Analyst",
+          "description": "Defines user story and acceptance criteria before implementation starts.",
+          "template_name": "Story Domain - Story Analyst",
+          "sort_order": 10,
+          "is_required": true,
+          "config": {
+            "responsibility": "story_definition"
+          }
+        },
+        {
+          "name": "Domain Modeler",
+          "description": "Derives domain terms, boundaries, invariants, and implementation hints from the story.",
+          "template_name": "Story Domain - Domain Modeler",
+          "sort_order": 20,
+          "is_required": true,
+          "config": {
+            "responsibility": "domain_modeling"
+          }
+        },
+        {
+          "name": "Implementation Coder",
+          "description": "Implements the change against the user story, acceptance criteria, and domain contract.",
+          "template_name": "Story Domain - Implementation Coder",
+          "sort_order": 30,
+          "is_required": true,
+          "config": {
+            "responsibility": "implementation"
+          }
+        },
+        {
+          "name": "Verification Tester",
+          "description": "Verifies implementation against story, acceptance criteria, and domain model.",
+          "template_name": "Story Domain - Verification Tester",
+          "sort_order": 40,
+          "is_required": true,
+          "config": {
+            "responsibility": "verification"
+          }
+        }
+      ],
+      "artifacts": [
+        {
+          "kind": "task",
+          "title": "User Story Definition",
+          "description": "Define user story, acceptance criteria, constraints, open questions, and out-of-scope notes.",
+          "sort_order": 10,
+          "payload": {
+            "status": "todo",
+            "priority": "High"
+          }
+        },
+        {
+          "kind": "task",
+          "title": "Domain Modeling",
+          "description": "Define domain terms, boundaries, invariants, and implementation hints before coding starts.",
+          "sort_order": 20,
+          "payload": {
+            "status": "todo",
+            "priority": "High"
+          }
+        },
+        {
+          "kind": "task",
+          "title": "Story Implementation",
+          "description": "Implement the minimal change using story and domain artifacts as required inputs.",
+          "sort_order": 30,
+          "payload": {
+            "status": "todo",
+            "priority": "High"
+          }
+        },
+        {
+          "kind": "task",
+          "title": "Story Domain Verification",
+          "description": "Verify that implementation satisfies the user story, acceptance criteria, and domain model.",
+          "sort_order": 40,
+          "payload": {
+            "status": "todo",
+            "priority": "High"
+          }
+        },
+        {
+          "kind": "policy",
+          "title": "Story Domain Default Policy",
+          "description": "Default policy profile for story/domain-first implementation teams.",
+          "sort_order": 100,
+          "payload": {
+            "task_kind": "coding",
+            "security_level": "balanced",
+            "verification_required": true,
+            "review_required": true,
+            "artifact_flow_expected": true,
+            "domain_model_required_before_coding": true
+          }
+        }
+      ],
+      "workflow": {
+        "mode": "gated",
+        "default_failure_policy": "manual",
+        "steps": [
+          {
+            "id": "story",
+            "role": "Story Analyst",
+            "task_kind": "planning",
+            "title": "User Story Definition",
+            "sort_order": 10,
+            "produces": ["User Story", "Acceptance Criteria", "Story Constraints"],
+            "consumes": ["Goal Brief"],
+            "required_capabilities": ["story_slicing", "acceptance_criteria"]
+          },
+          {
+            "id": "domain",
+            "role": "Domain Modeler",
+            "task_kind": "domain_modeling",
+            "title": "Domain Modeling",
+            "sort_order": 20,
+            "depends_on": ["story"],
+            "produces": ["Domain Model", "Domain Terms", "Boundary Notes", "Implementation Hints"],
+            "consumes": ["User Story", "Acceptance Criteria", "Story Constraints"],
+            "required_capabilities": ["domain_language", "bounded_contexts", "codecompass_search"]
+          },
+          {
+            "id": "implementation",
+            "role": "Implementation Coder",
+            "task_kind": "coding",
+            "title": "Story Implementation",
+            "sort_order": 30,
+            "depends_on": ["domain"],
+            "produces": ["Code Changes", "Implementation Notes"],
+            "consumes": ["User Story", "Acceptance Criteria", "Domain Model", "Domain Terms", "Boundary Notes", "Implementation Hints"],
+            "required_capabilities": ["code_editing", "tests", "artifact_handoff"]
+          },
+          {
+            "id": "verification",
+            "role": "Verification Tester",
+            "task_kind": "gate_review",
+            "title": "Story Domain Verification",
+            "sort_order": 40,
+            "depends_on": ["implementation"],
+            "gate": true,
+            "checks": {
+              "min_artifacts": ["User Story", "Acceptance Criteria", "Domain Model", "Code Changes", "Verification Report"],
+              "approval_role": "Verification Tester",
+              "verification_required": true
+            },
+            "failure_policy": "manual",
+            "produces": ["Verification Report", "Test Evidence", "Story Domain Signoff"],
+            "consumes": ["User Story", "Acceptance Criteria", "Domain Model", "Domain Terms", "Boundary Notes", "Code Changes", "Implementation Notes"],
+            "required_capabilities": ["test_execution", "acceptance_verification", "regression_analysis"]
+          }
+        ]
+      }
+    }
+  ]
+}
