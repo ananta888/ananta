@@ -2692,7 +2692,14 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
     except Exception:
         active_chat = ""
     if active_chat and (bool(game.get("chat_panel_open")) or bool(game.get("artifact_chat_focus")) or bool(game.get("free_mode"))):
-        parts.append(f"chat={_chat_channel_label(active_chat)}")
+        try:
+            from client_surfaces.operator_tui.chat_state import get_chat_state as _gcs2, get_active_session as _gas2
+            _sess = _gas2(_gcs2(dict(game)))
+            _sess_name = str(_sess.get("name") or "") if _sess else ""
+        except Exception:
+            _sess_name = ""
+        _ch_label = _chat_channel_label(active_chat)
+        parts.append(f"[{_sess_name}] {_ch_label}" if _sess_name else f"chat={_ch_label}")
     if not bool(game.get("free_mode")):
         try:
             from client_surfaces.operator_tui.chat_state import get_chat_state, unread_total
@@ -3124,12 +3131,15 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     messages = [m for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
     active_ch_id = "ai:tutor"
     unread_count = 0
+    active_session_name = ""
     try:
-        from client_surfaces.operator_tui.chat_state import get_chat_state
+        from client_surfaces.operator_tui.chat_state import get_chat_state, get_active_session
         chat_state = get_chat_state(dict(game))
         active_ch_id = str(chat_state.get("active_channel") or "ai:tutor")
         ch = (chat_state.get("channels") or {}).get(active_ch_id) or {}
         unread_count = sum(int(c.get("unread") or 0) for c in (chat_state.get("channels") or {}).values())
+        _sess = get_active_session(chat_state)
+        active_session_name = str(_sess.get("name") or "") if _sess else ""
         if chat_panel_open or not messages:
             messages = []
             for msg in list(ch.get("messages") or [])[-8:]:
@@ -3183,7 +3193,8 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     active_label = _chat_channel_label(active_ch_id)
     active_col = "\x1b[1;38;2;100;180;255m"
     focus_note = " INPUT" if focus_active else ""
-    panel.append(f"{active_col}ACTIVE: {active_label}{focus_note}\x1b[0m")
+    sess_prefix = f"\x1b[38;2;100;220;180m[{active_session_name}]\x1b[1;38;2;100;180;255m " if active_session_name else ""
+    panel.append(f"{active_col}{sess_prefix}ACTIVE: {active_label}{focus_note}\x1b[0m")
     panel.append("\x1b[38;2;60;60;80m" + "─" * panel_width + "\x1b[0m")
     if chat_panel_open and not ultra_compact:
         panel.append(_compact_channel_selector(active_ch_id, panel_width))

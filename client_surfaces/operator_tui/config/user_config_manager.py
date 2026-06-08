@@ -73,6 +73,12 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "input_history_max_entries",
     "chat_input_history",     # list[str]
     "command_input_history",  # list[str]
+    # Chat sessions — each user has multiple named chat sessions with
+    # their own settings. Persisted as a list of dicts, identical shape
+    # to the runtime `ai_sessions` list in `chat_state`. Survives
+    # snake restarts so the user doesn't lose their custom sessions.
+    "chat_sessions",
+    "chat_active_session_id",
     # Advanced chat configuration (env-mapped features)
     "chat_system_prompt",
     "chat_streaming",
@@ -82,6 +88,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
 })
 
 _DEFAULTS: dict[str, Any] = {
+    "chat_sessions": [],
+    "chat_active_session_id": "code-help",
     "tutorial_mode": False,
     "ai_snake_provider_preference": "lmstudio",
     "ai_visual_use_codecompass": False,
@@ -202,26 +210,96 @@ def _validated(settings: dict[str, Any]) -> dict[str, Any]:
             # Allow list[str] only for designated history keys
             str_list = [str(item) for item in value if isinstance(item, (str, int, float))]
             out[key] = str_list
+        elif key == "chat_sessions" and isinstance(value, list):
+            # Sessions are list[dict]; already sanitized by _sanitize_sessions — pass through
+            out[key] = value
     return out
 
 
 def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    """Extract persistable settings, including list-backed input histories."""
+    """Extract persistable settings, including list-backed input histories.
+
+    This function is responsible for pulling specific keys/values out of
+    a game dict and sanitizing them to their persistable, JSON-save
+    representation. This includes flattening the runtime `chat_state`
+    structure into two top-level keys (`chat_sessions`, `chat_active_session_id`)
+    and cleaning various transient/sensitive data.
+    """
     out: dict[str, Any] = {}
+    # Extract all scalar + list[str] keys (e.g. chat_backend, chat_rag_top_k)
+    # These come directly from the game dict top-level or are nested under
+    # `chat` (if extracted from game["chat_state"]).
+    # For persistence we flatten them.
     for key in _SCHEMA_KEYS:
+        if key == "chat_sessions" or key == "chat_active_session_id": # Handled below
+            continue
+
         value = settings.get(key)
         if isinstance(value, (str, int, float, bool)):
             out[key] = value
         elif isinstance(value, list) and key in _LIST_SCHEMA_KEYS:
             out[key] = [str(item) for item in value if isinstance(item, (str, int, float)) and str(item).strip()]
 
+    # Extract chat sessions separately because they're a nested list-of-dicts
+    # in runtime, but a flat list in persistence.
     chat = settings.get("chat_state")
     if isinstance(chat, dict):
-        history = chat.get("chat_input_history")
-        if isinstance(history, list):
-            out["chat_input_history"] = [
-                str(item) for item in history if isinstance(item, (str, int, float)) and str(item).strip()
-            ]
+        sessions = chat.get("ai_sessions")
+        if isinstance(sessions, list) and sessions:
+            out["chat_sessions"] = _sanitize_sessions(sessions)
+        active_id = chat.get("active_session_id")
+        if isinstance(active_id, str) and active_id.strip():
+            out["chat_active_session_id"] = active_id
+        # Also extract chat history from chat_state if not already there
+        if "chat_input_history" not in out and isinstance(chat.get("chat_input_history"), list):
+            out["chat_input_history"] = [str(item) for item in chat["chat_input_history"] if str(item).strip()]
+    elif "chat_sessions" in settings and isinstance(settings["chat_sessions"], list):
+        # Already extracted flat sessions given directly (e.g., in save call)
+        out["chat_sessions"] = _sanitize_sessions(settings["chat_sessions"])
+        if "chat_active_session_id" in settings and isinstance(settings["chat_active_session_id"], str):
+            out["chat_active_session_id"] = settings["chat_active_session_id"]
+    return out
+
+
+def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
+    """Strip a list of session dicts down to JSON-safe persisted shape.
+
+    Kept fields: id, name, system_prompt, icon, settings (sanitized),
+    created_at, updated_at. Dropped: messages, channels, anything else
+    that the runtime chat pipeline owns.
+    """
+    out: list[dict[str, Any]] = []
+    for item in sessions:
+        if not isinstance(item, dict):
+            continue
+        sid = str(item.get("id") or "").strip()
+        if not sid:
+            continue
+        clean: dict[str, Any] = {"id": sid}
+        for k in ("name", "system_prompt", "icon"):
+            v = item.get(k)
+            if isinstance(v, str):
+                clean[k] = v
+            elif v is not None:
+                clean[k] = str(v)
+        for k in ("created_at", "updated_at"):
+            v = item.get(k)
+            if isinstance(v, (int, float)):
+                clean[k] = v
+        raw_settings = item.get("settings")
+        if isinstance(raw_settings, dict):
+            clean["settings"] = _sanitize_session_settings(raw_settings)
+        out.append(clean)
+    return out
+
+
+def _sanitize_session_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    """Sanitize a per-session settings dict to JSON-safe primitives."""
+    out: dict[str, Any] = {}
+    for k, v in settings.items():
+        if isinstance(v, (bool, int, float, str)):
+            out[k] = v
+        # lists/dicts/None → silently dropped
     return out
 
 
@@ -275,9 +353,51 @@ class UserConfigManager:
         """Merge persisted settings into game dict. Returns updated game."""
         settings = self.load()
         game = dict(game)
+        from client_surfaces.operator_tui.chat_state import get_chat_state, ensure_session_channels, default_sessions
+
+        # Apply non-chat settings from the loaded config
         for key, value in settings.items():
+            if key in {"chat_sessions", "chat_active_session_id"}:  # Handled below
+                continue
             if key not in game or game[key] is None:
+                # This is a safe merge; game values (that are already there)
+                # override loaded settings to capture runtime state updates
+                # from the TUI that are not yet persisted.
                 game[key] = value
+
+        # Initialize chat_state from game, ensuring defaults are present
+        # for things like channels and internal state (e.g. chat_focus).
+        chat = get_chat_state(game)
+
+        # Overlay persisted sessions.
+        # `settings` is the loaded user.json, so it has the canonical,
+        # most up-to-date sessions. Merge those into the chat_state.
+        persisted_sessions = settings.get("chat_sessions")
+        if isinstance(persisted_sessions, list) and persisted_sessions:
+            chat["ai_sessions"] = persisted_sessions
+        else:
+            # If no sessions are persisted, ensure default sessions are in chat_state
+            chat["ai_sessions"] = default_sessions()
+
+        # Restore active session ID
+        persisted_active_id = settings.get("chat_active_session_id")
+        if isinstance(persisted_active_id, str) and persisted_active_id.strip():
+            chat["active_session_id"] = persisted_active_id
+            chat["active_channel"] = f"ai:{persisted_active_id}"
+        else:
+             # Fallback to the first available session if none is persisted
+            if chat["ai_sessions"]:
+                chat["active_session_id"] = chat["ai_sessions"][0].get("id") or "code-help"
+                chat["active_channel"] = "ai:" + str(chat["active_session_id"])
+            else:
+                chat["active_session_id"] = "code-help"
+                chat["active_channel"] = "ai:code-help"
+
+        ensure_session_channels(chat) # Re-create all session channels and apply display names
+
+        # Crucially, update game with the now-merged chat_state
+        game["chat_state"] = chat
+
         return game
 
     def diagnostics(self) -> dict[str, Any]:
