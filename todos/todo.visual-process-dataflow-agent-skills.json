@@ -1,0 +1,194 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "visual_process_dataflow_agent_skills",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Ergänzung zum visuellen Prozessdesigner: Step-Outputs, Step-Inputs, Artefakt-Handoffs und spezialisierte Agent-Skill-Profile modellieren, damit nachfolgende Agenten genau wissen, welche Ergebnisse vorherige Agenten erzeugt haben.",
+  "goal": "Ein Prozess darf nicht nur Knoten und Pfeile haben. Jeder Step muss klar deklarieren können, welche Outputs er produziert und welche Inputs er braucht. Kanten transportieren diese Artefakte. Agenten können zusätzlich spezialisierte Skills/Profile besitzen, z. B. frontend_coder mit Angular/TypeScript-Fokus.",
+  "extends": [
+    "todos/todo.visual-process-agent-designer-ui.json"
+  ],
+  "architecture_principles": [
+    "Kein Agent bekommt implizit alles aus der Chat-Historie.",
+    "Kontext für einen Step entsteht aus required_inputs, erlaubten artifact_refs, context_scope, RAG/CodeCompass und Skill-Profil.",
+    "Step-Outputs sind first-class Artefakte mit ID, Typ, Format, Produzent, Sensitivity und optionalem Schema.",
+    "Kanten sind Transitionen und Handoffs: sie sagen nicht nur wohin, sondern auch welche Artefakte weitergegeben werden.",
+    "Tester/Reviewer können Outputs mehrerer vorheriger Steps als Inputs erhalten.",
+    "Skill-Profile erweitern Agentenfähigkeit, ersetzen aber niemals Policy/Least-Privilege."
+  ],
+  "core_model": {
+    "step": {
+      "required_inputs": [
+        {
+          "artifact_ref": "plan.md",
+          "required": true
+        }
+      ],
+      "produced_outputs": [
+        {
+          "id": "patch.diff",
+          "type": "patch",
+          "format": "diff",
+          "producer_step": "coder",
+          "sensitivity": "internal"
+        }
+      ]
+    },
+    "edge": {
+      "from": "coder",
+      "to": "tester",
+      "condition": "on_success",
+      "artifact_refs": ["plan.md", "patch.diff"]
+    },
+    "agent_skill_profile": {
+      "id": "frontend_angular",
+      "skills": ["angular", "typescript", "html", "css", "component_design"],
+      "preferred_tasks": ["implement_frontend", "ui_refactor", "frontend_tests"],
+      "allowed_tools": ["read_repo", "write_patch", "run_tests", "codecompass_search"],
+      "context_preferences": ["frontend-angular", "components", "services", "routes", "types"],
+      "prompt_addons": ["Fokus auf Angular-Komponenten, Services, Routing, UI-State und saubere TypeScript-Typen."]
+    }
+  },
+  "tasks": [
+    {
+      "id": "VPDF-001",
+      "title": "Step Input/Output Contracts definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "acceptance_criteria": [
+        "Jeder Step kann required_inputs und produced_outputs deklarieren.",
+        "Outputs haben id, type, format, producer_step, sensitivity, retention_policy und optional schema_ref.",
+        "Inputs referenzieren konkrete artifact_ids oder artifact_types mit required/optional Flag.",
+        "Planner-Step kann plan.md erzeugen.",
+        "Coder-Step kann plan.md verlangen und patch.diff erzeugen.",
+        "Tester-Step kann plan.md und patch.diff verlangen.",
+        "Validator erkennt fehlende, doppelte oder nicht kompatible Artefakte."
+      ]
+    },
+    {
+      "id": "VPDF-002",
+      "title": "Artifact Dataflow Validator bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Validator prüft, ob jeder required_input durch einen vorherigen Step, globalen Input oder erlaubten Loop-Output bereitgestellt wird.",
+        "Validator prüft, ob Kanten nur Artefakte transportieren, die am Quellpunkt bereits existieren dürfen.",
+        "Validator liefert Fehler mit node_id, edge_id und artifact_id.",
+        "Validator erkennt, wenn Tester den Planner-Output braucht, aber keine Kante/Artifact-Ref vom Planner oder einem Carry-Forward existiert.",
+        "Tests decken planner -> coder -> tester und planner -> backend_coder -> frontend_coder -> tester ab."
+      ]
+    },
+    {
+      "id": "VPDF-003",
+      "title": "Context Assembly pro Step aus Inputs ableiten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Vor einem AgentStep wird ein StepContext aus required_inputs, artifact_refs, context_scope, CodeCompass/RAG und Memory gebaut.",
+        "Planner bekommt initiale Aufgabe plus relevanten Repo-/RAG-Kontext.",
+        "Coder bekommt Planner-Output plus relevante Dateien/CodeCompass-Kontext.",
+        "Tester bekommt Planner-Output, Coder-Output/Patch und Test-/Build-Artefakte.",
+        "StepContext enthält Artefakt-IDs und Herkunft, nicht nur zusammengeklebten Freitext.",
+        "Kleine lokale Modelle bekommen eine kompakte priorisierte Kontextversion."
+      ]
+    },
+    {
+      "id": "VPDF-004",
+      "title": "Artifact Inspector und Handoff-Ansicht im UI bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "UI zeigt pro Step, welche Artefakte hineingehen und herauskommen.",
+        "Nutzer kann Artifact-Typ, Name, Format, Sensitivity und Sichtbarkeit bearbeiten.",
+        "Kanten zeigen, welche Artefakte sie transportieren.",
+        "Tester-Ansicht zeigt sichtbar: plan.md vom Planner und patch.diff/test-results.json vom Coder/Testlauf.",
+        "Bei fehlenden Handoffs zeigt die UI eine klare Warnung."
+      ]
+    },
+    {
+      "id": "VPDF-005",
+      "title": "Agent Skill Profiles modellieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "architecture",
+      "acceptance_criteria": [
+        "Agenten können skill_profiles besitzen, z. B. frontend_angular, backend_java, tester_fullstack, security_reviewer, docs_writer.",
+        "SkillProfile enthält preferred_tasks, allowed_tools, context_preferences, model_constraints und prompt_addons.",
+        "Frontend-Coder kann spezielle Angular/TypeScript/HTML/CSS Skills und passende Tools bekommen.",
+        "Backend-Validator prüft, ob ein Agent für einen Step passend ist oder eine Warnung erzeugt.",
+        "SkillProfile erweitert Fähigkeiten, ersetzt aber nicht Policy/Least-Privilege."
+      ]
+    },
+    {
+      "id": "VPDF-006",
+      "title": "Prozess um Spezialagenten erweiterbar machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Nutzer kann einen bestehenden Prozess um zusätzliche AgentSteps wie frontend_coder erweitern.",
+        "Neue Steps können eigene Inputs aus bestehenden Outputs verlangen, z. B. Plan vom Planner plus API-Contract vom Backend-Coder.",
+        "UI zeigt Datenflussänderungen sofort und validiert fehlende Handoffs.",
+        "Beispiel planner -> backend_coder -> frontend_coder -> tester ist modellierbar.",
+        "Tester kann Outputs mehrerer vorheriger Agenten als Inputs bekommen."
+      ]
+    }
+  ],
+  "example_process_fragment": {
+    "nodes": [
+      {
+        "id": "planner",
+        "type": "agent_step",
+        "assigned_agent": "planner",
+        "produced_outputs": [
+          {"id": "plan.md", "type": "plan", "format": "markdown", "sensitivity": "internal"}
+        ]
+      },
+      {
+        "id": "coder",
+        "type": "agent_step",
+        "assigned_agent": "coder",
+        "required_inputs": [{"artifact_ref": "plan.md", "required": true}],
+        "produced_outputs": [
+          {"id": "patch.diff", "type": "patch", "format": "diff", "sensitivity": "internal"}
+        ]
+      },
+      {
+        "id": "tester",
+        "type": "agent_step",
+        "assigned_agent": "tester",
+        "required_inputs": [
+          {"artifact_ref": "plan.md", "required": true},
+          {"artifact_ref": "patch.diff", "required": true}
+        ],
+        "produced_outputs": [
+          {"id": "test-results.json", "type": "test_result", "format": "json", "sensitivity": "internal"}
+        ]
+      }
+    ],
+    "edges": [
+      {"from": "planner", "to": "coder", "condition": "on_success", "artifact_refs": ["plan.md"]},
+      {"from": "coder", "to": "tester", "condition": "on_success", "artifact_refs": ["plan.md", "patch.diff"]}
+    ]
+  },
+  "endstate_acceptance_criteria": [
+    "Planner-, Coder-, Tester- und Spezialagenten-Schritte haben klare Input-/Output-Verträge.",
+    "Tester kann explizit Outputs von Planner und Coder als Inputs bekommen.",
+    "Kanten transportieren Artefakte sichtbar und validierbar.",
+    "Agenten können spezialisierte Skill-Profile besitzen, z. B. frontend_coder für Angular/TypeScript.",
+    "Kontextpakete für kleine lokale Modelle werden aus Step-I/O und Skill-Profilen kompakt erzeugt.",
+    "Fehlende Handoffs werden vor Ausführung erkannt."
+  ]
+}
