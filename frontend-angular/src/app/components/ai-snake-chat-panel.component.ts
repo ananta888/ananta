@@ -13,6 +13,7 @@ import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
+import { ChatSessionsService } from '../services/chat-sessions.service';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
@@ -141,6 +142,36 @@ import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
         </div>
       } @else {
         <div class="body">
+
+          <!-- ── Aktive Session ── -->
+          @if (sessions.activeSessionId$ | async; as activeId) {
+            @if (activeSessionFor(activeId); as sess) {
+              <div class="session-bar">
+                <span class="sess-label">
+                  <span class="sess-dot">●</span>
+                  {{ sess.icon || '💬' }} {{ sess.name }}
+                  <span class="sess-meta">{{ sessBackend(sess) }}</span>
+                  @if (sessCodeCompass(sess)) { <span class="sess-cc">CC</span> }
+                </span>
+                <button class="sess-switch-btn" (click)="setTab('sessions')" title="Session wechseln">⇄</button>
+              </div>
+            }
+          }
+
+          <!-- ── Session-Combobox ── -->
+          @if (((sessions.sessions$ | async) || []).length > 0) {
+            <div class="sess-select-row">
+              <select class="sess-select"
+                      [ngModel]="sessions.activeSessionId$ | async"
+                      (ngModelChange)="switchSession($event)">
+                @for (s of (sessions.sessions$ | async) || []; track s.id) {
+                  <option [value]="s.id">{{ s.icon || '💬' }} {{ s.name }}</option>
+                }
+              </select>
+              <button class="sess-mgr-btn" (click)="setTab('sessions')" title="Sessions verwalten">⚙</button>
+            </div>
+          }
+
           <div class="participants">
             <div class="title">Teilnehmer</div>
             @for (p of (svc.participants$ | async) || []; track p.id) {
@@ -197,6 +228,31 @@ import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
     .mode-tabs button { border: 1px solid #1a2d4a; color: #6b8ab8; background: transparent; }
     .mode-tabs button.active { color: #7fffd4; border-color: #7fffd4; background: #102238; }
     .settings-shell { flex: 1; min-height: 0; overflow: hidden; }
+    .session-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 10px; background: #0d1e34; border-bottom: 1px solid #1a3050;
+      font-size: 11px; flex-shrink: 0;
+    }
+    .sess-label { display: flex; align-items: center; gap: 5px; color: #c8d8f8; }
+    .sess-dot { color: #7fffd4; font-size: 8px; }
+    .sess-meta { color: #4a7aaa; font-size: 10px; }
+    .sess-cc { background: #0a2a1a; border: 1px solid #1a6a3a; color: #3affaa; padding: 1px 4px; font-size: 9px; border-radius: 2px; }
+    .sess-switch-btn { background: transparent; border: 1px solid #1a3050; color: #4a6a9a; padding: 2px 6px; cursor: pointer; font-size: 12px; }
+    .sess-switch-btn:hover { color: #7fffd4; border-color: #2a5080; }
+    .sess-select-row {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 8px; background: #09172a;
+      border-bottom: 1px solid #152040; flex-shrink: 0;
+    }
+    .sess-select {
+      flex: 1; background: #0f1c30; border: 1px solid #1a3050; color: #c8d8f8;
+      padding: 4px 6px; font-size: 12px; font-family: inherit; border-radius: 2px; cursor: pointer;
+    }
+    .sess-mgr-btn {
+      background: transparent; border: 1px solid #1a3050; color: #4a6a9a;
+      padding: 3px 7px; cursor: pointer; font-size: 13px; border-radius: 2px; flex-shrink: 0;
+    }
+    .sess-mgr-btn:hover { color: #7fffd4; border-color: #2a5080; }
     .participants { padding: 8px 10px; border-bottom: 1px solid #1a2d4a; max-height: 150px; overflow: auto; }
     .title { color: #6b8ab8; font-size: 11px; margin-bottom: 4px; }
     .row { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
@@ -237,6 +293,7 @@ export class AiSnakeChatPanelComponent {
   readonly cfg = inject(AiSnakeConfigService);
   readonly oidc = inject(OidcAuthService);
   readonly signaling = inject(WebrtcSignalingService);
+  readonly sessions = inject(ChatSessionsService);
 
   name = 'web-ai-snake';
   role = 'viewer';
@@ -258,6 +315,7 @@ export class AiSnakeChatPanelComponent {
   constructor() {
     this.cfg.load();
     this.restoreRuntimeEndpoints();
+    this.sessions.load();
   }
 
   async keycloakLogin(): Promise<void> {
@@ -317,6 +375,22 @@ export class AiSnakeChatPanelComponent {
 
   setUseCodeCompass(enabled: boolean): void {
     this.cfg.updateField('chat_use_codecompass', enabled);
+  }
+
+  activeSessionFor(id: string) {
+    return (this.sessions.sessions$.value || []).find(s => s.id === id) ?? null;
+  }
+
+  sessBackend(s: { settings?: Record<string, unknown> }): string {
+    return String(s.settings?.['chat_backend'] ?? '');
+  }
+
+  sessCodeCompass(s: { settings?: Record<string, unknown> }): boolean {
+    return !!s.settings?.['chat_use_codecompass'];
+  }
+
+  switchSession(id: string): void {
+    this.sessions.activate(id);
   }
 
   setTab(tab: 'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
