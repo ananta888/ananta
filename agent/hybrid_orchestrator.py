@@ -257,6 +257,44 @@ class RepositoryMapEngine:
         "/tests/", "/test/", "/benchmarks/", "/e2e/",
     )
 
+    # Frontend test file patterns (Angular/Karma). The dot-prefixed
+    # `.spec.` is the convention across frontend-angular/ — those files
+    # test Angular components, they are not components themselves.
+    _REPO_TEST_FILE_PATTERNS: tuple[str, ...] = (
+        ".spec.", "_spec.py", "test_", "_test.go", "_test.js", "_test.ts",
+    )
+
+    # Top-level directories that contain Ananta's own implementation.
+    # Files under these paths are the primary explanation target when
+    # a query token matches their content. Files in OTHER top-level
+    # paths (e.g. client_surfaces/blender/, client_surfaces/freecad/,
+    # client_surfaces/eclipse_runtime/, voice_runtime/, scripts/) are
+    # considered third-party integrations or runtime assets; they
+    # match tokens by accident (e.g. blender/addon/tasks.py has
+    # nothing to do with Ananta's task system) and must be demoted
+    # when an Ananta-core file matches the same token.
+    #
+    # This is generic: any file under any Ananta-core directory is
+    # preferred over a file with the same token in a third-party
+    # integration directory. The set is the union of directories that
+    # actually contain Ananta implementation files — see
+    # ananta-hybrid-orchestrator source paths.
+    _ANANTA_CORE_DIRS: frozenset = frozenset({
+        "agent", "worker", "services", "frontend-angular",
+        "heuristics", "architektur", "domains", "policies",
+        "schemas", "config", "src", "tools", "rag-helper",
+        "prompts", "migrations", "examples", "experiments",
+        "devtools", "deploy", "docker", "tests",
+    })
+    # Top-level directories that contain Ananta's own client surfaces
+    # (i.e. things Ananta ships to interact with the user). Files
+    # here are also Ananta source, but co-exist with third-party
+    # integrations in client_surfaces/. The selector must NOT demote
+    # these — only the third-party client_surfaces subdirs.
+    _ANANTA_CLIENT_SURFACE_DIRS: frozenset = frozenset({
+        "operator_tui", "tui_runtime", "common",
+    })
+
     def search(self, query: str, top_k: int = 5) -> list[ContextChunk]:
         self.build()
         if not self._symbol_graph:
@@ -316,10 +354,23 @@ class RepositoryMapEngine:
             # which tests cover the area).
             from pathlib import Path as _Path2
             stem_text = _Path2(rel_path).stem.lower()
-            is_test_path = any(
-                marker in path_lower
-                for marker in self._REPO_TEST_PATH_MARKERS
-            ) or stem_text.startswith("test_")
+            # Test files are detected by three signals, any of which is
+            # sufficient:
+            #   1. Path under a test directory (tests/, test/, …)
+            #   2. Python-style test prefix (test_*.py)
+            #   3. Frontend test file pattern (*.spec.ts, *.spec.js, …)
+            # The third signal catches Angular/Karma convention which
+            # does not use a path-marker; without it, *.spec.ts files
+            # in frontend-angular/ would outrank real Angular components
+            # for queries like "zeig mir die api routes".
+            is_test_path = (
+                any(
+                    marker in path_lower
+                    for marker in self._REPO_TEST_PATH_MARKERS
+                )
+                or stem_text.startswith("test_")
+                or any(pat in rel_path.lower() for pat in self._REPO_TEST_FILE_PATTERNS)
+            )
             stem_hit_domains = {d for d in domain_stems if d in stem_text}
             if stem_hit_domains and not is_test_path:
                 score *= 1.0 + 2.0 * len(stem_hit_domains)
@@ -331,6 +382,63 @@ class RepositoryMapEngine:
                 # keep their natural score: they document behaviour and
                 # are useful as supporting context after source files.
                 score *= 0.15
+            else:
+                # Test file with domain in its stem (e.g. test_codecompass_*.py
+                # or app.routes.spec.ts) — natural score, no extra boost.
+                # Fall through.
+                pass
+
+            # Third-party integration demote: files under top-level
+            # directories that are NOT in _ANANTA_CORE_DIRS and not
+            # under an Ananta client surface are third-party
+            # integrations (e.g. client_surfaces/blender/, client_surfaces/
+            # freecad/, client_surfaces/eclipse_runtime/, voice_runtime/,
+            # scripts/, plugins/<external>/, …). When such a file
+            # matches a query token that ALSO matches an Ananta-core
+            # file, the third-party file is ranked lower because
+            # blender/addon/tasks.py has nothing to do with Ananta's
+            # task system even though the filename matches.
+            #
+            # The detection is: take the first path segment; if it is
+            # not in _ANANTA_CORE_DIRS and not the literal "client_surfaces"
+            # whose second segment is in _ANANTA_CLIENT_SURFACE_DIRS,
+            # this is a third-party file. The demote is multiplicative
+            # (×0.2) so it does not erase a strong symbol-hit on
+            # the third-party file — it just stops the third-party
+            # file from beating an Ananta-core file that has fewer
+            # symbol hits.
+            top_segment = rel_path.split("/", 1)[0] if "/" in rel_path else rel_path
+            is_third_party = False
+            if top_segment not in self._ANANTA_CORE_DIRS:
+                if top_segment == "client_surfaces":
+                    # client_surfaces/<subdir>/… — only Ananta if subdir
+                    # is in _ANANTA_CLIENT_SURFACE_DIRS.
+                    sub = rel_path.split("/", 2)
+                    is_third_party = len(sub) >= 2 and sub[1] not in self._ANANTA_CLIENT_SURFACE_DIRS
+                elif top_segment in {"docs", "artifacts", "data", "ci-artifacts",
+                                      "autoimport-state", "project-workspaces",
+                                      "todos", "test-reports", "logs",
+                                      "reference_sources", "data_test",
+                                      "ananta.egg-info", "secrets",
+                                      "git-hooks", "node_modules",
+                                      "__pycache__", "venv"}:
+                    # Documentation, runtime data, build outputs, deps
+                    # — not source code at all. These never answer
+                    # architectural questions.
+                    is_third_party = True
+                elif top_segment not in {"scripts", "public-rendezvous",
+                                          "website", "web", "examples",
+                                          "experiments", "prompts"}:
+                    # Everything else at the top level we don't know:
+                    # treat as third-party to be safe. (We deliberately
+                    # ALLOW the explicit allow-list above — scripts/ is
+                    # tooling, public-rendezvous/ is an Ananta runtime
+                    # asset, examples/ and experiments/ are first-party
+                    # reference material.)
+                    is_third_party = True
+                # else: top_segment in {scripts, public-rendezvous, …} → Ananta
+            if is_third_party:
+                score *= 0.2
             preview = ", ".join(symbols[:20])
             candidates.append(
                 ContextChunk(
