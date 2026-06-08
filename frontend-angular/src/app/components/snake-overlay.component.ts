@@ -1,17 +1,51 @@
 import {
   Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, HostListener, inject,
 } from '@angular/core';
-import { Subscription } from 'rxjs';
-import { AiSnakeChatService } from '../services/ai-snake-chat.service';
+import { distinctUntilChanged, map, Subscription } from 'rxjs';
+import { AiSnakeChatService, SnakeParticipant } from '../services/ai-snake-chat.service';
+import { SnakeOverlayService } from '../services/snake-overlay.service';
+import { ShareSessionService, ShareParticipant } from '../services/share-session.service';
+import { WebrtcCursorService } from '../services/webrtc-cursor.service';
 
+// ── Physics ──────────────────────────────────────────────────────────────────
+const NUM_SEGS    = 22;
+const SEG_DIST    = 13;   // px between segments
+const OWN_SPEED   = 7;    // px/frame: own snake → cursor
+const PAIR_SPEED  = 7;    // px/frame: pair-dev snake → remote cursor
+const AUTO_SPEED  = 2.8;  // px/frame: AI-room snakes (autonomous)
+const GOAL_MARGIN = 70;
+
+// ── Color palette for pair-dev peers ─────────────────────────────────────────
+const PAIR_COLORS = [
+  '#ff6b6b', '#74c0fc', '#ffd43b', '#e599f7',
+  '#ff9f43', '#f783ac', '#a9e34b', '#63e6be',
+];
+
+function colorForId(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PAIR_COLORS[h % PAIR_COLORS.length];
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface Seg { x: number; y: number; }
+
+interface SnakeState {
+  id: string;
+  label: string;
+  color: string;
+  isOwn: boolean;
+  isPairDev: boolean;    // true = cursor-following via WebRTC
+  segs: Seg[];
+  tx: number;            // current movement target in viewport px
+  ty: number;
+  goalX: number;         // autonomous goal (AI-room / fallback)
+  goalY: number;
+}
+
 interface Bubble { text: string; born: number; }
 
-const CELL = 16;
-const TICK_MS = 145;
-const TRAIL = 24;
-const MARGIN = 3;
-
+// ── Component ────────────────────────────────────────────────────────────────
 @Component({
   selector: 'app-snake-overlay',
   standalone: true,
@@ -24,193 +58,325 @@ const MARGIN = 3;
 export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cvs') canvasRef!: ElementRef<HTMLCanvasElement>;
 
-  private chat = inject(AiSnakeChatService);
+  private chat    = inject(AiSnakeChatService);
+  private overlay = inject(SnakeOverlayService);
+  private share   = inject(ShareSessionService);
+  // Injecting activates the cursor-broadcast loop as a side-effect
+  private _cursor = inject(WebrtcCursorService);
 
   private ctx!: CanvasRenderingContext2D;
-  private segs: Seg[] = [];
-  private dir = { x: 1, y: 0 };
-  private cols = 0;
-  private rows = 0;
-  private rafId = 0;
-  private lastTick = 0;
+  private snakes: SnakeState[] = [];
+  private mouseX = window.innerWidth  / 2;
+  private mouseY = window.innerHeight / 2;
+
   private bubbles: Bubble[] = [];
-  private seenIds = new Set<string>();
-  private msgSub?: Subscription;
+  private seenMsgIds = new Set<string>();
+  private rafId = 0;
+  private subs: Subscription[] = [];
+
+  // ── Lifecycle ───────────────────────────────────────────────────────────────
 
   @HostListener('window:resize')
   onResize(): void { this.initCanvas(); }
 
+  @HostListener('window:mousemove', ['$event'])
+  onMouseMove(e: MouseEvent): void {
+    this.mouseX = e.clientX;
+    this.mouseY = e.clientY;
+  }
+
   ngAfterViewInit(): void {
-    const canvas = this.canvasRef.nativeElement;
-    this.ctx = canvas.getContext('2d')!;
+    this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
     this.initCanvas();
-    this.spawnSnake();
-    this.rafId = requestAnimationFrame(ts => this.loop(ts));
-    this.msgSub = this.chat.messages$.subscribe(msgs => {
-      for (const m of msgs) {
-        if (this.seenIds.has(m.id)) continue;
-        const isAi = m.sender_id?.startsWith('ai') || m.sender_id?.includes('snake') || m.sender_id?.includes('tutor');
-        if (!isAi) continue;
-        this.seenIds.add(m.id);
-        const text = (m.text || '').replace(/\n/g, ' ').slice(0, 55) + ((m.text || '').length > 55 ? '…' : '');
-        this.bubbles.push({ text, born: performance.now() });
-        if (this.bubbles.length > 3) this.bubbles.shift();
-      }
-    });
+
+    // Own snake (always present)
+    this.spawnSnake('__own__', '', '#7fffd4', true, false);
+
+    // Pair-dev participants → cursor-following snakes
+    this.subs.push(
+      this.share.state$.pipe(
+        map(s => s.participants),
+        distinctUntilChanged((a, b) => JSON.stringify(a.map(p => p.id)) === JSON.stringify(b.map(p => p.id))),
+      ).subscribe(ps => this.syncPairDevParticipants(ps)),
+    );
+
+    // AI-room participants → autonomous snakes
+    this.subs.push(
+      this.chat.participants$.subscribe(ps => this.syncAiParticipants(ps)),
+    );
+
+    // Update pair-dev snake targets from remote cursor map
+    this.subs.push(
+      this.overlay.remoteCursors$.subscribe(map => {
+        for (const [id, pos] of map) {
+          const s = this.snakes.find(sn => sn.id === id);
+          if (s) { s.tx = pos.x; s.ty = pos.y; }
+        }
+      }),
+    );
+
+    // AI message bubbles
+    this.subs.push(
+      this.chat.messages$.subscribe(msgs => {
+        for (const m of msgs) {
+          if (this.seenMsgIds.has(m.id)) continue;
+          const isAi = m.sender_id?.startsWith('ai') ||
+                       m.sender_id?.includes('snake') ||
+                       m.sender_id?.includes('tutor');
+          if (!isAi) continue;
+          this.seenMsgIds.add(m.id);
+          const text = (m.text || '').replace(/\n/g, ' ').slice(0, 60) +
+                       ((m.text || '').length > 60 ? '…' : '');
+          this.bubbles.push({ text, born: performance.now() });
+          if (this.bubbles.length > 3) this.bubbles.shift();
+        }
+      }),
+    );
+
+    this.rafId = requestAnimationFrame(() => this.loop());
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.rafId);
-    this.msgSub?.unsubscribe();
+    this.subs.forEach(s => s.unsubscribe());
   }
+
+  // ── Canvas ──────────────────────────────────────────────────────────────────
 
   private initCanvas(): void {
     const c = this.canvasRef.nativeElement;
-    c.width = window.innerWidth;
+    c.width  = window.innerWidth;
     c.height = window.innerHeight;
-    this.cols = Math.floor(window.innerWidth / CELL);
-    this.rows = Math.floor(window.innerHeight / CELL);
   }
 
-  private spawnSnake(): void {
-    const cx = Math.floor(this.cols / 2);
-    const cy = Math.floor(this.rows / 2);
-    this.segs = [];
-    for (let i = TRAIL - 1; i >= 0; i--) this.segs.push({ x: cx - i, y: cy });
-    this.dir = { x: 1, y: 0 };
+  // ── Snake management ────────────────────────────────────────────────────────
+
+  private spawnSnake(id: string, label: string, color: string, isOwn: boolean, isPairDev: boolean): SnakeState {
+    const cx = isOwn
+      ? this.mouseX
+      : GOAL_MARGIN + Math.random() * (window.innerWidth  - GOAL_MARGIN * 2);
+    const cy = isOwn
+      ? this.mouseY
+      : GOAL_MARGIN + Math.random() * (window.innerHeight - GOAL_MARGIN * 2);
+
+    const segs: Seg[] = [];
+    for (let i = 0; i < NUM_SEGS; i++) segs.push({ x: cx - i * SEG_DIST * 0.6, y: cy });
+
+    const s: SnakeState = { id, label, color, isOwn, isPairDev, segs, tx: cx, ty: cy, goalX: cx, goalY: cy };
+    this.snakes.push(s);
+    return s;
   }
 
-  private loop(ts: number): void {
-    this.rafId = requestAnimationFrame(t => this.loop(t));
-    if (ts - this.lastTick >= TICK_MS) {
-      this.lastTick = ts;
-      this.tick();
+  private syncPairDevParticipants(participants: ShareParticipant[]): void {
+    const myId = this.share.currentUserId;
+    // Add new
+    for (const p of participants) {
+      if (p.user_id === myId || p.revoked_at) continue;
+      if (!this.snakes.find(s => s.id === p.user_id)) {
+        const label = p.device_id || p.user_id.slice(0, 8);
+        this.spawnSnake(p.user_id, label, colorForId(p.user_id), false, true);
+      }
     }
-    this.draw(ts);
+    // Remove departed
+    const activeIds = new Set(
+      participants.filter(p => !p.revoked_at && p.user_id !== myId).map(p => p.user_id),
+    );
+    this.snakes = this.snakes.filter(s => s.isOwn || !s.isPairDev || activeIds.has(s.id));
+  }
+
+  private syncAiParticipants(participants: SnakeParticipant[]): void {
+    const ownSnakeId = this.chat.snakeId$.value;
+    for (const p of participants) {
+      if (p.id === ownSnakeId) continue;
+      const aiId = `ai:${p.id}`;
+      if (!this.snakes.find(s => s.id === aiId)) {
+        const color = /^#[0-9a-f]{6}$/i.test(p.color) ? p.color : colorForId(p.id);
+        this.spawnSnake(aiId, p.name || p.id, color, false, false);
+      }
+    }
+    const activeAiIds = new Set(participants.filter(p => p.id !== ownSnakeId).map(p => `ai:${p.id}`));
+    this.snakes = this.snakes.filter(s => s.isOwn || s.isPairDev || activeAiIds.has(s.id));
+  }
+
+  // ── Physics ─────────────────────────────────────────────────────────────────
+
+  private loop(): void {
+    this.rafId = requestAnimationFrame(() => this.loop());
+    this.tick();
+    this.draw();
   }
 
   private tick(): void {
-    const head = this.segs[this.segs.length - 1];
-    this.steer(head);
-    const nx = ((head.x + this.dir.x) % this.cols + this.cols) % this.cols;
-    const ny = ((head.y + this.dir.y) % this.rows + this.rows) % this.rows;
-    this.segs.push({ x: nx, y: ny });
-    if (this.segs.length > TRAIL) this.segs.shift();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+
+    for (const snake of this.snakes) {
+      if (snake.isOwn) {
+        snake.tx = this.mouseX;
+        snake.ty = this.mouseY;
+      } else if (snake.isPairDev) {
+        // Target set externally via remoteCursors$ subscription;
+        // fall back to autonomous if no cursor received yet
+        const remote = this.overlay.remoteCursors$.value.get(snake.id);
+        if (remote) { snake.tx = remote.x; snake.ty = remote.y; }
+        else this.stepAutonomousGoal(snake, W, H);
+      } else {
+        this.stepAutonomousGoal(snake, W, H);
+      }
+
+      // Advance head toward target
+      const head = snake.segs[0];
+      const dx = snake.tx - head.x;
+      const dy = snake.ty - head.y;
+      const dist = Math.hypot(dx, dy);
+      const speed = snake.isOwn ? OWN_SPEED : (snake.isPairDev ? PAIR_SPEED : AUTO_SPEED);
+      if (dist > 0.5) {
+        const step = Math.min(speed, dist);
+        head.x += (dx / dist) * step;
+        head.y += (dy / dist) * step;
+      }
+
+      // Pull body segments
+      for (let i = 1; i < snake.segs.length; i++) {
+        const prev = snake.segs[i - 1];
+        const cur  = snake.segs[i];
+        const sdx = cur.x - prev.x;
+        const sdy = cur.y - prev.y;
+        const sd = Math.hypot(sdx, sdy);
+        if (sd > SEG_DIST) {
+          const pull = (sd - SEG_DIST) / sd;
+          cur.x -= sdx * pull;
+          cur.y -= sdy * pull;
+        }
+      }
+    }
   }
 
-  private steer(head: Seg): void {
-    const nearLeft   = head.x <= MARGIN && this.dir.x < 0;
-    const nearRight  = head.x >= this.cols - 1 - MARGIN && this.dir.x > 0;
-    const nearTop    = head.y <= MARGIN && this.dir.y < 0;
-    const nearBottom = head.y >= this.rows - 1 - MARGIN && this.dir.y > 0;
-
-    if (nearLeft || nearRight) {
-      this.dir = Math.random() < 0.5 ? { x: 0, y: 1 } : { x: 0, y: -1 };
-      return;
+  private stepAutonomousGoal(snake: SnakeState, W: number, H: number): void {
+    const head = snake.segs[0];
+    if (Math.hypot(head.x - snake.goalX, head.y - snake.goalY) < 20) {
+      snake.goalX = GOAL_MARGIN + Math.random() * (W - GOAL_MARGIN * 2);
+      snake.goalY = GOAL_MARGIN + Math.random() * (H - GOAL_MARGIN * 2);
     }
-    if (nearTop || nearBottom) {
-      this.dir = Math.random() < 0.5 ? { x: 1, y: 0 } : { x: -1, y: 0 };
-      return;
-    }
-    // Random wander
-    if (Math.random() < 0.06) {
-      const perps = this.dir.x !== 0
-        ? [{ x: 0, y: 1 }, { x: 0, y: -1 }]
-        : [{ x: 1, y: 0 }, { x: -1, y: 0 }];
-      this.dir = perps[Math.floor(Math.random() * 2)];
-    }
+    snake.tx = snake.goalX;
+    snake.ty = snake.goalY;
   }
 
-  private draw(ts: number): void {
+  // ── Rendering ───────────────────────────────────────────────────────────────
+
+  private draw(): void {
     const { ctx } = this;
     const c = this.canvasRef.nativeElement;
     ctx.clearRect(0, 0, c.width, c.height);
 
-    const len = this.segs.length;
-    for (let i = 0; i < len; i++) {
-      const seg = this.segs[i];
-      const t = i / (len - 1);
-      const isHead = i === len - 1;
+    for (const snake of this.snakes) this.drawSnake(ctx, snake);
 
-      // Gradient: tail dim dark-green → head bright aquamarine
-      const r = Math.round(5  + t * 30);
-      const g = Math.round(80 + t * 175);
-      const b = Math.round(50 + t * 162);
-      ctx.globalAlpha = 0.15 + t * 0.72;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+    const own = this.snakes.find(s => s.isOwn);
+    if (own) this.drawBubbles(ctx, c, own.segs[0]);
+  }
 
-      const pad = isHead ? 1 : 3;
-      const size = CELL - pad * 2;
-      const rad = isHead ? 5 : 3;
-      this.rrect(ctx, seg.x * CELL + pad, seg.y * CELL + pad, size, size, rad);
+  private drawSnake(ctx: CanvasRenderingContext2D, snake: SnakeState): void {
+    const len = snake.segs.length;
+    const [hr, hg, hb] = hexToRgb(snake.color);
+
+    for (let i = len - 1; i >= 0; i--) {
+      const seg  = snake.segs[i];
+      const t    = 1 - i / (len - 1);   // 1 = head, 0 = tail
+      const r    = Math.round(hr * (0.12 + t * 0.88));
+      const g    = Math.round(hg * (0.12 + t * 0.88));
+      const b    = Math.round(hb * (0.12 + t * 0.88));
+      const size = SEG_DIST * (0.42 + t * 0.48);
+
+      ctx.globalAlpha = 0.15 + t * 0.70;
+      ctx.fillStyle   = `rgb(${r},${g},${b})`;
+      ctx.beginPath();
+      ctx.arc(seg.x, seg.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Head glow
+    const head = snake.segs[0];
+    const headR = SEG_DIST * 0.88;
+
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = snake.color;
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, headR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Eye in movement direction
+    if (snake.segs.length > 1) {
+      const neck = snake.segs[1];
+      const edx = head.x - neck.x;
+      const edy = head.y - neck.y;
+      const ed  = Math.hypot(edx, edy) || 1;
+      const ex  = head.x + (edx / ed) * headR * 0.55;
+      const ey  = head.y + (edy / ed) * headR * 0.55;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle   = snake.isOwn ? '#fff' : snake.color;
+      ctx.beginPath();
+      ctx.arc(
+        Math.max(2, Math.min(window.innerWidth  - 2, ex)),
+        Math.max(2, Math.min(window.innerHeight - 2, ey)),
+        snake.isOwn ? 2.2 : 1.8,
+        0, Math.PI * 2,
+      );
+      ctx.fill();
+    }
+
+    // Name label for remote snakes
+    if (!snake.isOwn && snake.label) {
+      ctx.globalAlpha  = 0.7;
+      ctx.fillStyle    = snake.color;
+      ctx.font         = '10px monospace';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(snake.label, head.x, head.y - headR - 3);
+    }
+
+    ctx.globalAlpha  = 1;
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  private drawBubbles(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, head: Seg): void {
+    const now = performance.now();
+    this.bubbles = this.bubbles.filter(b => now - b.born < 4500);
+    for (let bi = 0; bi < this.bubbles.length; bi++) {
+      const b    = this.bubbles[bi];
+      const fade = Math.max(0, 1 - (now - b.born) / 4500);
+      ctx.font   = '11px monospace';
+      const tw   = ctx.measureText(b.text).width;
+      const bw   = tw + 18;
+      const bh   = 20;
+      const bx   = Math.max(bw / 2 + 6, Math.min(canvas.width - bw / 2 - 6, head.x));
+      const by   = Math.max(bh + 6, head.y - 32 - bi * 26);
+
+      ctx.globalAlpha = fade * 0.85;
+      ctx.fillStyle   = '#07111f';
+      this.rrect(ctx, bx - bw / 2, by - bh, bw, bh, 4);
       ctx.fill();
 
-      // Head: bright outline glow
-      if (isHead) {
-        ctx.globalAlpha = 0.55;
-        ctx.strokeStyle = '#7fffd4';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+      ctx.globalAlpha = fade * 0.65;
+      ctx.strokeStyle = '#3affaa';
+      ctx.lineWidth   = 1;
+      ctx.stroke();
 
-        // Eyes
-        const ex = seg.x * CELL + CELL / 2 + this.dir.x * 3;
-        const ey = seg.y * CELL + CELL / 2 + this.dir.y * 3;
-        ctx.globalAlpha = 0.9;
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(ex, ey, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.globalAlpha  = fade;
+      ctx.fillStyle    = '#a8e8c8';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.text, bx, by - bh / 2, bw - 12);
     }
-
-    // Bubbles
-    const now = ts;
-    this.bubbles = this.bubbles.filter(b => now - b.born < 4500);
-    if (this.bubbles.length > 0 && this.segs.length > 0) {
-      const head = this.segs[this.segs.length - 1];
-      const hx = head.x * CELL + CELL / 2;
-      const hy = head.y * CELL;
-
-      for (let bi = 0; bi < this.bubbles.length; bi++) {
-        const b = this.bubbles[bi];
-        const age = now - b.born;
-        const fade = Math.max(0, 1 - age / 4500);
-        const offsetY = -(bi * 28 + 32);
-
-        ctx.font = '11px monospace';
-        const tw = ctx.measureText(b.text).width;
-        const bw = tw + 18;
-        const bh = 20;
-        const bx = Math.max(bw / 2 + 4, Math.min(c.width - bw / 2 - 4, hx));
-        const by = Math.max(bh + 4, hy + offsetY);
-
-        ctx.globalAlpha = fade * 0.85;
-        ctx.fillStyle = '#07111f';
-        this.rrect(ctx, bx - bw / 2, by - bh, bw, bh, 4);
-        ctx.fill();
-
-        ctx.globalAlpha = fade * 0.7;
-        ctx.strokeStyle = '#3affaa';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.globalAlpha = fade;
-        ctx.fillStyle = '#a8e8c8';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(b.text, bx, by - bh / 2, bw - 12);
-      }
-    }
-
-    ctx.globalAlpha = 1;
-    ctx.textAlign = 'left';
+    ctx.globalAlpha  = 1;
+    ctx.textAlign    = 'left';
     ctx.textBaseline = 'alphabetic';
   }
 
   private rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
     ctx.quadraticCurveTo(x + w, y, x + w, y + r);
     ctx.lineTo(x + w, y + h - r);
     ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
@@ -220,4 +386,9 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
   }
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [127, 255, 212];
 }
