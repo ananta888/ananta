@@ -1,0 +1,223 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "rag_why_debug_command",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Ein direktes Debug-Kommando `/rag why <frage>` einführen, damit sofort sichtbar wird, warum Ananta/CodeCompass bestimmte Quellen, Profile, Chunks und Dateien für eine Frage ausgewählt oder ausgeschlossen hat.",
+  "goal": "Die CodeCompass-/RAG-Nutzungsschicht transparent machen: aktive Session-Settings, RetrievalProfile, Source-Scope, ResolverConfig, Source-Policy, Candidate Counts, Filter, Warnings und finale Quellen sollen für eine konkrete Frage nachvollziehbar ausgegeben werden, ohne einen normalen LLM-Antwortlauf ausführen zu müssen.",
+  "non_goals": [
+    "Kein Umbau des CodeCompass-Kerns.",
+    "Kein LLM-Aufruf für die Debug-Erklärung als Pflicht.",
+    "Kein Ändern der Default-Policy source-only.",
+    "Keine Secrets, API-Keys oder vollständigen sensiblen Kontextinhalte in der Debug-Ausgabe.",
+    "Kein Ersatz für Full-Scan-Analyse; `/rag why` erklärt Retrieval, es analysiert nicht den kompletten Codebestand."
+  ],
+  "architecture_principles": [
+    "Debug muss deterministisch sein und möglichst ohne Modellcall funktionieren.",
+    "Die Ausgabe muss kurz genug für TUI/Chat sein, aber genug Details für echte Fehlersuche enthalten.",
+    "Profile, Scope und Filter müssen sichtbar werden, nicht nur finale Chunks.",
+    "Session-effective-settings müssen berücksichtigt werden, weil Chat-Sessions inzwischen eigene RAG/Backend-Settings haben können.",
+    "Die Debug-Daten sollen aus bereits vorhandenen Trace-Strukturen kommen, nicht parallel neu erfunden werden.",
+    "Sensitive Daten werden standardmäßig redacted oder nur als IDs/Pfade gezeigt."
+  ],
+  "existing_stack_to_reuse": [
+    {
+      "path": "client_surfaces/operator_tui/chat_commands.py",
+      "use_for": "Slash-Command Parser um `/rag why` erweitern."
+    },
+    {
+      "path": "client_surfaces/operator_tui/tutorial_ai_mixin.py",
+      "use_for": "TUI Chat-Pipeline, aktive Session-Settings und Kommandoausgabe integrieren."
+    },
+    {
+      "path": "agent/routes/snakes.py",
+      "use_for": "Bereits vorhandene `_resolve_snake_retrieval_profile_trace` und grounded prompt pipeline prüfen; ggf. HTTP/API-Debug-Endpunkt ergänzen."
+    },
+    {
+      "path": "agent/services/retrieval_profile_service.py",
+      "use_for": "ProfileResolver, Intent/Domain-Klassifikation und Source-Policy in der Debug-Ausgabe nutzen."
+    },
+    {
+      "path": "agent/services/rag_service.py",
+      "use_for": "RAG-Fassade nutzen, aber Debug-Modus ohne unnötigen GroundedPrompt/LLM-Aufruf ermöglichen."
+    },
+    {
+      "path": "agent/services/retrieval_service.py",
+      "use_for": "Vorhandene strategy.fusion, retrieval_trace, candidate_counts, source_type_contributions und final_ranked_sources ausgeben."
+    },
+    {
+      "path": "worker/retrieval/codecompass_candidate_resolver.py",
+      "use_for": "ResolverConfig/Scope sichtbar machen: source/tests/docs/workflows/thirdparty/xml_nodes."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "RWY-001",
+      "title": "Slash-Command `/rag why <frage>` parsen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "`/rag why <frage>` wird als eigenes Kommando erkannt.",
+        "Leere Frage liefert eine kurze Nutzungsinfo statt Fehlertrace.",
+        "Das Kommando wird in `/help tui` oder entsprechender Hilfe angezeigt.",
+        "Parser-Tests decken `/rag why`, `/rag why codecompass`, Leerargumente und normale Nicht-RAG-Kommandos ab."
+      ]
+    },
+    {
+      "id": "RWY-002",
+      "title": "Effective Chat Settings für Debug ermitteln",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Debug nutzt dieselben effective settings wie die normale aktive Chat-Session.",
+        "Session-Overrides für chat_use_codecompass, chat_retrieval_profile, chat_codecompass_trigger_mode, chat_retrieval_domain_hint, chat_include_local_project, chat_include_task_memory und chat_include_wikipedia werden angezeigt.",
+        "Wenn keine aktive Session existiert, wird der gleiche Fallback wie im normalen Chat genutzt.",
+        "Tests prüfen, dass unterschiedliche Sessions unterschiedliche `/rag why` Ergebnisse liefern können."
+      ]
+    },
+    {
+      "id": "RWY-003",
+      "title": "RetrievalProfile Trace für konkrete Frage ausgeben",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Ausgabe enthält profile_id, domain, intent, feature_flag, selected_by und reasons.",
+        "Ausgabe enthält source_types und source_type_weights.",
+        "Ausgabe enthält negative_source_patterns und warnings.",
+        "force_codecompass, force_repo_first, repo_first, docs_first, disabled und auto werden nachvollziehbar angezeigt.",
+        "Tests prüfen mindestens auto, force_codecompass und force_repo_first."
+      ]
+    },
+    {
+      "id": "RWY-004",
+      "title": "ResolverConfig/Scope sichtbar machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Debug-Ausgabe zeigt, ob source, tests, docs, workflows, thirdparty und xml_nodes aktiv sind.",
+        "Env-basierte Scope-Flags ANANTA_CODECOMPASS_INCLUDE_* werden berücksichtigt und genannt.",
+        "Wenn docs/tests/workflows deaktiviert sind, wird das explizit als mögliche Ursache angezeigt.",
+        "Die Default-Aussage `source-only` ist klar sichtbar, wenn keine Flags aktiv sind."
+      ]
+    },
+    {
+      "id": "RWY-005",
+      "title": "Retrieval ohne LLM ausführen und Trace sammeln",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "`/rag why` führt Retrieval aus, aber keinen normalen Antwort-LLM-Call.",
+        "Vorhandene retrieval_service Trace-Daten werden genutzt: source_policy, fusion, candidate_counts, selection_stages, final_ranked_sources, retrieval_trace.",
+        "Fehler in Artifact/Wiki/Repo/TaskMemory Quellen werden als degraded_channels oder warnings sichtbar.",
+        "Wenn gar keine Chunks gefunden werden, enthält die Ausgabe mögliche Gründe und keine irreführende LLM-Antwort.",
+        "Tests nutzen Mocks/Dummy-Daten und benötigen keinen echten CodeCompass-Index."
+      ]
+    },
+    {
+      "id": "RWY-006",
+      "title": "Kompakte TUI-Ausgabe formatieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Ausgabe ist in kurzen Abschnitten gegliedert: Session, Profile, Scope, Sources, Candidates, Top Sources, Warnings.",
+        "Top Sources zeigen mindestens Pfad, Engine, Score und Source Type soweit vorhanden.",
+        "Candidate Counts zeigen orchestrator/repo, knowledge_index/artifact, result_memory, all, deduped, final.",
+        "Ausgabe bleibt unter einem konfigurierbaren Zeichenlimit, z. B. 6000 Zeichen.",
+        "Bei Kürzung bleibt die wichtigste Diagnose sichtbar."
+      ]
+    },
+    {
+      "id": "RWY-007",
+      "title": "JSON-Debug-Modus optional ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "`/rag why --json <frage>` oder äquivalenter Schalter gibt maschinenlesbares JSON aus.",
+        "JSON enthält effective_settings, resolved_profile, resolver_scope, source_policy, fusion, retrieval_trace und final_ranked_sources.",
+        "JSON-Ausgabe redacted sensitive Werte.",
+        "Tests validieren stabile JSON-Felder."
+      ]
+    },
+    {
+      "id": "RWY-008",
+      "title": "HTTP/API Debug-Endpunkt prüfen oder ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Es gibt entweder einen bestehenden passenden Endpunkt oder einen neuen lokalen/dev-geschützten Endpunkt für RAG-Debug.",
+        "Der Endpunkt akzeptiert question und optional retrieval_config overrides.",
+        "Der Endpunkt liefert dieselbe Diagnose wie `/rag why`, mindestens als JSON.",
+        "Nicht-lokale Requests brauchen vorhandene Auth-Mechanismen oder werden verweigert.",
+        "Security-Test prüft, dass keine Secrets ausgegeben werden."
+      ]
+    },
+    {
+      "id": "RWY-009",
+      "title": "Preset-Hinweise in `/rag why` ausgeben",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Wenn die Frage nach Docs/README/Todos/Architektur klingt, aber docs/artifact ausgeschaltet sind, schlägt die Ausgabe ein passendes Preset vor.",
+        "Wenn die Frage nach Tests klingt, aber tests ausgeschaltet sind, wird `code_with_tests` oder entsprechender Scope empfohlen.",
+        "Wenn Workflows/Ops gefragt sind, aber workflows ausgeschaltet sind, wird ops/full_project empfohlen.",
+        "Hinweise sind Empfehlungen, keine automatische Änderung der Config."
+      ]
+    },
+    {
+      "id": "RWY-010",
+      "title": "Regression Tests für typische Blindheitsfälle",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "test",
+      "acceptance_criteria": [
+        "Testfall `zeige mir Todos` zeigt bei source-only, dass docs/todos/artifacts ggf. nicht aktiv sind.",
+        "Testfall `was steht in README` zeigt docs disabled als Diagnose.",
+        "Testfall `was sagen Tests dazu` zeigt tests disabled als Diagnose.",
+        "Testfall `wie ist die Architektur beschrieben` zeigt Profil/Source-Mix und ggf. full_scan/preset Hinweis.",
+        "Tests prüfen, dass Debug keine normale LLM-Antwort erzeugt."
+      ]
+    }
+  ],
+  "example_output": "RAG WHY\nSession: code-help\nProfile: codecompass/implemented_code_explanation\nReasons: classified_domain:codecompass, classified_intent:implemented_code_explanation\nScope: source=on, tests=off, docs=off, workflows=off, thirdparty=off\nSources requested: repo, artifact\nChannels: repository_map=5, knowledge_index=3, result_memory=0\nFinal chunks: 8\nTop Sources:\n1. worker/retrieval/codecompass_candidate_resolver.py [repository_map] score=12.4\n2. agent/services/retrieval_profile_service.py [repository_map] score=10.1\n3. agent/services/retrieval_service.py [repository_map] score=9.8\nWarnings:\n- docs disabled; for README/docs questions enable docs or use docs_first/full_project preset.",
+  "endstate_acceptance_criteria": [
+    "User kann `/rag why <frage>` im TUI Chat eingeben und bekommt ohne LLM-Antwortlauf eine nachvollziehbare Retrieval-Diagnose.",
+    "Die Diagnose zeigt aktive Session-Settings, resolved profile, source scope, source policy, warnings, candidate counts und finale Top-Quellen.",
+    "Typische Fälle wie docs/tests/workflows deaktiviert werden klar sichtbar statt wie CodeCompass-Blindheit zu wirken.",
+    "Die Ausgabe ist kurz genug für TUI und optional als JSON abrufbar.",
+    "Keine Secrets oder sensiblen Kontextinhalte werden geleakt.",
+    "Automatisierte Tests decken Parser, Profile, Scope, Trace-Ausgabe und Blindheitsfälle ab."
+  ],
+  "recommended_first_implementation_order": [
+    "RWY-001",
+    "RWY-002",
+    "RWY-003",
+    "RWY-004",
+    "RWY-005",
+    "RWY-006",
+    "RWY-010",
+    "RWY-007",
+    "RWY-008",
+    "RWY-009"
+  ]
+}
