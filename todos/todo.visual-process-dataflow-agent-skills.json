@@ -40,22 +40,48 @@
       "from": "coder",
       "to": "tester",
       "condition": "on_success",
-      "artifact_refs": ["plan.md", "patch.diff"]
+      "artifact_refs": [
+        "plan.md",
+        "patch.diff"
+      ]
     },
     "agent_skill_profile": {
       "id": "frontend_angular",
-      "skills": ["angular", "typescript", "html", "css", "component_design"],
-      "preferred_tasks": ["implement_frontend", "ui_refactor", "frontend_tests"],
-      "allowed_tools": ["read_repo", "write_patch", "run_tests", "codecompass_search"],
-      "context_preferences": ["frontend-angular", "components", "services", "routes", "types"],
-      "prompt_addons": ["Fokus auf Angular-Komponenten, Services, Routing, UI-State und saubere TypeScript-Typen."]
+      "skills": [
+        "angular",
+        "typescript",
+        "html",
+        "css",
+        "component_design"
+      ],
+      "preferred_tasks": [
+        "implement_frontend",
+        "ui_refactor",
+        "frontend_tests"
+      ],
+      "allowed_tools": [
+        "read_repo",
+        "write_patch",
+        "run_tests",
+        "codecompass_search"
+      ],
+      "context_preferences": [
+        "frontend-angular",
+        "components",
+        "services",
+        "routes",
+        "types"
+      ],
+      "prompt_addons": [
+        "Fokus auf Angular-Komponenten, Services, Routing, UI-State und saubere TypeScript-Typen."
+      ]
     }
   },
   "tasks": [
     {
       "id": "VPDF-001",
       "title": "Step Input/Output Contracts definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -72,7 +98,7 @@
     {
       "id": "VPDF-002",
       "title": "Artifact Dataflow Validator bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -87,7 +113,7 @@
     {
       "id": "VPDF-003",
       "title": "Context Assembly pro Step aus Inputs ableiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -103,7 +129,7 @@
     {
       "id": "VPDF-004",
       "title": "Artifact Inspector und Handoff-Ansicht im UI bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -118,7 +144,7 @@
     {
       "id": "VPDF-005",
       "title": "Agent Skill Profiles modellieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "architecture",
@@ -133,7 +159,7 @@
     {
       "id": "VPDF-006",
       "title": "Prozess um Spezialagenten erweiterbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -153,16 +179,31 @@
         "type": "agent_step",
         "assigned_agent": "planner",
         "produced_outputs": [
-          {"id": "plan.md", "type": "plan", "format": "markdown", "sensitivity": "internal"}
+          {
+            "id": "plan.md",
+            "type": "plan",
+            "format": "markdown",
+            "sensitivity": "internal"
+          }
         ]
       },
       {
         "id": "coder",
         "type": "agent_step",
         "assigned_agent": "coder",
-        "required_inputs": [{"artifact_ref": "plan.md", "required": true}],
+        "required_inputs": [
+          {
+            "artifact_ref": "plan.md",
+            "required": true
+          }
+        ],
         "produced_outputs": [
-          {"id": "patch.diff", "type": "patch", "format": "diff", "sensitivity": "internal"}
+          {
+            "id": "patch.diff",
+            "type": "patch",
+            "format": "diff",
+            "sensitivity": "internal"
+          }
         ]
       },
       {
@@ -170,17 +211,43 @@
         "type": "agent_step",
         "assigned_agent": "tester",
         "required_inputs": [
-          {"artifact_ref": "plan.md", "required": true},
-          {"artifact_ref": "patch.diff", "required": true}
+          {
+            "artifact_ref": "plan.md",
+            "required": true
+          },
+          {
+            "artifact_ref": "patch.diff",
+            "required": true
+          }
         ],
         "produced_outputs": [
-          {"id": "test-results.json", "type": "test_result", "format": "json", "sensitivity": "internal"}
+          {
+            "id": "test-results.json",
+            "type": "test_result",
+            "format": "json",
+            "sensitivity": "internal"
+          }
         ]
       }
     ],
     "edges": [
-      {"from": "planner", "to": "coder", "condition": "on_success", "artifact_refs": ["plan.md"]},
-      {"from": "coder", "to": "tester", "condition": "on_success", "artifact_refs": ["plan.md", "patch.diff"]}
+      {
+        "from": "planner",
+        "to": "coder",
+        "condition": "on_success",
+        "artifact_refs": [
+          "plan.md"
+        ]
+      },
+      {
+        "from": "coder",
+        "to": "tester",
+        "condition": "on_success",
+        "artifact_refs": [
+          "plan.md",
+          "patch.diff"
+        ]
+      }
     ]
   },
   "endstate_acceptance_criteria": [
