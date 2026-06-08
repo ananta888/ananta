@@ -9,6 +9,7 @@ Does NOT read original file contents — only works with CodeCompass metadata.
 from __future__ import annotations
 
 import math
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +20,27 @@ from worker.retrieval.codecompass_output_reader import (
     extract_file_path_from_record,
 )
 from worker.retrieval.codecompass_query_parser import parse_codecompass_query
+
+
+# Path classification — used by ResolverConfig to decide which paths
+# belong in the final ranking for a given user mode.
+# Each path falls into exactly one of these buckets:
+#
+#   SOURCE     — Ananta-authored executable code (default: included)
+#   TEST       — test files / specs (default: excluded)
+#   DOC        — .md, .txt, .rst docs (default: excluded)
+#   WORKFLOW   — CI workflows, docker-compose, .github/, scripts/ (default: excluded)
+#   THIRDPARTY — non-Ananta client surfaces (blender, freecad, etc.) (default: excluded)
+#
+# Users (or session profiles) override the default via ResolverConfig
+# (e.g. include_test_paths=True, include_docs=True). The resolver does
+# not interpret query words to decide scope — the scope is a
+# pre-decision the caller passes in.
+_PATH_KIND_SOURCE = "source"
+_PATH_KIND_TEST = "test"
+_PATH_KIND_DOC = "doc"
+_PATH_KIND_WORKFLOW = "workflow"
+_PATH_KIND_THIRDPARTY = "thirdparty"
 
 # Scoring weights per match type. Note: *_hit scores are applied AT MOST ONCE
 # per (path, hit_kind) pair — see _PATH_BONUS_CAPS in resolve() — so that
@@ -46,8 +68,6 @@ _MAX_INCOMING_RELATIONS_PER_TARGET = 10
 _MAX_CANDIDATES = 40
 
 # Path-parts that mark a file as test material rather than source code.
-# Source-First selector: such files are demoted in the final ranking
-# because they reflect how a subsystem is exercised, not how it is built.
 # Markers are matched as substrings against the lowered path, so they are
 # checked both with and without a leading slash (paths may be relative
 # "tests/foo.py" or absolute "/app/tests/foo.py" depending on provenance).
@@ -56,17 +76,29 @@ _REPO_TEST_PATH_PARTS = (
     "spec/", ".spec.", ".test.",
 )
 _REPO_TEST_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_TEST_PATH_PARTS)
-# Path-parts that mark a file as build / config / docs material — not source.
-_REPO_NONSOURCE_PATH_PARTS = (
-    "docs/", "data/", "venv/", "node_modules/", "__pycache__/",
+# Path-parts that mark a file as documentation. Split from
+# _REPO_NONSOURCE_PATH_PARTS so the resolver can route them into the
+# DOC kind (controlled by include_docs) instead of grouping them with
+# workflows.
+_REPO_DOC_PATH_PARTS = (
+    "docs/", "readme", ".md", "changelog", "license", "contributing",
+)
+_REPO_DOC_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_DOC_PATH_PARTS)
+# Path-parts that mark a file as build / config / workflow material —
+# not source. These cover CI workflows, docker-compose, run configs,
+# and the CodeCompass/RAG output directories themselves (which are
+# generated artifacts, not user-authored source).
+_REPO_WORKFLOW_PATH_PARTS = (
+    "data/", "venv/", "node_modules/", "__pycache__/",
     "project-workspaces/", ".git/", "dist/", "build/",
     "docker-compose", "compose.", ".github/",  # CI workflow files
-    "frontend-angular/", "rag-helper/out/", "rag-helper/output/",
+    "rag-helper/out/", "rag-helper/output/",
     "codecompass-out/", ".claude/", "artifacts/",
     "testsuites/",  # junit xml test cases
     "config/runs/",  # CI run configurations
+    "scripts/",  # deployment / build scripts (not application source)
 )
-_REPO_NONSOURCE_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_NONSOURCE_PATH_PARTS)
+_REPO_WORKFLOW_PATH_PARTS_LOWER = tuple(p.lower() for p in _REPO_WORKFLOW_PATH_PARTS)
 # Client-surface prefixes that are third-party integrations (not Ananta-core).
 # These are scored but heavily demoted — they happen to share the Ananta
 # project root but their internals (e.g. blender/addon/tasks.py) are foreign
@@ -80,6 +112,22 @@ _REPO_THIRDPARTY_CLIENT_PREFIXES = (
     "client_surfaces/nvim_runtime/",
     "client_surfaces/vim_compat/",
     "client_surfaces/vscode_extension/",
+    # frontend-angular/ is the Ananta Mobile App — Angular-based mobile UI
+    # (iOS/Android) that lives outside agent/ and the TUI/eclipse
+    # client surfaces. It shares the Ananta project root but is a
+    # standalone client (Capacitor + Angular). Treated as third-party
+    # by the resolver: included only when the user has explicitly
+    # opted into third-party scope.
+    "frontend-angular/",
+)
+# Backward-compat alias: the original `_is_nonsource_path` checker
+# treated test, doc, and workflow paths as one bucket. The new
+# `_classify_path` distinguishes them. Keep the union of the markers
+# available for callers that still want the combined check.
+_REPO_NONSOURCE_PATH_PARTS_LOWER = (
+    _REPO_TEST_PATH_PARTS_LOWER
+    + _REPO_DOC_PATH_PARTS_LOWER
+    + _REPO_WORKFLOW_PATH_PARTS_LOWER
 )
 # Minimum length of a token in a path-stem that may trigger the source stem
 # boost. Set to 3 so short domain tokens like "hub", "tui", "cli", "rpc"
@@ -90,26 +138,70 @@ _REPO_THIRDPARTY_CLIENT_PREFIXES = (
 _MIN_STEM_TOKEN_LEN = 3
 
 
+# MD file extensions matched by `_classify_path` (DOC kind). These are
+# the file extensions the Ananta repo uses for documentation files
+# (vs. Python/Java source).
+_MD_FILE_EXTENSIONS = (".md", ".markdown", ".rst", ".txt")
+
+
 def _is_test_path(path_lower: str) -> bool:
     return any(m in path_lower for m in _REPO_TEST_PATH_PARTS_LOWER)
 
 
-def _is_nonsource_path(path_lower: str) -> bool:
-    if any(m in path_lower for m in _REPO_NONSOURCE_PATH_PARTS_LOWER):
+def _is_doc_path(path_lower: str) -> bool:
+    if any(m in path_lower for m in _REPO_DOC_PATH_PARTS_LOWER):
         return True
+    # Single-segment `.md` files at the repo root (AGENTS.md, README.md,
+    # PROJEKT_ZIELBILD.md, ...) are docs, not source.
+    basename = path_lower.rsplit("/", 1)[-1]
+    if any(basename.endswith(ext) for ext in _MD_FILE_EXTENSIONS):
+        return True
+    return False
+
+
+def _is_workflow_path(path_lower: str) -> bool:
+    return any(m in path_lower for m in _REPO_WORKFLOW_PATH_PARTS_LOWER)
+
+
+def _is_thirdparty_path(path_lower: str) -> bool:
     for prefix in _REPO_THIRDPARTY_CLIENT_PREFIXES:
         if path_lower.startswith(prefix.lower()):
             return True
     return False
 
 
-def _is_source_path(path: str) -> bool:
+def _is_nonsource_path(path_lower: str) -> bool:
+    """Backward-compat union: true for any non-source classification."""
+    return (
+        _is_test_path(path_lower)
+        or _is_doc_path(path_lower)
+        or _is_workflow_path(path_lower)
+        or _is_thirdparty_path(path_lower)
+    )
+
+
+def _classify_path(path: str) -> str:
+    """Return the path kind for a repository-relative path.
+
+    Returns one of: 'source', 'test', 'doc', 'workflow', 'thirdparty'.
+    The classification is order-sensitive: test beats doc beats
+    workflow beats thirdparty beats source (test paths are the most
+    specific intent, source is the fallback).
+    """
     path_lower = path.lower()
     if _is_test_path(path_lower):
-        return False
-    if _is_nonsource_path(path_lower):
-        return False
-    return True
+        return _PATH_KIND_TEST
+    if _is_doc_path(path_lower):
+        return _PATH_KIND_DOC
+    if _is_workflow_path(path_lower):
+        return _PATH_KIND_WORKFLOW
+    if _is_thirdparty_path(path_lower):
+        return _PATH_KIND_THIRDPARTY
+    return _PATH_KIND_SOURCE
+
+
+def _is_source_path(path: str) -> bool:
+    return _classify_path(path) == _PATH_KIND_SOURCE
 
 
 def _stem_tokens(path: str) -> set[str]:
@@ -127,32 +219,58 @@ def _stem_tokens(path: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", stem) if len(t) >= _MIN_STEM_TOKEN_LEN}
 
 
-def _source_path_multiplier(path: str) -> float:
+def _source_path_multiplier(
+    path: str,
+    mode: "ResolverConfig | None" = None,
+) -> float:
     """Source-First selector multiplier for a path.
 
-    Source files with a domain token in the stem get a boost; test files
-    with no domain token in the stem are demoted; non-source paths (docs,
-    data, docker-compose, github workflows) are heavily demoted.
+    Default (mode=None): a path classified as source is kept at × 1.0;
+    tests are demoted to × 0.3, docs and workflows to × 0.2. This
+    matches the original behaviour where the resolver pre-filtered
+    non-source material at the multiplier level.
+
+    With a ResolverConfig: paths whose kind the mode has opted into
+    are kept at × 1.0 (no demotion). Opted-out kinds are excluded
+    from the ranking entirely (filtered, not multiplied).
     """
-    path_lower = path.lower()
-    if _is_nonsource_path(path_lower):
-        return 0.2
-    if _is_test_path(path_lower):
-        return 0.3
-    return 1.0  # source path — boost applied separately via stem_match
+    if mode is None:
+        path_lower = path.lower()
+        if _is_workflow_path(path_lower) or _is_doc_path(path_lower) or _is_thirdparty_path(path_lower):
+            return 0.2
+        if _is_test_path(path_lower):
+            return 0.3
+        return 1.0
+    # Mode-aware: opted-in paths are full weight; opted-out paths
+    # would already have been filtered out of `scores` and never
+    # reach this point. Source-stem boost is applied separately.
+    return 1.0
 
 
-def _stem_boost(path: str, query_tokens: set[str]) -> float:
+def _stem_boost(
+    path: str,
+    query_tokens: set[str],
+    mode: "ResolverConfig | None" = None,
+) -> float:
     """Source-stem boost: 1.5× when the file stem contains ANY query token
     (from exact_symbols, phrases, OR broad_terms), else 1.0×.
 
-    Test and non-source paths get 1.0× here — their multiplier is applied
-    separately. Broad-token overlap with the stem is a very strong signal
-    (the user literally named the subsystem in the file's filename) so we
-    treat it the same as exact-symbol overlap.
+    Test and non-source paths get 1.0× here in the default (mode=None)
+    path — their multiplier is applied separately. Broad-token overlap
+    with the stem is a very strong signal (the user literally named
+    the subsystem in the file's filename) so we treat it the same as
+    exact-symbol overlap.
+
+    With a ResolverConfig: the stem boost is still applied to all
+    paths the mode has opted into (including test paths). The Source-
+    First selector still prefers source via the multiplier, so a
+    source file `hub_loader.py` outranks a test `test_hub.py` when
+    both have stem match (1.0 × 1.5 vs 0.7 × 1.5 = 1.5 vs 1.05).
     """
-    if not _is_source_path(path):
-        return 1.0
+    if mode is not None and not mode.accepts(path):
+        return 1.0  # opted out — irrelevant
+    if mode is None and not _is_source_path(path):
+        return 1.0  # default: only source gets the boost
     stem = _stem_tokens(path)
     if not stem or not query_tokens:
         return 1.0
@@ -252,6 +370,102 @@ def _looks_like_path(s: str) -> bool:
 
 
 @dataclass
+class ResolverConfig:
+    """User-driven scope and ranking configuration for the resolver.
+
+    The resolver does not interpret query words to decide what kind of
+    file to include — that decision is made by the caller (the Hub or
+    a worker) and passed in via this config. Defaults are
+    default-safe: only source code, no tests, no docs, no workflows,
+    no third-party. Users opt INTO the broader scope explicitly.
+
+    Each `include_*` flag controls whether paths of that kind are
+    kept in the final ranking. Opted-out kinds are filtered BEFORE
+    scoring, so they don't compete for top slots.
+
+    Environment variables provide a session-wide default for callers
+    that don't pass an explicit config. The constructor reads
+    `ANANTA_CODECOMPASS_INCLUDE_*` so operator-TUI users can flip
+    a toggle in their settings and have the resolver respect it
+    without code changes.
+
+    Precedence (highest first):
+      1. ResolverConfig passed explicitly to resolve()
+      2. ANANTA_CODECOMPASS_INCLUDE_* env vars (if config defaults
+         weren't explicitly set)
+      3. Hardcoded defaults: include_source=True, all others False
+    """
+
+    include_source: bool = True
+    include_test_paths: bool = False
+    include_docs: bool = False
+    include_workflows: bool = False
+    include_third_party: bool = False
+    include_xml_nodes: bool = False
+    # When a non-source kind IS opted in, it still gets a small
+    # multiplier so the Source-First selector still prefers source
+    # files when both match. Set to 1.0 to disable.
+    secondary_kind_multiplier: float = 0.7
+    # Cap on candidates returned. The original behaviour was 40.
+    max_candidates: int = _MAX_CANDIDATES
+
+    @classmethod
+    def from_env(cls, env: "os._Environ[str] | dict[str, str] | None" = None) -> "ResolverConfig":
+        """Build a ResolverConfig from ANANTA_CODECOMPASS_INCLUDE_* env vars.
+
+        Env values are truthy iff lowercase string is one of:
+        "1", "true", "yes", "on". Anything else (including unset) is False.
+
+        Example:
+            ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS=1
+            ANANTA_CODECOMPASS_INCLUDE_DOCS=true
+        """
+        env_map = env if env is not None else os.environ
+
+        def _truthy(name: str) -> bool:
+            return str(env_map.get(name, "")).strip().lower() in {"1", "true", "yes", "on"}
+
+        return cls(
+            include_source=True,  # always on
+            include_test_paths=_truthy("ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS"),
+            include_docs=_truthy("ANANTA_CODECOMPASS_INCLUDE_DOCS"),
+            include_workflows=_truthy("ANANTA_CODECOMPASS_INCLUDE_WORKFLOWS"),
+            include_third_party=_truthy("ANANTA_CODECOMPASS_INCLUDE_THIRD_PARTY"),
+            include_xml_nodes=_truthy("ANANTA_CODECOMPASS_INCLUDE_XML_NODES"),
+        )
+
+    def accepts(self, path: str) -> bool:
+        """Return True if a path of this kind should be kept in the ranking."""
+        kind = _classify_path(path)
+        if kind == _PATH_KIND_SOURCE:
+            return self.include_source
+        if kind == _PATH_KIND_TEST:
+            return self.include_test_paths
+        if kind == _PATH_KIND_DOC:
+            return self.include_docs
+        if kind == _PATH_KIND_WORKFLOW:
+            return self.include_workflows
+        if kind == _PATH_KIND_THIRDPARTY:
+            return self.include_third_party
+        return False
+
+    def path_multiplier(self, path: str) -> float:
+        """Source-First multiplier under this config.
+
+        Source files: × 1.0. Other opted-in kinds: × secondary_kind_multiplier
+        (default 0.7) so source code still wins ties. Opted-out kinds
+        return 0.0 and should be filtered via `accepts()` first; this
+        method returns 0.0 anyway as a safety net.
+        """
+        kind = _classify_path(path)
+        if kind == _PATH_KIND_SOURCE:
+            return 1.0
+        if self.accepts(path):
+            return self.secondary_kind_multiplier
+        return 0.0
+
+
+@dataclass
 class CandidateScore:
     path: str
     total: float = 0.0
@@ -300,13 +514,24 @@ class CodeCompassCandidateResolver:
         memory_context: str | None = None,
         manifest_hash: str | None = None,
         graph_expansion_profile: str = "bugfix_local",
+        mode: ResolverConfig | None = None,
     ) -> list[dict[str, Any]]:
         """
         Return a ranked list of CandidateFile dicts (CWFH-003 schema).
+
+        `mode` controls which path kinds enter the ranking
+        (source / test / doc / workflow / thirdparty). When None,
+        the resolver reads `ANANTA_CODECOMPASS_INCLUDE_*` env vars
+        via `ResolverConfig.from_env()`. Default (env unset):
+        only source code is included.
         """
         output_dir = Path(output_dir)
         if not output_dir.exists():
             return []
+
+        if mode is None:
+            mode = ResolverConfig.from_env()
+        self._mode = mode
 
         loaded = self._reader.load_from_output_dir(output_dir=output_dir)
         records: list[dict[str, Any]] = loaded.get("records") or []
@@ -471,18 +696,26 @@ class CodeCompassCandidateResolver:
         if not scores:
             return []
 
+        # Mode-aware filtering: drop paths whose kind the user has not
+        # opted into. Filter happens AFTER scoring (so opt-in toggles
+        # are cheap) but BEFORE multiplier application.
+        if not mode.include_source or not mode.include_test_paths or not mode.include_docs or not mode.include_workflows or not mode.include_third_party:
+            scores = {p: cs for p, cs in scores.items() if mode.accepts(p)}
+            if not scores:
+                return []
+
         # Source-First selector: apply path-class multiplier and stem boost
         # to the accumulated raw scores. We do this once at the end (not
         # inside the per-record loop) so the per-record bookkeeping stays
         # clean and the multiplier can be inspected in tests.
         all_query_tokens = set(exact_symbols) | set(phrases) | set(broad_tokens)
         for cs in scores.values():
-            path_mult = _source_path_multiplier(cs.path)
-            stem_boost = _stem_boost(cs.path, all_query_tokens)
+            path_mult = mode.path_multiplier(cs.path)
+            stem_boost = _stem_boost(cs.path, all_query_tokens, mode=mode)
             cs.total *= path_mult * stem_boost
 
         sorted_candidates = sorted(scores.values(), key=lambda c: c.total, reverse=True)
-        top = sorted_candidates[: self._max]
+        top = sorted_candidates[: mode.max_candidates]
 
         return [
             {
