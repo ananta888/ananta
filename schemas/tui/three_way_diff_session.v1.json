@@ -79,7 +79,7 @@
     },
     "layout_mode": {
       "type": "string",
-      "enum": ["equal", "focus", "compact"]
+      "enum": ["equal", "focus", "compact", "left-wide", "right-wide", "focus-a", "focus-b", "focus-c"]
     },
     "created_at": {
       "type": "string",

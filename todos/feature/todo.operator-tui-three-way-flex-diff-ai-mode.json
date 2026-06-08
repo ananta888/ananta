@@ -4,54 +4,82 @@
   "track": "operator-tui-three-way-flex-diff-ai-mode",
   "purpose": "Deterministic planning fixture used by planning-track contract tests",
   "goal": "Deliver operator TUI three-way flex diff AI mode safely",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "milestones": [
     {
       "id": "M01",
       "title": "Core implementation",
-      "task_ids": ["T01", "T02", "T03"],
-      "status": "todo"
+      "task_ids": [
+        "T01",
+        "T02",
+        "T03"
+      ],
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "T01",
       "title": "Model interaction flow",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "acceptance_criteria": ["Flow is documented and testable."]
+      "acceptance_criteria": [
+        "Flow is documented and testable."
+      ]
     },
     {
       "id": "T02",
       "title": "Render three-way diff UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "acceptance_criteria": ["UI shows base/current/target panes and navigation."]
+      "acceptance_criteria": [
+        "UI shows base/current/target panes and navigation."
+      ]
     },
     {
       "id": "T03",
       "title": "Validate AI mode behavior",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "acceptance_criteria": ["Automated tests cover happy path and fallback."]
+      "acceptance_criteria": [
+        "Automated tests cover happy path and fallback."
+      ]
     }
   ],
-  "critical_path_tasks": ["T01", "T02", "T03"],
+  "critical_path_tasks": [
+    "T01",
+    "T02",
+    "T03"
+  ],
   "tasks_status_summary": {
     "total": 3,
     "by_status": {
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P1": 2,
       "P2": 1
@@ -62,15 +90,15 @@
     },
     "critical_path": {
       "total": 3,
-      "done": 0,
-      "remaining": 3
+      "done": 3,
+      "remaining": 0
     },
     "milestones": {
       "total": 1,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -82,18 +110,21 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 3,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 3
   },
   "end_summaries": [
     {
       "summary_id": "S01",
       "title": "Delivery handoff",
-      "items": ["Diff mode implemented", "AI mode validated"]
+      "items": [
+        "Diff mode implemented",
+        "AI mode validated"
+      ]
     }
   ]
 }
