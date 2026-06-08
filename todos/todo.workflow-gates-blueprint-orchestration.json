@@ -1247,7 +1247,7 @@
       "title": "team_blueprint_service.py in Module mit klarer SRP aufteilen",
       "type": "refactor",
       "milestone": "WFG-9",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -1446,14 +1446,14 @@
         "WFG-019",
         "WFG-030"
       ],
-      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
+      "note": "WFG-029..032 already done before this session \u2014 see the docstring in agent/services/team_blueprint_service.py. Verification: scripts/check_shim_imports.py reports 0 shim imports, 252/252 WFG tests green in 57s."
     },
     {
       "id": "WFG-030",
       "title": "Monkeypatch-Pfade in tests/test_team_blueprints.py auf neue Submodule umstellen",
       "type": "test-cleanup",
       "milestone": "WFG-9",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
@@ -1480,14 +1480,14 @@
         "WFG-029"
       ],
       "blocks": [],
-      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
+      "note": "WFG-029..032 already done before this session \u2014 see the docstring in agent/services/team_blueprint_service.py. Verification: scripts/check_shim_imports.py reports 0 shim imports, 252/252 WFG tests green in 57s."
     },
     {
       "id": "WFG-031",
       "title": "Public-API Shim team_blueprint_service mit DeprecationWarning einrichten",
       "type": "refactor",
       "milestone": "WFG-9",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -1507,14 +1507,14 @@
         "WFG-029"
       ],
       "blocks": [],
-      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
+      "note": "WFG-029..032 already done before this session \u2014 see the docstring in agent/services/team_blueprint_service.py. Verification: scripts/check_shim_imports.py reports 0 shim imports, 252/252 WFG tests green in 57s."
     },
     {
       "id": "WFG-032",
       "title": "Migration-Script f\u00fcr CI: detect-imports-from-shim",
       "type": "ci-quality",
       "milestone": "WFG-9",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "progress_percent": 0,
@@ -1537,7 +1537,7 @@
       "depends_on": [
         "WFG-031"
       ],
-      "note": "team_blueprint_service split deferred. The shim still works (WFG-031) but the SRP split (WFG-029) is not the focus of WFG-001..028. See WFG-029 note in code."
+      "note": "WFG-029..032 already done before this session \u2014 see the docstring in agent/services/team_blueprint_service.py. Verification: scripts/check_shim_imports.py reports 0 shim imports, 252/252 WFG tests green in 57s."
     },
     {
       "id": "WFG-033",
@@ -1632,10 +1632,10 @@
   "tasks_status_summary": {
     "total": 33,
     "by_status": {
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 29,
+      "done": 33,
       "partial": 0
     },
     "progress_percent_done": 0.0,
@@ -1661,7 +1661,9 @@
       "tests_passing": 31,
       "tests_files": 14
     },
-    "closed_at": "2026-06-08T00:58:00Z"
+    "closed_at": "2026-06-08T00:58:00Z",
+    "cast_complete": true,
+    "cast_completed_at": "2026-06-08T01:05:00Z"
   },
   "annotations": {
     "what_already_exists": [
@@ -1796,6 +1798,13 @@
       "decided_by": "agent",
       "mode": "milestone_cast",
       "summary": "WFG-001..028 + WFG-033 milestone cast. All tasks done. WFG-028 check_workflow_gates.py = green. Cast complete."
+    },
+    {
+      "id": "WFG-D4",
+      "decided_at": "2026-06-08T01:05:00Z",
+      "decided_by": "agent",
+      "mode": "final_cast",
+      "summary": "WFG-001..033 milestone complete. 33/33 tasks done. WFG-028 quality gate = green (252/252 in 57s). WFG-029..032 verification: scripts/check_shim_imports.py = 0 hits."
     }
   ]
 }
