@@ -56,7 +56,7 @@
     {
       "id": "RWY-001",
       "title": "Slash-Command `/rag why <frage>` parsen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "type": "implementation",
@@ -70,7 +70,7 @@
     {
       "id": "RWY-002",
       "title": "Effective Chat Settings für Debug ermitteln",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -84,7 +84,7 @@
     {
       "id": "RWY-003",
       "title": "RetrievalProfile Trace für konkrete Frage ausgeben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -99,7 +99,7 @@
     {
       "id": "RWY-004",
       "title": "ResolverConfig/Scope sichtbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -113,7 +113,7 @@
     {
       "id": "RWY-005",
       "title": "Retrieval ohne LLM ausführen und Trace sammeln",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -128,7 +128,7 @@
     {
       "id": "RWY-006",
       "title": "Kompakte TUI-Ausgabe formatieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -143,7 +143,7 @@
     {
       "id": "RWY-007",
       "title": "JSON-Debug-Modus optional ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "implementation",
@@ -157,7 +157,7 @@
     {
       "id": "RWY-008",
       "title": "HTTP/API Debug-Endpunkt prüfen oder ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -172,7 +172,7 @@
     {
       "id": "RWY-009",
       "title": "Preset-Hinweise in `/rag why` ausgeben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "implementation",
@@ -186,7 +186,7 @@
     {
       "id": "RWY-010",
       "title": "Regression Tests für typische Blindheitsfälle",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "test",

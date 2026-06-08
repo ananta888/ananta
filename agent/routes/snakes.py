@@ -255,6 +255,105 @@ def _resolve_snake_retrieval_profile_trace(
         return {"error": str(exc)[:120]}
 
 
+def _snake_retrieval_dry_run(
+    question: str,
+    *,
+    retrieval_config_overrides: dict[str, Any] | None = None,
+    top_k: int = 20,
+) -> dict[str, Any]:
+    """RWY-005: run retrieval for *question* without calling an LLM.
+
+    Returns profile metadata, resolver scope flags, candidate counts per
+    source type, top-5 candidate paths, and preset hints.
+    """
+    result: dict[str, Any] = {}
+    try:
+        from agent.routes.ai_snake_config import _current_config
+        from agent.services.retrieval_profile_service import resolve_profile
+        from worker.retrieval.codecompass_candidate_resolver import ResolverConfig
+
+        cfg = _current_config()
+        cfg.update(dict(retrieval_config_overrides or {}))
+        feature_flag = str(cfg.get("chat_retrieval_profile") or "auto").strip().lower()
+        if bool(cfg.get("chat_code_questions_repo_first")) and feature_flag == "auto":
+            feature_flag = "repo_first"
+        domain_hint = str(cfg.get("chat_retrieval_domain_hint") or "").strip() or None
+
+        profile = resolve_profile(question, cfg, domain_hint=domain_hint, feature_flag=feature_flag)
+        result["retrieval_profile"] = {
+            "profile_id": profile.profile_id,
+            "domain": profile.domain,
+            "intent": profile.intent,
+            "analysis_mode": profile.analysis_mode or "standard",
+            "feature_flag": profile.feature_flag,
+            "trigger_mode": str(cfg.get("chat_codecompass_trigger_mode") or "auto").strip().lower(),
+            "selected_by": profile.selected_by,
+            "reasons": list(profile.reasons),
+            "source_types": list(profile.source_types),
+            "source_type_weights": dict(profile.source_type_weights),
+            "negative_source_patterns": list(profile.negative_source_patterns),
+            "warnings": list(profile.warnings),
+        }
+
+        scope = ResolverConfig.from_env()
+        result["resolver_scope"] = {
+            "include_source": scope.include_source,
+            "include_test_paths": scope.include_test_paths,
+            "include_docs": scope.include_docs,
+            "include_workflows": scope.include_workflows,
+            "include_third_party": scope.include_third_party,
+            "include_xml_nodes": scope.include_xml_nodes,
+        }
+
+        try:
+            bundle, _ = get_rag_service().build_execution_context(
+                question,
+                task_kind="research",
+                retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
+                source_types=profile.source_types or None,
+                max_chunks=max(8, min(top_k, 40)),
+                retrieval_profile=profile.as_dict(),
+            )
+            chunks = list(bundle.get("chunks") or [])
+            src_counts: dict[str, int] = {}
+            top_sources: list[dict[str, Any]] = []
+            for ch in chunks:
+                meta = dict((ch or {}).get("metadata") or {})
+                st = str(meta.get("source_type") or (ch or {}).get("engine") or "unknown").lower()
+                src_counts[st] = src_counts.get(st, 0) + 1
+                if len(top_sources) < 5:
+                    path = str(meta.get("file_path") or meta.get("path") or (ch or {}).get("path") or "").strip()
+                    score = float((ch or {}).get("score") or meta.get("score") or 0.0)
+                    if path:
+                        top_sources.append({"path": path, "source_type": st, "score": round(score, 3)})
+            result["candidate_counts"] = {
+                "total": len(chunks),
+                "by_source_type": src_counts,
+            }
+            result["top_sources"] = top_sources
+            result["degraded_channels"] = []
+        except Exception as exc:
+            result["retrieval_error"] = str(exc)[:200]
+            result["candidate_counts"] = {"total": 0, "by_source_type": {}}
+            result["top_sources"] = []
+            result["degraded_channels"] = [str(exc)[:120]]
+
+        # RWY-009: preset hints
+        q_lower = question.lower()
+        hints: list[str] = []
+        if any(w in q_lower for w in ("readme", "docs", "doku", "architektur", "todo", "notiz")) and not scope.include_docs:
+            hints.append("Tipp: docs/artifact deaktiviert → :config chat_retrieval_profile docs_first")
+        if any(w in q_lower for w in ("test", "spec", "pytest", "unittest")) and not scope.include_test_paths:
+            hints.append("Tipp: tests deaktiviert → ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS=1 oder :config code_with_tests")
+        if any(w in q_lower for w in ("workflow", "blueprint", "ops", "runbook")) and not scope.include_workflows:
+            hints.append("Tipp: workflows deaktiviert → ANANTA_CODECOMPASS_INCLUDE_WORKFLOWS=1 oder :config ops")
+        result["preset_hints"] = hints
+
+    except Exception as exc:
+        result["error"] = str(exc)[:200]
+    return result
+
+
 def _build_local_repo_fallback_context(prompt: str) -> str:
     text = str(prompt or "").lower()
     repo_root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
@@ -1249,12 +1348,22 @@ def snake_ask():
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     question = str(body.get("question") or "").strip()[:1000]
     debug = bool(body.get("debug"))
+    trace_only = bool(body.get("trace_only"))
     limits = SnakeAskLimits.from_payload(body)
     retrieval_config_overrides = _snake_retrieval_config_overrides(body)
     # Model from TUI config (passed in v2 payload as "model")
     request_model = str(body.get("model") or "").strip() or None
     if not question:
         return jsonify({"error": "question erforderlich"}), 400
+
+    # RWY-005: trace_only — run retrieval, skip LLM
+    if trace_only:
+        dry = _snake_retrieval_dry_run(
+            question,
+            retrieval_config_overrides=retrieval_config_overrides,
+            top_k=limits.rag_top_k,
+        )
+        return jsonify({"trace_only": True, "rag_why": dry}), 200
 
     rag_trace: dict[str, Any] = {}
     context = str(body.get("context") or "").strip()[:limits.context_chars]
