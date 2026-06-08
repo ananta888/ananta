@@ -1,6 +1,7 @@
 """Loads seed role-prompt templates and role-profile defaults from config files.
 
-File: config/blueprints/standard/templates.json
+Primary file: config/blueprints/standard/templates.json
+Optional fragments: config/blueprints/standard/templates.d/*.json
 Schema: schemas/blueprints/seed_template_catalog.v1.json
 
 Appendix references ({{appendix:name}}) in prompt_template are expanded during load.
@@ -25,11 +26,13 @@ class SeedTemplateCatalog:
         catalog_path: Path | None = None,
         schema_path: Path | None = None,
         repository_root: Path | None = None,
+        fragments_dir: Path | None = None,
     ) -> None:
         self.repository_root = (repository_root or ROOT).resolve()
         self.catalog_path = catalog_path or (
             self.repository_root / "config" / "blueprints" / "standard" / "templates.json"
         )
+        self.fragments_dir = fragments_dir or self.catalog_path.parent / "templates.d"
         self.schema_path = schema_path or (
             self.repository_root / "schemas" / "blueprints" / "seed_template_catalog.v1.json"
         )
@@ -37,7 +40,6 @@ class SeedTemplateCatalog:
         self.load_error: str | None = None
 
     # ── public API ────────────────────────────────────────────────────────────
-
     def get_templates_for_team_type(self, team_type: str) -> list[dict[str, str]]:
         """Return list of {name, description, prompt_template} for a team type (appendixes expanded)."""
         if not self._ensure_loaded():
@@ -87,7 +89,6 @@ class SeedTemplateCatalog:
         return list((self._catalog.get("team_types") or {}).keys())
 
     # ── internals ─────────────────────────────────────────────────────────────
-
     def _ensure_loaded(self) -> bool:
         try:
             self._load()
@@ -99,7 +100,7 @@ class SeedTemplateCatalog:
     def _load(self) -> None:
         if self._catalog is not None:
             return
-        payload = json.loads(self.catalog_path.read_text(encoding="utf-8"))
+        payload = self._load_merged_payload()
         try:
             from jsonschema import Draft202012Validator
             schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
@@ -118,6 +119,34 @@ class SeedTemplateCatalog:
                     raise ValueError(f"template '{tpl.get('name')}' references unknown appendix: '{ref}'")
 
         self._catalog = payload
+
+    def _load_merged_payload(self) -> dict[str, Any]:
+        payload = json.loads(self.catalog_path.read_text(encoding="utf-8"))
+        merged: dict[str, Any] = {
+            "schema": payload.get("schema"),
+            "version": payload.get("version"),
+            "appendixes": dict(payload.get("appendixes") or {}),
+            "team_types": copy.deepcopy(dict(payload.get("team_types") or {})),
+            "templates": copy.deepcopy(list(payload.get("templates") or [])),
+        }
+        if self.fragments_dir.exists():
+            for fragment_path in sorted(self.fragments_dir.glob("*.json")):
+                fragment = json.loads(fragment_path.read_text(encoding="utf-8"))
+                merged["appendixes"].update(dict(fragment.get("appendixes") or {}))
+                for team_type, spec in dict(fragment.get("team_types") or {}).items():
+                    if team_type in merged["team_types"]:
+                        raise ValueError(f"duplicate seed template team_type {team_type!r} in {fragment_path}")
+                    merged["team_types"][team_type] = copy.deepcopy(spec)
+                merged["templates"].extend(copy.deepcopy(list(fragment.get("templates") or [])))
+        seen_templates: set[str] = set()
+        for template in merged["templates"]:
+            name = str((template or {}).get("name") or "").strip()
+            if not name:
+                continue
+            if name.lower() in seen_templates:
+                raise ValueError(f"duplicate seed template name: {name}")
+            seen_templates.add(name.lower())
+        return merged
 
     def _expand(self, text: str) -> str:
         appendixes: dict[str, str] = dict((self._catalog or {}).get("appendixes") or {})
