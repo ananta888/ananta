@@ -951,6 +951,9 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             if sub == "rag":
                 msg = "rag: :rag why <frage> — zeigt Retrieval-Trace ohne LLM | :rag why --json <frage> — JSON-Output"
                 return CommandResult(state.with_updates(status_message=msg), "help rag")
+            if sub == "te":
+                msg = "te: :te status — Task-Engine-Status | :te classify <kind> — Klassifizierung testen"
+                return CommandResult(state.with_updates(status_message=msg), "help te")
         return CommandResult(state.with_updates(show_help=not state.show_help, status_message="help toggled"), "help toggled")
     if command in {"config", "cfg", "ai-config", "snake-config"}:
         game = dict(state.header_logo_game or {})
@@ -3799,6 +3802,47 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             ),
             f"rag why: {question[:40]}",
         )
+
+    # ── te (task engine) ──────────────────────────────────────────────────────
+    if command == "te":
+        sub = args[0].lower() if args else "status"
+
+        if sub == "status":
+            try:
+                from agent.services.task_engine_status_service import get_task_engine_status_service
+                s = get_task_engine_status_service().as_dict()
+                lines = [
+                    f"Task Engine Status",
+                    f"  active      : {s.get('active')}",
+                    f"  intent      : {s.get('intent') or '—'}",
+                    f"  task_class  : {s.get('task_class') or '—'}",
+                    f"  llm_required: {s.get('llm_required')}",
+                    f"  handler     : {s.get('handler_id') or '—'}",
+                    f"  bypassed_llm: {s.get('bypassed_llm')}",
+                    f"  reason      : {s.get('reason') or '—'}",
+                    f"  task_id     : {s.get('task_id') or '—'}",
+                ]
+                msg = " | ".join(lines[:4])
+            except Exception as exc:
+                msg = f"te status error: {exc}"
+            from client_surfaces.operator_tui.snake_chat import make_message, append_message
+            append_message(make_message("ai:tutor", "\n".join(lines if 'lines' in dir() else [msg]), role="system"), state, game)
+            return CommandResult(state.with_updates(status_message=msg), msg)
+
+        if sub == "classify":
+            kind = args[1] if len(args) > 1 else ""
+            if not kind:
+                return CommandResult(state.with_updates(status_message="te classify: Bitte task_kind angeben"), "te classify: no kind")
+            try:
+                from agent.services.task_engine_policy_gate import TaskEnginePolicyGate
+                gate = TaskEnginePolicyGate.from_settings()
+                d = gate.evaluate({"task_kind": kind})
+                msg = f"te classify '{kind}': class={d.task_class} llm={d.llm_required} handler={d.handler_id or '—'} reason={d.reason}"
+            except Exception as exc:
+                msg = f"te classify error: {exc}"
+            return CommandResult(state.with_updates(status_message=msg[:120]), msg)
+
+        return CommandResult(state.with_updates(status_message="te: Nutzung: :te status | :te classify <kind>"), "te: unknown sub")
 
     # ── tutorial ──────────────────────────────────────────────────────────────
     if command == "tutorial":

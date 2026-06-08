@@ -51,6 +51,10 @@ class TaskHandlerRegistry:
             return None
         return self._handlers.get(key)
 
+    def resolve_by_handler_id(self, handler_id: str | None) -> TaskHandler | None:
+        """te-005: look up by deterministic_handler_id (falls back to task_kind lookup)."""
+        return self.resolve(handler_id)
+
     def supported_task_kinds(self) -> list[str]:
         return sorted(self._handlers.keys())
 

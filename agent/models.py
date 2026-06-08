@@ -112,6 +112,11 @@ class TaskRoutingContract(SQLModel):
     model_blocked_candidates: List[str] = Field(default_factory=list)
     model_cloud_allowed: Optional[bool] = None
     model_block_secret_context: Optional[bool] = None
+    # TE (te-001): Task Engine classification fields
+    task_class: Optional[str] = None           # "deterministic" | "hybrid" | "llm_required"
+    intent: Optional[str] = None               # e.g. "list_files", "read_file", "grep_search"
+    llm_required: Optional[bool] = None
+    deterministic_handler_id: Optional[str] = None
 
 
 class TaskReviewStateContract(SQLModel):
