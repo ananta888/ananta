@@ -338,6 +338,140 @@ def active_session_channel_id(chat: dict[str, Any]) -> str:
     return f"ai:{str(session.get('id') or 'tutor')}"
 
 
+# ── Effective settings bridge ───────────────────────────────────────────────
+#
+# Settings live in two places:
+#
+# 1. **Game-level** (top-level `header_logo_game` keys like
+#    `chat_backend`, `chat_source_pack_id`, `chat_use_codecompass`).
+#    These come from user.json via the operator config and apply to
+#    *every* chat operation as a fallback.
+#
+# 2. **Session-level** (inside an entry of `chat["ai_sessions"]` under
+#    `settings`). The active session's settings override the game-level
+#    ones, so each session can have its own backend, source pack, etc.
+#
+# Callers that need the "effective" value of a chat setting should
+# call `get_effective_chat_settings(chat, game)` and read the merged
+# dict, never the raw `game.get("chat_backend")` style. This keeps
+# the per-session override working without scattering session-lookup
+# logic across the chat pipeline.
+
+_SESSION_OVERRIDE_KEYS: tuple[str, ...] = (
+    "chat_backend",
+    "chat_backend_model",
+    "chat_backend_api_base",
+    "chat_source_pack_id",
+    "chat_use_codecompass",
+    "chat_retrieval_profile",
+    "chat_retrieval_domain_hint",
+    "chat_codecompass_trigger_mode",
+    "chat_code_questions_repo_first",
+    "chat_architecture_analysis_mode",
+    "chat_include_task_memory",
+    "chat_history_turns",
+    "chat_rag_top_k",
+    "chat_max_context_chars",
+    "chat_system_prompt",
+)
+
+
+def get_effective_chat_settings(
+    chat: dict[str, Any],
+    game: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return the merged chat settings: game-level defaults with the
+    active session's per-key overrides applied. The returned dict is
+    freshly allocated; callers can mutate it freely. Pass `game` when
+    you have it in scope to avoid re-reading the chat_state (the chat
+    pipeline typically already has both)."""
+    if not isinstance(chat, dict):
+        chat = {}
+    if not isinstance(game, dict):
+        game = {}
+    merged: dict[str, Any] = {}
+    # 1. Game-level defaults
+    for k in _SESSION_OVERRIDE_KEYS:
+        if k in game:
+            merged[k] = game[k]
+    # 2. Session-level overrides
+    session = get_active_session(chat)
+    if isinstance(session, dict):
+        sess_settings = session.get("settings")
+        if isinstance(sess_settings, dict):
+            for k, v in sess_settings.items():
+                if v is None or v == "":
+                    # Empty session value — keep the game-level default
+                    # so a user can clear a session override by setting
+                    # it to "" in the settings UI.
+                    continue
+                merged[k] = v
+        # System prompt from the session itself (not from settings)
+        sys_prompt = session.get("system_prompt")
+        if isinstance(sys_prompt, str) and sys_prompt:
+            merged["chat_system_prompt"] = sys_prompt
+    return merged
+
+
+def active_session_id(chat: dict[str, Any]) -> str:
+    """Convenience: return the id of the active session, or "tutor" as
+    a last-resort fallback. Used as a stable identifier in session-
+    aware chat pipeline messages."""
+    session = get_active_session(chat)
+    if session is None:
+        return "tutor"
+    return str(session.get("id") or "tutor")
+
+
+# ── Session message-history helpers ─────────────────────────────────────────
+
+def clear_session_messages(chat: dict[str, Any], session_id: str | None = None) -> bool:
+    """Clear the message list of the named session's channel. If
+    `session_id` is None, clear the active session. Returns True if
+    a session was found and its channel cleared, False otherwise.
+
+    Only the session's own channel is touched; the other channels
+    (room, notes, system) and other sessions' channels are left
+    intact. This is the user-facing "clear chat" behaviour: "delete
+    the history of this conversation, not all my conversations"."""
+    if not isinstance(chat, dict):
+        return False
+    if session_id is None:
+        session = get_active_session(chat)
+        if session is None:
+            return False
+        session_id = str(session.get("id") or "")
+    if not session_id:
+        return False
+    channels = chat.get("channels")
+    if not isinstance(channels, dict):
+        return False
+    channel_id = f"ai:{session_id}"
+    ch = channels.get(channel_id)
+    if not isinstance(ch, dict):
+        return False
+    ch["messages"] = []
+    ch["unread"] = 0
+    return True
+
+
+def clear_all_session_messages(chat: dict[str, Any]) -> int:
+    """Clear the message list of every AI session channel. Used by
+    the legacy "clear ALL chat history" command which previously
+    cleared every channel indiscriminately. Returns the number of
+    sessions whose messages were cleared."""
+    if not isinstance(chat, dict):
+        return 0
+    cleared = 0
+    for session in get_sessions(chat):
+        if not isinstance(session, dict):
+            continue
+        sid = str(session.get("id") or "")
+        if sid and clear_session_messages(chat, sid):
+            cleared += 1
+    return cleared
+
+
 def add_session(chat: dict[str, Any], session: dict[str, Any]) -> None:
     sessions = get_sessions(chat)
     sessions.append(session)
@@ -346,9 +480,17 @@ def add_session(chat: dict[str, Any], session: dict[str, Any]) -> None:
 
 def delete_session(chat: dict[str, Any], session_id: str) -> bool:
     """Remove a session and its channel. If the deleted session was the
-    active one, switch to the first remaining session (or none)."""
+    active one, switch to the first remaining session (or none).
+
+    Refuses to delete the last remaining session — a user must always
+    have at least one chat session available. Returns False in that
+    case so the UI can show a friendly "letzter session, nicht
+    löschbar" message.
+    """
     sessions = get_sessions(chat)
     target_id = str(session_id)
+    if len(sessions) <= 1:
+        return False
     kept = [s for s in sessions if str((s or {}).get("id") or "") != target_id]
     if len(kept) == len(sessions):
         return False

@@ -60,6 +60,12 @@ _INITIAL_ACTIONS: tuple[TuiAction, ...] = (
     TuiAction("focus.center", "Focus Center", "Move focus to center viewport", "safe", "focus", frozenset({"any"})),
     TuiAction("focus.logs", "Focus Logs", "Move focus to log panel", "safe", "focus", frozenset({"any"})),
     TuiAction("focus.nav", "Focus Nav", "Move focus to navigation panel", "safe", "focus", frozenset({"any"})),
+    TuiAction("session.list", "Session List", "List all AI chat sessions", "safe", "session", frozenset({"any"})),
+    TuiAction("session.switch", "Session Switch", "Switch to a named AI chat session", "safe", "session", frozenset({"any"})),
+    TuiAction("session.new", "Session New", "Create a new AI chat session", "safe", "session", frozenset({"any"})),
+    TuiAction("session.delete", "Session Delete", "Delete an AI chat session and its history", "medium", "session", frozenset({"any"})),
+    TuiAction("session.rename", "Session Rename", "Rename an AI chat session", "safe", "session", frozenset({"any"})),
+    TuiAction("session.clear", "Session Clear", "Clear the message history of a session", "medium", "session", frozenset({"any"})),
 )
 
 _FORBIDDEN_CATEGORIES: frozenset[str] = frozenset({"shell", "file_write", "file_delete", "network", "destructive"})
