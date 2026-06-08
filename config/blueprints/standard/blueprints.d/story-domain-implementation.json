@@ -121,7 +121,7 @@
           {
             "id": "domain",
             "role": "Domain Modeler",
-            "task_kind": "domain_modeling",
+            "task_kind": "planning",
             "title": "Domain Modeling",
             "sort_order": 20,
             "depends_on": ["story"],
