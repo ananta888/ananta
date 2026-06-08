@@ -1,0 +1,867 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "task-engine-deterministic-hybrid-llm-policy-router",
+  "purpose": "Ananta soll klare Aufgaben zuerst deterministisch und policy-geprüft ausführen, LLMs nur dort nutzen, wo Interpretation, Planung, Review oder Erklärung wirklich sinnvoll sind, und die AI-Snake als sichtbare Control Layer darüber verdrahten.",
+  "goal": "Aus dem aktuell vorhandenen LLM-Propose-plus-Execution-Guardrails-Ansatz wird eine explizite Task Engine mit drei Klassen: deterministic, hybrid und llm_required. Deterministische Standardaufgaben werden ohne LLM ausgeführt, hybride Tasks nutzen LLM nur für Planung/Erklärung/Patch-Vorschläge, und alle Ausführung läuft durch Policy, Risk, Approval, Mutation Gate, Tool Scope und Audit.",
+  "context_from_real_code": {
+    "inspected_files": [
+      "agent/models.py",
+      "agent/services/task_execution_service.py",
+      "agent/services/task_scoped_execution_service.py",
+      "agent/services/task_execution_policy_service.py",
+      "agent/services/task_handler_registry.py",
+      "agent/services/tool_routing_service.py",
+      "agent/services/tool_intent_resolver.py",
+      "agent/services/domain_action_router.py",
+      "client_surfaces/operator_tui/snake_ops_mixin.py",
+      "todos/todo.track.schema.json"
+    ],
+    "current_state_summary": [
+      "TaskStepProposeRequest/Response und TaskStepExecuteRequest/Response existieren bereits in agent/models.py.",
+      "TaskScopedStepProposeResponse und TaskScopedStepExecuteResponse enthalten bereits routing, review, worker_context, execution_policy, trace, pipeline und artifacts.",
+      "TaskExecutionService.propose_direct_step ruft aktuell standardmäßig LLMs auf und extrahiert reason, command und tool_calls.",
+      "TaskExecutionService.execute_local_step enthält bereits ShellCommandPolicy, ApprovalPolicy, ExecutionRiskPolicy, MutationGate, ToolIntentResolver, ToolScopeValidation, Guardrails, ToolRegistry.execute und Shell-Ausführung.",
+      "TaskExecutionPolicyService enthält allowed_tools-Normalisierung, Toolnamen-Normalisierung, Task-Scope-Allowed-Tools und validate_task_scoped_tool_calls.",
+      "ToolRoutingService kennt bereits Capability-Hints wie coding, analysis, research, ops, command_execute, admin_repair und deterministic_repair.",
+      "TaskHandlerRegistry existiert als schmaler Extension-Seam, wird aber noch nicht sichtbar als zentrale deterministische Handler-Schicht genutzt.",
+      "ToolIntentResolver schützt davor, unbekannte Tools automatisch zu Shell zu machen, mappt aber unbekannte Tools teilweise heuristisch zu file_write, file_read oder web_search; das soll im strengeren Modus auf needs_review laufen.",
+      "AI-Snake existiert als TUI-/Interaktionsschicht, ist aber noch nicht klar als zentraler Task-Control-Layer über TaskIntentRouter/TaskClassResolver/PolicyGate verdrahtet."
+    ],
+    "architectural_target": {
+      "principle": "LLM = Planner/Interpreter/Explainer, Deterministic Handler = Executor fuer klare Aufgaben, Policy = Authority, AI-Snake = Control Layer.",
+      "desired_pipeline": [
+        "User input via AI-Snake/TUI/API",
+        "TaskIntentRouter",
+        "TaskClassResolver deterministic|hybrid|llm_required",
+        "TaskPolicyPreflight",
+        "DeterministicHandlerRegistry or existing LLM Propose path",
+        "Execution through TaskExecutionService with existing guards",
+        "Artifact/Audit/Pipeline trace",
+        "Optional LLM summary/review only after tool output exists"
+      ]
+    }
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "m1-contracts-and-classification",
+      "title": "Task-Klassen, Intent-Kontrakte und Routing-Grundlage definieren",
+      "task_ids": [
+        "te-001",
+        "te-002",
+        "te-003",
+        "te-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "m2-deterministic-handler-layer",
+      "title": "Deterministische Handler als First-Class-Ausfuehrungsschicht einbauen",
+      "task_ids": [
+        "te-005",
+        "te-006",
+        "te-007",
+        "te-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "m3-policy-integration-and-default-deny",
+      "title": "Bestehende Guardrails, Tool-Scope, Mutation-Gate und Approval-Checks sauber zentralisieren",
+      "task_ids": [
+        "te-009",
+        "te-010",
+        "te-011"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "m4-ai-snake-control-layer-and-ui",
+      "title": "AI-Snake als sichtbaren Super-Assistant-/Control-Layer anbinden",
+      "task_ids": [
+        "te-012",
+        "te-013"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "m5-tests-docs-and-migration",
+      "title": "Tests, Dokumentation, Migration und Rueckfallverhalten absichern",
+      "task_ids": [
+        "te-014",
+        "te-015",
+        "te-016"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "te-001",
+      "title": "TaskClassContract und TaskIntentContract ergaenzen",
+      "type": "contract",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/models.py",
+        "agent/services/system_contract_service.py"
+      ],
+      "implementation_notes": [
+        "Bestehende TaskRoutingContract-Felder nicht entfernen, sondern durch neue optionale Felder erweitern.",
+        "TaskClassContract soll deterministic, hybrid und llm_required formal beschreiben.",
+        "TaskIntentContract soll intent, task_class, llm_required, deterministic_handler_id, allowed_tools, required_capabilities, risk_level, execution_mode, explanation_mode und confidence enthalten."
+      ],
+      "acceptance_criteria": [
+        "agent/models.py enthaelt einen klaren Contract fuer task_class mit genau den normalisierten Werten deterministic, hybrid und llm_required.",
+        "TaskRoutingContract oder ein kompatibler neuer Contract kann task_class, intent, llm_required, deterministic_handler_id und classifier_confidence transportieren, ohne bestehende API-Clients zu brechen.",
+        "TaskScopedStepProposeResponse kann den neuen Intent-/Task-Class-Contract optional ausgeben.",
+        "TaskScopedStepExecuteResponse kann die tatsaechlich verwendete task_class und execution_path dokumentieren.",
+        "SystemContractService liefert die neuen Schemas im Contract Catalog und im generierten OpenAPI-Dokument aus.",
+        "Bestehende Tests fuer task_step_propose_response, task_scoped_step_propose_response und task_scoped_step_execute_response bleiben kompatibel.",
+        "Neue Contract-Tests pruefen JSON-Schema-Erzeugung und Default-Werte fuer alte Payloads ohne task_class."
+      ]
+    },
+    {
+      "id": "te-002",
+      "title": "TaskIntentRouter vor LLM-Propose einfuehren",
+      "type": "routing",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/task_execution_service.py",
+        "agent/services/task_intent_router.py"
+      ],
+      "implementation_notes": [
+        "Neue Datei agent/services/task_intent_router.py anlegen.",
+        "Router soll einfache technische Absichten deterministisch erkennen, bevor propose_direct_step ein LLM ruft.",
+        "Nicht versuchen, komplexe semantische Coding-Fragen komplett regexbasiert zu loesen; unsichere Faelle bleiben hybrid oder llm_required."
+      ],
+      "acceptance_criteria": [
+        "TaskIntentRouter klassifiziert mindestens list_files, read_file, grep_search, git_status, git_diff, json_validate, run_tests, show_todos, code_review, patch_propose und research.",
+        "Fuer eindeutige low-risk-Intents wird llm_required=false gesetzt und ein deterministic_handler_id vergeben.",
+        "Bei mehrdeutigen oder potentiell schreibenden Intents wird nicht automatisch execute gewaehlt, sondern mindestens hybrid/propose/dry_run.",
+        "TaskExecutionService.propose_direct_step ruft bei deterministic + confidence >= konfigurierbarem Schwellwert kein LLM auf.",
+        "TaskScopedExecutionService nutzt denselben Router, damit direkte und task-scoped Pfade nicht auseinanderlaufen.",
+        "Router-Ausgaben werden in pipeline/trace sichtbar, inklusive reason_codes wie deterministic_exact_match, ambiguous_needs_llm oder mutation_requires_policy.",
+        "Unit-Tests decken deutschsprachige und englische Eingaben ab, z. B. 'liste Dateien im Hauptverzeichnis', 'show git status', 'validiere diese json', 'suche nach TaskExecutionService'."
+      ]
+    },
+    {
+      "id": "te-003",
+      "title": "TaskClassResolver mit deterministic/hybrid/llm_required Regeln bauen",
+      "type": "routing_policy",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/task_class_resolver.py",
+        "agent/services/tool_routing_service.py",
+        "agent/runtime_policy.py"
+      ],
+      "implementation_notes": [
+        "Vorhandene task_kind/capability-Hints aus ToolRoutingService weiterverwenden.",
+        "deterministic_repair darf nicht die einzige deterministische Kategorie bleiben.",
+        "Resolver soll bewusst konservativ sein: lieber hybrid als faelschlich deterministic."
+      ],
+      "acceptance_criteria": [
+        "TaskClassResolver mappt task_kind/capabilities/intent auf deterministic, hybrid oder llm_required.",
+        "Vorhandene ToolRoutingService-Hints fuer coding, analysis, research, ops, plan_only, command_execute, admin_repair und deterministic_repair werden nicht dupliziert, sondern wiederverwendet oder zentral referenziert.",
+        "deterministic umfasst nur klar abgrenzbare Aktionen ohne freie Textgenerierung und ohne semantische Architekturentscheidung.",
+        "hybrid umfasst Aktionen, bei denen deterministische Tools Daten liefern und ein LLM optional plant, erklaert, priorisiert oder Patch-Vorschlaege schreibt.",
+        "llm_required umfasst freie Formulierung, komplexe Planung, Review ohne klaren deterministischen Output oder unscharfe Nutzerabsicht.",
+        "Resolver gibt reason_codes aus, die in Logs und UI angezeigt werden koennen.",
+        "Tests pruefen, dass write/mutation/admin Faelle niemals nur wegen einfacher Sprache als low-risk deterministic eingestuft werden."
+      ]
+    },
+    {
+      "id": "te-004",
+      "title": "Konfiguration fuer Task Engine Defaults einfuehren",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        "agent/config_defaults.py",
+        "agent/services/config_read_model_service.py",
+        "agent/services/system_contract_service.py"
+      ],
+      "implementation_notes": [
+        "Konfiguration muss per bestehender Config-Infrastruktur sichtbar sein.",
+        "Default soll sicher sein: deterministic_bypass enabled fuer read-only low-risk, aber execute_mutations nie ohne Policy/Approval."
+      ],
+      "acceptance_criteria": [
+        "Neue Config-Sektion task_engine existiert mit enabled, deterministic_bypass_enabled, deterministic_confidence_threshold, allow_llm_summary_after_deterministic, strict_unknown_tool_policy und default_execution_mode.",
+        "Default execution_mode ist propose oder dry_run fuer nicht-deterministische Aufgaben.",
+        "Konfigurationswerte sind im Read-Model sichtbar und koennen in Tests gesetzt werden.",
+        "Bei deaktivierter task_engine bleibt der bisherige propose/execute-Pfad lauffaehig.",
+        "Bei aktivierter task_engine werden deterministic low-risk Intents vor LLM-Propose abgefangen.",
+        "Config-Tests pruefen Defaults, Overrides und Rueckfall auf alte Konfiguration."
+      ]
+    },
+    {
+      "id": "te-005",
+      "title": "DeterministicHandlerRegistry als First-Class-Schicht ausbauen",
+      "type": "handler_registry",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/task_handler_registry.py",
+        "agent/services/deterministic_task_handlers.py",
+        "agent/services/task_scoped_execution_service.py"
+      ],
+      "implementation_notes": [
+        "Bestehende TaskHandlerRegistry nicht ersetzen, sondern erweitern.",
+        "Handler sollen klare Descriptoren haben: handler_id, intent, read_only, allowed_tools, required_capabilities, risk_level, produces_artifacts.",
+        "Registrierung soll beim App-Startup oder Service-Initialisierung deterministisch erfolgen."
+      ],
+      "acceptance_criteria": [
+        "TaskHandlerRegistry kann Handler nicht nur nach task_kind, sondern auch nach deterministic_handler_id oder intent aufloesen.",
+        "Descriptoren enthalten capabilities, safety_flags, verification_hooks, read_only, risk_level und default_allowed_tools.",
+        "Mindestens die Handler list_files, read_file, grep_search, git_status, git_diff, json_validate und show_todos sind registriert.",
+        "Handler liefern strukturierte Ergebnisse mit output_text, exit_code/status, artifacts, provenance und optional raw_data.",
+        "TaskScopedExecutionService prueft bei deterministic_handler_id zuerst die HandlerRegistry und faellt nur bei missing_handler sauber auf hybrid/propose oder blocked zurueck.",
+        "Fehlende oder nicht eindeutige Handler erzeugen needs_review statt stillen LLM-Fallback.",
+        "Unit-Tests pruefen Registrierung, Aufloesung, Descriptoren und Verhalten bei unbekanntem Handler."
+      ]
+    },
+    {
+      "id": "te-006",
+      "title": "Read-only Standardhandler fuer Datei-, Repo- und Todo-Operationen implementieren",
+      "type": "deterministic_handlers",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/deterministic_task_handlers.py",
+        "agent/services/workspace_path_validator.py",
+        "agent/services/workspace_scope_builder.py",
+        "agent/services/workspace_git_service.py"
+      ],
+      "implementation_notes": [
+        "Keine unkontrollierte Shell fuer triviale Operationen verwenden, wenn Python-Implementierung reicht.",
+        "WorkspacePathValidator muss fuer Pfade genutzt werden.",
+        "Git-Operationen zuerst read-only: status, diff, log; kein commit/push."
+      ],
+      "acceptance_criteria": [
+        "list_files listet Dateien/Ordner im erlaubten Workspace mit max_depth, include_hidden und pattern, ohne Shell zu benoetigen.",
+        "read_file liest nur erlaubte Pfade und begrenzt Output nach konfigurierbarem Limit.",
+        "grep_search nutzt bevorzugt ripgrep, faellt aber auf sichere Python-Suche zurueck, falls rg fehlt.",
+        "git_status und git_diff sind read-only und fuehren keine Mutationen aus.",
+        "json_validate validiert JSON-Dateien oder Inline-JSON und gibt strukturierte Fehler mit Zeile/Spalte aus.",
+        "show_todos findet Todo-Dateien im todos-Verzeichnis und kann nach Status/Prioritaet/Track filtern.",
+        "Alle Handler pruefen Workspace-Grenzen und blockieren Path Traversal, absolute nicht erlaubte Pfade und Symlink-Ausbrueche.",
+        "Tests decken happy path, leere Ergebnisse, grosse Outputs, fehlendes rg, ungueltiges JSON und Path-Traversal ab."
+      ]
+    },
+    {
+      "id": "te-007",
+      "title": "Run-tests Handler als kontrollierten Hybrid-/Deterministic-Executor bauen",
+      "type": "deterministic_handlers",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/deterministic_task_handlers.py",
+        "agent/services/shell_command_policy.py",
+        "agent/services/task_execution_service.py",
+        "agent/services/task_execution_policy_service.py"
+      ],
+      "implementation_notes": [
+        "Tests ausfuehren ist nicht rein read-only, weil Caches/Reports entstehen koennen; daher medium risk und Policy-Pfad behalten.",
+        "Handler soll keine beliebigen User-Kommandos ungeprueft ausfuehren, sondern nur erlaubte Testprofile."
+      ],
+      "acceptance_criteria": [
+        "run_tests akzeptiert nur konfigurierte Testprofile wie pytest, npm_test, mvn_test oder custom_readonly_test_command.",
+        "Custom Commands laufen immer durch ShellCommandPolicy, ApprovalPolicy, ExecutionRiskPolicy und MutationGate.",
+        "Timeout, Retries und Retry-Backoff nutzen resolve_execution_policy statt eigener Sonderlogik.",
+        "Handler schreibt Test-Output in strukturierte Resultate und optional Artefakte, ohne riesige Logs ungekuerzt in die Antwort zu pumpen.",
+        "Bei fehlendem Testtool wird ein recoverable failure mit klarer Diagnose erzeugt.",
+        "LLM-Zusammenfassung von Testfehlern ist optional und erst nach deterministischem Testlauf erlaubt.",
+        "Tests pruefen erlaubte Profile, verbotene Shell-Operatoren, Timeout, fehlendes Tool und LLM-summary-disabled."
+      ]
+    },
+    {
+      "id": "te-008",
+      "title": "Deterministische Handler in Pipeline Trace, Audit und Cost Summary sichtbar machen",
+      "type": "observability",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/pipeline_trace.py",
+        "agent/services/execution_audit_service.py",
+        "agent/services/task_execution_tracking_service.py",
+        "agent/services/task_execution_service.py"
+      ],
+      "implementation_notes": [
+        "Deterministische Ausfuehrung soll nicht unsichtbar sein; sonst wirkt es wie Magie.",
+        "Cost Summary soll fuer deterministische Schritte 0 LLM-Kosten bzw. provider/model null dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Pipeline enthaelt Stages task_intent_router, task_class_resolver, deterministic_handler, policy_preflight, execution_result und optional llm_summary.",
+        "Audit-Events enthalten handler_id, intent, task_class, risk_level, workspace_scope und actor_role.",
+        "CostSummaryContract unterscheidet deterministic_runtime von LLM-Provider-Aufrufen ohne Fake-Tokenkosten.",
+        "Task history speichert die tatsaechliche execution_path: deterministic, hybrid_tool_then_llm, llm_propose_then_execute oder blocked.",
+        "UI/API kann anzeigen, ob ein Ergebnis ohne LLM erzeugt wurde.",
+        "Tests pruefen Trace- und Audit-Ausgabe fuer list_files, git_status und run_tests."
+      ]
+    },
+    {
+      "id": "te-009",
+      "title": "PolicyPreflight zentral vor allen Execution-Pfaden erzwingen",
+      "type": "security_policy",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "critical",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/task_execution_service.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/approval_policy_service.py",
+        "agent/services/execution_risk_policy_service.py",
+        "agent/services/mutation_gate_service.py",
+        "agent/services/task_execution_policy_service.py"
+      ],
+      "implementation_notes": [
+        "Aktuell sind wichtige Checks in execute_local_step vorhanden; Ziel ist, dass auch neue deterministische Handler diese Checks nicht umgehen koennen.",
+        "Read-only low-risk darf schlank bleiben, aber muss formal als Policy-Entscheidung geloggt werden."
+      ],
+      "acceptance_criteria": [
+        "Jeder Handler-Lauf erhaelt vor Ausfuehrung eine PolicyPreflightDecision mit allowed/blocked/confirm_required.",
+        "Read-only deterministic Handler duerfen nur mit explizitem read_only=true und erlaubtem Workspace-Scope ohne Approval laufen.",
+        "Schreibende Handler oder Shell-basierte Handler laufen zwingend durch ApprovalPolicy, ExecutionRiskPolicy und MutationGate.",
+        "PolicyPreflight verhindert, dass TaskScopedExecutionService oder direkte /step/execute Pfade die neuen Handler ohne Guardrails ausfuehren.",
+        "Blocked-Entscheidungen schreiben Task-History und Audit-Event mit reason_code.",
+        "Confirm-required blockiert ohne approval_confirmed oder gueltigen Approval-Kontext.",
+        "Security-Tests beweisen, dass file_write, git_commit, shell_execute, Netzwerkzugriff und config_mutation nicht durch deterministic Klassifikation durchrutschen."
+      ]
+    },
+    {
+      "id": "te-010",
+      "title": "Unknown-Tool-Policy verschaerfen und heuristische file_write-Fallbacks konfigurierbar machen",
+      "type": "security_hardening",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/tool_intent_resolver.py",
+        "agent/services/task_execution_policy_service.py",
+        "agent/services/tool_intent_taxonomy_service.py",
+        "agent/config_defaults.py"
+      ],
+      "implementation_notes": [
+        "ToolIntentResolver macht aktuell bewusst keinen unknown-to-shell Fallback, aber unknown-to-file_write ist fuer Default-Deny zu locker.",
+        "Neue strict_unknown_tool_policy soll default sein. Legacy-Fallback nur explizit aktivierbar."
+      ],
+      "acceptance_criteria": [
+        "Bei strict_unknown_tool_policy=true werden unbekannte Tools nicht zu file_write, file_read oder web_search gemappt, sondern als unresolved/needs_review zurueckgegeben.",
+        "Heuristische Fallbacks wie fallback_unknown_to_file_write, heuristic_planning_to_file_write und heuristic_search_to_web_search sind nur bei expliziter Config erlaubt.",
+        "Unresolved Tools erzeugen recoverable status needs_review und keine Mutation.",
+        "Audit loggt original_tool, reason_code, strict_policy=true und vorgeschlagenen sicheren naechsten Schritt.",
+        "Bestehende Tests fuer bekannte Tools bleiben gruen.",
+        "Neue Tests pruefen unknown tool mit command payload, path+content payload, planning-artifact payload und search payload jeweils im strict und legacy mode."
+      ]
+    },
+    {
+      "id": "te-011",
+      "title": "Allowed-Tools und Tool-Classes aus WorkerExecutionContext vereinheitlichen",
+      "type": "security_policy",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/task_execution_policy_service.py",
+        "agent/services/task_execution_service.py",
+        "agent/services/worker_execution_profile_service.py",
+        "agent/services/tool_routing_service.py"
+      ],
+      "implementation_notes": [
+        "Aktuell gibt es allowed_tools und worker_execution_contract.allowed_tool_classes an verschiedenen Stellen.",
+        "Ziel ist ein normalisiertes ToolScopeContract, ohne bestehende Felder sofort zu entfernen."
+      ],
+      "acceptance_criteria": [
+        "Ein ToolScopeContract oder kompatibles internes Dict normalisiert allowed_tools, forbidden_tools, allowed_tool_classes, forbidden_tool_classes und read_only.",
+        "forbidden_tools und forbidden_tool_classes gewinnen immer gegen allowed_tools.",
+        "Leere allowed_tools bedeutet nicht automatisch alles erlaubt; Verhalten ist explizit per Config/TaskScope definiert.",
+        "validate_task_scoped_tool_calls prueft bekannte Tools, erlaubte Tools, verbotene Tools und Tool-Klassen konsistent.",
+        "ToolRoutingService kann ToolScopeContract fuer Routing-Entscheidungen verwenden.",
+        "Tests pruefen Konflikte wie bash erlaubt aber shell_execution class verboten, file_write bekannt aber read_only Scope, und unknown tool bei leerem Scope."
+      ]
+    },
+    {
+      "id": "te-012",
+      "title": "AI-Snake als Task-Control-Layer an TaskIntentRouter anbinden",
+      "type": "tui_integration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/chat_control_parser.py",
+        "client_surfaces/operator_tui/chat_control_policy.py",
+        "client_surfaces/operator_tui/ai_snake_policy.py",
+        "client_surfaces/operator_tui/proposal_review.py"
+      ],
+      "implementation_notes": [
+        "AI-Snake soll nicht selbst blind ausfuehren, sondern Intent, Task-Klasse, Risiko, Quellen und Rechte sichtbar machen.",
+        "Bestehende Snake-Modi und Chat-Panel nicht kaputt machen."
+      ],
+      "acceptance_criteria": [
+        "Snake-Chat kann eine User-Anfrage an den TaskIntentRouter schicken und das Ergebnis anzeigen.",
+        "Bei deterministic low-risk zeigt die AI-Snake kurz: 'deterministisch, kein LLM, read-only' und kann Ergebnis direkt darstellen.",
+        "Bei hybrid/llm_required zeigt die AI-Snake Plan, benoetigten Kontext, Modellroute und ob Approval erforderlich ist.",
+        "Schreibende Aktionen werden in der TUI als confirm_required oder blocked angezeigt, nicht still ausgefuehrt.",
+        "Proposal Review zeigt task_class, intent, allowed_tools, forbidden_tools, risk_level und execution_mode.",
+        "TUI-Tests oder Snapshot-Tests pruefen mindestens list_files, git_status und schreibende file_write-Anfrage."
+      ]
+    },
+    {
+      "id": "te-013",
+      "title": "Control-Layer Status in TUI/Angular/API lesbar machen",
+      "type": "ui_read_model",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/config_read_model_service.py",
+        "agent/routes/config/read_models.py",
+        "client_surfaces/operator_tui/read_models.py",
+        "client_surfaces/operator_tui/renderer.py"
+      ],
+      "implementation_notes": [
+        "UI braucht keine riesigen Debug-Dumps, sondern klare Ampel: Task-Klasse, Risiko, LLM ja/nein, Tools, Approval.",
+        "Angular kann spaeter denselben Read-Model-Endpunkt nutzen."
+      ],
+      "acceptance_criteria": [
+        "Read-Model liefert task_engine.enabled, deterministic_bypass_enabled, strict_unknown_tool_policy und letzte Routing-Entscheidung.",
+        "TUI kann im Statusbereich anzeigen: TaskClass, Intent, LLM, Policy, Tools, Approval.",
+        "Bei blockierten Aktionen ist der reason_code sichtbar und kurz erklaert.",
+        "Bei deterministischen Ergebnissen wird angezeigt, dass keine LLM-Kosten entstanden sind.",
+        "Read-Model ist stabil, auch wenn noch keine Task-Engine-Entscheidung existiert.",
+        "Tests pruefen Serialization und TUI-Rendering ohne harte Terminalbreiten-Annahmen."
+      ]
+    },
+    {
+      "id": "te-014",
+      "title": "End-to-End Tests fuer deterministic, hybrid und llm_required Pfade schreiben",
+      "type": "tests",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "tests/",
+        "agent/services/task_intent_router.py",
+        "agent/services/deterministic_task_handlers.py",
+        "agent/services/task_execution_service.py"
+      ],
+      "implementation_notes": [
+        "Tests sollen mit Mock-LLM beweisen, dass deterministische Pfade das LLM nicht aufrufen.",
+        "Bestehende Execution-Service-Tests erweitern statt parallel komplett neue Testwelt bauen."
+      ],
+      "acceptance_criteria": [
+        "Test list_files beweist: kein LLM-Aufruf, read-only Policy, Ergebnis mit Provenance.",
+        "Test git_status beweist: read-only, kein MutationGate-Block, keine Shell falls WorkspaceGitService genutzt wird oder Shell nur policy-geprueft.",
+        "Test json_validate beweist: ungueltiges JSON erzeugt strukturierte Fehlermeldung ohne LLM.",
+        "Test run_tests beweist: Testprofil laeuft durch ExecutionPolicy mit Timeout und optionaler LLM-Summary nachgelagert.",
+        "Test code_review beweist: hybrid/llm_required ruft LLM nur fuer Review/Erklaerung, nicht fuer triviale Dateiliste.",
+        "Test file_write-Anfrage beweist: confirm_required oder blocked ohne Approval.",
+        "Test unknown_tool beweist: strict mode fuehrt zu needs_review und keiner Datei-Mutation.",
+        "CI kann alle neuen Tests ohne externe LLM/API-Schluessel ausfuehren."
+      ]
+    },
+    {
+      "id": "te-015",
+      "title": "Migration und Rueckwaertskompatibilitaet fuer alte Propose/Execute-Flows sichern",
+      "type": "migration",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/task_execution_service.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/system_contract_service.py",
+        "agent/config_defaults.py"
+      ],
+      "implementation_notes": [
+        "Bestehende APIs duerfen nicht brechen.",
+        "Alte Clients ohne task_class oder intent muessen weiter funktionieren."
+      ],
+      "acceptance_criteria": [
+        "Payloads ohne task_class, intent oder deterministic_handler_id laufen wie bisher ueber propose/execute, sofern task_engine disabled ist.",
+        "Bei task_engine enabled werden alte Payloads opportunistisch klassifiziert, aber bei Unsicherheit auf bisherigen LLM-Propose-Pfad gesetzt.",
+        "OpenAPI enthaelt neue optionale Felder, ohne required-Felder alter Contracts zu veraendern.",
+        "Feature Flag erlaubt vollstaendiges Abschalten der neuen Engine fuer Debugging.",
+        "Migrationsnotiz erklaert Prioritaet: explicit task_class/handler > router deterministic > task_kind policy > legacy propose.",
+        "Regressionstests pruefen alte /step/propose und /step/execute Payloads."
+      ]
+    },
+    {
+      "id": "te-016",
+      "title": "Architekturdokumentation und Mermaid-Diagramme fuer Task Engine ergaenzen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/task-engine-deterministic-hybrid-llm-policy.md",
+        "docs/architecture/task-engine-flow.mmd",
+        "README.md"
+      ],
+      "implementation_notes": [
+        "Dokumentation soll klar sagen: AI-Snake ist Control Layer, nicht unkontrollierter Executor.",
+        "Diagramme sollen UML/Mermaid-semantisch eindeutig bleiben, keine ueberladenen Marketingbilder."
+      ],
+      "acceptance_criteria": [
+        "Dokument beschreibt Ist-Zustand: LLM-Propose plus Execution-Guardrails und vorhandene Services.",
+        "Dokument beschreibt Ziel-Zustand: deterministic/hybrid/llm_required, Policy Authority, AI-Snake Control Layer.",
+        "Mermaid Flowchart zeigt User -> AI-Snake -> TaskIntentRouter -> TaskClassResolver -> PolicyPreflight -> Handler/LLM -> ExecutionService -> Artifact/Audit.",
+        "Mermaid Sequenzdiagramm zeigt deterministic list_files ohne LLM.",
+        "Mermaid Sequenzdiagramm zeigt hybrid run_tests plus optionale LLM-Fehlerzusammenfassung.",
+        "README verweist kurz auf das neue Dokument, ohne die Hauptseite zu ueberfrachten.",
+        "Docs enthalten konkrete Beispiele fuer 'gib mir alle Dateien im Hauptverzeichnis', 'git status', 'validiere JSON' und 'schreibe Datei' mit jeweils unterschiedlicher Policy-Behandlung."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "te-001",
+    "te-002",
+    "te-003",
+    "te-005",
+    "te-006",
+    "te-009",
+    "te-010",
+    "te-014",
+    "te-015"
+  ],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": {
+      "todo": 16,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "critical": 7,
+      "high": 6,
+      "medium": 3,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 9,
+      "high": 5,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 16,
+    "by_type": {
+      "contract": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "routing": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "routing_policy": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "configuration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "handler_registry": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "deterministic_handlers": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "observability": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security_policy": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security_hardening": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "tui_integration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "ui_read_model": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "tests": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "migration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "documentation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "planned",
+    "todo_remaining": 16,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "recommended_order": [
+      "Contracts und Config zuerst",
+      "TaskIntentRouter und TaskClassResolver",
+      "DeterministicHandlerRegistry und read-only Handler",
+      "PolicyPreflight und Unknown-Tool-Hardening",
+      "AI-Snake/TUI-Anbindung",
+      "Tests, Migration und Docs"
+    ],
+    "do_not_do_first": [
+      "Nicht zuerst UI bauen, bevor Contracts und Routing stabil sind.",
+      "Nicht unbekannte Tools weiter automatisch in file_write uebersetzen, wenn strict mode gewuenscht ist.",
+      "Nicht deterministische Handler an TaskExecutionService vorbei ausfuehren."
+    ]
+  },
+  "summary_notes": [
+    "Der bestehende Code ist nicht schlecht: die Execution-Guardrails sind bereits stark. Die Luecke liegt hauptsaechlich darin, dass deterministische Aufgaben nicht als First-Class-Pfad vor dem LLM-Propose existieren.",
+    "Das Ziel ist kein Neubau, sondern eine vorgelagerte, explizite Task Engine, die vorhandene Services wiederverwendet.",
+    "AI-Snake wird dadurch nicht ersetzt, sondern zur sichtbaren Control Layer ueber Intent, Risiko, LLM-Nutzung, Toolrechte und Approval.",
+    "Default-Deny bleibt zentral: Policy entscheidet, nicht das LLM und nicht die UI."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_architecture",
+      "title": "Zielarchitektur",
+      "items": [
+        "AI-Snake nimmt Anfrage an und zeigt Absicht/Risiko/Rechte sichtbar an.",
+        "TaskIntentRouter erkennt klare technische Aufgaben ohne LLM.",
+        "TaskClassResolver trennt deterministic, hybrid und llm_required.",
+        "Deterministische Handler fuehren klare read-only Aufgaben direkt und policy-geprueft aus.",
+        "Hybride Tasks nutzen erst Tools, dann optional LLM fuer Erklaerung, Priorisierung oder Patch-Vorschlag.",
+        "LLM-required Tasks bleiben im vorhandenen Propose-/Model-Routing-Pfad, aber mit sichtbarer Policy und Trace.",
+        "Alle Execution-Pfade laufen durch Guardrails, Tool Scope, Risk, Approval, Mutation Gate und Audit."
+      ]
+    },
+    {
+      "summary_id": "security_positioning",
+      "title": "Security-Positionierung",
+      "items": [
+        "LLM darf vorschlagen, aber nicht Autoritaet sein.",
+        "Policy ist die Autoritaet fuer Ausfuehrung.",
+        "Deterministische Handler duerfen nur innerhalb expliziter Workspace- und Tool-Scope-Grenzen laufen.",
+        "Unknown Tools fuehren im strict mode zu needs_review statt zu heuristischen Mutationen.",
+        "Schreibende Aktionen brauchen Approval oder werden geblockt."
+      ]
+    }
+  ]
+}
