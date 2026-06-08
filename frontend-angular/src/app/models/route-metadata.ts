@@ -21,6 +21,7 @@ export interface AppNavGroup {
 
 export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true },
+  chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
   dashboard: { label: 'Dashboard', area: 'Operate', navGroup: 'Betrieb', navOrder: 15, expertOnly: true },
   help: { label: 'Hilfe', area: 'General', navGroup: 'Arbeiten', navOrder: 50, simpleNav: true },
   agents: { label: 'Agenten', area: 'Operate', navGroup: 'Betrieb', navOrder: 20, expertOnly: true },
