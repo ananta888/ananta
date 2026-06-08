@@ -1,0 +1,29 @@
+{
+  "id": "local-rtx3080-freecloud-minimax",
+  "name": "Local RTX3080 + Free Cloud + MiniMax M3",
+  "description": "Ananta profile without smartphone worker. Local execution for private tasks, free cloud for non-sensitive heavy tasks, MiniMax M3 for hard cases.",
+  "version": 1,
+  "status": "draft",
+  "enabled_devices": {
+    "framework16": true,
+    "rtx3080": true,
+    "fairphone6": false,
+    "cloud_free": true,
+    "minimax_m3": true
+  },
+  "config_files": {
+    "models": "models.json",
+    "routing_policy": "routing-policy.json",
+    "providers": "providers.json"
+  },
+  "secret_file_policy": {
+    "example_file": "secrets.example.env",
+    "real_secret_file": "~/.ananta/secrets/local-rtx3080-freecloud-minimax.env",
+    "commit_real_secrets": false
+  },
+  "architecture": {
+    "hub_role": "central_control_plane",
+    "worker_role": "delegated_execution_only",
+    "worker_to_worker_orchestration": false
+  }
+}
