@@ -1,0 +1,38 @@
+{
+  "providers": [
+    {
+      "id": "ollama",
+      "type": "local_http",
+      "base_url": "http://localhost:11434",
+      "secret_env": null,
+      "roles": ["local", "offline", "private_code"]
+    },
+    {
+      "id": "lmstudio",
+      "type": "local_openai_compatible",
+      "base_url": "http://localhost:1234/v1",
+      "secret_env": null,
+      "roles": ["local", "offline", "private_code"]
+    },
+    {
+      "id": "openrouter",
+      "type": "openai_compatible",
+      "base_url": "https://openrouter.ai/api/v1",
+      "secret_env": "OPENROUTER_API_KEY",
+      "roles": ["free_cloud", "external", "non_sensitive"]
+    },
+    {
+      "id": "minimax",
+      "type": "openai_compatible_or_provider_native",
+      "base_url": "https://api.minimax.io/v1",
+      "secret_env": "MINIMAX_API_KEY",
+      "roles": ["hard_case", "external", "manual_escalation"]
+    }
+  ],
+  "policy": {
+    "load_real_secrets_from_repo": false,
+    "preferred_secret_file": "~/.ananta/secrets/local-rtx3080-freecloud-minimax.env",
+    "cloud_calls_with_private_code_require_approval": true,
+    "paid_calls_require_approval": true
+  }
+}
