@@ -121,31 +121,95 @@ def _embedding_vector_for_text(text: str) -> list[float]:
 
 
 def _load_codecompass_hints_from_dir(out_dir: Path) -> list[str]:
-    """Blocking load — always called from background thread."""
+    """Build short CodeCompass hint strings (file paths) for the LLM
+    context, using the same CodeCompassCandidateResolver the rest of the
+    system uses.
+
+    The hints are short identifiers — the LLM uses them as a "files of
+    interest" header in the prompt. Snippet content comes from
+    `_load_rag_context_from_dir` (which also uses the same resolver).
+    This keeps the LLM's context-window cost predictable regardless of
+    how big the CodeCompass index is.
+
+    Hints mode: no specific question, so we just enumerate the source
+    files (per the active ResolverConfig). The resolver's stem_boost
+    and Source-First ranking don't apply meaningfully when there's no
+    query, so we use the index.jsonl file list as the source of truth
+    for the file enumeration.
+    """
     try:
-        from worker.retrieval.codecompass_output_reader import CodeCompassOutputReader
-        payload = CodeCompassOutputReader().load_from_output_dir(output_dir=out_dir)
+        from worker.retrieval.codecompass_candidate_resolver import (
+            CodeCompassCandidateResolver, ResolverConfig, _classify_path,
+        )
+        mode = ResolverConfig.from_env()
     except Exception:
         return []
-    records = payload.get("records") if isinstance(payload, dict) else []
-    if not isinstance(records, list):
+
+    # Read the file index directly — same source the resolver uses for
+    # the `index` kind. Filtering by mode.accepts() gives the user the
+    # same scope they would get from any other caller.
+    try:
+        index_path = out_dir / "index.jsonl"
+        if not index_path.exists():
+            return []
+        import json as _json
+        # The `index` output has two record flavors:
+        #   - per-file records: kind=python_file / md_file / java_file / ...
+        #     `file` is a real repo path.
+        #   - per-module records: kind=python_module_summary / java_module_summary / ...
+        #     `file` is just a module name (e.g. "agent", "agent.services").
+        # We only want the per-file records here so the LLM doesn't see
+        # bogus module names as "files of interest".
+        _FILE_KINDS = {
+            "python_file", "python", "py_file",
+            "md_file", "markdown_file",
+            "java_file", "java",
+            "typescript_file", "ts_file", "tsx_file",
+            "javascript_file", "js_file",
+            "yaml_file", "yml_file",
+            "json_file", "toml_file",
+            "shell_file", "bash_file",
+            "config_file", "compose_file", "dockerfile",
+            "xml_file", "html_file", "css_file",
+        }
+        seen: set[str] = set()
+        ordered: list[tuple[str, float]] = []  # (path, hint_priority)
+        for line in index_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                rec = _json.loads(line)
+            except _json.JSONDecodeError:
+                continue
+            if not isinstance(rec, dict):
+                continue
+            kind = str(rec.get("kind") or "").strip().lower()
+            # Skip module summaries — they reference module names, not files.
+            if "module" in kind and "summary" in kind:
+                continue
+            if _FILE_KINDS and kind not in _FILE_KINDS:
+                # Unknown kind: only accept if file path looks real
+                # (has '/' or a known extension). This is a safety net
+                # for new kinds the script might add later.
+                pass  # fall through to the path-shape check below
+            file_path = str(rec.get("file") or rec.get("path") or "").strip()
+            if not file_path or file_path in seen:
+                continue
+            # Path-shape check: skip records whose "file" is just a
+            # module name (no separator, no extension).
+            if "/" not in file_path and "\\" not in file_path and "." not in file_path:
+                continue
+            if not mode.accepts(file_path):
+                continue
+            seen.add(file_path)
+            kind_class = _classify_path(file_path)
+            priority = 0.0 if kind_class == "source" else 1.0
+            ordered.append((file_path, priority))
+        # Sort: source-first, then alphabetical within each group
+        ordered.sort(key=lambda x: (x[1], x[0]))
+        return [path for path, _ in ordered[:64]]
+    except Exception:
         return []
-    hints: list[str] = []
-    for record in records:
-        if not isinstance(record, dict):
-            continue
-        kind = str(record.get("kind") or record.get("type") or "").strip()
-        file_path = str(record.get("file") or record.get("path") or "").strip()
-        name = str(record.get("name") or record.get("id") or "").strip()
-        if not (kind or file_path or name):
-            continue
-        parts = [p for p in [kind, name, file_path] if p]
-        hint = " · ".join(parts)
-        if hint:
-            hints.append(hint)
-        if len(hints) >= 64:
-            break
-    return hints
 
 
 def _load_rag_context_from_dir(
@@ -155,48 +219,112 @@ def _load_rag_context_from_dir(
     max_records_per_file: int,
     scope_filter: str = "tui_only",
 ) -> list[str]:
-    """Blocking RAG context build — always called from background thread.
+    """Build RAG context snippets from a CodeCompass output dir.
 
-    scope_filter: 'tui_only' restricts graph edges to operator_tui (ambient tip default),
-                  'full' includes all files (chat default — R06).
+    The high-level flow is:
+      1. Use the new CodeCompassCandidateResolver (with a ResolverConfig
+         derived from `scope_filter` and ANANTA_CODECOMPASS_INCLUDE_* env
+         vars) to pick the top relevant file paths for the question.
+         This is the single source of truth for file selection — the
+         resolver's mode-aware filtering (Source-First, source-only by
+         default, opt-in for tests/docs/workflows/thirdparty) replaces
+         the old ad-hoc RAG record iteration.
+      2. For each top file, load up to `max_records_per_file` snippets
+         from context.jsonl, details.jsonl, index.jsonl. This is the
+         "what to show the LLM" step — once the resolver has picked
+         which files are relevant, we still need to read their content
+         to put into the prompt.
+      3. Apply the legacy name-lookup shortcut for function/class
+         queries (R03). Kept as a Backward-Compat layer; could be
+         folded into the resolver later.
+
+    Args:
+        out_dir: CodeCompass output directory (manifest.json + jsonl files).
+        query_tokens: pre-tokenized query terms (lowercase, no stopwords).
+        top_k: max number of returned snippets.
+        max_records_per_file: cap on records scanned per file.
+        scope_filter: legacy scope hint — 'tui_only' or 'full'. The
+            new ResolverConfig is the primary filter mechanism, this
+            is preserved for backward compatibility with existing
+            callers.
     """
-    manifest_path = out_dir / "manifest.json"
-    files: list[str] = []
-    if manifest_path.exists():
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception:
-            manifest = {}
-        partitioned = manifest.get("partitioned_outputs") if isinstance(manifest, dict) else None
-        if isinstance(partitioned, dict):
-            for values in partitioned.values():
-                if isinstance(values, list):
-                    for item in values:
-                        rel = str(item or "").strip()
-                        if rel:
-                            files.append(rel)
-    files.extend([
-        "context.jsonl", "details.jsonl", "index.jsonl", "xml_overview.jsonl",
-        "embedding.jsonl", "graph_nodes.jsonl", "graph_edges.jsonl", "relations.jsonl",
-    ])
-    deduped: list[str] = []
-    seen: set[str] = set()
-    for rel in files:
-        norm = rel.strip().lstrip("/")
-        if norm and norm not in seen:
-            seen.add(norm)
-            deduped.append(norm)
-
     scope_full = scope_filter == "full" or str(
         os.environ.get("ANANTA_TUI_RAG_SCOPE_FILTER", "")
     ).strip().lower() == "full"
 
+    # --- Step 1: ask the resolver which files matter -----------------
+    try:
+        from worker.retrieval.codecompass_candidate_resolver import (
+            CodeCompassCandidateResolver, ResolverConfig,
+        )
+        # Convert legacy scope_filter into a ResolverConfig. The default
+        # `from_env()` reads ANANTA_CODECOMPASS_INCLUDE_* env vars; if
+        # `scope_filter == 'tui_only'` we keep the default (source-only)
+        # because the operator_tui content is in client_surfaces/operator_tui
+        # which is a source path. If 'full' we keep defaults too. The
+        # opt-in toggles come from env vars, NOT from the legacy scope
+        # string — callers who want tests/docs/workflows can set
+        # ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS=1 etc. explicitly.
+        mode = ResolverConfig.from_env()
+        resolver = CodeCompassCandidateResolver(max_candidates=top_k * 4)
+        question_text = " ".join(query_tokens)
+        candidates = resolver.resolve(
+            question=question_text,
+            output_dir=out_dir,
+            mode=mode,
+        )
+        # Top files sorted by resolver score, plus extra file paths
+        # from the manifest for backward compat (e.g. e2e fixtures
+        # referenced by relative path).
+        manifest_path = out_dir / "manifest.json"
+        manifest_files: list[str] = []
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                manifest = {}
+            partitioned = manifest.get("partitioned_outputs") if isinstance(manifest, dict) else None
+            if isinstance(partitioned, dict):
+                for values in partitioned.values():
+                    if isinstance(values, list):
+                        for item in values:
+                            rel = str(item or "").strip()
+                            if rel:
+                                manifest_files.append(rel)
+        # Resolver's top-N is the primary list; manifest files extend it
+        # so e2e fixtures etc. that the resolver doesn't rank still get
+        # scanned.
+        resolver_top_files = [c["path"] for c in candidates[: top_k * 2]]
+        # Build the file list to scan
+        files_to_scan: list[str] = []
+        seen: set[str] = set()
+        for rel in manifest_files + resolver_top_files + [
+            "context.jsonl", "details.jsonl", "index.jsonl",
+            "xml_overview.jsonl", "embedding.jsonl",
+            "graph_nodes.jsonl", "graph_edges.jsonl", "relations.jsonl",
+        ]:
+            norm = rel.strip().lstrip("/")
+            if norm and norm not in seen:
+                seen.add(norm)
+                files_to_scan.append(norm)
+        # Cap to 24 files (legacy cap) to keep scan time bounded.
+        files_to_scan = files_to_scan[:24]
+    except Exception:
+        # Resolver unavailable — fall back to the legacy file list
+        # so the chat still works in minimal environments.
+        files_to_scan = [
+            "context.jsonl", "details.jsonl", "index.jsonl",
+            "xml_overview.jsonl", "embedding.jsonl",
+            "graph_nodes.jsonl", "graph_edges.jsonl", "relations.jsonl",
+        ]
+
+    # --- Step 2: scan the selected files for matching snippets ------
+    candidates_list: list[tuple[float, str]] = []
+    embedding_api_calls = 0
     use_embedding_api = str(os.environ.get("ANANTA_TUI_CHAT_USE_EMBEDDING_API", "")).strip().lower() in {"1", "true", "yes", "on"}
     query_embedding = _embedding_vector_for_text(" ".join(query_tokens)) if use_embedding_api and query_tokens else []
 
-    candidates: list[tuple[float, str]] = []
-    embedding_api_calls = 0
-    for rel in deduped[:24]:
+    for rel in files_to_scan:
         path = out_dir / rel
         if not path.exists() or not path.is_file() or path.suffix.lower() != ".jsonl":
             continue
@@ -262,9 +390,9 @@ def _load_rag_context_from_dir(
                 score += 1.2
             if score <= 0:
                 continue
-            candidates.append((score, compact[:240]))
+            candidates_list.append((score, compact[:240]))
 
-    ranked = sorted(candidates, key=lambda item: item[0], reverse=True)
+    ranked = sorted(candidates_list, key=lambda item: item[0], reverse=True)
     results = [item[1] for item in ranked[:top_k]]
 
     # R03: name-lookup in details.jsonl for function/class tokens (no position limit)
