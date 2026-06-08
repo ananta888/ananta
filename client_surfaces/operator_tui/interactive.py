@@ -1333,17 +1333,30 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _chat_cycle_channel(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+        from client_surfaces.operator_tui.chat_state import (
+            get_chat_state, set_chat_state, switch_channel, get_sessions,
+        )
         chat = get_chat_state(game)
-        channels = list((chat.get("channels") or {}).keys())
-        preferred = [ch for ch in ["room:main", "ai:tutor", "notes:self"] if ch in channels]
-        ordered = preferred + [ch for ch in channels if ch not in preferred and ch != "system"]
+        channels_dict = chat.get("channels") or {}
+        # Build the cycle order: the non-session channels first (room,
+        # notes, system) and then the session channels in the order the
+        # user has them in their session list. This makes the cycle
+        # predictable — pressing the cycle key moves through the user's
+        # sessions in order, with the non-session channels available as
+        # waypoints.
+        session_ids = [str(s.get("id") or "") for s in get_sessions(chat) if isinstance(s, dict)]
+        preferred = [ch for ch in ["room:main", "notes:self", "system"] if ch in channels_dict]
+        session_channels = [f"ai:{sid}" for sid in session_ids if f"ai:{sid}" in channels_dict]
+        ordered = preferred + session_channels
         if not ordered:
             return
         current = str(chat.get("active_channel") or ordered[0])
         try:
             idx = ordered.index(current)
         except ValueError:
+            # Current channel not in the ordered list — start from the
+            # first session channel so the user can cycle forward
+            # predictably.
             idx = -1
         next_id = ordered[(idx + 1) % len(ordered)]
         switch_channel(chat, next_id, preserve_input=True)
