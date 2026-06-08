@@ -60,7 +60,7 @@
     {
       "id": "VPAD-001",
       "title": "Visual Process Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -76,7 +76,7 @@
     {
       "id": "VPAD-002",
       "title": "Backend-Validator für visuelle Prozessgraphen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -92,7 +92,7 @@
     {
       "id": "VPAD-003",
       "title": "Mapping VisualProcess -> Blueprint/Workflow implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -126,7 +126,7 @@
     {
       "id": "VPAD-005",
       "title": "Agent Library Panel einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -141,7 +141,7 @@
     {
       "id": "VPAD-006",
       "title": "Step Inspector für Details bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -158,7 +158,7 @@
     {
       "id": "VPAD-007",
       "title": "Process Presets bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "implementation",
@@ -184,7 +184,7 @@
     {
       "id": "VPAD-008",
       "title": "Policy-/Security-Hinweise im Graph anzeigen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "security",
@@ -200,7 +200,7 @@
     {
       "id": "VPAD-009",
       "title": "Mermaid Export und TUI Read-only Ansicht bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "implementation",
@@ -216,7 +216,7 @@
     {
       "id": "VPAD-010",
       "title": "Dry-run / Validate Button einbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -232,7 +232,7 @@
     {
       "id": "VPAD-011",
       "title": "Run-State Visualisierung vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "implementation",
@@ -248,7 +248,7 @@
     {
       "id": "VPAD-012",
       "title": "Tests für Visual Process Designer ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "test",
@@ -264,7 +264,7 @@
     {
       "id": "VPAD-013",
       "title": "Conditional Transition Model für Kanten definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -280,7 +280,7 @@
     {
       "id": "VPAD-014",
       "title": "Loop Policy und Back Edge Semantik implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -296,7 +296,7 @@
     {
       "id": "VPAD-015",
       "title": "Edge Inspector für Bedingungen und Transaktionen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -311,7 +311,7 @@
     {
       "id": "VPAD-016",
       "title": "Runtime Semantik für Schleifen und Transitionen spezifizieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -340,7 +340,10 @@
         "title": "Plan erstellen",
         "assigned_agent": "planner",
         "task_kind": "planning",
-        "tools": ["read_repo", "codecompass_search"],
+        "tools": [
+          "read_repo",
+          "codecompass_search"
+        ],
         "context_scope": "repo_relevant"
       },
       {
@@ -349,7 +352,11 @@
         "title": "Code ändern",
         "assigned_agent": "coder",
         "task_kind": "implement",
-        "tools": ["read_repo", "write_patch", "run_tests"],
+        "tools": [
+          "read_repo",
+          "write_patch",
+          "run_tests"
+        ],
         "context_scope": "plan_outputs_and_relevant_files"
       },
       {
@@ -358,14 +365,22 @@
         "title": "Tests ausführen und bewerten",
         "assigned_agent": "tester",
         "task_kind": "testing",
-        "tools": ["read_repo", "run_tests", "read_artifacts"],
+        "tools": [
+          "read_repo",
+          "run_tests",
+          "read_artifacts"
+        ],
         "context_scope": "patch_and_test_results"
       },
       {
         "id": "review_gate",
         "type": "gate_step",
         "title": "Review Gate",
-        "required_checks": ["tests_green", "diff_exists", "no_secret_leak"],
+        "required_checks": [
+          "tests_green",
+          "diff_exists",
+          "no_secret_leak"
+        ],
         "approval_required": false
       },
       {
@@ -384,12 +399,57 @@
       }
     ],
     "edges": [
-      {"id": "e_start_plan", "from": "start", "to": "plan", "condition": "always"},
-      {"id": "e_plan_code", "from": "plan", "to": "code", "condition": "on_success", "artifact_refs": ["plan.md"]},
-      {"id": "e_code_test", "from": "code", "to": "test", "condition": "on_success", "artifact_refs": ["patch.diff"]},
-      {"id": "e_test_code_retry", "from": "test", "to": "code", "direction": "back", "condition": "tests_failed", "loop_ref": "fix_until_tests_green", "artifact_refs": ["test-results.json"]},
-      {"id": "e_test_review", "from": "test", "to": "review_gate", "condition": "tests_green", "artifact_refs": ["test-results.json", "patch.diff"]},
-      {"id": "e_review_end", "from": "review_gate", "to": "end", "condition": "on_success"}
+      {
+        "id": "e_start_plan",
+        "from": "start",
+        "to": "plan",
+        "condition": "always"
+      },
+      {
+        "id": "e_plan_code",
+        "from": "plan",
+        "to": "code",
+        "condition": "on_success",
+        "artifact_refs": [
+          "plan.md"
+        ]
+      },
+      {
+        "id": "e_code_test",
+        "from": "code",
+        "to": "test",
+        "condition": "on_success",
+        "artifact_refs": [
+          "patch.diff"
+        ]
+      },
+      {
+        "id": "e_test_code_retry",
+        "from": "test",
+        "to": "code",
+        "direction": "back",
+        "condition": "tests_failed",
+        "loop_ref": "fix_until_tests_green",
+        "artifact_refs": [
+          "test-results.json"
+        ]
+      },
+      {
+        "id": "e_test_review",
+        "from": "test",
+        "to": "review_gate",
+        "condition": "tests_green",
+        "artifact_refs": [
+          "test-results.json",
+          "patch.diff"
+        ]
+      },
+      {
+        "id": "e_review_end",
+        "from": "review_gate",
+        "to": "end",
+        "condition": "on_success"
+      }
     ]
   },
   "endstate_acceptance_criteria": [
