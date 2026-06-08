@@ -1,0 +1,319 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "visual_process_agent_designer_ui",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Eine einfache grafische UI schaffen, mit der Nutzer Prozesse, Prozessschritte, Gates und zugeordnete Agenten visuell definieren können: welcher Agent macht welchen Teil, welche Artefakte werden übergeben, welche Rechte/Tools sind erlaubt und welche Checks blockieren den nächsten Schritt.",
+  "goal": "Ananta soll nicht nur intern Workflow-/Blueprint-/Agenten-Strukturen verwalten, sondern diese simpel grafisch modellierbar machen. Nutzer sollen per UI einen Prozess als Graph/Flow bauen, Agenten auf Schritte ziehen, Rollen/Rechte/Modelle konfigurieren und daraus ein deterministisch validierbares Blueprint-/Workflow-JSON erzeugen können.",
+  "non_goals": [
+    "Kein vollständiger BPMN-Editor als erster Schritt.",
+    "Keine komplexe Enterprise-Prozesssuite bauen, bevor der einfache Agentenprozess funktioniert.",
+    "Keine freie unvalidierte Graph-Spielerei ohne Backend-Schema.",
+    "Keine direkte produktive Toolausführung nur durch Drag-and-drop ohne Policy-Check.",
+    "Keine Abhängigkeit von einer proprietären UI-Bibliothek, wenn eine einfache Open-Source-Lösung reicht."
+  ],
+  "architecture_principles": [
+    "UI ist nur Editor und Visualisierung; Backend validiert den Prozess deterministisch.",
+    "Jeder Knoten ist ein typisierter ProcessStep, AgentStep, ToolStep, GateStep, ReviewStep oder ArtifactStep.",
+    "Jede Kante ist ein expliziter Handoff mit depends_on, artifact_refs und optionalen Bedingungen.",
+    "Agent-Zuordnung ist first-class: Rolle, konkreter Agent, Modellprofil, Toolrechte, Kontextscope und Budget müssen sichtbar sein.",
+    "Der visuelle Graph muss als JSON speicherbar, ladbar, diffbar und testbar sein.",
+    "Die UI soll simpel bleiben: zuerst Flowchart-Editor, danach Details/Inspector, danach Simulation/Run-Status.",
+    "Security/Least-Privilege muss im Designer sichtbar werden, nicht versteckt in Config-Dateien."
+  ],
+  "existing_stack_to_reuse": [
+    {
+      "path": "todos/todo.workflow-gates-blueprint-orchestration.json",
+      "use_for": "Bestehende Workflow-/Gate-/Blueprint-Orchestration als Backend-Zielmodell nutzen."
+    },
+    {
+      "path": "agent/services/blueprint_planning_adapter.py",
+      "use_for": "Materialisierung von Blueprint-Schritten und depends_on später visuell erzeugen statt nur config-/prompt-getrieben."
+    },
+    {
+      "path": "agent/services/workflow_registry.py",
+      "use_for": "WorkflowDescriptor/Registry-Idee für gespeicherte visuelle Prozessdefinitionen prüfen."
+    },
+    {
+      "path": "agent/services/workflow_policy_adapter.py",
+      "use_for": "Policy-/Approval-Mechanik für UI-konfigurierte Schritte wiederverwenden oder anbinden."
+    },
+    {
+      "path": "agent/services/critical_workflow_state_service.py",
+      "use_for": "Run-State, Transitions, Guards, Timeout und Replay für visualisierte Prozessausführung prüfen."
+    },
+    {
+      "path": "frontend-angular/",
+      "use_for": "Grafischen Editor bevorzugt in der Angular-App umsetzen."
+    },
+    {
+      "path": "client_surfaces/operator_tui/",
+      "use_for": "TUI sollte Prozessgraphen zumindest read-only/ASCII/Mermaid darstellen können."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "VPAD-001",
+      "title": "Visual Process Schema definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "acceptance_criteria": [
+        "Ein versioniertes JSON-Schema für visuelle Prozessdefinitionen existiert.",
+        "Schema enthält nodes, edges, agents, artifacts, policies, model_profiles und budgets.",
+        "Node-Typen sind mindestens process_step, agent_step, tool_step, gate_step, review_step, artifact_step und start/end.",
+        "Edges enthalten from, to, depends_on, condition, artifact_refs und handoff_metadata.",
+        "Schema kann eindeutig in bestehende Blueprint-/Workflow-Strukturen gemappt werden.",
+        "Schema-Validierung verhindert Zyklen, fehlende Agenten, kaputte Kanten und ungültige Rechte."
+      ]
+    },
+    {
+      "id": "VPAD-002",
+      "title": "Backend-Validator für visuelle Prozessgraphen bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Validator prüft Graph-DAG, Node-Typen, Agent-Zuordnungen, Artifact-Handoffs und Policy-Felder.",
+        "Ungültige Prozesse liefern lesbare Fehler mit node_id/edge_id.",
+        "Validator prüft Least-Privilege: Toolrechte müssen pro Step explizit sein.",
+        "Validator erkennt isolierte Knoten und nicht erreichbare Endpunkte.",
+        "Unit-Tests decken valide und invalide Graphen ab."
+      ]
+    },
+    {
+      "id": "VPAD-003",
+      "title": "Mapping VisualProcess -> Blueprint/Workflow implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Ein VisualProcess kann in eine Blueprint-/Workflow-Darstellung exportiert werden.",
+        "depends_on und Gates bleiben deterministisch erhalten.",
+        "AgentStep wird auf role, task_kind, required_capabilities und model_profile gemappt.",
+        "ArtifactStep und Handoff-Kanten erzeugen artifact_refs.",
+        "Exportierte Workflows können von bestehender Workflow-Orchestration verarbeitet oder zumindest validiert werden."
+      ]
+    },
+    {
+      "id": "VPAD-004",
+      "title": "Angular Flow-Editor MVP bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Nutzer kann Prozessschritte als Knoten grafisch anlegen.",
+        "Nutzer kann Knoten mit Kanten verbinden.",
+        "Nutzer kann Agenten auf Prozessschritte zuweisen.",
+        "Nutzer kann einen Knoten anklicken und Details im Inspector bearbeiten.",
+        "Graph kann als JSON gespeichert und wieder geladen werden.",
+        "MVP benötigt noch keine perfekte Optik, muss aber bedienbar sein."
+      ]
+    },
+    {
+      "id": "VPAD-005",
+      "title": "Agent Library Panel einführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "UI zeigt verfügbare Agenten/Rollen als Liste oder Palette.",
+        "Agenten können per Auswahl oder Drag-and-drop einem Step zugeordnet werden.",
+        "Agent-Anzeige enthält Name, Rolle, Backend, Modellprofil, erlaubte Tools und Risikoklasse.",
+        "Nicht kompatible Agenten werden sichtbar markiert statt still akzeptiert.",
+        "Mehrere Agenten pro Step sind optional konfigurierbar."
+      ]
+    },
+    {
+      "id": "VPAD-006",
+      "title": "Step Inspector für Details bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Inspector zeigt und bearbeitet title, description, task_kind, assigned_agent, model_profile, tools, context_scope und output_artifacts.",
+        "GateSteps können required_checks, approval_required, timeout und fallback definieren.",
+        "Toolrechte sind pro Step sichtbar und default-deny.",
+        "Budgetfelder wie max_tokens, max_cost, timeout_s sind bearbeitbar.",
+        "Änderungen werden sofort im JSON-Modell reflektiert."
+      ]
+    },
+    {
+      "id": "VPAD-007",
+      "title": "Process Presets bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "implementation",
+      "presets": [
+        "simple_code_task",
+        "planner_developer_reviewer",
+        "security_review_pipeline",
+        "rag_context_then_patch",
+        "multi_agent_debate_then_decision",
+        "simulation_experiment_run",
+        "docs_generation_pipeline"
+      ],
+      "acceptance_criteria": [
+        "UI kann einen leeren Prozess oder ein Preset starten.",
+        "Presets sind normale VisualProcess JSONs.",
+        "Jedes Preset enthält sinnvolle Rollen, Gates und Artefakte.",
+        "Presets lassen sich kopieren und bearbeiten.",
+        "Mindestens simple_code_task und planner_developer_reviewer sind mit Tests validiert."
+      ]
+    },
+    {
+      "id": "VPAD-008",
+      "title": "Policy-/Security-Hinweise im Graph anzeigen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "security",
+      "acceptance_criteria": [
+        "Knoten zeigen Risikoindikator: read/write/admin/network/shell.",
+        "Unsichere oder überbreite Toolrechte werden visuell gewarnt.",
+        "GateSteps mit approval_required sind klar markiert.",
+        "Default-Deny ist sichtbar, wenn keine Rechte gesetzt sind.",
+        "Security-Warnings kommen aus Backend-Validierung, nicht nur aus Frontend-Heuristik."
+      ]
+    },
+    {
+      "id": "VPAD-009",
+      "title": "Mermaid Export und TUI Read-only Ansicht bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "VisualProcess kann als Mermaid flowchart exportiert werden.",
+        "TUI kann den Prozess mindestens als Mermaid/Textliste anzeigen.",
+        "Export zeigt Agentenzuordnung pro Step.",
+        "Export zeigt Gates und Artifact-Handoffs.",
+        "Mermaid ist stabil genug für Markdown/Docs."
+      ]
+    },
+    {
+      "id": "VPAD-010",
+      "title": "Dry-run / Validate Button einbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "UI hat einen Validate/Dry-run Button.",
+        "Backend validiert Prozess ohne Agenten auszuführen.",
+        "UI zeigt Fehler direkt an betroffenen Knoten/Kanten.",
+        "Warnings und Errors sind getrennt.",
+        "Dry-run zeigt geplante Ausführungsreihenfolge."
+      ]
+    },
+    {
+      "id": "VPAD-011",
+      "title": "Run-State Visualisierung vorbereiten",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Prozessgraph kann read-only mit Statusfarben dargestellt werden: pending, running, blocked, failed, done.",
+        "Events können einem Step zugeordnet werden.",
+        "Artifact Outputs werden am Step sichtbar.",
+        "Fehler und Policy-Denials werden am betroffenen Knoten angezeigt.",
+        "Keine echte Live-Ausführung nötig im ersten Schritt, aber Datenmodell ist vorbereitet."
+      ]
+    },
+    {
+      "id": "VPAD-012",
+      "title": "Tests für Visual Process Designer ergänzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "test",
+      "acceptance_criteria": [
+        "Schema-Tests prüfen valide und invalide VisualProcess JSONs.",
+        "Mapping-Tests prüfen Export zu Blueprint/Workflow-Struktur.",
+        "Frontend-Tests prüfen Knoten anlegen, Kante verbinden, Agent zuweisen und JSON speichern.",
+        "Security-Tests prüfen, dass überbreite Rechte Warnungen erzeugen.",
+        "Mermaid-Export-Test prüft syntaktisch stabile Ausgabe."
+      ]
+    }
+  ],
+  "example_visual_process": {
+    "id": "process.simple_code_task",
+    "title": "Simple Code Task",
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "title": "Start"
+      },
+      {
+        "id": "plan",
+        "type": "agent_step",
+        "title": "Plan erstellen",
+        "assigned_agent": "planner",
+        "task_kind": "planning",
+        "tools": ["read_repo", "codecompass_search"],
+        "context_scope": "repo_relevant"
+      },
+      {
+        "id": "implement",
+        "type": "agent_step",
+        "title": "Code ändern",
+        "assigned_agent": "developer",
+        "task_kind": "implement",
+        "tools": ["read_repo", "write_patch", "run_tests"],
+        "context_scope": "plan_outputs_and_relevant_files"
+      },
+      {
+        "id": "review_gate",
+        "type": "gate_step",
+        "title": "Review Gate",
+        "required_checks": ["tests_green", "diff_exists", "no_secret_leak"],
+        "approval_required": false
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "title": "Fertig"
+      }
+    ],
+    "edges": [
+      {"from": "start", "to": "plan"},
+      {"from": "plan", "to": "implement", "artifact_refs": ["plan.md"]},
+      {"from": "implement", "to": "review_gate", "artifact_refs": ["patch.diff", "test-results.json"]},
+      {"from": "review_gate", "to": "end"}
+    ]
+  },
+  "endstate_acceptance_criteria": [
+    "Nutzer kann in einer grafischen UI einen Prozess mit Agenten, Gates, Tools und Artefakten definieren.",
+    "Der Prozess ist als versioniertes JSON speicherbar, ladbar und validierbar.",
+    "Jeder Step zeigt klar, welcher Agent ihn bearbeitet und welche Rechte/Tools er bekommt.",
+    "Der Graph kann in bestehende Ananta Blueprint-/Workflow-Strukturen exportiert werden.",
+    "Security-/Policy-Warnings sind direkt im Designer sichtbar.",
+    "TUI/Docs können denselben Prozess als Mermaid oder Text darstellen.",
+    "Es gibt Tests für Schema, Mapping, UI-Grundfunktionen und Security-Warnings."
+  ],
+  "recommended_first_implementation_order": [
+    "VPAD-001",
+    "VPAD-002",
+    "VPAD-003",
+    "VPAD-004",
+    "VPAD-006",
+    "VPAD-010",
+    "VPAD-012",
+    "VPAD-005",
+    "VPAD-008",
+    "VPAD-009",
+    "VPAD-007",
+    "VPAD-011"
+  ]
+}
