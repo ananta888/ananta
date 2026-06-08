@@ -9,6 +9,7 @@ import { controlCenterRoutes } from './features/control-center/control-center.ro
 import { systemRoutes } from './features/system/system.routes';
 import { taskRoutes } from './features/tasks/task.routes';
 import { contextAccessPolicyRoutes } from './features/context-access-policy/context-access-policy.routes';
+import { visualProcessRoutes } from './features/visual-process/visual-process.routes';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -27,6 +28,7 @@ export const routes: Routes = [
       ...systemRoutes,
       ...taskRoutes,
       ...contextAccessPolicyRoutes,
+      ...visualProcessRoutes,
     ]
   },
   { path: '**', component: NotFoundComponent }
