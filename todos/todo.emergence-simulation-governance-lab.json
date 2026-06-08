@@ -64,7 +64,7 @@
     {
       "id": "SIM-001",
       "title": "Simulation-Paketstruktur anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "type": "implementation",
@@ -91,7 +91,7 @@
     {
       "id": "SIM-002",
       "title": "ScenarioConfig Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -106,7 +106,7 @@
     {
       "id": "SIM-003",
       "title": "WorldState Modell versioniert und deterministisch machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -121,7 +121,7 @@
     {
       "id": "SIM-004",
       "title": "AgentProfile Schema und Loader bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -136,7 +136,7 @@
     {
       "id": "SIM-005",
       "title": "ActionProposal JSON Schema strikt definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -151,7 +151,7 @@
     {
       "id": "SIM-006",
       "title": "Basis-Aktionen implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -182,7 +182,7 @@
     {
       "id": "SIM-007",
       "title": "PolicyEngine für simulierte Weltregeln bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -197,7 +197,7 @@
     {
       "id": "SIM-008",
       "title": "Survival-, Health-, Energy- und Death-Modell implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -212,7 +212,7 @@
     {
       "id": "SIM-009",
       "title": "Crime-, Law- und Consequence-Modell bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -227,7 +227,7 @@
     {
       "id": "SIM-010",
       "title": "Voting- und Governance-System implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -242,7 +242,7 @@
     {
       "id": "SIM-011",
       "title": "RelationshipGraph modellieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -257,7 +257,7 @@
     {
       "id": "SIM-012",
       "title": "Economy- und Resource-System ausbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -272,7 +272,7 @@
     {
       "id": "SIM-013",
       "title": "PromptRenderer für Simulation-Agenten bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -287,7 +287,7 @@
     {
       "id": "SIM-014",
       "title": "Agent Memory Layers einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -302,7 +302,7 @@
     {
       "id": "SIM-015",
       "title": "SimulationModelAdapter Interface bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -317,7 +317,7 @@
     {
       "id": "SIM-016",
       "title": "DummyModelAdapter für Tests und CI bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "type": "implementation",
@@ -331,7 +331,7 @@
     {
       "id": "SIM-017",
       "title": "OllamaAdapter local-first implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -346,7 +346,7 @@
     {
       "id": "SIM-018",
       "title": "OpenRouterAdapter mit Kostenkontrolle bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "implementation",
@@ -361,7 +361,7 @@
     {
       "id": "SIM-019",
       "title": "ModelStrategy Resolver implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -386,7 +386,7 @@
     {
       "id": "SIM-020",
       "title": "BudgetGuard und Run-Limits erzwingen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "security",
@@ -401,7 +401,7 @@
     {
       "id": "SIM-021",
       "title": "Native Ananta TickRunner implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -416,7 +416,7 @@
     {
       "id": "SIM-022",
       "title": "Checkpointing und Resume bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -431,7 +431,7 @@
     {
       "id": "SIM-023",
       "title": "Deterministic Replay Engine bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -446,7 +446,7 @@
     {
       "id": "SIM-024",
       "title": "Run Artifact Layout standardisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -469,7 +469,7 @@
     {
       "id": "SIM-025",
       "title": "Core Metrics Engine implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -501,7 +501,7 @@
     {
       "id": "SIM-026",
       "title": "FailureModeClassifier bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -527,7 +527,7 @@
     {
       "id": "SIM-027",
       "title": "Report-Generator für Simulationen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -542,7 +542,7 @@
     {
       "id": "SIM-028",
       "title": "Emergence-style Importer bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -557,7 +557,7 @@
     {
       "id": "SIM-029",
       "title": "Import-Report und Attribution erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "documentation",
@@ -571,7 +571,7 @@
     {
       "id": "SIM-030",
       "title": "Standard-Szenarien für Experiment-Suite anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -596,7 +596,7 @@
     {
       "id": "SIM-031",
       "title": "Batch Experiment Runner bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "implementation",
@@ -610,7 +610,7 @@
     {
       "id": "SIM-032",
       "title": "Prompt-Intervention Experimente ermöglichen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "implementation",
@@ -624,7 +624,7 @@
     {
       "id": "SIM-033",
       "title": "Security Boundary: simulierte Tools strikt von echten Tools trennen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "security",
@@ -638,7 +638,7 @@
     {
       "id": "SIM-034",
       "title": "Capability-Modell für Simulation Actions bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "security",
@@ -652,7 +652,7 @@
     {
       "id": "SIM-035",
       "title": "Prompt-Injection-Schutz für Agentensprache testen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -666,7 +666,7 @@
     {
       "id": "SIM-036",
       "title": "CodeCompass/RAG Integration für Run-Analyse",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "implementation",
@@ -681,7 +681,7 @@
     {
       "id": "SIM-037",
       "title": "CLI/TUI Commands für Simulation einbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "implementation",
@@ -711,7 +711,7 @@
     {
       "id": "SIM-039",
       "title": "Optionalen LangGraph Runner Adapter entwerfen",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "medium",
       "type": "architecture",
@@ -726,7 +726,7 @@
     {
       "id": "SIM-040",
       "title": "Optionalen n8n Wrapper für Trigger und Reporting entwerfen",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "type": "architecture",
@@ -741,7 +741,7 @@
     {
       "id": "SIM-041",
       "title": "Dokumentation schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "documentation",
@@ -763,7 +763,7 @@
     {
       "id": "SIM-042",
       "title": "Portfolio-/Demo-Narrativ ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "documentation",
@@ -777,7 +777,7 @@
     {
       "id": "SIM-043",
       "title": "Unit-Tests für Schemas und WorldState",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "test",
@@ -791,7 +791,7 @@
     {
       "id": "SIM-044",
       "title": "Unit-Tests für PolicyEngine und Actions",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -806,7 +806,7 @@
     {
       "id": "SIM-045",
       "title": "Integrationstest für komplette Mini-Simulation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -820,7 +820,7 @@
     {
       "id": "SIM-046",
       "title": "Security Regression Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",

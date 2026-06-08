@@ -954,6 +954,9 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             if sub == "te":
                 msg = "te: :te status — Task-Engine-Status | :te classify <kind> — Klassifizierung testen"
                 return CommandResult(state.with_updates(status_message=msg), "help te")
+            if sub == "sim":
+                msg = "sim: :sim list — Szenarien | :sim run <name> [--ticks N] — Simulation starten"
+                return CommandResult(state.with_updates(status_message=msg), "help sim")
         return CommandResult(state.with_updates(show_help=not state.show_help, status_message="help toggled"), "help toggled")
     if command in {"config", "cfg", "ai-config", "snake-config"}:
         game = dict(state.header_logo_game or {})
@@ -3843,6 +3846,18 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(state.with_updates(status_message=msg[:120]), msg)
 
         return CommandResult(state.with_updates(status_message="te: Nutzung: :te status | :te classify <kind>"), "te: unknown sub")
+
+    # ── sim ───────────────────────────────────────────────────────────────────
+    if command == "sim":
+        sub = args[0].lower() if args else "help"
+        try:
+            from simulation.cli.commands import cmd_sim
+            messages: list[str] = []
+            result_data = cmd_sim([sub] + args[1:], output_fn=messages.append)
+            msg = " | ".join(messages) if messages else "sim: ok"
+        except Exception as exc:
+            msg = f"sim error: {exc}"
+        return CommandResult(state.with_updates(status_message=msg[:160]), msg)
 
     # ── tutorial ──────────────────────────────────────────────────────────────
     if command == "tutorial":
