@@ -133,6 +133,11 @@ class Settings(BaseSettings):
     goal_workflow_enabled: bool = Field(default=True, validation_alias="GOAL_WORKFLOW_ENABLED")
     persisted_plans_enabled: bool = Field(default=True, validation_alias="PERSISTED_PLANS_ENABLED")
 
+    # Task Engine (te-004)
+    task_engine_enabled: bool = Field(default=True, validation_alias="TASK_ENGINE_ENABLED")
+    task_engine_deterministic_bypass_enabled: bool = Field(default=True, validation_alias="TASK_ENGINE_DETERMINISTIC_BYPASS_ENABLED")
+    task_engine_strict_unknown_tool_policy: bool = Field(default=False, validation_alias="TASK_ENGINE_STRICT_UNKNOWN_TOOL_POLICY")
+
     # Extensions
     extensions: str = Field(default="", validation_alias="AGENT_EXTENSIONS")
     plugins: str = Field(default="", validation_alias="AGENT_PLUGINS")
