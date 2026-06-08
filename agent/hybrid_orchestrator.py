@@ -250,6 +250,13 @@ class RepositoryMapEngine:
         "this", "with", "from", "have", "will", "been", "they", "their",
     })
 
+    # Path-parts that mark a file as test material rather than source code.
+    # Files under these directories are scored as evidence, not as the primary
+    # explanation target — see search() Source-First Selector below.
+    _REPO_TEST_PATH_MARKERS: tuple[str, ...] = (
+        "/tests/", "/test/", "/benchmarks/", "/e2e/",
+    )
+
     def search(self, query: str, top_k: int = 5) -> list[ContextChunk]:
         self.build()
         if not self._symbol_graph:
@@ -257,6 +264,19 @@ class RepositoryMapEngine:
         tokens = {
             t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query)
             if len(t) >= 3 and t.lower() not in self._REPO_STOP_TOKENS
+        }
+        # Source-First Selector: when a query contains a domain-like token
+        # (a non-stopword token of length ≥ 4), source files whose filename
+        # stem contains that token outrank test files that merely mention
+        # the token in their test_<token>_* symbol names. The bug being
+        # fixed: a single token "codecompass" produced a top-1 result of
+        # `tests/test_codecompass_trigger_mode.py` (8.4) above
+        # `worker/retrieval/codecompass_budgeting.py` (3.4) because test
+        # files accumulate more `test_codecompass_*` symbols than source
+        # files have `*codecompass*` symbols — so test files beat source
+        # files. See test_repository_map_source_first_selector.py.
+        domain_stems: set[str] = {
+            t for t in tokens if len(t) >= 4
         }
         candidates: list[ContextChunk] = []
         for rel_path, symbols in self._symbol_graph.items():
@@ -279,6 +299,38 @@ class RepositoryMapEngine:
                 stem_hits = len(tokens.intersection(stem_tokens))
                 if stem_hits >= 2:
                     score *= 1.0 + 0.5 * stem_hits
+            # Source-First Selector: a 3x boost when the filename stem
+            # contains a domain token from the query. This compensates for
+            # the symbol-frequency bias that test files exploit: a test
+            # file with 6 `test_codecompass_*` symbols accumulates
+            # +6 points, but a source file with 2 `*codecompass*` symbols
+            # accumulates +2. The stem boost flips the ranking back to
+            # source-first. The boost is gated on at least one domain
+            # token so generic queries are unaffected.
+            #
+            # Test files (under tests/ or starting with test_) are
+            # excluded from the stem boost entirely — they are evidence
+            # of behaviour, not the implementation. They still receive
+            # their natural score so they appear later in the ranking
+            # rather than being filtered out (callers may want to see
+            # which tests cover the area).
+            from pathlib import Path as _Path2
+            stem_text = _Path2(rel_path).stem.lower()
+            is_test_path = any(
+                marker in path_lower
+                for marker in self._REPO_TEST_PATH_MARKERS
+            ) or stem_text.startswith("test_")
+            stem_hit_domains = {d for d in domain_stems if d in stem_text}
+            if stem_hit_domains and not is_test_path:
+                score *= 1.0 + 2.0 * len(stem_hit_domains)
+            elif is_test_path and not stem_hit_domains:
+                # No domain match in the stem → file is collateral. Demote
+                # test files so they cannot outrank source files that
+                # actually implement the domain. Test files that DO match
+                # the domain in their stem (e.g. test_codecompass_*.py)
+                # keep their natural score: they document behaviour and
+                # are useful as supporting context after source files.
+                score *= 0.15
             preview = ", ".join(symbols[:20])
             candidates.append(
                 ContextChunk(
