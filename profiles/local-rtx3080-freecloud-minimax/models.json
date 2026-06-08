@@ -1,0 +1,73 @@
+{
+  "models": [
+    {
+      "id": "local_qwen",
+      "provider": "ollama",
+      "model": "qwen3:14b",
+      "device": "rtx3080",
+      "privacy": "local",
+      "cost": "free",
+      "roles": ["general", "summary", "quick_reasoning", "offline"]
+    },
+    {
+      "id": "local_qwen_coder",
+      "provider": "ollama",
+      "model": "qwen2.5-coder:14b",
+      "device": "rtx3080",
+      "privacy": "local",
+      "cost": "free",
+      "roles": ["coding", "refactor", "private_code", "offline"]
+    },
+    {
+      "id": "local_deepseek_distill",
+      "provider": "ollama",
+      "model": "deepseek-r1:14b",
+      "device": "rtx3080",
+      "privacy": "local",
+      "cost": "free",
+      "roles": ["reasoning", "debugging", "private_code", "offline"]
+    },
+    {
+      "id": "free_cloud_general",
+      "provider": "openrouter",
+      "model": "auto-free-general",
+      "privacy": "external",
+      "cost": "free_rate_limited",
+      "roles": ["general", "summary", "review", "normal_task"],
+      "requires_approval_for_private_code": true
+    },
+    {
+      "id": "free_cloud_coder",
+      "provider": "openrouter",
+      "model": "auto-free-coder",
+      "privacy": "external",
+      "cost": "free_rate_limited",
+      "roles": ["coding", "review", "non_sensitive_code"],
+      "requires_approval_for_private_code": true
+    },
+    {
+      "id": "free_cloud_reasoner",
+      "provider": "openrouter",
+      "model": "auto-free-reasoner",
+      "privacy": "external",
+      "cost": "free_rate_limited",
+      "roles": ["reasoning", "architecture", "review", "hard_non_sensitive_task"],
+      "requires_approval_for_private_code": true
+    },
+    {
+      "id": "minimax_m3",
+      "provider": "minimax",
+      "model": "minimax-m3",
+      "privacy": "external",
+      "cost": "paid_or_quota",
+      "roles": ["hard_case", "architecture", "long_context", "stuck_agent", "deep_review"],
+      "requires_manual_escalation": true,
+      "requires_approval_for_private_code": true
+    }
+  ],
+  "selection_notes": {
+    "local_first": "Use local models for private code, secrets, credentials, and offline work.",
+    "free_cloud_first": "Use free cloud models for non-sensitive tasks where speed or quality beats the local RTX 3080 setup.",
+    "minimax_m3": "Use MiniMax M3 only when cheaper/local/free routes are insufficient or explicitly selected."
+  }
+}
