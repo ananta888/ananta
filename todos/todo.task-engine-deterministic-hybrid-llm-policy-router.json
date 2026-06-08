@@ -538,7 +538,7 @@
       "id": "te-016",
       "title": "Architekturdokumentation und Mermaid-Diagramme fuer Task Engine ergaenzen",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "progress_percent": 0,

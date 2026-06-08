@@ -48,7 +48,9 @@ Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwend
 - Existierendes Softwareprojekt weiterentwickeln
 - Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver
 
-Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`. Fuer Shell-Guardrails siehe `docs/security/shell-command-policy.md` und die Migrationsnotiz `docs/release/shell-command-policy-migration.md`.
+Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`
+
+**Task Engine:** Lese-Operationen (`list_files`, `git status`, `json_validate` …) werden deterministisch ohne LLM-Call ausgeführt. Architektur und Ablaufdiagramme: [`docs/task-engine-deterministic-hybrid-llm-policy.md`](docs/task-engine-deterministic-hybrid-llm-policy.md)., inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`. Fuer Shell-Guardrails siehe `docs/security/shell-command-policy.md` und die Migrationsnotiz `docs/release/shell-command-policy-migration.md`.
 
 **CodeCompass-Handoff:** Wie CodeCompass Snippets, Line-Ranges und ganze Dateien priorisiert an den ananta-worker weitergibt: `docs/codecompass-relevant-snippet-handoff.md`.
 

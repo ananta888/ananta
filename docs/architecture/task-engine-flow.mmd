@@ -1,0 +1,89 @@
+%% Task Engine — Architektur-Übersicht
+%% Flowchart: User → AI-Snake → TaskIntentRouter → PolicyGate → Handler/LLM → Audit
+
+flowchart LR
+    User(["👤 User / TUI"])
+    Snake(["🐍 AI-Snake\nControl Layer"])
+    Router["TaskIntentRouter\ntool_calls / command / kind"]
+    Resolver["TaskClassResolver\nKind-Override · Capability · Intent"]
+    Gate["TaskEnginePolicyGate\nenabled · bypass · strict_unknown"]
+
+    subgraph Execution ["Execution Path"]
+        direction TB
+        Det["🟢 DeterministicHandler\nlist_files · read_file\ngrep_search · git_status\ngit_diff · json_validate"]
+        Hyb["🟡 HybridHandler\nRunTestsHandler\n(profile-gated)"]
+        LLM["🔴 ProposeOrchestrator\nLLM → ExecutionService"]
+    end
+
+    Audit["Pipeline Trace\nAudit / Artifact"]
+    Status(["TaskEngineStatusService\n/api/task-engine/status"])
+
+    User --> Snake
+    Snake --> Router
+    Router --> Resolver
+    Resolver --> Gate
+    Gate -- "bypass_llm=true\ndeterministic" --> Det
+    Gate -- "bypass_llm=true\nhybrid" --> Hyb
+    Gate -- "llm_required=true" --> LLM
+    Det --> Audit
+    Hyb --> Audit
+    LLM --> Audit
+    Gate --> Status
+
+    style Det fill:#00b894,color:#fff
+    style Hyb fill:#fdcb6e,color:#000
+    style LLM fill:#d63031,color:#fff
+    style Snake fill:#6c5ce7,color:#fff
+    style Gate fill:#0984e3,color:#fff
+    style Status fill:#2d3436,color:#eee,stroke:#636e72
+
+---
+
+%% Sequenzdiagramm 1: Deterministic — list_files (kein LLM)
+
+sequenceDiagram
+    actor User
+    participant Snake as AI-Snake
+    participant Router as TaskIntentRouter
+    participant Gate as PolicyGate
+    participant Handler as ListFilesHandler
+    participant Audit
+
+    User->>Snake: "zeige alle Dateien"
+    Snake->>Router: route({tool_calls:[{name:"list_files"}]})
+    Router-->>Snake: intent=list_files, task_class=deterministic
+    Snake->>Gate: evaluate(task)
+    Gate-->>Snake: bypass_llm=true, handler_id=list_files
+    Snake->>Handler: execute({path:"."})
+    Handler-->>Snake: ["README.md","pyproject.toml",...]
+    Snake->>Audit: stamp_te_pipeline(stages=[router,resolver,dispatch])
+    Snake-->>User: Dateiliste (kein LLM-Call)
+
+---
+
+%% Sequenzdiagramm 2: Hybrid — run_tests + optionale LLM-Fehlerzusammenfassung
+
+sequenceDiagram
+    actor User
+    participant Snake as AI-Snake
+    participant Gate as PolicyGate
+    participant Handler as RunTestsHandler
+    participant LLM as ProposeOrchestrator
+    participant Audit
+
+    User->>Snake: "pytest ausführen"
+    Snake->>Gate: evaluate({command:"pytest tests/"})
+    Gate-->>Snake: task_class=hybrid, bypass_llm=true
+    Snake->>Handler: execute({command:"pytest tests/", profile:"default"})
+    Handler->>Handler: _command_allowed? → true
+    Handler->>Handler: subprocess.run(["pytest","tests/"])
+    alt Tests grün
+        Handler-->>Snake: exit_code=0, output="5 passed"
+        Snake-->>User: ✓ Tests erfolgreich
+    else Tests rot
+        Handler-->>Snake: exit_code=1, output="FAILED test_foo.py"
+        Snake->>LLM: optional: "fasse Fehler zusammen"
+        LLM-->>Snake: "AssertionError in test_foo: erwartet X, bekam Y"
+        Snake-->>User: ✗ 1 Test fehlgeschlagen + Zusammenfassung
+    end
+    Snake->>Audit: stamp_te_pipeline(bypassed_llm=true)
