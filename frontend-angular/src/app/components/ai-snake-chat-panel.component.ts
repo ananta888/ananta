@@ -12,11 +12,12 @@ import {
 import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
+import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, ChatSessionsPanelComponent],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -72,6 +73,10 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
             <button (click)="setTab('login')">Zum Login</button>
           </div>
         }
+      } @else if (tab === 'sessions') {
+        <div class="settings-shell">
+          <app-chat-sessions-panel />
+        </div>
       } @else if (tab === 'deprecated') {
         <div class="mode-shell">
           <div class="mode-group">
@@ -165,6 +170,7 @@ import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
       }
       <div class="bottom-tabs">
         <button [class.active]="tab==='chat'" (click)="setTab('chat')">Chat</button>
+        <button [class.active]="tab==='sessions'" (click)="setTab('sessions')">Sessions</button>
         <button [class.active]="tab==='login'" (click)="setTab('login')">AI-Snake</button>
         <button [class.active]="tab==='pair'" (click)="setTab('pair')">Pair Dev</button>
         <button [class.active]="tab==='mode'" (click)="setTab('mode')">Modus</button>
@@ -242,8 +248,8 @@ export class AiSnakeChatPanelComponent {
   loginError = '';
   readonly keycloakPresets = [PUBLIC_KEYCLOAK_BASE_URL];
 
-  @Input() tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
-  @Output() tabChange = new EventEmitter<'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
+  @Input() tab: 'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
+  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
 
   get keycloakIssuer(): string {
     return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta-e2e'}`;
@@ -313,7 +319,7 @@ export class AiSnakeChatPanelComponent {
     this.cfg.updateField('chat_use_codecompass', enabled);
   }
 
-  setTab(tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+  setTab(tab: 'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
     this.tab = tab;
     this.tabChange.emit(tab);
   }

@@ -46,6 +46,7 @@ from agent.routes.pair_groups import pair_groups_bp
 from agent.routes.rendezvous import rendezvous_bp
 from agent.routes.repair import repair_bp
 from agent.routes.webrtc_signaling import webrtc_signaling_bp
+from agent.routes.chat import chat_bp # New: Chat API
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -94,6 +95,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(rendezvous_bp, url_prefix="/api")
     app.register_blueprint(repair_bp)
     app.register_blueprint(webrtc_signaling_bp, url_prefix="/api")
+    app.register_blueprint(chat_bp) # New: Chat Sessions API
     register_ws_terminal(app)
 
 

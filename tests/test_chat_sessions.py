@@ -3,6 +3,7 @@ TUI session-management commands."""
 from __future__ import annotations
 
 import sys
+from typing import Any
 
 import pytest
 
@@ -262,15 +263,22 @@ def test_legacy_chat_state_migrates_to_sessions() -> None:
 # ── TUI session-management commands ────────────────────────────────────────
 
 
-def _build_tui() -> object:
+def _build_tui() -> Any:
     """Build a fresh InteractiveOperatorTui with chat-focus active."""
     from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
     from client_surfaces.operator_tui.models import FocusPane, OperatorState
+    from client_surfaces.operator_tui.chat_state import get_chat_state
+
+    # Initialize a fresh game dict
+    game = {"active": True, "alive": True, "ui_steering": True}
+    # Ensure chat_state is initialized with default sessions and channels
+    chat_state = get_chat_state(game)
+    game["chat_state"] = chat_state # Explicitly assign
 
     state = OperatorState(
         endpoint="http://localhost:5000",
         focus=FocusPane.HEADER,
-        header_logo_game={"active": True, "alive": True, "ui_steering": True},
+        header_logo_game=game, # Use the initialized game dict
     )
     tui = InteractiveOperatorTui(state)
     tui._chat_focus_enter()
@@ -442,12 +450,19 @@ def test_clear_command_with_id_clears_target_session() -> None:
 
 def test_clear_command_all_clears_every_session() -> None:
     """`/clear all` must clear every session's messages."""
+    from client_surfaces.operator_tui.chat_state import get_chat_state, ensure_session_channels
     tui = _build_tui()
-    chat = tui.state.header_logo_game["chat_state"]
+    # Ensure chat_state is fully initialized with channels.
+    game = tui.state.header_logo_game
+    chat = get_chat_state(game)
+    ensure_session_channels(chat) # Re-create all session channels and apply display names
+
     for ch in chat["channels"].values():
         ch["messages"] = [{"text": "msg"}]
     _type(tui, "/clear all")
     tui._chat_send_message()
+    # Re-fetch chat_state after TUI interaction to ensure it's up-to-date
+    chat = tui.state.header_logo_game["chat_state"]
     for s in chat["ai_sessions"]:
         msgs = chat["channels"][f"ai:{s['id']}"]["messages"]
         # All user messages gone; only system status may remain
