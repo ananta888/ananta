@@ -109,7 +109,7 @@
     {
       "id": "VPAD-004",
       "title": "Angular Flow-Editor MVP bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
