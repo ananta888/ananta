@@ -71,6 +71,10 @@ def parse_chat_command(text: str, *, nl_mode_enabled: bool = False) -> ParsedCom
         return _parse_snake(text, rest)
     if cmd == "scroll":
         return _parse_scroll(text, rest)
+    if cmd == "session":
+        return _parse_session(text, rest)
+    if cmd == "clear":
+        return _parse_clear(text, rest)
     if cmd == "help":
         return _parse_help(text, rest)
 
@@ -200,6 +204,61 @@ def _parse_scroll(raw: str, args: list[str]) -> ParsedCommand:
         return ParsedCommand(raw_text=raw, command="scroll", subcommand=sub, args=(),
                              error=f"unknown scroll direction {sub!r}; use up, down, pageup, pagedown, top, bottom", action_id="")
     return ParsedCommand(raw_text=raw, command="scroll", subcommand=sub, args=(), error="", action_id=action_id)
+
+
+def _parse_session(raw: str, args: list[str]) -> ParsedCommand:
+    """Parse /session [...] into the action_id that drives it. The
+    sub-commands are:
+
+    - (no args)        → session.list
+    - new <name>       → session.new (args=("name",))
+    - delete <id>      → session.delete (args=("id",))
+    - rename <id> <n>  → session.rename (args=("id", "name"))
+    - <id>             → session.switch (args=("id",))
+    """
+    if not args:
+        return ParsedCommand(raw_text=raw, command="session", subcommand="list", args=(),
+                             error="", action_id="session.list")
+    sub = args[0].lower()
+    if sub == "new":
+        if len(args) < 2:
+            return ParsedCommand(raw_text=raw, command="session", subcommand="new", args=(),
+                                 error="/session new requires a name", action_id="")
+        return ParsedCommand(raw_text=raw, command="session", subcommand="new",
+                             args=(" ".join(args[1:]),), error="", action_id="session.new")
+    if sub == "delete":
+        if len(args) < 2:
+            return ParsedCommand(raw_text=raw, command="session", subcommand="delete", args=(),
+                                 error="/session delete requires an id", action_id="")
+        return ParsedCommand(raw_text=raw, command="session", subcommand="delete",
+                             args=(args[1],), error="", action_id="session.delete")
+    if sub == "rename":
+        if len(args) < 3:
+            return ParsedCommand(raw_text=raw, command="session", subcommand="rename", args=(),
+                                 error="/session rename requires: <id> <new name>", action_id="")
+        return ParsedCommand(raw_text=raw, command="session", subcommand="rename",
+                             args=(args[1], " ".join(args[2:])), error="", action_id="session.rename")
+    # Treat the first arg as a session id to switch to
+    return ParsedCommand(raw_text=raw, command="session", subcommand="switch",
+                         args=(args[0],), error="", action_id="session.switch")
+
+
+def _parse_clear(raw: str, args: list[str]) -> ParsedCommand:
+    """Parse /clear [...] — clear chat history.
+
+    - (no args)    → clear active session's history
+    - all          → clear every session's history
+    - <id>         → clear the named session's history
+    """
+    if not args:
+        return ParsedCommand(raw_text=raw, command="clear", subcommand="active", args=(),
+                             error="", action_id="session.clear")
+    target = args[0].lower()
+    if target == "all":
+        return ParsedCommand(raw_text=raw, command="clear", subcommand="all", args=(),
+                             error="", action_id="session.clear")
+    return ParsedCommand(raw_text=raw, command="clear", subcommand="session", args=(args[0],),
+                         error="", action_id="session.clear")
 
 
 def _parse_help(raw: str, args: list[str]) -> ParsedCommand:

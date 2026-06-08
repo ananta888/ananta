@@ -112,4 +112,19 @@ def _normalize_args(parsed: ParsedCommand, action_id: str) -> dict[str, Any]:
         return {"view_id": parsed.args[0]}
     if action_id == "artifact.open" and parsed.args:
         return {"ref": parsed.args[0]}
+    if action_id == "session.new" and parsed.args:
+        return {"name": parsed.args[0]}
+    if action_id == "session.delete" and parsed.args:
+        return {"session_id": parsed.args[0]}
+    if action_id == "session.switch" and parsed.args:
+        return {"session_id": parsed.args[0]}
+    if action_id == "session.rename" and len(parsed.args) >= 2:
+        return {"session_id": parsed.args[0], "name": parsed.args[1]}
+    if action_id == "session.clear":
+        # args[0] is the optional target (session id or "all"); if absent
+        # the dispatcher treats it as "active session".
+        target = parsed.args[0] if parsed.args else ""
+        if target.lower() == "all":
+            return {"target": "all"}
+        return {"target": target}  # may be empty → active session
     return {}

@@ -143,6 +143,16 @@ class ChatMixin:
             )
             return
 
+        # Session management commands. These are local-state operations
+        # that affect the active session / the chat pipeline state, not
+        # the AI LLM call. They must be handled BEFORE the slash-command
+        # policy / dispatcher path because the dispatcher only knows how
+        # to set marker flags — it can't actually mutate chat_state
+        # directly. Routing them through the dispatcher would mean
+        # duplicating chat_state-aware code in two places.
+        if self._handle_session_command(buf, chat=chat, game=game, ch_id=None):
+            return
+
         chat["chat_input_buffer"] = ""
         chat["chat_input_cursor"] = 0
         history = [str(item) for item in (chat.get("chat_input_history") or []) if str(item).strip()]
@@ -735,6 +745,23 @@ class ChatMixin:
 
         t_start = _time_mod.perf_counter()
         game = dict(self.state.header_logo_game or {})
+        # Effective chat settings: per-session overrides from the active
+        # session in `chat["ai_sessions"]`, falling back to the game-level
+        # defaults. This is the bridge that lets each session carry its
+        # own backend, source pack, etc.
+        from client_surfaces.operator_tui.chat_state import (
+            get_chat_state, get_effective_chat_settings, active_session_id,
+        )
+        chat = get_chat_state(game)
+        eff_settings = get_effective_chat_settings(chat, game)
+        # Replace the local `game` with one that has the effective
+        # values merged on top, so downstream `game.get("chat_X")`
+        # lookups naturally pick up the session's overrides without
+        # further refactoring.
+        game = dict(game)
+        for k, v in eff_settings.items():
+            if k.startswith("chat_") and v is not None and v != "":
+                game[k] = v
         mem_settings = resolve_memory_settings(game)
 
         chat_top_k_raw = game.get("chat_rag_top_k")
@@ -784,13 +811,19 @@ class ChatMixin:
             context_budget = 3000
         context_budget = max(500, min(20000, context_budget))
 
+        # System prompt precedence: session-level system_prompt (set by
+        # the session's own field) > session settings > env var.
+        sess_prompt = str(eff_settings.get("chat_system_prompt") or "").strip()
+        env_prompt = str(os.environ.get("ANANTA_TUI_CHAT_SYSTEM_PROMPT") or "").strip()
+        system_prompt = sess_prompt or env_prompt
+
         builder = ChatPromptBuilder(
             question=question,
             depth=depth,
             memory=mem_ctx,
             context_budget=context_budget,
             max_turns_chars=mem_settings["history_chars"],
-            system_template=str(os.environ.get("ANANTA_TUI_CHAT_SYSTEM_PROMPT") or ""),
+            system_template=system_prompt,
         )
         build_result = builder.build()
 
@@ -1427,3 +1460,210 @@ class ChatMixin:
         except (TypeError, ValueError):
             value = 6000
         return max(600, min(12000, value))
+
+    # ── Session management commands ──────────────────────────────────────
+    #
+    # These handle the `/session ...` and `/clear ...` user commands.
+    # Both are local-state operations on the chat pipeline (add/delete
+    # sessions, switch active session, clear a session's message
+    # history) — NOT AI LLM calls. They need direct access to
+    # `chat_state` so they can't go through the TuiActionDispatcher,
+    # which only knows how to set marker flags in `game`.
+    #
+    # Returns True if the buffer was a session command and was handled
+    # (caller should return); False if the buffer is not a session
+    # command (caller should continue with normal flow).
+
+    def _handle_session_command(
+        self,
+        buf: str,
+        *,
+        chat: dict[str, Any],
+        game: dict[str, Any],
+        ch_id: str | None,
+    ) -> bool:
+        from client_surfaces.operator_tui.chat_state import (
+            get_sessions, get_active_session, set_active_session,
+            add_session, delete_session, get_session, make_session,
+            ensure_session_channels, switch_channel, make_message,
+            append_message, set_chat_state,
+            clear_session_messages, clear_all_session_messages,
+        )
+
+        def _consume_buffer() -> None:
+            """Reset the input buffer the way _chat_send_message would
+            do for a normal (non-slash) command. This must run for every
+            session command so the next keystroke doesn't append to
+            the previous command's text."""
+            chat["chat_input_buffer"] = ""
+            chat["chat_input_cursor"] = 0
+            chat["chat_input_history_index"] = None
+            chat["chat_input_saved_draft"] = ""
+
+        # /clear ... — clear chat history
+        stripped = buf.strip().lower()
+        if stripped == "/clear" or stripped == "/clear all" or stripped.startswith("/clear "):
+            _consume_buffer()
+            arg = buf.strip()[len("/clear"):].strip()
+            target_ch_id = ch_id or str(chat.get("active_channel") or "ai:tutor")
+            ch_type = "ai"
+            if not arg:
+                # No target → clear the *active* session only
+                active = get_active_session(chat)
+                active_id = str((active or {}).get("id") or "") if isinstance(active, dict) else ""
+                cleared = clear_session_messages(chat, active_id) if active_id else False
+                if cleared:
+                    sys_msg = make_message(
+                        channel_id=target_ch_id, channel_type=ch_type,
+                        sender_id="system", sender_kind="system",
+                        text=f"[TUI] Verlauf der aktiven Session '{active_id}' gelöscht.",
+                        visibility="local_only", delivery_state="received",
+                    )
+                    append_message(chat, sys_msg)
+                    status = f"clear: {active_id}"
+                else:
+                    status = "clear: keine aktive session"
+            elif arg.lower() == "all":
+                count = clear_all_session_messages(chat)
+                sys_msg = make_message(
+                    channel_id=target_ch_id, channel_type=ch_type,
+                    sender_id="system", sender_kind="system",
+                    text=f"[TUI] Verlauf aller {count} Sessions gelöscht.",
+                    visibility="local_only", delivery_state="received",
+                )
+                append_message(chat, sys_msg)
+                status = f"clear: {count} sessions"
+            else:
+                if clear_session_messages(chat, arg):
+                    sys_msg = make_message(
+                        channel_id=target_ch_id, channel_type=ch_type,
+                        sender_id="system", sender_kind="system",
+                        text=f"[TUI] Verlauf von Session '{arg}' gelöscht.",
+                        visibility="local_only", delivery_state="received",
+                    )
+                    append_message(chat, sys_msg)
+                    status = f"clear: {arg}"
+                else:
+                    status = f"clear: session '{arg}' nicht gefunden"
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+            return True
+
+        # /session ... — list / new / switch / delete / rename
+        if stripped == "/session" or stripped.startswith("/session "):
+            _consume_buffer()
+            arg = buf.strip()[len("/session"):].strip()
+            sessions = get_sessions(chat)
+            active = get_active_session(chat)
+            active_id = str(active.get("id") or "") if isinstance(active, dict) else ""
+            target_ch_id = ch_id or str(chat.get("active_channel") or "ai:tutor")
+            ch_type = "ai"
+            if not arg:
+                # List all sessions
+                lines = ["[TUI] Sessions:"]
+                for s in sessions:
+                    if not isinstance(s, dict):
+                        continue
+                    sid = str(s.get("id") or "?")
+                    name = str(s.get("name") or sid)
+                    icon = str(s.get("icon") or "💬")
+                    marker = "*" if sid == active_id else " "
+                    backend = str((s.get("settings") or {}).get("chat_backend") or "—")
+                    lines.append(f"  {marker} {icon} {sid:14s} {name!r:24s} backend={backend}")
+                if not sessions:
+                    lines.append("  (keine)")
+                list_msg = make_message(
+                    channel_id=target_ch_id, channel_type=ch_type,
+                    sender_id="system", sender_kind="system",
+                    text="\n".join(lines), visibility="local_only",
+                    delivery_state="received",
+                )
+                append_message(chat, list_msg)
+                set_chat_state(game, chat)
+                self._set_state(self.state.with_updates(
+                    header_logo_game=game, status_message=f"sessions: {len(sessions)}",
+                ))
+                return True
+            parts = arg.split(maxsplit=1)
+            sub = parts[0].lower()
+            rest = parts[1] if len(parts) > 1 else ""
+            if sub == "new":
+                if not rest:
+                    status = "session new: name fehlt"
+                else:
+                    safe_id = "".join(c if c.isalnum() or c in "-_" else "-" for c in rest.lower()).strip("-")
+                    if not safe_id:
+                        safe_id = f"session-{int(time.time())}"
+                    base_id = safe_id
+                    suffix = 2
+                    while any(str(s.get("id") or "") == safe_id for s in sessions if isinstance(s, dict)):
+                        safe_id = f"{base_id}-{suffix}"
+                        suffix += 1
+                    new_session = make_session(
+                        session_id=safe_id, name=rest,
+                        icon="✨", system_prompt="", settings={},
+                    )
+                    add_session(chat, new_session)
+                    ensure_session_channels(chat)
+                    if set_active_session(chat, safe_id):
+                        switch_channel(chat, f"ai:{safe_id}", preserve_input=True)
+                    set_chat_state(game, chat)
+                    self._set_state(self.state.with_updates(
+                        header_logo_game=game, status_message=f"session erstellt: {safe_id}",
+                    ))
+                    return True
+            elif sub == "delete":
+                if not rest:
+                    status = "session delete: id fehlt"
+                else:
+                    target = get_session(chat, rest)
+                    if not target:
+                        status = f"session delete: '{rest}' nicht gefunden"
+                    elif len(sessions) <= 1:
+                        status = "session delete: letzter session, nicht löschbar"
+                    else:
+                        delete_session(chat, rest)
+                        new_active = get_active_session(chat)
+                        if new_active is not None:
+                            switch_channel(chat, f"ai:{str(new_active.get('id') or 'tutor')}", preserve_input=True)
+                        set_chat_state(game, chat)
+                        self._set_state(self.state.with_updates(
+                            header_logo_game=game, status_message=f"session gelöscht: {rest}",
+                        ))
+                        return True
+            elif sub == "rename":
+                rename_parts = rest.split(maxsplit=1)
+                if len(rename_parts) < 2:
+                    status = "session rename: usage: /session rename <id> <name>"
+                else:
+                    target_id, new_name = rename_parts[0], rename_parts[1]
+                    target = get_session(chat, target_id)
+                    if not target:
+                        status = f"session rename: '{target_id}' nicht gefunden"
+                    else:
+                        target["name"] = new_name
+                        target["updated_at"] = time.time()
+                        ensure_session_channels(chat)
+                        set_chat_state(game, chat)
+                        self._set_state(self.state.with_updates(
+                            header_logo_game=game, status_message=f"session renamed: {target_id}",
+                        ))
+                        return True
+            else:
+                # Treat the first arg as a session id to switch to
+                if get_session(chat, sub):
+                    if set_active_session(chat, sub):
+                        switch_channel(chat, f"ai:{sub}", preserve_input=True)
+                        set_chat_state(game, chat)
+                        self._set_state(self.state.with_updates(
+                            header_logo_game=game, status_message=f"session: {sub}",
+                        ))
+                        return True
+                    status = f"session: '{sub}' nicht gefunden"
+                else:
+                    status = f"session: '{sub}' nicht gefunden (versuche: list/new/delete/rename)"
+            set_chat_state(game, chat)
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+            return True
+
+        return False
