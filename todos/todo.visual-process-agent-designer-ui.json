@@ -5,32 +5,35 @@
   "track": "visual_process_agent_designer_ui",
   "status": "todo",
   "priority": "P0",
-  "purpose": "Eine einfache grafische UI schaffen, mit der Nutzer Prozesse, Prozessschritte, Gates und zugeordnete Agenten visuell definieren können: welcher Agent macht welchen Teil, welche Artefakte werden übergeben, welche Rechte/Tools sind erlaubt und welche Checks blockieren den nächsten Schritt.",
-  "goal": "Ananta soll nicht nur intern Workflow-/Blueprint-/Agenten-Strukturen verwalten, sondern diese simpel grafisch modellierbar machen. Nutzer sollen per UI einen Prozess als Graph/Flow bauen, Agenten auf Schritte ziehen, Rollen/Rechte/Modelle konfigurieren und daraus ein deterministisch validierbares Blueprint-/Workflow-JSON erzeugen können.",
+  "purpose": "Eine einfache grafische UI schaffen, mit der Nutzer Prozesse, Prozessschritte, Gates, Schleifen, Rücksprünge und zugeordnete Agenten visuell definieren können: welcher Agent macht welchen Teil, welche Artefakte werden übergeben, welche Rechte/Tools sind erlaubt und welche Bedingungen erlauben eine Transition.",
+  "goal": "Ananta soll nicht nur intern Workflow-/Blueprint-/Agenten-Strukturen verwalten, sondern diese simpel grafisch modellierbar machen. Nutzer sollen per UI einen Prozess als Graph/Flow bauen, Agenten auf Schritte ziehen, Rollen/Rechte/Modelle konfigurieren, bedingte Kanten und kontrollierte Schleifen definieren und daraus ein deterministisch validierbares Blueprint-/Workflow-JSON erzeugen können.",
   "non_goals": [
     "Kein vollständiger BPMN-Editor als erster Schritt.",
     "Keine komplexe Enterprise-Prozesssuite bauen, bevor der einfache Agentenprozess funktioniert.",
     "Keine freie unvalidierte Graph-Spielerei ohne Backend-Schema.",
     "Keine direkte produktive Toolausführung nur durch Drag-and-drop ohne Policy-Check.",
+    "Keine unbounded/endlosen Agentenschleifen ohne Loop-Policy, Exit-Bedingung und Iterationslimit.",
     "Keine Abhängigkeit von einer proprietären UI-Bibliothek, wenn eine einfache Open-Source-Lösung reicht."
   ],
   "architecture_principles": [
     "UI ist nur Editor und Visualisierung; Backend validiert den Prozess deterministisch.",
-    "Jeder Knoten ist ein typisierter ProcessStep, AgentStep, ToolStep, GateStep, ReviewStep oder ArtifactStep.",
-    "Jede Kante ist ein expliziter Handoff mit depends_on, artifact_refs und optionalen Bedingungen.",
+    "Jeder Knoten ist ein typisierter ProcessStep, AgentStep, ToolStep, GateStep, ReviewStep, ArtifactStep, LoopStep oder DecisionStep.",
+    "Jede Kante ist eine explizite Transition mit from, to, direction, condition, artifact_refs, handoff_metadata und optionaler loop_policy.",
+    "Schleifen sind erlaubt, aber nur kontrolliert: max_iterations, timeout, exit_condition und failure_policy sind Pflicht, sobald eine Rückkante entsteht.",
     "Agent-Zuordnung ist first-class: Rolle, konkreter Agent, Modellprofil, Toolrechte, Kontextscope und Budget müssen sichtbar sein.",
     "Der visuelle Graph muss als JSON speicherbar, ladbar, diffbar und testbar sein.",
     "Die UI soll simpel bleiben: zuerst Flowchart-Editor, danach Details/Inspector, danach Simulation/Run-Status.",
-    "Security/Least-Privilege muss im Designer sichtbar werden, nicht versteckt in Config-Dateien."
+    "Security/Least-Privilege muss im Designer sichtbar werden, nicht versteckt in Config-Dateien.",
+    "Bedingungen auf Kanten müssen maschinenlesbar validierbar sein; Freitext ist nur Beschreibung, nicht ausführbare Logik."
   ],
   "existing_stack_to_reuse": [
     {
       "path": "todos/todo.workflow-gates-blueprint-orchestration.json",
-      "use_for": "Bestehende Workflow-/Gate-/Blueprint-Orchestration als Backend-Zielmodell nutzen."
+      "use_for": "Bestehende Workflow-/Gate-/Blueprint-Orchestration als Backend-Zielmodell nutzen; für Schleifen muss sie um kontrollierte Transitionen jenseits reiner DAG-depends_on erweitert werden."
     },
     {
       "path": "agent/services/blueprint_planning_adapter.py",
-      "use_for": "Materialisierung von Blueprint-Schritten und depends_on später visuell erzeugen statt nur config-/prompt-getrieben."
+      "use_for": "Materialisierung von Blueprint-Schritten und depends_on später visuell erzeugen statt nur config-/prompt-getrieben; Rückkanten brauchen zusätzliche Transition-/Loop-Semantik."
     },
     {
       "path": "agent/services/workflow_registry.py",
@@ -38,11 +41,11 @@
     },
     {
       "path": "agent/services/workflow_policy_adapter.py",
-      "use_for": "Policy-/Approval-Mechanik für UI-konfigurierte Schritte wiederverwenden oder anbinden."
+      "use_for": "Policy-/Approval-Mechanik für UI-konfigurierte Schritte, Kantenbedingungen und Loop-Guards wiederverwenden oder anbinden."
     },
     {
       "path": "agent/services/critical_workflow_state_service.py",
-      "use_for": "Run-State, Transitions, Guards, Timeout und Replay für visualisierte Prozessausführung prüfen."
+      "use_for": "Run-State, Transitions, Guards, Timeout, Fallback und Replay für visualisierte Prozessausführung prüfen."
     },
     {
       "path": "frontend-angular/",
@@ -63,11 +66,11 @@
       "type": "architecture",
       "acceptance_criteria": [
         "Ein versioniertes JSON-Schema für visuelle Prozessdefinitionen existiert.",
-        "Schema enthält nodes, edges, agents, artifacts, policies, model_profiles und budgets.",
-        "Node-Typen sind mindestens process_step, agent_step, tool_step, gate_step, review_step, artifact_step und start/end.",
-        "Edges enthalten from, to, depends_on, condition, artifact_refs und handoff_metadata.",
-        "Schema kann eindeutig in bestehende Blueprint-/Workflow-Strukturen gemappt werden.",
-        "Schema-Validierung verhindert Zyklen, fehlende Agenten, kaputte Kanten und ungültige Rechte."
+        "Schema enthält nodes, edges/transitions, agents, artifacts, policies, model_profiles, budgets und loop_policies.",
+        "Node-Typen sind mindestens process_step, agent_step, tool_step, gate_step, review_step, artifact_step, decision_step, loop_step und start/end.",
+        "Edges/Transitions enthalten from, to, direction, condition, artifact_refs, handoff_metadata und optional loop_ref.",
+        "Schema kann in bestehende Blueprint-/Workflow-Strukturen gemappt werden; DAG-only-Prozesse bleiben möglich.",
+        "Schema-Validierung verhindert fehlende Agenten, kaputte Kanten, ungültige Rechte und unkontrollierte Schleifen."
       ]
     },
     {
@@ -78,11 +81,12 @@
       "risk": "high",
       "type": "implementation",
       "acceptance_criteria": [
-        "Validator prüft Graph-DAG, Node-Typen, Agent-Zuordnungen, Artifact-Handoffs und Policy-Felder.",
+        "Validator prüft Graph-Struktur, Node-Typen, Agent-Zuordnungen, Artifact-Handoffs und Policy-Felder.",
+        "Validator erlaubt kontrollierte Zyklen nur, wenn loop_policy, max_iterations und exit_condition vorhanden sind.",
         "Ungültige Prozesse liefern lesbare Fehler mit node_id/edge_id.",
         "Validator prüft Least-Privilege: Toolrechte müssen pro Step explizit sein.",
-        "Validator erkennt isolierte Knoten und nicht erreichbare Endpunkte.",
-        "Unit-Tests decken valide und invalide Graphen ab."
+        "Validator erkennt isolierte Knoten, nicht erreichbare Endpunkte und Schleifen ohne Ausstieg.",
+        "Unit-Tests decken valide DAGs, valide Loops und invalide Endlos-Loops ab."
       ]
     },
     {
@@ -94,7 +98,9 @@
       "type": "implementation",
       "acceptance_criteria": [
         "Ein VisualProcess kann in eine Blueprint-/Workflow-Darstellung exportiert werden.",
-        "depends_on und Gates bleiben deterministisch erhalten.",
+        "Lineare depends_on-Ketten und Gates bleiben deterministisch erhalten.",
+        "Bedingte Transitionen werden als explizite Guards/Transition Rules exportiert.",
+        "Rückkanten werden nicht in einfache depends_on-Zyklen übersetzt, sondern als Loop-/Retry-Policy modelliert.",
         "AgentStep wird auf role, task_kind, required_capabilities und model_profile gemappt.",
         "ArtifactStep und Handoff-Kanten erzeugen artifact_refs.",
         "Exportierte Workflows können von bestehender Workflow-Orchestration verarbeitet oder zumindest validiert werden."
@@ -111,7 +117,8 @@
         "Nutzer kann Prozessschritte als Knoten grafisch anlegen.",
         "Nutzer kann Knoten mit Kanten verbinden.",
         "Nutzer kann Agenten auf Prozessschritte zuweisen.",
-        "Nutzer kann einen Knoten anklicken und Details im Inspector bearbeiten.",
+        "Nutzer kann Vorwärts- und Rückkanten visuell unterscheiden.",
+        "Nutzer kann einen Knoten oder eine Kante anklicken und Details im Inspector bearbeiten.",
         "Graph kann als JSON gespeichert und wieder geladen werden.",
         "MVP benötigt noch keine perfekte Optik, muss aber bedienbar sein."
       ]
@@ -141,6 +148,8 @@
       "acceptance_criteria": [
         "Inspector zeigt und bearbeitet title, description, task_kind, assigned_agent, model_profile, tools, context_scope und output_artifacts.",
         "GateSteps können required_checks, approval_required, timeout und fallback definieren.",
+        "DecisionSteps können auswertbare Bedingungen für ausgehende Transitionen referenzieren.",
+        "LoopSteps können max_iterations, timeout_s, exit_condition und on_exhausted_policy definieren.",
         "Toolrechte sind pro Step sichtbar und default-deny.",
         "Budgetfelder wie max_tokens, max_cost, timeout_s sind bearbeitbar.",
         "Änderungen werden sofort im JSON-Modell reflektiert."
@@ -156,6 +165,7 @@
       "presets": [
         "simple_code_task",
         "planner_developer_reviewer",
+        "planner_coder_tester_retry_loop",
         "security_review_pipeline",
         "rag_context_then_patch",
         "multi_agent_debate_then_decision",
@@ -166,8 +176,9 @@
         "UI kann einen leeren Prozess oder ein Preset starten.",
         "Presets sind normale VisualProcess JSONs.",
         "Jedes Preset enthält sinnvolle Rollen, Gates und Artefakte.",
+        "Mindestens ein Preset enthält eine kontrollierte Schleife planner -> coder -> tester -> coder.",
         "Presets lassen sich kopieren und bearbeiten.",
-        "Mindestens simple_code_task und planner_developer_reviewer sind mit Tests validiert."
+        "Mindestens simple_code_task, planner_developer_reviewer und planner_coder_tester_retry_loop sind mit Tests validiert."
       ]
     },
     {
@@ -181,6 +192,7 @@
         "Knoten zeigen Risikoindikator: read/write/admin/network/shell.",
         "Unsichere oder überbreite Toolrechte werden visuell gewarnt.",
         "GateSteps mit approval_required sind klar markiert.",
+        "Loop-Kanten ohne harte Limits werden als Fehler markiert.",
         "Default-Deny ist sichtbar, wenn keine Rechte gesetzt sind.",
         "Security-Warnings kommen aus Backend-Validierung, nicht nur aus Frontend-Heuristik."
       ]
@@ -196,7 +208,8 @@
         "VisualProcess kann als Mermaid flowchart exportiert werden.",
         "TUI kann den Prozess mindestens als Mermaid/Textliste anzeigen.",
         "Export zeigt Agentenzuordnung pro Step.",
-        "Export zeigt Gates und Artifact-Handoffs.",
+        "Export zeigt Gates, Bedingungen, Rückkanten und Artifact-Handoffs.",
+        "Loop-Kanten sind visuell als Retry/Back Edge erkennbar.",
         "Mermaid ist stabil genug für Markdown/Docs."
       ]
     },
@@ -212,7 +225,8 @@
         "Backend validiert Prozess ohne Agenten auszuführen.",
         "UI zeigt Fehler direkt an betroffenen Knoten/Kanten.",
         "Warnings und Errors sind getrennt.",
-        "Dry-run zeigt geplante Ausführungsreihenfolge."
+        "Dry-run zeigt geplante Ausführungsreihenfolge inklusive möglicher Schleifenpfade.",
+        "Dry-run zeigt pro Loop die maximale Iterationszahl und Exit-Bedingung."
       ]
     },
     {
@@ -223,10 +237,11 @@
       "risk": "medium",
       "type": "implementation",
       "acceptance_criteria": [
-        "Prozessgraph kann read-only mit Statusfarben dargestellt werden: pending, running, blocked, failed, done.",
-        "Events können einem Step zugeordnet werden.",
+        "Prozessgraph kann read-only mit Statusfarben dargestellt werden: pending, running, blocked, failed, done, retrying.",
+        "Events können einem Step und einer Transition zugeordnet werden.",
         "Artifact Outputs werden am Step sichtbar.",
         "Fehler und Policy-Denials werden am betroffenen Knoten angezeigt.",
+        "Loop-Iteration und aktueller Rücksprungpfad sind darstellbar.",
         "Keine echte Live-Ausführung nötig im ersten Schritt, aber Datenmodell ist vorbereitet."
       ]
     },
@@ -242,13 +257,77 @@
         "Mapping-Tests prüfen Export zu Blueprint/Workflow-Struktur.",
         "Frontend-Tests prüfen Knoten anlegen, Kante verbinden, Agent zuweisen und JSON speichern.",
         "Security-Tests prüfen, dass überbreite Rechte Warnungen erzeugen.",
+        "Loop-Tests prüfen planner -> coder -> tester -> coder mit max_iterations und exit_condition.",
         "Mermaid-Export-Test prüft syntaktisch stabile Ausgabe."
+      ]
+    },
+    {
+      "id": "VPAD-013",
+      "title": "Conditional Transition Model für Kanten definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "acceptance_criteria": [
+        "Jede Kante kann eine maschinenlesbare condition besitzen.",
+        "Bedingungen unterstützen mindestens always, on_success, on_failure, tests_failed, tests_green, review_requested, artifact_exists, policy_denied und max_iterations_reached.",
+        "Bedingungen können auf Step-Outputs, Artifacts, Check-Ergebnisse und Policy-Decisions referenzieren.",
+        "Freitext-Bedingungen sind nur label/description und werden nicht ausgeführt.",
+        "Validator erkennt widersprüchliche oder nicht auswertbare Bedingungen.",
+        "UI zeigt Bedingung direkt auf oder neben der Kante."
+      ]
+    },
+    {
+      "id": "VPAD-014",
+      "title": "Loop Policy und Back Edge Semantik implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Rückkanten werden als back_edge oder retry_transition markiert.",
+        "Jede Rückkante referenziert eine loop_policy mit max_iterations, timeout_s, exit_condition und on_exhausted_policy.",
+        "Beispiel planner -> coder -> tester -> coder ist abbildbar: tester failed führt zurück zu coder, tester passed führt weiter.",
+        "Loop-Zähler sind pro Loop und optional pro Step nachvollziehbar.",
+        "Endlos-Loops werden durch Validator und Runtime verhindert.",
+        "Tests prüfen Loop-Ausführung bis Erfolg und Loop-Abbruch nach max_iterations."
+      ]
+    },
+    {
+      "id": "VPAD-015",
+      "title": "Edge Inspector für Bedingungen und Transaktionen bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "implementation",
+      "acceptance_criteria": [
+        "Nutzer kann eine Kante anklicken und condition, label, required_artifacts, produced_artifacts, priority und retry_policy bearbeiten.",
+        "Kanten werden als Transaktionen verstanden und können eigene Checks besitzen.",
+        "UI unterscheidet normale Vorwärtskante, bedingte Kante, Fehlerkante und Rückkante.",
+        "Ungültige Kantenbedingungen werden inline angezeigt.",
+        "Änderungen am Edge Inspector werden sofort im VisualProcess JSON gespeichert."
+      ]
+    },
+    {
+      "id": "VPAD-016",
+      "title": "Runtime Semantik für Schleifen und Transitionen spezifizieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "acceptance_criteria": [
+        "Dokumentiert ist, wann ein Step abgeschlossen ist und welche Transition danach ausgewertet wird.",
+        "Bei mehreren möglichen ausgehenden Kanten ist die Prioritäts-/Auswertungsreihenfolge definiert.",
+        "Fehlerpfade, Retry-Pfade und Success-Pfade sind eindeutig.",
+        "Race Conditions bei parallelen AgentSteps sind entweder ausgeschlossen oder explizit modelliert.",
+        "Replay kann nachvollziehen, welche Bedingung warum welche Kante gewählt hat.",
+        "Diese Semantik ist Grundlage für spätere echte Ausführung."
       ]
     }
   ],
   "example_visual_process": {
-    "id": "process.simple_code_task",
-    "title": "Simple Code Task",
+    "id": "process.planner_coder_tester_retry_loop",
+    "title": "Planner Coder Tester Retry Loop",
     "nodes": [
       {
         "id": "start",
@@ -265,13 +344,22 @@
         "context_scope": "repo_relevant"
       },
       {
-        "id": "implement",
+        "id": "code",
         "type": "agent_step",
         "title": "Code ändern",
-        "assigned_agent": "developer",
+        "assigned_agent": "coder",
         "task_kind": "implement",
         "tools": ["read_repo", "write_patch", "run_tests"],
         "context_scope": "plan_outputs_and_relevant_files"
+      },
+      {
+        "id": "test",
+        "type": "agent_step",
+        "title": "Tests ausführen und bewerten",
+        "assigned_agent": "tester",
+        "task_kind": "testing",
+        "tools": ["read_repo", "run_tests", "read_artifacts"],
+        "context_scope": "patch_and_test_results"
       },
       {
         "id": "review_gate",
@@ -286,28 +374,45 @@
         "title": "Fertig"
       }
     ],
+    "loop_policies": [
+      {
+        "id": "fix_until_tests_green",
+        "max_iterations": 5,
+        "timeout_s": 3600,
+        "exit_condition": "tests_green",
+        "on_exhausted_policy": "fail_process_with_report"
+      }
+    ],
     "edges": [
-      {"from": "start", "to": "plan"},
-      {"from": "plan", "to": "implement", "artifact_refs": ["plan.md"]},
-      {"from": "implement", "to": "review_gate", "artifact_refs": ["patch.diff", "test-results.json"]},
-      {"from": "review_gate", "to": "end"}
+      {"id": "e_start_plan", "from": "start", "to": "plan", "condition": "always"},
+      {"id": "e_plan_code", "from": "plan", "to": "code", "condition": "on_success", "artifact_refs": ["plan.md"]},
+      {"id": "e_code_test", "from": "code", "to": "test", "condition": "on_success", "artifact_refs": ["patch.diff"]},
+      {"id": "e_test_code_retry", "from": "test", "to": "code", "direction": "back", "condition": "tests_failed", "loop_ref": "fix_until_tests_green", "artifact_refs": ["test-results.json"]},
+      {"id": "e_test_review", "from": "test", "to": "review_gate", "condition": "tests_green", "artifact_refs": ["test-results.json", "patch.diff"]},
+      {"id": "e_review_end", "from": "review_gate", "to": "end", "condition": "on_success"}
     ]
   },
   "endstate_acceptance_criteria": [
-    "Nutzer kann in einer grafischen UI einen Prozess mit Agenten, Gates, Tools und Artefakten definieren.",
+    "Nutzer kann in einer grafischen UI einen Prozess mit Agenten, Gates, Tools, Artefakten, Bedingungen und kontrollierten Schleifen definieren.",
     "Der Prozess ist als versioniertes JSON speicherbar, ladbar und validierbar.",
     "Jeder Step zeigt klar, welcher Agent ihn bearbeitet und welche Rechte/Tools er bekommt.",
-    "Der Graph kann in bestehende Ananta Blueprint-/Workflow-Strukturen exportiert werden.",
+    "Jede Kante zeigt klar, welche Transaktion sie ist und unter welcher Bedingung sie genommen wird.",
+    "Rückkanten und Schleifen sind möglich, aber nur mit Loop-Policy, max_iterations und exit_condition.",
+    "Der Graph kann in bestehende Ananta Blueprint-/Workflow-Strukturen exportiert werden oder nennt klar, welche Runtime-Erweiterung dafür nötig ist.",
     "Security-/Policy-Warnings sind direkt im Designer sichtbar.",
     "TUI/Docs können denselben Prozess als Mermaid oder Text darstellen.",
-    "Es gibt Tests für Schema, Mapping, UI-Grundfunktionen und Security-Warnings."
+    "Es gibt Tests für Schema, Mapping, UI-Grundfunktionen, Conditional Edges, Loops und Security-Warnings."
   ],
   "recommended_first_implementation_order": [
     "VPAD-001",
+    "VPAD-013",
+    "VPAD-014",
+    "VPAD-016",
     "VPAD-002",
     "VPAD-003",
     "VPAD-004",
     "VPAD-006",
+    "VPAD-015",
     "VPAD-010",
     "VPAD-012",
     "VPAD-005",
