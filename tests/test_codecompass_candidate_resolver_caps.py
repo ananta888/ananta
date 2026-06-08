@@ -161,6 +161,32 @@ class TestLooksLikePath:
         assert _looks_like_path("md_file:a03585ab89eed5e0") is False
         assert _looks_like_path("java_type:f482bd7dad4b87f1") is False
 
+    def test_filters_java_fully_qualified_class_names(self) -> None:
+        # Java FQNs like "io.ananta.eclipse.runtime.core.AnantaApiClient"
+        # are NOT file paths — they are class references. A `.` alone is
+        # not enough to accept them; the value must contain `/`.
+        assert _looks_like_path("io.ananta.eclipse.runtime.core.AnantaApiClient") is False
+        assert _looks_like_path("java.lang.String") is False
+        assert _looks_like_path("java.util.List") is False
+        assert _looks_like_path("com.getcapacitor.PluginCall") is False
+
+    def test_filters_method_call_snippets(self) -> None:
+        # Method-call snippets like
+        # `Objects.requireNonNull(apiClient, "apiClient")`,
+        # `List.of()`, `Map.of()` show up in relations records as the
+        # `to`/`target`/`target_resolved` value. The presence of `(`,
+        # `)`, or `;` disqualifies them as paths.
+        assert _looks_like_path("Objects.requireNonNull(apiClient, \"apiClient\")") is False
+        assert _looks_like_path("List.of()") is False
+        assert _looks_like_path("Map.of()") is False
+        assert _looks_like_path("Thread.currentThread().interrupt()") is False
+        assert _looks_like_path('Objects.toString(value, "").trim()') is False
+
+    def test_filters_ananta_bootstrap_method_calls(self) -> None:
+        # Ananta-internal Java method calls (Eclipse plugin code).
+        assert _looks_like_path("AnantaRuntimeBootstrap.profile()") is False
+        assert _looks_like_path("AnantaRuntimeBootstrap.snakeService()") is False
+
     def test_accepts_repo_relative_paths(self) -> None:
         assert _looks_like_path("worker/retrieval/codecompass_candidate_resolver.py") is True
         assert _looks_like_path("agent/services/x.py") is True
@@ -228,6 +254,26 @@ class TestStemTokens:
         assert "resolver" in tokens
         # The whole unsplit form should NOT be the only token.
         assert tokens != {"codecompass_candidate_resolver"}
+
+    def test_short_domain_tokens_preserved(self) -> None:
+        # 3-char domain tokens like "hub", "tui", "cli", "rpc" must
+        # survive the min-length filter. Without them, files named
+        # `hub_loader.py` don't get the stem-match boost for a query
+        # containing "hub" — and the Eclipse-Plugin's `eclipseHub*`
+        # symbols outrank the actual hub_loader.py.
+        tokens = _stem_tokens("client_surfaces/operator_tui/hub_loader.py")
+        assert "hub" in tokens
+        assert "loader" in tokens
+
+    def test_one_char_tokens_filtered(self) -> None:
+        # 1-char tokens are pure noise (e.g. "x", "y"); 2-char tokens
+        # are too noisy ("re", "de", "en"). 3-char is the floor.
+        assert "x" not in _stem_tokens("x.py")
+        # "ab" is 2 chars; should be filtered.
+        assert "ab" not in _stem_tokens("ab_cd.py")
+        # 3+ char tokens survive the floor.
+        assert "abc" in _stem_tokens("abc_def.py")
+        assert "def" in _stem_tokens("abc_def.py")
 
 
 class TestStemBoost:
@@ -533,3 +579,73 @@ class TestResolverPerPathCaps:
                 f"cc={scores['worker/retrieval/codecompass_candidate_resolver.py']:.2f} "
                 f"hub={scores['agent/services/central_hub.py']:.2f}"
             )
+
+    def test_xml_node_records_use_file_field_not_xpath(self, tmp_path) -> None:
+        """XML-node records (kind: xml_node_detail) carry `path: /plugin`
+        which is an XPath, not a repo path. The resolver must use the
+        `file` field for these kinds, not `path`.
+
+        Regression: query 'zeig mir die voxel plugin files' produced
+        `plugin` as top-5 candidate because XML-node records had
+        `path: /plugin` and the reader picked that over `file: .../plugin.xml`.
+        """
+        from worker.retrieval.codecompass_output_reader import extract_file_path_from_record
+        out = tmp_path / "cc"
+        # The XML node record has BOTH `file` (real) and `path` (XPath).
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml": 3,
+            },
+            context_by_file={
+                "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml": 3,
+            },
+        )
+        # Add the XML-node records (id=xml_node_detail:hash, kind=xml_node_detail)
+        # on top of the seeded ones.
+        import json as _json
+        with open(out / "details.jsonl", "a") as fp:
+            fp.write(_json.dumps({
+                "id": "xml_node_detail:022aea4576eb4705",
+                "file": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+                "kind": "xml_node_detail",
+                "tag": "plugin",
+                "path": "/plugin",
+                "attributes": {},
+                "text": "",
+                "children": ["extension"],
+                "_provenance": {"output_kind": "details", "manifest_hash": "test"},
+            }) + "\n")
+        with open(out / "context.jsonl", "a") as fp:
+            fp.write(_json.dumps({
+                "id": "xml_node_detail:022aea4576eb4705",
+                "file": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+                "kind": "xml_node_detail",
+                "tag": "plugin",
+                "path": "/plugin",
+                "_provenance": {"output_kind": "context", "manifest_hash": "test"},
+            }) + "\n")
+
+        # Direct unit test on extract_file_path_from_record
+        rec = {
+            "file": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+            "kind": "xml_node_detail",
+            "path": "/plugin",
+        }
+        path = extract_file_path_from_record(rec, output_kind="details")
+        assert path == "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml", (
+            f"xml_node_detail must use `file`, got: {path!r}"
+        )
+        path_ctx = extract_file_path_from_record(rec, output_kind="context")
+        assert path_ctx == "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml", (
+            f"context xml_node must use `file`, got: {path_ctx!r}"
+        )
+
+        # End-to-end: `plugin` must not appear as a candidate.
+        resolver = CodeCompassCandidateResolver()
+        candidates = resolver.resolve(
+            question="zeig mir die voxel plugin files",
+            output_dir=out,
+        )
+        paths = [c["path"] for c in candidates]
+        assert "plugin" not in paths, f"XPath-derived 'plugin' must not be a candidate; got: {paths[:5]}"

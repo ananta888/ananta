@@ -82,8 +82,12 @@ _REPO_THIRDPARTY_CLIENT_PREFIXES = (
     "client_surfaces/vscode_extension/",
 )
 # Minimum length of a token in a path-stem that may trigger the source stem
-# boost. Avoids boosting on 1-2 char filenames like x.py.
-_MIN_STEM_TOKEN_LEN = 4
+# boost. Set to 3 so short domain tokens like "hub", "tui", "cli", "rpc"
+# still match the file's filename stem against a broad query token.
+# (Filtering anything shorter would also drop the noisiest tokens "re",
+# "de", "en" — we already let the broad-token set in the query determine
+# which 3-char stems are relevant.)
+_MIN_STEM_TOKEN_LEN = 3
 
 
 def _is_test_path(path_lower: str) -> bool:
@@ -158,20 +162,93 @@ def _stem_boost(path: str, query_tokens: set[str]) -> float:
     return 1.0
 
 
-_PATH_LIKE_RE = re.compile(r"[/\\.]")
+# Code-snippet / Java-symbol shape markers. A non-path string that
+# CodeCompass sometimes records as a relation `to`/`target` value.
+_CODE_SNIPPET_MARKERS = ("(", ")", ";", "{", "}", "=>")
+# Java standard-class prefixes that identify a method-call / constructor
+# expression rather than a file path. e.g. "Objects.requireNonNull(...)",
+# "List.of()", "Map.of()", "Thread.currentThread().interrupt()".
+_JAVA_BUILTIN_PREFIXES = (
+    "Objects.", "List.", "Map.", "Set.", "Collection.",
+    "Thread.", "String.", "Integer.", "Boolean.", "Long.",
+    "ArrayList.", "HashMap.", "HashSet.", "Optional.", "Arrays.",
+    "Stream.", "Collectors.", "Files.", "Paths.", "URI.",
+    "URL.", "Logger.", "System.", "Class.", "Reflect.",
+    "AnantaRuntimeBootstrap.",
+)
+# A path string should look like a relative repo path: contain a path
+# separator (e.g. "agent/services/foo.py") OR a file extension without
+# a method-call or snippet shape.
+_PATH_SEP_RE = re.compile(r"[/\\]")
+
+
+# Common file extensions the Ananta project actually uses. Anything
+# ending in something OTHER than one of these (when there is no "/"
+# in the string) is rejected. This blocks Java type names that happen
+# to look like file extensions (e.g. "List", "Map", "Set") and
+# unqualified FQN suffixes (e.g. "AnantaApiClient").
+_VALID_FILE_EXTENSIONS = frozenset({
+    "py", "md", "java", "json", "yaml", "yml", "ts", "tsx", "js",
+    "jsx", "html", "xml", "txt", "csv", "sh", "bash", "toml", "cfg",
+    "ini", "css", "scss", "less", "sql", "graphql", "proto", "lock",
+    "log", "cast", "png", "jpg", "jpeg", "gif", "svg", "pdf", "zip",
+    "tar", "gz", "bak", "tmp", "dat", "db", "env", "example",
+    "kt", "kts", "swift", "m", "h", "c", "cpp", "hpp", "cs", "rb",
+    "go", "rs", "php", "pl", "lua", "dart", "vue", "svelte",
+})
+
+# Bare Java type names (CamelCase or lowercase primitives) that show
+# up as `target` / `target_resolved` values. When the string is
+# non-empty, has no path separator, and is in this set, it is a type
+# name — not a file.
+_JAVA_TYPE_NAMES = frozenset({
+    "string", "object", "integer", "boolean", "long", "double", "float",
+    "short", "byte", "char", "void", "file", "list", "map", "set",
+    "collection", "iterable", "array", "enum", "exception",
+    "runtimeexception", "ioexception", "nullpointerexception",
+    "throwable", "inputstream", "outputstream", "reader", "writer",
+    "bufferedreader", "bufferedwriter", "url", "uri", "path", "paths",
+    "files", "function", "predicate", "consumer", "supplier", "optional",
+    "stream", "collector", "class", "type", "method", "field",
+})
 
 
 def _looks_like_path(s: str) -> bool:
     """Heuristic: does `s` look like a repository-relative file path?
 
-    A path-like string contains a path separator ("/" or "\\") or a file
-    extension (".py", ".java", ".md", etc.). This filters out bare symbols
-    that show up as relation targets ("String", "void", "File", "IOException",
-    "md_file:a03585ab89eed5e0") which the resolver must not treat as paths.
+    A path-like string is either a multi-segment relative path
+    ("agent/services/foo.py" — has "/") or a single-segment file
+    ("README.md" — ends in `.<whitelisted extension>`). Java FQNs
+    ("io.ananta.eclipse.X"), Java type names ("String", "List",
+    "Map"), and method-call snippets are rejected.
+
+    This filters out four classes of non-paths that show up in
+    CodeCompass relations records:
+    - Bare Java/C# type symbols ("String", "void", "File", "IOException")
+    - Bare ID symbols ("md_file:a03585ab89eed5e0",
+      "java_type:f482bd7dad4b87f1")
+    - Method-call snippets
+      ("Objects.requireNonNull(apiClient, \"apiClient\")",
+      "List.of()", "Map.of()", "Thread.currentThread().interrupt()")
+    - Java FQNs ("io.ananta.eclipse.runtime.core.AnantaApiClient")
     """
     if not s:
         return False
-    return bool(_PATH_LIKE_RE.search(s))
+    if any(marker in s for marker in _CODE_SNIPPET_MARKERS):
+        return False
+    if any(s.startswith(prefix) for prefix in _JAVA_BUILTIN_PREFIXES):
+        return False
+    if _PATH_SEP_RE.search(s):
+        return True
+    # No path separator — accept only as a single-segment file with a
+    # whitelisted file extension.
+    last_dot = s.rfind(".")
+    if last_dot == -1 or last_dot == len(s) - 1:
+        return False
+    ext = s[last_dot + 1:].lower()
+    if ext in _JAVA_TYPE_NAMES:
+        return False
+    return ext in _VALID_FILE_EXTENSIONS
 
 
 @dataclass
@@ -353,38 +430,43 @@ class CodeCompassCandidateResolver:
                 if "graph_neighbor" not in cs.match_reasons:
                     cs.match_reasons.append("graph_neighbor")
 
-            # Relations: cap distinct target paths per source path AND
-            # distinct source paths per target. Without the source cap, a
-            # hub file with 50 outgoing relations dumps 0.4 points on 50
-            # unrelated targets for every query. Without the target cap, a
-            # central file (e.g. AnantaApiClient.java) accumulates 0.4
-            # points from every other Ananta module that calls into it,
-            # again for every query. Both caps together keep the graph
-            # signal useful without flooding.
-            # Also guard against Java/C# type symbols ("String", "void", "File",
-            # "IOException") that show up as `to` values in relations records
-            # and would otherwise pollute the path set with non-paths.
+            # Relations: each record names a source FILE (the file that
+            # declares/owns the relation) plus a target SYMBOL (the
+            # type/method being referenced). The target symbol is usually
+            # a Java fully-qualified class name, a method-call snippet,
+            # or a hash ID — never a repo-relative file path. Only the
+            # source file's path is usable for ranking.
+            #
+            # Capping rules:
+            #  - Per-source: a single file with N outgoing relations
+            #    contributes AT MOST 1× to graph_neighbor for itself.
+            #    (Without the cap, files like
+            #    AnantaApiClient.java — 506 relations — would saturate
+            #    the graph_neighbor slot for every query.)
             if kind == "relations":
                 relation_source = _normalize_path(
-                    str(record.get("from") or record.get("source") or record.get("from_path") or path)
-                )
-                rel_out_key = f"relation_targets:{relation_source}"
-                if cs.match_reasons.count(rel_out_key) < _MAX_RELATION_TARGETS_PER_SOURCE:
-                    target_path = _normalize_path(
-                        str(record.get("to") or record.get("target") or record.get("target_path") or record.get("to_path") or "")
+                    str(
+                        record.get("file")
+                        or record.get("source_name")
+                        or record.get("path")
+                        or record.get("from_path")
+                        or record.get("from")
+                        or record.get("source")
+                        or ""
                     )
-                    if target_path and target_path != path and _looks_like_path(target_path):
-                        tcs = _get(target_path)
-                        # Cap incoming relations per target path.
-                        rel_in_key = "relation_incoming_total"
-                        if tcs.match_reasons.count(rel_in_key) < _MAX_INCOMING_RELATIONS_PER_TARGET:
-                            tcs.total += _WEIGHT["graph_neighbor"] * 0.5
-                            tcs.relation_path = path
-                            if "relation_neighbor" not in tcs.match_reasons:
-                                tcs.match_reasons.append("relation_neighbor")
-                            tcs.match_reasons.append(rel_in_key)  # counter
-                            if rel_out_key not in tcs.match_reasons:
-                                tcs.match_reasons.append(rel_out_key)
+                )
+                if not relation_source or not _looks_like_path(relation_source):
+                    # No usable source path (e.g. {from, to, type} only,
+                    # both being hash IDs). Skip.
+                    continue
+                # Cap: at most 1× graph_neighbor from relations per file,
+                # regardless of how many outgoing relations it has.
+                if "relation_neighbor" in cs.match_reasons:
+                    # cs already has a relation boost — skip.
+                    continue
+                cs.total += _WEIGHT["graph_neighbor"] * 0.5
+                if "relation_neighbor" not in cs.match_reasons:
+                    cs.match_reasons.append("relation_neighbor")
 
         if not scores:
             return []

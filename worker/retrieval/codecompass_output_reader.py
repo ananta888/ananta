@@ -20,13 +20,20 @@ OUTPUT_FILENAME_BY_KEY = {
 # First matching non-empty field wins.
 _FILE_PATH_FIELD_PRIORITY: dict[str, list[str]] = {
     "index":       ["path", "file", "relative_path", "source"],
-    "details":     ["path", "file", "relative_path", "source"],
-    "context":     ["path", "file", "relative_path", "source", "context_file"],
+    "details":     ["file", "path", "relative_path", "source"],
+    "context":     ["file", "path", "relative_path", "source", "context_file"],
     "embedding":   ["path", "file", "relative_path", "source"],
-    "relations":   ["source_path", "path", "file", "from_path"],
-    "graph_nodes": ["path", "file", "source_path", "relative_path"],
+    "relations":   ["file", "source_name", "path", "from_path"],
+    "graph_nodes": ["file", "path", "source_path", "relative_path"],
     "graph_edges": ["source_path", "target_path", "path", "from_path"],
 }
+
+# Record kinds whose `path` field carries an XML/XPath node address
+# ("/plugin", "/extension[0]/point") rather than a repo-relative file
+# path. For these kinds, the `file` field is the real repo path and
+# MUST be preferred over `path` even when `path` is non-empty.
+_XML_NODE_KINDS = frozenset({"xml_node_detail", "xml_attribute", "xml_node"})
+
 
 _DEFAULT_FILE_PATH_FIELDS = ["path", "file", "relative_path", "source"]
 
@@ -40,8 +47,17 @@ def extract_file_path_from_record(
 
     Returns the first non-empty value from the priority field list for the given output_kind,
     or None if no path can be determined. Never returns absolute paths (strips leading '/').
+
+    For XML-node records (kind in {xml_node_detail, xml_attribute, xml_node})
+    the `path` field carries an XPath like "/plugin" — not a repo path —
+    so the `file` field is preferred over `path` for those kinds.
     """
-    fields = _FILE_PATH_FIELD_PRIORITY.get(output_kind, _DEFAULT_FILE_PATH_FIELDS)
+    kind = record.get("kind")
+    if kind in _XML_NODE_KINDS:
+        # Force `file` first for XML-node records.
+        fields = ["file", "relative_path", "source", "path"]
+    else:
+        fields = _FILE_PATH_FIELD_PRIORITY.get(output_kind, _DEFAULT_FILE_PATH_FIELDS)
     for field in fields:
         raw = record.get(field)
         if not raw:
