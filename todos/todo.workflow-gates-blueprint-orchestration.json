@@ -1638,7 +1638,7 @@
       "done": 33,
       "partial": 0
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 17,
       "P1": 10,
@@ -1651,10 +1651,21 @@
     },
     "milestones": {
       "total": 9,
-      "todo": 9,
+      "by_status": {
+        "WFG-1": "done",
+        "WFG-2": "done",
+        "WFG-3": "done",
+        "WFG-4": "done",
+        "WFG-5": "done",
+        "WFG-6": "done",
+        "WFG-7": "done",
+        "WFG-8": "done",
+        "WFG-9": "done"
+      },
+      "done": 9,
+      "todo": 0,
       "in_progress": 0,
-      "blocked": 0,
-      "done": 0
+      "blocked": 0
     },
     "existing_stack_foundation": {
       "modules": 6,
