@@ -19,11 +19,13 @@ class SeedBlueprintCatalog:
         catalog_path: Path | None = None,
         schema_path: Path | None = None,
         repository_root: Path | None = None,
+        fragments_dir: Path | None = None,
     ) -> None:
         self.repository_root = (repository_root or ROOT).resolve()
         self.catalog_path = catalog_path or (
             self.repository_root / "config" / "blueprints" / "standard" / "blueprints.json"
         )
+        self.fragments_dir = fragments_dir or self.catalog_path.parent / "blueprints.d"
         self.schema_path = schema_path or (
             self.repository_root / "schemas" / "blueprints" / "seed_blueprint_catalog.v1.json"
         )
@@ -36,34 +38,42 @@ class SeedBlueprintCatalog:
         if self._catalog is not None and not force_reload:
             return copy.deepcopy(self._catalog)
 
-        payload = self._load_json(self.catalog_path)
+        payloads = self._load_payloads()
         schema = self._load_json(self.schema_path)
-        validation_errors = sorted(
-            Draft202012Validator(schema).iter_errors(payload),
-            key=lambda err: list(err.path),
-        )
-        if validation_errors:
-            readable = "; ".join(
-                f"{'.'.join(map(str, err.path)) or '<root>'}: {err.message}" for err in validation_errors
-            )
-            raise ValueError(f"invalid seed blueprint catalog {self.catalog_path}: {readable}")
-
         normalized_blueprints: list[dict[str, Any]] = []
         by_name: dict[str, dict[str, Any]] = {}
-        for index, blueprint in enumerate(list(payload.get("blueprints") or []), start=1):
-            normalized = self._normalize_blueprint(blueprint, index=index)
-            name_key = str(normalized["name"]).strip().lower()
-            if name_key in by_name:
-                raise ValueError(f"duplicate seed blueprint name: {normalized['name']}")
-            normalized_blueprints.append(normalized)
-            by_name[name_key] = normalized
+        schema_name = ""
+        version = ""
+
+        for payload_path, payload in payloads:
+            if not schema_name:
+                schema_name = str(payload.get("schema") or "")
+            if not version:
+                version = str(payload.get("version") or "")
+            validation_errors = sorted(
+                Draft202012Validator(schema).iter_errors(payload),
+                key=lambda err: list(err.path),
+            )
+            if validation_errors:
+                readable = "; ".join(
+                    f"{'.'.join(map(str, err.path)) or '<root>'}: {err.message}" for err in validation_errors
+                )
+                raise ValueError(f"invalid seed blueprint catalog {payload_path}: {readable}")
+
+            for index, blueprint in enumerate(list(payload.get("blueprints") or []), start=1):
+                normalized = self._normalize_blueprint(blueprint, index=index)
+                name_key = str(normalized["name"]).strip().lower()
+                if name_key in by_name:
+                    raise ValueError(f"duplicate seed blueprint name: {normalized['name']}")
+                normalized_blueprints.append(normalized)
+                by_name[name_key] = normalized
 
         if not normalized_blueprints:
             raise ValueError("seed blueprint catalog has no blueprints")
 
         self._catalog = {
-            "schema": str(payload.get("schema") or ""),
-            "version": str(payload.get("version") or ""),
+            "schema": schema_name,
+            "version": version,
             "blueprints": normalized_blueprints,
         }
         self._blueprints = normalized_blueprints
@@ -101,11 +111,6 @@ class SeedBlueprintCatalog:
                 "roles": copy.deepcopy(list(blueprint.get("roles") or [])),
                 "artifacts": copy.deepcopy(list(blueprint.get("artifacts") or [])),
             }
-            # Pass through the optional workflow block (WFG-001) so
-            # callers (the team-instantiation API, the workflow-status
-            # endpoint, the planner) see the deterministic step DAG.
-            # ``copy.deepcopy`` ensures callers cannot mutate the
-            # internal cache by reference.
             workflow = blueprint.get("workflow")
             if isinstance(workflow, dict) and workflow:
                 result[name]["workflow"] = copy.deepcopy(workflow)
@@ -118,6 +123,13 @@ class SeedBlueprintCatalog:
         except (OSError, ValueError) as exc:
             self.load_error = str(exc)
             return False
+
+    def _load_payloads(self) -> list[tuple[Path, dict[str, Any]]]:
+        payloads: list[tuple[Path, dict[str, Any]]] = [(self.catalog_path, self._load_json(self.catalog_path))]
+        if self.fragments_dir.exists():
+            for fragment_path in sorted(self.fragments_dir.glob("*.json")):
+                payloads.append((fragment_path, self._load_json(fragment_path)))
+        return payloads
 
     @staticmethod
     def _load_json(path: Path) -> dict[str, Any]:
@@ -197,9 +209,6 @@ class SeedBlueprintCatalog:
         if not normalized_artifacts:
             raise ValueError(f"seed blueprint {name} has no artifacts")
 
-        # Optional workflow block (WFG-001). When absent, the blueprint
-        # is task-list only and falls back to the legacy planning-track
-        # materialization path (WFG-021 backward compatibility).
         workflow = SeedBlueprintCatalog._normalize_workflow(
             raw.get("workflow"),
             blueprint_name=name,
@@ -221,38 +230,6 @@ class SeedBlueprintCatalog:
         blueprint_name: str,
         role_names: set[str],
     ) -> dict[str, Any] | None:
-        """Validate and normalize the optional `workflow` block.
-
-        Raises ValueError on:
-          - step id collisions
-          - step id pattern violations (caught earlier by JSON schema)
-          - `role` references that are not in the blueprint's roles
-          - `depends_on` references to unknown steps (DAG edge integrity)
-          - cycles in the `depends_on` graph (after closure)
-
-        Returns None when `raw` is None or empty. The normalized shape:
-          {
-            "mode": "off" | "direct" | "gated" | "strict_gated",
-            "default_failure_policy": "block" | "skip" | "manual",
-            "steps": [
-              {
-                "id": str,
-                "role": str,           # validated against role_names
-                "task_kind": str,
-                "title": str | None,
-                "description": str | None,
-                "produces": [str],
-                "consumes": [str],
-                "depends_on": [str],
-                "gate": bool,
-                "checks": dict | None,
-                "failure_policy": str | None,
-                "required_capabilities": [str],
-                "sort_order": int,
-              }
-            ],
-          }
-        """
         if not raw:
             return None
         if not isinstance(raw, dict):
@@ -272,7 +249,6 @@ class SeedBlueprintCatalog:
         raw_steps = list(raw.get("steps") or [])
         normalized_steps: list[dict[str, Any]] = []
         seen_step_ids: set[str] = set()
-        # step_id -> normalized dict (for DAG validation)
         by_id: dict[str, dict[str, Any]] = {}
 
         for index, step in enumerate(raw_steps, start=1):
@@ -341,7 +317,6 @@ class SeedBlueprintCatalog:
             normalized_steps.append(normalized)
             by_id[step_id] = normalized
 
-        # DAG edge integrity: every depends_on entry must point to a known step
         for step in normalized_steps:
             for dep in step["depends_on"]:
                 if dep not in by_id:
@@ -350,8 +325,6 @@ class SeedBlueprintCatalog:
                         f"references unknown step: {dep}"
                     )
 
-        # Cycle detection (Kahn's algorithm). Sort order within a topo
-        # layer is the step's explicit sort_order, then id for stability.
         indeg: dict[str, int] = {sid: 0 for sid in by_id}
         for step in normalized_steps:
             for _ in step["depends_on"]:
