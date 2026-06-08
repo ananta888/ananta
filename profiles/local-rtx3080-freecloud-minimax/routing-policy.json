@@ -1,0 +1,63 @@
+{
+  "default_strategy": "free_cloud_then_local",
+  "safety_defaults": {
+    "cloud_requires_approval_for_private_code": true,
+    "secrets_never_leave_local": true,
+    "paid_cloud_requires_manual_approval": true,
+    "prefer_tool_only_for_deterministic_tasks": true
+  },
+  "routes": {
+    "deterministic": {
+      "mode": "tool_only",
+      "llm": false,
+      "description": "Use deterministic tools for file listing, grep, tests, JSON validation, git diff, static checks, and similar tasks."
+    },
+    "private_code": {
+      "mode": "local_only",
+      "allow_cloud": false,
+      "preferred_models": ["local_qwen_coder", "local_deepseek_distill"]
+    },
+    "normal_task": {
+      "mode": "free_cloud_then_local",
+      "allow_cloud": true,
+      "preferred_models": ["free_cloud_general", "local_qwen"]
+    },
+    "coding": {
+      "mode": "local_then_free_cloud",
+      "allow_cloud": "approval_required_for_private_code",
+      "preferred_models": ["local_qwen_coder", "free_cloud_coder"]
+    },
+    "architecture_review": {
+      "mode": "free_cloud_then_minimax",
+      "allow_cloud": true,
+      "preferred_models": ["free_cloud_reasoner", "minimax_m3"]
+    },
+    "hard_case": {
+      "mode": "minimax_m3",
+      "allow_cloud": true,
+      "preferred_models": ["minimax_m3"]
+    },
+    "secrets_or_credentials": {
+      "mode": "local_only",
+      "allow_cloud": false,
+      "preferred_models": ["local_qwen_coder", "local_deepseek_distill"]
+    },
+    "paid_cloud": {
+      "mode": "manual_approval_only",
+      "allow_cloud": "manual_approval_only"
+    },
+    "offline": {
+      "mode": "local_only",
+      "allow_cloud": false,
+      "preferred_models": ["local_qwen", "local_qwen_coder", "local_deepseek_distill"]
+    }
+  },
+  "escalation": [
+    "tool_only",
+    "local_small",
+    "local_rtx3080",
+    "free_cloud",
+    "minimax_m3",
+    "manual_paid_cloud"
+  ]
+}
