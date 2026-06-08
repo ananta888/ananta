@@ -26,6 +26,8 @@ import pytest
 
 from worker.retrieval.codecompass_candidate_resolver import (
     CodeCompassCandidateResolver,
+    ResolverConfig,
+    _classify_path,
     _is_source_path,
     _looks_like_path,
     _source_path_multiplier,
@@ -649,3 +651,370 @@ class TestResolverPerPathCaps:
         )
         paths = [c["path"] for c in candidates]
         assert "plugin" not in paths, f"XPath-derived 'plugin' must not be a candidate; got: {paths[:5]}"
+
+
+class TestPathClassifier:
+    """Tests for the deterministic _classify_path() taxonomy."""
+
+    def test_classifies_source_paths(self) -> None:
+        assert _classify_path("agent/services/foo.py") == "source"
+        assert _classify_path("client_surfaces/operator_tui/chat_policy.py") == "source"
+        assert _classify_path("client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/X.java") == "source"
+        assert _classify_path("scripts/build.py") == "workflow"  # scripts/ is workflow
+
+    def test_classifies_test_paths(self) -> None:
+        assert _classify_path("tests/test_foo.py") == "test"
+        assert _classify_path("test/test_foo.py") == "test"  # top-level test/
+        assert _classify_path("spec/foo.spec.ts") == "test"
+        assert _classify_path("src/foo.spec.ts") == "test"
+        assert _classify_path(".github/workflows/test_foo.yml") == "test"
+
+    def test_classifies_doc_paths(self) -> None:
+        assert _classify_path("docs/architecture.md") == "doc"
+        assert _classify_path("AGENTS.md") == "doc"
+        assert _classify_path("README.md") == "doc"
+        assert _classify_path("PROJEKT_ZIELBILD.md") == "doc"
+        assert _classify_path("CHANGELOG.md") == "doc"
+        assert _classify_path("LICENSE.txt") == "doc"
+
+    def test_classifies_workflow_paths(self) -> None:
+        assert _classify_path("docker-compose.yml") == "workflow"
+        assert _classify_path("docker-compose.base.yml") == "workflow"
+        assert _classify_path("scripts/build.py") == "workflow"
+        assert _classify_path("scripts/run_live_test.py") == "workflow"
+        assert _classify_path(".github/workflows/ci.yml") == "workflow"
+        assert _classify_path("artifacts/runs/foo.json") == "workflow"
+        assert _classify_path("data/results.json") == "workflow"
+        assert _classify_path("rag-helper/out/index.jsonl") == "workflow"
+        assert _classify_path("testsuites/foo.xml") == "workflow"
+
+    def test_classifies_thirdparty_paths(self) -> None:
+        assert _classify_path("client_surfaces/blender/addon/tasks.py") == "thirdparty"
+        assert _classify_path("client_surfaces/freecad/foo.py") == "thirdparty"
+        assert _classify_path("client_surfaces/vscode_extension/src/extension.ts") == "thirdparty"
+        assert _classify_path("frontend-angular/src/app/services/foo.ts") == "thirdparty"
+        assert _classify_path("frontend-angular/android/app/src/main/java/X.java") == "thirdparty"
+
+    def test_test_beats_doc_beats_workflow(self) -> None:
+        # tests/ is BOTH a test marker and (in some cases) a doc path;
+        # test must win.
+        assert _classify_path("tests/README.md") == "test"
+
+
+class TestResolverConfig:
+    """Tests for the ResolverConfig dataclass and from_env() loader."""
+
+    def test_default_is_source_only(self) -> None:
+        cfg = ResolverConfig()
+        assert cfg.include_source is True
+        assert cfg.include_test_paths is False
+        assert cfg.include_docs is False
+        assert cfg.include_workflows is False
+        assert cfg.include_third_party is False
+
+    def test_from_env_truthy_values(self) -> None:
+        env = {
+            "ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS": "1",
+            "ANANTA_CODECOMPASS_INCLUDE_DOCS": "true",
+            "ANANTA_CODECOMPASS_INCLUDE_WORKFLOWS": "yes",
+            "ANANTA_CODECOMPASS_INCLUDE_THIRD_PARTY": "on",
+            "ANANTA_CODECOMPASS_INCLUDE_XML_NODES": "1",
+        }
+        cfg = ResolverConfig.from_env(env=env)
+        assert cfg.include_source is True
+        assert cfg.include_test_paths is True
+        assert cfg.include_docs is True
+        assert cfg.include_workflows is True
+        assert cfg.include_third_party is True
+        assert cfg.include_xml_nodes is True
+
+    def test_from_env_falsy_values(self) -> None:
+        env = {
+            "ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS": "0",
+            "ANANTA_CODECOMPASS_INCLUDE_DOCS": "false",
+            "ANANTA_CODECOMPASS_INCLUDE_WORKFLOWS": "",
+        }
+        cfg = ResolverConfig.from_env(env=env)
+        assert cfg.include_test_paths is False
+        assert cfg.include_docs is False
+        assert cfg.include_workflows is False
+
+    def test_from_env_uses_actual_environ_when_unspecified(self, monkeypatch):
+        monkeypatch.setenv("ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS", "1")
+        cfg = ResolverConfig.from_env()
+        assert cfg.include_test_paths is True
+        monkeypatch.delenv("ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS", raising=False)
+        cfg = ResolverConfig.from_env()
+        assert cfg.include_test_paths is False
+
+    def test_accepts_filters_by_kind(self) -> None:
+        cfg = ResolverConfig()  # source-only
+        assert cfg.accepts("agent/services/foo.py") is True
+        assert cfg.accepts("tests/test_foo.py") is False
+        assert cfg.accepts("README.md") is False
+        assert cfg.accepts("docker-compose.yml") is False
+        assert cfg.accepts("client_surfaces/blender/foo.py") is False
+
+    def test_accepts_with_test_paths_opt_in(self) -> None:
+        cfg = ResolverConfig(include_test_paths=True)
+        assert cfg.accepts("tests/test_foo.py") is True
+        assert cfg.accepts("README.md") is False  # docs still off
+
+    def test_path_multiplier_zero_for_filtered_kinds(self) -> None:
+        cfg = ResolverConfig()
+        # Source → 1.0
+        assert cfg.path_multiplier("agent/services/foo.py") == 1.0
+        # Opted-out → 0.0 (safety net; accepts() would have filtered first)
+        assert cfg.path_multiplier("tests/test_foo.py") == 0.0
+        assert cfg.path_multiplier("README.md") == 0.0
+        # Opted-in secondary kinds → secondary_kind_multiplier (0.7)
+        cfg2 = ResolverConfig(include_test_paths=True)
+        assert cfg2.path_multiplier("tests/test_foo.py") == 0.7
+
+
+class TestResolveWithMode:
+    """End-to-end: the resolve() function honours ResolverConfig."""
+
+    def test_default_mode_excludes_tests(self, tmp_path) -> None:
+        out = tmp_path / "cc"
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "agent/services/hub_loader.py": 5,
+                "tests/test_hub_loader.py": 5,
+            },
+            context_by_file={
+                "agent/services/hub_loader.py": 5,
+                "tests/test_hub_loader.py": 5,
+            },
+        )
+        cands = CodeCompassCandidateResolver().resolve(
+            question="erkläre hub", output_dir=out,
+        )
+        paths = [c["path"] for c in cands]
+        # tests/ must be filtered.
+        assert not any("tests/" in p for p in paths), f"default mode must filter tests; got: {paths}"
+        # source must be present.
+        assert any("hub_loader.py" in p and "tests/" not in p for p in paths)
+
+    def test_include_test_paths_opt_in_keeps_tests(self, tmp_path) -> None:
+        out = tmp_path / "cc"
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "agent/services/hub_loader.py": 5,
+                "tests/test_hub_loader.py": 5,
+            },
+            context_by_file={
+                "agent/services/hub_loader.py": 5,
+                "tests/test_hub_loader.py": 5,
+            },
+        )
+        mode = ResolverConfig(include_test_paths=True)
+        cands = CodeCompassCandidateResolver().resolve(
+            question="erkläre hub", output_dir=out, mode=mode,
+        )
+        paths = [c["path"] for c in cands]
+        # tests/ must now be present.
+        assert any("tests/test_hub_loader.py" in p for p in paths), f"opt-in must keep tests; got: {paths}"
+        # And source still wins on score (× 1.0 vs × 0.7 secondary).
+        scores = {c["path"]: c["score"] for c in cands}
+        if "agent/services/hub_loader.py" in scores and "tests/test_hub_loader.py" in scores:
+            assert scores["agent/services/hub_loader.py"] > scores["tests/test_hub_loader.py"], (
+                f"source must outrank tests even when both are opted in; "
+                f"src={scores['agent/services/hub_loader.py']:.2f} test={scores['tests/test_hub_loader.py']:.2f}"
+            )
+
+    def test_include_docs_opt_in_keeps_readme(self, tmp_path) -> None:
+        out = tmp_path / "cc"
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "agent/services/hub_loader.py": 3,
+                "README.md": 3,
+            },
+            context_by_file={
+                "agent/services/hub_loader.py": 3,
+                "README.md": 3,
+            },
+        )
+        # Default: README filtered.
+        cands = CodeCompassCandidateResolver().resolve(
+            question="hub", output_dir=out,
+        )
+        assert "README.md" not in [c["path"] for c in cands], "default mode must filter README.md"
+        # Opt-in: README appears.
+        cands2 = CodeCompassCandidateResolver().resolve(
+            question="hub", output_dir=out,
+            mode=ResolverConfig(include_docs=True),
+        )
+        paths2 = [c["path"] for c in cands2]
+        assert "README.md" in paths2, f"include_docs=True must keep README.md; got: {paths2}"
+
+    def test_include_workflows_opt_in_keeps_compose(self, tmp_path) -> None:
+        out = tmp_path / "cc"
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "agent/services/hub_loader.py": 3,
+                "docker-compose.yml": 3,
+            },
+            context_by_file={
+                "agent/services/hub_loader.py": 3,
+                "docker-compose.yml": 3,
+            },
+        )
+        cands_default = CodeCompassCandidateResolver().resolve(
+            question="hub", output_dir=out,
+        )
+        assert "docker-compose.yml" not in [c["path"] for c in cands_default]
+        cands_workflow = CodeCompassCandidateResolver().resolve(
+            question="hub", output_dir=out,
+            mode=ResolverConfig(include_workflows=True),
+        )
+        paths = [c["path"] for c in cands_workflow]
+        assert "docker-compose.yml" in paths
+
+    def test_env_var_overrides_default(self, tmp_path, monkeypatch) -> None:
+        out = tmp_path / "cc"
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "agent/services/hub_loader.py": 3,
+                "tests/test_hub_loader.py": 3,
+            },
+            context_by_file={
+                "agent/services/hub_loader.py": 3,
+                "tests/test_hub_loader.py": 3,
+            },
+        )
+        # Set env var → tests are opted in via ResolverConfig.from_env().
+        monkeypatch.setenv("ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS", "1")
+        cands = CodeCompassCandidateResolver().resolve(
+            question="hub", output_dir=out,
+        )
+        paths = [c["path"] for c in cands]
+        assert any("tests/test_hub_loader.py" in p for p in paths), (
+            f"env var must opt tests in; got: {paths}"
+        )
+
+    def test_all_includes_match_old_behavior(self, tmp_path) -> None:
+        """When ALL includes are flipped on, the resolver behaves like
+        the pre-ResolverConfig version (everything gets scored, secondary
+        kinds get × 0.7 instead of × 0.2/× 0.3). The exact multiplier
+        changed, but the inclusion logic is the key invariant.
+        """
+        out = tmp_path / "cc"
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "agent/services/hub_loader.py": 3,
+                "tests/test_hub_loader.py": 3,
+                "README.md": 3,
+                "docker-compose.yml": 3,
+            },
+            context_by_file={
+                "agent/services/hub_loader.py": 3,
+                "tests/test_hub_loader.py": 3,
+                "README.md": 3,
+                "docker-compose.yml": 3,
+            },
+        )
+        cands = CodeCompassCandidateResolver().resolve(
+            question="hub",
+            output_dir=out,
+            mode=ResolverConfig(
+                include_source=True,
+                include_test_paths=True,
+                include_docs=True,
+                include_workflows=True,
+                include_third_party=True,
+            ),
+        )
+        paths = {c["path"] for c in cands}
+        assert "agent/services/hub_loader.py" in paths
+        assert "tests/test_hub_loader.py" in paths
+        assert "README.md" in paths
+        assert "docker-compose.yml" in paths
+
+    def test_stem_boost_applies_to_test_paths_when_opted_in(self, tmp_path) -> None:
+        """When tests are opted in, a test file with stem-token match
+        (`test_hub_loader.py` for query 'hub') should score above a test
+        file without stem-token match. This ensures the stem-boost
+        mechanic is mode-aware, not source-only.
+
+        Regression: stem_boost was previously hardcoded to source paths
+        only, so opted-in test paths with stem match were silently
+        demoted to × 1.0 (and would never reach top-40 because source
+        paths outranked them via × 1.0 × 1.5 stem_boost).
+        """
+        out = tmp_path / "cc"
+        # Two test files: one has 'hub' in stem, one doesn't.
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "tests/test_hub_loader.py": 5,  # has 'hub' in stem
+                "tests/test_random_thing.py": 5,  # no hub-token
+            },
+            context_by_file={
+                "tests/test_hub_loader.py": 5,
+                "tests/test_random_thing.py": 5,
+            },
+        )
+        mode = ResolverConfig(include_test_paths=True)
+        cands = CodeCompassCandidateResolver().resolve(
+            question="hub", output_dir=out, mode=mode,
+        )
+        scores = {c["path"]: c["score"] for c in cands}
+        if "tests/test_hub_loader.py" in scores and "tests/test_random_thing.py" in scores:
+            assert scores["tests/test_hub_loader.py"] > scores["tests/test_random_thing.py"], (
+                f"test_hub_loader.py should outrank test_random_thing.py via stem_boost; "
+                f"got hub={scores['tests/test_hub_loader.py']:.2f} "
+                f"random={scores['tests/test_random_thing.py']:.2f}"
+            )
+
+    def test_default_mode_excludes_thirdparty(self) -> None:
+        """frontend-angular/ is classified as third-party. The default
+        ResolverConfig must filter it out."""
+        cfg = ResolverConfig()
+        assert cfg.accepts("frontend-angular/src/app/services/hub-api-core.service.ts") is False
+        assert cfg.accepts("client_surfaces/blender/addon/tasks.py") is False
+        assert cfg.accepts("client_surfaces/vscode_extension/src/extension.ts") is False
+        # But opted-in makes them appear.
+        cfg2 = ResolverConfig(include_third_party=True)
+        assert cfg2.accepts("frontend-angular/src/app/services/hub-api-core.service.ts") is True
+        assert cfg2.accepts("client_surfaces/blender/addon/tasks.py") is True
+
+    def test_source_still_outranks_test_with_stem_match(self, tmp_path) -> None:
+        """Even with include_test_paths=True, a source file with stem
+        match outranks a test file with stem match — Source-First is
+        preserved when the user opts tests in. The source multiplier
+        (× 1.0) and stem_boost (× 1.5) multiply to 1.5, while the test
+        gets × 0.7 × 1.5 = 1.05.
+        """
+        out = tmp_path / "cc"
+        # Both files have 'hub' in stem and identical raw_score.
+        _seed_minimal_codecompass_output(
+            out,
+            details_by_file={
+                "agent/services/hub_loader.py": 5,  # source + stem match
+                "tests/test_hub_loader.py": 5,  # test + stem match
+            },
+            context_by_file={
+                "agent/services/hub_loader.py": 5,
+                "tests/test_hub_loader.py": 5,
+            },
+        )
+        mode = ResolverConfig(include_test_paths=True)
+        cands = CodeCompassCandidateResolver().resolve(
+            question="hub", output_dir=out, mode=mode,
+        )
+        scores = {c["path"]: c["score"] for c in cands}
+        assert scores["agent/services/hub_loader.py"] > scores["tests/test_hub_loader.py"], (
+            f"Source-First: source must outrank test even with stem match; "
+            f"src={scores['agent/services/hub_loader.py']:.2f} "
+            f"test={scores['tests/test_hub_loader.py']:.2f}"
+        )
+        # And the ratio should be exactly 1.0/0.7 = 1.4286.
+        ratio = scores["agent/services/hub_loader.py"] / scores["tests/test_hub_loader.py"]
+        assert abs(ratio - 1.0 / 0.7) < 0.05, f"ratio {ratio:.3f} should be ~{1/0.7:.3f}"

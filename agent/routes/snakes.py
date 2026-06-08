@@ -1187,7 +1187,9 @@ def worker_context():
         return jsonify({"error": "output_dir required"}), 400
 
     try:
-        from worker.retrieval.codecompass_candidate_resolver import CodeCompassCandidateResolver
+        from worker.retrieval.codecompass_candidate_resolver import (
+            CodeCompassCandidateResolver, ResolverConfig,
+        )
         from agent.services.context_file_reader_service import (
             ContextFileReaderService, FileReadPolicy,
         )
@@ -1196,12 +1198,19 @@ def worker_context():
             get_worker_context_handoff_diagnostics_service,
         )
 
+        # The Hub/worker-side caller passes a max_candidates cap. The
+        # mode (source-only vs include-tests/docs/workflows/thirdparty)
+        # is read from `ANANTA_CODECOMPASS_INCLUDE_*` env vars so the
+        # operator-TUI settings panel can flip toggles without code
+        # changes.
         resolver = CodeCompassCandidateResolver(max_candidates=max(1, min(max_candidates, 100)))
+        mode = ResolverConfig.from_env()
         candidates = resolver.resolve(
             question=question,
             output_dir=output_dir,
             memory_context=memory_context,
             manifest_hash=manifest_hash,
+            mode=mode,
         )
 
         policy = FileReadPolicy(workspace_root=workspace_root or output_dir)
