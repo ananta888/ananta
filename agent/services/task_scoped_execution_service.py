@@ -4510,6 +4510,8 @@ class TaskScopedExecutionService:
         stack_diagnostics = dict(instruction_stack.get("diagnostics") or {})
         shell_command_mode = str(execution_context.get("shell_command_mode") or "").strip().lower()
         allow_complex_shell = shell_command_mode == "pipeline"
+        _raw_pattern_hints = execution_context.get("pattern_hints_normalized")
+        _pattern_hints = dict(_raw_pattern_hints) if isinstance(_raw_pattern_hints, dict) and _raw_pattern_hints else None
         opencode_context_files = get_worker_workspace_service().prepare_opencode_context_files(
             task=task,
             workspace_context=workspace_context,
@@ -4524,6 +4526,7 @@ class TaskScopedExecutionService:
             task_brief_char_limit=task_brief_char_limit,
             context_text_char_limit=hub_context_char_limit,
             research_prompt_char_limit=research_prompt_char_limit,
+            pattern_hints=_pattern_hints,
         )
         prompt_sections.append(f"Aktueller Auftrag: {base_prompt}")
         read_paths = [

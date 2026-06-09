@@ -223,6 +223,9 @@ class PlanningTrackTaskIntegrationService:
             }
             if workflow_step:
                 existing_ctx["workflow_step"] = workflow_step
+            raw_pattern_hints = plan_task.get("pattern_hints_normalized")
+            if isinstance(raw_pattern_hints, dict) and raw_pattern_hints:
+                existing_ctx["pattern_hints_normalized"] = dict(raw_pattern_hints)
             # WFG-015: persist a handoff event per dependency edge so the
             # audit query (WFG-017) and the UI views (WFG-022/023) can
             # render the chain from a single source.

@@ -210,6 +210,7 @@ class BlueprintWorkflowStepDB(SQLModel, table=True):
     checks: dict = Field(default={}, sa_column=Column(JSON))
     failure_policy: Optional[str] = None
     required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    pattern_hints: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 

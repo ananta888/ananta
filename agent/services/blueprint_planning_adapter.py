@@ -188,6 +188,9 @@ class BlueprintPlanningAdapter:
                 ],
                 "blueprint_role_template_hints": [dict(hint) for hint in role_template_hints],
             })
+            raw_hints = getattr(step, "pattern_hints", None)
+            if isinstance(raw_hints, dict) and raw_hints:
+                subtasks[-1]["pattern_hints_normalized"] = dict(raw_hints)
         return subtasks
 
     @staticmethod

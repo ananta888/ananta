@@ -299,6 +299,11 @@ class SeedBlueprintCatalog:
                     f"invalid: {failure_policy}"
                 )
 
+            raw_hints = step.get("pattern_hints")
+            pattern_hints = _normalize_pattern_hints(
+                raw_hints, blueprint_name=blueprint_name, step_id=step_id
+            ) if raw_hints is not None else None
+
             normalized = {
                 "id": step_id,
                 "role": role_name,
@@ -313,6 +318,7 @@ class SeedBlueprintCatalog:
                 "failure_policy": failure_policy,
                 "required_capabilities": [str(x) for x in (step.get("required_capabilities") or [])],
                 "sort_order": int(step.get("sort_order") or 0),
+                "pattern_hints": pattern_hints,
             }
             normalized_steps.append(normalized)
             by_id[step_id] = normalized
@@ -356,6 +362,77 @@ class SeedBlueprintCatalog:
 
 
 seed_blueprint_catalog = SeedBlueprintCatalog()
+
+
+_VALID_PATTERN_ID_RE = __import__("re").compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$")
+
+
+def _normalize_pattern_hints(
+    raw: Any,
+    *,
+    blueprint_name: str,
+    step_id: str,
+) -> dict[str, Any]:
+    """Validate and normalize a workflow step's optional pattern_hints block.
+
+    Accepted keys: allowed_patterns, preferred_patterns, forbid_patterns,
+    language_targets, require_tests.  Unknown keys are silently dropped so
+    that future catalog extensions don't break old seeds.
+
+    Raises ValueError when a pattern ID contains invalid characters or when
+    a preferred ID is not also in allowed_patterns (would silently ignore it).
+    """
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"seed blueprint {blueprint_name} workflow.steps[{step_id}].pattern_hints "
+            "must be an object"
+        )
+
+    def _ids(key: str) -> list[str]:
+        items = list(raw.get(key) or [])
+        out: list[str] = []
+        for item in items:
+            s = str(item or "").strip().lower()
+            if not s:
+                continue
+            if not _VALID_PATTERN_ID_RE.match(s):
+                raise ValueError(
+                    f"seed blueprint {blueprint_name} workflow.steps[{step_id}]"
+                    f".pattern_hints.{key} contains invalid id: {s!r}"
+                )
+            out.append(s)
+        return out
+
+    allowed = _ids("allowed_patterns")
+    preferred = _ids("preferred_patterns")
+    forbidden = _ids("forbid_patterns")
+    language_targets = [
+        str(x or "").strip().lower()
+        for x in list(raw.get("language_targets") or [])
+        if str(x or "").strip()
+    ]
+    require_tests = bool(raw.get("require_tests", True))
+
+    # preferred must be a subset of allowed (if allowed is non-empty)
+    if allowed and preferred:
+        unknown_preferred = [p for p in preferred if p not in allowed]
+        if unknown_preferred:
+            raise ValueError(
+                f"seed blueprint {blueprint_name} workflow.steps[{step_id}]"
+                f".pattern_hints.preferred_patterns contains ids not in "
+                f"allowed_patterns: {unknown_preferred}"
+            )
+
+    hints: dict[str, Any] = {"require_tests": require_tests}
+    if allowed:
+        hints["allowed_patterns"] = allowed
+    if preferred:
+        hints["preferred_patterns"] = preferred
+    if forbidden:
+        hints["forbid_patterns"] = forbidden
+    if language_targets:
+        hints["language_targets"] = language_targets
+    return hints
 
 
 def get_seed_blueprint_catalog() -> SeedBlueprintCatalog:

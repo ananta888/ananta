@@ -85,6 +85,7 @@ class WorkflowDefinitionService:
         self._delete_steps(session, blueprint.id)
         rows: list[BlueprintWorkflowStepDB] = []
         for step in steps:
+            raw_hints = step.get("pattern_hints")
             row = BlueprintWorkflowStepDB(
                 blueprint_id=blueprint.id,
                 step_id=step["id"],
@@ -100,6 +101,7 @@ class WorkflowDefinitionService:
                 checks=dict(step.get("checks", {})),
                 failure_policy=step.get("failure_policy"),
                 required_capabilities=list(step.get("required_capabilities", [])),
+                pattern_hints=dict(raw_hints) if isinstance(raw_hints, dict) else None,
             )
             session.add(row)
             rows.append(row)
