@@ -8,6 +8,15 @@ _ALLOWED_DOWNLOAD_POLICY = {"deny", "whitelist", "bounded_output_dir"}
 _ALLOWED_AUTH_POLICY = {"none", "explicit_opt_in"}
 _ALLOWED_SCREENSHOT_POLICY = {"none", "on_error", "always"}
 
+# Default-blockierte Hosts (intern / Metadata) — gelten immer wenn blocked_domains nicht explizit gesetzt
+_DEFAULT_BLOCKED_DOMAINS: tuple[str, ...] = (
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "169.254.169.254",  # AWS/GCP Metadata
+    "metadata.google.internal",
+)
+
 
 @dataclass(frozen=True)
 class BrowserTaskContract:
@@ -19,6 +28,8 @@ class BrowserTaskContract:
     screenshot_policy: str
     download_allowlist: tuple[str, ...]
     output_dir: str | None
+    persist_session: bool
+    blocked_domains: tuple[str, ...]
 
     @staticmethod
     def from_payload(payload: dict[str, Any] | None) -> "BrowserTaskContract":
@@ -31,6 +42,13 @@ class BrowserTaskContract:
         screenshot_policy = str(data.get("screenshot_policy") or "none").strip().lower()
         download_allowlist = tuple(str(x).strip().lower() for x in list(data.get("download_allowlist") or []) if str(x).strip())
         output_dir = str(data.get("output_dir") or "").strip() or None
+        persist_session = bool(data.get("persist_session", False))
+
+        raw_blocked = data.get("blocked_domains")
+        if isinstance(raw_blocked, list):
+            blocked_domains = tuple(str(x).strip().lower() for x in raw_blocked if str(x or "").strip())
+        else:
+            blocked_domains = _DEFAULT_BLOCKED_DOMAINS
 
         if max_actions <= 0:
             raise ValueError("browser_contract_invalid_max_actions")
@@ -52,4 +70,6 @@ class BrowserTaskContract:
             screenshot_policy=screenshot_policy,
             download_allowlist=download_allowlist,
             output_dir=output_dir,
+            persist_session=persist_session,
+            blocked_domains=blocked_domains,
         )

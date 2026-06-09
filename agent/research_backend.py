@@ -17,6 +17,8 @@ from flask import current_app, has_app_context
 from agent.config import settings
 from agent.common.audit import log_audit
 from agent.services.browser_artifact_service import get_browser_artifact_service
+from agent.services.browser_camofox_adapter import build_camofox_adapter
+from agent.services.browser_policy_service import get_browser_policy_service
 from agent.services.browser_recovery_service import get_browser_recovery_service
 from agent.services.browser_task_contract import BrowserTaskContract
 from agent.services.browser_use_adapter import get_browser_use_execution_adapter
@@ -64,10 +66,27 @@ RESEARCH_BACKEND_SPECS: dict[str, dict[str, Any]] = {
         "verify_command": "configure research_backend.providers.browser_use",
         "job_prefix": "bu",
     },
+    "camofox": {
+        "display_name": "Camofox",
+        "default_mode": "native",
+        "default_command": "",
+        "default_result_format": "json",
+        "default_enabled": False,
+        "supports_model": False,
+        "install_hint": "Start the Camoufox REST server (default: http://localhost:9377) and enable camofox in research_backend.providers.camofox.",
+        "verify_command": "configure research_backend.providers.camofox with camofox_url",
+        "job_prefix": "cf",
+    },
 }
 RESEARCH_BACKEND_PROVIDERS: tuple[str, ...] = tuple(RESEARCH_BACKEND_SPECS.keys())
 _RESEARCH_JOBS: dict[str, dict[str, dict[str, Any]]] = {provider: {} for provider in RESEARCH_BACKEND_PROVIDERS}
 _BROWSER_OBSERVABILITY = {
+    "calls": 0,
+    "actions": 0,
+    "last_failure_class": None,
+    "last_latency_ms": 0,
+}
+_CAMOFOX_OBSERVABILITY = {
     "calls": 0,
     "actions": 0,
     "last_failure_class": None,
@@ -210,6 +229,9 @@ def get_research_backend_preflight(*, agent_cfg: dict[str, Any] | None = None) -
         if provider == "browser_use":
             entries[provider]["observability"] = dict(_BROWSER_OBSERVABILITY)
             entries[provider]["health"] = get_browser_backend_health(cfg)
+        elif provider == "camofox":
+            entries[provider]["observability"] = dict(_CAMOFOX_OBSERVABILITY)
+            entries[provider]["health"] = get_camofox_backend_health(cfg)
     return entries
 
 
@@ -220,6 +242,35 @@ def get_browser_backend_diagnostics() -> dict[str, Any]:
         "actions": int(_BROWSER_OBSERVABILITY.get("actions", 0)),
         "last_failure_class": _BROWSER_OBSERVABILITY.get("last_failure_class"),
         "last_latency_ms": int(_BROWSER_OBSERVABILITY.get("last_latency_ms", 0)),
+        "camofox": {
+            "calls": int(_CAMOFOX_OBSERVABILITY.get("calls", 0)),
+            "actions": int(_CAMOFOX_OBSERVABILITY.get("actions", 0)),
+            "last_failure_class": _CAMOFOX_OBSERVABILITY.get("last_failure_class"),
+            "last_latency_ms": int(_CAMOFOX_OBSERVABILITY.get("last_latency_ms", 0)),
+        },
+    }
+
+
+def get_camofox_backend_health(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+    resolved = dict(cfg or resolve_research_backend_config(provider_override="camofox"))
+    if not resolved.get("enabled"):
+        return {
+            "provider": "camofox",
+            "ready": False,
+            "reason": "camofox_disabled",
+            "mode": str(resolved.get("mode") or ""),
+            "enabled": False,
+        }
+    browser_cfg = {"camofox_url": resolved.get("camofox_url") or "http://localhost:9377"}
+    adapter = build_camofox_adapter(browser_cfg)
+    health = adapter.health_check()
+    return {
+        "provider": "camofox",
+        "ready": bool(health.get("healthy")),
+        "reason": "ok" if health.get("healthy") else health.get("error", "camofox_server_unavailable"),
+        "mode": str(resolved.get("mode") or "native"),
+        "enabled": bool(resolved.get("enabled")),
+        "configured": bool(resolved.get("configured")),
     }
 
 
@@ -557,6 +608,118 @@ def _execute_research_backend_cli(
             }
             return -1, "", f"browser_needs_review:{json.dumps(escalation, ensure_ascii=False)}"
         return -1, "", f"browser_use_{result.failure_class or 'failed'}:{recovery.action}:{recovery.reason}"
+
+    if cfg["mode"] == "native" and cfg["provider"] == "camofox":
+        started = time.time()
+        ctx = dict(research_context or {})
+        browser_cfg = dict(ctx.get("browser_config") or {})
+        if not cfg["enabled"]:
+            return -1, "", "Camofox research backend is disabled"
+
+        contract = BrowserTaskContract.from_payload(
+            {
+                "allowed_domains": browser_cfg.get("allowed_domains") or [],
+                "max_actions": browser_cfg.get("max_actions") or 10,
+                "timeout_seconds": browser_cfg.get("timeout_seconds") or int(timeout or cfg["timeout_seconds"]),
+                "download_policy": browser_cfg.get("download_policy") or "deny",
+                "auth_policy": browser_cfg.get("auth_policy") or "none",
+                "screenshot_policy": browser_cfg.get("screenshot_policy") or "none",
+                "download_allowlist": browser_cfg.get("download_allowlist") or [],
+                "output_dir": browser_cfg.get("output_dir"),
+                "persist_session": bool(browser_cfg.get("persist_session", False)),
+                "blocked_domains": browser_cfg.get("blocked_domains"),
+            }
+        )
+        adapter = build_camofox_adapter(browser_cfg)
+        health = adapter.health_check()
+        log_audit(
+            "browser_route_selected",
+            {"provider": "camofox", "resolved_backend": "camofox", "healthy": health.get("healthy")},
+        )
+        if not health.get("healthy"):
+            _CAMOFOX_OBSERVABILITY["calls"] += 1
+            _CAMOFOX_OBSERVABILITY["last_failure_class"] = "backend_unavailable"
+            log_audit("browser_policy_blocked", {"provider": "camofox", "reason": "camofox_server_unavailable"})
+            return -1, "", f"camofox_server_unavailable:{health.get('error', '')}"
+
+        start_url = str(ctx.get("start_url") or "").strip()
+        actions = list(ctx.get("actions") or [])
+        if not start_url:
+            return -1, "", "camofox_start_url_missing"
+
+        policy = get_browser_policy_service()
+        if bool(browser_cfg.get("auth_requested", False)) and contract.auth_policy != "explicit_opt_in":
+            log_audit("browser_policy_blocked", {"provider": "camofox", "reason": "browser_policy_auth_not_allowed"})
+            return -1, "", "browser_policy_auth_not_allowed"
+
+        session_id: str | None = None
+        try:
+            session_id = adapter.create_session(contract=contract)
+            nav = adapter.navigate(url=start_url, session_id=session_id, contract=contract)
+            if not nav.ok:
+                _CAMOFOX_OBSERVABILITY["calls"] += 1
+                _CAMOFOX_OBSERVABILITY["last_failure_class"] = nav.policy_denial_code or "navigate_failed"
+                log_audit("browser_policy_blocked", {"provider": "camofox", "reason": nav.policy_denial_code or nav.error})
+                return -1, "", nav.policy_denial_code or nav.error or "camofox_navigate_failed"
+
+            extracted: dict = {}
+            actions_executed = 1
+            for action in actions:
+                action_type = str((action or {}).get("type") or "").strip().lower()
+                if actions_executed > contract.max_actions:
+                    break
+                if action_type == "read":
+                    res = adapter.read_page(session_id=session_id, contract=contract)
+                    if res.ok:
+                        extracted.update(res.data)
+                elif action_type == "click":
+                    adapter.click(selector=str(action.get("selector") or ""), session_id=session_id, contract=contract)
+                elif action_type == "type":
+                    adapter.type_text(
+                        selector=str(action.get("selector") or ""),
+                        text=str(action.get("text") or ""),
+                        session_id=session_id,
+                        contract=contract,
+                    )
+                elif action_type == "screenshot":
+                    res = adapter.screenshot(session_id=session_id, contract=contract)
+                    if res.ok:
+                        extracted["screenshot"] = res.data
+                elif action_type == "download":
+                    res = adapter.download(
+                        url=str(action.get("url") or start_url),
+                        output_path=str(action.get("output_path") or ""),
+                        session_id=session_id,
+                        contract=contract,
+                    )
+                    if not res.ok:
+                        log_audit("browser_policy_blocked", {"provider": "camofox", "reason": res.policy_denial_code or res.error})
+                        return -1, "", res.policy_denial_code or res.error or "camofox_download_failed"
+                    extracted.update(res.data)
+                actions_executed += 1
+        finally:
+            if session_id and not contract.persist_session:
+                adapter.close_session(session_id=session_id)
+
+        latency_ms = int((time.time() - started) * 1000)
+        _CAMOFOX_OBSERVABILITY["calls"] += 1
+        _CAMOFOX_OBSERVABILITY["actions"] += actions_executed
+        _CAMOFOX_OBSERVABILITY["last_latency_ms"] = latency_ms
+        _CAMOFOX_OBSERVABILITY["last_failure_class"] = None
+
+        artifact_payload = {
+            "extracted_data": extracted,
+            "page_evidence": [{"url": start_url, "action_count": actions_executed}],
+            "sources": [{"url": start_url, "kind": "web"}],
+            "trace": [{"provider": "camofox", "session_id": session_id, "actions_executed": actions_executed}],
+        }
+        check = get_browser_artifact_service().validate_schema(artifact_payload)
+        if not check.valid:
+            log_audit("browser_policy_blocked", {"provider": "camofox", "reason": check.reason})
+            return -1, "", check.reason
+        log_audit("browser_artifact_verified", {"provider": "camofox", "status": "passed"})
+        return 0, json.dumps(artifact_payload, ensure_ascii=False), ""
+
     if cfg["mode"] == "sandbox":
         return _execute_research_backend_sandbox(
             prompt=prompt,
@@ -732,6 +895,8 @@ def get_research_backend_adapter(provider: str | None = None) -> ResearchBackend
         return AnantaResearchAdapter()
     if normalized == "browser_use":
         return ResearchBackendAdapter(provider="browser_use")
+    if normalized == "camofox":
+        return ResearchBackendAdapter(provider="camofox")
     return DeerFlowAdapter()
 
 

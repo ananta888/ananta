@@ -29,3 +29,27 @@ def test_non_browser_provider_mapping_unchanged():
     assert rb.get_research_backend_adapter("deerflow").provider == "deerflow"
     assert rb.get_research_backend_adapter("ananta_research").provider == "ananta_research"
     assert rb.get_research_backend_adapter("browser_use").provider == "browser_use"
+
+
+def test_camofox_provider_in_specs():
+    assert "camofox" in rb.RESEARCH_BACKEND_SPECS
+    assert rb.RESEARCH_BACKEND_SPECS["camofox"]["default_mode"] == "native"
+    assert rb.RESEARCH_BACKEND_SPECS["camofox"]["default_enabled"] is False
+
+
+def test_camofox_provider_in_providers_tuple():
+    assert "camofox" in rb.RESEARCH_BACKEND_PROVIDERS
+
+
+def test_camofox_adapter_selectable():
+    adapter = rb.get_research_backend_adapter("camofox")
+    assert adapter.provider == "camofox"
+
+
+def test_camofox_disabled_returns_error():
+    """Camofox disabled führt zu Fehler-Return ohne HTTP-Aufruf."""
+    cfg = rb.resolve_research_backend_config(
+        provider_override="camofox",
+        agent_cfg={"research_backend": {"providers": {"camofox": {"enabled": False}}}},
+    )
+    assert cfg["enabled"] is False

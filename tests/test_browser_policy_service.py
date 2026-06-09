@@ -48,3 +48,56 @@ def test_auth_policy_opt_in_required():
     assert svc.enforce_auth_usage(requested=True, contract=c).allow is False
     c2 = _contract(auth_policy="explicit_opt_in")
     assert svc.enforce_auth_usage(requested=True, contract=c2).allow is True
+
+
+def test_enforce_blocked_hosts_localhost():
+    svc = BrowserPolicyService()
+    c = _contract()
+    result = svc.enforce_blocked_hosts(url="http://localhost/admin", contract=c)
+    assert result.allow is False
+    assert result.reason_code == "browser_policy_blocked_domain"
+
+
+def test_enforce_blocked_hosts_private_ip():
+    svc = BrowserPolicyService()
+    c = _contract()
+    for ip in ["192.168.1.1", "10.0.0.1", "172.16.0.1"]:
+        result = svc.enforce_blocked_hosts(url=f"http://{ip}/api", contract=c)
+        assert result.allow is False, f"Private IP {ip} sollte blockiert sein"
+        assert result.reason_code == "browser_policy_private_ip_blocked"
+
+
+def test_enforce_blocked_hosts_metadata_ip():
+    svc = BrowserPolicyService()
+    c = _contract()
+    result = svc.enforce_blocked_hosts(url="http://169.254.169.254/latest/meta-data/", contract=c)
+    assert result.allow is False
+
+
+def test_enforce_blocked_hosts_public_domain_allowed():
+    svc = BrowserPolicyService()
+    c = _contract()
+    result = svc.enforce_blocked_hosts(url="https://example.com/page", contract=c)
+    assert result.allow is True
+
+
+def test_enforce_blocked_hosts_custom_blocked_domain():
+    svc = BrowserPolicyService()
+    c = _contract(blocked_domains=["evil.com"])
+    result = svc.enforce_blocked_hosts(url="https://evil.com/page", contract=c)
+    assert result.allow is False
+
+
+def test_enforce_session_persistence_not_allowed():
+    svc = BrowserPolicyService()
+    c = _contract()  # persist_session default = False
+    result = svc.enforce_session_persistence(requested=True, contract=c)
+    assert result.allow is False
+    assert result.reason_code == "browser_policy_session_persistence_not_allowed"
+
+
+def test_enforce_session_persistence_allowed():
+    svc = BrowserPolicyService()
+    c = _contract(persist_session=True)
+    result = svc.enforce_session_persistence(requested=True, contract=c)
+    assert result.allow is True

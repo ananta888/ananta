@@ -1,7 +1,7 @@
 {
   "id": "todo.browser-camofox-adapter",
   "title": "Camofox/Camoufox Browser Backend in Ananta integrieren",
-  "status": "planned",
+  "status": "done",
   "priority": "high",
   "context": {
     "summary": "Ananta besitzt bereits Browser-Grundstruktur mit browser_use_adapter, browser_task_contract und browser_policy_service. Camofox/Camoufox ist aber noch nicht als konkretes Backend integriert.",
