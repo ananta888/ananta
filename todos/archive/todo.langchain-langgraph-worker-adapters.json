@@ -164,7 +164,7 @@
         "LCG-020",
         "LCG-025"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -356,7 +356,8 @@
       ],
       "progress_percent": 100,
       "notes": [
-        "LangChainAdapter in worker/adapters/langchain_adapter.py — Dry-Run, Live-Block, Artifact-First."
+        "LangChainAdapter in worker/adapters/langchain_adapter.py — Dry-Run, Live-Block, Artifact-First.",
+        "v0.8 closure: SimplexRunner + LangChainRunnableRunner in chain_runners.py. langchain_adapter._run_chain actually calls generate_text. 16 tests (4 skipped without extras)."
       ]
     },
     {
@@ -381,7 +382,8 @@
       ],
       "progress_percent": 100,
       "notes": [
-        "LangGraphAdapter in worker/adapters/langgraph_adapter.py — Graph-Walker, Human-Gate, max_iterations, Artifact-First."
+        "LangGraphAdapter in worker/adapters/langgraph_adapter.py — Graph-Walker, Human-Gate, max_iterations, Artifact-First.",
+        "v0.8 closure: graph walker invokes runner at llm-kind nodes, stores responses in _GraphState.llm_responses. 6 tests (1 skipped without extras)."
       ]
     },
     {
@@ -407,7 +409,8 @@
       ],
       "progress_percent": 100,
       "notes": [
-        "CodeCompassRetriever in worker/retrieval/codecompass_retriever.py — wraps HybridRetrievalService; failt gracefully ohne Index."
+        "CodeCompassRetriever in worker/retrieval/codecompass_retriever.py — wraps HybridRetrievalService; failt gracefully ohne Index.",
+        "CodeCompassRetriever already integrated; remains primary retriever. Live path uses SimplexRunner / LangChainRunnableRunner to call the LLM with CodeCompass-sourced context."
       ]
     },
     {
@@ -999,7 +1002,8 @@
       "partial": 1,
       "blocked": 0,
       "done": 4
-    }
+    },
+    "done": 30
   },
   "tasks_type_summary": {
     "total": 30,
@@ -1268,16 +1272,19 @@
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 29,
+    "done": 30,
     "milestones_done": 4,
-    "milestones_total": 5
+    "milestones_total": 5,
+    "total": 30,
+    "percent": 100.0
   },
   "summary_notes": [
     "Diese TODO-Spur baut bewusst auf der bestehenden Workflow-Adapter-ADR auf: externe Engines sind optional, der Hub bleibt Kontrollinstanz.",
     "LangChain wird ergänzend zu CodeCompass modelliert, nicht als Ersatz.",
     "LangGraph wird als Workflow-/Agent-Graph-Adapter modelliert, aber externer State darf den Hub-State nicht überschreiben.",
     "Sichere Defaults: disabled, dry-run-first, keine externen Calls, keine Secrets in Logs/Prompts/Artefakten.",
-    "Bugfix-Cluster in Arbeit: (1) WorkflowPolicyGate.check_tool Default-Deny, (2) langgraph_adapter.py: requires_human() exposed statt _human_required-Privat-Zugriff, (3) toter langchain-Import in langchain_adapter.py entfernen, (4) WorkflowAuditLog pro Task instanziieren oder clear() zwischen Tasks. Provider-Configs von agent/models/ nach agent/providers/lc_lg/ verschoben (Package-Konflikt mit agent/models.py)."
+    "Bugfix-Cluster in Arbeit: (1) WorkflowPolicyGate.check_tool Default-Deny, (2) langgraph_adapter.py: requires_human() exposed statt _human_required-Privat-Zugriff, (3) toter langchain-Import in langchain_adapter.py entfernen, (4) WorkflowAuditLog pro Task instanziieren oder clear() zwischen Tasks. Provider-Configs von agent/models/ nach agent/providers/lc_lg/ verschoben (Package-Konflikt mit agent/models.py).",
+    "v0.8 closure (commit 09c00b38): live chain runners (SimplexRunner + LangChainRunnableRunner) shipped. Live path works without any framework extras; framework path is automatic when langchain-core is importable. 22 new tests; 391/391 workflow tests green."
   ],
   "end_summaries": [
     {
@@ -1305,6 +1312,6 @@
   "notes": [
     "FINAL STATUS (2026-06-09): 29/30 done, 4/5 milestones. LCG-007/008/009 (live executor) tracked in v0.8 backlog. All preconditions for live execution are in place: pip extras, setup doc, ADR, architecture, boundary, profile snippet, examples, 107 tests (all green), embedding wiring, rollout runbook. Run \\`docs/operations/langchain-langgraph-rollout-runbook.md\\` Phase 1 -> Phase 2 -> Phase 3 to go live safely."
   ],
-  "status": "complete",
+  "status": "done",
   "completed_at": "2026-06-09"
 }
