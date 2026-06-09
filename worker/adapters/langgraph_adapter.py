@@ -11,6 +11,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from agent.providers.lc_lg import LangGraphProviderConfig
+from worker.adapters.chain_runners import (
+    LangChainRunnableRunner,
+    SimplexRunner,
+)
 from worker.adapters.workflow_adapter_base import (
     DryRunResult, WorkerError, WorkflowAdapterDescriptor, WorkflowArtifactResult,
 )
@@ -44,6 +48,10 @@ class _GraphState:
     iteration: int = 0
     stopped_at: str = ""
     stop_reason: str = ""
+    # LCG-008 v0.8 closure: per-node LLM responses. Each entry is
+    # {node_id, runner, response} so downstream nodes can read prior
+    # outputs and the audit trace can show which runner fired where.
+    llm_responses: list[dict[str, Any]] = field(default_factory=list)
 
 
 class LangGraphAdapter:
@@ -214,10 +222,11 @@ class LangGraphAdapter:
 
     def _run_graph(self, task_id: str, task_type: str,
                     payload: dict[str, Any], budget: WorkflowBudgetGuard) -> WorkflowArtifactResult:
-        if not self._langgraph_available():
-            raise WorkerError("langgraph_not_installed",
-                               "langgraph package is not installed; pip install ananta[langgraph]")
-
+        # LCG-008 v0.8 closure: the framework is optional. The walker
+        # itself is framework-independent — it only invokes the LLM
+        # at llm-kind nodes via the runner abstraction. SimplexRunner
+        # works without any extras; LangChainRunnableRunner is used
+        # when the framework is importable.
         state = _GraphState(
             graph_id=str(payload.get("graph_id") or f"graph-{task_type}"),
             task_id=task_id,
@@ -312,6 +321,22 @@ class LangGraphAdapter:
                 state.stop_reason = "end_node"
                 break
 
+            # LCG-008 v0.8 closure: actually invoke the LLM at llm nodes.
+            # Other node kinds (tool, retriever, router, artifact_writer)
+            # are simulated as before — the v0.8+ GraphState contract
+            # already has slots for them; v0.7 walks the topology.
+            if kind == "llm":
+                try:
+                    self._invoke_llm_node(
+                        node=node, state=state, budget=budget,
+                    )
+                except WorkerError as exc:
+                    state.stopped_at = current
+                    state.stop_reason = exc.reason_code
+                    self._audit.log("node_failed", task_id=state.task_id,
+                                    node=current, reason_code=exc.reason_code)
+                    raise
+
             # Follow first edge from current node
             edge_list = edges if isinstance(edges, list) else []
             next_node = None
@@ -328,6 +353,62 @@ class LangGraphAdapter:
         else:
             state.stopped_at = current
             state.stop_reason = "max_iterations"
+
+    def _invoke_llm_node(self, *, node: dict[str, Any], state: "_GraphState",
+                          budget: WorkflowBudgetGuard) -> None:
+        """Invoke the LLM at an llm-kind node (LCG-008 v0.8 closure).
+
+        Mirrors the LangChain adapter's runner selection: simplex by
+        default, langchain runnable when the framework is installed.
+        The result is stored in state.llm_responses (a list of
+        {node_id, runner, response}) so downstream nodes can use it
+        and the audit trace can show which runner fired where.
+        """
+        prompt = self._build_node_prompt(node, state)
+        runner_label = "simplex"
+        runner_obj: Any = SimplexRunner()
+        if self._langgraph_available():
+            runner_label = "langchain_runnable"
+            runner_obj = LangChainRunnableRunner()
+        # LangGraphProviderConfig has no model_provider_ref field by
+        # design (it is governance-only); fall back to a runtime
+        # default that generate_text() can resolve.
+        model_ref = getattr(self._config, "model_provider_ref", None) or "local.default"
+        response = runner_obj.run(
+            prompt=prompt,
+            payload={"node": node.get("id", ""), "graph_id": state.graph_id},
+            budget=budget,
+            model_provider_ref=model_ref,
+        )
+        state.llm_responses.append({
+            "node_id": node.get("id", ""),
+            "runner": runner_label,
+            "response": str(response)[:1000],
+        })
+        self._audit.log("node_llm_invoked", task_id=state.task_id,
+                         node=node.get("id", ""), runner=runner_label)
+
+    def _build_node_prompt(self, node: dict[str, Any], state: "_GraphState") -> str:
+        """Build the prompt for an llm node: node description + prior context."""
+        context_block = "\n\n".join(
+            f"[{i+1}] {s.get('path','')}: {s.get('content','')[:300]}"
+            for i, s in enumerate(state.context_sources or [])
+        )
+        prior = ""
+        if state.llm_responses:
+            prior = "\n\n".join(
+                f"[from {r['node_id']}]: {r['response'][:300]}"
+                for r in state.llm_responses[-2:]
+            )
+        sections = [
+            f"Node: {node.get('id','?')} (kind=llm)",
+            f"Graph: {state.graph_id}",
+        ]
+        if context_block:
+            sections.append("Context (CodeCompass):\n" + context_block)
+        if prior:
+            sections.append("Prior node responses:\n" + prior)
+        return "\n\n".join(sections)
 
     def _build_plan(self, task_type: str, nodes: list[dict],
                      retriever: str) -> list[dict[str, Any]]:
