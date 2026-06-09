@@ -435,7 +435,30 @@ def poll_view_payload(session_id: str):
             if f.get("message_id") == since:
                 frames = frames[i + 1:]
                 break
-    return jsonify({"ok": True, "data": {"frames": frames[-10:]}}), 200
+    # T06: Pair-Dev view-sync contract. The frontend expects
+    # `view_messages` (a flat list of RelayEnvelopes) and a
+    # `view_cursor` to advance through the queue. We keep the
+    # legacy `data.frames` shape for backwards compatibility
+    # with any older client still on it.
+    view_messages = [
+        {
+            "message_id": f.get("message_id"),
+            "kind": f.get("kind"),
+            "base_hash": f.get("base_hash"),
+            "new_hash": f.get("new_hash"),
+            "width": f.get("width"),
+            "height": f.get("height"),
+            "encrypted_payload": f.get("encrypted_payload"),
+        }
+        for f in frames[-10:]
+    ]
+    last_id = view_messages[-1]["message_id"] if view_messages else since
+    return jsonify({
+        "ok": True,
+        "view_messages": view_messages,
+        "view_cursor": last_id or "",
+        "data": {"frames": frames[-10:]},
+    }), 200
 
 
 @share_sessions_bp.route("/share-sessions/<session_id>/chat/messages", methods=["POST"])
