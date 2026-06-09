@@ -151,7 +151,7 @@
         "LCG-014",
         "LCG-015"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -413,7 +413,7 @@
     {
       "id": "LCG-010",
       "title": "EmbeddingProviderConfig mit LangChain-Verwendung verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "integration",
@@ -431,7 +431,10 @@
         "Hash/Fake-Embeddings bleiben für Tests möglich.",
         "Bei Dimensionswechsel wird Rebuild/Degraded-Status sichtbar."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "CodeCompassRetriever nimmt jetzt optional provider_config und scope entgegen, resolved EmbeddingProviderConfigService.resolve_for_build(scope) lazily. Default-Pfad (kein provider_config) liefert embedding_provider=None. LangChainAdapter forwarded embedding_provider_scope aus dem Config, LangGraphAdapter nutzt codecompass_vector Scope. test_workflow_lc_lg_embedding_provider.py: 9 Tests inkl. Resilience-Test."
+      ]
     },
     {
       "id": "LCG-011",
@@ -962,13 +965,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 2,
+      "todo": 1,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 27
+      "done": 28
     },
-    "progress_percent_done": 90.0,
+    "progress_percent_done": 93.3,
     "by_priority": {
       "P0": 18,
       "P1": 10,
@@ -988,11 +991,11 @@
     },
     "milestones": {
       "total": 5,
-      "todo": 2,
+      "todo": 1,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -1080,18 +1083,18 @@
       },
       "integration": {
         "total": 2,
-        "done": 1,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 50.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         }
       },
       "security": {
@@ -1258,12 +1261,12 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 3,
+    "todo_remaining": 2,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 27,
-    "milestones_done": 2,
+    "done": 28,
+    "milestones_done": 3,
     "milestones_total": 5
   },
   "summary_notes": [

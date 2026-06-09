@@ -61,7 +61,13 @@ class LangGraphAdapter:
             human_required_actions=set(self._config.human_in_loop_required_for),
         )
         self._audit = WorkflowAuditLog(adapter_id="adapter.langgraph")
-        self._retriever = CodeCompassRetriever()
+        # LCG-010: wire the retriever to the same scope the LangGraph
+        # side uses for embedding selection. The scope is hard-coded
+        # to "codecompass_vector" for now (matches the LangChain side
+        # and the existing CodeCompassVectorEngine); a future
+        # embedding_provider_scope field on LangGraphProviderConfig
+        # can override it without touching this line.
+        self._retriever = CodeCompassRetriever(scope="codecompass_vector")
 
     def descriptor(self) -> WorkflowAdapterDescriptor:
         available = self._langgraph_available()
