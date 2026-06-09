@@ -17,7 +17,13 @@
     {
       "id": "M1",
       "title": "Kritisch: Dateien über 3000 Zeilen (5 Dateien)",
-      "task_ids": ["SPLIT-001", "SPLIT-002", "SPLIT-003", "SPLIT-004", "SPLIT-005"],
+      "task_ids": [
+        "SPLIT-001",
+        "SPLIT-002",
+        "SPLIT-003",
+        "SPLIT-004",
+        "SPLIT-005"
+      ],
       "status": "in_progress",
       "priority": "P0",
       "notes": "SPLIT-001 done (1347 lines, target was <1500). SPLIT-002 through SPLIT-005 todo."
@@ -25,28 +31,74 @@
     {
       "id": "M2",
       "title": "Hoch: Agent-Services 2000–3000 Zeilen (5 Dateien)",
-      "task_ids": ["SPLIT-006", "SPLIT-007", "SPLIT-008", "SPLIT-009", "SPLIT-010"],
+      "task_ids": [
+        "SPLIT-006",
+        "SPLIT-007",
+        "SPLIT-008",
+        "SPLIT-009",
+        "SPLIT-010"
+      ],
       "status": "todo",
       "priority": "P1"
     },
     {
       "id": "M3",
       "title": "Hoch: Agent-Routes und Services 1500–2000 Zeilen (12 Dateien)",
-      "task_ids": ["SPLIT-011", "SPLIT-012", "SPLIT-013", "SPLIT-014", "SPLIT-015", "SPLIT-016", "SPLIT-017", "SPLIT-018", "SPLIT-019", "SPLIT-020", "SPLIT-021", "SPLIT-022"],
+      "task_ids": [
+        "SPLIT-011",
+        "SPLIT-012",
+        "SPLIT-013",
+        "SPLIT-014",
+        "SPLIT-015",
+        "SPLIT-016",
+        "SPLIT-017",
+        "SPLIT-018",
+        "SPLIT-019",
+        "SPLIT-020",
+        "SPLIT-021",
+        "SPLIT-022"
+      ],
       "status": "todo",
       "priority": "P1"
     },
     {
       "id": "M4",
       "title": "Mittel: Agent und Client-Surfaces 1000–1500 Zeilen (15 Dateien)",
-      "task_ids": ["SPLIT-023", "SPLIT-024", "SPLIT-025", "SPLIT-026", "SPLIT-027", "SPLIT-028", "SPLIT-029", "SPLIT-030", "SPLIT-031", "SPLIT-032", "SPLIT-033", "SPLIT-034", "SPLIT-035", "SPLIT-036", "SPLIT-037"],
+      "task_ids": [
+        "SPLIT-023",
+        "SPLIT-024",
+        "SPLIT-025",
+        "SPLIT-026",
+        "SPLIT-027",
+        "SPLIT-028",
+        "SPLIT-029",
+        "SPLIT-030",
+        "SPLIT-031",
+        "SPLIT-032",
+        "SPLIT-033",
+        "SPLIT-034",
+        "SPLIT-035",
+        "SPLIT-036",
+        "SPLIT-037"
+      ],
       "status": "todo",
       "priority": "P2"
     },
     {
       "id": "M5",
       "title": "Niedrig: Testdateien > 1000 Zeilen nach Domain aufteilen (10 Dateien)",
-      "task_ids": ["SPLIT-038", "SPLIT-039", "SPLIT-040", "SPLIT-041", "SPLIT-042", "SPLIT-043", "SPLIT-044", "SPLIT-045", "SPLIT-046", "SPLIT-047"],
+      "task_ids": [
+        "SPLIT-038",
+        "SPLIT-039",
+        "SPLIT-040",
+        "SPLIT-041",
+        "SPLIT-042",
+        "SPLIT-043",
+        "SPLIT-044",
+        "SPLIT-045",
+        "SPLIT-046",
+        "SPLIT-047"
+      ],
       "status": "todo",
       "priority": "P3"
     }
@@ -61,21 +113,75 @@
       "current_lines": 1347,
       "status": "done",
       "sub_splits": {
-        "001a": {"title": "workspace_sync helper (1 method)", "commit": "cf091c19", "status": "done"},
-        "001_prelude": {"title": "SRP cluster map docstring + section markers", "commit": "2ceba360", "status": "done"},
-        "001b": {"title": "config_policy pure bounded-value utilities (3 methods)", "commit": "4b51c3dc", "status": "done"},
-        "001c": {"title": "config_policy intermediate resolvers (5 methods)", "commit": "c88d22fd", "status": "done"},
-        "001d": {"title": "config_policy cli/opencode session + native worker policy resolver (6 methods)", "commit": "67d17559", "status": "done"},
-        "001e": {"title": "domain_action router (6 funcs)", "commit": "3b84389b", "status": "done"},
-        "001f": {"title": "forwarding_hub (5 funcs)", "status": "done"},
-        "001g": {"title": "adapters hermes+handler (5 funcs)", "status": "done"},
-        "001h": {"title": "runtime (cli session + research, 12 funcs)", "status": "done"},
-        "001i": {"title": "repair (structured action, 8 funcs)", "status": "done"},
-        "001j": {"title": "citation_grounded (7 funcs)", "status": "done"},
-        "001k": {"title": "build_hermes_context_blocks in eigenes Modul", "status": "done"},
-        "001m": {"title": "extract propose_single_task_step", "commit": "cf4c9171", "status": "done"},
-        "001n": {"title": "extract propose orchestrator path", "commit": "f81351b2", "status": "done"},
-        "001o": {"title": "extract execute workspace path", "commit": "f81351b2", "status": "done"}
+        "001a": {
+          "title": "workspace_sync helper (1 method)",
+          "commit": "cf091c19",
+          "status": "done"
+        },
+        "001_prelude": {
+          "title": "SRP cluster map docstring + section markers",
+          "commit": "2ceba360",
+          "status": "done"
+        },
+        "001b": {
+          "title": "config_policy pure bounded-value utilities (3 methods)",
+          "commit": "4b51c3dc",
+          "status": "done"
+        },
+        "001c": {
+          "title": "config_policy intermediate resolvers (5 methods)",
+          "commit": "c88d22fd",
+          "status": "done"
+        },
+        "001d": {
+          "title": "config_policy cli/opencode session + native worker policy resolver (6 methods)",
+          "commit": "67d17559",
+          "status": "done"
+        },
+        "001e": {
+          "title": "domain_action router (6 funcs)",
+          "commit": "3b84389b",
+          "status": "done"
+        },
+        "001f": {
+          "title": "forwarding_hub (5 funcs)",
+          "status": "done"
+        },
+        "001g": {
+          "title": "adapters hermes+handler (5 funcs)",
+          "status": "done"
+        },
+        "001h": {
+          "title": "runtime (cli session + research, 12 funcs)",
+          "status": "done"
+        },
+        "001i": {
+          "title": "repair (structured action, 8 funcs)",
+          "status": "done"
+        },
+        "001j": {
+          "title": "citation_grounded (7 funcs)",
+          "status": "done"
+        },
+        "001k": {
+          "title": "build_hermes_context_blocks in eigenes Modul",
+          "status": "done"
+        },
+        "001m": {
+          "title": "extract propose_single_task_step",
+          "commit": "cf4c9171",
+          "status": "done"
+        },
+        "001n": {
+          "title": "extract propose orchestrator path",
+          "commit": "f81351b2",
+          "status": "done"
+        },
+        "001o": {
+          "title": "extract execute workspace path",
+          "commit": "f81351b2",
+          "status": "done"
+        }
       },
       "problem": "Eine einzige Klasse TaskScopedExecutionService umfasst fast 4600 Zeilen mit Workspace-Sync, Hermes-Kontext, Routing-Response und der gesamten Execution-Logik.",
       "proposed_split": [
@@ -128,7 +234,9 @@
         "Keine zirkulären Imports",
         "Jeder Sub-Split ist ein eigener atomic commit",
         "Cluster-Map-Docstring in der Klasse dokumentiert SRP-Cluster-Boundaries"
-      ]
+      ],
+      "state": "done",
+      "notes": "Completed in prior session. Sub-splits 001a-001o done. Final size: 1347 lines."
     },
     {
       "id": "SPLIT-002",
@@ -136,7 +244,7 @@
       "priority": "P0",
       "title": "client_surfaces/operator_tui/commands.py aufteilen (4894 Zeilen)",
       "file": "client_surfaces/operator_tui/commands.py",
-      "current_lines": 4894,
+      "current_lines": 466,
       "problem": "execute_command() ist eine monolithische Dispatch-Funktion mit hunderten von Command-Handlern. Mail-, Planning-, Diff3-, Share-, OIDC- und WebRTC-Handler sind alle in einer Datei.",
       "proposed_split": [
         {
@@ -177,7 +285,10 @@
         "execute_command() bleibt als öffentliche Funktion importierbar",
         "commands.py unter 500 Zeilen",
         "Jede Handler-Datei unter 700 Zeilen"
-      ]
+      ],
+      "state": "done",
+      "commit": "0a055549",
+      "notes": "SPLIT-002b: commands_mail.py, commands_helpcenter.py, commands_planning.py (commit 61bee5c7). SPLIT-002c-h: commands_visual.py, commands_sources.py, commands_goal.py, commands_ai.py, commands_rag.py, commands_chat.py (commit 0a055549). commands.py: 4894 → 466 lines."
     },
     {
       "id": "SPLIT-003",
@@ -1223,11 +1334,23 @@
       "file": "tests/test_task_endpoints.py",
       "current_lines": 1752,
       "proposed_split": [
-        { "file": "tests/tasks/test_task_crud.py", "responsibility": "CRUD-Tests" },
-        { "file": "tests/tasks/test_task_status_transitions.py", "responsibility": "Status-Transition-Tests" },
-        { "file": "tests/tasks/test_task_execution_api.py", "responsibility": "Execution-API-Tests" }
+        {
+          "file": "tests/tasks/test_task_crud.py",
+          "responsibility": "CRUD-Tests"
+        },
+        {
+          "file": "tests/tasks/test_task_status_transitions.py",
+          "responsibility": "Status-Transition-Tests"
+        },
+        {
+          "file": "tests/tasks/test_task_execution_api.py",
+          "responsibility": "Execution-API-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/tasks/ ergibt alle bestanden", "Keine Tests verloren"]
+      "acceptance_criteria": [
+        "pytest tests/tasks/ ergibt alle bestanden",
+        "Keine Tests verloren"
+      ]
     },
     {
       "id": "SPLIT-039",
@@ -1237,11 +1360,22 @@
       "file": "tests/test_config_api.py",
       "current_lines": 1510,
       "proposed_split": [
-        { "file": "tests/config/test_config_llm.py", "responsibility": "LLM-Config-Tests" },
-        { "file": "tests/config/test_config_backend.py", "responsibility": "Backend-Config-Tests" },
-        { "file": "tests/config/test_config_security.py", "responsibility": "Security-Config-Tests" }
+        {
+          "file": "tests/config/test_config_llm.py",
+          "responsibility": "LLM-Config-Tests"
+        },
+        {
+          "file": "tests/config/test_config_backend.py",
+          "responsibility": "Backend-Config-Tests"
+        },
+        {
+          "file": "tests/config/test_config_security.py",
+          "responsibility": "Security-Config-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/config/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest tests/config/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-040",
@@ -1251,11 +1385,22 @@
       "file": "tests/test_goals.py",
       "current_lines": 1315,
       "proposed_split": [
-        { "file": "tests/goals/test_goal_lifecycle.py", "responsibility": "Goal-Lifecycle-Tests" },
-        { "file": "tests/goals/test_goal_planning.py", "responsibility": "Planungs-Tests" },
-        { "file": "tests/goals/test_goal_governance.py", "responsibility": "Governance- und Gate-Tests" }
+        {
+          "file": "tests/goals/test_goal_lifecycle.py",
+          "responsibility": "Goal-Lifecycle-Tests"
+        },
+        {
+          "file": "tests/goals/test_goal_planning.py",
+          "responsibility": "Planungs-Tests"
+        },
+        {
+          "file": "tests/goals/test_goal_governance.py",
+          "responsibility": "Governance- und Gate-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/goals/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest tests/goals/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-041",
@@ -1265,11 +1410,22 @@
       "file": "tests/test_sgpt_route.py",
       "current_lines": 1196,
       "proposed_split": [
-        { "file": "tests/sgpt/test_sgpt_execute.py", "responsibility": "Execute-Tests" },
-        { "file": "tests/sgpt/test_sgpt_backend_routing.py", "responsibility": "Backend-Routing-Tests" },
-        { "file": "tests/sgpt/test_sgpt_lora.py", "responsibility": "LoRA-Provenance-Tests" }
+        {
+          "file": "tests/sgpt/test_sgpt_execute.py",
+          "responsibility": "Execute-Tests"
+        },
+        {
+          "file": "tests/sgpt/test_sgpt_backend_routing.py",
+          "responsibility": "Backend-Routing-Tests"
+        },
+        {
+          "file": "tests/sgpt/test_sgpt_lora.py",
+          "responsibility": "LoRA-Provenance-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/sgpt/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest tests/sgpt/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-042",
@@ -1279,11 +1435,22 @@
       "file": "tests/test_team_blueprints.py",
       "current_lines": 1186,
       "proposed_split": [
-        { "file": "tests/blueprints/test_blueprint_crud.py", "responsibility": "CRUD-Tests" },
-        { "file": "tests/blueprints/test_blueprint_instantiation.py", "responsibility": "Instantiierungs-Tests" },
-        { "file": "tests/blueprints/test_blueprint_catalog.py", "responsibility": "Katalog-Tests" }
+        {
+          "file": "tests/blueprints/test_blueprint_crud.py",
+          "responsibility": "CRUD-Tests"
+        },
+        {
+          "file": "tests/blueprints/test_blueprint_instantiation.py",
+          "responsibility": "Instantiierungs-Tests"
+        },
+        {
+          "file": "tests/blueprints/test_blueprint_catalog.py",
+          "responsibility": "Katalog-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/blueprints/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest tests/blueprints/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-043",
@@ -1293,11 +1460,22 @@
       "file": "tests/test_codex_cli_backend.py",
       "current_lines": 1171,
       "proposed_split": [
-        { "file": "tests/codex/test_codex_runtime.py", "responsibility": "Runtime-Config-Tests" },
-        { "file": "tests/codex/test_codex_execution.py", "responsibility": "Execution-Tests" },
-        { "file": "tests/codex/test_opencode_backend.py", "responsibility": "OpenCode-Backend-Tests" }
+        {
+          "file": "tests/codex/test_codex_runtime.py",
+          "responsibility": "Runtime-Config-Tests"
+        },
+        {
+          "file": "tests/codex/test_codex_execution.py",
+          "responsibility": "Execution-Tests"
+        },
+        {
+          "file": "tests/codex/test_opencode_backend.py",
+          "responsibility": "OpenCode-Backend-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/codex/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest tests/codex/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-044",
@@ -1307,11 +1485,22 @@
       "file": "tests/test_tasks_autopilot.py",
       "current_lines": 1065,
       "proposed_split": [
-        { "file": "tests/autopilot/test_autopilot_model_selection.py", "responsibility": "Modell-Selektion-Tests" },
-        { "file": "tests/autopilot/test_autopilot_dispatch.py", "responsibility": "Dispatch-Tests" },
-        { "file": "tests/autopilot/test_autopilot_recovery.py", "responsibility": "Recovery-Tests" }
+        {
+          "file": "tests/autopilot/test_autopilot_model_selection.py",
+          "responsibility": "Modell-Selektion-Tests"
+        },
+        {
+          "file": "tests/autopilot/test_autopilot_dispatch.py",
+          "responsibility": "Dispatch-Tests"
+        },
+        {
+          "file": "tests/autopilot/test_autopilot_recovery.py",
+          "responsibility": "Recovery-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/autopilot/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest tests/autopilot/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-045",
@@ -1321,11 +1510,22 @@
       "file": "tests/test_llm_usage.py",
       "current_lines": 1002,
       "proposed_split": [
-        { "file": "tests/llm/test_llm_lmstudio.py", "responsibility": "LMStudio-Tests" },
-        { "file": "tests/llm/test_llm_ollama.py", "responsibility": "Ollama-Tests" },
-        { "file": "tests/llm/test_llm_circuit_breaker.py", "responsibility": "Circuit-Breaker- und Rate-Limit-Tests" }
+        {
+          "file": "tests/llm/test_llm_lmstudio.py",
+          "responsibility": "LMStudio-Tests"
+        },
+        {
+          "file": "tests/llm/test_llm_ollama.py",
+          "responsibility": "Ollama-Tests"
+        },
+        {
+          "file": "tests/llm/test_llm_circuit_breaker.py",
+          "responsibility": "Circuit-Breaker- und Rate-Limit-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest tests/llm/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest tests/llm/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-046",
@@ -1335,11 +1535,22 @@
       "file": "rag-helper/tests/test_processing_limits.py",
       "current_lines": 1391,
       "proposed_split": [
-        { "file": "rag-helper/tests/test_chunk_limits.py", "responsibility": "Chunk-Größen- und Limit-Tests" },
-        { "file": "rag-helper/tests/test_embedding_limits.py", "responsibility": "Embedding-Limit-Tests" },
-        { "file": "rag-helper/tests/test_project_scan_limits.py", "responsibility": "Projekt-Scan-Limit-Tests" }
+        {
+          "file": "rag-helper/tests/test_chunk_limits.py",
+          "responsibility": "Chunk-Größen- und Limit-Tests"
+        },
+        {
+          "file": "rag-helper/tests/test_embedding_limits.py",
+          "responsibility": "Embedding-Limit-Tests"
+        },
+        {
+          "file": "rag-helper/tests/test_project_scan_limits.py",
+          "responsibility": "Projekt-Scan-Limit-Tests"
+        }
       ],
-      "acceptance_criteria": ["pytest rag-helper/tests/ ergibt alle bestanden"]
+      "acceptance_criteria": [
+        "pytest rag-helper/tests/ ergibt alle bestanden"
+      ]
     },
     {
       "id": "SPLIT-047",
@@ -1349,12 +1560,27 @@
       "file": "frontend-angular/tests/utils.ts",
       "current_lines": 1315,
       "proposed_split": [
-        { "file": "frontend-angular/tests/utils/api-helpers.ts", "responsibility": "API-Mock-Helpers, HTTP-Test-Utilities" },
-        { "file": "frontend-angular/tests/utils/component-helpers.ts", "responsibility": "Angular-Component-Test-Utilities" },
-        { "file": "frontend-angular/tests/utils/fixture-builders.ts", "responsibility": "Test-Fixture-Builder" },
-        { "file": "frontend-angular/tests/utils.ts", "responsibility": "Re-Export für Rückwärtskompatibilität. Unter 50 Zeilen." }
+        {
+          "file": "frontend-angular/tests/utils/api-helpers.ts",
+          "responsibility": "API-Mock-Helpers, HTTP-Test-Utilities"
+        },
+        {
+          "file": "frontend-angular/tests/utils/component-helpers.ts",
+          "responsibility": "Angular-Component-Test-Utilities"
+        },
+        {
+          "file": "frontend-angular/tests/utils/fixture-builders.ts",
+          "responsibility": "Test-Fixture-Builder"
+        },
+        {
+          "file": "frontend-angular/tests/utils.ts",
+          "responsibility": "Re-Export für Rückwärtskompatibilität. Unter 50 Zeilen."
+        }
       ],
-      "acceptance_criteria": ["ng test läuft durch", "utils.ts unter 50 Zeilen (nur Re-Exports)"]
+      "acceptance_criteria": [
+        "ng test läuft durch",
+        "utils.ts unter 50 Zeilen (nur Re-Exports)"
+      ]
     }
   ],
   "definition_of_done": [
