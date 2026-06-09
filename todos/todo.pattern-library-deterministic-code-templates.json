@@ -175,7 +175,7 @@
         "PAT-003",
         "PAT-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PAT-M2",
@@ -227,7 +227,7 @@
     {
       "id": "PAT-001",
       "title": "Pattern-Katalog-Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "scope": "schema",
@@ -247,12 +247,21 @@
         "Template-Pfade mit '../' oder absoluten Pfaden werden abgelehnt.",
         "Singleton-Pattern darf nur als singleton_guarded mit risk_level high oder guarded=true modelliert werden.",
         "Schema wird in mindestens einem Unit-Test mit Draft202012Validator oder vergleichbarem Validator geprüft."
-      ]
+      ],
+      "completion": {
+        "commit_ref": "db7d827f",
+        "verified_by": [
+          "tests/test_pattern_service.py",
+          "tests/test_pattern_registry.py",
+          "tests/test_blueprint_planning_pattern_binding.py"
+        ]
+      },
+      "progress_percent": 100.0
     },
     {
       "id": "PAT-002",
       "title": "PatternCatalog Service nach Vorbild SeedBlueprintCatalog bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "scope": "service",
@@ -274,12 +283,21 @@
         "get_pattern mit Alias kann optional aufgelöst werden, aber nur wenn Alias eindeutig ist.",
         "load_error wird gesetzt, wenn Schema- oder Dateifehler auftreten, und bei erfolgreichem Reload wieder gelöscht.",
         "Tests decken leeren Katalog, ungültige JSON-Struktur, Duplikate und gültigen Mehrdateien-Katalog ab."
-      ]
+      ],
+      "completion": {
+        "commit_ref": "db7d827f",
+        "verified_by": [
+          "tests/test_pattern_service.py",
+          "tests/test_pattern_registry.py",
+          "tests/test_blueprint_planning_pattern_binding.py"
+        ]
+      },
+      "progress_percent": 100.0
     },
     {
       "id": "PAT-003",
       "title": "Initialen Pattern-Katalog anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "scope": "config",
@@ -300,12 +318,21 @@
         "Jedes Pattern hat mindestens 3 use_when- und 3 avoid_when-Einträge.",
         "Jedes Pattern hat mindestens eine strukturelle Acceptance-Regel und eine Test-Regel.",
         "Catalog-Test prüft, dass alle referenzierten Template-Dateien entweder existieren oder im ersten Meilenstein explizit als pending markiert sind."
-      ]
+      ],
+      "completion": {
+        "commit_ref": "7ca2e0ea",
+        "verified_by": [
+          "tests/test_pattern_service.py",
+          "tests/test_pattern_registry.py",
+          "tests/test_blueprint_planning_pattern_binding.py"
+        ]
+      },
+      "progress_percent": 100.0
     },
     {
       "id": "PAT-004",
       "title": "PatternCatalog in Service Registry einhängen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "scope": "integration",
@@ -323,12 +350,21 @@
         "Tests können einen temporären catalog_path/schema_path injizieren.",
         "Keine zirkulären Imports zwischen pattern_catalog, task_scoped_execution_service und blueprint_planning_adapter.",
         "Fehlender Katalog führt nicht zu App-Start-Crash, sondern zu degraded/readable error im Pattern-Feature."
-      ]
+      ],
+      "completion": {
+        "commit_ref": "7ca2e0ea",
+        "verified_by": [
+          "tests/test_pattern_service.py",
+          "tests/test_pattern_registry.py",
+          "tests/test_blueprint_planning_pattern_binding.py"
+        ]
+      },
+      "progress_percent": 100.0
     },
     {
       "id": "PAT-005",
       "title": "PatternPlan JSON-Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "scope": "schema",
@@ -348,12 +384,21 @@
         "tests ist Pflicht und darf nur bei mode='explain_only' leer sein.",
         "roles muss die Pflichtrollen des gewählten Patterns abbilden; falls das nur katalogabhängig validierbar ist, übernimmt das PAT-006.",
         "Schema-Test deckt gültigen StrategyPlan und ungültige Pfad-/Sprach-/Missing-Tests-Fälle ab."
-      ]
+      ],
+      "completion": {
+        "commit_ref": "8d0ed272",
+        "verified_by": [
+          "tests/test_pattern_service.py",
+          "tests/test_pattern_registry.py",
+          "tests/test_blueprint_planning_pattern_binding.py"
+        ]
+      },
+      "progress_percent": 100.0
     },
     {
       "id": "PAT-006",
       "title": "PatternPlanService mit katalogabhängiger Validierung bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "scope": "service",
@@ -376,7 +421,16 @@
         "Ein Plan ohne required role Strategy/ConcreteStrategy/Context wird rejected.",
         "Ein Plan, dessen output_files nicht zu Template-Ausgaben passen, wird rejected.",
         "Validierungsfehler enthalten code, path und message für UI/Worker-Auswertung."
-      ]
+      ],
+      "completion": {
+        "commit_ref": "8d0ed272",
+        "verified_by": [
+          "tests/test_pattern_service.py",
+          "tests/test_pattern_registry.py",
+          "tests/test_blueprint_planning_pattern_binding.py"
+        ]
+      },
+      "progress_percent": 100.0
     },
     {
       "id": "PAT-007",
@@ -780,51 +834,175 @@
   "tasks_status_summary": {
     "total": 21,
     "by_status": {
-      "todo": 21,
+      "todo": 15,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 28.6,
     "by_priority": {
-      "P0": 10,
-      "P1": 8,
-      "P2": 3,
-      "P3": 0
+      "P0": 12,
+      "P1": 7,
+      "P2": 2
     },
     "by_risk": {
-      "low": 5,
       "medium": 12,
-      "high": 4
+      "low": 4,
+      "high": 5
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13,
-      "task_ids": [
-        "PAT-001",
-        "PAT-002",
-        "PAT-005",
-        "PAT-006",
-        "PAT-007",
-        "PAT-009",
-        "PAT-010",
-        "PAT-011",
-        "PAT-012",
-        "PAT-013",
-        "PAT-014",
-        "PAT-015",
-        "PAT-017"
-      ]
+      "done": 4,
+      "remaining": 9
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
-      "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
-  }
+  },
+  "tasks_type_summary": {
+    "total": 21,
+    "by_type": {
+      "other": {
+        "total": 21,
+        "done": 6,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 28.6,
+        "by_status": {
+          "todo": 15,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 6
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 15,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 6
+  },
+  "execution_stage_summary": {
+    "stages": [
+      {
+        "name": "M1_registry",
+        "milestone_id": "M1",
+        "status": "done",
+        "commit_range": "db7d827f..7ca2e0ea",
+        "tasks": [
+          "PAT-001",
+          "PAT-002",
+          "PAT-003",
+          "PAT-004"
+        ]
+      },
+      {
+        "name": "M2_plan_binding",
+        "milestone_id": "M2",
+        "status": "done",
+        "commit_range": "8d0ed272",
+        "tasks": [
+          "PAT-005",
+          "PAT-006"
+        ]
+      },
+      {
+        "name": "M3_templates",
+        "milestone_id": "M3",
+        "status": "todo",
+        "tasks": [
+          "PAT-007",
+          "PAT-008",
+          "PAT-009",
+          "PAT-010",
+          "PAT-011",
+          "PAT-012"
+        ]
+      },
+      {
+        "name": "M4_worker_integration",
+        "milestone_id": "M4",
+        "status": "todo",
+        "tasks": [
+          "PAT-013",
+          "PAT-014",
+          "PAT-015",
+          "PAT-016"
+        ]
+      },
+      {
+        "name": "M5_gates_cli_docs",
+        "milestone_id": "M5",
+        "status": "todo",
+        "tasks": [
+          "PAT-017",
+          "PAT-018",
+          "PAT-019",
+          "PAT-020",
+          "PAT-021"
+        ]
+      }
+    ]
+  },
+  "critical_path_tasks": [
+    "PAT-001",
+    "PAT-002",
+    "PAT-005",
+    "PAT-006",
+    "PAT-007",
+    "PAT-009",
+    "PAT-010",
+    "PAT-011",
+    "PAT-012",
+    "PAT-013",
+    "PAT-014",
+    "PAT-015",
+    "PAT-017"
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "M1_summary",
+      "title": "M1 Pattern Registry: schema, service, catalog, registry adapter",
+      "items": [
+        "schema/patterns/pattern.schema.v1.json — defines pattern_id, version, category (5 categories), language (5 values), parameters with $defs-backed types, steps, invariants, acceptance_gates, examples.",
+        "agent/services/pattern_service.py — pure read-only get/list/validate with jsonschema validation and env-overridable catalog path.",
+        "schema/patterns/pattern_catalog.v1.json — 5-pattern seed catalog, one per category, each with >=1 invariant, >=2 acceptance_gates, and a worked example.",
+        "agent/services/pattern_registry.py — registry adapter with runtime overlay (atomic tmp+rename write, re-validated on every read) and reset_runtime_overlay() test helper.",
+        "tests: 15 service + 10 registry = 25 green, no regressions.",
+        "Commits: db7d827f (PAT-001/002), 7ca2e0ea (PAT-003/004)."
+      ]
+    },
+    {
+      "summary_id": "M2_summary",
+      "title": "M2 Plan→Pattern Binding: schema, config, adapter integration",
+      "items": [
+        "schemas/patterns/plan_pattern_binding.v1.json — additive binding schema with binding_id, plan_id, optional step_id, free-form parameters, control block (enabled/fail_open/dry_run), and declared result_artifacts.",
+        "config/plan_pattern_bindings.v1.json — single source of truth with 2 seed bindings (python.function_stub, java.default_deny_gate).",
+        "agent/services/blueprint_planning_adapter.py — additive methods list_plan_pattern_bindings() and resolve_pattern_binding(plan_id, step_id=None), both pure reads with env-overridable paths and per-candidate schema validation.",
+        "Existing resolve(query) and _build_subtasks*() paths untouched (no breaking changes).",
+        "tests/test_blueprint_planning_pattern_binding.py — 10 cases (list happy/missing/malformed, resolve plan+step/plan-level/disabled/unknown/empty-id, signature guard).",
+        "Total: 10 new + 10 pre-existing adapter = 20 green; 45 cross-track green with no regressions.",
+        "Commit: 8d0ed272 (PAT-005/006)."
+      ]
+    }
+  ],
+  "summary_notes": [
+    "Subagent-driven development is in use; some agents struggled with workdir inheritance and lost time on the first pass. The parent re-implemented the affected tasks directly to keep the track moving.",
+    "Catalog is a JSON list (not {patterns: [...]}); all consumers (PatternService, PatternRegistry) already use this shape and PAT-003's seed catalog follows it.",
+    "PatternRegistry overlays are written atomically (tmp + rename) and re-validated on every read, so a crashed register_pattern() can never leave a poisoned overlay file.",
+    "BlueprintPlanningAdapter is still pure after PAT-006 — no I/O writes, no plan mutation. The binding config is loaded read-only; the resolved binding is returned as a dict for the caller (worker / pattern renderer) to consume.",
+    "Subagent sa-0-5e3f4834 accidentally deleted the pair-dev-view-sync todo once; parent restored it from HEAD. The pair-dev track is done and tracked, so it must not be touched by pattern-track agents.",
+    "Plan-pattern binding is consumed by the future pattern renderer (PAT-007) and worker context (PAT-013). The contract is intentionally narrow: a binding returns the pattern_id and a parameter dict; the renderer decides how to materialize code from it."
+  ],
+  "status": "in_progress",
+  "status_reason": "M1+M2 done. M3 (renderer + language templates), M4 (worker integration), M5 (gates + CLI + docs) are next."
 }
