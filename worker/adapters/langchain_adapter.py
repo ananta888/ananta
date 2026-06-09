@@ -45,7 +45,13 @@ class LangChainAdapter:
             human_required_actions=set(),
         )
         self._audit = WorkflowAuditLog(adapter_id="adapter.langchain")
-        self._retriever = CodeCompassRetriever()
+        # LCG-010: pass the config's embedding_provider_scope so the
+        # retriever shares the embedding model with the rest of Ananta.
+        # Pre-LCG callers (no config) get the default scope, which is
+        # the same as before.
+        self._retriever = CodeCompassRetriever(
+            scope=self._config.embedding_provider_scope,
+        )
 
     def descriptor(self) -> WorkflowAdapterDescriptor:
         available = self._langchain_available()
