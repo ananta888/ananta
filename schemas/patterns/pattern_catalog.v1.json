@@ -1,0 +1,419 @@
+[
+  {
+    "pattern_id": "python.function_stub",
+    "version": "1.0.0",
+    "category": "planning_renderer",
+    "language": "python",
+    "title": "Render Python Function Stub from Signature",
+    "description": "Renders a deterministic Python function stub (signature + docstring + NotImplementedError body) from a structured signature payload. Used by planning to seed executable code skeletons before the worker fills the body.",
+    "parameters": [
+      {
+        "name": "function_name",
+        "type": "string",
+        "required": true,
+        "description": "Snake_case function name to render."
+      },
+      {
+        "name": "args",
+        "type": "glob_list",
+        "required": false,
+        "description": "List of 'name:type' argument strings.",
+        "default": []
+      },
+      {
+        "name": "return_type",
+        "type": "string",
+        "required": false,
+        "description": "Return type annotation; default 'None'.",
+        "default": "None"
+      },
+      {
+        "name": "docstring",
+        "type": "string",
+        "required": false,
+        "description": "Docstring body (without triple quotes).",
+        "default": "TODO: implement"
+      },
+      {
+        "name": "indent",
+        "type": "int",
+        "required": false,
+        "description": "Indentation width in spaces.",
+        "default": 4
+      }
+    ],
+    "required_artifacts": ["python_source_file"],
+    "steps": [
+      {
+        "order": 1,
+        "name": "validate_signature",
+        "description": "Ensure function_name matches python identifier rules and args list parses.",
+        "input": "function_name, args",
+        "output": "validated signature dict",
+        "control": "abort-on-invalid"
+      },
+      {
+        "order": 2,
+        "name": "render_signature",
+        "description": "Compose 'def <name>(<args>) -> <return_type>:' with the configured indent.",
+        "input": "validated signature dict, indent",
+        "output": "signature line",
+        "control": "deterministic"
+      },
+      {
+        "order": 3,
+        "name": "render_body",
+        "description": "Emit indented docstring and 'raise NotImplementedError(\"...\")' body.",
+        "input": "signature line, docstring",
+        "output": "python source",
+        "control": "deterministic"
+      }
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Rendered source must parse via ast.parse without errors.",
+      "No imports are emitted — caller decides imports."
+    ],
+    "acceptance_gates": [
+      "ast.parse(rendered_source) succeeds",
+      "rendered_source contains 'def <function_name>' exactly once",
+      "rendered_source ends with 'raise NotImplementedError'"
+    ],
+    "examples": [
+      {
+        "name": "simple_add",
+        "inputs": {
+          "function_name": "add",
+          "args": ["a:int", "b:int"],
+          "return_type": "int",
+          "docstring": "Return a + b.",
+          "indent": 4
+        },
+        "must_contain": ["def add(a: int, b: int) -> int:", "raise NotImplementedError"],
+        "must_not_contain": ["import "]
+      }
+    ]
+  },
+  {
+    "pattern_id": "workflow.sequential_emit",
+    "version": "1.0.0",
+    "category": "workflow_emit",
+    "language": "agnostic",
+    "title": "Emit Sequential Workflow Definition",
+    "description": "Emits a hub-recognizable workflow definition JSON for a sequence of N named steps with deterministic IDs. Language-agnostic: same shape works for Python/Java/TS tasks.",
+    "parameters": [
+      {
+        "name": "workflow_name",
+        "type": "string",
+        "required": true,
+        "description": "Workflow identifier (snake_case)."
+      },
+      {
+        "name": "step_names",
+        "type": "glob_list",
+        "required": true,
+        "description": "Ordered list of step display names."
+      },
+      {
+        "name": "depends_on_prev",
+        "type": "boolean",
+        "required": false,
+        "description": "If true, each step depends on the previous one (linear chain).",
+        "default": true
+      }
+    ],
+    "required_artifacts": ["workflow_definition"],
+    "steps": [
+      {
+        "order": 1,
+        "name": "build_steps",
+        "description": "For each name, mint a step_id 'step_<index>_<slugified_name>' and assign order index.",
+        "input": "step_names",
+        "output": "step list",
+        "control": "deterministic"
+      },
+      {
+        "order": 2,
+        "name": "wire_dependencies",
+        "description": "When depends_on_prev is true, each step's depends_on references the previous step_id.",
+        "input": "step list, depends_on_prev",
+        "output": "wired step list",
+        "control": "loop"
+      },
+      {
+        "order": 3,
+        "name": "emit_workflow",
+        "description": "Serialize the workflow with name, version, and steps to a JSON object.",
+        "input": "wired step list",
+        "output": "workflow definition dict",
+        "control": "deterministic"
+      }
+    ],
+    "invariants": [
+      "step_id is unique within the workflow.",
+      "No step depends on a forward step (no cycles).",
+      "Output JSON sorts keys lexicographically for stable diffs."
+    ],
+    "acceptance_gates": [
+      "len(steps) == len(step_names)",
+      "All step_ids match pattern ^step_[0-9]+_[a-z0-9_]+$",
+      "depends_on_prev=True implies steps[i].depends_on == [steps[i-1].step_id] for i>0"
+    ],
+    "examples": [
+      {
+        "name": "three_step_linear",
+        "inputs": {
+          "workflow_name": "build_and_test",
+          "step_names": ["compile", "lint", "test"],
+          "depends_on_prev": true
+        },
+        "must_contain": ["\"step_0_compile\"", "\"step_2_test\"", "\"depends_on\": [\"step_1_lint\"]"],
+        "must_not_contain": ["\"depends_on\": []"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "ts.vitest_scaffold",
+    "version": "1.0.0",
+    "category": "test_template",
+    "language": "typescript",
+    "title": "Generate Vitest Scaffold from Contract",
+    "description": "Generates a vitest spec file skeleton (describe + it blocks, AAA comments, placeholder assertions) for a TypeScript contract or component name.",
+    "parameters": [
+      {
+        "name": "subject_name",
+        "type": "string",
+        "required": true,
+        "description": "Name of the function/class/component under test."
+      },
+      {
+        "name": "behavior_count",
+        "type": "int",
+        "required": false,
+        "description": "Number of 'it' blocks to scaffold.",
+        "default": 3
+      },
+      {
+        "name": "imports",
+        "type": "glob_list",
+        "required": false,
+        "description": "List of import strings to emit at the top.",
+        "default": []
+      }
+    ],
+    "required_artifacts": ["ts_spec_file"],
+    "steps": [
+      {
+        "order": 1,
+        "name": "emit_imports",
+        "description": "Emit the provided import lines plus default vitest imports (describe, it, expect).",
+        "input": "imports",
+        "output": "import block",
+        "control": "deterministic"
+      },
+      {
+        "order": 2,
+        "name": "scaffold_describe",
+        "description": "Emit a describe(subject_name, () => { ... }) block with behavior_count it() entries.",
+        "input": "subject_name, behavior_count",
+        "output": "describe block",
+        "control": "loop"
+      },
+      {
+        "order": 3,
+        "name": "insert_placeholders",
+        "description": "Each it() gets AAA comments and a single expect(true).toBe(true) placeholder.",
+        "input": "describe block",
+        "output": "ts spec source",
+        "control": "deterministic"
+      }
+    ],
+    "invariants": [
+      "Output is valid TypeScript that tsc --noEmit accepts when placeholders are replaced.",
+      "behavior_count >= 1.",
+      "No it() block is empty."
+    ],
+    "acceptance_gates": [
+      "Output contains exactly one describe() call",
+      "Output contains behavior_count it() calls",
+      "Output imports describe, it, expect from 'vitest'"
+    ],
+    "examples": [
+      {
+        "name": "scaffold_helper",
+        "inputs": {
+          "subject_name": "formatCurrency",
+          "behavior_count": 2,
+          "imports": ["import { formatCurrency } from './format-currency';"]
+        },
+        "must_contain": ["import { describe, it, expect } from 'vitest';", "describe('formatCurrency'", "it(", "expect(true).toBe(true)"],
+        "must_not_contain": ["xit(", ".skip("]
+      }
+    ]
+  },
+  {
+    "pattern_id": "cli.retry_wrap",
+    "version": "1.0.0",
+    "category": "tooling_recipe",
+    "language": "agnostic",
+    "title": "Wrap CLI Invocation with Retry and Log",
+    "description": "Wraps an arbitrary CLI command in a retry loop with exponential backoff and structured logging. Language-agnostic — produces a shell script or a callable wrapper contract.",
+    "parameters": [
+      {
+        "name": "command",
+        "type": "string",
+        "required": true,
+        "description": "The CLI command (single string) to wrap."
+      },
+      {
+        "name": "max_attempts",
+        "type": "int",
+        "required": false,
+        "description": "Number of retry attempts (>=1).",
+        "default": 3
+      },
+      {
+        "name": "backoff_seconds",
+        "type": "int",
+        "required": false,
+        "description": "Initial backoff seconds; doubled per attempt.",
+        "default": 2
+      },
+      {
+        "name": "log_file",
+        "type": "path",
+        "required": false,
+        "description": "Where to append the structured retry log lines.",
+        "default": "./cli-retry.log"
+      }
+    ],
+    "required_artifacts": ["shell_script", "log_file"],
+    "steps": [
+      {
+        "order": 1,
+        "name": "validate_command",
+        "description": "Reject empty command or command containing 'rm -rf /' (safety invariant).",
+        "input": "command",
+        "output": "sanitized command",
+        "control": "abort-on-unsafe"
+      },
+      {
+        "order": 2,
+        "name": "loop_with_backoff",
+        "description": "For attempt in 1..max_attempts: run command, on non-zero exit, sleep backoff * 2^(attempt-1), retry.",
+        "input": "sanitized command, max_attempts, backoff_seconds",
+        "output": "exit status",
+        "control": "loop-retry"
+      },
+      {
+        "order": 3,
+        "name": "log_outcome",
+        "description": "Append a single JSON line with timestamp, command, attempt, exit_code to log_file.",
+        "input": "exit status, command, log_file",
+        "output": "log line",
+        "control": "deterministic"
+      }
+    ],
+    "invariants": [
+      "Refuses commands matching the deny-pattern list (rm -rf /, :(){:|:&};:, mkfs).",
+      "Logs are append-only — never truncates an existing log_file.",
+      "Total wall-clock time is bounded by max_attempts * sum(backoff_seconds * 2^i)."
+    ],
+    "acceptance_gates": [
+      "Empty command is rejected at validation step",
+      "Successful first attempt produces exactly one log line",
+      "Failed final attempt produces max_attempts log lines"
+    ],
+    "examples": [
+      {
+        "name": "wrap_npm_test",
+        "inputs": {
+          "command": "npm test",
+          "max_attempts": 2,
+          "backoff_seconds": 1,
+          "log_file": "./test-retry.log"
+        },
+        "must_contain": ["npm test", "max_attempts=2", "log_file=./test-retry.log"],
+        "must_not_contain": ["rm -rf /"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "java.default_deny_gate",
+    "version": "1.0.0",
+    "category": "control_policy",
+    "language": "java",
+    "title": "Default-Deny Capability Gate",
+    "description": "Java class that gates a capability behind an explicit allow-list. Default-deny: any capability not in the allow-list throws SecurityException. Used to enforce least-privilege in worker code.",
+    "parameters": [
+      {
+        "name": "class_name",
+        "type": "string",
+        "required": true,
+        "description": "Name of the gate class (PascalCase)."
+      },
+      {
+        "name": "allowed_capabilities",
+        "type": "glob_list",
+        "required": true,
+        "description": "List of capability strings that are explicitly allowed."
+      },
+      {
+        "name": "package_name",
+        "type": "string",
+        "required": false,
+        "description": "Java package for the generated class.",
+        "default": "com.ananta.gates"
+      }
+    ],
+    "required_artifacts": ["java_source_file"],
+    "steps": [
+      {
+        "order": 1,
+        "name": "emit_package_and_imports",
+        "description": "Emit 'package <name>;' and any required imports (java.util.Set, java.util.HashSet).",
+        "input": "package_name",
+        "output": "header lines",
+        "control": "deterministic"
+      },
+      {
+        "order": 2,
+        "name": "emit_allow_set",
+        "description": "Generate a private static final Set<String> ALLOWED initialized from allowed_capabilities.",
+        "input": "allowed_capabilities",
+        "output": "field declaration",
+        "control": "loop"
+      },
+      {
+        "order": 3,
+        "name": "emit_check_method",
+        "description": "Emit public static void require(String capability) that throws SecurityException when capability not in ALLOWED.",
+        "input": "field declaration",
+        "output": "java source",
+        "control": "deterministic"
+      }
+    ],
+    "invariants": [
+      "ALLOWED is populated at class-load time and never mutated.",
+      "require() throws SecurityException for any capability not in ALLOWED (default-deny).",
+      "Empty allowed_capabilities is permitted and means 'deny everything'."
+    ],
+    "acceptance_gates": [
+      "Generated source compiles (javac) without warnings",
+      "require(unknownCapability) throws SecurityException at runtime",
+      "require(allowedCapability) returns normally"
+    ],
+    "examples": [
+      {
+        "name": "file_write_gate",
+        "inputs": {
+          "class_name": "FileWriteGate",
+          "allowed_capabilities": ["file.write:/workspace/**", "file.write:/tmp/**"],
+          "package_name": "com.ananta.gates"
+        },
+        "must_contain": ["package com.ananta.gates;", "class FileWriteGate", "Set<String> ALLOWED", "throw new SecurityException"],
+        "must_not_contain": ["if (true) return;"]
+      }
+    ]
+  }
+]
