@@ -1,0 +1,982 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "mlintern-lora-qlora-finetuning-worker",
+  "purpose": "Umfangreiche TODO-Spur fuer eine sichere, optionale LoRA/QLoRA-Fine-Tuning-Pipeline ueber den bestehenden ml_intern-Adapter. Ziel ist nicht, Projektwissen in Modellgewichte zu pressen, sondern kleine Adapter fuer Antwortstruktur, Todo-JSON-Qualitaet, Review-Stil, Architekturdisziplin und Security-Policy-Verhalten reproduzierbar trainieren, evaluieren, registrieren und optional zur Laufzeit routen zu koennen.",
+  "goal": "Ananta soll den vorhandenen ml_intern-Spike von einem reinen bounded Prompt-Executor zu einem klar getrennten ML-Worker-Vertrag fuer Trainingsjobs, Dataset-Validierung, Adapter-Artefakte, Evaluation, Approval und optionales Adapter-Routing erweitern. CodeCompass/RAG bleibt der kanonische Projektwissens-Layer; LoRA/QLoRA ist nur Verhalten/Stil/Struktur-Anpassung.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "current_code_findings": [
+    "Der reale Einstieg existiert aktuell als agent/services/ml_intern_adapter_service.py mit invoke_spike(prompt, agent_cfg, model=None, timeout_seconds=None).",
+    "Die aktuelle Implementierung ist bewusst begrenzt: command_template, prompt_file, timeout_seconds, max_prompt_chars, max_output_chars, working_dir und env_allowlist.",
+    "Die aktuelle Konfiguration wird in agent/services/ml_intern_spike_config_service.py normalisiert und ist default disabled.",
+    "Der SGPT-Pfad erlaubt backend=ml_intern nur, wenn ml_intern_spike.enabled=true, und lehnt CLI-Flags fuer ml_intern ab.",
+    "Es gibt bereits Tests in tests/test_ml_intern_adapter_service.py fuer disabled und bounded command invocation.",
+    "Es gibt aktuell keine konkrete LoRA-, QLoRA-, Adapter-Registry-, Dataset-Validation- oder Fine-Tuning-Pipeline im Repo.",
+    "Die Todo-Struktur im Repo nutzt bereits Track-Dateien mit $schema, milestones, tasks, target_files, acceptance_criteria und test_expectations. Diese Datei folgt diesem Stil."
+  ],
+  "architecture_principles": [
+    "Default bleibt disabled und bounded.",
+    "Training ist ein eigener Job-Vertrag, nicht nur ein laengerer Prompt an invoke_spike.",
+    "Der bestehende SGPT-Chat/Execute-Pfad darf nicht zum unkontrollierten Trainings-Endpunkt werden.",
+    "CodeCompass/RAG bleibt fuer Projektwissen zustaendig; LoRA ist fuer wiederkehrende Antwortstruktur, Stil, Review-Disziplin und Formatqualitaet.",
+    "Adapter werden getrennt vom Basismodell versioniert und nicht automatisch gemerged.",
+    "Kein Adapter wird automatisch produktiv genutzt, bevor Dataset-Validation, Evaluation und Approval erfolgreich waren.",
+    "Alle Trainings- und Eval-Ergebnisse sind artifact-first: konkrete Dateien, Hashes, Reports und Status, nicht nur stdout.",
+    "Secrets, private Rohdaten und lizenzrechtlich unklare Quellen blockieren Training per Default.",
+    "CI muss ohne GPU laufen koennen; echter GPU-Trainingslauf ist lokaler Smoke-Test oder optionaler Worker-Test.",
+    "Hermes/PEFT kann als optionaler Vergleichs- oder Exportpfad dokumentiert werden, wird aber keine harte Abhaengigkeit."
+  ],
+  "recommended_first_adapter": {
+    "name": "ananta-todo-json",
+    "why": "Todo-JSON-Qualitaet ist gut automatisch testbar: valides JSON, Track-Schema-Naehe, Milestones, Tasks, Acceptance Criteria, Test Expectations, keine erfundenen Repo-Fakten.",
+    "base_model_candidates": [
+      "qwen2.5-coder-7b",
+      "qwen2.5-coder-14b-if-local-vram-allows",
+      "other locally approved coder model"
+    ],
+    "default_method": "qlora",
+    "activation_policy": "manual_approval_after_eval_only"
+  },
+  "proposed_config_shape": {
+    "ml_intern_training": {
+      "enabled": false,
+      "mode": "dry_run",
+      "backend": "unsloth",
+      "allowed_job_types": [
+        "dataset_validate",
+        "train_lora",
+        "evaluate_lora",
+        "register_adapter",
+        "export_adapter",
+        "merge_adapter_optional"
+      ],
+      "default_working_dir": "agent",
+      "artifact_root": "artifacts/lora",
+      "dataset_root": "data/training/lora",
+      "timeout_seconds": 3600,
+      "max_dataset_bytes": 104857600,
+      "require_dataset_validation": true,
+      "require_secret_scan": true,
+      "require_eval_before_approval": true,
+      "auto_activate_adapter": false,
+      "gpu_profile": "rtx3080-safe",
+      "external_network_allowed": false,
+      "env_allowlist": [
+        "HOME",
+        "PATH",
+        "CUDA_VISIBLE_DEVICES",
+        "HF_HOME",
+        "TRANSFORMERS_CACHE"
+      ]
+    },
+    "lora_runtime": {
+      "enabled": false,
+      "adapter_registry_path": "artifacts/lora/adapter_registry.json",
+      "routing_enabled": false,
+      "fallback_to_base_model": true,
+      "approved_only": true
+    }
+  },
+  "expected_new_files": [
+    "todos/todo.mlintern-lora-qlora-finetuning-worker.json",
+    "docs/ml-intern-lora-finetuning.md",
+    "docs/contracts/mlintern-training-job.schema.json",
+    "docs/contracts/mlintern-dataset-record.schema.json",
+    "docs/contracts/mlintern-adapter-registry.schema.json",
+    "agent/services/ml_intern_training_config_service.py",
+    "agent/services/ml_intern_training_job_service.py",
+    "agent/services/ml_intern_dataset_validation_service.py",
+    "agent/services/ml_intern_adapter_registry_service.py",
+    "agent/services/ml_intern_lora_eval_service.py",
+    "tests/test_ml_intern_training_config_service.py",
+    "tests/test_ml_intern_training_job_service.py",
+    "tests/test_ml_intern_dataset_validation_service.py",
+    "tests/test_ml_intern_adapter_registry_service.py",
+    "tests/test_ml_intern_lora_eval_service.py"
+  ],
+  "expected_modified_files": [
+    "agent/services/ml_intern_adapter_service.py",
+    "agent/services/ml_intern_spike_config_service.py",
+    "agent/routes/sgpt.py",
+    "agent/routes/config/settings.py",
+    "agent/routes/config/shared.py",
+    "docs/ml-intern-backend-spike.md",
+    "tests/test_ml_intern_adapter_service.py",
+    "tests/test_sgpt_route.py",
+    "tests/test_config_api.py"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Ist-Zustand und Architekturgrenze festziehen",
+      "task_ids": [
+        "MLLORA-001",
+        "MLLORA-002",
+        "MLLORA-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Schemas, Config und Job-Vertrag einfuehren",
+      "task_ids": [
+        "MLLORA-004",
+        "MLLORA-005",
+        "MLLORA-006",
+        "MLLORA-007"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Dataset-Validation, Secret-Scan und Trainingsdatenstruktur",
+      "task_ids": [
+        "MLLORA-008",
+        "MLLORA-009",
+        "MLLORA-010"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Dry-Run Training, echter optionaler QLoRA-Smoke und Artefakte",
+      "task_ids": [
+        "MLLORA-011",
+        "MLLORA-012",
+        "MLLORA-013",
+        "MLLORA-014"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Evaluation, Approval und Adapter Registry",
+      "task_ids": [
+        "MLLORA-015",
+        "MLLORA-016",
+        "MLLORA-017"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "Optionales Runtime-Routing und Merge/Export",
+      "task_ids": [
+        "MLLORA-018",
+        "MLLORA-019",
+        "MLLORA-020"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M7",
+      "title": "Hermes-Vergleich, Dokumentation und Regression",
+      "task_ids": [
+        "MLLORA-021",
+        "MLLORA-022",
+        "MLLORA-023",
+        "MLLORA-024"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "MLLORA-001",
+      "title": "Realen ml_intern-Spike als Ausgangspunkt dokumentieren",
+      "type": "analysis",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": [],
+      "target_files": [
+        "docs/ml-intern-backend-spike.md",
+        "docs/ml-intern-lora-finetuning.md",
+        "agent/services/ml_intern_adapter_service.py",
+        "agent/services/ml_intern_spike_config_service.py",
+        "agent/routes/sgpt.py",
+        "tests/test_ml_intern_adapter_service.py"
+      ],
+      "acceptance_criteria": [
+        "Dokumentiert ist der aktuelle Vertrag invoke_spike(prompt, agent_cfg, model=None, timeout_seconds=None).",
+        "Dokumentiert sind die aktuellen Bounds: timeout_seconds 10..900, max_prompt_chars 512..64000, max_output_chars 512..64000, working_dir innerhalb repo root und env_allowlist.",
+        "Dokumentiert ist, dass backend=ml_intern nur ueber SGPT aktiviert wird, wenn ml_intern_spike.enabled=true.",
+        "Dokumentiert ist, dass der aktuelle SGPT-Pfad fuer ml_intern keine CLI-Flags akzeptiert.",
+        "Dokumentiert ist explizit: vorhandener Spike ist kein Fine-Tuning-System, sondern nur bounded External-Worker-Execution."
+      ],
+      "test_expectations": [
+        "Keine Logik-Aenderung in diesem Task.",
+        "Bestehende tests/test_ml_intern_adapter_service.py bleiben unveraendert gruen."
+      ],
+      "notes": [
+        "Dieser Task verhindert, dass spaeter versehentlich Trainingslogik in den Chat-Execute-Pfad gekippt wird."
+      ]
+    },
+    {
+      "id": "MLLORA-002",
+      "title": "Architekturgrenze zwischen SGPT-Execution und ML-Training definieren",
+      "type": "architecture",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-001"
+      ],
+      "target_files": [
+        "docs/ml-intern-lora-finetuning.md",
+        "agent/routes/sgpt.py",
+        "agent/services/ml_intern_training_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "SGPT /api/sgpt/execute bleibt ein Prompt-Ausfuehrungspfad und wird nicht zum Trainings-Endpunkt erweitert.",
+        "Training bekommt einen eigenen Service-Vertrag, z. B. MlInternTrainingJobService, mit Job-Typen und Artefakt-Ausgaben.",
+        "Training-Job-Execution ist default disabled und mindestens dry_run-first.",
+        "Riskante Jobs wie train_lora und merge_adapter_optional sind getrennt von einfachen dataset_validate Jobs.",
+        "Dokumentation erklaert klar: Prompting, RAG, LoRA und Full-Fine-Tuning sind verschiedene Ebenen."
+      ],
+      "test_expectations": [
+        "tests/test_sgpt_route.py prueft weiterhin, dass ml_intern keine CLI-Flags akzeptiert.",
+        "Neuer Test prueft, dass Trainingsjob-Typen nicht ueber /api/sgpt/execute eingeschleust werden koennen."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-003",
+      "title": "RAG/CodeCompass vs LoRA Verantwortlichkeiten festlegen",
+      "type": "architecture",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-001"
+      ],
+      "target_files": [
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument stellt klar: CodeCompass/RAG liefert aktuelles Projektwissen und Quellenkontext.",
+        "Dokument stellt klar: LoRA/QLoRA verbessert wiederkehrende Antwortformate, Stil, Review-Verhalten und Pattern-Disziplin.",
+        "Es gibt eine Warnung, dass Repo-Wissen nicht blind in LoRA trainiert werden soll, weil es stale wird.",
+        "Erster empfohlener Adapter ist ananta-todo-json, weil er gut automatisch validierbar ist."
+      ],
+      "test_expectations": [
+        "Keine Unit-Tests; Architekturreview muss die Verantwortungsgrenzen akzeptieren."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-004",
+      "title": "Training-Config-Normalisierung analog zum bestehenden Spike einfuehren",
+      "type": "implementation",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-002"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_config_service.py",
+        "agent/services/ml_intern_spike_config_service.py",
+        "agent/routes/config/settings.py",
+        "agent/routes/config/shared.py",
+        "tests/test_ml_intern_training_config_service.py",
+        "tests/test_config_api.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Config-Gruppe ml_intern_training wird getrennt von ml_intern_spike normalisiert.",
+        "Default ist enabled=false und mode=dry_run.",
+        "timeout_seconds, max_dataset_bytes, artifact_root, dataset_root, require_dataset_validation, require_secret_scan und auto_activate_adapter werden normalisiert.",
+        "Unplausible Werte werden bounded wie beim bestehenden Spike, aber Trainingslimits duerfen groesser als Prompt-Execution-Limits sein.",
+        "Config API gibt effektive ml_intern_training Config sichtbar zurueck, ohne Secrets offenzulegen."
+      ],
+      "test_expectations": [
+        "Tests pruefen Defaults, Bounds, Merge-Verhalten bei Partial-Config und Secret-freie Ausgabe ueber /config.",
+        "Bestehende ml_intern_spike Tests bleiben unveraendert gruen."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-005",
+      "title": "JSON-Schema fuer mlintern Training Jobs definieren",
+      "type": "schema",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-004"
+      ],
+      "target_files": [
+        "docs/contracts/mlintern-training-job.schema.json",
+        "agent/services/ml_intern_training_job_service.py",
+        "tests/test_ml_intern_training_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Schema unterstuetzt job_type Werte dataset_validate, train_lora, evaluate_lora, register_adapter, export_adapter und merge_adapter_optional.",
+        "train_lora erfordert base_model, dataset_path, output_dir, method, lora_rank, lora_alpha, lora_dropout, max_seq_length, batch_size, gradient_accumulation_steps und learning_rate oder sichere Defaults.",
+        "evaluate_lora erfordert base_model, adapter_path, eval_dataset_path und report_output_path.",
+        "merge_adapter_optional erfordert explizites allow_merge=true und darf niemals Default sein.",
+        "Schema erlaubt extension-Feld x_ananta, verbietet aber unbekannte kritische Top-Level-Felder."
+      ],
+      "test_expectations": [
+        "Gültige Beispieljobs validieren.",
+        "Jobs ohne base_model, dataset_path oder output_dir werden abgelehnt.",
+        "merge_adapter_optional ohne allow_merge=true wird abgelehnt.",
+        "Unknown job_type wird abgelehnt."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-006",
+      "title": "Adapter Registry Schema definieren",
+      "type": "schema",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-005"
+      ],
+      "target_files": [
+        "docs/contracts/mlintern-adapter-registry.schema.json",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "tests/test_ml_intern_adapter_registry_service.py"
+      ],
+      "acceptance_criteria": [
+        "Registry enthaelt adapter_id, display_name, version, base_model, method, status, artifact_paths, dataset_hash, config_hash, eval_report_ref und created_at.",
+        "Statuswerte sind mindestens created, training, trained, evaluated, approved, rejected, deprecated und failed.",
+        "Nur approved Adapter duerfen fuer Runtime-Routing vorgeschlagen werden.",
+        "Adapter referenzieren exakt ihr Basismodell; ein Adapter fuer Modell A darf nicht stillschweigend mit Modell B genutzt werden.",
+        "Registry ist lokal als JSON speicherbar und fuer spaetere DB-Integration offen."
+      ],
+      "test_expectations": [
+        "Tests pruefen Statusuebergaenge und blockieren invalid transitions wie created -> approved ohne eval.",
+        "Tests pruefen, dass base_model mismatch blockiert wird.",
+        "Tests pruefen, dass deprecated Adapter nicht als active_default aufloesbar sind."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-007",
+      "title": "Dataset Record Schema definieren",
+      "type": "schema",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-005"
+      ],
+      "target_files": [
+        "docs/contracts/mlintern-dataset-record.schema.json",
+        "docs/ml-intern-lora-finetuning.md",
+        "tests/test_ml_intern_dataset_validation_service.py"
+      ],
+      "acceptance_criteria": [
+        "Schema unterstuetzt instruction/input/output und messages Chat-Format.",
+        "Jeder Record enthaelt source_ref, quality_label, purpose, privacy_class und license_hint oder begruendetes unknown.",
+        "Train- und Eval-Datasets muessen getrennte Dateien sein.",
+        "Leere outputs, extrem lange records und kaputte JSONL-Zeilen werden blockiert oder klar markiert.",
+        "Dataset-Beispiele fuer ananta-todo-json sind dokumentiert."
+      ],
+      "test_expectations": [
+        "Validierung akzeptiert gueltige Instruction- und Chat-Beispiele.",
+        "Validierung lehnt leere assistant outputs ab.",
+        "Validierung meldet Zeilennummer bei kaputter JSONL-Zeile."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-008",
+      "title": "Dataset Validator implementieren",
+      "type": "implementation",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-007"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_dataset_validation_service.py",
+        "tests/test_ml_intern_dataset_validation_service.py"
+      ],
+      "acceptance_criteria": [
+        "Validator liest JSONL deterministisch und streamend, ohne komplette riesige Dateien unkontrolliert in RAM zu laden.",
+        "Validator prueft Pflichtfelder, Textlaengen, Dubletten, minimale Output-Qualitaet und Formattyp.",
+        "Validator erzeugt dataset_validation_report.json mit counts, warnings, errors, hashes und accepted_record_count.",
+        "Training Jobs mit require_dataset_validation=true duerfen nur starten, wenn der Report ok ist.",
+        "Eval-Dataset darf nicht dieselbe Datei und nicht denselben Hash wie Train-Dataset haben."
+      ],
+      "test_expectations": [
+        "Tests decken gueltiges Dataset, kaputte Zeile, Dubletten, leeren Output und Train/Eval-Verwechslung ab.",
+        "Tests laufen ohne GPU und ohne externe Dependencies."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-009",
+      "title": "Secret- und Sensitive-Data-Scan vor Training erzwingen",
+      "type": "security",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-008"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_dataset_validation_service.py",
+        "tests/test_ml_intern_dataset_validation_service.py",
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "API Keys, Tokens, Passwoerter, private Keys und typische Secret-Patterns blockieren Training per Default.",
+        "Scan-Ergebnis steht im dataset_validation_report.json.",
+        "False-Positive-Freigabe ist nur mit explicit_override, reason und auditierbarer Markierung moeglich.",
+        "Private Chatlogs oder personenbezogene Rohdaten werden nicht automatisch als Trainingsdaten akzeptiert.",
+        "Dokumentation beschreibt klar, welche Quellen erlaubt, blockiert oder manuell freizugeben sind."
+      ],
+      "test_expectations": [
+        "Tests pruefen mindestens fake API key, fake private key, password= Pattern und unkritische False-Positive-Zeile.",
+        "Tests pruefen, dass require_secret_scan=false nicht stillschweigend Default wird."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-010",
+      "title": "Erstes kleines ananta-todo-json Dataset als Fixture vorbereiten",
+      "type": "data",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-008",
+        "MLLORA-009"
+      ],
+      "target_files": [
+        "tests/fixtures/mlintern_lora/ananta_todo_json_train.jsonl",
+        "tests/fixtures/mlintern_lora/ananta_todo_json_eval.jsonl",
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "Fixture enthaelt kleine, unkritische synthetische Beispiele fuer Todo-JSON-Erzeugung.",
+        "Eval-Fixture ist getrennt vom Train-Fixture.",
+        "Beispiele orientieren sich am realen Todo-Stil mit track, milestones, tasks, acceptance_criteria und test_expectations.",
+        "Fixture enthaelt keine Secrets, keine privaten Daten und keine ungeprueften Repo-Behauptungen.",
+        "Fixture ist klein genug fuer schnelle Unit-/Dry-Run-Tests."
+      ],
+      "test_expectations": [
+        "Dataset Validator akzeptiert beide Fixtures.",
+        "Hash von Train und Eval ist unterschiedlich."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-011",
+      "title": "Dry-Run Training Job Service implementieren",
+      "type": "implementation",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-004",
+        "MLLORA-005",
+        "MLLORA-008"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_job_service.py",
+        "tests/test_ml_intern_training_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Dry-Run nimmt denselben Job-Vertrag an wie echtes Training.",
+        "Dry-Run validiert Config, Dataset und Output-Pfade, startet aber kein GPU-Training.",
+        "Dry-Run erzeugt dieselbe Grund-Artefaktstruktur wie ein echter Lauf: training_summary.json, training_log.jsonl und status.json.",
+        "Dry-Run setzt Status dry_run_completed und niemals trained oder approved.",
+        "Fehler werden als strukturierte Job-Fehler zurueckgegeben, nicht nur als freier stdout/stderr-Text."
+      ],
+      "test_expectations": [
+        "Tests pruefen erfolgreichen Dry-Run, invalid Dataset, forbidden output path und disabled config.",
+        "Tests laufen ohne GPU."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-012",
+      "title": "Echte QLoRA Backend-Anbindung als optionalen lokalen Runner vorbereiten",
+      "type": "implementation",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-011"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_job_service.py",
+        "docs/ml-intern-lora-finetuning.md",
+        "tests/test_ml_intern_training_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Backend ist konfigurierbar, z. B. unsloth oder peft_trl, aber nicht hart im Hub verdrahtet.",
+        "Echter Trainingslauf ist nur erlaubt, wenn ml_intern_training.enabled=true und mode nicht dry_run ist.",
+        "Runner bekommt nur erlaubte Environment-Variablen aus env_allowlist.",
+        "Runner schreibt adapter_config.json, adapter_model.safetensors, training_log.jsonl und training_summary.json in ein versioniertes Output-Verzeichnis.",
+        "OOM, Timeout und Subprocess-Fehler werden in status.json und Rueckgabe strukturiert abgebildet."
+      ],
+      "test_expectations": [
+        "Unit-Tests mocken den Backend-Runner und pruefen Kommando-/Argumentaufbau.",
+        "CI startet kein echtes Training.",
+        "Optionaler lokaler Test kann per Marker, z. B. gpu oder local_training, ausgefuehrt werden."
+      ],
+      "notes": [
+        "Nicht sofort full fine-tuning bauen. Nur LoRA/QLoRA als erster echter Trainingspfad."
+      ]
+    },
+    {
+      "id": "MLLORA-013",
+      "title": "GPU- und Ressourcen-Schutz fuer RTX-3080-Profil einbauen",
+      "type": "security",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-012"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_config_service.py",
+        "agent/services/ml_intern_training_job_service.py",
+        "tests/test_ml_intern_training_config_service.py",
+        "tests/test_ml_intern_training_job_service.py",
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "Config enthaelt gpu_profile=rtx3080-safe mit konservativen Defaults fuer batch_size, gradient_accumulation_steps, max_seq_length und load_in_4bit.",
+        "Riskante Werte wie extrem grosse max_seq_length oder Batch Size werden blockiert oder benoetigen explicit_override mit reason.",
+        "Timeout fuer Training ist getrennt vom bisherigen invoke_spike Timeout und trotzdem bounded.",
+        "Training kann sauber abgebrochen werden, ohne halb registrierte approved Adapter zu erzeugen.",
+        "Dokumentation nennt klar, dass 7B/8B realistisch sind und 14B/32B nur optional/knapp je nach VRAM."
+      ],
+      "test_expectations": [
+        "Tests pruefen Blockade riskanter Configs.",
+        "Tests pruefen, dass explicit_override dokumentiert im Job-Report landet.",
+        "Tests pruefen failed Status bei simuliertem OOM."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-014",
+      "title": "Training-Artefaktstruktur versioniert und reproduzierbar machen",
+      "type": "implementation",
+      "milestone": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-011"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_job_service.py",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "tests/test_ml_intern_training_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder Job bekommt eine eindeutige job_id und ein eigenes Output-Verzeichnis.",
+        "Artefakte enthalten config_hash, dataset_hash, base_model, backend, method, started_at, finished_at und status.",
+        "stdout/stderr werden begrenzt gespeichert und nicht als einzige Wahrheit verwendet.",
+        "Adapter-Dateien werden erst nach erfolgreichem Lauf in registry-faehigen Status ueberfuehrt.",
+        "Teilweise Artefakte bei Abbruch bleiben als failed nachvollziehbar, werden aber nicht approved."
+      ],
+      "test_expectations": [
+        "Tests pruefen Artefaktstruktur im temporären Testverzeichnis.",
+        "Tests pruefen, dass Pfade nicht aus dem erlaubten artifact_root ausbrechen koennen."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-015",
+      "title": "Eval Runner fuer Base-vs-Adapter Vergleich bauen",
+      "type": "implementation",
+      "milestone": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-006",
+        "MLLORA-010",
+        "MLLORA-014"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_lora_eval_service.py",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "tests/test_ml_intern_lora_eval_service.py"
+      ],
+      "acceptance_criteria": [
+        "Eval Runner kann ein Eval-Dataset gegen Basismodell und Basismodell+Adapter laufen lassen oder im Dry-Run mocken.",
+        "Eval Report enthaelt pro Prompt base_output, adapter_output, rule_scores, optional judge_scores und summary.",
+        "Fuer ananta-todo-json werden JSON-Validitaet, Pflichtfelder, Milestones, Tasks, acceptance_criteria und test_expectations automatisch geprueft.",
+        "Adapter mit schlechterem Score als Base wird nicht approved.",
+        "Eval kann wiederholt werden, ohne den Trainingslauf erneut zu starten."
+      ],
+      "test_expectations": [
+        "Tests nutzen Dummy-Outputs und pruefen Scoring deterministisch.",
+        "Tests pruefen invalid JSON Output, fehlende Acceptance Criteria und Base-besser-als-Adapter-Fall."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-016",
+      "title": "Manuelles Approval Gate fuer Adapter einfuehren",
+      "type": "security",
+      "milestone": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-015"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "tests/test_ml_intern_adapter_registry_service.py",
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "Adapter kann nur von evaluated nach approved wechseln, wenn eval_report_ref vorhanden und required_score_min erfuellt ist.",
+        "Approval speichert approved_by, approved_at, reason und eval_report_ref.",
+        "Rejected Adapter bleiben sichtbar und auditierbar.",
+        "Rollback auf vorherigen approved Adapter oder base_model_only ist dokumentiert.",
+        "auto_activate_adapter=false bleibt Default und wird durch Tests abgesichert."
+      ],
+      "test_expectations": [
+        "Tests pruefen Blockade von trained -> approved ohne Eval.",
+        "Tests pruefen Rollback und rejected/deprecated Verhalten.",
+        "Tests pruefen, dass auto_activate_adapter per Default false ist."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-017",
+      "title": "Adapter Registry in Config-/Read-Model sichtbar machen",
+      "type": "implementation",
+      "milestone": "M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-016"
+      ],
+      "target_files": [
+        "agent/routes/config/settings.py",
+        "agent/routes/config/shared.py",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "tests/test_config_api.py"
+      ],
+      "acceptance_criteria": [
+        "Config-/Read-Model kann Adapter-Status anzeigen, ohne grosse safetensors-Dateien zu laden.",
+        "Anzeige unterscheidet trained, evaluated, approved, rejected und deprecated.",
+        "Sensitive lokale Pfade werden entweder relativ oder sicher begrenzt angezeigt.",
+        "Nicht-approved Adapter werden nicht als runtime_default dargestellt.",
+        "Fehlende Registry fuehrt zu leerer Liste, nicht zu Fehler 500."
+      ],
+      "test_expectations": [
+        "Config API Tests pruefen leere Registry, Registry mit approved Adapter und Registry mit rejected Adapter.",
+        "Tests pruefen, dass keine Secrets aus Config/Env in Response erscheinen."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-018",
+      "title": "Optionales Adapter-Routing in Modellrouting vorbereiten",
+      "type": "implementation",
+      "milestone": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-016"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/services/model_profile_resolver.py",
+        "agent/runtime_policy.py",
+        "tests/test_ml_intern_adapter_registry_service.py"
+      ],
+      "acceptance_criteria": [
+        "Adapter-Routing ist optional und per lora_runtime.routing_enabled=false default aus.",
+        "Nur approved Adapter koennen fuer task_kind wie todo_json_generation, code_review oder architecture_review vorgeschlagen werden.",
+        "Routing-Ausgabe zeigt base_model, adapter_id, adapter_version, reason und fallback_to_base_model.",
+        "Fehlender oder inkompatibler Adapter fuehrt zu base_model_only Fallback.",
+        "Security Policy darf Adapter-Nutzung blockieren, auch wenn eine Routing-Regel passt."
+      ],
+      "test_expectations": [
+        "Tests pruefen approved-only, base_model mismatch, disabled routing und fallback_to_base_model.",
+        "Bestehende Model-Routing-Tests bleiben gruen."
+      ],
+      "notes": [
+        "Falls model_profile_resolver noch nicht an dieser Stelle passend ist, zuerst reale Routing-Dateien erneut analysieren und target_files korrigieren."
+      ]
+    },
+    {
+      "id": "MLLORA-019",
+      "title": "Optionalen Merge-/Export-Pfad dokumentieren und absichern",
+      "type": "implementation",
+      "milestone": "M6",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-014",
+        "MLLORA-016"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_job_service.py",
+        "docs/ml-intern-lora-finetuning.md",
+        "tests/test_ml_intern_training_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Merge ist ein eigener Job-Typ merge_adapter_optional und niemals Default.",
+        "Merge erfordert allow_merge=true, approved Adapter und ausreichend freien Output-Pfad.",
+        "Gemergtes Modell bekommt eigene Artefakte und eigene Registry-Referenz, Originaladapter bleibt erhalten.",
+        "GGUF/Ollama-Export wird als optionaler Spaeter-Schritt beschrieben, nicht als Voraussetzung fuer MVP.",
+        "Fehlgeschlagener Merge zerstoert keine Adapter-Artefakte."
+      ],
+      "test_expectations": [
+        "Tests mocken Merge und pruefen, dass nicht-approved Adapter nicht gemerged werden.",
+        "Tests pruefen, dass allow_merge fehlt und der Job abgelehnt wird."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-020",
+      "title": "Runtime-Ausgabe um Adapter-Provenance erweitern",
+      "type": "implementation",
+      "milestone": "M6",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-018"
+      ],
+      "target_files": [
+        "agent/routes/sgpt.py",
+        "agent/runtime_policy.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "acceptance_criteria": [
+        "Wenn ein Adapter zur Laufzeit genutzt wird, enthaelt die Response eine lora_provenance mit adapter_id, version, base_model und eval_report_ref.",
+        "Wenn kein Adapter genutzt wird, bleibt die bestehende Response abwaertskompatibel oder enthaelt adapter_used=false.",
+        "Trace/Pipeline unterscheidet Modellrouting, RAG-Retrieval und Adapter-Auswahl klar.",
+        "Fehlerhafte Adapter-Auswahl fuehrt zu Fallback, nicht zu unklarer Modellantwort."
+      ],
+      "test_expectations": [
+        "SGPT-Route-Tests pruefen Response mit und ohne Adapter-Provenance.",
+        "Bestehende Clients duerfen nicht durch fehlende neue Felder brechen."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-021",
+      "title": "Hermes PEFT/LoRA nur als optionale Vergleichs-/Bridge-Strategie dokumentieren",
+      "type": "documentation",
+      "milestone": "M7",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-003"
+      ],
+      "target_files": [
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation beschreibt Hermes als optionalen externen PEFT/LoRA-Orchestrator oder Vergleichspfad.",
+        "Dokumentation stellt klar, dass Ananta weiterhin mlintern als primaere eigene Integrationsgrenze nutzt.",
+        "Hermes-Artefakte duerfen nur importiert werden, wenn sie dieselbe Adapter-Registry- und Eval-Pipeline durchlaufen.",
+        "Keine harte Dependency auf Hermes-Pakete oder Hermes-CLI im Ananta-Core."
+      ],
+      "test_expectations": [
+        "Keine Unit-Tests noetig, solange nur Doku.",
+        "Falls ein Hermes-Export spaeter gebaut wird, eigener optionaler Testmarker."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-022",
+      "title": "Operator-Dokumentation fuer LoRA-Workflow schreiben",
+      "type": "documentation",
+      "milestone": "M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-011",
+        "MLLORA-015",
+        "MLLORA-016"
+      ],
+      "target_files": [
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "Doku enthaelt Schrittfolge: Dataset erstellen, validieren, Secret-Scan, Dry-Run, Training, Eval, Approval, optional Routing, Rollback.",
+        "Doku erklaert Dateien adapter_config.json, adapter_model.safetensors, training_log.jsonl, eval_report.json und adapter_registry.json.",
+        "Doku nennt typische Laufzeiten grob und warnt, dass Datenqualitaet wichtiger als Trainingsdauer ist.",
+        "Doku enthaelt Sicherheitswarnung gegen Training privater/ungepruefter Daten.",
+        "Doku enthaelt klares Beispiel fuer ananta-todo-json Adapter."
+      ],
+      "test_expectations": [
+        "Falls Markdown-Lint/Docs-Tests existieren, bleiben sie gruen.",
+        "Review prueft, dass Doku keine falsche Behauptung macht, dass mlintern heute schon LoRA kann."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-023",
+      "title": "Regressionstests fuer bestehenden ml_intern-Spike erweitern",
+      "type": "test",
+      "milestone": "M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-004",
+        "MLLORA-011"
+      ],
+      "target_files": [
+        "tests/test_ml_intern_adapter_service.py",
+        "tests/test_ml_intern_training_config_service.py",
+        "tests/test_ml_intern_training_job_service.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "acceptance_criteria": [
+        "Bestehende invoke_spike Tests fuer disabled und bounded command bleiben erhalten.",
+        "Neue Tests pruefen, dass Training-Config getrennt von Spike-Config ist.",
+        "Neue Tests pruefen, dass SGPT-Route nicht versehentlich Training-Jobs akzeptiert.",
+        "Neue Tests pruefen, dass Prompt-Ausfuehrung und Training-Artefakte getrennte Services nutzen.",
+        "Alle Tests laufen ohne GPU."
+      ],
+      "test_expectations": [
+        "pytest tests/test_ml_intern_adapter_service.py tests/test_ml_intern_training_config_service.py tests/test_ml_intern_training_job_service.py tests/test_sgpt_route.py laeuft lokal ohne GPU durch."
+      ],
+      "notes": []
+    },
+    {
+      "id": "MLLORA-024",
+      "title": "Abschlussreview: Keine heimliche Auto-Aktivierung und keine Vermischung mit RAG",
+      "type": "review",
+      "milestone": "M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MLLORA-016",
+        "MLLORA-018",
+        "MLLORA-022",
+        "MLLORA-023"
+      ],
+      "target_files": [
+        "docs/ml-intern-lora-finetuning.md",
+        "agent/services/ml_intern_training_job_service.py",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/runtime_policy.py",
+        "agent/routes/sgpt.py"
+      ],
+      "acceptance_criteria": [
+        "Review bestaetigt: kein Adapter wird ohne Evaluation und Approval automatisch genutzt.",
+        "Review bestaetigt: RAG/CodeCompass-Kontext und LoRA-Adapter-Auswahl sind in Trace/Docs getrennt.",
+        "Review bestaetigt: Secret-Scan ist default required und nicht optional versteckt deaktiviert.",
+        "Review bestaetigt: SGPT-Execute ist weiterhin bounded Prompt-Execution, kein Trainings-Endpunkt.",
+        "Review bestaetigt: Rollback auf base_model_only ist moeglich und dokumentiert."
+      ],
+      "test_expectations": [
+        "Gesamte relevante Testgruppe laeuft gruen.",
+        "Manueller Review prueft mindestens einen Dry-Run-Job und einen rejected Adapter-Fall."
+      ],
+      "notes": []
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Todo ist mit dem realen Repo abgeglichen und referenziert vorhandene ml_intern-Dateien, SGPT-Route, Config-Services und Tests.",
+    "Implementierung fuehrt keinen unkontrollierten Trainingspfad in /api/sgpt/execute ein.",
+    "ml_intern_spike bleibt fuer bounded Prompt-Execution erhalten; ml_intern_training wird separat aufgebaut.",
+    "Training-Jobs sind schema-validiert, default disabled und dry-run-first.",
+    "Datasets werden validiert, gehasht, auf Secrets geprueft und Train/Eval getrennt gehalten.",
+    "LoRA/QLoRA erzeugt versionierte Adapter-Artefakte, nicht automatisch ein neues gemergtes Modell.",
+    "Adapter werden erst nach Evaluation und manuellem Approval fuer optionales Routing zugelassen.",
+    "CI-Tests laufen ohne GPU; echter Trainingslauf ist optionaler lokaler Smoke-Test.",
+    "CodeCompass/RAG bleibt kanonisch fuer Projektwissen; LoRA wird nicht als Ersatz fuer RAG missverstanden.",
+    "Hermes bleibt optional und darf den Ananta-Core nicht als harte Abhaengigkeit belasten."
+  ],
+  "implementation_order_recommendation": [
+    "MLLORA-001 bis MLLORA-003: Ist-Zustand und Grenzen dokumentieren",
+    "MLLORA-004 bis MLLORA-007: Config und Schemas einfuehren",
+    "MLLORA-008 bis MLLORA-010: Dataset Validator, Secret Scan und Fixtures bauen",
+    "MLLORA-011: Dry-Run Training Job Service bauen",
+    "MLLORA-012 bis MLLORA-014: Optionalen echten QLoRA Runner und Artefakte bauen",
+    "MLLORA-015 bis MLLORA-017: Evaluation, Approval und Registry bauen",
+    "MLLORA-018 bis MLLORA-020: Optionales Runtime-Routing und Merge/Export vorbereiten",
+    "MLLORA-021 bis MLLORA-024: Hermes-Doku, Operator Guide, Regression und Abschlussreview"
+  ],
+  "open_questions_for_implementation": [
+    "Soll der echte Trainingsrunner als Python-Modul im Repo liegen oder nur extern ueber command_template-artige Runner gestartet werden?",
+    "Soll es spaeter eine eigene API fuer Trainingsjobs geben oder zuerst nur CLI/Service-intern?",
+    "Soll Adapter-Routing direkt in bestehende Model-Profile integriert werden oder als separater lora_runtime Layer starten?",
+    "Welche lokalen Basismodelle sind auf der RTX-3080 wirklich als erste Targets vorhanden?",
+    "Welche Todo-/Review-Beispiele duerfen als Trainingsdaten genutzt werden und welche sollen nur als Eval dienen?"
+  ],
+  "notes": [
+    "Der bestehende ml_intern-Spike ist eine gute Basis, aber aktuell kein Fine-Tuning-Mechanismus.",
+    "Die erste sinnvolle Umsetzung ist Dry-Run + Dataset/Eval/Registry, erst danach echtes GPU-Training.",
+    "ananta-todo-json ist als erster Adapter sicherer als code_review, weil JSON-Qualitaet deterministisch testbar ist.",
+    "Full-Fine-Tuning bleibt bewusst ausserhalb dieser Todo-Spur."
+  ]
+}
