@@ -332,6 +332,7 @@ def _workflow_from_db(blueprint_id: str) -> dict | None:
                 "failure_policy": r.failure_policy,
                 "required_capabilities": list(r.required_capabilities or []),
                 "sort_order": int(r.sort_order),
+                "pattern_hints": dict(r.pattern_hints) if r.pattern_hints else None,
             }
             for r in rows
         ],

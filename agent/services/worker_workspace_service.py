@@ -397,6 +397,7 @@ class WorkerWorkspaceService:
         task_brief_char_limit: int | None = None,
         context_text_char_limit: int | None = None,
         research_prompt_char_limit: int | None = None,
+        pattern_hints: dict | None = None,
     ) -> dict:
         workspace_dir = workspace_context.workspace_dir
         bundle_dir = workspace_dir / ".ananta"
@@ -571,6 +572,56 @@ class WorkerWorkspaceService:
                 )
                 _record(research_md_path, key="research_context_prompt_path")
 
+        if isinstance(pattern_hints, dict) and pattern_hints:
+            pattern_dir = bundle_dir / "patterns"
+            pattern_dir.mkdir(parents=True, exist_ok=True)
+            contract_path = pattern_dir / "pattern-selection-contract.json"
+            self._write_json(contract_path, {
+                "schema": "pattern_selection_contract.v1",
+                "allowed_patterns": list(pattern_hints.get("allowed_patterns") or []),
+                "preferred_patterns": list(pattern_hints.get("preferred_patterns") or []),
+                "forbid_patterns": list(pattern_hints.get("forbid_patterns") or []),
+                "language_targets": list(pattern_hints.get("language_targets") or []),
+                "require_tests": bool(pattern_hints.get("require_tests", True)),
+            })
+            _record(contract_path, key="pattern_selection_contract_path")
+            allowed_md_lines = [
+                "# Allowed Design Patterns",
+                "",
+                "Use ONLY the pattern IDs listed here when proposing a pattern_plan.",
+                "Patterns not in this list will be rejected by the hub validator.",
+                "",
+            ]
+            allowed = list(pattern_hints.get("allowed_patterns") or [])
+            if allowed:
+                allowed_md_lines.append("## Allowed")
+                for pid in allowed:
+                    allowed_md_lines.append(f"- `{pid}`")
+                allowed_md_lines.append("")
+            preferred = list(pattern_hints.get("preferred_patterns") or [])
+            if preferred:
+                allowed_md_lines.append("## Preferred (subset of allowed)")
+                for pid in preferred:
+                    allowed_md_lines.append(f"- `{pid}`")
+                allowed_md_lines.append("")
+            forbidden = list(pattern_hints.get("forbid_patterns") or [])
+            if forbidden:
+                allowed_md_lines.append("## Forbidden")
+                for pid in forbidden:
+                    allowed_md_lines.append(f"- `{pid}` — must NOT be used")
+                allowed_md_lines.append("")
+            if bool(pattern_hints.get("require_tests", True)):
+                allowed_md_lines.append("**Tests are required for any pattern output.**")
+            else:
+                allowed_md_lines.append("*Tests are optional for this step.*")
+            allowed_path = pattern_dir / "allowed-patterns.md"
+            self._write_text(allowed_path, "\n".join(allowed_md_lines).strip() + "\n")
+            _record(allowed_path, key="pattern_allowed_path")
+            manifest["pattern_context_paths"] = [
+                str(manifest.get("pattern_selection_contract_path") or ""),
+                str(manifest.get("pattern_allowed_path") or ""),
+            ]
+
         context_index = bundle_dir / "context-index.md"
         index_lines = [
             "# OpenCode Workspace Context",
@@ -587,6 +638,8 @@ class WorkerWorkspaceService:
             "research_context_json_path",
             "tool_definitions_path",
             "output_schema_path",
+            "pattern_selection_contract_path",
+            "pattern_allowed_path",
         ]
         if include_response_contract:
             preferred_keys.append("response_contract_path")

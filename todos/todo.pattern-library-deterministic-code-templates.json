@@ -3,29 +3,29 @@
   "version": 1,
   "owner": "ananta",
   "track": "deterministic_pattern_library_code_templates",
-  "purpose": "Ananta um eine deterministische Pattern-Library erweitern, die gute Programmier- und Architektur-Pattern als validierte Grundger\u00fcst-Vorlagen f\u00fcr Java, Python und TypeScript bereitstellt. LLMs d\u00fcrfen Pattern ausw\u00e4hlen, begr\u00fcnden und Parameter liefern, aber nicht frei neue Architekturstrukturen oder Template-Vertr\u00e4ge erfinden.",
-  "goal": "Aus einem Nutzerwunsch, Blueprint-Step oder Worker-Task entsteht ein pr\u00fcfbarer Pattern-Plan: erlaubtes Pattern aus Registry w\u00e4hlen, Parameter gegen Schema validieren, Sprach-Template deterministisch rendern, Dateien/Testdateien erzeugen und per Gate/Tests pr\u00fcfen. Strategy, State, Command, Observer, Adapter, Facade, Proxy, Factory Method und Builder sollen als erste belastbare Bibliothek verf\u00fcgbar sein.",
+  "purpose": "Ananta um eine deterministische Pattern-Library erweitern, die gute Programmier- und Architektur-Pattern als validierte Grundgerüst-Vorlagen für Java, Python und TypeScript bereitstellt. LLMs dürfen Pattern auswählen, begründen und Parameter liefern, aber nicht frei neue Architekturstrukturen oder Template-Verträge erfinden.",
+  "goal": "Aus einem Nutzerwunsch, Blueprint-Step oder Worker-Task entsteht ein prüfbarer Pattern-Plan: erlaubtes Pattern aus Registry wählen, Parameter gegen Schema validieren, Sprach-Template deterministisch rendern, Dateien/Testdateien erzeugen und per Gate/Tests prüfen. Strategy, State, Command, Observer, Adapter, Facade, Proxy, Factory Method und Builder sollen als erste belastbare Bibliothek verfügbar sein.",
   "non_goals": [
     "Kein unkontrollierter Freestyle-Codegenerator.",
-    "Keine vollst\u00e4ndige Enterprise-Architektur-DSL im ersten Schritt.",
+    "Keine vollständige Enterprise-Architektur-DSL im ersten Schritt.",
     "Keine harte Kopplung an ein bestimmtes LLM oder einen bestimmten Provider.",
     "Keine automatische Anwendung riskanter Pattern wie Singleton ohne explizite Warnung und Policy-Freigabe.",
     "Keine parallele Neuerfindung des bestehenden Blueprint-/Workflow-Gate-Layers."
   ],
   "source_code_analysis": {
-    "summary": "Der vorhandene Code hat bereits die richtigen Anker: SeedBlueprintCatalog l\u00e4dt und normalisiert Blueprint-Kataloge aus config/blueprints/standard, WorkflowDefinitionService materialisiert validierte Workflow-Bl\u00f6cke in DB-Steps, BlueprintPlanningAdapter baut daraus Subtasks mit task_kind, gate, checks, required_capabilities, produces/consumes und role_template_hints. TaskScopedExecutionService nutzt bereits TemplateDB/Prompt-Templates und materialisiert Workspace-Kontextdateien f\u00fcr Worker. Die Pattern-Library soll deshalb als eigener Katalog mit Schema/Registry/Renderer erg\u00e4nzt und \u00fcber Blueprint-Workflow-Steps sowie worker_execution_context angebunden werden.",
+    "summary": "Der vorhandene Code hat bereits die richtigen Anker: SeedBlueprintCatalog lädt und normalisiert Blueprint-Kataloge aus config/blueprints/standard, WorkflowDefinitionService materialisiert validierte Workflow-Blöcke in DB-Steps, BlueprintPlanningAdapter baut daraus Subtasks mit task_kind, gate, checks, required_capabilities, produces/consumes und role_template_hints. TaskScopedExecutionService nutzt bereits TemplateDB/Prompt-Templates und materialisiert Workspace-Kontextdateien für Worker. Die Pattern-Library soll deshalb als eigener Katalog mit Schema/Registry/Renderer ergänzt und über Blueprint-Workflow-Steps sowie worker_execution_context angebunden werden.",
     "existing_modules_to_reuse": [
       {
         "path": "agent/services/seed_blueprint_catalog.py",
-        "reason": "Vorbild f\u00fcr JSON-Katalog, Fragment-Ladung, Schema-Validierung und Normalisierung."
+        "reason": "Vorbild für JSON-Katalog, Fragment-Ladung, Schema-Validierung und Normalisierung."
       },
       {
         "path": "schemas/blueprints/seed_blueprint_catalog.v1.json",
-        "reason": "Vorbild f\u00fcr eine neue JSON-Schema-Oberfl\u00e4che patterns/catalog.v1."
+        "reason": "Vorbild für eine neue JSON-Schema-Oberfläche patterns/catalog.v1."
       },
       {
         "path": "agent/services/workflow_definition_service.py",
-        "reason": "Vorbild f\u00fcr deterministische Materialisierung und Defense-in-depth-Checks."
+        "reason": "Vorbild für deterministische Materialisierung und Defense-in-depth-Checks."
       },
       {
         "path": "agent/services/blueprint_planning_adapter.py",
@@ -33,11 +33,11 @@
       },
       {
         "path": "agent/services/task_scoped_execution_service.py",
-        "reason": "Bestehender Ort f\u00fcr taskbezogene Worker-Kontexte, Prompt-/Workspace-Materialisierung und Output-Vertr\u00e4ge."
+        "reason": "Bestehender Ort für taskbezogene Worker-Kontexte, Prompt-/Workspace-Materialisierung und Output-Verträge."
       },
       {
         "path": "agent/services/task_template_resolution.py",
-        "reason": "Template-Aufl\u00f6sung nicht duplizieren; Pattern-Templates erg\u00e4nzen statt Rollen-Prompt-Templates zu ersetzen."
+        "reason": "Template-Auflösung nicht duplizieren; Pattern-Templates ergänzen statt Rollen-Prompt-Templates zu ersetzen."
       },
       {
         "path": "agent/services/repository_registry.py",
@@ -45,24 +45,24 @@
       },
       {
         "path": "tests/test_task_prompt_templates.py",
-        "reason": "Belegt vorhandene TemplateDB-/Prompt- und Workspace-Kontext-Testmuster, die f\u00fcr Pattern-Plan/Pattern-Dateien erweitert werden sollen."
+        "reason": "Belegt vorhandene TemplateDB-/Prompt- und Workspace-Kontext-Testmuster, die für Pattern-Plan/Pattern-Dateien erweitert werden sollen."
       }
     ],
     "important_constraints": [
-      "Blueprint workflow.steps[].depends_on bleibt die ma\u00dfgebliche Ausf\u00fchrungsreihenfolge.",
-      "Workers lesen nicht direkt Blueprint-JSON; Hub/Planner materialisiert Kontext und Vertr\u00e4ge.",
-      "Pattern-Auswahl ist LLM-unterst\u00fctzt, aber nur innerhalb erlaubter Registry-IDs g\u00fcltig.",
+      "Blueprint workflow.steps[].depends_on bleibt die maßgebliche Ausführungsreihenfolge.",
+      "Workers lesen nicht direkt Blueprint-JSON; Hub/Planner materialisiert Kontext und Verträge.",
+      "Pattern-Auswahl ist LLM-unterstützt, aber nur innerhalb erlaubter Registry-IDs gültig.",
       "Alle generierten Dateien brauchen deterministische Namen, stabile Inhalte und Tests.",
       "Security/Least-Privilege: Pattern-Rendering darf keine Shell-/Netzwerkrechte implizieren."
     ]
   },
   "architecture_principles": [
     "Pattern Registry ist deterministisch, versioniert und schema-validiert.",
-    "LLM-Ausgaben sind nur Vorschl\u00e4ge; g\u00fcltig wird nur ein PatternPlan, der lokal validiert wurde.",
+    "LLM-Ausgaben sind nur Vorschläge; gültig wird nur ein PatternPlan, der lokal validiert wurde.",
     "Templates erzeugen Quellcode und Tests reproduzierbar aus Pattern-ID, Sprache und Parametern.",
-    "Pattern-Auswahl wird auditiert: warum gew\u00e4hlt, welche Alternativen verworfen, welche Risiken.",
-    "Pattern-Hints k\u00f6nnen in Blueprints/Workflow-Steps/Artifacts liegen, aber der Worker erh\u00e4lt nur den materialisierten, validierten Pattern-Kontext.",
-    "Pattern-Gates pr\u00fcfen Struktur, nicht nur syntaktische Existenz.",
+    "Pattern-Auswahl wird auditiert: warum gewählt, welche Alternativen verworfen, welche Risiken.",
+    "Pattern-Hints können in Blueprints/Workflow-Steps/Artifacts liegen, aber der Worker erhält nur den materialisierten, validierten Pattern-Kontext.",
+    "Pattern-Gates prüfen Struktur, nicht nur syntaktische Existenz.",
     "Java, Python und TypeScript sind gleichberechtigte erste Zielsprachen.",
     "Bestehende Rollen-/Prompt-Templates bleiben erhalten; Pattern-Templates sind Code-Artefakt-Templates, keine Worker-Prompts."
   ],
@@ -158,11 +158,11 @@
     "must_reject": [
       "unbekannte pattern_id",
       "Sprache ohne Template",
-      "Output-Datei au\u00dferhalb workspace/project root",
+      "Output-Datei außerhalb workspace/project root",
       "fehlende Pflichtrolle des Patterns",
       "nicht erlaubter Template-Parameter",
       "Singleton ohne explicit_guarded_policy=true",
-      "PatternPlan ohne Tests, au\u00dfer readonly/explanation mode"
+      "PatternPlan ohne Tests, außer readonly/explanation mode"
     ]
   },
   "milestones": [
@@ -190,7 +190,7 @@
     },
     {
       "id": "PAT-M3",
-      "title": "Deterministischer Template-Renderer f\u00fcr Java/Python/TypeScript",
+      "title": "Deterministischer Template-Renderer für Java/Python/TypeScript",
       "task_ids": [
         "PAT-009",
         "PAT-010",
@@ -208,7 +208,7 @@
         "PAT-015",
         "PAT-016"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PAT-M5",
@@ -220,7 +220,7 @@
         "PAT-020",
         "PAT-021"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -232,7 +232,7 @@
       "risk": "medium",
       "scope": "schema",
       "depends_on": [],
-      "description": "Ein JSON-Schema f\u00fcr versionierte Pattern-Kataloge anlegen, analog zur bestehenden Seed-Blueprint-Katalog-Idee.",
+      "description": "Ein JSON-Schema für versionierte Pattern-Kataloge anlegen, analog zur bestehenden Seed-Blueprint-Katalog-Idee.",
       "implementation_notes": [
         "Neues Schema unter schemas/patterns/pattern_catalog.v1.json.",
         "Schema muss category, id, aliases, intent, use_when, avoid_when, roles, parameters, languages, templates, risks und acceptance_criteria validieren.",
@@ -240,13 +240,13 @@
         "pattern_id nur lower_snake_case."
       ],
       "acceptance_criteria": [
-        "Ein g\u00fcltiger Minimal-Katalog mit strategy/java/python/typescript besteht Schema-Validierung.",
+        "Ein gültiger Minimal-Katalog mit strategy/java/python/typescript besteht Schema-Validierung.",
         "Doppelte pattern_id innerhalb eines Katalogs werden abgelehnt.",
         "Unbekannte category wird abgelehnt.",
         "Pattern ohne intent, roles oder language templates wird abgelehnt.",
         "Template-Pfade mit '../' oder absoluten Pfaden werden abgelehnt.",
         "Singleton-Pattern darf nur als singleton_guarded mit risk_level high oder guarded=true modelliert werden.",
-        "Schema wird in mindestens einem Unit-Test mit Draft202012Validator oder vergleichbarem Validator gepr\u00fcft."
+        "Schema wird in mindestens einem Unit-Test mit Draft202012Validator oder vergleichbarem Validator geprüft."
       ],
       "completion": {
         "commit_ref": "db7d827f",
@@ -268,21 +268,21 @@
       "depends_on": [
         "PAT-001"
       ],
-      "description": "agent/services/pattern_catalog.py l\u00e4dt config/patterns/catalog/patterns.json plus optionale patterns.d/*.json Fragmente, validiert sie und liefert normalisierte Pattern-Definitionen.",
+      "description": "agent/services/pattern_catalog.py lädt config/patterns/catalog/patterns.json plus optionale patterns.d/*.json Fragmente, validiert sie und liefert normalisierte Pattern-Definitionen.",
       "implementation_notes": [
-        "Struktur bewusst \u00e4hnlich zu SeedBlueprintCatalog halten: load(force_reload), list_patterns(), get_pattern(id), load_error.",
+        "Struktur bewusst ähnlich zu SeedBlueprintCatalog halten: load(force_reload), list_patterns(), get_pattern(id), load_error.",
         "Fragmente sortiert laden, damit deterministisches Verhalten entsteht.",
         "Normalisierung erzeugt lowercase ids, deduplizierte aliases und stabile language/template Maps.",
-        "Service darf keine DB ben\u00f6tigen."
+        "Service darf keine DB benötigen."
       ],
       "acceptance_criteria": [
-        "PatternCatalog.load() gibt deep copy zur\u00fcck und sch\u00fctzt interne Cache-Struktur vor Mutation.",
+        "PatternCatalog.load() gibt deep copy zurück und schützt interne Cache-Struktur vor Mutation.",
         "patterns.d/*.json wird in stabiler alphabetischer Reihenfolge geladen.",
-        "Doppelte pattern_id \u00fcber Hauptdatei und Fragmentdatei erzeugt ValueError mit lesbarer Fehlermeldung.",
+        "Doppelte pattern_id über Hauptdatei und Fragmentdatei erzeugt ValueError mit lesbarer Fehlermeldung.",
         "get_pattern('strategy') liefert eine normalisierte Kopie.",
-        "get_pattern mit Alias kann optional aufgel\u00f6st werden, aber nur wenn Alias eindeutig ist.",
-        "load_error wird gesetzt, wenn Schema- oder Dateifehler auftreten, und bei erfolgreichem Reload wieder gel\u00f6scht.",
-        "Tests decken leeren Katalog, ung\u00fcltige JSON-Struktur, Duplikate und g\u00fcltigen Mehrdateien-Katalog ab."
+        "get_pattern mit Alias kann optional aufgelöst werden, aber nur wenn Alias eindeutig ist.",
+        "load_error wird gesetzt, wenn Schema- oder Dateifehler auftreten, und bei erfolgreichem Reload wieder gelöscht.",
+        "Tests decken leeren Katalog, ungültige JSON-Struktur, Duplikate und gültigen Mehrdateien-Katalog ab."
       ],
       "completion": {
         "commit_ref": "db7d827f",
@@ -305,19 +305,19 @@
         "PAT-001",
         "PAT-002"
       ],
-      "description": "Erste katalogisierte Pattern-Definitionen f\u00fcr behavioral, structural und creational Pattern erstellen.",
+      "description": "Erste katalogisierte Pattern-Definitionen für behavioral, structural und creational Pattern erstellen.",
       "implementation_notes": [
-        "Mindestens Strategy, State, Command, Observer, Adapter, Facade, Proxy, Factory Method und Builder vollst\u00e4ndig beschreiben.",
+        "Mindestens Strategy, State, Command, Observer, Adapter, Facade, Proxy, Factory Method und Builder vollständig beschreiben.",
         "Jedes Pattern bekommt use_when/avoid_when, Pflichtrollen, typische Code-Smells, Testhinweise und Anti-Pattern-Hinweise.",
         "singleton_guarded nur mit sehr klarer Warnung und nicht als Default."
       ],
       "acceptance_criteria": [
         "config/patterns/catalog/patterns.json existiert als Root-Katalog mit schema/version.",
         "Mindestens 9 Pattern sind enthalten.",
-        "Strategy, State, Command, Adapter, Factory Method und Builder enthalten Template-Mappings f\u00fcr Java, Python und TypeScript.",
-        "Jedes Pattern hat mindestens 3 use_when- und 3 avoid_when-Eintr\u00e4ge.",
+        "Strategy, State, Command, Adapter, Factory Method und Builder enthalten Template-Mappings für Java, Python und TypeScript.",
+        "Jedes Pattern hat mindestens 3 use_when- und 3 avoid_when-Einträge.",
         "Jedes Pattern hat mindestens eine strukturelle Acceptance-Regel und eine Test-Regel.",
-        "Catalog-Test pr\u00fcft, dass alle referenzierten Template-Dateien entweder existieren oder im ersten Meilenstein explizit als pending markiert sind."
+        "Catalog-Test prüft, dass alle referenzierten Template-Dateien entweder existieren oder im ersten Meilenstein explizit als pending markiert sind."
       ],
       "completion": {
         "commit_ref": "7ca2e0ea",
@@ -331,7 +331,7 @@
     },
     {
       "id": "PAT-004",
-      "title": "PatternCatalog in Service Registry einh\u00e4ngen",
+      "title": "PatternCatalog in Service Registry einhängen",
       "status": "done",
       "priority": "P1",
       "risk": "low",
@@ -339,17 +339,17 @@
       "depends_on": [
         "PAT-002"
       ],
-      "description": "PatternCatalog sauber \u00fcber bestehende Service-/Registry-Mechanik verf\u00fcgbar machen, ohne globale harte Imports in Worker-Code zu verteilen.",
+      "description": "PatternCatalog sauber über bestehende Service-/Registry-Mechanik verfügbar machen, ohne globale harte Imports in Worker-Code zu verteilen.",
       "implementation_notes": [
         "get_pattern_catalog() bereitstellen.",
         "Falls service_registry.py genutzt wird, dort als Core-Service registrieren.",
         "Kein Zugriff aus Worker direkt auf config-Dateien; Hub-Service bleibt Besitzer."
       ],
       "acceptance_criteria": [
-        "PatternCatalog ist \u00fcber eine zentrale Service-Funktion abrufbar.",
-        "Tests k\u00f6nnen einen tempor\u00e4ren catalog_path/schema_path injizieren.",
-        "Keine zirkul\u00e4ren Imports zwischen pattern_catalog, task_scoped_execution_service und blueprint_planning_adapter.",
-        "Fehlender Katalog f\u00fchrt nicht zu App-Start-Crash, sondern zu degraded/readable error im Pattern-Feature."
+        "PatternCatalog ist über eine zentrale Service-Funktion abrufbar.",
+        "Tests können einen temporären catalog_path/schema_path injizieren.",
+        "Keine zirkulären Imports zwischen pattern_catalog, task_scoped_execution_service und blueprint_planning_adapter.",
+        "Fehlender Katalog führt nicht zu App-Start-Crash, sondern zu degraded/readable error im Pattern-Feature."
       ],
       "completion": {
         "commit_ref": "7ca2e0ea",
@@ -371,19 +371,19 @@
       "depends_on": [
         "PAT-001"
       ],
-      "description": "Schema f\u00fcr konkrete Pattern-Anwendungen definieren: Pattern-ID, Sprache, Rollenbindung, Parameter, Output-Dateien und Tests.",
+      "description": "Schema für konkrete Pattern-Anwendungen definieren: Pattern-ID, Sprache, Rollenbindung, Parameter, Output-Dateien und Tests.",
       "implementation_notes": [
         "Neues Schema schemas/patterns/pattern_plan.v1.json.",
-        "PatternPlan ist das einzige Format, das aus LLM-Vorschl\u00e4gen in Generatoren \u00fcbernommen werden darf.",
+        "PatternPlan ist das einzige Format, das aus LLM-Vorschlägen in Generatoren übernommen werden darf.",
         "Output-Dateien relativ zum Workspace/Projektroot, keine absoluten Pfade."
       ],
       "acceptance_criteria": [
         "PatternPlan verlangt pattern_id, language, target, roles, parameters, output_files, tests und selection_reason.",
         "language ist auf java/python/typescript begrenzt.",
-        "output_files d\u00fcrfen keine absoluten Pfade, keine Backslash-Flucht und kein '../' enthalten.",
+        "output_files dürfen keine absoluten Pfade, keine Backslash-Flucht und kein '../' enthalten.",
         "tests ist Pflicht und darf nur bei mode='explain_only' leer sein.",
-        "roles muss die Pflichtrollen des gew\u00e4hlten Patterns abbilden; falls das nur katalogabh\u00e4ngig validierbar ist, \u00fcbernimmt das PAT-006.",
-        "Schema-Test deckt g\u00fcltigen StrategyPlan und ung\u00fcltige Pfad-/Sprach-/Missing-Tests-F\u00e4lle ab."
+        "roles muss die Pflichtrollen des gewählten Patterns abbilden; falls das nur katalogabhängig validierbar ist, übernimmt das PAT-006.",
+        "Schema-Test deckt gültigen StrategyPlan und ungültige Pfad-/Sprach-/Missing-Tests-Fälle ab."
       ],
       "completion": {
         "commit_ref": "8d0ed272",
@@ -397,7 +397,7 @@
     },
     {
       "id": "PAT-006",
-      "title": "PatternPlanService mit katalogabh\u00e4ngiger Validierung bauen",
+      "title": "PatternPlanService mit katalogabhängiger Validierung bauen",
       "status": "done",
       "priority": "P0",
       "risk": "high",
@@ -406,21 +406,21 @@
         "PAT-002",
         "PAT-005"
       ],
-      "description": "PatternPlanService validiert LLM- oder User-Pattern-Pl\u00e4ne gegen Schema und konkrete Pattern-Definition.",
+      "description": "PatternPlanService validiert LLM- oder User-Pattern-Pläne gegen Schema und konkrete Pattern-Definition.",
       "implementation_notes": [
-        "Service pr\u00fcft: Pattern existiert, Sprache unterst\u00fctzt, Pflichtrollen vorhanden, Parameter erlaubt, Template vorhanden.",
+        "Service prüft: Pattern existiert, Sprache unterstützt, Pflichtrollen vorhanden, Parameter erlaubt, Template vorhanden.",
         "Service normalisiert plan.language, plan.pattern_id, output path order.",
         "Service erzeugt eine lesbare Fehlerliste statt nur erstem Fehler.",
         "Keine automatische Korrektur stillschweigend; lokale Reparatur nur als explicit mode mit audit."
       ],
       "acceptance_criteria": [
-        "Ein g\u00fcltiger Strategy-Plan f\u00fcr Java wird accepted und normalisiert.",
+        "Ein gültiger Strategy-Plan für Java wird accepted und normalisiert.",
         "Ein Plan mit unbekanntem Pattern wird rejected.",
-        "Ein Plan mit TypeScript f\u00fcr ein Pattern ohne TypeScript-Templates wird rejected.",
-        "Ein Plan mit zus\u00e4tzlichem nicht erlaubtem Parameter wird rejected oder als ignored_with_warning markiert, abh\u00e4ngig von Policy; Default ist reject.",
+        "Ein Plan mit TypeScript für ein Pattern ohne TypeScript-Templates wird rejected.",
+        "Ein Plan mit zusätzlichem nicht erlaubtem Parameter wird rejected oder als ignored_with_warning markiert, abhängig von Policy; Default ist reject.",
         "Ein Plan ohne required role Strategy/ConcreteStrategy/Context wird rejected.",
         "Ein Plan, dessen output_files nicht zu Template-Ausgaben passen, wird rejected.",
-        "Validierungsfehler enthalten code, path und message f\u00fcr UI/Worker-Auswertung."
+        "Validierungsfehler enthalten code, path und message für UI/Worker-Auswertung."
       ],
       "completion": {
         "commit_ref": "8d0ed272",
@@ -442,20 +442,20 @@
       "depends_on": [
         "PAT-006"
       ],
-      "description": "Eine Policy festlegen, nach der LLMs Pattern nur ausw\u00e4hlen und parametrieren d\u00fcrfen; der lokale Validator bleibt verbindlich.",
+      "description": "Eine Policy festlegen, nach der LLMs Pattern nur auswählen und parametrieren dürfen; der lokale Validator bleibt verbindlich.",
       "implementation_notes": [
         "Neuer Service agent/services/pattern_selection_policy.py.",
-        "Policy kann pro task_kind/role/blueprint \u00fcberschrieben werden.",
+        "Policy kann pro task_kind/role/blueprint überschrieben werden.",
         "Default: LLM darf pattern_id aus erlaubter Liste vorschlagen, aber keine neue Pattern-Definition erzeugen.",
         "Risky Pattern wie singleton_guarded brauchen explizite Freigabe oder Gate."
       ],
       "acceptance_criteria": [
-        "Default-Allowlist enth\u00e4lt nur katalogisierte Pattern-IDs.",
-        "F\u00fcr coding/refactoring tasks sind Strategy/State/Command/Adapter/Factory/Builder erlaubt.",
-        "F\u00fcr security-sensitive Tasks sind Proxy/Decorator nur mit required_capabilities passend erlaubt.",
+        "Default-Allowlist enthält nur katalogisierte Pattern-IDs.",
+        "Für coding/refactoring tasks sind Strategy/State/Command/Adapter/Factory/Builder erlaubt.",
+        "Für security-sensitive Tasks sind Proxy/Decorator nur mit required_capabilities passend erlaubt.",
         "singleton_guarded wird ohne explicit_policy.allow_risky_patterns rejected.",
         "Policy-Entscheidung erzeugt audit payload mit allowed, blocked_reason, pattern_id, task_kind und risk_level.",
-        "Tests pr\u00fcfen positive Auswahl, geblocktes Singleton, unbekanntes Pattern und Policy-Override."
+        "Tests prüfen positive Auswahl, geblocktes Singleton, unbekanntes Pattern und Policy-Override."
       ],
       "commit_refs": [
         "f914916f"
@@ -472,19 +472,19 @@
         "PAT-006",
         "PAT-007"
       ],
-      "description": "Worker/LLM soll bei passenden Coding-Tasks optional einen PatternPlan liefern k\u00f6nnen, ohne bestehende Proposal-Vertr\u00e4ge zu brechen.",
+      "description": "Worker/LLM soll bei passenden Coding-Tasks optional einen PatternPlan liefern können, ohne bestehende Proposal-Verträge zu brechen.",
       "implementation_notes": [
         "Existing structured action / proposal parsing nicht ersetzen.",
-        "PatternPlan als optionales Feld in worker_execution_context oder proposal metadata einf\u00fchren.",
+        "PatternPlan als optionales Feld in worker_execution_context oder proposal metadata einführen.",
         "Bei invalidem PatternPlan darf Task nicht crashen; Ergebnis wird als rejected_pattern_plan dokumentiert."
       ],
       "acceptance_criteria": [
-        "Bestehende Worker-Contract-Tests bleiben gr\u00fcn.",
-        "Ein Proposal ohne PatternPlan verh\u00e4lt sich unver\u00e4ndert.",
-        "Ein Proposal mit g\u00fcltigem PatternPlan wird in metadata.pattern_plan_normalized abgelegt.",
-        "Ein Proposal mit ung\u00fcltigem PatternPlan wird nicht ausgef\u00fchrt, sondern erzeugt klare blocked/retry-Antwort oder Review-Gate.",
-        "Prompt/Response-Contract fordert vom LLM JSON nur nach Schema, keine freien Markdown-Codebl\u00f6cke als Prim\u00e4rartefakt.",
-        "Tests pr\u00fcfen Kompatibilit\u00e4t alt/neu."
+        "Bestehende Worker-Contract-Tests bleiben grün.",
+        "Ein Proposal ohne PatternPlan verhält sich unverändert.",
+        "Ein Proposal mit gültigem PatternPlan wird in metadata.pattern_plan_normalized abgelegt.",
+        "Ein Proposal mit ungültigem PatternPlan wird nicht ausgeführt, sondern erzeugt klare blocked/retry-Antwort oder Review-Gate.",
+        "Prompt/Response-Contract fordert vom LLM JSON nur nach Schema, keine freien Markdown-Codeblöcke als Primärartefakt.",
+        "Tests prüfen Kompatibilität alt/neu."
       ],
       "commit_refs": [
         "6582e4fc"
@@ -509,12 +509,12 @@
       ],
       "acceptance_criteria": [
         "Gleicher PatternPlan + gleiche Templates erzeugen byte-identische Ausgaben.",
-        "Fehlender Template-Parameter f\u00fchrt zu kontrolliertem Renderfehler.",
-        "Nicht referenzierte Template-Parameter f\u00fchren zu Warning oder Reject nach Policy; Default ist Warning.",
-        "Renderer schreibt im Dry-Run-Modus keine Dateien, liefert aber vollst\u00e4ndiges Manifest.",
-        "Renderer verhindert Pfade au\u00dferhalb des Zielroots.",
+        "Fehlender Template-Parameter führt zu kontrolliertem Renderfehler.",
+        "Nicht referenzierte Template-Parameter führen zu Warning oder Reject nach Policy; Default ist Warning.",
+        "Renderer schreibt im Dry-Run-Modus keine Dateien, liefert aber vollständiges Manifest.",
+        "Renderer verhindert Pfade außerhalb des Zielroots.",
         "Renderer erzeugt Hashes pro Datei und Gesamtmanifest.",
-        "Tests pr\u00fcfen deterministische Ausgabe mit Snapshot-/Golden-File-Vergleich."
+        "Tests prüfen deterministische Ausgabe mit Snapshot-/Golden-File-Vergleich."
       ],
       "commit_refs": [
         "f914916f"
@@ -522,7 +522,7 @@
     },
     {
       "id": "PAT-010",
-      "title": "Java Templates f\u00fcr erste Pattern erstellen",
+      "title": "Java Templates für erste Pattern erstellen",
       "status": "done",
       "priority": "P0",
       "risk": "medium",
@@ -530,7 +530,7 @@
       "depends_on": [
         "PAT-009"
       ],
-      "description": "Java-Code- und Test-Templates f\u00fcr Strategy, State, Command, Adapter, Factory Method und Builder anlegen.",
+      "description": "Java-Code- und Test-Templates für Strategy, State, Command, Adapter, Factory Method und Builder anlegen.",
       "implementation_notes": [
         "Package-Name parametrierbar.",
         "JUnit-Testtemplate vorsehen, ohne Build-System hart anzunehmen.",
@@ -544,7 +544,7 @@
         "Adapter erzeugt Target Interface, Adaptee, Adapter und Test.",
         "Factory Method erzeugt Creator/Product-Struktur und Test.",
         "Builder erzeugt Builder mit validierbarem Build-Ergebnis und Test.",
-        "Generated Java kompiliert in einem minimalen Testprojekt oder Syntax-/Structure-Gate pr\u00fcft alle Klassen/Packages konsistent."
+        "Generated Java kompiliert in einem minimalen Testprojekt oder Syntax-/Structure-Gate prüft alle Klassen/Packages konsistent."
       ],
       "commit_refs": [
         "f914916f"
@@ -552,7 +552,7 @@
     },
     {
       "id": "PAT-011",
-      "title": "Python Templates f\u00fcr erste Pattern erstellen",
+      "title": "Python Templates für erste Pattern erstellen",
       "status": "done",
       "priority": "P0",
       "risk": "medium",
@@ -560,19 +560,19 @@
       "depends_on": [
         "PAT-009"
       ],
-      "description": "Python-Code- und pytest-Templates f\u00fcr Strategy, State, Command, Adapter, Factory Method und Builder anlegen.",
+      "description": "Python-Code- und pytest-Templates für Strategy, State, Command, Adapter, Factory Method und Builder anlegen.",
       "implementation_notes": [
         "Protocol/ABC je nach Pattern sinnvoll einsetzen.",
-        "Keine unn\u00f6tigen Framework-Abh\u00e4ngigkeiten.",
+        "Keine unnötigen Framework-Abhängigkeiten.",
         "pytest als Test-Default.",
-        "Typ-Hints vollst\u00e4ndig f\u00fcr generierte Interfaces/Klassen."
+        "Typ-Hints vollständig für generierte Interfaces/Klassen."
       ],
       "acceptance_criteria": [
         "Strategy nutzt Protocol oder ABC und testet zwei austauschbare Implementierungen.",
-        "State testet mindestens eine Zustands\u00e4nderung.",
+        "State testet mindestens eine Zustandsänderung.",
         "Command testet execute() deterministisch.",
-        "Adapter testet \u00dcbersetzung von Adaptee zu Target-Vertrag.",
-        "Factory Method testet Produkterzeugung \u00fcber Creator.",
+        "Adapter testet Übersetzung von Adaptee zu Target-Vertrag.",
+        "Factory Method testet Produkterzeugung über Creator.",
         "Builder testet Pflichtfelder und erfolgreiches build().",
         "Generated Python besteht ruff/py_compile oder mindestens py_compile + pytest im minimalen Fixture."
       ],
@@ -582,7 +582,7 @@
     },
     {
       "id": "PAT-012",
-      "title": "TypeScript Templates f\u00fcr erste Pattern erstellen",
+      "title": "TypeScript Templates für erste Pattern erstellen",
       "status": "done",
       "priority": "P0",
       "risk": "medium",
@@ -590,11 +590,11 @@
       "depends_on": [
         "PAT-009"
       ],
-      "description": "TypeScript-Code- und Test-Templates f\u00fcr Strategy, State, Command, Adapter, Factory Method und Builder anlegen.",
+      "description": "TypeScript-Code- und Test-Templates für Strategy, State, Command, Adapter, Factory Method und Builder anlegen.",
       "implementation_notes": [
         "Interfaces und exportierte Klassen sauber trennen.",
         "Kein Angular-Zwang; plain TypeScript first.",
-        "Vitest/Jest-kompatible Tests m\u00f6glichst einfach halten."
+        "Vitest/Jest-kompatible Tests möglichst einfach halten."
       ],
       "acceptance_criteria": [
         "Strategy erzeugt Interface, Implementierungen, Context und Test.",
@@ -602,8 +602,8 @@
         "Command erzeugt Command Interface, ConcreteCommand, Invoker und Test.",
         "Adapter erzeugt Target, Adaptee, Adapter und Test.",
         "Factory Method erzeugt Creator/Product-Struktur und Test.",
-        "Builder erzeugt Builder mit Pflichtfeldpr\u00fcfung und Test.",
-        "Generated TypeScript besteht tsc --noEmit in minimalem Fixture oder ein deterministischer TypeScript-Structure-Test pr\u00fcft Imports/Exports."
+        "Builder erzeugt Builder mit Pflichtfeldprüfung und Test.",
+        "Generated TypeScript besteht tsc --noEmit in minimalem Fixture oder ein deterministischer TypeScript-Structure-Test prüft Imports/Exports."
       ],
       "commit_refs": [
         "f914916f"
@@ -620,18 +620,18 @@
         "PAT-006",
         "PAT-007"
       ],
-      "description": "Blueprint workflow.steps und/oder artifacts d\u00fcrfen pattern_hints enthalten, die vom Katalog validiert und an Planner/Tasks weitergereicht werden.",
+      "description": "Blueprint workflow.steps und/oder artifacts dürfen pattern_hints enthalten, die vom Katalog validiert und an Planner/Tasks weitergereicht werden.",
       "implementation_notes": [
         "SeedBlueprintCatalog._normalize_workflow nur gezielt erweitern.",
-        "pattern_hints sind optional und d\u00fcrfen bestehende Blueprints nicht brechen.",
+        "pattern_hints sind optional und dürfen bestehende Blueprints nicht brechen.",
         "Hints enthalten allowed_patterns, preferred_patterns, language_targets, forbid_patterns, require_tests."
       ],
       "acceptance_criteria": [
-        "Blueprint ohne pattern_hints bleibt unver\u00e4ndert g\u00fcltig.",
+        "Blueprint ohne pattern_hints bleibt unverändert gültig.",
         "Blueprint mit allowed_patterns=['strategy'] wird normalisiert und im workflow step erhalten.",
         "Unbekannte preferred pattern id wird bei Seed-Normalisierung abgelehnt oder als invalid config gemeldet; kein stilles Ignorieren.",
-        "pattern_hints k\u00f6nnen pro Step gesetzt werden und \u00fcberschreiben globale Blueprint-Hints nur enger, nicht weiter.",
-        "Tests pr\u00fcfen g\u00fcltige Step-Hints, unbekannte Pattern-ID und keine Regression f\u00fcr vorhandene Workflow-Blueprints."
+        "pattern_hints können pro Step gesetzt werden und überschreiben globale Blueprint-Hints nur enger, nicht weiter.",
+        "Tests prüfen gültige Step-Hints, unbekannte Pattern-ID und keine Regression für vorhandene Workflow-Blueprints."
       ],
       "commit_refs": [
         "6582e4fc"
@@ -640,31 +640,33 @@
     {
       "id": "PAT-014",
       "title": "BlueprintPlanningAdapter reicht Pattern-Kontext an Subtasks weiter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "scope": "planner",
       "depends_on": [
         "PAT-013"
       ],
-      "description": "Bei Workflow-gest\u00fctzter Subtask-Erzeugung sollen pattern_hints und validierte Pattern-Constraints in subtasks/worker_execution_context landen.",
+      "description": "Bei Workflow-gestützter Subtask-Erzeugung sollen pattern_hints und validierte Pattern-Constraints in subtasks/worker_execution_context landen.",
       "implementation_notes": [
-        "Bestehende _build_subtasks_from_workflow Struktur nutzen: task_kind, gate, checks, produces/consumes werden schon \u00fcbertragen.",
+        "Bestehende _build_subtasks_from_workflow Struktur nutzen: task_kind, gate, checks, produces/consumes werden schon übertragen.",
         "pattern_hints neben blueprint_role_template_hints aufnehmen.",
         "Keine Template-Renderings im BlueprintPlanningAdapter; nur Kontextweitergabe."
       ],
       "acceptance_criteria": [
-        "Subtask aus Workflow-Step enth\u00e4lt pattern_hints_normalized, wenn Step-Hints vorhanden sind.",
+        "Subtask aus Workflow-Step enthält pattern_hints_normalized, wenn Step-Hints vorhanden sind.",
         "Subtask ohne Pattern-Hints bleibt identisch oder nur mit leerem optionalen Feld, keine Breaking Changes.",
         "Role template hints bleiben erhalten.",
-        "Pattern-Hints werden nicht aus DB-Rohdaten blind \u00fcbernommen, sondern \u00fcber PatternPlan/Policy-Service validierbar gemacht.",
-        "Tests erweitern bestehende BlueprintPlanningAdapter-Testf\u00e4lle um Pattern-Hints."
-      ]
+        "Pattern-Hints werden nicht aus DB-Rohdaten blind übernommen, sondern über PatternPlan/Policy-Service validierbar gemacht.",
+        "Tests erweitern bestehende BlueprintPlanningAdapter-Testfälle um Pattern-Hints."
+      ],
+      "progress_percent": 100.0,
+      "commit_refs": []
     },
     {
       "id": "PAT-015",
       "title": "TaskScopedExecutionService materialisiert Pattern-Kontextdateien",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "scope": "worker_context",
@@ -679,18 +681,20 @@
         "Prompt bleibt kurz; lange Pattern-Beschreibungen in Dateien."
       ],
       "acceptance_criteria": [
-        "F\u00fcr Task mit Pattern-Hints entstehen Pattern-Kontextdateien im Worker-Workspace.",
-        "Prompt enth\u00e4lt nur Verweise auf Pattern-Kontextdateien, nicht den ganzen Katalog.",
-        "Workspace-Metadata enth\u00e4lt pattern_context_paths.",
-        "Bei compact profile werden Pattern-Kontexte begrenzt, aber Schema/allowed IDs bleiben vollst\u00e4ndig.",
-        "Tests analog test_task_prompt_materializes_workspace_context_files_and_keeps_prompt_short pr\u00fcfen, dass lange Pattern-Texte nicht im Prompt landen.",
-        "Ohne Pattern-Hints werden keine unn\u00f6tigen Pattern-Kontextdateien erzeugt."
-      ]
+        "Für Task mit Pattern-Hints entstehen Pattern-Kontextdateien im Worker-Workspace.",
+        "Prompt enthält nur Verweise auf Pattern-Kontextdateien, nicht den ganzen Katalog.",
+        "Workspace-Metadata enthält pattern_context_paths.",
+        "Bei compact profile werden Pattern-Kontexte begrenzt, aber Schema/allowed IDs bleiben vollständig.",
+        "Tests analog test_task_prompt_materializes_workspace_context_files_and_keeps_prompt_short prüfen, dass lange Pattern-Texte nicht im Prompt landen.",
+        "Ohne Pattern-Hints werden keine unnötigen Pattern-Kontextdateien erzeugt."
+      ],
+      "progress_percent": 100.0,
+      "commit_refs": []
     },
     {
       "id": "PAT-016",
       "title": "Pattern-Artefakte und Provenance erfassen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "scope": "artifacts",
@@ -706,17 +710,19 @@
       ],
       "acceptance_criteria": [
         "Nach Rendering gibt es ein Manifest-Artefakt mit allen generierten Dateien.",
-        "Manifest enth\u00e4lt pattern_id, language, pattern_catalog_version, plan_hash und template_hashes.",
+        "Manifest enthält pattern_id, language, pattern_catalog_version, plan_hash und template_hashes.",
         "Gleicher Plan erzeugt identischen plan_hash.",
-        "Ge\u00e4nderte Template-Datei \u00e4ndert template_hash und Gesamtmanifest.",
-        "Artefakte k\u00f6nnen vom Workflow-Gate referenziert werden.",
-        "Tests pr\u00fcfen Idempotenz, Hash-\u00c4nderung und Artifact-Refs."
-      ]
+        "Geänderte Template-Datei ändert template_hash und Gesamtmanifest.",
+        "Artefakte können vom Workflow-Gate referenziert werden.",
+        "Tests prüfen Idempotenz, Hash-Änderung und Artifact-Refs."
+      ],
+      "progress_percent": 100.0,
+      "commit_refs": []
     },
     {
       "id": "PAT-017",
       "title": "Pattern-Gate-Checks implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "scope": "gates",
@@ -725,27 +731,29 @@
         "PAT-009",
         "PAT-016"
       ],
-      "description": "Deterministische Checks pr\u00fcfen, ob generierter Code das gew\u00e4hlte Pattern strukturell grob erf\u00fcllt und Tests vorhanden sind.",
+      "description": "Deterministische Checks prüfen, ob generierter Code das gewählte Pattern strukturell grob erfüllt und Tests vorhanden sind.",
       "implementation_notes": [
         "Gate-Checks als Erweiterung bestehender gate/check-Idee modellieren, nicht als separater Workflow.",
         "Zuerst einfache Structure-Checks: Dateien existieren, Rollen existieren, Imports/Exports konsistent, Tests vorhanden.",
-        "Sprachspezifische Checks klein halten und sp\u00e4ter ausbauen."
+        "Sprachspezifische Checks klein halten und später ausbauen."
       ],
       "acceptance_criteria": [
         "Strategy-Gate erkennt Context ohne hart verdrahtete ConcreteStrategy als pass/fail je Sprache.",
         "State-Gate erkennt mindestens zwei States und testbare Transition.",
         "Command-Gate erkennt execute-Vertrag und Invoker/Test.",
         "Adapter-Gate erkennt Target/Adaptee/Adapter-Rollen.",
-        "Factory/Builder-Gates pr\u00fcfen Erzeugungsvertrag und Test.",
-        "Gate-Ergebnis enth\u00e4lt checked_files, passed_checks, failed_checks und remediation_hint.",
-        "Fehlende Tests f\u00fchren bei require_tests=true zu fail.",
-        "Gate l\u00e4sst sich aus workflow.steps[].checks referenzieren."
-      ]
+        "Factory/Builder-Gates prüfen Erzeugungsvertrag und Test.",
+        "Gate-Ergebnis enthält checked_files, passed_checks, failed_checks und remediation_hint.",
+        "Fehlende Tests führen bei require_tests=true zu fail.",
+        "Gate lässt sich aus workflow.steps[].checks referenzieren."
+      ],
+      "progress_percent": 100.0,
+      "commit_refs": []
     },
     {
       "id": "PAT-018",
-      "title": "CLI/Devtool zur Pattern-Katalog-Validierung erg\u00e4nzen",
-      "status": "todo",
+      "title": "CLI/Devtool zur Pattern-Katalog-Validierung ergänzen",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "scope": "devtools",
@@ -753,25 +761,27 @@
         "PAT-002",
         "PAT-006"
       ],
-      "description": "Ein kleines Devtool validiert Pattern-Katalog, Template-Referenzen und Beispiel-Pl\u00e4ne lokal.",
+      "description": "Ein kleines Devtool validiert Pattern-Katalog, Template-Referenzen und Beispiel-Pläne lokal.",
       "implementation_notes": [
         "scripts/validate_pattern_catalog.py oder devtools/validate_pattern_catalog.py.",
-        "Ausgabe \u00e4hnlich validate_todo_schema.py: klarer Exit-Code und lesbare Fehler.",
-        "Optional: --render-examples f\u00fcr Dry-Run."
+        "Ausgabe ähnlich validate_todo_schema.py: klarer Exit-Code und lesbare Fehler.",
+        "Optional: --render-examples für Dry-Run."
       ],
       "acceptance_criteria": [
-        "Tool beendet mit 0 bei g\u00fcltigem Katalog.",
+        "Tool beendet mit 0 bei gültigem Katalog.",
         "Tool beendet mit 1 bei Schemafehlern und nennt Datei/Pfad.",
-        "Tool pr\u00fcft Template-Datei-Existenz.",
+        "Tool prüft Template-Datei-Existenz.",
         "Tool kann mindestens einen Beispiel-StrategyPlan dry-run-rendern.",
-        "CI-geeignet: keine Netzwerk-/DB-Abh\u00e4ngigkeit.",
+        "CI-geeignet: keine Netzwerk-/DB-Abhängigkeit.",
         "README/Doku nennt den Befehl."
-      ]
+      ],
+      "progress_percent": 100.0,
+      "commit_refs": []
     },
     {
       "id": "PAT-019",
-      "title": "Regressionstests f\u00fcr vorhandene Workflows und Templates sichern",
-      "status": "todo",
+      "title": "Regressionstests für vorhandene Workflows und Templates sichern",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "scope": "tests",
@@ -782,18 +792,20 @@
       ],
       "description": "Neue Pattern-Funktion darf bestehende Blueprint-/Workflow-/Prompt-Tests nicht brechen.",
       "implementation_notes": [
-        "Bestehende Tests f\u00fcr workflow_registry, workflow_definition_service, blueprint_planning_adapter und task_prompt_templates weiterlaufen lassen.",
-        "Neue Tests isolieren Pattern-Katalog \u00fcber tmp_path.",
+        "Bestehende Tests für workflow_registry, workflow_definition_service, blueprint_planning_adapter und task_prompt_templates weiterlaufen lassen.",
+        "Neue Tests isolieren Pattern-Katalog über tmp_path.",
         "Kein globaler Katalogzustand zwischen Tests leaken."
       ],
       "acceptance_criteria": [
-        "Alle vorhandenen Workflow-/Blueprint-Tests laufen ohne Anpassung oder nur mit klar begr\u00fcndeter Erweiterung weiter.",
-        "tests/test_task_prompt_templates.py bleibt gr\u00fcn.",
-        "PatternCatalog Tests nutzen force_reload/tmp_path und sind unabh\u00e4ngig von globaler Repo-Konfiguration.",
+        "Alle vorhandenen Workflow-/Blueprint-Tests laufen ohne Anpassung oder nur mit klar begründeter Erweiterung weiter.",
+        "tests/test_task_prompt_templates.py bleibt grün.",
+        "PatternCatalog Tests nutzen force_reload/tmp_path und sind unabhängig von globaler Repo-Konfiguration.",
         "Ein Test beweist: Blueprint ohne pattern_hints erzeugt exakt denselben Subtask-Kern wie vorher.",
-        "Ein Test beweist: workflow.steps[].depends_on bleibt ma\u00dfgeblich, Pattern-Hints \u00e4ndern keine DAG-Reihenfolge.",
+        "Ein Test beweist: workflow.steps[].depends_on bleibt maßgeblich, Pattern-Hints ändern keine DAG-Reihenfolge.",
         "Ein Test beweist: invalider PatternPlan blockiert nur Pattern-Rendering, nicht den gesamten App-Start."
-      ]
+      ],
+      "progress_percent": 100.0,
+      "commit_refs": []
     },
     {
       "id": "PAT-020",
@@ -807,24 +819,24 @@
         "PAT-009",
         "PAT-017"
       ],
-      "description": "Doku erkl\u00e4ren, wie Pattern-Katalog, PatternPlan, Templates, Blueprint-Hints und Gates zusammenspielen.",
+      "description": "Doku erklären, wie Pattern-Katalog, PatternPlan, Templates, Blueprint-Hints und Gates zusammenspielen.",
       "implementation_notes": [
         "docs/decisions/ADR-deterministic-pattern-library.md anlegen.",
         "docs/patterns/README.md mit Beispielen.",
-        "Je ein Beispiel f\u00fcr Java Strategy, Python State, TypeScript Adapter."
+        "Je ein Beispiel für Java Strategy, Python State, TypeScript Adapter."
       ],
       "acceptance_criteria": [
         "ADR beschreibt Entscheidung: deterministischer Baukasten statt freier Architekturprompt.",
-        "Doku erkl\u00e4rt LLM-Rolle: w\u00e4hlen/parametrieren, nicht Pattern erfinden.",
-        "Doku enth\u00e4lt Beispiel-PatternPlan JSON.",
-        "Doku enth\u00e4lt Blueprint workflow.step mit pattern_hints.",
-        "Doku enth\u00e4lt Security-Hinweise zu Pfaden, Template-Rendering und Risky Patterns.",
+        "Doku erklärt LLM-Rolle: wählen/parametrieren, nicht Pattern erfinden.",
+        "Doku enthält Beispiel-PatternPlan JSON.",
+        "Doku enthält Blueprint workflow.step mit pattern_hints.",
+        "Doku enthält Security-Hinweise zu Pfaden, Template-Rendering und Risky Patterns.",
         "Doku nennt Devtool zur Katalogvalidierung."
       ]
     },
     {
       "id": "PAT-021",
-      "title": "Erste End-to-End Demo f\u00fcr Pattern-gest\u00fctzte Codegenerierung",
+      "title": "Erste End-to-End Demo für Pattern-gestützte Codegenerierung",
       "status": "todo",
       "priority": "P2",
       "risk": "medium",
@@ -838,24 +850,24 @@
       ],
       "description": "Eine kleine Demo zeigt: Nutzerwunsch -> PatternPlan -> deterministisches Rendering -> Tests/Gate -> Artefaktmanifest.",
       "implementation_notes": [
-        "Kein gro\u00dfes UI n\u00f6tig; CLI/pytest Fixture reicht.",
-        "Drei Sprachen mindestens \u00fcber Dry-Run, eine Sprache mit vollst\u00e4ndigem Testlauf.",
+        "Kein großes UI nötig; CLI/pytest Fixture reicht.",
+        "Drei Sprachen mindestens über Dry-Run, eine Sprache mit vollständigem Testlauf.",
         "Demo-Output unter artifacts/patterns/demo oder test fixture."
       ],
       "acceptance_criteria": [
-        "Demo erzeugt aus einem Strategy-Wunsch einen g\u00fcltigen PatternPlan.",
+        "Demo erzeugt aus einem Strategy-Wunsch einen gültigen PatternPlan.",
         "Renderer erzeugt Dateien und Manifest deterministisch.",
-        "Pattern-Gate pr\u00fcft die Struktur erfolgreich.",
-        "Mindestens ein generierter Test wird ausgef\u00fchrt oder strukturell gepr\u00fcft.",
+        "Pattern-Gate prüft die Struktur erfolgreich.",
+        "Mindestens ein generierter Test wird ausgeführt oder strukturell geprüft.",
         "Demo dokumentiert die Artefakt-Refs und Hashes.",
-        "Fehlerfall-Demo zeigt ung\u00fcltiges Pattern/unerlaubten Pfad und bricht kontrolliert ab."
+        "Fehlerfall-Demo zeigt ungültiges Pattern/unerlaubten Pfad und bricht kontrolliert ab."
       ]
     }
   ],
   "tasks_status_summary": {
     "by_status": {
-      "done": 13,
-      "todo": 8,
+      "done": 19,
+      "todo": 2,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0
@@ -941,12 +953,12 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "percent_complete": 61.9,
-    "todo_remaining": 8,
+    "percent_complete": 90.5,
+    "todo_remaining": 2,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 13
+    "done": 19
   },
   "execution_stage_summary": {
     "total": 21,
