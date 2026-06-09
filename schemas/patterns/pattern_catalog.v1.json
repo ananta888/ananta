@@ -1,5 +1,37 @@
 [
   {
+    "pattern_id": "python.strategy",
+    "version": "1.0.0",
+    "category": "planning_renderer",
+    "language": "python",
+    "title": "Render Python Strategy Pattern (interface + N concretes + context)",
+    "description": "Generates a Python Strategy pattern: a Protocol interface, one or more concrete strategy classes, and a context class that holds a swappable strategy. Includes a pytest suite. Uses the @@context_class@@ placeholder.",
+    "risk_level": "low",
+    "tags": ["strategy", "python", "GOF"],
+    "parameters": [
+      {
+        "name": "context_class",
+        "type": "string",
+        "required": true,
+        "description": "PascalCase name of the context class (also used to derive the Strategy interface name)."
+      },
+      {
+        "name": "package_name",
+        "type": "string",
+        "required": true,
+        "description": "Python package name for the generated module."
+      }
+    ],
+    "templates": [
+      {"name": "protocol", "path": "config/patterns/templates/python/strategy/strategy_protocol.py.tmpl"},
+      {"name": "context", "path": "config/patterns/templates/python/strategy/strategy_context.py.tmpl"},
+      {"name": "primary", "path": "config/patterns/templates/python/strategy/strategy_primary.py.tmpl"},
+      {"name": "secondary", "path": "config/patterns/templates/python/strategy/strategy_secondary.py.tmpl"},
+      {"name": "test", "path": "config/patterns/templates/python/strategy/test_strategy.py.tmpl"}
+    ],
+    "entry_point": "config/patterns/templates/python/strategy"
+  },
+  {
     "pattern_id": "python.function_stub",
     "version": "1.0.0",
     "category": "planning_renderer",

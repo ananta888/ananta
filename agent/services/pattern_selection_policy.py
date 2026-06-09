@@ -30,13 +30,26 @@ DEFAULT_ALLOWLIST: dict[str, set[str]] = {
     "coding": {
         "strategy", "state", "command", "observer", "adapter",
         "facade", "factory_method", "builder",
+        "python.strategy", "python.state", "python.command",
+        "python.adapter", "python.factory_method", "python.builder",
+        "java.strategy", "java.state", "java.command",
+        "java.adapter", "java.factory_method", "java.builder",
+        "ts.strategy", "ts.state", "ts.command",
+        "ts.adapter", "ts.factory_method", "ts.builder",
     },
     "refactoring": {
         "strategy", "state", "command", "observer", "adapter",
         "facade", "proxy", "factory_method", "builder",
+        "python.strategy", "python.state", "python.command",
+        "python.adapter", "python.factory_method", "python.builder",
+        "java.strategy", "java.state", "java.command",
+        "java.adapter", "java.factory_method", "java.builder",
+        "ts.strategy", "ts.state", "ts.command",
+        "ts.adapter", "ts.factory_method", "ts.builder",
     },
     "security": {
         "proxy", "adapter", "facade",
+        "python.adapter", "java.adapter", "ts.adapter",
     },
     "test_template": {
         "ts.vitest_scaffold", "cli.retry_wrap",
