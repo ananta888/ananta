@@ -1561,188 +1561,32 @@ class TaskScopedExecutionService:
     @staticmethod
     # --- cluster: domain_action (router, comparison, single-propose, goal-artifact-output) ---
     def _build_domain_action_router() -> DomainActionRouter:
-        domain_registry = DomainRegistry()
-        descriptors = domain_registry.load()
-        capability_registry = CapabilityRegistry()
-        capability_registry.load_from_descriptors(descriptors)
-        policy_loader = DomainPolicyLoader(capability_registry=capability_registry)
-        policy_service = DomainPolicyService(capability_registry=capability_registry)
-        bridge_adapter_registry = BridgeAdapterRegistry()
-        bridge_adapter_registry.load_from_descriptors(descriptors)
-        return DomainActionRouter(
-            domain_registry=domain_registry,
-            capability_registry=capability_registry,
-            policy_loader=policy_loader,
-            policy_service=policy_service,
-            bridge_adapter_registry=bridge_adapter_registry,
-        )
+        # SPLIT-001e-1: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_domain_action.build_domain_action_router.
+        # We import through ``self.__class__.__module__`` indirectly: tests
+        # that monkeypatch ``TaskScopedExecutionService._build_domain_action_router``
+        # continue to work because the patched attribute shadows this method
+        # at call time, and the patched return value is returned.
+        from agent.services._task_scoped_domain_action import build_domain_action_router
+        return build_domain_action_router()
 
     def _register_goal_artifact_outputs(self, *, task: dict, tid: str, artifact_refs: list[dict]) -> list[dict]:
-        goal_id = str((task or {}).get("goal_id") or "").strip()
-        if not goal_id:
-            return []
-        if not list(artifact_refs or []):
-            return []
-        from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
-        from agent.services.config_snapshot_service import ConfigSnapshotService
-        from agent.services.prompt_snapshot_service import PromptSnapshotService
-
-        execution_context = dict((task or {}).get("worker_execution_context") or {})
-        context_envelope = execution_context.get("context_envelope_ref")
-        context_envelope = dict(context_envelope or {}) if isinstance(context_envelope, dict) else {}
-        source_usage_refs = [str(item) for item in list(context_envelope.get("source_usage_refs") or []) if str(item).strip()]
-        context_artifact_refs = [
-            str(item.get("artifact_ref") or item.get("ref") or "").strip()
-            for item in list(context_envelope.get("retrieval_refs") or [])
-            if isinstance(item, dict)
-        ]
-        service = GoalArtifactService()
-        config_snapshot_service = ConfigSnapshotService()
-        prompt_snapshot_service = PromptSnapshotService()
-        if context_artifact_refs and not source_usage_refs:
-            context_tracking = service.validate_and_record_context_usages(
-                goal_id=goal_id,
-                artifact_refs=[item for item in context_artifact_refs if item],
-                task_id=tid,
-                worker_id=str((task or {}).get("assigned_worker_id") or "").strip() or None,
-                context_hash=str(context_envelope.get("context_hash") or "").strip() or None,
-            )
-            source_usage_refs = list(context_tracking.get("source_usage_refs") or [])
-        worker_id = str((task or {}).get("assigned_worker_id") or "").strip() or None
-        worker_profile = str(execution_context.get("worker_profile") or "default")
-        runtime_path = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("runtime_path") or "unknown")
-        backend = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("backend") or "unknown")
-        model_name = str(((task or {}).get("verification_status") or {}).get("routing", {}).get("inference_model") or "unknown")
-        execution_seed = f"{goal_id}:{tid}:{worker_id or 'worker'}"
-        execution_id = f"exec-{hashlib.sha1(execution_seed.encode('utf-8')).hexdigest()[:14]}"
-        worker_config = config_snapshot_service.build_snapshot(
-            config_kind="worker_config",
-            source_path_or_ref=f"task:{tid}:worker",
-            scope=f"goal:{goal_id}",
-            config_payload={"worker_profile": worker_profile, "worker_id": worker_id or "unknown"},
+        # SPLIT-001e-1: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_domain_action.register_goal_artifact_outputs
+        from agent.services._task_scoped_domain_action import register_goal_artifact_outputs
+        return register_goal_artifact_outputs(
+            task=task,
+            tid=tid,
+            artifact_refs=artifact_refs,
+            get_system_prompt_for_task=self._get_system_prompt_for_task,
         )
-        runtime_config = config_snapshot_service.build_snapshot(
-            config_kind="runtime_config",
-            source_path_or_ref=f"task:{tid}:runtime",
-            scope=f"goal:{goal_id}",
-            config_payload={"runtime_path": runtime_path, "backend": backend},
-        )
-        model_config = config_snapshot_service.build_snapshot(
-            config_kind="model_config",
-            source_path_or_ref=f"task:{tid}:model",
-            scope=f"goal:{goal_id}",
-            config_payload={"model": model_name},
-        )
-        policy_config = config_snapshot_service.build_snapshot(
-            config_kind="policy_config",
-            source_path_or_ref=f"task:{tid}:policy",
-            scope=f"goal:{goal_id}",
-            config_payload={"data_boundary": "project_private", "sensitivity": "internal"},
-        )
-        system_prompt = self._get_system_prompt_for_task(str(tid)) or ""
-        prompt_refs: dict[str, Any] = {"no_prompt_reason": "no_prompt_used"} if not system_prompt else {}
-        if system_prompt:
-            template = prompt_snapshot_service.build_template_snapshot(
-                prompt_template_ref=f"prompt-template:{tid}",
-                template_path=f"task:{tid}:resolved-template",
-                template_version="v1",
-                template_text=system_prompt,
-                renderer="replace",
-                expected_output_schema_ref="worker_response.v1",
-            )
-            final_prompt = prompt_snapshot_service.build_final_prompt_record(
-                prompt_template_ref=template["prompt_template_ref"],
-                variables_payload={"task_id": tid, "goal_id": goal_id},
-                final_prompt_text=system_prompt,
-                context_hash=str(context_envelope.get("context_hash") or "context-hash-missing"),
-                input_usage_refs=list(source_usage_refs or []),
-                output_schema_ref="worker_response.v1",
-                store_raw_prompt=False,
-            )
-            prompt_refs = {
-                "prompt_template_ref": template.get("prompt_template_ref"),
-                "prompt_template_version": template.get("template_version"),
-                "prompt_template_hash": template.get("template_hash"),
-                "prompt_variables_hash": final_prompt.get("variables_hash"),
-                "final_prompt_hash": final_prompt.get("final_prompt_hash"),
-                "redacted_prompt_ref": final_prompt.get("storage_ref"),
-                "raw_prompt_stored": final_prompt.get("raw_prompt_stored"),
-            }
-        provenance = {
-            "schema": "execution_provenance.v1",
-            "provenance_id": f"prov-{hashlib.sha1(f'{goal_id}:{tid}:{execution_id}'.encode('utf-8')).hexdigest()[:16]}",
-            "goal_id": goal_id,
-            "task_id": str(tid),
-            "execution_id": execution_id,
-            "worker_id": str(worker_id or "worker-unknown"),
-            "worker_kind": "native",
-            "runtime_target_ref": {"runtime_type": backend, "location": "local", "snapshot_id": runtime_config.get("config_snapshot_id")},
-            "model_ref": {"provider_id": backend, "model_id": model_name},
-            "config_refs": {
-                "worker_config_ref": worker_config.get("config_snapshot_id"),
-                "runtime_config_ref": runtime_config.get("config_snapshot_id"),
-                "model_config_ref": model_config.get("config_snapshot_id"),
-                "policy_config_ref": policy_config.get("config_snapshot_id"),
-            },
-            "prompt_refs": prompt_refs,
-            "input_usage_refs": list(source_usage_refs or []),
-            "output_artifact_refs": [
-                str(item.get("artifact_id") or item.get("trace_bundle_ref") or item.get("workspace_relative_path") or "")
-                for item in list(artifact_refs or [])
-                if isinstance(item, dict)
-            ],
-            "created_at": _now_iso(),
-        }
-        try:
-            return service.register_output_artifacts_from_refs(
-                goal_id=goal_id,
-                task_id=str(tid),
-                worker_id=worker_id,
-                artifact_refs=list(artifact_refs or []),
-                input_usage_refs=source_usage_refs,
-                execution_provenance=provenance,
-            )
-        except GoalArtifactServiceError as exc:
-            return [
-                {
-                    "status": "failed",
-                    "reason_code": exc.reason_code,
-                    "detail": exc.detail,
-                }
-            ]
 
     @staticmethod
     def _resolve_domain_action_payload(*, task: dict, command: str | None) -> dict:
-        command_text = str(command or "").strip()
-        inline_payload = None
-        if command_text:
-            try:
-                parsed = json.loads(command_text)
-            except json.JSONDecodeError as exc:
-                raise TaskConflictError(
-                    "domain_action_payload_invalid",
-                    details={"reason": "command_must_be_valid_json_object", "error": str(exc)},
-                )
-            if not isinstance(parsed, dict):
-                raise TaskConflictError(
-                    "domain_action_payload_invalid",
-                    details={"reason": "command_must_be_json_object"},
-                )
-            inline_payload = dict(parsed)
-        payload = inline_payload or dict(task.get("domain_action_request") or {})
-        if not payload:
-            raise TaskConflictError(
-                "domain_action_payload_missing",
-                details={"reason": "provide_json_command_or_domain_action_request"},
-            )
-        required = ("domain_id", "capability_id", "action_id")
-        missing = [key for key in required if not str(payload.get(key) or "").strip()]
-        if missing:
-            raise TaskConflictError(
-                "domain_action_payload_invalid",
-                details={"reason": "missing_required_fields", "fields": missing},
-            )
-        return payload
+        # SPLIT-001e-1: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_domain_action.resolve_domain_action_payload
+        from agent.services._task_scoped_domain_action import resolve_domain_action_payload
+        return resolve_domain_action_payload(task=task, command=command)
 
     def _execute_domain_action(
         self,
@@ -1755,88 +1599,18 @@ class TaskScopedExecutionService:
         reason: str,
         execution_policy,
     ) -> TaskScopedRouteResponse:
-        payload = self._resolve_domain_action_payload(task=task, command=command)
-        route_result = self._build_domain_action_router().route(
-            domain_id=str(payload.get("domain_id") or "").strip(),
-            capability_id=str(payload.get("capability_id") or "").strip(),
-            action_id=str(payload.get("action_id") or "").strip(),
-            execution_mode=str(payload.get("execution_mode") or "execute").strip() or "execute",
-            context_summary=dict(payload.get("context_summary") or {}),
-            actor_metadata=dict(payload.get("actor_metadata") or {}),
-            approval=dict(payload.get("approval") or {}) if isinstance(payload.get("approval"), dict) else None,
-        )
-        route = route_result.as_dict()
-
-        state = str(route.get("state") or "").strip().lower()
-        if state in {"plan", "execution_started"}:
-            status = "completed"
-            exit_code = 0
-            failure_type = "success"
-        elif state == "approval_required":
-            status = "blocked"
-            exit_code = 1
-            failure_type = "approval_required"
-        elif state == "denied":
-            status = "failed"
-            exit_code = 1
-            failure_type = "policy_denied"
-        else:
-            status = "failed"
-            exit_code = 1
-            failure_type = "degraded"
-
-        pipeline = new_pipeline_trace(
-            pipeline="task_execute",
-            task_kind=task_kind,
-            policy_version="domain_action_router_v1",
-            metadata={
-                "task_id": tid,
-                "domain_id": route.get("domain_id"),
-                "capability_id": route.get("capability_id"),
-                "action_id": route.get("action_id"),
-            },
-        )
-        append_stage(
-            pipeline,
-            name="domain_action_route",
-            status="ok" if status == "completed" else "failed",
-            metadata={"route_state": state, "route_reason": route.get("reason")},
-        )
-        trace = build_trace_record(
-            task_id=tid,
-            event_type="execution_result",
-            task_kind=task_kind,
-            backend="domain_action_router",
-            requested_backend="domain_action_router",
-            routing_reason="domain_action_router",
-            policy_version="domain_action_router_v1",
-            metadata={
-                "source": "domain_action_execute",
-                "domain_action_route": route,
-            },
-        )
-        response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
+        # SPLIT-001e-1: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_domain_action.execute_domain_action
+        from agent.services._task_scoped_domain_action import execute_domain_action
+        return execute_domain_action(
             tid=tid,
             task=task,
-            status=status,
-            reason=reason or "Domain action routed",
+            task_kind=task_kind,
+            request_data=request_data,
             command=command,
-            tool_calls=request_data.tool_calls if isinstance(getattr(request_data, "tool_calls", None), list) else None,
-            output=json.dumps(route, ensure_ascii=False),
-            exit_code=exit_code,
-            retries_used=0,
-            retry_history=[],
-            failure_type=failure_type,
-            execution_duration_ms=0,
-            trace=trace,
-            pipeline={**pipeline, "trace_id": trace["trace_id"]},
+            reason=reason,
             execution_policy=execution_policy,
-            extra_history={
-                "domain_action_route": route,
-                "domain_action_payload": payload,
-            },
         )
-        return TaskScopedRouteResponse(data=response_payload)
 
     def _propose_task_with_comparisons(
         self,
