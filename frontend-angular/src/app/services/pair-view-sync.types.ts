@@ -82,10 +82,21 @@ export interface ArtifactRef {
   symbolId: string | null;
 }
 
-/** Cursor / Selection / Scroll positions. All optional. */
+/**
+ * Cursor position. Two flavours:
+ *  - text-cursor: line + column (used by code/TUI panes)
+ *  - pointer-cursor: x + y in viewport px (used by the mouse
+ *    overlay; only set when the sender explicitly sends a
+ *    pointer position, e.g. on pointermove)
+ *
+ * Receivers should treat both as independent; text-cursor and
+ * pointer-cursor can coexist on the same SharedViewState.
+ */
 export interface CursorPos {
   line: number | null;
   column: number | null;
+  x?: number;
+  y?: number;
 }
 
 export interface SelectionPos {

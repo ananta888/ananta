@@ -25,6 +25,7 @@ import { ShareSessionService } from './share-session.service';
 import { hasPermission } from './permission-labels';
 import {
   ControlMessage,
+  CursorPos,
   PAIR_VIEW_SYNC_VERSION,
   RelayEnvelope,
   SharedViewState,
@@ -32,10 +33,32 @@ import {
 } from './pair-view-sync.types';
 import {
   isControlMessage,
+  isCursorPos,
   isViewStateDelta,
   MAX_ENCRYPTED_PAYLOAD_BYTES,
   SNAPSHOT_WARN_BYTES,
 } from './pair-view-sync.validators';
+
+/** Out-of-band cursor message: NOT applied to local state. */
+export interface CursorMessage {
+  sessionId: string;
+  senderUserId: string;
+  userLabel: string;
+  cursor: CursorPos;
+  /** Local clock at the sender, used by the receiver to time out. */
+  sentAt: number;
+}
+
+/** Public peer-cursor entry: a cursor with a freshness timestamp. */
+export interface PeerCursor {
+  userId: string;
+  userLabel: string;
+  cursor: CursorPos;
+  /** Local clock at the receiver (refreshed on every update). */
+  lastSeenAt: number;
+}
+
+const PEER_CURSOR_TIMEOUT_MS = 5000;
 
 /** Optional test override: how to "encrypt" payloads. */
 export type PayloadEncrypter = (plaintext: string) => string;
@@ -57,6 +80,7 @@ export interface PairSyncStats {
   snapshotsSent: number;
   deltasSent: number;
   cursorsSent: number;
+  cursorsReceived: number;
   appliesAccepted: number;
   appliesRejected: number;
   snapshotRequestsSent: number;
@@ -86,8 +110,26 @@ export class PairViewSyncService implements OnDestroy {
   private readonly _stats$ = new Subject<PairSyncStats>();
   readonly stats$ = this._stats$.asObservable();
 
+  // ── Peer cursor presence ──────────────────────────────────────────
+  // Map<userId, PeerCursor>. Mutated by handleIncomingCursor and
+  // reaped periodically by the reap timer. Exposed as an Observable
+  // for the remote-cursor overlay component (T10).
+  private readonly _peerCursors = new Map<string, PeerCursor>();
+  private readonly _peerCursors$ = new Subject<ReadonlyMap<string, PeerCursor>>();
+  readonly peerCursors$ = this._peerCursors$.asObservable();
+  /** Cursor-overlay rendering is on by default. Toggle via setCursorOverlayEnabled. */
+  private _cursorOverlayEnabled = true;
+  get cursorOverlayEnabled(): boolean { return this._cursorOverlayEnabled; }
+  setCursorOverlayEnabled(enabled: boolean): void {
+    if (this._cursorOverlayEnabled === enabled) return;
+    this._cursorOverlayEnabled = enabled;
+    // Re-emit current state so the overlay can show/hide in one tick
+    this._peerCursors$.next(new Map(this._peerCursors));
+  }
+  private cursorReapHandle: ReturnType<typeof setInterval> | null = null;
+
   private stats: PairSyncStats = {
-    snapshotsSent: 0, deltasSent: 0, cursorsSent: 0,
+    snapshotsSent: 0, deltasSent: 0, cursorsSent: 0, cursorsReceived: 0,
     appliesAccepted: 0, appliesRejected: 0,
     snapshotRequestsSent: 0, snapshotRequestsReceived: 0,
     controlGranted: 0, controlDenied: 0, controlRevoked: 0,
@@ -130,6 +172,8 @@ export class PairViewSyncService implements OnDestroy {
     this.deltaTimestamps = [];
     this.cursorTimestamps = [];
     this.lastSeqSent = 0;
+    this._peerCursors.clear();
+    this.startCursorReap();
     if (encrypter) this.encrypter = encrypter;
     this.view.bindToSession(sessionId, ownerUserId);
     this.subscribeToView();
@@ -145,6 +189,9 @@ export class PairViewSyncService implements OnDestroy {
     if (this.debounceHandle !== null) { clearTimeout(this.debounceHandle); this.debounceHandle = null; }
     if (this.cursorThrottleHandle !== null) { clearTimeout(this.cursorThrottleHandle); this.cursorThrottleHandle = null; }
     if (this.scrollThrottleHandle !== null) { clearTimeout(this.scrollThrottleHandle); this.scrollThrottleHandle = null; }
+    this.stopCursorReap();
+    this._peerCursors.clear();
+    this._peerCursors$.next(new Map(this._peerCursors));
     this.viewSub?.unsubscribe();
     this.viewSub = null;
     this.msgSub?.unsubscribe();
@@ -414,16 +461,125 @@ export class PairViewSyncService implements OnDestroy {
   }
 
   private handleIncomingCursor(raw: unknown): void {
+    // T10: peer-cursor delivery is OUT-OF-BAND. The cursor is
+    // rendered as a presence overlay, never written back to
+    // local SharedViewState — that would cause a feedback loop
+    // (own cursor → view.cursor → send delta → own cursor).
+    if (!raw || typeof raw !== 'object') {
+      this.stats.appliesRejected += 1;
+      this._stats$.next({ ...this.stats });
+      return;
+    }
+    const envelope = raw as { encrypted_payload?: string };
+    if (typeof envelope.encrypted_payload !== 'string') {
+      this.stats.appliesRejected += 1;
+      this._stats$.next({ ...this.stats });
+      return;
+    }
+    const plain = this.decrypter(envelope.encrypted_payload);
+    if (plain === null) {
+      this.stats.appliesRejected += 1;
+      this._stats$.next({ ...this.stats });
+      return;
+    }
+    let parsed: unknown;
+    try { parsed = JSON.parse(plain); } catch {
+      this.stats.appliesRejected += 1;
+      this._stats$.next({ ...this.stats });
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      this.stats.appliesRejected += 1;
+      this._stats$.next({ ...this.stats });
+      return;
+    }
+    const obj = parsed as { sessionId?: unknown; senderUserId?: unknown; userLabel?: unknown; cursor?: unknown; sentAt?: unknown };
+    if (
+      typeof obj.sessionId !== 'string' ||
+      typeof obj.senderUserId !== 'string' ||
+      typeof obj.userLabel !== 'string' ||
+      typeof obj.sentAt !== 'number' ||
+      !isCursorPos(obj.cursor)
+    ) {
+      this.stats.appliesRejected += 1;
+      this._stats$.next({ ...this.stats });
+      return;
+    }
+    if (obj.sessionId !== this.sessionId) {
+      this.stats.appliesRejected += 1;
+      this._stats$.next({ ...this.stats });
+      return;
+    }
     if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'cursor')) {
       this.stats.appliesRejected += 1;
       this._stats$.next({ ...this.stats });
       return;
     }
-    // The cursor is shown in a presence overlay; we don't apply it
-    // to local state. The actual application of the cursor position
-    // happens in PairPresenceService. We just record the event.
-    this.stats.appliesAccepted += 1;
+    this._peerCursors.set(obj.senderUserId, {
+      userId: obj.senderUserId,
+      userLabel: obj.userLabel,
+      cursor: obj.cursor,
+      lastSeenAt: Date.now(),
+    });
+    this._peerCursors$.next(new Map(this._peerCursors));
+    this.stats.cursorsReceived = (this.stats.cursorsReceived ?? 0) + 1;
     this._stats$.next({ ...this.stats });
+  }
+
+  private startCursorReap(): void {
+    if (this.cursorReapHandle !== null) return;
+    this.cursorReapHandle = setInterval(() => this.reapPeerCursors(), 1000);
+  }
+
+  private stopCursorReap(): void {
+    if (this.cursorReapHandle === null) return;
+    clearInterval(this.cursorReapHandle);
+    this.cursorReapHandle = null;
+  }
+
+  private reapPeerCursors(): void {
+    if (this._peerCursors.size === 0) return;
+    const cutoff = Date.now() - PEER_CURSOR_TIMEOUT_MS;
+    let changed = false;
+    for (const [uid, p] of this._peerCursors) {
+      if (p.lastSeenAt < cutoff) {
+        this._peerCursors.delete(uid);
+        changed = true;
+      }
+    }
+    if (changed) this._peerCursors$.next(new Map(this._peerCursors));
+  }
+
+  /**
+   * Public: send a remote-cursor presence event. Routed over the
+   * transport as a dedicated `cursor` message; receivers update
+   * their peer-cursor map but DO NOT apply to local state.
+   * Cursors are dropped unless the session has the `cursor`
+   * permission granted.
+   */
+  sendCursor(userLabel: string, cursor: CursorPos): void {
+    if (!this.active || !this.sessionId) return;
+    if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'cursor')) return;
+    const msg: CursorMessage = {
+      sessionId: this.sessionId,
+      senderUserId: this.ownerUserId,
+      userLabel,
+      cursor,
+      sentAt: Date.now(),
+    };
+    this.transport.sendView(this.cursorToEnvelope(msg));
+  }
+
+  private cursorToEnvelope(msg: CursorMessage): RelayEnvelope {
+    return {
+      message_id: newId(),
+      kind: 'cursor',
+      base_hash: '',
+      new_hash: '',
+      width: 0,
+      height: 0,
+      encrypted_payload: this.encrypter(JSON.stringify(msg)),
+    };
   }
 
   private handleIncomingControl(raw: unknown): void {
