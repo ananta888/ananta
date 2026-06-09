@@ -14,6 +14,7 @@ describe('route metadata', () => {
 
     expect(simplePaths).toEqual([
       '/workspace',
+      '/chats',
       '/board',
       '/artifacts',
       '/templates',
