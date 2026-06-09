@@ -19,7 +19,8 @@
       "title": "Kritisch: Dateien über 3000 Zeilen (5 Dateien)",
       "task_ids": ["SPLIT-001", "SPLIT-002", "SPLIT-003", "SPLIT-004", "SPLIT-005"],
       "status": "in_progress",
-      "priority": "P0"
+      "priority": "P0",
+      "notes": "SPLIT-001 done (1347 lines, target was <1500). SPLIT-002 through SPLIT-005 todo."
     },
     {
       "id": "M2",
@@ -57,22 +58,24 @@
       "priority": "P0",
       "title": "agent/services/task_scoped_execution_service.py aufteilen (4783 → Ziel < 1500 Zeilen)",
       "file": "agent/services/task_scoped_execution_service.py",
-      "current_lines": 4783,
-      "status": "in_progress",
+      "current_lines": 1347,
+      "status": "done",
       "sub_splits": {
         "001a": {"title": "workspace_sync helper (1 method)", "commit": "cf091c19", "status": "done"},
         "001_prelude": {"title": "SRP cluster map docstring + section markers", "commit": "2ceba360", "status": "done"},
         "001b": {"title": "config_policy pure bounded-value utilities (3 methods)", "commit": "4b51c3dc", "status": "done"},
-        "001c": {"title": "config_policy intermediate resolvers (5 methods: semantic_output_correction, interactive_context_profile, compact_research_context, interactive_propose_timeout, interactive_retry_timeout)", "commit": "c88d22fd", "status": "done"},
-        "001d": {"title": "config_policy cli/opencode session + native worker policy resolver (6 methods: cli_session_policy, resolve_opencode_execution_mode, resolve_opencode_interactive_launch_mode, native_worker_runtime_enabled, should_use_native_worker_runtime, has_native_opencode_runtime)", "commit": "67d17559", "status": "done"},
-        "001e": {"title": "domain_action router (6 funcs, 1102 LOC)", "status": "in_progress"},
-        "001f": {"title": "forwarding_hub (5 funcs)", "status": "pending"},
-        "001g": {"title": "adapters hermes+handler (5 funcs)", "status": "pending"},
-        "001h": {"title": "runtime (cli session + research, 14 funcs)", "status": "pending"},
-        "001i": {"title": "repair (structured action, 14 funcs)", "status": "pending"},
-        "001j": {"title": "citation_grounded (7 funcs)", "status": "pending"},
-        "001k": {"title": "build_hermes_context_blocks in eigenes Modul", "status": "pending"},
-        "001l": {"title": "task_aux + public_api bleibt im Service; Shim-Form finalisieren", "status": "pending"}
+        "001c": {"title": "config_policy intermediate resolvers (5 methods)", "commit": "c88d22fd", "status": "done"},
+        "001d": {"title": "config_policy cli/opencode session + native worker policy resolver (6 methods)", "commit": "67d17559", "status": "done"},
+        "001e": {"title": "domain_action router (6 funcs)", "commit": "3b84389b", "status": "done"},
+        "001f": {"title": "forwarding_hub (5 funcs)", "status": "done"},
+        "001g": {"title": "adapters hermes+handler (5 funcs)", "status": "done"},
+        "001h": {"title": "runtime (cli session + research, 12 funcs)", "status": "done"},
+        "001i": {"title": "repair (structured action, 8 funcs)", "status": "done"},
+        "001j": {"title": "citation_grounded (7 funcs)", "status": "done"},
+        "001k": {"title": "build_hermes_context_blocks in eigenes Modul", "status": "done"},
+        "001m": {"title": "extract propose_single_task_step", "commit": "cf4c9171", "status": "done"},
+        "001n": {"title": "extract propose orchestrator path", "commit": "f81351b2", "status": "done"},
+        "001o": {"title": "extract execute workspace path", "commit": "f81351b2", "status": "done"}
       },
       "problem": "Eine einzige Klasse TaskScopedExecutionService umfasst fast 4600 Zeilen mit Workspace-Sync, Hermes-Kontext, Routing-Response und der gesamten Execution-Logik.",
       "proposed_split": [
