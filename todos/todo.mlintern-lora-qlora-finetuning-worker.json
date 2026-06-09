@@ -133,7 +133,7 @@
         "MLLORA-002",
         "MLLORA-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -144,7 +144,7 @@
         "MLLORA-006",
         "MLLORA-007"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -154,7 +154,7 @@
         "MLLORA-009",
         "MLLORA-010"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -165,7 +165,7 @@
         "MLLORA-013",
         "MLLORA-014"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -175,7 +175,7 @@
         "MLLORA-016",
         "MLLORA-017"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -185,7 +185,7 @@
         "MLLORA-019",
         "MLLORA-020"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M7",
@@ -196,7 +196,7 @@
         "MLLORA-023",
         "MLLORA-024"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -205,10 +205,10 @@
       "title": "Realen ml_intern-Spike als Ausgangspunkt dokumentieren",
       "type": "analysis",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [],
       "target_files": [
         "docs/ml-intern-backend-spike.md",
@@ -238,10 +238,10 @@
       "title": "Architekturgrenze zwischen SGPT-Execution und ML-Training definieren",
       "type": "architecture",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-001"
       ],
@@ -268,10 +268,10 @@
       "title": "RAG/CodeCompass vs LoRA Verantwortlichkeiten festlegen",
       "type": "architecture",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-001"
       ],
@@ -294,10 +294,10 @@
       "title": "Training-Config-Normalisierung analog zum bestehenden Spike einfuehren",
       "type": "implementation",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-002"
       ],
@@ -327,10 +327,10 @@
       "title": "JSON-Schema fuer mlintern Training Jobs definieren",
       "type": "schema",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-004"
       ],
@@ -359,10 +359,10 @@
       "title": "Adapter Registry Schema definieren",
       "type": "schema",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-005"
       ],
@@ -390,10 +390,10 @@
       "title": "Dataset Record Schema definieren",
       "type": "schema",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-005"
       ],
@@ -421,10 +421,10 @@
       "title": "Dataset Validator implementieren",
       "type": "implementation",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-007"
       ],
@@ -450,10 +450,10 @@
       "title": "Secret- und Sensitive-Data-Scan vor Training erzwingen",
       "type": "security",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-008"
       ],
@@ -480,10 +480,10 @@
       "title": "Erstes kleines ananta-todo-json Dataset als Fixture vorbereiten",
       "type": "data",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-008",
         "MLLORA-009"
@@ -511,10 +511,10 @@
       "title": "Dry-Run Training Job Service implementieren",
       "type": "implementation",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-004",
         "MLLORA-005",
@@ -542,10 +542,10 @@
       "title": "Echte QLoRA Backend-Anbindung als optionalen lokalen Runner vorbereiten",
       "type": "implementation",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-011"
       ],
@@ -575,10 +575,10 @@
       "title": "GPU- und Ressourcen-Schutz fuer RTX-3080-Profil einbauen",
       "type": "security",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-012"
       ],
@@ -608,10 +608,10 @@
       "title": "Training-Artefaktstruktur versioniert und reproduzierbar machen",
       "type": "implementation",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-011"
       ],
@@ -638,10 +638,10 @@
       "title": "Eval Runner fuer Base-vs-Adapter Vergleich bauen",
       "type": "implementation",
       "milestone": "M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-006",
         "MLLORA-010",
@@ -670,10 +670,10 @@
       "title": "Manuelles Approval Gate fuer Adapter einfuehren",
       "type": "security",
       "milestone": "M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-015"
       ],
@@ -701,10 +701,10 @@
       "title": "Adapter Registry in Config-/Read-Model sichtbar machen",
       "type": "implementation",
       "milestone": "M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-016"
       ],
@@ -732,10 +732,10 @@
       "title": "Optionales Adapter-Routing in Modellrouting vorbereiten",
       "type": "implementation",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-016"
       ],
@@ -765,10 +765,10 @@
       "title": "Optionalen Merge-/Export-Pfad dokumentieren und absichern",
       "type": "implementation",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-014",
         "MLLORA-016"
@@ -796,10 +796,10 @@
       "title": "Runtime-Ausgabe um Adapter-Provenance erweitern",
       "type": "implementation",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-018"
       ],
@@ -825,10 +825,10 @@
       "title": "Hermes PEFT/LoRA nur als optionale Vergleichs-/Bridge-Strategie dokumentieren",
       "type": "documentation",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-003"
       ],
@@ -852,10 +852,10 @@
       "title": "Operator-Dokumentation fuer LoRA-Workflow schreiben",
       "type": "documentation",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-011",
         "MLLORA-015",
@@ -882,10 +882,10 @@
       "title": "Regressionstests fuer bestehenden ml_intern-Spike erweitern",
       "type": "test",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-004",
         "MLLORA-011"
@@ -913,10 +913,10 @@
       "title": "Abschlussreview: Keine heimliche Auto-Aktivierung und keine Vermischung mit RAG",
       "type": "review",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "dependencies": [
         "MLLORA-016",
         "MLLORA-018",
@@ -978,5 +978,23 @@
     "Die erste sinnvolle Umsetzung ist Dry-Run + Dataset/Eval/Registry, erst danach echtes GPU-Training.",
     "ananta-todo-json ist als erster Adapter sicherer als code_review, weil JSON-Qualitaet deterministisch testbar ist.",
     "Full-Fine-Tuning bleibt bewusst ausserhalb dieser Todo-Spur."
-  ]
+  ],
+  "tasks_status_summary": {
+    "by_status": {
+      "done": 24,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0
+    }
+  },
+  "progress_summary": {
+    "state": "done",
+    "percent_complete": 100.0,
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 24
+  }
 }

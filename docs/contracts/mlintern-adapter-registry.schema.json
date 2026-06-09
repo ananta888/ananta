@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mlintern-adapter-registry.schema.json",
+  "title": "MlIntern Adapter Registry",
+  "description": "Registry-Schema fuer LoRA/QLoRA Adapter. Lokal als JSON gespeichert, fuer DB-Migration offen.",
+  "type": "object",
+  "required": ["schema", "adapters"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "mlintern_adapter_registry.v1"
+    },
+    "adapters": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/AdapterRecord"}
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "AdapterRecord": {
+      "type": "object",
+      "required": ["adapter_id", "display_name", "version", "base_model", "method", "status", "created_at"],
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Eindeutige ID, z.B. 'ananta-todo-json-v1'."
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_model": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exakte Modell-Bezeichnung. Adapter fuer Modell A darf nicht mit Modell B genutzt werden."
+        },
+        "method": {
+          "type": "string",
+          "enum": ["qlora", "lora"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["created", "training", "trained", "evaluated", "approved", "rejected", "deprecated", "failed"],
+          "description": "Status-Uebergaenge: created->training->trained->evaluated->approved|rejected. deprecated ist ein Endzustand."
+        },
+        "artifact_paths": {
+          "type": "object",
+          "description": "Pfade zu den Adapter-Artefakten.",
+          "properties": {
+            "adapter_dir": {"type": "string"},
+            "adapter_config": {"type": "string"},
+            "adapter_weights": {"type": "string"},
+            "training_summary": {"type": "string"},
+            "training_log": {"type": "string"}
+          }
+        },
+        "dataset_hash": {
+          "type": "string",
+          "description": "SHA-256 des Train-Datasets zum Zeitpunkt des Trainings."
+        },
+        "config_hash": {
+          "type": "string",
+          "description": "SHA-256 der Training-Config."
+        },
+        "eval_report_ref": {
+          "type": "string",
+          "description": "Pfad zum Eval-Report. Pflicht vor Approval."
+        },
+        "eval_score": {
+          "type": "number",
+          "description": "Zusammengefasster Eval-Score (hoeher = besser)."
+        },
+        "approved_by": {
+          "type": "string",
+          "description": "Wer hat den Adapter approved."
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approval_reason": {
+          "type": "string"
+        },
+        "rejected_reason": {
+          "type": "string"
+        },
+        "task_kinds": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Task-Kinds fuer die dieser Adapter vorgeschlagen wird (z.B. ['todo_json_generation'])."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

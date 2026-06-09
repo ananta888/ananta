@@ -25,7 +25,7 @@ from agent.models import (
 )
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
-from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
+from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, resolve_lora_adapter_routing, runtime_routing_config
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service as _get_context_manager_service
 from agent.services.ml_intern_adapter_service import get_ml_intern_adapter_service
@@ -408,6 +408,15 @@ def execute_sgpt():
                 backend=backend_used,
                 cli_result={"stderr_preview": safe_errors[:240], "returncode": returncode},
             )
+        lora_provenance = resolve_lora_adapter_routing(
+            task_kind=task_kind,
+            base_model=str(model or ""),
+            agent_cfg=agent_cfg,
+        )
+        if lora_provenance.get("adapter_used"):
+            response_data["lora_provenance"] = lora_provenance
+        else:
+            response_data["adapter_used"] = False
         if context_payload is not None:
             response_data["context"] = {
                 "strategy": context_payload.get("strategy", {}),

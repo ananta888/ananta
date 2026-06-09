@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mlintern-training-job.schema.json",
+  "title": "MlIntern Training Job",
+  "description": "Schema fuer einen ml_intern LoRA/QLoRA Training-Job. Wird von MlInternTrainingJobService validiert.",
+  "type": "object",
+  "required": ["job_type"],
+  "additionalProperties": false,
+  "properties": {
+    "job_type": {
+      "type": "string",
+      "enum": [
+        "dataset_validate",
+        "train_lora",
+        "evaluate_lora",
+        "register_adapter",
+        "export_adapter",
+        "merge_adapter_optional"
+      ],
+      "description": "Art des Training-Jobs."
+    },
+    "base_model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Bezeichner des Basismodells (z.B. 'qwen2.5-coder-7b')."
+    },
+    "dataset_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relativer Pfad zur Train-JSONL-Datei. Muss innerhalb dataset_root liegen."
+    },
+    "eval_dataset_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relativer Pfad zur Eval-JSONL-Datei. Darf nicht identisch mit dataset_path sein."
+    },
+    "output_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relativer Ausgabepfad fuer Adapter-Artefakte. Muss innerhalb artifact_root liegen."
+    },
+    "adapter_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pfad zu einem vorhandenen Adapter (fuer evaluate_lora, register_adapter, export_adapter)."
+    },
+    "report_output_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Ausgabepfad fuer den Eval-Report."
+    },
+    "method": {
+      "type": "string",
+      "enum": ["qlora", "lora"],
+      "default": "qlora",
+      "description": "Trainingsmethode."
+    },
+    "lora_rank": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256,
+      "description": "LoRA-Rang. Groessere Werte = mehr Parameter = mehr VRAM."
+    },
+    "lora_alpha": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 512,
+      "description": "LoRA-Alpha-Skalierungsfaktor."
+    },
+    "lora_dropout": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.5,
+      "description": "LoRA-Dropout-Rate."
+    },
+    "max_seq_length": {
+      "type": "integer",
+      "minimum": 64,
+      "maximum": 8192,
+      "description": "Maximale Sequenzlaenge. Groessere Werte erfordern mehr VRAM."
+    },
+    "batch_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 64,
+      "description": "Batch-Groesse pro GPU-Schritt."
+    },
+    "gradient_accumulation_steps": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 128,
+      "description": "Gradient-Akkumulationsschritte. Effektive Batch-Size = batch_size * gradient_accumulation_steps."
+    },
+    "learning_rate": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 0.1,
+      "description": "Lernrate."
+    },
+    "num_epochs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Anzahl Trainings-Epochen."
+    },
+    "allow_merge": {
+      "type": "boolean",
+      "description": "Muss explizit true sein fuer job_type=merge_adapter_optional. Niemals Default."
+    },
+    "explicit_override": {
+      "type": "object",
+      "description": "Explizite Ueberschreibung sicherheitskritischer Defaults. Muss begruendet sein.",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Pflicht-Begruendung fuer die Ueberschreibung."
+        },
+        "overrides": {
+          "type": "object",
+          "description": "Key-Value-Paare der ueberschriebenen Parameter."
+        }
+      },
+      "required": ["reason", "overrides"]
+    },
+    "adapter_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Logischer Name des Adapters (z.B. 'ananta-todo-json-v1')."
+    },
+    "x_ananta": {
+      "type": "object",
+      "description": "Erweiterungsfeld fuer Ananta-spezifische Metadaten."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"job_type": {"const": "train_lora"}}
+      },
+      "then": {
+        "required": ["base_model", "dataset_path", "output_dir"]
+      }
+    },
+    {
+      "if": {
+        "properties": {"job_type": {"const": "evaluate_lora"}}
+      },
+      "then": {
+        "required": ["base_model", "adapter_path", "eval_dataset_path", "report_output_path"]
+      }
+    },
+    {
+      "if": {
+        "properties": {"job_type": {"const": "merge_adapter_optional"}}
+      },
+      "then": {
+        "required": ["base_model", "adapter_path", "output_dir"],
+        "properties": {
+          "allow_merge": {"const": true}
+        },
+        "required": ["allow_merge"]
+      }
+    }
+  ]
+}
