@@ -92,28 +92,18 @@ def _build_workspace_state_sync_record(
     workspace_artifact_refs: list,
     git_pushed: bool,
 ) -> dict:
-    try:
-        from agent.services.workspace_state_sync_policy import WorkspaceStateSyncPolicy
-        policy = WorkspaceStateSyncPolicy.resolve(task)
-        input_artifacts = [
-            {"artifact_id": r.get("artifact_id"), "path": r.get("workspace_relative_path")}
-            for r in (materialization_manifest or [])
-            if isinstance(r, dict)
-        ]
-        output_artifacts = [
-            {"artifact_id": r.get("artifact_id"), "path": r.get("workspace_relative_path")}
-            for r in (workspace_artifact_refs or [])
-            if isinstance(r, dict) and r.get("kind") == "workspace_file"
-        ]
-        return {
-            "sync_mode": policy.sync_mode,
-            "source_of_truth": policy.source_of_truth,
-            "input_artifacts": input_artifacts,
-            "output_artifacts": output_artifacts,
-            "git_pushed": git_pushed,
-        }
-    except Exception:
-        return {"sync_mode": "none", "source_of_truth": "task_local", "input_artifacts": [], "output_artifacts": [], "git_pushed": git_pushed}
+    # Implementation lives in agent.services._task_scoped_workspace_sync.
+    # Re-exported here for backward compat (12-month deprecation window, see
+    # SPLIT-001 in todos/todo.refactor-large-files-split.json).
+    from agent.services._task_scoped_workspace_sync import (
+        build_workspace_state_sync_record as _impl,
+    )
+    return _impl(
+        task=task,
+        materialization_manifest=materialization_manifest,
+        workspace_artifact_refs=workspace_artifact_refs,
+        git_pushed=git_pushed,
+    )
 
 
 def build_hermes_context_blocks(
