@@ -1,7 +1,7 @@
 {
   "id": "todo.refactor-large-files-split",
   "title": "Große Quelldateien aufteilen (>1000 Zeilen)",
-  "status": "planned",
+  "status": "in_progress",
   "priority": "high",
   "created": "2026-06-09",
   "context": {
@@ -18,7 +18,7 @@
       "id": "M1",
       "title": "Kritisch: Dateien über 3000 Zeilen (5 Dateien)",
       "task_ids": ["SPLIT-001", "SPLIT-002", "SPLIT-003", "SPLIT-004", "SPLIT-005"],
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0"
     },
     {
@@ -55,33 +55,76 @@
       "id": "SPLIT-001",
       "milestone": "M1",
       "priority": "P0",
-      "title": "agent/services/task_scoped_execution_service.py aufteilen (4783 Zeilen)",
+      "title": "agent/services/task_scoped_execution_service.py aufteilen (4783 → Ziel < 1500 Zeilen)",
       "file": "agent/services/task_scoped_execution_service.py",
       "current_lines": 4783,
+      "status": "in_progress",
+      "sub_splits": {
+        "001a": {"title": "workspace_sync helper (1 method)", "commit": "cf091c19", "status": "done"},
+        "001_prelude": {"title": "SRP cluster map docstring + section markers", "commit": "2ceba360", "status": "done"},
+        "001b": {"title": "config_policy pure bounded-value utilities (3 methods)", "commit": "4b51c3dc", "status": "done"},
+        "001c": {"title": "config_policy intermediate resolvers (5 methods: semantic_output_correction, interactive_context_profile, compact_research_context, interactive_propose_timeout, interactive_retry_timeout)", "commit": "c88d22fd", "status": "done"},
+        "001d": {"title": "config_policy cli/opencode session + native worker policy resolver (6 methods: cli_session_policy, resolve_opencode_execution_mode, resolve_opencode_interactive_launch_mode, native_worker_runtime_enabled, should_use_native_worker_runtime, has_native_opencode_runtime)", "commit": "67d17559", "status": "done"},
+        "001e": {"title": "domain_action router (6 funcs, 1102 LOC)", "status": "in_progress"},
+        "001f": {"title": "forwarding_hub (5 funcs)", "status": "pending"},
+        "001g": {"title": "adapters hermes+handler (5 funcs)", "status": "pending"},
+        "001h": {"title": "runtime (cli session + research, 14 funcs)", "status": "pending"},
+        "001i": {"title": "repair (structured action, 14 funcs)", "status": "pending"},
+        "001j": {"title": "citation_grounded (7 funcs)", "status": "pending"},
+        "001k": {"title": "build_hermes_context_blocks in eigenes Modul", "status": "pending"},
+        "001l": {"title": "task_aux + public_api bleibt im Service; Shim-Form finalisieren", "status": "pending"}
+      },
       "problem": "Eine einzige Klasse TaskScopedExecutionService umfasst fast 4600 Zeilen mit Workspace-Sync, Hermes-Kontext, Routing-Response und der gesamten Execution-Logik.",
       "proposed_split": [
         {
-          "file": "agent/services/task_scoped_workspace_sync.py",
-          "responsibility": "_build_workspace_state_sync_record() und alle Workspace-Sync-Hilfsfunktionen (Zeilen 88–118)"
+          "file": "agent/services/_task_scoped_workspace_sync.py",
+          "responsibility": "build_workspace_state_sync_record() und alle Workspace-Sync-Hilfsfunktionen"
         },
         {
-          "file": "agent/services/task_scoped_hermes_context.py",
-          "responsibility": "build_hermes_context_blocks() und Hermes-spezifische Kontext-Aufbereitung (Zeilen 119–184)"
+          "file": "agent/services/_task_scoped_config_policy.py",
+          "responsibility": "bounded_int / bounded_float / normalize_temperature (pure utilities) + intermediate resolvers (resolve_worker_semantic_output_correction_policy, resolve_interactive_context_profile, compact_research_context, resolve_interactive_propose_timeout, resolve_interactive_retry_timeout, weitere in 001d)"
         },
         {
-          "file": "agent/services/task_scoped_route_response.py",
-          "responsibility": "TaskScopedRouteResponse dataclass (Zeilen 185–191)"
+          "file": "agent/services/_task_scoped_domain_action.py",
+          "responsibility": "domain_action router Methoden (6 funcs, 1102 LOC) — Sub-Split 001e"
+        },
+        {
+          "file": "agent/services/_task_scoped_forwarding.py",
+          "responsibility": "forwarding_hub Methoden — Sub-Split 001f"
+        },
+        {
+          "file": "agent/services/_task_scoped_adapters.py",
+          "responsibility": "adapters hermes+handler Methoden — Sub-Split 001g"
+        },
+        {
+          "file": "agent/services/_task_scoped_runtime.py",
+          "responsibility": "runtime Methoden (cli session + research, 14 funcs) — Sub-Split 001h"
+        },
+        {
+          "file": "agent/services/_task_scoped_repair.py",
+          "responsibility": "repair Methoden (structured action, 14 funcs) — Sub-Split 001i"
+        },
+        {
+          "file": "agent/services/_task_scoped_citation.py",
+          "responsibility": "citation_grounded Methoden (7 funcs) — Sub-Split 001j"
+        },
+        {
+          "file": "agent/services/_task_scoped_hermes_context.py",
+          "responsibility": "build_hermes_context_blocks() standalone — Sub-Split 001k"
         },
         {
           "file": "agent/services/task_scoped_execution_service.py",
-          "responsibility": "TaskScopedExecutionService Klasse aufgeteilt nach Methoden-Gruppen: execute(), _run_worker(), _build_context(), _finalize() — Klasse bleibt, aber intern nach Verantwortlichkeit strukturiert. get_task_scoped_execution_service() Singleton bleibt hier."
+          "responsibility": "TaskScopedExecutionService Klasse: task_aux (interne Helper) + public_api (execute/run_worker) bleiben hier. Nach allen Sub-Splits: < 1500 Zeilen. Delegating-Wrapper-Pattern (12-Monats-Deprecation-Window) hält Backward-Compat für Tests, die monkeypatchen."
         }
       ],
       "acceptance_criteria": [
         "Alle Tests in tests/test_task_endpoints.py bleiben grün",
+        "Alle 112 task_scoped Tests grün (1 pre-existing failure in test_client_thinness.py bleibt pre-existing)",
         "Imports in allen Konsumenten aktualisiert",
         "task_scoped_execution_service.py unter 1500 Zeilen",
-        "Keine zirkulären Imports"
+        "Keine zirkulären Imports",
+        "Jeder Sub-Split ist ein eigener atomic commit",
+        "Cluster-Map-Docstring in der Klasse dokumentiert SRP-Cluster-Boundaries"
       ]
     },
     {
