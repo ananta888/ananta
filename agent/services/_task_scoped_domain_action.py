@@ -403,3 +403,488 @@ def execute_domain_action(
 
 
 _execute_domain_action = execute_domain_action
+
+
+# --- SPLIT-001e-2: propose_task_with_comparisons, finalize_interactive_terminal, execute_research_artifact ---
+
+import concurrent.futures
+import time
+from typing import Callable
+
+from flask import current_app
+
+from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
+from agent.common.utils.structured_action_utils import extract_structured_action_fields
+from agent.models import TaskStepExecuteRequest
+from agent.research_backend import is_research_backend
+from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
+from agent.runtime_policy import normalize_task_kind, runtime_routing_config
+from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
+from agent.services.task_execution_policy_service import resolve_execution_policy
+from agent.services.verification_service import get_verification_service
+from agent.services.worker_workspace_service import get_worker_workspace_service
+from agent.utils import _extract_reason
+
+_INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
+
+
+def propose_task_with_comparisons(
+    *,
+    tid: str,
+    task: dict,
+    request_data,
+    prompt: str,
+    base_prompt: str,
+    worker_context_meta: dict,
+    research_context: dict | None,
+    cli_runner: Callable,
+    cfg: dict,
+    resolve_requested_model: Callable,
+    invoke_cli_runner: Callable,
+    coalesce_cli_output: Callable,
+    resolve_task_propose_timeout: Callable,
+) -> "TaskScopedRouteResponse":
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+    from agent.common.sgpt import SUPPORTED_CLI_BACKENDS as _BACKENDS
+    from agent.runtime_policy import resolve_cli_backend as _resolve_cli_backend_fn
+    from agent.services._task_scoped_citation import build_flow_metrics_payload
+    from agent.services._task_scoped_config_policy import normalize_temperature
+    from agent.services._task_scoped_repair import build_llm_call_profile_entries
+    from agent.services._task_scoped_runtime import build_research_result, build_review_state, routing_dimensions as _routing_dimensions
+
+    def resolve_cli_backend(task_kind, *, requested_backend, agent_cfg, required_capabilities):
+        from flask import current_app as _ca
+        from agent.common.sgpt import SUPPORTED_CLI_BACKENDS as _sbs
+        backend, reason, _ = _resolve_cli_backend_fn(
+            task_kind=task_kind,
+            requested_backend=requested_backend,
+            supported_backends=_sbs,
+            agent_cfg=agent_cfg if agent_cfg is not None else (_ca.config.get("AGENT_CONFIG", {}) or {}),
+            fallback_backend="sgpt",
+            required_capabilities=required_capabilities,
+        )
+        return backend, reason
+
+    task_kind = normalize_task_kind(None, base_prompt)
+    workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
+    requested_temperature = normalize_temperature(getattr(request_data, "temperature", None))
+    timeout = resolve_task_propose_timeout(cfg, task_kind)
+    compare_policy = resolve_execution_policy(
+        TaskStepExecuteRequest(timeout=timeout),
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        source="task_propose_compare",
+    )
+    routing_policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
+
+    def _run_single_provider(provider_entry: str) -> tuple[str, dict]:
+        entry = str(provider_entry or "").strip()
+        if not entry:
+            return provider_entry, {"error": "invalid_provider_entry"}
+
+        parts = entry.split(":", 1)
+        requested_backend = str(parts[0] or "").strip().lower()
+        selected_model = resolve_requested_model(
+            agent_cfg=cfg,
+            requested_model=(parts[1].strip() if len(parts) > 1 else "") or request_data.model,
+        )
+        if requested_backend not in SUPPORTED_CLI_BACKENDS:
+            return entry, {"error": f"unsupported_backend:{requested_backend}", "backend": requested_backend}
+
+        effective_backend, routing_reason = resolve_cli_backend(
+            task_kind,
+            requested_backend=requested_backend,
+            agent_cfg=cfg,
+            required_capabilities=derive_required_capabilities(task, task_kind),
+        )
+        started_at = time.time()
+        cli_kwargs = {
+            "prompt": prompt,
+            "options": ["--no-interaction"],
+            "timeout": compare_policy.timeout_seconds,
+            "backend": effective_backend,
+            "model": selected_model,
+            "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_policy_version},
+            "workdir": str(workspace_context.workspace_dir),
+        }
+        if requested_temperature is not None:
+            cli_kwargs["temperature"] = requested_temperature
+        if research_context:
+            cli_kwargs["research_context"] = research_context
+        rc, cli_out, cli_err, backend_used = invoke_cli_runner(cli_runner, **cli_kwargs)
+        latency_ms = int((time.time() - started_at) * 1000)
+        raw_res, output_source = coalesce_cli_output(cli_out, cli_err)
+        required_capabilities = derive_required_capabilities(task, task_kind)
+        dims = _routing_dimensions(
+            backend_used=backend_used,
+            model=selected_model,
+            temperature=requested_temperature,
+            requested_backend=requested_backend,
+            agent_cfg=cfg,
+            worker_profile=worker_context_meta.get("worker_profile"),
+            profile_source=worker_context_meta.get("profile_source"),
+        )
+        routing = {
+            "task_kind": task_kind,
+            "effective_backend": effective_backend,
+            "reason": routing_reason,
+            "policy_classification_summary": str(routing_reason or "").strip().lower() or None,
+            "required_capabilities": required_capabilities,
+            "research_specialization": derive_research_specialization(task, task_kind, required_capabilities),
+            **dims,
+        }
+        cli_result = {
+            "returncode": rc,
+            "latency_ms": latency_ms,
+            "stderr_preview": (cli_err or "")[:240],
+            "output_source": output_source,
+            "llm_call_profile": build_llm_call_profile_entries(
+                backend_used=backend_used,
+                model=selected_model,
+                prompt=prompt,
+                raw_output=raw_res,
+                latency_ms=latency_ms,
+                rc=rc,
+                repair_attempted=False,
+                repair_backend=None,
+                repair_model=None,
+            ),
+        }
+        if rc != 0 and not raw_res.strip():
+            return entry, {"error": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used, "routing": routing, "cli_result": cli_result}
+        if not raw_res:
+            return entry, {"error": "empty_response", "backend": backend_used, "routing": routing, "cli_result": cli_result}
+        if is_research_backend(backend_used):
+            research_res = build_research_result(
+                raw_res=raw_res,
+                backend_used=backend_used,
+                tid=tid,
+                rc=rc,
+                cli_err=cli_err,
+                latency_ms=latency_ms,
+                output_source=output_source,
+                research_context=research_context,
+            )
+            research_res["model"] = selected_model
+            research_res["routing"] = routing
+            return entry, research_res
+        command, tool_calls = extract_structured_action_fields(raw_res)
+        return entry, {
+            "reason": _extract_reason(raw_res),
+            "command": command,
+            "tool_calls": tool_calls,
+            "raw": raw_res,
+            "backend": backend_used,
+            "model": selected_model,
+            "routing": routing,
+            "cli_result": cli_result,
+        }
+
+    results: dict[str, dict] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(request_data.providers))) as executor:
+        futures = {executor.submit(_run_single_provider, provider_name): provider_name for provider_name in request_data.providers}
+        for future in concurrent.futures.as_completed(futures):
+            requested = futures[future]
+            try:
+                provider_key, provider_result = future.result()
+                results[provider_key or requested] = provider_result
+            except Exception as exc:
+                current_app.logger.error("Multi-Provider CLI Call for %s failed: %s", requested, exc)
+                results[requested] = {"error": str(exc)}
+
+    successful_results = [
+        results.get(provider_name)
+        for provider_name in request_data.providers
+        if isinstance(results.get(provider_name), dict) and not results.get(provider_name).get("error")
+    ]
+    if not successful_results:
+        return TaskScopedRouteResponse(
+            status="error",
+            message="all_llm_failed",
+            data={"comparisons": results},
+            code=502,
+        )
+
+    main_res = results.get(request_data.providers[0])
+    if not isinstance(main_res, dict) or main_res.get("error"):
+        main_res = successful_results[0]
+
+    trace = build_trace_record(
+        task_id=tid,
+        event_type="proposal_result",
+        task_kind=(main_res.get("routing") or {}).get("task_kind"),
+        backend=main_res.get("backend"),
+        requested_backend=request_data.providers[0] if request_data.providers else "auto",
+        routing_reason=((main_res.get("routing") or {}).get("reason")),
+        policy_version=routing_policy_version,
+        metadata={**worker_context_meta, "source": "task_propose_multi", "comparison_count": len(results)},
+    )
+    review = build_review_state(
+        current_app.config.get("AGENT_CONFIG", {}) or {},
+        backend=str(main_res.get("backend") or ""),
+        task_kind=str(((main_res.get("routing") or {}).get("task_kind") or "")),
+        command=main_res.get("command"),
+        tool_calls=main_res.get("tool_calls"),
+    )
+    response_payload = get_core_services().task_execution_service.persist_task_proposal_result(
+        tid=tid,
+        task=task,
+        reason=main_res.get("reason"),
+        raw=main_res.get("raw"),
+        backend=main_res.get("backend"),
+        model=main_res.get("model"),
+        routing=main_res.get("routing"),
+        cli_result=main_res.get("cli_result"),
+        worker_context=worker_context_meta,
+        trace=trace,
+        review=review,
+        comparisons=results,
+        command=main_res.get("command"),
+        tool_calls=main_res.get("tool_calls"),
+        research_artifact=main_res.get("research_artifact"),
+        research_context=main_res.get("research_context"),
+        history_event={
+            "event_type": "proposal_result",
+            "reason": main_res.get("reason"),
+            "backend": main_res.get("backend"),
+            "routing_reason": ((main_res.get("routing") or {}).get("reason")),
+            "latency_ms": int((main_res.get("cli_result") or {}).get("latency_ms") or 0),
+            "returncode": int((main_res.get("cli_result") or {}).get("returncode") or 0),
+            "comparison_count": len(results),
+            "pipeline": None,
+            "trace": trace,
+            "flow_metrics": build_flow_metrics_payload(
+                run_id=str(trace.get("trace_id") or ""),
+                phase="propose",
+                propose_ok=True,
+                execute_ok=None,
+                artifact_created=None,
+                worker_profile=worker_context_meta.get("worker_profile"),
+                profile_source=worker_context_meta.get("profile_source"),
+                policy_classification=str(((main_res.get("routing") or {}).get("reason")) or ""),
+            ),
+        },
+    )
+    return TaskScopedRouteResponse(data=response_payload)
+
+
+def finalize_interactive_terminal_execution(
+    *,
+    tid: str,
+    task: dict,
+    reason: str,
+    execution_policy,
+) -> "TaskScopedRouteResponse":
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+    from agent.services._task_scoped_citation import build_flow_metrics_payload
+
+    workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
+    changed_files = get_worker_workspace_service().detect_changed_files_against_interactive_baseline(
+        workspace_dir=workspace_ctx.workspace_dir
+    )
+    meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
+    workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
+        task_id=tid,
+        task=task,
+        workspace_dir=workspace_ctx.workspace_dir,
+        changed_rel_paths=changed_files,
+        sync_cfg=workspace_ctx.artifact_sync,
+    )
+    diff_artifact_ref = get_worker_workspace_service().create_workspace_diff_artifact(
+        task_id=tid,
+        task=task,
+        workspace_dir=workspace_ctx.workspace_dir,
+        changed_rel_paths=changed_files,
+        sync_cfg=workspace_ctx.artifact_sync,
+    )
+    artifact_refs = list(workspace_artifact_refs or [])
+    if diff_artifact_ref:
+        artifact_refs.append(diff_artifact_ref)
+    proposal_meta = dict(task.get("last_proposal") or {})
+    cli_result = proposal_meta.get("cli_result") if isinstance(proposal_meta.get("cli_result"), dict) else {}
+    exit_code = int(cli_result.get("returncode") or 0)
+    status = "completed" if exit_code == 0 else "failed"
+    output_lines = [
+        "Interactive OpenCode session finalized.",
+        f"Workspace: {workspace_ctx.workspace_dir}",
+        f"Changed files: {len(changed_files)}",
+    ]
+    if changed_files:
+        output_lines.extend(f"- {rel}" for rel in changed_files[:50])
+    else:
+        output_lines.append("No tracked workspace changes detected.")
+    if diff_artifact_ref:
+        output_lines.append(f"Diff artifact: {diff_artifact_ref.get('artifact_id')}")
+    trace = build_trace_record(
+        task_id=tid,
+        event_type="execution_result",
+        task_kind=((proposal_meta.get("routing") or {}).get("task_kind")),
+        backend=proposal_meta.get("backend"),
+        requested_backend=proposal_meta.get("backend"),
+        routing_reason=((proposal_meta.get("routing") or {}).get("reason")),
+        policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
+        metadata={
+            "interactive_terminal_finalize": True,
+            "changed_file_count": len(changed_files),
+            "meaningful_changed_file_count": len(meaningful_changed_files),
+            "workspace_artifact_count": len(artifact_refs),
+        },
+    )
+    pipeline = new_pipeline_trace(
+        pipeline="task_execute",
+        task_kind=((proposal_meta.get("routing") or {}).get("task_kind")),
+        policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
+        metadata={"task_id": tid, "interactive_terminal_finalize": True},
+    )
+    append_stage(
+        pipeline,
+        name="interactive_terminal_finalize",
+        status="ok" if exit_code == 0 else "error",
+        metadata={
+            "changed_file_count": len(changed_files),
+            "meaningful_changed_file_count": len(meaningful_changed_files),
+            "workspace_artifact_count": len(artifact_refs),
+            "exit_code": exit_code,
+        },
+    )
+    output = "\n".join(output_lines)
+    response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
+        tid=tid,
+        task=task,
+        status=status,
+        reason=reason or "Interactive OpenCode session finalized",
+        command=_INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
+        tool_calls=None,
+        output=output,
+        exit_code=exit_code,
+        retries_used=0,
+        retry_history=[],
+        failure_type="success" if exit_code == 0 else "command_failure",
+        execution_duration_ms=int(cli_result.get("latency_ms") or 0),
+        trace=trace,
+        pipeline={**pipeline, "trace_id": trace["trace_id"]},
+        execution_policy=execution_policy,
+        artifact_refs=artifact_refs or None,
+        extra_history={
+            "workspace_changed_files": changed_files,
+            "workspace_meaningful_changed_files": meaningful_changed_files,
+            "workspace_dir": str(workspace_ctx.workspace_dir),
+            "workspace_artifact_count": len(artifact_refs),
+            "interactive_terminal_finalize": True,
+            "flow_metrics": build_flow_metrics_payload(
+                run_id=str(((proposal_meta.get("trace") or {}).get("trace_id") or "")),
+                phase="execute",
+                propose_ok=True,
+                execute_ok=status == "completed",
+                artifact_created=bool(meaningful_changed_files),
+                worker_profile=((proposal_meta.get("worker_context") or {}).get("worker_profile") or (proposal_meta.get("routing") or {}).get("worker_profile")),
+                profile_source=((proposal_meta.get("worker_context") or {}).get("profile_source") or (proposal_meta.get("routing") or {}).get("profile_source")),
+                policy_classification=str(((proposal_meta.get("routing") or {}).get("policy_classification_summary") or (proposal_meta.get("routing") or {}).get("reason") or "")),
+            ),
+        },
+    )
+    get_worker_workspace_service().refresh_interactive_terminal_baseline(workspace_dir=workspace_ctx.workspace_dir)
+    return TaskScopedRouteResponse(data=response_payload)
+
+
+def execute_research_artifact(
+    *,
+    tid: str,
+    task: dict,
+    proposal: dict,
+    research_artifact: dict,
+    execution_policy,
+) -> "TaskScopedRouteResponse":
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+    from agent.services._task_scoped_citation import build_flow_metrics_payload
+    from agent.services._task_scoped_runtime import verify_research_artifact
+
+    review = (proposal.get("review") or {}) if isinstance(proposal, dict) else {}
+    if review.get("required") and review.get("status") != "approved":
+        raise TaskConflictError("research_review_required", details={"review": review, "task_id": tid})
+    verification = verify_research_artifact(research_artifact)
+    research_artifact["verification"] = verification
+    if not verification.get("passed"):
+        critique = get_execution_improvement_loop_service().build_verification_critique(
+            expected_artifacts=[],
+            verification=verification,
+            observed_artifacts=[],
+            logs=str(research_artifact.get("report_markdown") or ""),
+        )
+        raise TaskConflictError(
+            "research_artifact_verification_failed",
+            details={"verification": verification, "task_id": tid, "verification_critique": critique},
+        )
+    output = str(research_artifact.get("report_markdown") or "")
+    pipeline = new_pipeline_trace(
+        pipeline="task_execute",
+        task_kind=((proposal.get("routing") or {}).get("task_kind")),
+        policy_version=((proposal.get("trace") or {}).get("policy_version")),
+        metadata={"task_id": tid, "artifact_execute": True},
+    )
+    append_stage(pipeline, name="artifact_finalize", status="ok", metadata={"artifact_kind": research_artifact.get("kind")})
+    trace = build_trace_record(
+        task_id=tid,
+        event_type="execution_result",
+        task_kind=((proposal.get("routing") or {}).get("task_kind")),
+        backend=proposal.get("backend"),
+        requested_backend=proposal.get("backend"),
+        routing_reason=((proposal.get("routing") or {}).get("reason")),
+        policy_version=((proposal.get("trace") or {}).get("policy_version")),
+        metadata={"source": "research_artifact_execute", "artifact_kind": research_artifact.get("kind")},
+    )
+    trace["metadata"]["research_verification"] = verification
+    artifact_ref = get_core_services().task_execution_tracking_service.persist_research_artifact(
+        tid=tid,
+        task=task,
+        research_artifact=research_artifact,
+    )
+    verification_record = get_verification_service().create_or_update_record(
+        tid,
+        trace_id=trace.get("trace_id"),
+        output=output,
+        exit_code=0,
+        gate_results=verification,
+    )
+    if isinstance(artifact_ref, dict):
+        artifact_ref["verification_record_id"] = getattr(verification_record, "id", None)
+        research_artifact.setdefault("trace", {})
+        research_artifact["trace"]["persisted_artifact"] = artifact_ref
+    from agent.metrics import TASK_COMPLETED
+    TASK_COMPLETED.inc()
+    response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
+        tid=tid,
+        task=task,
+        status="completed",
+        reason=proposal.get("reason", "Research report persisted"),
+        command=None,
+        tool_calls=None,
+        output=output,
+        exit_code=0,
+        retries_used=0,
+        retry_history=[],
+        failure_type="success",
+        execution_duration_ms=0,
+        trace=trace,
+        pipeline={**pipeline, "trace_id": trace["trace_id"]},
+        execution_policy=execution_policy,
+        review=review,
+        artifact_refs=[artifact_ref] if artifact_ref else None,
+        extra_history={
+            "artifact_kind": research_artifact.get("kind"),
+            "artifact_ref": artifact_ref,
+            "source_count": len(research_artifact.get("sources") or []),
+            "verification": verification,
+            "verification_record_id": getattr(verification_record, "id", None),
+            "flow_metrics": build_flow_metrics_payload(
+                run_id=str(((proposal.get("trace") or {}).get("trace_id") or "")),
+                phase="execute",
+                propose_ok=True,
+                execute_ok=True,
+                artifact_created=bool(artifact_ref),
+                worker_profile=((proposal.get("worker_context") or {}).get("worker_profile") or (proposal.get("routing") or {}).get("worker_profile")),
+                profile_source=((proposal.get("worker_context") or {}).get("profile_source") or (proposal.get("routing") or {}).get("profile_source")),
+                policy_classification=str(((proposal.get("routing") or {}).get("policy_classification_summary") or (proposal.get("routing") or {}).get("reason") or "")),
+            ),
+        },
+    )
+    return TaskScopedRouteResponse(data=response_payload)
