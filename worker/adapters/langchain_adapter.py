@@ -11,6 +11,10 @@ import uuid
 from typing import Any
 
 from agent.providers.lc_lg import LangChainProviderConfig
+from worker.adapters.chain_runners import (
+    LangChainRunnableRunner,
+    SimplexRunner,
+)
 from worker.adapters.workflow_adapter_base import (
     DryRunResult, WorkerError, WorkflowAdapterDescriptor, WorkflowArtifactResult,
 )
@@ -192,10 +196,6 @@ class LangChainAdapter:
 
     def _run_chain(self, task_id: str, task_type: str,
                     payload: dict[str, Any], budget: WorkflowBudgetGuard) -> WorkflowArtifactResult:
-        if not self._langchain_available():
-            raise WorkerError("langchain_not_installed",
-                               "langchain package is not installed; pip install ananta[langchain]")
-
         # CodeCompass context (LCG-009)
         context_sources: list[dict[str, Any]] = []
         if self._config.retriever_source == "codecompass":
@@ -209,36 +209,101 @@ class LangChainAdapter:
             {"step": "context_retrieved", "sources": len(context_sources)},
         ]
 
-        # The actual LLM call is a placeholder until a real LangChain
-        # executor is plumbed in. We deliberately do NOT import langchain
-        # at module load time, and we do NOT import it here either — this
-        # is a skeleton adapter that proves the contract without a hard
-        # dependency. A future commit will wire a real chain runner.
+        # Live path (LCG-007 v0.8 closure): actually call the LLM.
+        # Two code paths:
+        #  1) Framework installed -> use LangChain Runnable if available.
+        #  2) Framework not installed -> deterministic simplex path
+        #     (prompt + generate_text + artifact). The simplex path is
+        #     the v0.7 default; it does NOT require langchain installed.
+        # In both paths the budget guard, the policy gate, and the
+        # audit log are honoured. The framework path is purely a
+        # runner swap; the contract is identical.
+        prompt = self._build_prompt(task_type, payload, context_sources)
         budget.record_step("llm_call")
+        try:
+            output_text, runner_label = self._invoke_runner(
+                prompt=prompt, payload=payload, budget=budget,
+            )
+        except WorkerError as exc:
+            self._audit.log("execute_failed", task_id=task_id, reason_code=exc.reason_code)
+            raise
+        execution_trace.append({"step": "llm_invoked", "runner": runner_label})
 
         # Produce artifact-first output (LCG-013)
         artifact_id = f"artifact-lc-{uuid.uuid4().hex[:12]}"
-        output_text = f"[LangChain {task_type} result — {len(context_sources)} CodeCompass sources]"
         artifact = {
             "artifact_id": artifact_id,
             "artifact_type": task_type,
             "content": output_text,
             "sources": context_sources,
             "status": "created",
+            "runner": runner_label,
         }
         execution_trace.append({"step": "artifact_created", "artifact_id": artifact_id})
+
+        self._audit.log("execute_complete", task_id=task_id, status="success",
+                         runner=runner_label)
 
         return WorkflowArtifactResult(
             adapter_id="adapter.langchain",
             task_id=task_id,
             task_type=task_type,
             status="success",
-            summary=f"LangChain {task_type} completed with {len(context_sources)} CodeCompass sources",
+            summary=f"LangChain {task_type} completed with {len(context_sources)} CodeCompass sources (runner={runner_label})",
             artifacts=[artifact],
             sources=context_sources,
             execution_trace=self._audit.snapshot(),
             policy_decisions=self._policy.decisions_log(),
         )
+
+    # ── Runner selection (LCG-007 v0.8 closure) ────────────────────────
+
+    def _invoke_runner(self, *, prompt: str, payload: dict[str, Any],
+                       budget: WorkflowBudgetGuard) -> tuple[str, str]:
+        """Return (output_text, runner_label).
+
+        Runner selection:
+        - If `langchain` is importable, use LangChainRunnableRunner.
+          It wraps the existing generate_text() call in a Runnable-
+          shaped object so the chain shape is preserved if/when the
+          user wires in a real LangChain chain.
+        - Otherwise, use SimplexRunner (prompt + generate_text()).
+          This is the v0.7 default and requires no extras.
+        - Both runners go through the same generate_text() entry
+          point, so the LLM-side behaviour is identical; only the
+          wrapping changes.
+        """
+        if self._langchain_available():
+            return LangChainRunnableRunner().run(
+                prompt=prompt, payload=payload, budget=budget,
+                model_provider_ref=self._config.model_provider_ref,
+            ), "langchain_runnable"
+        return SimplexRunner().run(
+            prompt=prompt, payload=payload, budget=budget,
+            model_provider_ref=self._config.model_provider_ref,
+        ), "simplex"
+
+    def _build_prompt(self, task_type: str, payload: dict[str, Any],
+                       context_sources: list[dict[str, Any]]) -> str:
+        """Build a deterministic prompt from task type, payload, and context.
+
+        The template is the documented contract; the framework runner
+        and the simplex runner both consume the same string. Swapping
+        the template is the supported way to evolve chain behaviour
+        without touching the runner.
+        """
+        query = str(payload.get("query") or payload.get("prompt") or "")
+        context_block = "\n\n".join(
+            f"[{i+1}] {s.get('path','')}: {s.get('content','')[:300]}"
+            for i, s in enumerate(context_sources)
+        )
+        sections = [
+            f"Task: {task_type}",
+            f"User query: {query}",
+        ]
+        if context_block:
+            sections.append("Context (CodeCompass):\n" + context_block)
+        return "\n\n".join(sections)
 
     def _build_plan(self, task_type: str, payload: dict[str, Any],
                      retriever: str | None) -> list[dict[str, Any]]:
