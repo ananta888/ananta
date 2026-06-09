@@ -1,0 +1,94 @@
+{
+  "$id": "https://ananta.dev/schemas/patterns/plan_pattern_binding.schema.v1.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan-Pattern Binding",
+  "description": "Binds a plan (or a step within a plan) to a deterministic code-pattern from the pattern library. The binding is loaded by the planning service when rendering the plan; it does NOT modify the plan definition itself (additive only per AGENTS.md).",
+  "type": "object",
+  "required": [
+    "binding_id",
+    "plan_id",
+    "pattern_id",
+    "parameters",
+    "control"
+  ],
+  "properties": {
+    "binding_id": {
+      "type": "string",
+      "description": "Unique identifier for this binding (snake_case)."
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "ID of the plan this binding attaches to."
+    },
+    "pattern_id": {
+      "type": "string",
+      "description": "ID of the pattern from pattern.schema.v1.json this binding resolves."
+    },
+    "step_id": {
+      "type": ["string", "null"],
+      "description": "Optional plan step ID to scope the binding. Null/omitted means 'applies to whole plan'."
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Parameter map passed to the pattern's render step. Free-form; the pattern's own parameter schema validates this at render time.",
+      "additionalProperties": true
+    },
+    "control": {
+      "type": "object",
+      "description": "Control flags for the binding.",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Master enable switch. Disabled bindings resolve to None."
+        },
+        "fail_open": {
+          "type": "boolean",
+          "description": "If true, a render failure degrades to a warning and lets the plan proceed without the pattern. Default false (fail-closed).",
+          "default": false
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "If true, the binding is resolved and logged but the rendered output is not committed. Default false.",
+          "default": false
+        }
+      }
+    },
+    "result_artifacts": {
+      "type": "array",
+      "description": "Logical names of artifacts the binding is expected to produce (e.g. 'python_source_file', 'workflow_definition').",
+      "items": { "type": "string" }
+    },
+    "version": {
+      "type": "string",
+      "description": "Binding schema version (semver)."
+    }
+  },
+  "examples": [
+    {
+      "binding_id": "bind_python_function_stub_default",
+      "plan_id": "plan_python_helper",
+      "pattern_id": "python.function_stub",
+      "step_id": "step_render_function",
+      "parameters": {
+        "function_name": "render_helper",
+        "args": ["payload:dict"],
+        "return_type": "str",
+        "docstring": "Render a helper artifact."
+      },
+      "control": { "enabled": true, "fail_open": false, "dry_run": false },
+      "result_artifacts": ["python_source_file"]
+    },
+    {
+      "binding_id": "bind_java_default_deny",
+      "plan_id": "plan_worker_gates",
+      "pattern_id": "java.default_deny_gate",
+      "parameters": {
+        "class_name": "WorkerToolGate",
+        "allowed_capabilities": ["tool.read:/workspace/**", "tool.exec:npm test"]
+      },
+      "control": { "enabled": true, "fail_open": false, "dry_run": false },
+      "result_artifacts": ["java_source_file"]
+    }
+  ]
+}

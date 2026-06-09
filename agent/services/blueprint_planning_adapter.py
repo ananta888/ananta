@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
 from typing import Any
 
+import jsonschema
 from sqlalchemy.exc import SQLAlchemyError
 
 from agent.services.repository_registry import get_repository_registry
@@ -289,6 +292,102 @@ class BlueprintPlanningAdapter:
             if template_name:
                 resolved[template_id] = template_name
         return resolved
+
+
+    # --- plan-pattern binding (PAT-005/PAT-006) --------------------------
+    # Additive only. The adapter is still pure (no I/O writes, no plan
+    # mutation). Bindings are loaded from a single source of truth file
+    # so workers can re-validate them out-of-band.
+
+    _BINDINGS_PATH = "./config/plan_pattern_bindings.v1.json"
+    _BINDING_SCHEMA_PATH = "./schemas/patterns/plan_pattern_binding.v1.json"
+
+    def _binding_path(self) -> str:
+        return os.environ.get(
+            "ANANTA_PLAN_PATTERN_BINDINGS_PATH", self._BINDINGS_PATH
+        )
+
+    def _binding_schema_path(self) -> str:
+        return os.environ.get(
+            "ANANTA_PLAN_PATTERN_BINDING_SCHEMA_PATH", self._BINDING_SCHEMA_PATH
+        )
+
+    def _load_binding_schema(self) -> dict[str, Any]:
+        path = self._binding_schema_path()
+        if not os.path.exists(path):
+            return {}
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def list_plan_pattern_bindings(self) -> list[dict[str, Any]]:
+        """Return all known plan→pattern bindings.
+
+        Source of truth: ``config/plan_pattern_bindings.v1.json``
+        (overridable via ``ANANTA_PLAN_PATTERN_BINDINGS_PATH``).
+
+        The function never mutates any plan or state — it is a pure
+        read. Bindings are returned as raw dicts; the caller (or
+        ``resolve_pattern_binding``) is responsible for schema
+        validation per binding.
+        """
+        path = self._binding_path()
+        if not os.path.exists(path):
+            return []
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        bindings = data.get("bindings", []) if isinstance(data, dict) else []
+        if not isinstance(bindings, list):
+            return []
+        return [b for b in bindings if isinstance(b, dict)]
+
+    def resolve_pattern_binding(
+        self, plan_id: str, step_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """Return the first enabled binding for a plan/step, validated.
+
+        - Filters ``list_plan_pattern_bindings()`` to the given plan
+          and optional step.
+        - Validates each candidate against the binding schema. A
+          candidate that fails validation is logged via the returned
+          ``None`` (the caller does not crash; the next candidate is
+          tried).
+        - Skips disabled bindings (``control.enabled is False``).
+        - Returns the first valid, enabled binding dict, or ``None``
+          if none match.
+        """
+        plan_id = str(plan_id or "").strip()
+        if not plan_id:
+            return None
+        step_id_normalized = str(step_id or "").strip() or None
+        candidates = [
+            b
+            for b in self.list_plan_pattern_bindings()
+            if str(b.get("plan_id") or "").strip() == plan_id
+        ]
+        if step_id_normalized is not None:
+            candidates = [
+                b
+                for b in candidates
+                if str(b.get("step_id") or "").strip() == step_id_normalized
+            ]
+        else:
+            # plan-level bindings only
+            candidates = [
+                b for b in candidates if not str(b.get("step_id") or "").strip()
+            ]
+        schema = self._load_binding_schema()
+        validator = jsonschema.Draft7Validator(schema) if schema else None
+        for binding in candidates:
+            control = binding.get("control") or {}
+            if not bool(control.get("enabled", True)):
+                continue
+            if validator is not None:
+                try:
+                    validator.validate(binding)
+                except jsonschema.ValidationError:
+                    continue
+            return dict(binding)
+        return None
 
 
 blueprint_planning_adapter = BlueprintPlanningAdapter()
