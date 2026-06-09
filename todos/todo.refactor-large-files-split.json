@@ -1,0 +1,1326 @@
+{
+  "id": "todo.refactor-large-files-split",
+  "title": "Große Quelldateien aufteilen (>1000 Zeilen)",
+  "status": "planned",
+  "priority": "high",
+  "created": "2026-06-09",
+  "context": {
+    "summary": "Alle Quelldateien des Projekts (Python, TypeScript) mit mehr als 1000 Zeilen wurden identifiziert. Große Dateien erschweren Reviews, Tests, Verantwortlichkeitstrennung und AI-Kontext-Effizienz. Jede Task beschreibt den konkreten Aufteilungsplan inklusive Zieldateinamen und Verantwortlichkeiten.",
+    "methodology": "Aufteilung nach Single-Responsibility-Prinzip. Bestehende Imports und Tests müssen danach grün bleiben. Pro Task: 1 Datei aufteilen, Tests prüfen, Imports aktualisieren, Commit.",
+    "excluded": [
+      ".venv/, venv/, site-packages/ (Drittanbieter)",
+      "client_surfaces/vscode_extension/out/extension.js (kompiliertes Artefakt)",
+      ".claude/worktrees/ (temporäre Worktrees)"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Kritisch: Dateien über 3000 Zeilen (5 Dateien)",
+      "task_ids": ["SPLIT-001", "SPLIT-002", "SPLIT-003", "SPLIT-004", "SPLIT-005"],
+      "status": "todo",
+      "priority": "P0"
+    },
+    {
+      "id": "M2",
+      "title": "Hoch: Agent-Services 2000–3000 Zeilen (5 Dateien)",
+      "task_ids": ["SPLIT-006", "SPLIT-007", "SPLIT-008", "SPLIT-009", "SPLIT-010"],
+      "status": "todo",
+      "priority": "P1"
+    },
+    {
+      "id": "M3",
+      "title": "Hoch: Agent-Routes und Services 1500–2000 Zeilen (12 Dateien)",
+      "task_ids": ["SPLIT-011", "SPLIT-012", "SPLIT-013", "SPLIT-014", "SPLIT-015", "SPLIT-016", "SPLIT-017", "SPLIT-018", "SPLIT-019", "SPLIT-020", "SPLIT-021", "SPLIT-022"],
+      "status": "todo",
+      "priority": "P1"
+    },
+    {
+      "id": "M4",
+      "title": "Mittel: Agent und Client-Surfaces 1000–1500 Zeilen (15 Dateien)",
+      "task_ids": ["SPLIT-023", "SPLIT-024", "SPLIT-025", "SPLIT-026", "SPLIT-027", "SPLIT-028", "SPLIT-029", "SPLIT-030", "SPLIT-031", "SPLIT-032", "SPLIT-033", "SPLIT-034", "SPLIT-035", "SPLIT-036", "SPLIT-037"],
+      "status": "todo",
+      "priority": "P2"
+    },
+    {
+      "id": "M5",
+      "title": "Niedrig: Testdateien > 1000 Zeilen nach Domain aufteilen (10 Dateien)",
+      "task_ids": ["SPLIT-038", "SPLIT-039", "SPLIT-040", "SPLIT-041", "SPLIT-042", "SPLIT-043", "SPLIT-044", "SPLIT-045", "SPLIT-046", "SPLIT-047"],
+      "status": "todo",
+      "priority": "P3"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SPLIT-001",
+      "milestone": "M1",
+      "priority": "P0",
+      "title": "agent/services/task_scoped_execution_service.py aufteilen (4783 Zeilen)",
+      "file": "agent/services/task_scoped_execution_service.py",
+      "current_lines": 4783,
+      "problem": "Eine einzige Klasse TaskScopedExecutionService umfasst fast 4600 Zeilen mit Workspace-Sync, Hermes-Kontext, Routing-Response und der gesamten Execution-Logik.",
+      "proposed_split": [
+        {
+          "file": "agent/services/task_scoped_workspace_sync.py",
+          "responsibility": "_build_workspace_state_sync_record() und alle Workspace-Sync-Hilfsfunktionen (Zeilen 88–118)"
+        },
+        {
+          "file": "agent/services/task_scoped_hermes_context.py",
+          "responsibility": "build_hermes_context_blocks() und Hermes-spezifische Kontext-Aufbereitung (Zeilen 119–184)"
+        },
+        {
+          "file": "agent/services/task_scoped_route_response.py",
+          "responsibility": "TaskScopedRouteResponse dataclass (Zeilen 185–191)"
+        },
+        {
+          "file": "agent/services/task_scoped_execution_service.py",
+          "responsibility": "TaskScopedExecutionService Klasse aufgeteilt nach Methoden-Gruppen: execute(), _run_worker(), _build_context(), _finalize() — Klasse bleibt, aber intern nach Verantwortlichkeit strukturiert. get_task_scoped_execution_service() Singleton bleibt hier."
+        }
+      ],
+      "acceptance_criteria": [
+        "Alle Tests in tests/test_task_endpoints.py bleiben grün",
+        "Imports in allen Konsumenten aktualisiert",
+        "task_scoped_execution_service.py unter 1500 Zeilen",
+        "Keine zirkulären Imports"
+      ]
+    },
+    {
+      "id": "SPLIT-002",
+      "milestone": "M1",
+      "priority": "P0",
+      "title": "client_surfaces/operator_tui/commands.py aufteilen (4894 Zeilen)",
+      "file": "client_surfaces/operator_tui/commands.py",
+      "current_lines": 4894,
+      "problem": "execute_command() ist eine monolithische Dispatch-Funktion mit hunderten von Command-Handlern. Mail-, Planning-, Diff3-, Share-, OIDC- und WebRTC-Handler sind alle in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "client_surfaces/operator_tui/commands_dispatch.py",
+          "responsibility": "execute_command() Dispatcher + execute_center_browser_command() — nur Routing-Logik, keine Implementations-Details"
+        },
+        {
+          "file": "client_surfaces/operator_tui/commands_planning.py",
+          "responsibility": "_build_planning_track_payload(), _recompute_planning_track_output(), _build_plan_task_diff(), _build_mock_planning_track_payload() und alle Planning-Commands (Zeilen 367–590)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/commands_mail.py",
+          "responsibility": "_mail_repo_root(), _mail_store(), _build_mail_payload() und alle Mail-Commands (Zeilen 645–844)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/commands_helpcenter.py",
+          "responsibility": "_helpcenter_repo_root(), _build_helpcenter_payload() (Zeilen 641–877)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/commands_share.py",
+          "responsibility": "_handle_share_command() und Share-Subkommandos (Zeilen 4239–4413)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/commands_oidc.py",
+          "responsibility": "_handle_oidc_command() (Zeilen 4414–4529)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/commands_webrtc.py",
+          "responsibility": "_handle_webrtc_command() (Zeilen 4777–4894)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/commands.py",
+          "responsibility": "Nur noch Hilfsfunktionen (_now_iso, _doc_preflight_report, _active_goal_id etc.) und Re-Exports für Rückwärtskompatibilität. Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "tests/test_operator_tui_shell.py bleibt vollständig grün",
+        "execute_command() bleibt als öffentliche Funktion importierbar",
+        "commands.py unter 500 Zeilen",
+        "Jede Handler-Datei unter 700 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-003",
+      "milestone": "M1",
+      "priority": "P0",
+      "title": "client_surfaces/operator_tui/renderer.py aufteilen (4015 Zeilen)",
+      "file": "client_surfaces/operator_tui/renderer.py",
+      "current_lines": 4015,
+      "problem": "Header-Rendering, Content-Rendering, Navigation, Templates-Editor, Audit-Viewer, Chat-Rendering und Scrollbars sind in einer Datei vermischt.",
+      "proposed_split": [
+        {
+          "file": "client_surfaces/operator_tui/renderer_header.py",
+          "responsibility": "_load_logo_lines(), _assemble_header_lines(), _render_persistent_header(), _render_header_snake_lines(), _render_header_config_lines(), _render_splash_header() (ca. Zeilen 189–510)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/renderer_navigation.py",
+          "responsibility": "_navigation_lines(), _content_browser_lines() (Zeilen 511–695)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/renderer_templates.py",
+          "responsibility": "_templates_content_lines(), _highlight_template_line(), _templates_editor_content_lines() (Zeilen 868–1084)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/renderer_audit.py",
+          "responsibility": "_audit_viewer_content_lines() (Zeilen 933–982)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/renderer_chat.py",
+          "responsibility": "_is_chat_ask_mode(), _latest_ai_message_text(), _content_chat_plain_ask_lines() (Zeilen 1085–1220)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/renderer_scrollbar.py",
+          "responsibility": "_render_vscrollbar_char(), _render_hscrollbar_row(), _clip_with_scroll(), _truncate_to_height() (Zeilen 824–1352)"
+        },
+        {
+          "file": "client_surfaces/operator_tui/renderer.py",
+          "responsibility": "render_operator_shell() als Haupt-Einstieg, _share_only_nav_mode(), _content_lines() als Koordinator. Imports der Split-Module. Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Visuelles Rendering unverändert (manuell prüfen oder Screenshot-Tests)",
+        "Alle TUI-Tests grün",
+        "renderer.py unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-004",
+      "milestone": "M1",
+      "priority": "P0",
+      "title": "client_surfaces/operator_tui/interactive.py aufteilen (3531 Zeilen)",
+      "file": "client_surfaces/operator_tui/interactive.py",
+      "current_lines": 3531,
+      "problem": "Interaktiver TUI-Loop, Keybindings, Session-Management und Event-Handling in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "client_surfaces/operator_tui/interactive_core.py",
+          "responsibility": "Haupt-Event-Loop, State-Transitions, Render-Zyklus"
+        },
+        {
+          "file": "client_surfaces/operator_tui/interactive_keybindings.py",
+          "responsibility": "Key-Handler-Map, alle on_key_*() Methoden und Keybinding-Logik"
+        },
+        {
+          "file": "client_surfaces/operator_tui/interactive_session.py",
+          "responsibility": "Session-Start, Session-Teardown, Verbindungs-Setup, Reconnect-Logik"
+        },
+        {
+          "file": "client_surfaces/operator_tui/interactive.py",
+          "responsibility": "Einstiegspunkt run_interactive(), Koordinator. Re-Exports. Unter 200 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "TUI startet und reagiert korrekt auf Eingaben",
+        "Alle Keybindings funktionieren",
+        "interactive.py unter 200 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-005",
+      "milestone": "M1",
+      "priority": "P0",
+      "title": "tests/test_operator_tui_shell.py aufteilen (5105 Zeilen)",
+      "file": "tests/test_operator_tui_shell.py",
+      "current_lines": 5105,
+      "problem": "Alle TUI-Shell-Tests in einer Datei. Sehr lange Pytest-Läufe, schwer navigierbar.",
+      "proposed_split": [
+        {
+          "file": "tests/tui_shell/test_tui_commands_planning.py",
+          "responsibility": "Tests für Planning-Commands"
+        },
+        {
+          "file": "tests/tui_shell/test_tui_commands_mail.py",
+          "responsibility": "Tests für Mail-Commands"
+        },
+        {
+          "file": "tests/tui_shell/test_tui_commands_share_oidc.py",
+          "responsibility": "Tests für Share- und OIDC-Commands"
+        },
+        {
+          "file": "tests/tui_shell/test_tui_commands_navigation.py",
+          "responsibility": "Tests für Navigation und allgemeine Commands"
+        },
+        {
+          "file": "tests/tui_shell/test_tui_renderer.py",
+          "responsibility": "Tests für Renderer-Funktionen"
+        },
+        {
+          "file": "tests/tui_shell/__init__.py",
+          "responsibility": "Package-Init"
+        }
+      ],
+      "acceptance_criteria": [
+        "pytest tests/tui_shell/ ergibt 100% bestanden",
+        "Keine Tests verloren gegangen",
+        "pytest -k 'tui' findet alle relevanten Tests"
+      ]
+    },
+    {
+      "id": "SPLIT-006",
+      "milestone": "M2",
+      "priority": "P1",
+      "title": "agent/services/deterministic_repair_path_service.py aufteilen (2701 Zeilen)",
+      "file": "agent/services/deterministic_repair_path_service.py",
+      "current_lines": 2701,
+      "problem": "Failure-Signatures, Diagnosis-Playbooks, Repair-Procedures, Escalation-Logik, Repair-Memory und Learning-Model sind alle in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "agent/services/repair_failure_signature_service.py",
+          "responsibility": "FailureSignature dataclass, build_failure_signature(), signature_to_dict(), build_initial_failure_signature_catalog(), match_failure_signatures(), classify_signature_matching_outcome(), build_signature_explanation() (Zeilen 563–862)"
+        },
+        {
+          "file": "agent/services/repair_diagnosis_playbook_service.py",
+          "responsibility": "get_initial_diagnosis_playbooks(), validate_non_destructive_diagnosis_playbook(), run_diagnosis_playbook() (Zeilen 863–1023)"
+        },
+        {
+          "file": "agent/services/repair_procedure_service.py",
+          "responsibility": "build_repair_procedure_template(), build_initial_repair_procedure_catalog(), select_repair_procedure_from_catalog(), execute_repair_procedure(), verify_final_repair_outcome() (Zeilen 1024–1401)"
+        },
+        {
+          "file": "agent/services/repair_escalation_service.py",
+          "responsibility": "decide_llm_escalation(), build_bounded_escalation_prompt(), convert_llm_proposal_to_reviewed_procedure(), curate_escalation_feedback(), evaluate_unsafe_action_guardrails() (Zeilen 1689–2045)"
+        },
+        {
+          "file": "agent/services/repair_memory_service.py",
+          "responsibility": "persist_repair_outcome_memory(), load_repair_outcome_memory(), track_repair_outcomes(), build_negative_learning_model(), build_success_weighted_repair_recommendations() (Zeilen 1446–1675)"
+        },
+        {
+          "file": "agent/services/deterministic_repair_path_service.py",
+          "responsibility": "build_repair_audit_chain(), build_operator_session_summary(), build_path_visibility(), Koordinations-Funktionen. Re-Exports für Rückwärtskompatibilität. Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Alle Repair-Tests grün",
+        "deterministic_repair_path_service.py unter 500 Zeilen",
+        "Keine zirkulären Imports"
+      ]
+    },
+    {
+      "id": "SPLIT-007",
+      "milestone": "M2",
+      "priority": "P1",
+      "title": "scripts/firefox_live_click_extended.py aufteilen (2541 Zeilen)",
+      "file": "scripts/firefox_live_click_extended.py",
+      "current_lines": 2541,
+      "problem": "Monolithisches Script — Browser-Automation-Core, Click-Handler, Screenshot-Logic und CLI-Einstieg sind vermischt.",
+      "proposed_split": [
+        {
+          "file": "scripts/firefox_automation/firefox_session.py",
+          "responsibility": "Firefox-Session-Start, -Stop, Profil-Management"
+        },
+        {
+          "file": "scripts/firefox_automation/firefox_click_handlers.py",
+          "responsibility": "Click-, Type-, Scroll- und Form-Interaktions-Funktionen"
+        },
+        {
+          "file": "scripts/firefox_automation/firefox_screenshot.py",
+          "responsibility": "Screenshot-Capturing, Speicherung, Vergleich"
+        },
+        {
+          "file": "scripts/firefox_live_click_extended.py",
+          "responsibility": "CLI-Einstieg (main()), Argument-Parsing, Orchestrierung der Sub-Module. Unter 200 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Script ist als CLI aufrufbar",
+        "Alle bestehenden Funktionalitäten erhalten",
+        "firefox_live_click_extended.py unter 200 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-008",
+      "milestone": "M2",
+      "priority": "P1",
+      "title": "frontend-angular/src/app/components/settings.component.ts aufteilen (2501 Zeilen)",
+      "file": "frontend-angular/src/app/components/settings.component.ts",
+      "current_lines": 2501,
+      "problem": "Alle Settings-Bereiche (LLM, Backend, Security, Browser, UI) in einer Angular-Komponente. Massive Change-Conflicts bei paralleler Arbeit.",
+      "proposed_split": [
+        {
+          "file": "frontend-angular/src/app/components/settings/settings-llm.component.ts",
+          "responsibility": "LLM-Provider-Konfiguration, Modell-Auswahl, API-Keys"
+        },
+        {
+          "file": "frontend-angular/src/app/components/settings/settings-backend.component.ts",
+          "responsibility": "Research-Backend, Browser-Backend, Tool-Konfiguration"
+        },
+        {
+          "file": "frontend-angular/src/app/components/settings/settings-security.component.ts",
+          "responsibility": "Auth, JWT, Rate-Limits, Audit-Einstellungen"
+        },
+        {
+          "file": "frontend-angular/src/app/components/settings/settings-ui.component.ts",
+          "responsibility": "Theme, Layout, Anzeigeoptionen"
+        },
+        {
+          "file": "frontend-angular/src/app/components/settings.component.ts",
+          "responsibility": "Shell-Komponente mit Tab-Navigation zu den Sub-Komponenten. Unter 300 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Angular kompiliert ohne Fehler",
+        "Alle Settings-Felder weiterhin sichtbar und funktional",
+        "settings.component.ts unter 300 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-009",
+      "milestone": "M2",
+      "priority": "P1",
+      "title": "agent/common/sgpt.py aufteilen (2396 Zeilen)",
+      "file": "agent/common/sgpt.py",
+      "current_lines": 2396,
+      "problem": "Backend-Semaphore, CLI-Backend-Routing, Architecture-Full-Scan, Ananta-Worker-Iterator und OpenCode-Runner in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "agent/common/sgpt_backend_semaphore.py",
+          "responsibility": "_SemaphoreTicket, _resolve_backend_parallel_limit(), _get_backend_semaphore(), _acquire_backend_permit() — Concurrency-Primitives (Zeilen 50–195)"
+        },
+        {
+          "file": "agent/common/sgpt_backend_routing.py",
+          "responsibility": "_resolve_backend_binary(), _configured_backend_command(), _classify_runtime_target(), _health_score(), get_cli_backend_runtime_status(), get_cli_backend_preflight(), get_cli_backend_capabilities(), _choose_candidates(), normalize_backend_flags() (Zeilen 196–564)"
+        },
+        {
+          "file": "agent/common/sgpt_architecture_scan.py",
+          "responsibility": "_load_source_file_batches(), _run_architecture_full_scan(), _build_architecture_batch_prompt(), _build_architecture_synthesis_prompt() und alle Analyse-Helpers (Zeilen 648–1329)"
+        },
+        {
+          "file": "agent/common/sgpt_opencode.py",
+          "responsibility": "run_opencode_command(), _run_opencode_subprocess(), resolve_opencode_runtime_config(), _build_opencode_* Helpers (Zeilen 1551–1932)"
+        },
+        {
+          "file": "agent/common/sgpt.py",
+          "responsibility": "_run_ananta_worker_iterative(), run_sgpt_command(), Koordination und Re-Exports. Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "tests/test_sgpt_route.py bleibt grün",
+        "run_sgpt_command() weiterhin importierbar aus agent.common.sgpt",
+        "sgpt.py unter 500 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-010",
+      "milestone": "M2",
+      "priority": "P1",
+      "title": "agent/routes/tasks/autopilot_tick_engine.py aufteilen (2346 Zeilen)",
+      "file": "agent/routes/tasks/autopilot_tick_engine.py",
+      "current_lines": 2346,
+      "problem": "Modell-Selektion, Strategie-Kandidaten, Task-Dispatch und der eigentliche Tick-Engine-Loop sind in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "agent/routes/tasks/autopilot_model_selector.py",
+          "responsibility": "_fallback_policy(), _normalize_override_map(), _normalize_model_list(), _normalize_temperature_*, _select_model_for_task() (Zeilen 401–666)"
+        },
+        {
+          "file": "agent/routes/tasks/autopilot_strategy_candidates.py",
+          "responsibility": "_proposal_strategy_candidates(), _strategy_cfg(), _extract_strategy_state(), _runtime_model_capabilities() (Zeilen 479–754)"
+        },
+        {
+          "file": "agent/routes/tasks/autopilot_task_dispatcher.py",
+          "responsibility": "_dispatch_one_task(), _dispatch_one_task_inner(), TaskDispatchResult, alle _dispatch_*() Helpers (Zeilen 44–810)"
+        },
+        {
+          "file": "agent/routes/tasks/autopilot_tick_engine.py",
+          "responsibility": "execute_autopilot_tick() als Haupt-Einstieg, _maybe_recover_planned_goal_without_candidates(), Koordination. Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "tests/test_tasks_autopilot.py bleibt grün",
+        "execute_autopilot_tick() weiterhin importierbar",
+        "autopilot_tick_engine.py unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-011",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/cli/prompt_inspect.py aufteilen (2032 Zeilen)",
+      "file": "agent/cli/prompt_inspect.py",
+      "current_lines": 2032,
+      "proposed_split": [
+        {
+          "file": "agent/cli/prompt_inspect_core.py",
+          "responsibility": "Kern-Inspect-Logik, Prompt-Parsing, Analyse"
+        },
+        {
+          "file": "agent/cli/prompt_inspect_formatters.py",
+          "responsibility": "Output-Formatter, Tabellen-Darstellung, JSON-Export"
+        },
+        {
+          "file": "agent/cli/prompt_inspect.py",
+          "responsibility": "CLI-Einstieg, Argument-Parsing, Orchestrierung. Unter 300 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "CLI-Befehle funktionieren unverändert",
+        "prompt_inspect.py unter 300 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-012",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/routes/teams.py aufteilen (1744 Zeilen)",
+      "file": "agent/routes/teams.py",
+      "current_lines": 1744,
+      "problem": "Blueprint-Management, Team-Routen, Bundle-Import, Seed-Blueprints und Blueprint-Serialisierung in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "agent/routes/blueprint_routes.py",
+          "responsibility": "Alle /blueprints/* Endpunkte: list_team_blueprints(), get_team_blueprint(), list_team_blueprint_catalog(), get_team_blueprint_work_profile(), _instantiate_blueprint() (Zeilen 1026–1744)"
+        },
+        {
+          "file": "agent/services/blueprint_serializer.py",
+          "responsibility": "_serialize_blueprint(), _serialize_blueprint_workflow(), _suggest_goal_modes_for_blueprint(), _build_blueprint_work_profile(), _serialize_blueprint_catalog_item(), _blueprint_catalog_sort_key() (Zeilen 454–775)"
+        },
+        {
+          "file": "agent/services/blueprint_seed_service.py",
+          "responsibility": "_load_seed_blueprints(), ensure_seed_blueprints(), _ensure_role_for_blueprint_role(), _materialize_blueprint_artifacts() (Zeilen 363–993)"
+        },
+        {
+          "file": "agent/routes/teams.py",
+          "responsibility": "Team-CRUD-Routen, initialize_scrum_artifacts(), ensure_default_templates(), Bundle-Import-Routes. Unter 600 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "tests/test_team_blueprints.py bleibt grün",
+        "Alle Blueprint-API-Endpunkte erreichbar",
+        "teams.py unter 600 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-013",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/cli_goals.py aufteilen (1609 Zeilen)",
+      "file": "agent/cli_goals.py",
+      "current_lines": 1609,
+      "proposed_split": [
+        {
+          "file": "agent/cli_goals_query.py",
+          "responsibility": "Goal-Abfrage-Commands: list, get, status"
+        },
+        {
+          "file": "agent/cli_goals_mutation.py",
+          "responsibility": "Goal-Mutations-Commands: create, update, delete, approve"
+        },
+        {
+          "file": "agent/cli_goals_planning.py",
+          "responsibility": "Planungs-Commands: plan, replan, evaluate"
+        },
+        {
+          "file": "agent/cli_goals.py",
+          "responsibility": "CLI-App-Definition, Subcommand-Registrierung. Unter 200 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Alle CLI-Befehle erreichbar",
+        "cli_goals.py unter 200 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-014",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/routes/tasks/goals.py aufteilen (1579 Zeilen)",
+      "file": "agent/routes/tasks/goals.py",
+      "current_lines": 1579,
+      "proposed_split": [
+        {
+          "file": "agent/routes/tasks/goals_query_routes.py",
+          "responsibility": "GET-Endpunkte: list_goals(), get_goal(), get_goal_detail(), get_goal_effective_config(), get_goal_plan(), goal_workflow_status()"
+        },
+        {
+          "file": "agent/routes/tasks/goals_planning_routes.py",
+          "responsibility": "Planning-Endpunkte: planning_health(), planning_recover_stale(), goal_governance_summary(), goal_gate_human_decision()"
+        },
+        {
+          "file": "agent/routes/tasks/goals_helpers.py",
+          "responsibility": "Interne Hilfsfunktionen: _looks_like_software_goal(), _plan_quality_from_task_ids(), _is_soft_planning_quality_failure(), _mark_started_planning_runs_failed(), _maybe_recover_stalled_planning_goal()"
+        },
+        {
+          "file": "agent/routes/tasks/goals.py",
+          "responsibility": "Blueprint, POST/DELETE-Endpunkte, Re-Exports. Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "tests/test_goals.py bleibt grün",
+        "Alle Goals-API-Endpunkte erreichbar",
+        "goals.py unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-015",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/services/planning_service.py aufteilen (1573 Zeilen)",
+      "file": "agent/services/planning_service.py",
+      "current_lines": 1573,
+      "problem": "PlanningService-Klasse, Feature-Flags, Plan-Generation-Limits, Subtask-Sanitizer und Role-Default-Helpers in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "agent/services/planning_feature_flags.py",
+          "responsibility": "get_goal_feature_flags(), set_goal_feature_flags(), get_plan_generation_limits() (Zeilen 213–288)"
+        },
+        {
+          "file": "agent/services/planning_subtask_sanitizer.py",
+          "responsibility": "_infer_subtask_task_kind(), _retrieval_hints_for_task_kind(), _sanitize_blueprint_provenance(), _sanitize_role_defaults(), _sanitize_llm_subtask_policy_hints(), _merge_verification_defaults() (Zeilen 50–212)"
+        },
+        {
+          "file": "agent/services/planning_service.py",
+          "responsibility": "PlanningService Klasse (Zeilen 289–1572) + get_planning_service() Singleton. Unter 1200 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Alle Planning-Tests grün",
+        "planning_service.py unter 1200 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-016",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/services/task_execution_service.py aufteilen (1559 Zeilen)",
+      "file": "agent/services/task_execution_service.py",
+      "current_lines": 1559,
+      "proposed_split": [
+        {
+          "file": "agent/services/task_execution_context_builder.py",
+          "responsibility": "Kontext-Aufbau, Prompt-Assembly, Retrieval-Hints, LocalExecutionResult"
+        },
+        {
+          "file": "agent/services/task_execution_result_handler.py",
+          "responsibility": "Ergebnis-Verarbeitung, Artifact-Speicherung, Status-Updates"
+        },
+        {
+          "file": "agent/services/task_execution_service.py",
+          "responsibility": "TaskExecutionService Klasse (Kern-Execute-Methode), get_task_execution_service(). Unter 600 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Alle Task-Execution-Tests grün",
+        "task_execution_service.py unter 600 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-017",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/llm_integration.py aufteilen (1557 Zeilen)",
+      "file": "agent/llm_integration.py",
+      "current_lines": 1557,
+      "problem": "LMStudio-Probing, Ollama-Probing, Circuit-Breaker, Rate-Limiting, Chat-Message-Building und Model-Selection in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "agent/llm_integration_lmstudio.py",
+          "responsibility": "_load_lmstudio_history(), _select_best_lmstudio_model(), probe_lmstudio_runtime(), _list_lmstudio_candidates(), _resolve_lmstudio_model() (Zeilen 345–867)"
+        },
+        {
+          "file": "agent/llm_integration_ollama.py",
+          "responsibility": "resolve_ollama_model(), probe_ollama_runtime(), probe_ollama_activity(), _normalize_ollama_* (Zeilen 65–1003)"
+        },
+        {
+          "file": "agent/llm_resilience.py",
+          "responsibility": "_check_circuit_breaker(), _report_llm_failure/success(), _check_rate_limit(), get_provider_error_rate(), get_rate_limit_state(), get_circuit_breaker_state() (Zeilen 507–658)"
+        },
+        {
+          "file": "agent/llm_integration.py",
+          "responsibility": "build_llm_call_profile_entry(), extract_llm_text_and_usage(), _build_chat_messages(), _trim_messages(), _default_model_for_provider(), Re-Exports. Unter 600 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "tests/test_llm_usage.py bleibt grün",
+        "llm_integration.py unter 600 Zeilen",
+        "Kein Code dupliziert"
+      ]
+    },
+    {
+      "id": "SPLIT-018",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "scripts/e2e/record_tui_demo.py aufteilen (1542 Zeilen)",
+      "file": "scripts/e2e/record_tui_demo.py",
+      "current_lines": 1542,
+      "proposed_split": [
+        {
+          "file": "scripts/e2e/tui_demo_recorder.py",
+          "responsibility": "Aufnahme-Logik, Frame-Capturing, Terminal-State-Snapshot"
+        },
+        {
+          "file": "scripts/e2e/tui_demo_playback.py",
+          "responsibility": "Playback-Logik, Timing-Control, Export"
+        },
+        {
+          "file": "scripts/e2e/record_tui_demo.py",
+          "responsibility": "CLI-Einstieg, Scenario-Orchestrierung. Unter 200 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Demo-Script ausführbar",
+        "record_tui_demo.py unter 200 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-019",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "frontend-angular/src/app/components/task-detail.component.ts aufteilen (1534 Zeilen)",
+      "file": "frontend-angular/src/app/components/task-detail.component.ts",
+      "current_lines": 1534,
+      "proposed_split": [
+        {
+          "file": "frontend-angular/src/app/components/task-detail/task-detail-execution.component.ts",
+          "responsibility": "Execution-Status, Worker-Output, Logs"
+        },
+        {
+          "file": "frontend-angular/src/app/components/task-detail/task-detail-artifacts.component.ts",
+          "responsibility": "Artifact-Anzeige, Download, Vorschau"
+        },
+        {
+          "file": "frontend-angular/src/app/components/task-detail.component.ts",
+          "responsibility": "Shell-Komponente, Tab-Navigation, Metadaten. Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Angular kompiliert",
+        "Task-Detail-View vollständig funktional",
+        "task-detail.component.ts unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-020",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "frontend-angular/src/app/components/artifacts.component.ts aufteilen (1494 Zeilen)",
+      "file": "frontend-angular/src/app/components/artifacts.component.ts",
+      "current_lines": 1494,
+      "proposed_split": [
+        {
+          "file": "frontend-angular/src/app/components/artifacts/artifact-list.component.ts",
+          "responsibility": "Artifact-Liste, Filter, Paginierung"
+        },
+        {
+          "file": "frontend-angular/src/app/components/artifacts/artifact-viewer.component.ts",
+          "responsibility": "Einzelansicht, Diff-View, Download"
+        },
+        {
+          "file": "frontend-angular/src/app/components/artifacts.component.ts",
+          "responsibility": "Shell, Routing. Unter 300 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Angular kompiliert",
+        "Artifact-Anzeige funktional",
+        "artifacts.component.ts unter 300 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-021",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/routes/snakes.py aufteilen (1492 Zeilen)",
+      "file": "agent/routes/snakes.py",
+      "current_lines": 1492,
+      "proposed_split": [
+        {
+          "file": "agent/routes/snakes_config_routes.py",
+          "responsibility": "Snake-Config-CRUD-Endpunkte"
+        },
+        {
+          "file": "agent/routes/snakes_execution_routes.py",
+          "responsibility": "Snake-Run-, Status- und Ergebnis-Endpunkte"
+        },
+        {
+          "file": "agent/routes/snakes.py",
+          "responsibility": "Blueprint, Hilfsfunktionen, Re-Exports. Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Alle Snake-API-Endpunkte erreichbar",
+        "snakes.py unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-022",
+      "milestone": "M3",
+      "priority": "P1",
+      "title": "agent/services/evolution_service.py aufteilen (1404 Zeilen)",
+      "file": "agent/services/evolution_service.py",
+      "current_lines": 1404,
+      "proposed_split": [
+        {
+          "file": "agent/services/evolution_proposal_service.py",
+          "responsibility": "Proposal-Generierung, Proposal-Bewertung, Proposal-Persistierung"
+        },
+        {
+          "file": "agent/services/evolution_run_service.py",
+          "responsibility": "Run-Lifecycle, Run-Metriken, Run-Archivierung"
+        },
+        {
+          "file": "agent/services/evolution_service.py",
+          "responsibility": "EvolutionService Koordinator, get_evolution_service(). Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Evolution-API-Endpunkte funktional",
+        "evolution_service.py unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-023",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/db_models.py aufteilen (1201 Zeilen)",
+      "file": "agent/db_models.py",
+      "current_lines": 1201,
+      "problem": "Alle SQLModel DB-Klassen aller Domains in einer Datei — Auth, Teams, Tasks, Planning, Knowledge, Workers.",
+      "proposed_split": [
+        {
+          "file": "agent/db_models/__init__.py",
+          "responsibility": "Re-Export aller DB-Klassen für Rückwärtskompatibilität (from agent.db_models import TaskDB etc. bleibt funktionsfähig)"
+        },
+        {
+          "file": "agent/db_models/auth.py",
+          "responsibility": "UserDB, UserInstructionProfileDB, InstructionOverlayDB, LoginAttemptDB, BannedIPDB, RefreshTokenDB"
+        },
+        {
+          "file": "agent/db_models/teams.py",
+          "responsibility": "TeamDB, TeamMemberDB, TeamTypeDB, RoleDB, TeamTypeRoleLink, AgentInfoDB, TemplateDB"
+        },
+        {
+          "file": "agent/db_models/blueprints.py",
+          "responsibility": "TeamBlueprintDB, BlueprintRoleDB, BlueprintArtifactDB, BlueprintWorkflowStepDB"
+        },
+        {
+          "file": "agent/db_models/tasks.py",
+          "responsibility": "TaskDB, ArchivedTaskDB, GoalDB, PlaybookDB, ScheduledTaskDB"
+        },
+        {
+          "file": "agent/db_models/planning.py",
+          "responsibility": "PlanDB, PlanNodeDB, PlanningRunDB, PlanningPromptVersionDB, PlanningModelProfileDB, PlanningEvaluationDB, PlanningTemplateCandidateDB, PlanningPatternClusterDB, PlanningReviewItemDB"
+        },
+        {
+          "file": "agent/db_models/knowledge.py",
+          "responsibility": "KnowledgeCollectionDB, KnowledgeLinkDB, KnowledgeIndexDB, KnowledgeIndexRunDB, ArtifactDB, ArtifactVersionDB, ExtractedDocumentDB, RetrievalRunDB, ContextBundleDB, ContextAccessPolicyDB"
+        },
+        {
+          "file": "agent/db_models/workers.py",
+          "responsibility": "WorkerJobDB, WorkerResultDB, WorkerSlotLeaseDB, HeuristicDecisionLeaseDB, EvolutionRunDB, EvolutionProposalDB, TerminalSessionDB, TerminalEventDB"
+        },
+        {
+          "file": "agent/db_models/audit.py",
+          "responsibility": "AuditLogDB, ConfigDB"
+        }
+      ],
+      "acceptance_criteria": [
+        "from agent.db_models import TaskDB funktioniert unverändert",
+        "Datenbankmigrationen (Alembic) erkennen keine Änderungen",
+        "Alle Tests die DB-Modelle importieren bleiben grün"
+      ]
+    },
+    {
+      "id": "SPLIT-024",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "client_surfaces/operator_tui/chat_mixin.py aufteilen (1669 Zeilen)",
+      "file": "client_surfaces/operator_tui/chat_mixin.py",
+      "current_lines": 1669,
+      "proposed_split": [
+        {
+          "file": "client_surfaces/operator_tui/chat_message_formatter.py",
+          "responsibility": "Message-Formatierung, Markdown-Rendering, Code-Highlighting"
+        },
+        {
+          "file": "client_surfaces/operator_tui/chat_history_manager.py",
+          "responsibility": "Chat-History-Persistierung, -Laden, -Bereinigung"
+        },
+        {
+          "file": "client_surfaces/operator_tui/chat_mixin.py",
+          "responsibility": "ChatMixin Klasse (Event-Handler, State-Updates). Unter 600 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Chat-Funktionalität im TUI unverändert",
+        "chat_mixin.py unter 600 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-025",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "client_surfaces/operator_tui/tutorial_ai_mixin.py aufteilen (1565 Zeilen)",
+      "file": "client_surfaces/operator_tui/tutorial_ai_mixin.py",
+      "current_lines": 1565,
+      "proposed_split": [
+        {
+          "file": "client_surfaces/operator_tui/tutorial_steps.py",
+          "responsibility": "Tutorial-Schritt-Definitionen, Schritt-Validierung"
+        },
+        {
+          "file": "client_surfaces/operator_tui/tutorial_ai_engine.py",
+          "responsibility": "AI-Hint-Generierung, LLM-Interaction für Tutorials"
+        },
+        {
+          "file": "client_surfaces/operator_tui/tutorial_ai_mixin.py",
+          "responsibility": "TutorialAIMixin Klasse, State-Management. Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Tutorial-Flow funktioniert",
+        "tutorial_ai_mixin.py unter 500 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-026",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/services/task_execution_tracking_service.py aufteilen (1280 Zeilen)",
+      "file": "agent/services/task_execution_tracking_service.py",
+      "current_lines": 1280,
+      "proposed_split": [
+        {
+          "file": "agent/services/task_execution_metrics.py",
+          "responsibility": "Metriken-Berechnung, Durchsatz, Latenz-Tracking"
+        },
+        {
+          "file": "agent/services/task_execution_tracking_service.py",
+          "responsibility": "TaskExecutionTrackingService Klasse, get_*() Singleton. Unter 700 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Tracking-Metriken weiterhin korrekt",
+        "task_execution_tracking_service.py unter 700 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-027",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/services/rag_helper_index_service.py aufteilen (1277 Zeilen)",
+      "file": "agent/services/rag_helper_index_service.py",
+      "current_lines": 1277,
+      "proposed_split": [
+        {
+          "file": "agent/services/rag_index_chunker.py",
+          "responsibility": "Text-Chunking-Strategien, Chunk-Overlap, Chunk-Validierung"
+        },
+        {
+          "file": "agent/services/rag_index_embedding.py",
+          "responsibility": "Embedding-Generierung, Embedding-Cache, Provider-Abstraction"
+        },
+        {
+          "file": "agent/services/rag_helper_index_service.py",
+          "responsibility": "RagHelperIndexService Klasse, get_rag_helper_index_service(). Unter 600 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "RAG-Indexierung funktioniert korrekt",
+        "rag_helper_index_service.py unter 600 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-028",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "client_surfaces/operator_tui/mouse_artifact_mixin.py aufteilen (1264 Zeilen)",
+      "file": "client_surfaces/operator_tui/mouse_artifact_mixin.py",
+      "current_lines": 1264,
+      "proposed_split": [
+        {
+          "file": "client_surfaces/operator_tui/mouse_event_handler.py",
+          "responsibility": "Maus-Event-Verarbeitung, Koordinaten-Mapping, Klick-Zonen"
+        },
+        {
+          "file": "client_surfaces/operator_tui/mouse_artifact_mixin.py",
+          "responsibility": "MouseArtifactMixin Klasse, Artifact-Interaktion. Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Maus-Interaktion im TUI funktional",
+        "mouse_artifact_mixin.py unter 500 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-029",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/services/editor_tui_surface_foundation_service.py aufteilen (1198 Zeilen)",
+      "file": "agent/services/editor_tui_surface_foundation_service.py",
+      "current_lines": 1198,
+      "proposed_split": [
+        {
+          "file": "agent/services/editor_tui_surface_state.py",
+          "responsibility": "Surface-State-Datenstrukturen, State-Transitions"
+        },
+        {
+          "file": "agent/services/editor_tui_surface_foundation_service.py",
+          "responsibility": "EditorTuiSurfaceFoundationService Klasse, get_*() Singleton. Unter 600 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Editor-TUI-Surface funktioniert",
+        "editor_tui_surface_foundation_service.py unter 600 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-030",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/services/instruction_layer_service.py aufteilen (1157 Zeilen)",
+      "file": "agent/services/instruction_layer_service.py",
+      "current_lines": 1157,
+      "proposed_split": [
+        {
+          "file": "agent/services/instruction_layer_compiler.py",
+          "responsibility": "Instruction-Compilation, Layer-Merge, Precedence-Resolution"
+        },
+        {
+          "file": "agent/services/instruction_layer_service.py",
+          "responsibility": "InstructionLayerService Klasse, get_*() Singleton. Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Instruction-Layer-Logik unverändert",
+        "instruction_layer_service.py unter 500 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-031",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "client_surfaces/tui_runtime/ananta_tui/app.py aufteilen (1130 Zeilen)",
+      "file": "client_surfaces/tui_runtime/ananta_tui/app.py",
+      "current_lines": 1130,
+      "proposed_split": [
+        {
+          "file": "client_surfaces/tui_runtime/ananta_tui/app_widgets.py",
+          "responsibility": "Widget-Definitionen, Custom-Textual-Widgets"
+        },
+        {
+          "file": "client_surfaces/tui_runtime/ananta_tui/app_keybindings.py",
+          "responsibility": "Keybinding-Definitionen, Action-Handler"
+        },
+        {
+          "file": "client_surfaces/tui_runtime/ananta_tui/app.py",
+          "responsibility": "AnantaTUI App-Klasse, Lifecycle-Hooks. Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Textual-TUI startet fehlerfrei",
+        "app.py unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-032",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/services/eclipse_plugin_adapter_foundation_service.py aufteilen (1116 Zeilen)",
+      "file": "agent/services/eclipse_plugin_adapter_foundation_service.py",
+      "current_lines": 1116,
+      "proposed_split": [
+        {
+          "file": "agent/services/eclipse_plugin_protocol.py",
+          "responsibility": "Eclipse-Plugin-Protokoll-Definitionen, Message-Serialisierung"
+        },
+        {
+          "file": "agent/services/eclipse_plugin_adapter_foundation_service.py",
+          "responsibility": "EclipsePluginAdapterFoundationService Klasse, get_*() Singleton. Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Eclipse-Plugin-Adapter funktional",
+        "eclipse_plugin_adapter_foundation_service.py unter 500 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-033",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "rag-helper/rag_helper/application/project_processor.py aufteilen (1114 Zeilen)",
+      "file": "rag-helper/rag_helper/application/project_processor.py",
+      "current_lines": 1114,
+      "proposed_split": [
+        {
+          "file": "rag-helper/rag_helper/application/file_scanner.py",
+          "responsibility": "Dateisystem-Scan, Gitignore-Handling, Datei-Filterung"
+        },
+        {
+          "file": "rag-helper/rag_helper/application/document_extractor.py",
+          "responsibility": "Text-Extraktion aus verschiedenen Dateitypen"
+        },
+        {
+          "file": "rag-helper/rag_helper/application/project_processor.py",
+          "responsibility": "ProjectProcessor Klasse, Orchestrierung. Unter 400 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "rag-helper/tests/test_processing_limits.py bleibt grün",
+        "project_processor.py unter 400 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-034",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/services/retrieval_service.py aufteilen (1063 Zeilen)",
+      "file": "agent/services/retrieval_service.py",
+      "current_lines": 1063,
+      "proposed_split": [
+        {
+          "file": "agent/services/retrieval_query_builder.py",
+          "responsibility": "Query-Aufbau, Embedding-Lookup, Similarity-Berechnung"
+        },
+        {
+          "file": "agent/services/retrieval_service.py",
+          "responsibility": "RetrievalService Klasse, get_retrieval_service(). Unter 500 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Retrieval-Funktionalität unverändert",
+        "retrieval_service.py unter 500 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-035",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/models.py aufteilen (1061 Zeilen)",
+      "file": "agent/models.py",
+      "current_lines": 1061,
+      "problem": "Alle Pydantic-Request/Response-Modelle in einer Datei.",
+      "proposed_split": [
+        {
+          "file": "agent/models/__init__.py",
+          "responsibility": "Re-Export aller Modelle für Rückwärtskompatibilität"
+        },
+        {
+          "file": "agent/models/goal_models.py",
+          "responsibility": "Goal-bezogene Request/Response-Modelle"
+        },
+        {
+          "file": "agent/models/task_models.py",
+          "responsibility": "Task-bezogene Request/Response-Modelle"
+        },
+        {
+          "file": "agent/models/team_models.py",
+          "responsibility": "Team/Blueprint-bezogene Modelle"
+        },
+        {
+          "file": "agent/models/config_models.py",
+          "responsibility": "Config-bezogene Modelle"
+        }
+      ],
+      "acceptance_criteria": [
+        "from agent.models import GoalCreateRequest funktioniert unverändert",
+        "Alle API-Tests grün",
+        "models/__init__.py unter 100 Zeilen (nur Re-Exports)"
+      ]
+    },
+    {
+      "id": "SPLIT-036",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "client_surfaces/vscode_extension/src/extension.ts aufteilen (1354 Zeilen)",
+      "file": "client_surfaces/vscode_extension/src/extension.ts",
+      "current_lines": 1354,
+      "proposed_split": [
+        {
+          "file": "client_surfaces/vscode_extension/src/commands/goal-commands.ts",
+          "responsibility": "Goal-bezogene VS-Code-Commands"
+        },
+        {
+          "file": "client_surfaces/vscode_extension/src/commands/task-commands.ts",
+          "responsibility": "Task-bezogene VS-Code-Commands"
+        },
+        {
+          "file": "client_surfaces/vscode_extension/src/providers/",
+          "responsibility": "TreeDataProvider, WebviewProvider"
+        },
+        {
+          "file": "client_surfaces/vscode_extension/src/extension.ts",
+          "responsibility": "activate(), deactivate(), Command-Registrierung. Unter 200 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Extension kompiliert (tsc)",
+        "Alle Commands registriert",
+        "extension.ts unter 200 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-037",
+      "milestone": "M4",
+      "priority": "P2",
+      "title": "agent/routes/auth.py aufteilen (1010 Zeilen)",
+      "file": "agent/routes/auth.py",
+      "current_lines": 1010,
+      "proposed_split": [
+        {
+          "file": "agent/routes/auth_login_routes.py",
+          "responsibility": "Login-, Logout-, Token-Refresh-Endpunkte"
+        },
+        {
+          "file": "agent/routes/auth_user_routes.py",
+          "responsibility": "User-CRUD, Passwort-Change, Profile-Endpunkte"
+        },
+        {
+          "file": "agent/routes/auth.py",
+          "responsibility": "Blueprint, Middleware, JWT-Helpers. Unter 300 Zeilen."
+        }
+      ],
+      "acceptance_criteria": [
+        "Alle Auth-Endpunkte erreichbar",
+        "auth.py unter 300 Zeilen"
+      ]
+    },
+    {
+      "id": "SPLIT-038",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_task_endpoints.py nach Domain aufteilen (1752 Zeilen)",
+      "file": "tests/test_task_endpoints.py",
+      "current_lines": 1752,
+      "proposed_split": [
+        { "file": "tests/tasks/test_task_crud.py", "responsibility": "CRUD-Tests" },
+        { "file": "tests/tasks/test_task_status_transitions.py", "responsibility": "Status-Transition-Tests" },
+        { "file": "tests/tasks/test_task_execution_api.py", "responsibility": "Execution-API-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/tasks/ ergibt alle bestanden", "Keine Tests verloren"]
+    },
+    {
+      "id": "SPLIT-039",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_config_api.py nach Feature-Gruppe aufteilen (1510 Zeilen)",
+      "file": "tests/test_config_api.py",
+      "current_lines": 1510,
+      "proposed_split": [
+        { "file": "tests/config/test_config_llm.py", "responsibility": "LLM-Config-Tests" },
+        { "file": "tests/config/test_config_backend.py", "responsibility": "Backend-Config-Tests" },
+        { "file": "tests/config/test_config_security.py", "responsibility": "Security-Config-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/config/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-040",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_goals.py nach Feature-Gruppe aufteilen (1315 Zeilen)",
+      "file": "tests/test_goals.py",
+      "current_lines": 1315,
+      "proposed_split": [
+        { "file": "tests/goals/test_goal_lifecycle.py", "responsibility": "Goal-Lifecycle-Tests" },
+        { "file": "tests/goals/test_goal_planning.py", "responsibility": "Planungs-Tests" },
+        { "file": "tests/goals/test_goal_governance.py", "responsibility": "Governance- und Gate-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/goals/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-041",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_sgpt_route.py nach Feature aufteilen (1196 Zeilen)",
+      "file": "tests/test_sgpt_route.py",
+      "current_lines": 1196,
+      "proposed_split": [
+        { "file": "tests/sgpt/test_sgpt_execute.py", "responsibility": "Execute-Tests" },
+        { "file": "tests/sgpt/test_sgpt_backend_routing.py", "responsibility": "Backend-Routing-Tests" },
+        { "file": "tests/sgpt/test_sgpt_lora.py", "responsibility": "LoRA-Provenance-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/sgpt/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-042",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_team_blueprints.py nach Domain aufteilen (1186 Zeilen)",
+      "file": "tests/test_team_blueprints.py",
+      "current_lines": 1186,
+      "proposed_split": [
+        { "file": "tests/blueprints/test_blueprint_crud.py", "responsibility": "CRUD-Tests" },
+        { "file": "tests/blueprints/test_blueprint_instantiation.py", "responsibility": "Instantiierungs-Tests" },
+        { "file": "tests/blueprints/test_blueprint_catalog.py", "responsibility": "Katalog-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/blueprints/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-043",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_codex_cli_backend.py nach Backend aufteilen (1171 Zeilen)",
+      "file": "tests/test_codex_cli_backend.py",
+      "current_lines": 1171,
+      "proposed_split": [
+        { "file": "tests/codex/test_codex_runtime.py", "responsibility": "Runtime-Config-Tests" },
+        { "file": "tests/codex/test_codex_execution.py", "responsibility": "Execution-Tests" },
+        { "file": "tests/codex/test_opencode_backend.py", "responsibility": "OpenCode-Backend-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/codex/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-044",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_tasks_autopilot.py nach Phase aufteilen (1065 Zeilen)",
+      "file": "tests/test_tasks_autopilot.py",
+      "current_lines": 1065,
+      "proposed_split": [
+        { "file": "tests/autopilot/test_autopilot_model_selection.py", "responsibility": "Modell-Selektion-Tests" },
+        { "file": "tests/autopilot/test_autopilot_dispatch.py", "responsibility": "Dispatch-Tests" },
+        { "file": "tests/autopilot/test_autopilot_recovery.py", "responsibility": "Recovery-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/autopilot/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-045",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "tests/test_llm_usage.py nach Provider aufteilen (1002 Zeilen)",
+      "file": "tests/test_llm_usage.py",
+      "current_lines": 1002,
+      "proposed_split": [
+        { "file": "tests/llm/test_llm_lmstudio.py", "responsibility": "LMStudio-Tests" },
+        { "file": "tests/llm/test_llm_ollama.py", "responsibility": "Ollama-Tests" },
+        { "file": "tests/llm/test_llm_circuit_breaker.py", "responsibility": "Circuit-Breaker- und Rate-Limit-Tests" }
+      ],
+      "acceptance_criteria": ["pytest tests/llm/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-046",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "rag-helper/tests/test_processing_limits.py aufteilen (1391 Zeilen)",
+      "file": "rag-helper/tests/test_processing_limits.py",
+      "current_lines": 1391,
+      "proposed_split": [
+        { "file": "rag-helper/tests/test_chunk_limits.py", "responsibility": "Chunk-Größen- und Limit-Tests" },
+        { "file": "rag-helper/tests/test_embedding_limits.py", "responsibility": "Embedding-Limit-Tests" },
+        { "file": "rag-helper/tests/test_project_scan_limits.py", "responsibility": "Projekt-Scan-Limit-Tests" }
+      ],
+      "acceptance_criteria": ["pytest rag-helper/tests/ ergibt alle bestanden"]
+    },
+    {
+      "id": "SPLIT-047",
+      "milestone": "M5",
+      "priority": "P3",
+      "title": "frontend-angular/tests/utils.ts aufteilen (1315 Zeilen)",
+      "file": "frontend-angular/tests/utils.ts",
+      "current_lines": 1315,
+      "proposed_split": [
+        { "file": "frontend-angular/tests/utils/api-helpers.ts", "responsibility": "API-Mock-Helpers, HTTP-Test-Utilities" },
+        { "file": "frontend-angular/tests/utils/component-helpers.ts", "responsibility": "Angular-Component-Test-Utilities" },
+        { "file": "frontend-angular/tests/utils/fixture-builders.ts", "responsibility": "Test-Fixture-Builder" },
+        { "file": "frontend-angular/tests/utils.ts", "responsibility": "Re-Export für Rückwärtskompatibilität. Unter 50 Zeilen." }
+      ],
+      "acceptance_criteria": ["ng test läuft durch", "utils.ts unter 50 Zeilen (nur Re-Exports)"]
+    }
+  ],
+  "definition_of_done": [
+    "Alle identifizierten Produktionsdateien unter 1000 Zeilen",
+    "Alle bestehenden Tests bleiben grün",
+    "Keine zirkulären Imports eingeführt",
+    "Re-Exports für Rückwärtskompatibilität wo nötig",
+    "Testdateien sinnvoll nach Feature-Domain aufgeteilt"
+  ],
+  "notes": [
+    "Dateien in .venv/, venv/ und .claude/worktrees/ wurden nicht berücksichtigt (Drittanbieter/Temporär)",
+    "client_surfaces/vscode_extension/out/extension.js ist kompiliertes Artefakt — wird durch Rebuild neu generiert, kein manueller Split nötig",
+    "agent/services/admin_repair_contracts.py (1009 Zeilen) liegt knapp über Grenze — kein eigener Task, wird im Zuge von SPLIT-006 mitbetrachtet",
+    "research_backend.py (1052 Zeilen) ist durch die Camofox-Integration leicht über 1000 Zeilen gewachsen — wird in SPLIT-009 Kontext mitbetrachtet"
+  ]
+}
