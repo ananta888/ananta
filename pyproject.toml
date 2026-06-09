@@ -57,6 +57,27 @@ dev = [
     "mypy",
     "ruff"
 ]
+# Optional workflow-adapter extras. The core install does NOT pull these
+# in; users opt in explicitly. See docs/setup/langchain-langgraph.md.
+langchain = [
+    # Pinned loosely to the current 0.3.x line; LangChain splits its
+    # surface into many sub-packages, we only need the core runtime
+    # for the chain executor. Pull langchain-community only if a
+    # community loader is actually configured in a chain descriptor.
+    "langchain-core>=0.3,<0.4",
+]
+langgraph = [
+    # LangGraph rides on top of langchain-core. Installing the langgraph
+    # extra pulls the matching core in, so users do not need both.
+    "langgraph>=0.2,<0.3",
+    "langchain-core>=0.3,<0.4",
+]
+lc-lg = [
+    # Convenience: install both adapters at once. Same upper bounds as
+    # the individual extras — they share the same core.
+    "langchain-core>=0.3,<0.4",
+    "langgraph>=0.2,<0.3",
+]
 
 [project.scripts]
 ananta = "agent.cli.main:main"
