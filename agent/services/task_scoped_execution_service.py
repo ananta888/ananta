@@ -1009,25 +1009,22 @@ class TaskScopedExecutionService:
         agent_cfg: dict | None = None,
         required_capabilities: list[str] | None = None,
     ) -> tuple[str, str]:
-        backend, reason, _ = resolve_cli_backend(
+        # SPLIT-001t: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_runtime.resolve_task_cli_backend.
+        from agent.services._task_scoped_runtime import resolve_task_cli_backend
+        return resolve_task_cli_backend(
             task_kind=task_kind,
             requested_backend=requested_backend,
-            supported_backends=SUPPORTED_CLI_BACKENDS,
-            agent_cfg=agent_cfg if agent_cfg is not None else (current_app.config.get("AGENT_CONFIG", {}) or {}),
-            fallback_backend="sgpt",
+            agent_cfg=agent_cfg,
             required_capabilities=required_capabilities,
         )
-        return backend, reason
 
     @staticmethod
     def _coalesce_cli_output(stdout: str | None, stderr: str | None) -> tuple[str, str]:
-        out = str(stdout or "").strip()
-        if out:
-            return out, "stdout"
-        err = str(stderr or "").strip()
-        if err:
-            return err, "stderr"
-        return "", "none"
+        # SPLIT-001u: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_cli_invocation.coalesce_cli_output.
+        from agent.services._task_scoped_cli_invocation import coalesce_cli_output
+        return coalesce_cli_output(stdout, stderr)
 
     @classmethod
     def _sanitize_structured_output_text(cls, raw_text: str) -> str:
@@ -1035,11 +1032,10 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _normalize_tool_calls(tool_calls: object) -> list[dict] | None:
-        if isinstance(tool_calls, list) and all(isinstance(item, dict) for item in tool_calls):
-            return tool_calls
-        if isinstance(tool_calls, dict):
-            return [tool_calls]
-        return None
+        # SPLIT-001u: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_cli_invocation.normalize_tool_calls.
+        from agent.services._task_scoped_cli_invocation import normalize_tool_calls
+        return normalize_tool_calls(tool_calls)
 
     @classmethod
     def _normalize_structured_action_payload(cls, data: object) -> dict | None:
