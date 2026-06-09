@@ -139,7 +139,7 @@
         "LCG-016",
         "LCG-017"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -164,7 +164,7 @@
         "LCG-020",
         "LCG-025"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "M5",
@@ -186,7 +186,7 @@
     {
       "id": "LCG-001",
       "title": "Bestehende Worker-/Workflow-Adapter-Grenze analysieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "analysis",
@@ -205,12 +205,15 @@
         "Verbotene Nutzungen aus der Workflow-ADR werden für LangChain/LangGraph übernommen.",
         "Keine Runtime-Änderung durch diesen Task."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "Analyse: bestehende n8n-Provider + workflow_adapter_base.py + workflow_adapter_registry.py gelesen; Integrationsgrenze abgeleitet."
+      ]
     },
     {
       "id": "LCG-002",
       "title": "Provider-neutrales LangChain/LangGraph-Adapter-Konzept definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -227,12 +230,15 @@
         "ADR sagt ausdrücklich: Hub bleibt Source of Truth für Task-State, Policy, Approval, Audit und Artefakte.",
         "ADR enthält Sicherheitsgrenzen, Default-Off und Dry-Run-First."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "Architektur-Konzept: Provider-Konfigs, Adapter-Skeletons, Dry-Run, Policy-Gate, Budget, Audit, Artifact-First. Sichtbar in worker/adapters/* und agent/providers/lc_lg/."
+      ]
     },
     {
       "id": "LCG-003",
       "title": "Konfigurationsmodell für LangChainProviderConfig bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "data_model",
@@ -250,12 +256,12 @@
         "Secrets werden nur über secret refs angegeben und niemals im Klartext serialisiert.",
         "Ungültige Provider, negative Timeouts und unklare Retriever-Quellen werden abgelehnt."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "LCG-004",
       "title": "Konfigurationsmodell für LangGraphProviderConfig bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "data_model",
@@ -273,12 +279,12 @@
         "Graph-State darf nicht Hub-Task-State überschreiben.",
         "Endlos-Loops werden durch max_iterations und timeout_seconds begrenzt."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "LCG-005",
       "title": "Adapter-Registry um langchain und langgraph erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
@@ -296,7 +302,10 @@
         "Provider können per Config sichtbar deaktiviert bleiben.",
         "Registry liefert Capabilities je Provider."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "Workflow-Adapter-Registry erweitert um langchain + langgraph; lazy-load; graceful degradation wenn Paket fehlt."
+      ]
     },
     {
       "id": "LCG-006",
@@ -324,7 +333,7 @@
     {
       "id": "LCG-007",
       "title": "LangChain Worker Adapter Skeleton implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -341,12 +350,15 @@
         "Adapter gibt ArtifactManifest-kompatible Resultate zurück.",
         "Fehler werden als strukturierter WorkerError statt unformatierter Exception zurückgegeben."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "LangChainAdapter in worker/adapters/langchain_adapter.py — Dry-Run, Live-Block, Artifact-First."
+      ]
     },
     {
       "id": "LCG-008",
       "title": "LangGraph Worker Adapter Skeleton implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -363,12 +375,15 @@
         "max_iterations und timeout_seconds werden durchgesetzt.",
         "Adapter gibt ArtifactManifest-kompatible Resultate zurück."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "LangGraphAdapter in worker/adapters/langgraph_adapter.py — Graph-Walker, Human-Gate, max_iterations, Artifact-First."
+      ]
     },
     {
       "id": "LCG-009",
       "title": "CodeCompass als kanonische Retriever-/Kontextquelle anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -386,7 +401,10 @@
         "Keine ungeprüfte rekursive Repo-Lektüre durch LangChain/LangGraph.",
         "Policy kann Kontextumfang, Pfade und Secretscope begrenzen."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "CodeCompassRetriever in worker/retrieval/codecompass_retriever.py — wraps HybridRetrievalService; failt gracefully ohne Index."
+      ]
     },
     {
       "id": "LCG-010",
@@ -414,7 +432,7 @@
     {
       "id": "LCG-011",
       "title": "Policy-Gates für Tools, Netzwerk und Dateizugriff einbauen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -433,12 +451,15 @@
         "Secrets werden nicht in Prompts, Logs oder Artefakte geschrieben.",
         "Tests decken Shell-Block, externes HTTP-Block, Secret-Block und erlaubten Read-only-Kontext ab."
       ],
-      "progress_percent": 0
+      "progress_percent": 80,
+      "notes": [
+        "WorkflowPolicyGate in worker/adapters/workflow_policy_gate.py — Default-Deny Fix in follow-up Commit."
+      ]
     },
     {
       "id": "LCG-012",
       "title": "Human-Approval-Gates für riskante Schritte erzwingen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -456,12 +477,15 @@
         "Abgelehnte Approvals werden auditierbar gespeichert.",
         "Auto-merge/push bleibt verboten, sofern nicht explizit über Hub-Policy erlaubt."
       ],
-      "progress_percent": 0
+      "progress_percent": 80,
+      "notes": [
+        "Human-Approval-Logik in LangGraph/LangChain-Adapter (dry.approval_required → blocked_result); Service-Coupling zu approval_service in follow-up."
+      ]
     },
     {
       "id": "LCG-013",
       "title": "Artifact-first Ergebnisvertrag für Adapter definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "contract",
@@ -478,12 +502,15 @@
         "Fehlerfälle erzeugen verwertbare Diagnostics.",
         "Contract ist durch Tests gegen Beispieloutputs abgesichert."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "WorkflowArtifactResult + DryRunResult Dataclasses in worker/adapters/workflow_adapter_base.py."
+      ]
     },
     {
       "id": "LCG-014",
       "title": "LangChain Chain Descriptor Format definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "contract",
@@ -500,12 +527,15 @@
         "Beispiel für summarize, rag_query und code_review existiert.",
         "Ungültige Descriptoren liefern klare Validierungsfehler."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "docs/contracts/langchain-chain-descriptor.schema.json"
+      ]
     },
     {
       "id": "LCG-015",
       "title": "LangGraph Graph Descriptor Format definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "contract",
@@ -522,12 +552,15 @@
         "Tool-Nodes referenzieren nur Policy-whitelisted Tools.",
         "Beispielgraph für plan->retrieve->draft->review->artifact existiert."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "docs/contracts/langgraph-graph-descriptor.schema.json"
+      ]
     },
     {
       "id": "LCG-016",
       "title": "Dry-Run Planner für LangChain Chains implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -544,12 +577,15 @@
         "Dry-Run-Ausgabe ist stabil genug für Snapshot-Tests.",
         "Dry-Run kann von UI/TUI angezeigt werden."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "LangChainAdapter.dry_run() — Plan, Tools, Retriever, External-Calls Policy-Check."
+      ]
     },
     {
       "id": "LCG-017",
       "title": "Dry-Run Planner für LangGraph Graphs implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -566,12 +602,15 @@
         "Dry-Run funktioniert ohne Modellcall.",
         "Dry-Run-Ausgabe ist stabil genug für Snapshot-Tests."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "LangGraphAdapter.dry_run() — Topology-Analyse, Human-Gate-Erkennung, max_iterations."
+      ]
     },
     {
       "id": "LCG-018",
       "title": "Execution Trace und Audit Events erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "audit",
@@ -589,12 +628,15 @@
         "Fehlerpfade erzeugen ebenfalls Audit-Events.",
         "Tests prüfen Redaction und Reihenfolge wichtiger Events."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "WorkflowAuditLog in worker/adapters/workflow_audit.py; Lifecycle-Fix in follow-up Commit."
+      ]
     },
     {
       "id": "LCG-019",
       "title": "Timeout-, Budget- und Iterationsschutz implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "safety",
@@ -612,12 +654,15 @@
         "Nested Calls können nicht unbemerkt Budget umgehen.",
         "Tests simulieren Endlosgraph, langsamen Toolcall und Tokenbudget-Ende."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "WorkflowBudgetGuard in worker/adapters/workflow_budget.py — Steps, Tokens, Timeout."
+      ]
     },
     {
       "id": "LCG-020",
       "title": "Lokale Modellprovider bevorzugen und Cloud explizit gatekeepen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "security",
@@ -635,7 +680,10 @@
         "Provider-Diagnostics zeigen lokal/cloud/degraded eindeutig an.",
         "Beispielprofile enthalten keine echten Secrets."
       ],
-      "progress_percent": 0
+      "progress_percent": 60,
+      "notes": [
+        "ProviderConfig mit external_calls_allowed, default-OFF; Setup-Doc + Profile-Anpassung in follow-up."
+      ]
     },
     {
       "id": "LCG-021",
@@ -880,34 +928,37 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 30,
+      "todo": 12,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 3,
       "blocked": 0,
-      "done": 0
+      "done": 15
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 18,
       "P1": 10,
-      "P2": 2
+      "P2": 2,
+      "P3": 0
     },
     "by_risk": {
+      "low": 0,
       "medium": 15,
       "high": 11,
       "critical": 4
     },
     "critical_path": {
       "total": 18,
-      "done": 0,
-      "remaining": 18
+      "done": 11,
+      "remaining": 7
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 3,
       "in_progress": 0,
+      "partial": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -915,58 +966,66 @@
     "by_type": {
       "analysis": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "architecture": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "data_model": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "implementation": {
         "total": 5,
-        "done": 0,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 5
         }
       },
       "build": {
@@ -974,7 +1033,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -985,72 +1046,82 @@
       },
       "integration": {
         "total": 2,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 50.0,
         "by_status": {
-          "todo": 2,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "security": {
         "total": 3,
         "done": 0,
-        "partial": 0,
+        "partial": 3,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 73.3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 3,
           "blocked": 0,
           "done": 0
         }
       },
       "contract": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "audit": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "safety": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "ui": {
@@ -1058,7 +1129,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1072,7 +1145,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 2,
           "in_progress": 0,
@@ -1086,7 +1161,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 3,
           "in_progress": 0,
@@ -1100,7 +1177,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 2,
           "in_progress": 0,
@@ -1114,7 +1193,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1128,7 +1209,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1140,18 +1223,21 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 30,
+    "state": "in_progress",
+    "todo_remaining": 15,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 3,
     "blocked": 0,
-    "done": 0
+    "done": 15,
+    "milestones_done": 1,
+    "milestones_total": 5
   },
   "summary_notes": [
     "Diese TODO-Spur baut bewusst auf der bestehenden Workflow-Adapter-ADR auf: externe Engines sind optional, der Hub bleibt Kontrollinstanz.",
     "LangChain wird ergänzend zu CodeCompass modelliert, nicht als Ersatz.",
     "LangGraph wird als Workflow-/Agent-Graph-Adapter modelliert, aber externer State darf den Hub-State nicht überschreiben.",
-    "Sichere Defaults: disabled, dry-run-first, keine externen Calls, keine Secrets in Logs/Prompts/Artefakten."
+    "Sichere Defaults: disabled, dry-run-first, keine externen Calls, keine Secrets in Logs/Prompts/Artefakten.",
+    "Bugfix-Cluster in Arbeit: (1) WorkflowPolicyGate.check_tool Default-Deny, (2) langgraph_adapter.py: requires_human() exposed statt _human_required-Privat-Zugriff, (3) toter langchain-Import in langchain_adapter.py entfernen, (4) WorkflowAuditLog pro Task instanziieren oder clear() zwischen Tasks. Provider-Configs von agent/models/ nach agent/providers/lc_lg/ verschoben (Package-Konflikt mit agent/models.py)."
   ],
   "end_summaries": [
     {
