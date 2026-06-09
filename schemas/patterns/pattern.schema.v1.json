@@ -1,0 +1,226 @@
+{
+  "$id": "https://ananta.dev/schemas/patterns/pattern.schema.v1.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pattern Schema",
+  "description": "Schema for defining deterministic code patterns.",
+  "type": "object",
+  "required": [
+    "pattern_id",
+    "version",
+    "category",
+    "language",
+    "title",
+    "description",
+    "parameters",
+    "required_artifacts",
+    "steps",
+    "invariants",
+    "acceptance_gates",
+    "examples"
+  ],
+  "properties": {
+    "pattern_id": {
+      "type": "string",
+      "description": "Unique identifier for the pattern (snake_case)."
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the pattern."
+    },
+    "category": {
+      "type": "string",
+      "description": "Category of the pattern.",
+      "enum": [
+        "planning_renderer",
+        "workflow_emit",
+        "test_template",
+        "tooling_recipe",
+        "control_policy"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "description": "Programming language of the pattern. Use 'agnostic' for language-independent, 'null' if not applicable.",
+      "enum": [
+        "java",
+        "python",
+        "typescript",
+        "agnostic",
+        "null"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable title of the pattern."
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of what the pattern does."
+    },
+    "parameters": {
+      "type": "array",
+      "description": "Configurable parameters for the pattern.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the parameter."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of the parameter.",
+            "enum": [
+              "string",
+              "int",
+              "boolean",
+              "enum",
+              "regex",
+              "path",
+              "glob_list"
+            ]
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether the parameter is required."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the parameter."
+          },
+          "default": {
+            "description": "Default value for the parameter, if not required."
+          },
+          "enum_values": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Required if type is 'enum'."
+          }
+        }
+      }
+    },
+    "required_artifacts": {
+      "type": "array",
+      "description": "List of artifacts required by the pattern.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "Ordered steps defining the pattern's execution.",
+      "items": {
+        "type": "object",
+        "required": [
+          "order",
+          "name",
+          "description",
+          "input",
+          "output",
+          "control"
+        ],
+        "properties": {
+          "order": {
+            "type": "integer",
+            "description": "Execution order of the step."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the step."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the step."
+          },
+          "input": {
+            "type": "string",
+            "description": "Description or reference to the input for this step."
+          },
+          "output": {
+            "type": "string",
+            "description": "Description or reference to the output of this step."
+          },
+          "control": {
+            "type": "string",
+            "description": "Control flow details for this step (e.g., 'loop', 'conditional')."
+          }
+        }
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "description": "List of conditions that must remain true throughout the pattern's execution.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptance_gates": {
+      "type": "array",
+      "description": "List of conditions that must be met for the pattern to be considered successful.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "examples": {
+      "type": "array",
+      "description": "Examples demonstrating the pattern's usage.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "inputs",
+          "must_contain",
+          "must_not_contain"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the example."
+          },
+          "inputs": {
+            "type": "object",
+            "description": "Input parameters for the example."
+          },
+          "must_contain": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of strings that the output must contain."
+          },
+          "must_not_contain": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of strings that the output must NOT contain."
+          }
+        }
+      }
+    },
+    "meta_validation_hook": {
+      "type": "string",
+      "description": "Optional field for a meta-schema validation hook."
+    }
+  },
+  "$defs": {
+    "ParameterType": {
+      "type": "string",
+      "enum": [
+        "string",
+        "int",
+        "boolean",
+        "enum",
+        "regex",
+        "path",
+        "glob_list"
+      ]
+    }
+  }
+}
