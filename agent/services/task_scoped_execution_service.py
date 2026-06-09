@@ -393,18 +393,10 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _invoke_cli_runner(cli_runner: Callable, **cli_kwargs):
-        signature_target = cli_runner
-        side_effect = getattr(cli_runner, "side_effect", None)
-        if callable(side_effect):
-            signature_target = side_effect
-        try:
-            signature = inspect.signature(signature_target)
-        except (TypeError, ValueError):
-            return cli_runner(**cli_kwargs)
-        if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
-            return cli_runner(**cli_kwargs)
-        filtered_kwargs = {key: value for key, value in cli_kwargs.items() if key in signature.parameters}
-        return cli_runner(**filtered_kwargs)
+        # SPLIT-001r: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_cli_invocation.invoke_cli_runner.
+        from agent.services._task_scoped_cli_invocation import invoke_cli_runner
+        return invoke_cli_runner(cli_runner, **cli_kwargs)
 
     # --- cluster: propose + execute (public API) + task_aux ---
     def propose_task_step(
@@ -998,23 +990,16 @@ class TaskScopedExecutionService:
         return coerce_handler_response(response)
 
     def _require_task(self, tid: str) -> dict:
-        task = get_local_task_status(tid)
-        if not task:
-            task = self._maybe_sync_task_from_hub(tid)
-        if not task:
-            raise TaskNotFoundError()
-        return task
+        # SPLIT-001s: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_task_lookup.require_task.
+        from agent.services._task_scoped_task_lookup import require_task
+        return require_task(tid)
 
     def _maybe_sync_task_from_hub(self, tid: str) -> dict | None:
-        try:
-            agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if current_app else {}
-        except Exception:
-            agent_cfg = {}
-        fp = dict((agent_cfg.get("execution_fallback_policy") or {}))
-        if not bool(fp.get("worker_task_sync_from_hub_enabled", True)):
-            return None
-        from agent.services.task_runtime_service import sync_task_from_hub
-        return sync_task_from_hub(tid)
+        # SPLIT-001s: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_task_lookup.maybe_sync_task_from_hub.
+        from agent.services._task_scoped_task_lookup import maybe_sync_task_from_hub
+        return maybe_sync_task_from_hub(tid)
 
     # --- cluster: runtime (cli backend, opencode session, interactive terminal, research) ---
     def _resolve_cli_backend(
