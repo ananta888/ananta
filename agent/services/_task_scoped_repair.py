@@ -132,6 +132,24 @@ def is_timeout_like_repair_failure(*, validation_error: str, bad_output: str) ->
     return "timeout" in output_marker or "timed out" in output_marker
 
 
+def is_interactive_timeout_like_failure(*, rc: int, output: str, stderr: str) -> bool:
+    """Detect a timeout-like failure in an interactive-terminal run.
+
+    A run counts as timeout-like when ``rc != 0`` and the merged
+    stdout+stderr is empty, or when the merged output/stderr contains
+    one of the documented timeout markers (``timeout``, ``timed out``,
+    ``read timed out``).
+    """
+    text = f"{output or ''}\n{stderr or ''}".strip()
+    if rc != 0 and not text:
+        return True
+    marker = text.lower()
+    return "timeout" in marker or "timed out" in marker or "read timed out" in marker
+
+
+_is_interactive_timeout_like_failure = is_interactive_timeout_like_failure
+
+
 def is_shell_meta_blocked_failure(output: str | None, failure_type: str | None) -> bool:
     if str(failure_type or "").strip().lower() != "command_runtime_error":
         return False

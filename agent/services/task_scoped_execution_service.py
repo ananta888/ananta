@@ -161,19 +161,24 @@ class TaskScopedExecutionService:
         ====================  ==============  =================================
     """
 
-    @staticmethod
     # --- cluster: config_policy (resolvers, bounded_*, normalize) ---
+    @staticmethod
     def _allow_synthetic_llm_profile_fallback() -> bool:
-        if not has_app_context():
-            return False
-        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {})
-        policy = dict(cfg.get("llm_profile_policy") or {})
-        return bool(policy.get("allow_synthetic_fallback", False))
+        # SPLIT-001p: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.allow_synthetic_llm_profile_fallback.
+        from agent.services._task_scoped_config_policy import (
+            allow_synthetic_llm_profile_fallback,
+        )
+        return allow_synthetic_llm_profile_fallback()
 
     @staticmethod
     def _is_interactive_terminal_session(session_payload: dict | None) -> bool:
-        metadata = (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
-        return str(metadata.get("opencode_execution_mode") or "").strip().lower() == "interactive_terminal"
+        # SPLIT-001p: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.is_interactive_terminal_session.
+        from agent.services._task_scoped_config_policy import (
+            is_interactive_terminal_session,
+        )
+        return is_interactive_terminal_session(session_payload)
 
     @staticmethod
     def _normalize_temperature(value: float | int | str | None) -> float | None:
@@ -184,26 +189,28 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _default_model(agent_cfg: dict) -> str | None:
-        provider = str(agent_cfg.get("default_provider") or agent_cfg.get("provider") or "").strip().lower() or None
-        return normalize_legacy_model_name(
-            str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip() or None,
-            provider=provider,
-        )
+        # SPLIT-001p: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.default_model.
+        from agent.services._task_scoped_config_policy import default_model
+        return default_model(agent_cfg)
 
     @classmethod
     def _resolve_requested_model(cls, *, agent_cfg: dict, requested_model: str | None) -> str | None:
-        provider = str(agent_cfg.get("default_provider") or agent_cfg.get("provider") or "").strip().lower() or None
-        resolved = str(requested_model or "").strip() or cls._default_model(agent_cfg)
-        return normalize_legacy_model_name(resolved, provider=provider)
+        # SPLIT-001p: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.resolve_requested_model.
+        from agent.services._task_scoped_config_policy import (
+            resolve_requested_model,
+        )
+        return resolve_requested_model(agent_cfg=agent_cfg, requested_model=requested_model)
 
     @staticmethod
     def _resolve_task_propose_timeout(agent_cfg: dict, task_kind: str) -> int:
-        task_kind_policies = agent_cfg.get("task_kind_execution_policies") if isinstance(agent_cfg.get("task_kind_execution_policies"), dict) else {}
-        task_kind_cfg = task_kind_policies.get(task_kind) if isinstance(task_kind_policies.get(task_kind), dict) else {}
-        general_timeout = int(agent_cfg.get("command_timeout", 60) or 60)
-        kind_timeout = int(task_kind_cfg.get("command_timeout") or 0)
-        proposal_timeout = int(agent_cfg.get("task_propose_timeout_seconds") or 0)
-        return max(60, general_timeout, kind_timeout, proposal_timeout)
+        # SPLIT-001p: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.resolve_task_propose_timeout.
+        from agent.services._task_scoped_config_policy import (
+            resolve_task_propose_timeout,
+        )
+        return resolve_task_propose_timeout(agent_cfg, task_kind)
 
     @staticmethod
     def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
@@ -281,11 +288,12 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _interactive_timeout_like_failure(*, rc: int, output: str, stderr: str) -> bool:
-        text = f"{output or ''}\n{stderr or ''}".strip()
-        if rc != 0 and not text:
-            return True
-        marker = text.lower()
-        return "timeout" in marker or "timed out" in marker or "read timed out" in marker
+        # SPLIT-001q: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_repair.is_interactive_timeout_like_failure.
+        from agent.services._task_scoped_repair import (
+            is_interactive_timeout_like_failure,
+        )
+        return is_interactive_timeout_like_failure(rc=rc, output=output, stderr=stderr)
 
     @classmethod
     def _resolve_interactive_propose_timeout(cls, agent_cfg: dict | None, *, fallback: int) -> int:
