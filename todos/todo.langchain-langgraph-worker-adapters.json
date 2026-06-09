@@ -232,7 +232,8 @@
       ],
       "progress_percent": 100,
       "notes": [
-        "Architektur-Konzept: Provider-Konfigs, Adapter-Skeletons, Dry-Run, Policy-Gate, Budget, Audit, Artifact-First. Sichtbar in worker/adapters/* und agent/providers/lc_lg/."
+        "Architektur-Konzept: Provider-Konfigs, Adapter-Skeletons, Dry-Run, Policy-Gate, Budget, Audit, Artifact-First. Sichtbar in worker/adapters/* und agent/providers/lc_lg/.",
+        "ADR docs/decisions/ADR-langchain-langgraph-worker-adapters.md geschrieben (Status accepted)."
       ]
     },
     {
@@ -824,7 +825,7 @@
     {
       "id": "LCG-027",
       "title": "Dokumentation für Architekturgrenze CodeCompass vs LangChain schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
@@ -840,7 +841,10 @@
         "Doku enthält lokale-first Beispiele.",
         "Doku erklärt, warum LangSmith nicht verpflichtend ist."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "docs/architecture/codecompass-vs-langchain.md geschrieben — Verantwortungs-Matrix + Source-Ground-Rule + Local-First."
+      ]
     },
     {
       "id": "LCG-028",
@@ -931,13 +935,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 12,
+      "todo": 11,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 17
+      "done": 18
     },
-    "progress_percent_done": 56.7,
+    "progress_percent_done": 60.0,
     "by_priority": {
       "P0": 18,
       "P1": 10,
@@ -1177,18 +1181,18 @@
       },
       "documentation": {
         "total": 2,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 1,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 50.0,
         "by_status": {
-          "todo": 2,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "configuration": {
@@ -1227,11 +1231,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 13,
+    "todo_remaining": 12,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 17,
+    "done": 18,
     "milestones_done": 1,
     "milestones_total": 5
   },
