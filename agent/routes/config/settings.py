@@ -61,7 +61,21 @@ def get_config():
     cfg["runtime_profile_effective"] = resolve_runtime_profile(cfg)
     cfg["governance_mode_effective"] = resolve_governance_mode(cfg)
     cfg["effective_policy_profile"] = build_effective_policy_profile(cfg)
+    cfg["lora_adapter_registry"] = _build_lora_registry_summary(cfg)
     return api_response(data=cfg)
+
+
+def _build_lora_registry_summary(cfg: dict) -> dict:
+    """Gibt lesbare Adapter-Registry-Zusammenfassung zurueck (keine sensiblen Pfade)."""
+    try:
+        from agent.services.ml_intern_training_config_service import normalize_lora_runtime_config
+        from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
+        lora_rt = normalize_lora_runtime_config(cfg.get("lora_runtime") or {})
+        registry_path = lora_rt.get("adapter_registry_path", "artifacts/lora/adapter_registry.json")
+        svc = MlInternAdapterRegistryService(registry_path)
+        return svc.to_read_model()
+    except Exception:
+        return {"schema": "mlintern_adapter_registry.v1", "count": 0, "approved_count": 0, "items": []}
 
 
 @settings_bp.route("/config", methods=["POST"])

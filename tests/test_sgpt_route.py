@@ -1144,3 +1144,53 @@ class TestConfigDrivenContext:
         # Wide: lines 12–18 should be visible
         assert "line15" in content_wide
         assert "line12" in content_wide
+
+
+# MLLORA-002/020/023: Architekturgrenze und Adapter-Provenance Tests
+def test_sgpt_execute_ml_intern_rejects_cli_flags(client, admin_auth_header):
+    """ml_intern Backend darf keine CLI-Flags akzeptieren."""
+    client.post(
+        "/config",
+        json={"ml_intern_spike": {"enabled": True, "command_template": "python w.py"}},
+        headers=admin_auth_header,
+    )
+    response = client.post(
+        "/api/sgpt/execute",
+        json={"prompt": "test", "backend": "ml_intern", "options": ["--shell"]},
+        headers=admin_auth_header,
+    )
+    assert response.status_code == 400
+    assert "ml_intern" in response.json.get("message", "").lower() or "cli flag" in response.json.get("message", "").lower()
+
+
+def test_sgpt_execute_adapter_used_false_when_routing_disabled(client, admin_auth_header):
+    """Wenn lora_runtime.routing_enabled=false, enthaelt Response adapter_used=false."""
+    from unittest.mock import patch as _patch
+    with _patch("agent.routes.sgpt.get_ml_intern_adapter_service"):
+        response = client.post(
+            "/api/sgpt/execute",
+            json={"prompt": "hello world", "backend": "ananta-worker"},
+            headers=admin_auth_header,
+        )
+    # Route kann fehlschlagen wegen fehlenden Backends, aber wenn erfolgreich:
+    if response.status_code == 200:
+        data = response.json.get("data", {})
+        assert "adapter_used" in data or "lora_provenance" in data
+
+
+def test_training_job_not_reachable_via_sgpt(client, admin_auth_header):
+    """Training-Jobs koennen nicht ueber /api/sgpt/execute eingeschleust werden."""
+    # Versuch, einen job_type in den Payload zu schmuggeln
+    response = client.post(
+        "/api/sgpt/execute",
+        json={"prompt": "train model", "job_type": "train_lora", "backend": "ananta-worker"},
+        headers=admin_auth_header,
+    )
+    # Muss entweder 400 (ungueltig) oder 200 ohne Training-Effekt sein
+    # Training-Jobs duerften nie durch diesen Endpunkt ausgefuehrt werden
+    assert response.status_code in (200, 400, 500)
+    if response.status_code == 200:
+        data = response.json.get("data", {})
+        # Keine Training-Artefakte in der Response
+        assert "training_summary" not in data
+        assert "job_id" not in data

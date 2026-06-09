@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mlintern-dataset-record.schema.json",
+  "title": "MlIntern Dataset Record",
+  "description": "Schema fuer einen einzelnen JSONL-Record in einem LoRA-Trainingsdatensatz.",
+  "oneOf": [
+    {"$ref": "#/$defs/InstructionRecord"},
+    {"$ref": "#/$defs/ChatRecord"}
+  ],
+  "$defs": {
+    "InstructionRecord": {
+      "type": "object",
+      "description": "Instruction/Input/Output Format (Alpaca-Stil).",
+      "required": ["instruction", "output"],
+      "additionalProperties": false,
+      "properties": {
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "input": {
+          "type": "string",
+          "maxLength": 32768,
+          "description": "Optionaler Input-Kontext."
+        },
+        "output": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768,
+          "description": "Erwartete Antwort. Darf nicht leer sein."
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Referenz auf die Quelle dieses Records (z.B. 'synthetic:ananta-todo-v1')."
+        },
+        "quality_label": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "unknown"],
+          "description": "Qualitaetseinschaetzung des Records."
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Wozu dieser Record dient (z.B. 'todo_json_structure')."
+        },
+        "privacy_class": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "unknown"],
+          "description": "Datenschutz-Klassifizierung."
+        },
+        "license_hint": {
+          "type": "string",
+          "description": "Lizenzhinweis oder 'unknown'."
+        }
+      }
+    },
+    "ChatRecord": {
+      "type": "object",
+      "description": "Messages/Chat-Format (OpenAI-Stil).",
+      "required": ["messages"],
+      "additionalProperties": false,
+      "properties": {
+        "messages": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/ChatMessage"},
+          "description": "Chat-Verlauf. Muss mindestens eine User- und eine Assistant-Message enthalten."
+        },
+        "source_ref": {"type": "string"},
+        "quality_label": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "unknown"]
+        },
+        "purpose": {"type": "string"},
+        "privacy_class": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "unknown"]
+        },
+        "license_hint": {"type": "string"}
+      }
+    },
+    "ChatMessage": {
+      "type": "object",
+      "required": ["role", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["system", "user", "assistant"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        }
+      }
+    }
+  }
+}
