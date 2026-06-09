@@ -21,9 +21,9 @@ from typing import TYPE_CHECKING, Callable
 
 from flask import current_app, has_app_context
 
-from agent.common.sgpt import resolve_codex_runtime_config
+from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, resolve_codex_runtime_config
 from agent.research_backend import normalize_research_artifact
-from agent.runtime_policy import review_policy
+from agent.runtime_policy import resolve_cli_backend, review_policy
 from agent.security_risk import (
     classify_command_risk,
     classify_tool_calls_risk,
@@ -810,3 +810,45 @@ def terminal_parent_goal_guard(*, tid: str, task: dict, phase: str) -> "TaskScop
         message="Parent goal is terminal",
         code=409,
     )
+
+
+# ======================================================================
+# CLI backend resolver (SPLIT-001t)
+# ======================================================================
+# Pulled out of TaskScopedExecutionService._resolve_cli_backend. The
+# wrapper preserves the public method surface (12-month deprecation
+# window) so tests that monkeypatch the class method keep working.
+
+
+def resolve_task_cli_backend(
+    *,
+    task_kind: str,
+    requested_backend: str = "auto",
+    agent_cfg: dict | None = None,
+    required_capabilities: list[str] | None = None,
+) -> tuple[str, str]:
+    """Resolve the CLI backend for the current task.
+
+    Thin wrapper over :func:`agent.runtime_policy.resolve_cli_backend`
+    that supplies the well-known defaults (``SUPPORTED_CLI_BACKENDS``
+    as the support set, ``sgpt`` as the fallback backend, and the
+    active app config as the default ``agent_cfg``).
+
+    Returns ``(backend, reason)`` — ``reason`` is the human-readable
+    explanation of why this backend was chosen (consumed by the
+    telemetry path).
+    """
+    if agent_cfg is None:
+        agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+    backend, reason, _ = resolve_cli_backend(
+        task_kind=task_kind,
+        requested_backend=requested_backend,
+        supported_backends=SUPPORTED_CLI_BACKENDS,
+        agent_cfg=agent_cfg,
+        fallback_backend="sgpt",
+        required_capabilities=required_capabilities,
+    )
+    return backend, reason
+
+
+_resolve_cli_backend = resolve_task_cli_backend

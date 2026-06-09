@@ -20,7 +20,7 @@ SPLIT-001).
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Any
+from typing import Any, Callable
 
 
 def invoke_cli_runner(cli_runner: Callable, **cli_kwargs: Any) -> Any:
@@ -57,3 +57,41 @@ def invoke_cli_runner(cli_runner: Callable, **cli_kwargs: Any) -> Any:
 
 
 _invoke_cli_runner = invoke_cli_runner
+
+
+def coalesce_cli_output(stdout: str | None, stderr: str | None) -> tuple[str, str]:
+    """Return ``(text, source)`` picking stdout if non-empty, else stderr, else ""/none.
+
+    The ``source`` tag is downstream-consumed for telemetry (it tells
+    the caller whether the captured text came from the worker stdout,
+    stderr, or nothing at all). Both strings are stripped before
+    testing emptiness.
+    """
+    out = str(stdout or "").strip()
+    if out:
+        return out, "stdout"
+    err = str(stderr or "").strip()
+    if err:
+        return err, "stderr"
+    return "", "none"
+
+
+_coalesce_cli_output = coalesce_cli_output
+
+
+def normalize_tool_calls(tool_calls: object) -> list[dict] | None:
+    """Coerce a tool-calls payload into a uniform ``list[dict]`` shape.
+
+    * A ``list`` of ``dict`` is returned unchanged.
+    * A single ``dict`` is wrapped in a one-element list.
+    * Anything else (``None``, scalar, mixed-type list) returns ``None``,
+      which the caller is expected to treat as "no tool calls present".
+    """
+    if isinstance(tool_calls, list) and all(isinstance(item, dict) for item in tool_calls):
+        return tool_calls
+    if isinstance(tool_calls, dict):
+        return [tool_calls]
+    return None
+
+
+_normalize_tool_calls = normalize_tool_calls
