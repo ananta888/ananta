@@ -38,6 +38,10 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
+from flask import current_app, has_app_context
+
+from agent.model_selection import normalize_legacy_model_name
+
 
 # ======================================================================
 # 1. Pure leaf utilities (SPLIT-001b)
@@ -390,3 +394,84 @@ def has_native_opencode_runtime(session_payload: dict | None) -> bool:
 
 
 _has_native_opencode_runtime = has_native_opencode_runtime
+
+
+# ======================================================================
+# 4. Inline config resolvers (SPLIT-001p)
+# ======================================================================
+# These were previously private static helpers on TaskScopedExecutionService
+# that read either the Flask app config (for the synthetic-LLM-profile
+# fallback flag) or a per-task agent config dict (for the default-model
+# resolution and the propose-timeout fallback chain). They have no
+# dependency on the service instance and are therefore trivially
+# extractable. Wrappers in the service preserve the legacy method
+# surface (12-month deprecation window).
+
+
+def allow_synthetic_llm_profile_fallback() -> bool:
+    """Return True iff the active agent config opts into synthetic profile fallback.
+
+    Reads ``current_app.config["AGENT_CONFIG"]["llm_profile_policy"]["allow_synthetic_fallback"]``.
+    Returns ``False`` outside an app context (e.g. in unit tests) and
+    ``False`` for any falsy / missing flag value.
+    """
+    if not has_app_context():
+        return False
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {})
+    policy = dict(cfg.get("llm_profile_policy") or {})
+    return bool(policy.get("allow_synthetic_fallback", False))
+
+
+_allow_synthetic_llm_profile_fallback = allow_synthetic_llm_profile_fallback
+
+
+def is_interactive_terminal_session(session_payload: dict | None) -> bool:
+    """Return True iff the given session payload marks an interactive-terminal run."""
+    metadata = (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
+    return str(metadata.get("opencode_execution_mode") or "").strip().lower() == "interactive_terminal"
+
+
+_is_interactive_terminal_session = is_interactive_terminal_session
+
+
+def default_model(agent_cfg: dict) -> str | None:
+    """Return the resolved default model name for ``agent_cfg``.
+
+    Honors the documented order: ``default_provider`` / ``default_model`` /
+    ``provider`` / ``model``. Provider is normalized via
+    :func:`agent.model_selection.normalize_legacy_model_name`.
+    """
+    provider = str(agent_cfg.get("default_provider") or agent_cfg.get("provider") or "").strip().lower() or None
+    return normalize_legacy_model_name(
+        str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip() or None,
+        provider=provider,
+    )
+
+
+_default_model = default_model
+
+
+def resolve_requested_model(*, agent_cfg: dict, requested_model: str | None) -> str | None:
+    """Return the requested model name (or the default) after legacy-name normalization."""
+    provider = str(agent_cfg.get("default_provider") or agent_cfg.get("provider") or "").strip().lower() or None
+    resolved = str(requested_model or "").strip() or default_model(agent_cfg)
+    return normalize_legacy_model_name(resolved, provider=provider)
+
+
+_resolve_requested_model = resolve_requested_model
+
+
+def resolve_task_propose_timeout(agent_cfg: dict, task_kind: str) -> int:
+    """Return the propose-timeout (seconds) for ``task_kind`` given ``agent_cfg``.
+
+    Falls back to ``max(60, command_timeout, task-kind command_timeout, task_propose_timeout_seconds)``.
+    """
+    task_kind_policies = agent_cfg.get("task_kind_execution_policies") if isinstance(agent_cfg.get("task_kind_execution_policies"), dict) else {}
+    task_kind_cfg = task_kind_policies.get(task_kind) if isinstance(task_kind_policies.get(task_kind), dict) else {}
+    general_timeout = int(agent_cfg.get("command_timeout", 60) or 60)
+    kind_timeout = int(task_kind_cfg.get("command_timeout") or 0)
+    proposal_timeout = int(agent_cfg.get("task_propose_timeout_seconds") or 0)
+    return max(60, general_timeout, kind_timeout, proposal_timeout)
+
+
+_resolve_task_propose_timeout = resolve_task_propose_timeout
