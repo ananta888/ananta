@@ -765,6 +765,7 @@
       "id": "SPLIT-023",
       "milestone": "M4",
       "priority": "P2",
+      "status": "done",
       "title": "agent/db_models.py aufteilen (1201 Zeilen)",
       "file": "agent/db_models.py",
       "current_lines": 1201,
