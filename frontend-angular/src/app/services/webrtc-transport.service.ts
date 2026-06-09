@@ -10,9 +10,15 @@ import { WebrtcSessionService } from './webrtc-session.service';
 import { NetworkProfileService } from './network-profile.service';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
+import { RelayEnvelope } from './pair-view-sync.types';
 
 export type TransportMode = 'webrtc' | 'hub_relay' | 'idle';
 
+/**
+ * Generic transport message used by the existing chat path.
+ * The Pair-Dev view-sync path uses a different envelope
+ * (RelayEnvelope) on the wire; see `sendView()` below.
+ */
 export interface TransportMessage {
   type: string;
   session_id: string;
@@ -75,6 +81,21 @@ export class WebrtcTransportService {
     }
   }
 
+  /**
+   * T06: Send a Pair-Dev view-sync envelope. Routes through
+   * WebRTC DataChannel when in webrtc mode, or through the
+   * Hub Relay /view/push endpoint with the backend-compatible
+   * RelayEnvelope shape otherwise. The existing chat send()
+   * path is unchanged; this is a separate code path.
+   */
+  sendView(envelope: RelayEnvelope): void {
+    if (this.mode$.value === 'webrtc') {
+      this.webrtc.sendDc('view_payload', envelope as unknown as Record<string, unknown>);
+    } else {
+      this.hubRelayViewPush(envelope);
+    }
+  }
+
   private switchToHubRelay(): void {
     this.mode$.next('hub_relay');
     this.startRelayPoll();
@@ -92,12 +113,18 @@ export class WebrtcTransportService {
   private relayPoll(): void {
     const url = this.hubUrl;
     if (!url) return;
-    this.core.get<{ ok: boolean; messages: TransportMessage[]; cursor: string }>(
+    this.core.get<{ ok: boolean; messages: TransportMessage[]; cursor: string; view_messages?: RelayEnvelope[]; view_cursor?: string }>(
       `${url}/share-sessions/${this.sessionId}/view/poll?cursor=${encodeURIComponent(this.relayCursor)}`, url
     ).subscribe({
       next: r => {
         this.relayCursor = r?.cursor ?? this.relayCursor;
         for (const msg of r?.messages ?? []) this.message$.next(msg);
+        // T06: forward view-sync envelopes through the same message$ bus
+        // with type='view_payload' so the PairViewSyncService can subscribe
+        // uniformly regardless of transport.
+        for (const v of r?.view_messages ?? []) {
+          this.message$.next({ type: 'view_payload', session_id: this.sessionId, payload: v });
+        }
       },
       error: () => {},
     });
@@ -107,6 +134,24 @@ export class WebrtcTransportService {
     const url = this.hubUrl;
     if (!url) return;
     this.core.post(`${url}/share-sessions/${this.sessionId}/view/push`, msg, url)
+      .subscribe({ error: () => {} });
+  }
+
+  /**
+   * T06: Push a RelayEnvelope to the backend view-sync endpoint.
+   * Wraps the envelope in the backend-expected body shape
+   * ({ message_id, kind, base_hash, new_hash, width, height,
+   * encrypted_payload }) and respects _VIEW_PAYLOAD_MAX_BYTES.
+   */
+  private hubRelayViewPush(envelope: RelayEnvelope): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    if (envelope.encrypted_payload.length > 256 * 1024) {
+      // The backend rejects payloads over _VIEW_PAYLOAD_MAX_BYTES.
+      // We never send a payload that large; this is a safety net.
+      return;
+    }
+    this.core.post(`${url}/share-sessions/${this.sessionId}/view/push`, envelope, url)
       .subscribe({ error: () => {} });
   }
 }

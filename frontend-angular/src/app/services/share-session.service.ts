@@ -5,6 +5,8 @@ import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
 import { NetworkProfileService } from './network-profile.service';
+import { PermissionKey, PermissionSet } from './pair-view-sync.types';
+import { hasPermission, permissionsFromUiSelection } from './permission-labels';
 
 export interface ShareSession {
   id: string;
@@ -82,6 +84,31 @@ export class ShareSessionService implements OnDestroy {
 
   get isActive(): boolean { return !!this.state$.value.session; }
 
+  /**
+   * Permissions of the currently active session, normalised
+   * against the PermissionKey union. Returns null when no
+   * session is active. Backend may carry unknown keys (forward
+   * compat); they are filtered out here.
+   */
+  currentPermissions(): PermissionSet | null {
+    const session = this.state$.value.session;
+    if (!session) return null;
+    const raw = session.permissions || {};
+    const filtered: Record<PermissionKey, boolean> = {
+      chat: false, view_tui: false, cursor: false, control: false, artifact_view: false, annotation: false,
+    };
+    for (const [k, v] of Object.entries(raw)) {
+      if (k in filtered && typeof v === 'boolean') {
+        (filtered as Record<string, boolean>)[k] = v;
+      }
+    }
+    return Object.freeze(filtered);
+  }
+
+  hasPermission(key: PermissionKey): boolean {
+    return hasPermission(this.currentPermissions(), key);
+  }
+
   get currentUserId(): string {
     const p = this.userAuth.userPayload;
     return String(p?.sub || p?.preferred_username || p?.email || '');
@@ -96,14 +123,18 @@ export class ShareSessionService implements OnDestroy {
     return first === 'webrtc' ? 'webrtc' : 'hub_relay';
   }
 
-  createSession(title: string, permissions: Record<string, boolean>, expiresInSeconds: number | null): Promise<ShareSession> {
+  createSession(
+    title: string,
+    permissions: Partial<Record<PermissionKey, boolean>>,
+    expiresInSeconds: number | null,
+  ): Promise<ShareSession> {
     return new Promise((resolve, reject) => {
       const url = this.hubUrl;
       if (!url) { reject(new Error('no hub')); return; }
       const transport = this.preferredTransport();
       const body = {
         title,
-        permissions,
+        permissions: permissionsFromUiSelection(permissions),
         mode: transport === 'webrtc' ? 'p2p' : 'relay',
         transport,
         expires_at: expiresInSeconds ? Date.now() / 1000 + expiresInSeconds : null,
