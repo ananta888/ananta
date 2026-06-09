@@ -1,0 +1,37 @@
+{
+  "_comment": "LCG-028 — Profile snippet to enable LangChain + LangGraph adapters. Merge the providers block into your existing profile (e.g. config/profiles/<your-profile>.json). The defaults are secure (default-off, default-deny, dry_run, local-only).",
+  "providers": {
+    "langchain": {
+      "enabled": true,
+      "mode": "dry_run",
+      "model_provider_ref": "local.default",
+      "retriever_source": "codecompass",
+      "external_calls_allowed": false,
+      "allowed_tools": ["summarize_doc", "search_code"],
+      "human_in_loop_required_for": [],
+      "max_steps": 8,
+      "timeout_seconds": 60,
+      "max_tokens": null,
+      "secret_refs": []
+    },
+    "langgraph": {
+      "enabled": false,
+      "mode": "dry_run",
+      "model_provider_ref": "local.default",
+      "external_calls_allowed": false,
+      "allowed_graphs": [],
+      "human_in_loop_required_for": ["shell", "patch", "push", "delete", "network", "write"],
+      "max_iterations": 10,
+      "timeout_seconds": 120,
+      "checkpoint_policy": "local_ephemeral",
+      "secret_refs": []
+    }
+  },
+  "_decision_log": [
+    "LCG-001: CodeCompass is the only retriever source; LangChain/LangGraph are execution layers, not retrievers.",
+    "LCG-002: Default-deny policy: empty allowed_tools blocks everything (covered by WorkflowPolicyGate).",
+    "LCG-005: Per-task audit isolation via WorkflowAuditLog.snapshot(); shared log must not leak across tasks.",
+    "LCG-008: Live execution requires the matching framework extra (ananta[langchain] or ananta[langgraph]).",
+    "ADR-langchain-langgraph-worker-adapters.md: full rationale."
+  ]
+}

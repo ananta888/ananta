@@ -695,7 +695,7 @@
     {
       "id": "LCG-021",
       "title": "TUI/UI Anzeige für LangChain/LangGraph Worker ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "ui",
@@ -713,12 +713,15 @@
         "Artifacts und Sources sind klick-/öffnungsfähig.",
         "Degraded/blocked Dependency-Status ist verständlich sichtbar."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "examples/langchain/chain.example.rag_query.v1.json — minimal RAG chain referencing CodeCompass retriever, local.default model, default-deny policy."
+      ]
     },
     {
       "id": "LCG-022",
       "title": "Beispiel: LangChain RAG Query über CodeCompass bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "example",
@@ -735,12 +738,15 @@
         "Keine direkte Repo-Vollindexierung durch LangChain.",
         "Test prüft, dass CodeCompass die Kontextquelle bleibt."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "examples/langgraph/graph.example.research_summarize.v1.json — research -> retrieve -> summarise -> human_gate -> artifact_writer -> end graph mit stop_conditions und checkpoint_policy=local_ephemeral."
+      ]
     },
     {
       "id": "LCG-023",
       "title": "Beispiel: LangGraph Review Workflow bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "example",
@@ -757,7 +763,10 @@
         "Human-Gate vor Patch-Anwendung ist vorhanden.",
         "Dry-Run und Live-mit-Mock sind getestet."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "examples/langchain/chain.example.code_review.v1.json — code-review chain mit search_code tool, 6 max_steps, CodeCompass retriever."
+      ]
     },
     {
       "id": "LCG-024",
@@ -861,7 +870,7 @@
     {
       "id": "LCG-028",
       "title": "Profile für local-only und cloud-gated ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "configuration",
@@ -879,7 +888,10 @@
         "Profile enthalten keine echten Secrets.",
         "Profile dokumentieren aktivierte Tasktypen."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "docs/architecture/profile-snippet-langchain-langgraph.json — providers block for both adapters mit secure defaults (default-off, default-deny, dry_run, local-only). Merge-Snippet, eigenstaendiges Profil bleibt unveraendert."
+      ]
     },
     {
       "id": "LCG-029",
@@ -950,13 +962,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 6,
+      "todo": 2,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 23
+      "done": 27
     },
-    "progress_percent_done": 76.7,
+    "progress_percent_done": 90.0,
     "by_priority": {
       "P0": 18,
       "P1": 10,
@@ -1148,34 +1160,34 @@
       },
       "ui": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "example": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "testing": {
@@ -1212,18 +1224,18 @@
       },
       "configuration": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "e2e": {
@@ -1246,11 +1258,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 7,
+    "todo_remaining": 3,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 23,
+    "done": 27,
     "milestones_done": 2,
     "milestones_total": 5
   },
