@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent.models.langgraph_provider_config import LangGraphProviderConfig
+from agent.providers.lc_lg import LangGraphProviderConfig
 from worker.adapters.workflow_adapter_base import (
     DryRunResult, WorkerError, WorkflowAdapterDescriptor, WorkflowArtifactResult,
 )

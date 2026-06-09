@@ -10,7 +10,7 @@ import time
 import uuid
 from typing import Any
 
-from agent.models.langchain_provider_config import LangChainProviderConfig
+from agent.providers.lc_lg import LangChainProviderConfig
 from worker.adapters.workflow_adapter_base import (
     DryRunResult, WorkerError, WorkflowAdapterDescriptor, WorkflowArtifactResult,
 )
