@@ -14,7 +14,12 @@ _HIGH_RISK_TOOLS = frozenset({
 
 
 class WorkflowPolicyGate:
-    """Stateful policy gate; accumulates decisions for audit export."""
+    """Stateful policy gate; accumulates decisions for audit export.
+
+    Default is DENY. Tools must be explicitly listed in ``allowed_tools``
+    to pass. An empty ``allowed_tools`` set means *nothing* is allowed —
+    not *everything*, which would invert the secure default.
+    """
 
     def __init__(
         self,
@@ -28,15 +33,29 @@ class WorkflowPolicyGate:
         self._human_required: set[str] = human_required_actions or set()
         self._log: list[dict[str, Any]] = []
 
+    @property
+    def human_required_actions(self) -> frozenset[str]:
+        """Read-only view of actions that always require human approval."""
+        return frozenset(self._human_required)
+
     def check_tool(self, tool: str) -> dict[str, Any]:
+        # 1. Hard-deny list always wins.
         if tool in _ALWAYS_BLOCKED_TOOLS:
             decision = {"tool": tool, "allowed": False, "reason": "always_blocked"}
-        elif not self._allowed_tools or tool in self._allowed_tools:
+        # 2. Empty allowlist = nothing allowed (default-deny).
+        elif not self._allowed_tools:
+            decision = {"tool": tool, "allowed": False, "reason": "default_deny_empty_allowlist"}
+        # 3. Otherwise tool must be in the allowlist.
+        elif tool in self._allowed_tools:
             decision = {"tool": tool, "allowed": True, "reason": "allowlisted"}
         else:
             decision = {"tool": tool, "allowed": False, "reason": "not_in_allowlist"}
         self._log.append(decision)
         return decision
+
+    def requires_human(self, action: str) -> bool:
+        """Public accessor for the human-required predicate (DIP-friendly)."""
+        return action in self._human_required or action in _HIGH_RISK_TOOLS
 
     def check_network(self, url: str) -> dict[str, Any]:
         if not self._external_calls_allowed:
@@ -45,9 +64,6 @@ class WorkflowPolicyGate:
             decision = {"resource": url, "allowed": True, "reason": "external_calls_allowed"}
         self._log.append(decision)
         return decision
-
-    def requires_human(self, action: str) -> bool:
-        return action in self._human_required or action in _HIGH_RISK_TOOLS
 
     def decisions_log(self) -> list[dict[str, Any]]:
         return list(self._log)

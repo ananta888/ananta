@@ -93,6 +93,10 @@ class LangGraphAdapter:
 
     def dry_run(self, *, task_id: str, task_type: str,
                  payload: dict[str, Any]) -> DryRunResult:
+        # Discard the previous task's events so this task's audit log
+        # starts fresh. dry_run's own events are captured below before
+        # return and attached to the result.
+        self._audit.snapshot()
         self._audit.log("dry_run_start", task_id=task_id, task_type=task_type)
         result = DryRunResult(
             adapter_id="adapter.langgraph",
@@ -120,7 +124,7 @@ class LangGraphAdapter:
         human_gate_nodes = [n["id"] for n in nodes if n.get("kind") == "human_gate"]
         high_risk_nodes = [
             n["id"] for n in nodes
-            if n.get("kind") in ("tool",) and n.get("tool_ref") in self._policy._human_required
+            if n.get("kind") == "tool" and self._policy.requires_human(n.get("tool_ref", ""))
         ]
 
         # External calls
@@ -149,12 +153,19 @@ class LangGraphAdapter:
 
         self._audit.log("dry_run_complete", task_id=task_id,
                          blocked=result.blocked, approval_required=result.approval_required)
+        # Attach this task's events to the result, then clear for the
+        # next task.
+        result.metadata["dry_run_audit_trace"] = self._audit.snapshot()
         return result
 
     # ── Live execute (LCG-008) ────────────────────────────────────────────────
 
     def execute(self, *, task_id: str, task_type: str,
                  payload: dict[str, Any]) -> WorkflowArtifactResult:
+        # Atomic snapshot so execute gets a clean audit log even if
+        # dry_run was called first. dry_run's events are already in
+        # metadata.dry_run_audit_trace of the DryRunResult.
+        self._audit.snapshot()
         self._audit.log("execute_start", task_id=task_id, task_type=task_type)
 
         if not self._config.is_live():
@@ -260,7 +271,7 @@ class LangGraphAdapter:
             ),
             artifacts=state.artifacts,
             sources=state.context_sources,
-            execution_trace=self._audit.entries(),
+            execution_trace=self._audit.snapshot(),
             policy_decisions=self._policy.decisions_log(),
         )
 

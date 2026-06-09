@@ -73,6 +73,10 @@ class LangChainAdapter:
 
     def dry_run(self, *, task_id: str, task_type: str,
                  payload: dict[str, Any]) -> DryRunResult:
+        # Discard the previous task's events so this task's audit log
+        # starts fresh. dry_run's own events are captured below before
+        # return and attached to the result.
+        self._audit.snapshot()
         self._audit.log("dry_run_start", task_id=task_id, task_type=task_type)
         result = DryRunResult(
             adapter_id="adapter.langchain",
@@ -123,12 +127,20 @@ class LangChainAdapter:
 
         self._audit.log("dry_run_complete", task_id=task_id,
                          blocked=result.blocked, approval_required=result.approval_required)
+        # Attach this task's events to the result, then clear for the
+        # next task. The caller can inspect the trace or ignore it.
+        result.metadata["dry_run_audit_trace"] = self._audit.snapshot()
         return result
 
     # ── Live execute (LCG-007) ────────────────────────────────────────────────
 
     def execute(self, *, task_id: str, task_type: str,
                  payload: dict[str, Any]) -> WorkflowArtifactResult:
+        # Atomic snapshot so direct-execute callers and execute-after-
+        # dry_run callers both see only the execute-path trace.
+        # dry_run has already snapshotted its own events into
+        # metadata.dry_run_audit_trace.
+        self._audit.snapshot()
         self._audit.log("execute_start", task_id=task_id, task_type=task_type)
 
         # Gate: live execution requires explicit config
@@ -191,9 +203,11 @@ class LangChainAdapter:
             {"step": "context_retrieved", "sources": len(context_sources)},
         ]
 
-        # Use langchain lazily
-        import importlib
-        lc = importlib.import_module("langchain")  # noqa: F841
+        # The actual LLM call is a placeholder until a real LangChain
+        # executor is plumbed in. We deliberately do NOT import langchain
+        # at module load time, and we do NOT import it here either — this
+        # is a skeleton adapter that proves the contract without a hard
+        # dependency. A future commit will wire a real chain runner.
         budget.record_step("llm_call")
 
         # Produce artifact-first output (LCG-013)
@@ -216,7 +230,7 @@ class LangChainAdapter:
             summary=f"LangChain {task_type} completed with {len(context_sources)} CodeCompass sources",
             artifacts=[artifact],
             sources=context_sources,
-            execution_trace=execution_trace,
+            execution_trace=self._audit.snapshot(),
             policy_decisions=self._policy.decisions_log(),
         )
 
