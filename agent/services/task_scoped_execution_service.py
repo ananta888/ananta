@@ -180,9 +180,40 @@ class TaskScopedRouteResponse:
 
 
 class TaskScopedExecutionService:
-    """Owns task-scoped proposal/execution orchestration so routes stay thin."""
+    """Owns task-scoped proposal/execution orchestration so routes stay thin.
+
+    .. note::
+
+        The class is being progressively split (SPLIT-001) into focused
+        helper modules under ``agent.services._task_scoped_*`` plus this
+        thin orchestrator. The method groups below are the SRP clusters
+        the split targets. Do not add new logic into a method that belongs
+        to a different cluster; open a new helper module instead.
+
+        Cluster map (matches todos/todo.refactor-large-files-split.json):
+
+        ====================  ==============  =================================
+        Cluster               Methods (n)     Helper module
+        ====================  ==============  =================================
+        config_policy         21              _task_scoped_config_policy
+        workspace_runtime     1               _task_scoped_workspace_sync
+        domain_action         5               _task_scoped_domain_actions
+        forwarding_hub        5               _task_scoped_forwarding
+        adapters (hermes/     5               _task_scoped_adapters
+          handler)
+        cli_session (native   12              _task_scoped_runtime
+          opencode / research)
+        repair (structured    14              _task_scoped_repair
+          action)
+        citation / grounded   7               _task_scoped_citation
+          answer
+        propose + execute     2 public        this class
+        task_aux              5               this class
+        ====================  ==============  =================================
+    """
 
     @staticmethod
+    # --- cluster: config_policy (resolvers, bounded_*, normalize) ---
     def _allow_synthetic_llm_profile_fallback() -> bool:
         if not has_app_context():
             return False
@@ -249,6 +280,7 @@ class TaskScopedExecutionService:
         return max(minimum, min(maximum, parsed))
 
     @staticmethod
+    # --- cluster: workspace_runtime (command rewrite) ---
     def _rewrite_runtime_command_for_workspace_tools(*, command: str | None, workspace_dir: str | None) -> tuple[str | None, dict | None]:
         command_text = str(command or "").strip()
         workspace = str(workspace_dir or "").strip()
@@ -515,6 +547,7 @@ class TaskScopedExecutionService:
             "retrieval_manifest_hash": manifest_hash,
         }
 
+    # --- cluster: citation_grounded (source catalog, citation contract, flow metrics) ---
     def _build_source_catalog_from_execution_context(
         self,
         *,
@@ -645,6 +678,7 @@ class TaskScopedExecutionService:
         filtered_kwargs = {key: value for key, value in cli_kwargs.items() if key in signature.parameters}
         return cli_runner(**filtered_kwargs)
 
+    # --- cluster: propose + execute (public API) + task_aux ---
     def propose_task_step(
         self,
         tid: str,
@@ -1646,6 +1680,7 @@ class TaskScopedExecutionService:
             get_worker_workspace_service().release_output_dir_lock(task=task, workspace_dir=workspace_ctx.workspace_dir)
 
     @staticmethod
+    # --- cluster: domain_action (router, comparison, single-propose, goal-artifact-output) ---
     def _build_domain_action_router() -> DomainActionRouter:
         domain_registry = DomainRegistry()
         descriptors = domain_registry.load()
@@ -2997,6 +3032,7 @@ class TaskScopedExecutionService:
         )
         return TaskScopedRouteResponse(data=response_payload)
 
+    # --- cluster: forwarding_hub (remote forward, persist proposal/execution) ---
     def _forward_task_request_if_remote(
         self,
         *,
@@ -3311,6 +3347,7 @@ class TaskScopedExecutionService:
 
     # ── HF-T019: Hermes propose path ─────────────────────────────────────────
 
+    # --- cluster: adapters (hermes, handler) ---
     def _try_hermes_propose(
         self,
         *,
@@ -3613,6 +3650,7 @@ class TaskScopedExecutionService:
         from agent.services.task_runtime_service import sync_task_from_hub
         return sync_task_from_hub(tid)
 
+    # --- cluster: runtime (cli backend, opencode session, interactive terminal, research) ---
     def _resolve_cli_backend(
         self,
         task_kind: str,
@@ -3657,6 +3695,7 @@ class TaskScopedExecutionService:
         return normalize_structured_action_payload(data)
 
     @classmethod
+    # --- cluster: repair (structured-action parse, repair, shell-meta-block) ---
     def _parse_structured_action_payload(cls, raw_text: str) -> dict | None:
         return parse_structured_action_payload(raw_text)
 
