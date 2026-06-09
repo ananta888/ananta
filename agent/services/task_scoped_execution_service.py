@@ -112,63 +112,12 @@ def build_hermes_context_blocks(
     request_data: object,
     research_context: object,
 ) -> list:
-    """Build ContextBlock list from task + research context for HermesAdapter. HF-T020."""
-    from worker.core.context_resolver import ContextBlock, ContextSensitivity
-
-    blocks: list[ContextBlock] = []
-
-    # Task description / prompt (P0 — never dropped)
-    task_description = str(
-        getattr(request_data, "prompt", None)
-        or (task or {}).get("description")
-        or ""
-    ).strip()
-    if task_description:
-        blocks.append(ContextBlock(
-            source_type="task_description",
-            origin_id=str((task or {}).get("id") or "task"),
-            provenance="task_scoped_execution_service:task_description",
-            sensitivity=ContextSensitivity.project_internal,
-            content=task_description,
-            priority=0,
-        ))
-
-    # Research context prompt section
-    rc = research_context if isinstance(research_context, dict) else {}
-    prompt_section = str(rc.get("prompt_section") or "").strip()
-    if prompt_section:
-        blocks.append(ContextBlock(
-            source_type="research_context",
-            origin_id="research_context:prompt_section",
-            provenance="task_scoped_execution_service:research_context",
-            sensitivity=ContextSensitivity.project_internal,
-            content=prompt_section,
-            priority=10,
-        ))
-
-    # Additional context from request_data.context_blocks if present
-    raw_blocks = getattr(request_data, "context_blocks", None) or []
-    for idx, raw in enumerate(raw_blocks if isinstance(raw_blocks, list) else []):
-        if not isinstance(raw, dict):
-            continue
-        content = str(raw.get("content") or "").strip()
-        if not content:
-            continue
-        sensitivity_raw = str(raw.get("sensitivity") or ContextSensitivity.project_internal.value)
-        try:
-            sensitivity = ContextSensitivity(sensitivity_raw)
-        except ValueError:
-            sensitivity = ContextSensitivity.project_internal
-        blocks.append(ContextBlock(
-            source_type=str(raw.get("source_type") or "external_context"),
-            origin_id=str(raw.get("origin_id") or f"context_block_{idx}"),
-            provenance="task_scoped_execution_service:request_context_blocks",
-            sensitivity=sensitivity,
-            content=content,
-            priority=int(raw.get("priority") or 50),
-        ))
-
-    return blocks
+    # SPLIT-001k: implementation lives in agent.services._task_scoped_hermes_context.
+    # Re-exported here for backward compat (12-month deprecation window).
+    from agent.services._task_scoped_hermes_context import (
+        build_hermes_context_blocks as _impl,
+    )
+    return _impl(task=task, request_data=request_data, research_context=research_context)
 
 
 @dataclass(frozen=True)
