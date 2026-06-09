@@ -24,6 +24,7 @@ def get_adapter(kind: str) -> WorkflowAdapter | None:
 
 
 def list_adapters() -> list[WorkflowAdapterDescriptor]:
+    _load_defaults()
     return [a.descriptor() for a in _REGISTRY.values()]
 
 

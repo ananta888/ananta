@@ -81,6 +81,7 @@ class WorkflowArtifactResult:
     task_id: str
     status: str   # success | partial | failed | blocked
     summary: str
+    task_type: str = ""
     artifacts: list[dict[str, Any]] = field(default_factory=list)
     sources: list[dict[str, Any]] = field(default_factory=list)
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
@@ -94,6 +95,7 @@ class WorkflowArtifactResult:
             "schema": "workflow_artifact_result.v1",
             "adapter_id": self.adapter_id,
             "task_id": self.task_id,
+            "task_type": self.task_type,
             "status": self.status,
             "summary": self.summary,
             "artifacts": self.artifacts,
