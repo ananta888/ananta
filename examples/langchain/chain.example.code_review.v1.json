@@ -1,0 +1,31 @@
+{
+  "schema": "langchain-chain-descriptor.v1",
+  "id": "chain.example.code_review.v1",
+  "purpose": "Reference code-review chain: retrieve context + diff -> LLM critique -> artifact.",
+  "version": "1.0",
+  "inputs": [
+    {"name": "diff", "type": "str", "required": true, "description": "Unified diff to review."},
+    {"name": "language", "type": "str", "required": false, "description": "Source language hint."}
+  ],
+  "outputs": [
+    {"name": "review", "type": "str", "artifact_first": true}
+  ],
+  "model_ref": "local.default",
+  "retriever_ref": "codecompass",
+  "tools": ["search_code"],
+  "policies": {
+    "external_calls_allowed": false,
+    "requires_approval": false,
+    "artifact_first": true,
+    "max_steps": 6,
+    "timeout_seconds": 90
+  },
+  "artifact_outputs": [
+    {"name": "review", "artifact_type": "review", "description": "Inline-commented review with severity tags."}
+  ],
+  "metadata": {
+    "author": "Ananta",
+    "category": "reference",
+    "minimum_ananta_version": "0.7.0"
+  }
+}

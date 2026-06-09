@@ -1,0 +1,31 @@
+{
+  "schema": "langchain-chain-descriptor.v1",
+  "id": "chain.example.rag_query.v1",
+  "purpose": "Reference RAG chain: CodeCompass -> prompt -> local LLM -> artifact.",
+  "version": "1.0",
+  "inputs": [
+    {"name": "query", "type": "str", "required": true, "description": "User question."},
+    {"name": "top_k", "type": "int", "required": false, "description": "How many context chunks to retrieve."}
+  ],
+  "outputs": [
+    {"name": "answer", "type": "str", "artifact_first": true}
+  ],
+  "model_ref": "local.default",
+  "retriever_ref": "codecompass",
+  "tools": [],
+  "policies": {
+    "external_calls_allowed": false,
+    "requires_approval": false,
+    "artifact_first": true,
+    "max_steps": 8,
+    "timeout_seconds": 60
+  },
+  "artifact_outputs": [
+    {"name": "answer", "artifact_type": "report", "description": "Markdown answer with citations."}
+  ],
+  "metadata": {
+    "author": "Ananta",
+    "category": "reference",
+    "minimum_ananta_version": "0.7.0"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "schema": "langgraph-graph-descriptor.v1",
+  "graph_id": "graph.example.research_summarize.v1",
+  "description": "Reference graph: research a topic (human approves), summarise, write artifact.",
+  "version": "1.0",
+  "entrypoint": "n_research",
+  "nodes": [
+    {
+      "id": "n_research",
+      "kind": "llm",
+      "description": "Generate research outline and search queries."
+    },
+    {
+      "id": "n_retrieve",
+      "kind": "retriever",
+      "description": "Pull relevant code/docs from CodeCompass."
+    },
+    {
+      "id": "n_summarize",
+      "kind": "llm",
+      "description": "Synthesise findings into a summary."
+    },
+    {
+      "id": "n_approve",
+      "kind": "human_gate",
+      "description": "Human reviews the summary before artifact write."
+    },
+    {
+      "id": "n_write",
+      "kind": "artifact_writer",
+      "description": "Persist summary as artifact."
+    },
+    {
+      "id": "n_end",
+      "kind": "end"
+    }
+  ],
+  "edges": [
+    {"from": "n_research", "to": "n_retrieve"},
+    {"from": "n_retrieve", "to": "n_summarize"},
+    {"from": "n_summarize", "to": "n_approve"},
+    {"from": "n_approve", "to": "n_write"},
+    {"from": "n_write", "to": "n_end"}
+  ],
+  "stop_conditions": {
+    "max_iterations": 5,
+    "stop_nodes": ["n_end"],
+    "timeout_seconds": 300
+  },
+  "checkpoint_policy": "local_ephemeral",
+  "human_gates": ["n_approve"],
+  "artifact_outputs": [
+    {"name": "summary", "artifact_type": "report", "produced_by_node": "n_write"}
+  ],
+  "policies": {
+    "external_calls_allowed": false,
+    "artifact_first": true,
+    "allowed_tools": ["search_code", "summarize_doc"]
+  },
+  "metadata": {
+    "author": "Ananta",
+    "category": "reference",
+    "minimum_ananta_version": "0.7.0"
+  }
+}
