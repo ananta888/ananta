@@ -110,7 +110,7 @@
       "priority": "P0",
       "title": "agent/services/task_scoped_execution_service.py aufteilen (4783 → Ziel < 1500 Zeilen)",
       "file": "agent/services/task_scoped_execution_service.py",
-      "current_lines": 1347,
+      "current_lines": 1361,
       "status": "done",
       "sub_splits": {
         "001a": {
@@ -180,6 +180,41 @@
         "001o": {
           "title": "extract execute workspace path",
           "commit": "f81351b2",
+          "status": "done"
+        },
+        "001p": {
+          "title": "config_policy inline resolvers (5 methods) — synthetic-llm fallback flag, interactive-terminal session marker, default_model, resolve_requested_model, resolve_task_propose_timeout",
+          "commit": "029f1a9d",
+          "status": "done"
+        },
+        "001q": {
+          "title": "repair interactive-timeout detector (1 method) — is_interactive_timeout_like_failure",
+          "commit": "029f1a9d",
+          "status": "done"
+        },
+        "001r": {
+          "title": "cli-invocation helper (1 method) — invoke_cli_runner",
+          "commit": "c09d75b3",
+          "status": "done"
+        },
+        "001s": {
+          "title": "task-lookup helpers (2 methods) — require_task, maybe_sync_task_from_hub",
+          "commit": "c09d75b3",
+          "status": "done"
+        },
+        "001t": {
+          "title": "runtime CLI backend resolver (1 method) — resolve_task_cli_backend",
+          "commit": "7d9337c1",
+          "status": "done"
+        },
+        "001u": {
+          "title": "cli-invocation output helpers (2 methods) — coalesce_cli_output, normalize_tool_calls",
+          "commit": "7d9337c1",
+          "status": "done"
+        },
+        "001v": {
+          "title": "workspace-runtime command rewriter (1 method) — rewrite_runtime_command_for_workspace_tools",
+          "commit": "888ae99d",
           "status": "done"
         }
       },
