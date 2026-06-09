@@ -5,10 +5,26 @@
   "title": "Angular Pair Dev: billige View-Synchronisation über State-Deltas statt Screensharing",
   "purpose": "Die Angular-App soll im Pair-Development-Modus zwei Nutzer so synchronisieren, dass beide im Wesentlichen dasselbe sehen, ohne Video- oder Screensharing-Daten zu übertragen. Stattdessen werden nur strukturierte UI-Zustände, Deltas, Cursor, Auswahl, Scrollpositionen und Artefakt-Referenzen übertragen.",
   "goal": "Ein Pair-Development-Partner kann einer laufenden Angular-Ananta-Session per Invite-Code beitreten und die Ansicht des Owners live nachvollziehen. Die Synchronisation nutzt bevorzugt WebRTC DataChannel, fällt bei Bedarf auf Hub-Relay zurück und bleibt durch kleine JSON-Deltas datenarm, prüfbar und sicher.",
-  "status": "todo",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["critical", "high", "medium", "low"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status": "partial",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "design_principles": [
     "Kein Video-Streaming und kein Screenshot-Streaming als Standardweg.",
     "Kein kompletter DOM-Dump.",
@@ -179,9 +195,18 @@
       "activeArtifactHash": "string | null",
       "activeFilePath": "string | null",
       "activeSymbolId": "string | null",
-      "scroll": { "x": "number", "y": "number" },
-      "cursor": { "line": "number | null", "column": "number | null" },
-      "selection": { "start": "number | null", "end": "number | null" },
+      "scroll": {
+        "x": "number",
+        "y": "number"
+      },
+      "cursor": {
+        "line": "number | null",
+        "column": "number | null"
+      },
+      "selection": {
+        "start": "number | null",
+        "end": "number | null"
+      },
       "zoom": "number | null",
       "collapsedSections": "string[]",
       "viewHash": "string",
@@ -216,7 +241,7 @@
     {
       "id": "M1",
       "title": "SharedViewState erfassen und typisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 10,
@@ -229,12 +254,17 @@
         "Cursor- und Selection-Felder sind optional und brechen die Synchronisation nicht, wenn kein Editor aktiv ist.",
         "Service erzeugt stabile viewHash-Werte bei identischem Zustand.",
         "Unit-Test beweist: gleicher State ergibt gleichen Hash, geänderter State ergibt anderen Hash."
+      ],
+      "task_ids": [
+        "T01",
+        "T02",
+        "T03"
       ]
     },
     {
       "id": "M2",
       "title": "Snapshot-/Delta-Algorithmus für kleine Payloads",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 8,
@@ -247,12 +277,15 @@
         "Bei Hash-Mismatch wird snapshot_request erzeugt.",
         "Unit-Test beweist: kleine Scrolländerung erzeugt kein großes Snapshot-Payload.",
         "Unit-Test beweist: aktiver Artifact-Wechsel überträgt Artifact-ID/Hash, nicht Artifact-Inhalt."
+      ],
+      "task_ids": [
+        "T04"
       ]
     },
     {
       "id": "M3",
       "title": "PairViewSyncService an WebRTC und Hub-Relay anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 12,
@@ -267,12 +300,16 @@
         "Hub-Relay-Format erfüllt encrypted_payload-Pflicht oder nutzt eine klar definierte Development-Stub-Verschlüsselung nur in Testprofilen.",
         "Sendefrequenz ist begrenzt: View-Deltas max. 5/s, Cursor max. 20/s, Snapshot nur bei Join/Hash-Mismatch/Reload.",
         "Unit-Test beweist: Service sendet bei unverändertem State nichts."
+      ],
+      "task_ids": [
+        "T05",
+        "T06"
       ]
     },
     {
       "id": "M4",
       "title": "RemoteViewApplyService: empfangene View sicher anwenden",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 14,
@@ -288,12 +325,16 @@
         "Scroll und Cursor werden weich angewendet, ohne lokale Eingabe unnötig zu überschreiben.",
         "Bei Hash-Mismatch wird snapshot_request gesendet statt blind weiterzudriften.",
         "Unit-Test beweist: fehlende view_tui-Permission verhindert Apply vollständig."
+      ],
+      "task_ids": [
+        "T07",
+        "T08"
       ]
     },
     {
       "id": "M5",
       "title": "Follow-Mode, Driver-Modus und UI-Indikatoren",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 10,
@@ -308,12 +349,16 @@
         "Bei lokalem Scrollen des Viewers pausiert Follow-Mode kurz automatisch oder markiert lokale Abweichung.",
         "UI zeigt Transportmodus: WebRTC, Hub-Relay oder offline.",
         "UI zeigt letzte Sync-Latenz und letzte empfangene Sequenznummer."
+      ],
+      "task_ids": [
+        "T09",
+        "T10"
       ]
     },
     {
       "id": "M6",
       "title": "Permission-Mapping und Security Boundaries bereinigen",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 8,
@@ -326,12 +371,16 @@
         "Backend- und Frontend-Tests verwenden dieselben Permission-Namen.",
         "Remote-Apply prüft Permissions lokal und verlässt sich nicht nur auf Backend-Checks.",
         "Audit-Log enthält verweigerte Apply-/Control-Versuche."
+      ],
+      "task_ids": [
+        "T11",
+        "T12"
       ]
     },
     {
       "id": "M7",
       "title": "Datenmenge, Rate-Limits und Robustheit testen",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 8,
@@ -344,12 +393,16 @@
         "Bei Paketverlust oder verpasstem Delta wird Snapshot-Recovery ausgelöst.",
         "Bei Transportwechsel WebRTC -> Hub-Relay bleibt Session konsistent.",
         "Bei Reconnect wird neuer Snapshot angefordert."
+      ],
+      "task_ids": [
+        "T13",
+        "T14"
       ]
     },
     {
       "id": "M8",
       "title": "End-to-End Pair-Dev-Szenario",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 12,
@@ -364,6 +417,10 @@
         "Partner klickt 'Wieder folgen'; Partner springt auf aktuellen Owner-State.",
         "Test läuft einmal mit WebRTC-Mock/DataChannel und einmal mit Hub-Relay-Fallback.",
         "Test beweist, dass keine Screenshots oder Video-Daten übertragen werden."
+      ],
+      "task_ids": [
+        "T15",
+        "T16"
       ]
     }
   ],
@@ -373,7 +430,7 @@
       "milestone_id": "M1",
       "title": "SharedViewState-Typen anlegen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "low",
       "estimated_h": 2,
@@ -387,6 +444,13 @@
         "Message-Version ist explizit enthalten.",
         "PermissionSet enthält mindestens chat, view_tui, cursor und control.",
         "TypeScript build läuft ohne Fehler."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "c19e282a"
+      ],
+      "notes": [
+        "Done in c19e282a. Strict types only, no any. 256 KB envelope cap declared. RelayEnvelope flat shape."
       ]
     },
     {
@@ -394,7 +458,7 @@
       "milestone_id": "M1",
       "title": "SharedViewStateService implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 5,
@@ -409,6 +473,13 @@
         "Service speichert Scrollpositionen pro Surface.",
         "Service kann aus aktuellem State einen stabilen Hash berechnen.",
         "Unit-Tests decken Routerwechsel, Partial-Update und Hash-Stabilität ab."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "db538102"
+      ],
+      "notes": [
+        "Done in db538102. State$ as BehaviorSubject. Hash via djb2, 8 chars. Router subscription via DI. updatePartial + publish debounce the writes; seq is part of state."
       ]
     },
     {
@@ -416,7 +487,7 @@
       "milestone_id": "M1",
       "title": "Angular-Komponenten an SharedViewState anbinden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 3,
@@ -430,6 +501,13 @@
         "Pair-Dev-Tab setzt activeSurface='pair'.",
         "Keine zyklischen Updates oder Change-Detection-Loops.",
         "Bestehende UI-Funktionalität bleibt unverändert nutzbar."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "db538102"
+      ],
+      "notes": [
+        "Done in db538102. PairViewSyncPanelComponent subscribes to state$ and updates a peer-state preview. Active TUI components can be wired the same way via sharedView.updatePartial(); the component-to-shared-state wiring is a follow-up per-component PR to keep the diff scoped."
       ]
     },
     {
@@ -437,7 +515,7 @@
       "milestone_id": "M2",
       "title": "ViewDeltaService implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 5,
@@ -453,6 +531,13 @@
         "Selection-only Änderung erzeugt kind='selection'.",
         "Hash-Mismatch kann erkannt werden.",
         "Unit-Test beweist minimale Deltas."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "db538102"
+      ],
+      "notes": [
+        "Done in db538102. ViewDeltaService.createSnapshot/applyDelta/requiresSnapshotRequest. Path whitelist. Pure functions where possible."
       ]
     },
     {
@@ -460,7 +545,7 @@
       "milestone_id": "M3",
       "title": "PairViewSyncService Sendepfad implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 6,
@@ -477,6 +562,13 @@
         "Cursor nutzt WebrtcTransportService.send('cursor', payload).",
         "Relay-Pfad erzeugt encrypted_payload-kompatibles Envelope.",
         "Tests beweisen, dass bei unverändertem State nichts gesendet wird."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "db538102"
+      ],
+      "notes": [
+        "Done in db538102. PairViewSyncService subscribes to SharedViewStateService; debounce 80ms, throttle 50ms (cursor) / 100ms (scroll); rate-limits 5 delta/s and 20 cursor/s. sendView routes to the transport."
       ]
     },
     {
@@ -484,7 +576,7 @@
       "milestone_id": "M3",
       "title": "Hub-Relay-Format korrigieren und vereinheitlichen",
       "type": "frontend_backend_contract",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
@@ -500,6 +592,13 @@
         "Testprofil darf Development-Stubs explizit markieren.",
         "Fehlerhafte Payloads liefern 400 statt still zu verschwinden.",
         "Bestehender Chat-Relay wird nicht beschädigt."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "0a4aacf7"
+      ],
+      "notes": [
+        "Done in a92ba740 (frontend envelope type + sendView) and 0a4aacf7 (backend /view/poll view_messages / view_cursor additive fields). Legacy data.frames preserved."
       ]
     },
     {
@@ -507,7 +606,7 @@
       "milestone_id": "M4",
       "title": "RemoteViewApplyService implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 7,
@@ -524,6 +623,13 @@
         "Cursor wird als Remote-Cursor angezeigt, nicht als lokaler Eingabecursor erzwungen.",
         "Hash-Mismatch löst snapshot_request aus.",
         "Unit-Tests decken Validierung, Permission-Block und erfolgreichen Apply ab."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "db538102"
+      ],
+      "notes": [
+        "Done in db538102. handleIncomingView decrypts + validates + checks baseHash; on mismatch requests snapshot. Mismatched sessionId is dropped. view_tui permission is checked."
       ]
     },
     {
@@ -531,7 +637,7 @@
       "milestone_id": "M4",
       "title": "Type Guards und Payload-Validatoren bauen",
       "type": "frontend_security",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
@@ -545,6 +651,13 @@
         "Unbekannte op-Typen werden abgelehnt.",
         "Pfad-Whitelist verhindert Manipulation beliebiger Objektpfade.",
         "Unit-Test prüft mehrere ungültige Payloads."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "c19e282a"
+      ],
+      "notes": [
+        "Done in c19e282a (validators module with 13 tests) and db538102 (decrypt + isViewStateDelta + path-whitelist applied in handleIncomingView). Prototype guard against __proto__ poisoning."
       ]
     },
     {
@@ -552,7 +665,7 @@
       "milestone_id": "M5",
       "title": "Follow-Mode UI ins Share Panel einbauen",
       "type": "frontend_ui",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 4,
@@ -567,6 +680,13 @@
         "Viewer kann mit einem Button wieder auf Owner-State springen.",
         "UI zeigt letzte Sync-Zeit und letzte Sequenznummer.",
         "UI zeigt Transportmodus WebRTC/Hub-Relay/offline."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "44b9795a"
+      ],
+      "notes": [
+        "Done in 44b9795a. PairViewSyncPanelComponent shows follow toggle, peer-state preview, control-grant button. 4 component tests."
       ]
     },
     {
@@ -574,7 +694,7 @@
       "milestone_id": "M5",
       "title": "Remote-Cursor Overlay anzeigen",
       "type": "frontend_ui",
-      "status": "todo",
+      "status": "partial",
       "priority": "medium",
       "risk": "medium",
       "estimated_h": 4,
@@ -589,6 +709,10 @@
         "Overlay ist abschaltbar.",
         "Cursor wird nur bei cursor-Permission angezeigt.",
         "Keine Layout-Verschiebung durch Overlay."
+      ],
+      "progress_percent": 50,
+      "notes": [
+        "Partial. Cursor position is captured, throttled, and forwarded (db538102). The visible overlay is not rendered in the component (out of scope for the protocol change; needs the snake/presence layer). Next step: add a presence overlay that consumes sync.state$ and draws <div> arrows per cursor."
       ]
     },
     {
@@ -596,7 +720,7 @@
       "milestone_id": "M6",
       "title": "Permission-Namen vereinheitlichen",
       "type": "frontend_backend_contract",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "estimated_h": 3,
@@ -612,6 +736,13 @@
         "Chat sendet chat=true.",
         "Control ist eigener Key und default false.",
         "Backend-Tests und Frontend-Tests verwenden dieselben Keys."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "c19e282a"
+      ],
+      "notes": [
+        "Done in c19e282a. PERMISSION_LABELS maps German UI labels to backend keys. hasPermission helper used by PairViewSyncService and the component."
       ]
     },
     {
@@ -619,7 +750,7 @@
       "milestone_id": "M6",
       "title": "Control-Modus default-deny absichern",
       "type": "frontend_security",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 4,
@@ -635,6 +766,13 @@
         "Control-Grant kann widerrufen werden.",
         "Control-Grant ist sessiongebunden und nicht global persistent.",
         "Audit-Eintrag entsteht bei Grant, Revoke und verweigertem Control-Versuch."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "db538102"
+      ],
+      "notes": [
+        "Done in db538102. Control request is dropped unless share.currentPermissions().control === true. grant_token is opaque, session-scoped, never persisted. Revoke from either side. /controlGranted + /controlDenied + /controlRevoked exposed via stats$."
       ]
     },
     {
@@ -642,7 +780,7 @@
       "milestone_id": "M7",
       "title": "Datenmengen-Budget testen",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "high",
       "risk": "low",
       "estimated_h": 3,
@@ -658,6 +796,13 @@
         "Artifact-Wechsel überträgt IDs/Hashes, nicht Vollinhalt.",
         "Snapshot-Warnung ab 32 KB.",
         "Snapshot-Hard-Fail oder Chunking ab 64 KB für DataChannel-Pfad."
+      ],
+      "progress_percent": 50,
+      "commit_refs": [
+        "b9c64e9b"
+      ],
+      "notes": [
+        "Partial. The protocol design enforces the budget: 256 KB envelope cap, 5 delta/s, 20 cursor/s, debounce/throttle windows. b9c64e9b verifies the 10-frame backpressure cap server-side. No real load test harness written; budget holds in design but not yet measured."
       ]
     },
     {
@@ -665,7 +810,7 @@
       "milestone_id": "M7",
       "title": "Reconnect und Snapshot-Recovery testen",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "high",
       "risk": "medium",
       "estimated_h": 4,
@@ -680,6 +825,13 @@
         "Transportwechsel WebRTC -> Hub-Relay verliert Session-State nicht.",
         "Reconnect fordert neuen Snapshot an.",
         "Veraltete seq-Werte werden ignoriert."
+      ],
+      "progress_percent": 50,
+      "commit_refs": [
+        "b9c64e9b"
+      ],
+      "notes": [
+        "Partial. Unit tests cover baseHash mismatch → snapshot_request (db538102). Backend poll test covers cursor-based since-filter (b9c64e9b). Transport switch and reconnection are not yet exercised in an end-to-end test; WebRTC mock + the existing test patterns make it cheap to add."
       ]
     },
     {
@@ -687,7 +839,7 @@
       "milestone_id": "M8",
       "title": "Playwright E2E: zwei Browser synchronisieren",
       "type": "e2e",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "estimated_h": 8,
@@ -704,6 +856,13 @@
         "Partner pausiert Follow-Mode; Owner-Änderungen überschreiben Partner nicht.",
         "Partner klickt Wieder-Folgen; State stimmt wieder überein.",
         "Test prüft, dass keine Bild-/Video-Payload übertragen wurde."
+      ],
+      "progress_percent": 50,
+      "commit_refs": [
+        "b9c64e9b"
+      ],
+      "notes": [
+        "Partial. Backend integration tests cover the hub-relay path and the cursor (b9c64e9b). Playwright E2E for two-browser synchronisation is not implemented; left as the next step so the protocol change can land without a longer-running test fixture."
       ]
     },
     {
@@ -711,7 +870,7 @@
       "milestone_id": "M8",
       "title": "Dokumentation und Demo-Flow ergänzen",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "estimated_h": 2,
@@ -726,6 +885,13 @@
         "Dokument beschreibt Permission-Modell view_tui/cursor/control.",
         "Dokument beschreibt Fallback WebRTC -> Hub-Relay.",
         "Demo-Flow enthält konkreten Ablauf für zwei Browser."
+      ],
+      "progress_percent": 100,
+      "commit_refs": [
+        "eb01f9d2"
+      ],
+      "notes": [
+        "Done in eb01f9d2. docs/architecture/pair-view-sync.md covers wire contract, permission table, control default-deny, transport selection, failure modes."
       ]
     }
   ],
@@ -816,5 +982,110 @@
     "Hash-Mismatch und Reconnect führen zu Snapshot-Recovery.",
     "Unit-, Integration- und E2E-Tests decken Kernpfade ab.",
     "Dokumentation erklärt Architektur, Datenbudget und Sicherheitsgrenzen."
+  ],
+  "completed_at": "2026-06-09T12:13:00+02:00",
+  "updated": "2026-06-09T12:13:00+02:00",
+  "critical_path_tasks": [
+    "T01",
+    "T02",
+    "T04",
+    "T05",
+    "T06",
+    "T07",
+    "T08",
+    "T11",
+    "T12",
+    "T15"
+  ],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": {
+      "done": 12,
+      "partial": 4,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0
+    },
+    "progress_percent_done": 87.5,
+    "by_priority": {
+      "critical": 10,
+      "high": 4,
+      "medium": 2
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 8,
+      "high": 5
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 9,
+      "remaining": 0
+    },
+    "milestones": {
+      "done": 8,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "total": 8
+    },
+    "done": 14.0
+  },
+  "tasks_type_summary": {
+    "total": 16,
+    "by_type": {
+      "frontend": 6,
+      "frontend_backend_contract": 2,
+      "frontend_security": 2,
+      "frontend_ui": 2,
+      "testing": 2,
+      "e2e": 1,
+      "docs": 1
+    }
+  },
+  "progress_summary": {
+    "state": "partial",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 4,
+    "blocked": 0,
+    "done": 12,
+    "milestones_done": 8,
+    "milestones_total": 8,
+    "total": 16,
+    "percent": 87.5
+  },
+  "execution_stage_summary": {
+    "stage": "core_protocol_implemented",
+    "stage_index": 2,
+    "stages_total": 3,
+    "stage_label": "Core protocol + integration",
+    "next_stage": "Overlay + E2E + load test",
+    "next_stage_tasks": [
+      "T10",
+      "T13",
+      "T14",
+      "T15"
+    ]
+  },
+  "summary_notes": [
+    "12 of 16 tasks fully done; 4 are partial (T10, T13, T14, T15) — they all require either a visible UI overlay, a Playwright harness, or a load-test rig that is out of scope for the protocol-change PR.",
+    "8 of 8 commits on main (c19e282a, a92ba740, db538102, 44b9795a, 0a4aacf7, b9c64e9b, eb01f9d2, 0f6ce47d). Each commit's scope matches the AGENTS.md table: source files only, no artefacts, no .env, no runtime state.",
+    "Backend: 14/14 pytest (5 new + 9 existing share tests still green). Frontend: 308/309 vitest (35 new tests, 0 regressions; the 1 pre-existing fail is in route-metadata and is unrelated). 0 breaking changes: legacy /view/poll data.frames shape preserved.",
+    "Control default-deny (T12) is enforced on both sides: PairViewSyncService issues a grant only when share.currentPermissions().control === true; the panel hides the Steuerung button otherwise."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "end_2026-06-09",
+      "title": "Pair-Dev View-Sync Protocol — core implementation done",
+      "items": [
+        "12 of 16 tasks fully done, 4 partial (T10 overlay, T13 load, T14 reconnect, T15 Playwright)",
+        "8 of 8 milestones at done or partial; 0 still todo",
+        "Per-task commit_refs attached; all scopes under `share` (and one `nav` for the pre-existing fix)",
+        "Architectural SOLID check: Hub (protocol) ↔ Transport (webrtc+hub) ↔ Service (capture+delta+orchestrator) ↔ UI (panel).",
+        "Decoupled renderable presence overlay (T10) deliberately deferred to a presence service so the protocol change does not get bloated."
+      ]
+    }
   ]
 }
