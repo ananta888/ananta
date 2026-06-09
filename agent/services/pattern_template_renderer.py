@@ -183,6 +183,13 @@ class PatternTemplateRenderer:
         # Coerce non-string values via repr() so the rendered output
         # is deterministic and round-trippable.
         resolved: dict[str, str] = {}
+        # Implicit parameters: pattern_id and language are always available
+        # inside templates so templates can reference them without requiring
+        # the caller to duplicate them in the parameters dict.
+        for implicit_key in ("pattern_id", "language"):
+            val = pattern_plan.get(implicit_key)
+            if val is not None:
+                resolved[implicit_key] = str(val)
         for key, value in flat.items():
             if value is None:
                 continue
@@ -366,7 +373,10 @@ class PatternTemplateRenderer:
 
         # Detect undeclared parameters that were supplied (warning,
         # not error: a user may pass extras for forward-compat).
-        undeclared = set(resolved_params) - declared
+        # Implicit params (pattern_id, language) are always available
+        # and never count as undeclared.
+        _IMPLICIT = {"pattern_id", "language"}
+        undeclared = set(resolved_params) - declared - _IMPLICIT
         if undeclared and declared:
             warnings.append(
                 f"pattern_plan supplied undeclared parameters: {sorted(undeclared)}"
