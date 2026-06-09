@@ -1,0 +1,31 @@
+{
+  "version": "plan_pattern_bindings.v1",
+  "description": "Source of truth for plan→pattern bindings. Loaded by BlueprintPlanningAdapter. The list is additive: it never mutates the plan definitions themselves, it only attaches render-time pattern hints to plan_ids.",
+  "bindings": [
+    {
+      "binding_id": "bind_python_function_stub_default",
+      "plan_id": "plan_python_helper",
+      "pattern_id": "python.function_stub",
+      "step_id": "step_render_function",
+      "parameters": {
+        "function_name": "render_helper",
+        "args": ["payload:dict"],
+        "return_type": "str",
+        "docstring": "Render a helper artifact."
+      },
+      "control": { "enabled": true, "fail_open": false, "dry_run": false },
+      "result_artifacts": ["python_source_file"]
+    },
+    {
+      "binding_id": "bind_java_default_deny",
+      "plan_id": "plan_worker_gates",
+      "pattern_id": "java.default_deny_gate",
+      "parameters": {
+        "class_name": "WorkerToolGate",
+        "allowed_capabilities": ["tool.read:/workspace/**", "tool.exec:npm test"]
+      },
+      "control": { "enabled": true, "fail_open": false, "dry_run": false },
+      "result_artifacts": ["java_source_file"]
+    }
+  ]
+}
