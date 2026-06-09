@@ -1,0 +1,21 @@
+import type { @@context_class@@Payload, @@context_class@@Result, @@context_class@@Strategy } from './strategy.types';
+
+/**
+ * Context class for the @@pattern_id@@ pattern.
+ * Holds a swappable strategy and delegates execute() to it.
+ */
+export class @@context_class@@Context {
+  private strategy: @@context_class@@Strategy;
+
+  constructor(strategy: @@context_class@@Strategy) {
+    this.strategy = strategy;
+  }
+
+  setStrategy(strategy: @@context_class@@Strategy): void {
+    this.strategy = strategy;
+  }
+
+  run(payload: @@context_class@@Payload): @@context_class@@Result {
+    return this.strategy.execute(payload);
+  }
+}

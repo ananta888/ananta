@@ -1,0 +1,43 @@
+package @@package_name@@;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+
+class @@context_class@@StrategyTest {
+
+    @Test
+    void primaryStrategySortsAndLowercases() {
+        @@context_class@@Context ctx = new @@context_class@@Context(new Primary@@context_class@@Strategy());
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("items", Arrays.asList("B", "a", "c"));
+        Map<String, Object> result = ctx.run(payload);
+        assertEquals("primary", result.get("variant"));
+        assertEquals(Arrays.asList("a", "b", "c"), result.get("items"));
+    }
+
+    @Test
+    void secondaryStrategyReversesTheSort() {
+        @@context_class@@Context ctx = new @@context_class@@Context(new Secondary@@context_class@@Strategy());
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("items", Arrays.asList("B", "a", "c"));
+        Map<String, Object> result = ctx.run(payload);
+        assertEquals("secondary", result.get("variant"));
+        assertEquals(Arrays.asList("c", "b", "a"), result.get("items"));
+    }
+
+    @Test
+    void strategyCanBeSwappedAtRuntime() {
+        @@context_class@@Context ctx = new @@context_class@@Context(new Primary@@context_class@@Strategy());
+        ctx.setStrategy(new Secondary@@context_class@@Strategy());
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("items", Arrays.asList("B", "a", "c"));
+        Map<String, Object> result = ctx.run(payload);
+        assertEquals("secondary", result.get("variant"));
+    }
+}

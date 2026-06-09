@@ -1,0 +1,29 @@
+package @@package_name@@;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Secondary strategy: lower-cases and reverse-sorts the input items.
+ */
+public class Secondary@@context_class@@Strategy implements @@context_class@@Strategy {
+
+    @Override
+    public Map<String, Object> execute(Map<String, Object> payload) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("variant", "secondary");
+        List<String> items = new ArrayList<>();
+        Object raw = payload == null ? null : payload.get("items");
+        if (raw instanceof Iterable) {
+            for (Object o : (Iterable<?>) raw) {
+                items.add(String.valueOf(o).toLowerCase());
+            }
+        }
+        Collections.sort(items, Collections.reverseOrder());
+        result.put("items", items);
+        return result;
+    }
+}
