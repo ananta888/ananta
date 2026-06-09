@@ -343,9 +343,12 @@ class LangGraphAdapter:
     def _blocked_result(self, task_id: str, task_type: str,
                           reason_code: str, message: str) -> WorkflowArtifactResult:
         self._audit.log("execute_blocked", task_id=task_id, reason_code=reason_code)
+        # Snapshot the execute-path events into the result so the
+        # audit log does not leak into the next task.
         return WorkflowArtifactResult(
             adapter_id="adapter.langgraph", task_id=task_id, task_type=task_type,
             status="blocked", summary=message, error=message, reason_code=reason_code,
+            execution_trace=self._audit.snapshot(),
         )
 
     @staticmethod

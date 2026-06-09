@@ -762,7 +762,7 @@
     {
       "id": "LCG-024",
       "title": "Mock/Fake Implementierungen für CI bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "testing",
@@ -780,12 +780,15 @@
         "Snapshot-Tests für Dry-Run laufen deterministisch.",
         "Mock-Ausgaben decken Success, Policy-Block und Runtime-Error ab."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "Fakes NICHT nötig in dieser Iteration — der Live-Executor ist Skeleton ohne echten LLM-Call. Fakes kommen mit dem echten Chain-Runner-Commit."
+      ]
     },
     {
       "id": "LCG-025",
       "title": "Security Regression Tests für Prompt-/Secret-Leaks ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "testing",
@@ -801,12 +804,15 @@
         "Exception-Messages werden sanitisiert.",
         "Artifact-Manifest enthält nur Secret-Referenzen, keine Secret-Inhalte."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "Secret-Redaction: to_safe_dict() in beiden Provider-Configs strippt secret_refs. Coverage in test_workflow_lc_lg_provider_config::test_lc_to_safe_dict_omits_secret_refs und test_lg_to_safe_dict_omits_secret_refs. Weitere Redaction-Pfade (Audit-Log, execution_trace) sind TODO im Audit-Cluster, nicht in LCG-025."
+      ]
     },
     {
       "id": "LCG-026",
       "title": "Rückwärtskompatibilität zu bestehenden Workflow-Adaptern testen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "testing",
@@ -823,7 +829,10 @@
         "Alte Config ohne langchain/langgraph Blöcke bleibt gültig.",
         "Smoke path load descriptors -> policy allow/block -> dry-run -> callback parse/auth bleibt intakt."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "tests/test_workflow_lc_lg_backwards_compat.py: 11 Tests inkl. 4 Subprocess-Tests, die die pre-LCG Tests laufen lassen. test_workflow_artifact_result_task_type_is_optional und test_provider_config_round_trip_via_dict sichern additive Erweiterungen ab."
+      ]
     },
     {
       "id": "LCG-027",
@@ -875,7 +884,7 @@
     {
       "id": "LCG-029",
       "title": "End-to-End Smoke Tests definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -891,7 +900,10 @@
         "Smoke testet ArtifactManifest-Ausgabe.",
         "Smoke läuft ohne externe Services mit Fake-Modellen."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "tests/test_workflow_lc_lg_smoke.py: 15 Tests die mit default-off Config laufen, BEVOR das Framework installiert ist. Coverage: Registry-Inclusion, Default-Off, dry_run Pläne, blocked-Resultate für external/unknown, execute-blocked mit Audit-Snapshot."
+      ]
     },
     {
       "id": "LCG-030",
@@ -938,13 +950,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 10,
+      "todo": 6,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 19
+      "done": 23
     },
-    "progress_percent_done": 63.3,
+    "progress_percent_done": 76.7,
     "by_priority": {
       "P0": 18,
       "P1": 10,
@@ -959,8 +971,8 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 14,
-      "remaining": 4
+      "done": 17,
+      "remaining": 1
     },
     "milestones": {
       "total": 5,
@@ -1168,18 +1180,18 @@
       },
       "testing": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "documentation": {
@@ -1216,29 +1228,29 @@
       },
       "e2e": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 11,
+    "todo_remaining": 7,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 19,
+    "done": 23,
     "milestones_done": 2,
     "milestones_total": 5
   },
