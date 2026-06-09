@@ -228,17 +228,10 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _normalize_temperature(value: float | int | str | None) -> float | None:
-        if value is None:
-            return None
-        try:
-            normalized = float(value)
-        except (TypeError, ValueError):
-            return None
-        if normalized < 0.0:
-            normalized = 0.0
-        if normalized > 2.0:
-            normalized = 2.0
-        return normalized
+        # Delegating wrapper for SPLIT-001b. Implementation lives in
+        # agent.services._task_scoped_config_policy.normalize_temperature.
+        from agent.services._task_scoped_config_policy import normalize_temperature
+        return normalize_temperature(value)
 
     @staticmethod
     def _default_model(agent_cfg: dict) -> str | None:
@@ -265,19 +258,17 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
-        try:
-            parsed = int(value) if value is not None else default
-        except (TypeError, ValueError):
-            parsed = default
-        return max(minimum, min(maximum, parsed))
+        # Delegating wrapper for SPLIT-001b. Implementation lives in
+        # agent.services._task_scoped_config_policy.bounded_int.
+        from agent.services._task_scoped_config_policy import bounded_int
+        return bounded_int(value, default=default, minimum=minimum, maximum=maximum)
 
     @staticmethod
     def _bounded_float(value: object, *, default: float, minimum: float, maximum: float) -> float:
-        try:
-            parsed = float(value) if value is not None else default
-        except (TypeError, ValueError):
-            parsed = default
-        return max(minimum, min(maximum, parsed))
+        # Delegating wrapper for SPLIT-001b. Implementation lives in
+        # agent.services._task_scoped_config_policy.bounded_float.
+        from agent.services._task_scoped_config_policy import bounded_float
+        return bounded_float(value, default=default, minimum=minimum, maximum=maximum)
 
     @staticmethod
     # --- cluster: workspace_runtime (command rewrite) ---
