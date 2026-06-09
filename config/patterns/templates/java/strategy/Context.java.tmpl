@@ -1,0 +1,24 @@
+package @@package_name@@;
+
+import java.util.Map;
+
+/**
+ * Context class for the @@pattern_id@@ pattern.
+ * Holds a swappable strategy and delegates execute() to it.
+ */
+public class @@context_class@@Context {
+
+    private @@context_class@@Strategy strategy;
+
+    public @@context_class@@Context(@@context_class@@Strategy strategy) {
+        this.strategy = strategy;
+    }
+
+    public void setStrategy(@@context_class@@Strategy strategy) {
+        this.strategy = strategy;
+    }
+
+    public Map<String, Object> run(Map<String, Object> payload) {
+        return strategy.execute(payload);
+    }
+}

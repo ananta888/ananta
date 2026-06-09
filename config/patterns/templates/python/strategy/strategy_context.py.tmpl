@@ -1,0 +1,28 @@
+"""Context class for the @@pattern_id@@ pattern.
+
+Holds a reference to a swappable @@context_class@@Strategy and
+delegates ``execute`` to it. This is the single seam the rest of
+the application depends on.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from .strategy_protocol import @@context_class@@Strategy
+
+
+class @@context_class@@Context:
+    """The Strategy context — owns one strategy at a time."""
+
+    def __init__(self, strategy: @@context_class@@Strategy) -> None:
+        self._strategy: @@context_class@@Strategy = strategy
+
+    def set_strategy(self, strategy: @@context_class@@Strategy) -> None:
+        self._strategy = strategy
+
+    def run(self, payload: dict) -> dict:
+        return self._strategy.execute(payload)
+
+
+__all__ = ["@@context_class@@Context"]

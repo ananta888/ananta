@@ -1,0 +1,16 @@
+"""First concrete strategy for the @@pattern_id@@ pattern."""
+
+from __future__ import annotations
+
+from .strategy_protocol import @@context_class@@Strategy
+
+
+class Primary@@context_class@@Strategy:
+    """Deterministic primary strategy: returns a sorted, lower-cased result."""
+
+    def execute(self, payload: dict) -> dict:
+        items = sorted(str(v).lower() for v in (payload.get("items") or []))
+        return {"variant": "primary", "items": items}
+
+
+__all__ = ["Primary@@context_class@@Strategy"]

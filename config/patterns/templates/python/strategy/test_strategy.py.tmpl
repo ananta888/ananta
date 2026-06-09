@@ -1,0 +1,43 @@
+"""Pytest suite for the @@pattern_id@@ pattern."""
+
+from __future__ import annotations
+
+import importlib
+import pathlib
+
+import pytest
+
+from .strategy_context import @@context_class@@Context
+from .strategy_primary import Primary@@context_class@@Strategy
+from .strategy_secondary import Secondary@@context_class@@Strategy
+from .strategy_protocol import @@context_class@@Strategy
+
+
+def test_primary_strategy_is_swappable() -> None:
+    ctx = @@context_class@@Context(Primary@@context_class@@Strategy())
+    result = ctx.run({"items": ["B", "a", "c"]})
+    assert result == {"variant": "primary", "items": ["a", "b", "c"]}
+
+
+def test_secondary_strategy_swaps_in_at_runtime() -> None:
+    ctx = @@context_class@@Context(Primary@@context_class@@Strategy())
+    ctx.set_strategy(Secondary@@context_class@@Strategy())
+    result = ctx.run({"items": ["B", "a", "c"]})
+    assert result == {"variant": "secondary", "items": ["c", "b", "a"]}
+
+
+def test_context_accepts_protocol_conformant_strategy() -> None:
+    class CustomStrategy:
+        def execute(self, payload: dict) -> dict:
+            return {"variant": "custom", "count": len(payload.get("items") or [])}
+
+    ctx = @@context_class@@Context(CustomStrategy())  # type: ignore[arg-type]
+    result = ctx.run({"items": [1, 2, 3]})
+    assert result == {"variant": "custom", "count": 3}
+
+
+def test_strategy_outputs_are_deterministic() -> None:
+    ctx = @@context_class@@Context(Primary@@context_class@@Strategy())
+    first = ctx.run({"items": ["X", "y", "Z"]})
+    second = ctx.run({"items": ["X", "y", "Z"]})
+    assert first == second

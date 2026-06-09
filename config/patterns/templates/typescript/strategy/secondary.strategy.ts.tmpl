@@ -1,0 +1,8 @@
+import type { @@context_class@@Payload, @@context_class@@Result, @@context_class@@Strategy } from './strategy.types';
+
+export class Secondary@@context_class@@Strategy implements @@context_class@@Strategy {
+  execute(payload: @@context_class@@Payload): @@context_class@@Result {
+    const items = (payload.items ?? []).map((v) => String(v).toLowerCase()).sort().reverse();
+    return { variant: 'secondary', items };
+  }
+}

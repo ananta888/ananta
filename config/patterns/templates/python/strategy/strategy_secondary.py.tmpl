@@ -1,0 +1,19 @@
+"""Second concrete strategy for the @@pattern_id@@ pattern."""
+
+from __future__ import annotations
+
+from .strategy_protocol import @@context_class@@Strategy
+
+
+class Secondary@@context_class@@Strategy:
+    """Deterministic secondary strategy: reverses the primary sort."""
+
+    def execute(self, payload: dict) -> dict:
+        items = sorted(
+            (str(v).lower() for v in (payload.get("items") or [])),
+            reverse=True,
+        )
+        return {"variant": "secondary", "items": items}
+
+
+__all__ = ["Secondary@@context_class@@Strategy"]
