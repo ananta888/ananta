@@ -1,0 +1,820 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Krusty / ananta",
+  "track": "todo.angular-pair-dev-cheap-view-sync",
+  "title": "Angular Pair Dev: billige View-Synchronisation über State-Deltas statt Screensharing",
+  "purpose": "Die Angular-App soll im Pair-Development-Modus zwei Nutzer so synchronisieren, dass beide im Wesentlichen dasselbe sehen, ohne Video- oder Screensharing-Daten zu übertragen. Stattdessen werden nur strukturierte UI-Zustände, Deltas, Cursor, Auswahl, Scrollpositionen und Artefakt-Referenzen übertragen.",
+  "goal": "Ein Pair-Development-Partner kann einer laufenden Angular-Ananta-Session per Invite-Code beitreten und die Ansicht des Owners live nachvollziehen. Die Synchronisation nutzt bevorzugt WebRTC DataChannel, fällt bei Bedarf auf Hub-Relay zurück und bleibt durch kleine JSON-Deltas datenarm, prüfbar und sicher.",
+  "status": "todo",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "design_principles": [
+    "Kein Video-Streaming und kein Screenshot-Streaming als Standardweg.",
+    "Kein kompletter DOM-Dump.",
+    "Kein ungeprüftes Remote-Control-Verhalten.",
+    "State-first: Route, aktive View, aktives Artefakt, aktive Datei, Scroll, Cursor, Selection, UI-Mode.",
+    "Delta-first: nach initialem Snapshot nur kleine Änderungen übertragen.",
+    "Permission-first: view_tui, cursor und control werden getrennt geprüft.",
+    "Transport-neutral: WebRTC DataChannel bevorzugt, Hub-Relay als Fallback.",
+    "Deterministisch testbar: jede empfangene Nachricht ist als typisierter ViewStateDelta prüfbar.",
+    "Datensparsam: große Artefakte werden nicht blind übertragen, sondern über IDs/Hashes referenziert.",
+    "Sicherheitsgrenze: Remote-Partner darf ohne explizite Permission nichts ausführen, schreiben oder steuern."
+  ],
+  "source_code_audit": {
+    "baseline_date": "2026-06-09",
+    "scope": [
+      "frontend-angular/src/app/components/ai-snake-chat-panel.component.ts",
+      "frontend-angular/src/app/components/ai-snake-share-panel.component.ts",
+      "frontend-angular/src/app/services/share-session.service.ts",
+      "frontend-angular/src/app/services/webrtc-transport.service.ts",
+      "frontend-angular/src/app/services/webrtc-session.service.ts",
+      "frontend-angular/src/app/services/webrtc-datachannel.service.ts",
+      "agent/routes/share_sessions.py"
+    ],
+    "already_implemented": [
+      {
+        "id": "AUDIT-A01",
+        "path": "frontend-angular/src/app/components/ai-snake-chat-panel.component.ts",
+        "finding": "Der AI-Snake-Chat besitzt bereits einen Pair-Dev-Tab. Bei Login zeigt er User und WebRTC-Status und lädt app-ai-snake-share-panel.",
+        "impact": "UI-Einstieg für Pair-Dev ist vorhanden.",
+        "risk": "low"
+      },
+      {
+        "id": "AUDIT-A02",
+        "path": "frontend-angular/src/app/components/ai-snake-share-panel.component.ts",
+        "finding": "Die Share-UI kann Sessions erstellen, Invite-Codes nutzen, Permissions für Chat/TUI-View/Cursor setzen, Gruppen verwalten, Teilnehmer anzeigen und Session-Chat verwenden.",
+        "impact": "Einladungs- und Teilnehmer-Workflow ist weitgehend vorhanden.",
+        "risk": "low"
+      },
+      {
+        "id": "AUDIT-A03",
+        "path": "frontend-angular/src/app/services/share-session.service.ts",
+        "finding": "ShareSessionService kann Sessions erstellen/joinen, Teilnehmer pollen, Chat senden, Heartbeat senden und WebRTC öffnen, wenn die Session WebRTC nutzt.",
+        "impact": "Session-Lifecycle und Transport-Start sind vorhanden.",
+        "risk": "medium"
+      },
+      {
+        "id": "AUDIT-A04",
+        "path": "frontend-angular/src/app/services/webrtc-transport.service.ts",
+        "finding": "Transport-Abstraktion existiert: WebRTC DataChannel bevorzugt, Hub-Relay-Fallback vorhanden, generisches send(type,payload) vorhanden.",
+        "impact": "View-Deltas können transportneutral angebunden werden.",
+        "risk": "medium"
+      },
+      {
+        "id": "AUDIT-A05",
+        "path": "frontend-angular/src/app/services/webrtc-session.service.ts",
+        "finding": "RTCPeerConnection, DataChannel, Signaling, erlaubte Message-Typen, Rate-Limit und Audit-Logging sind vorbereitet. Erlaubte Typen enthalten view_payload, cursor, artifact und control.",
+        "impact": "Die technischen Message-Typen für View-Sync sind schon vorgesehen.",
+        "risk": "medium"
+      },
+      {
+        "id": "AUDIT-A06",
+        "path": "frontend-angular/src/app/services/webrtc-datachannel.service.ts",
+        "finding": "DataChannel-Protokoll v1 unterstützt typisierte Nachrichten, Chunking und Reassembly. DC_CHUNK_SIZE liegt bei 32768 Zeichen; DC_MAX_MESSAGE_BYTES bei 65536 Zeichen.",
+        "impact": "Kleine State-Deltas passen problemlos ins Protokoll; große Snapshots müssen bewusst limitiert oder referenziert werden.",
+        "risk": "low"
+      },
+      {
+        "id": "AUDIT-A07",
+        "path": "agent/routes/share_sessions.py",
+        "finding": "Backend besitzt /share-sessions/<session_id>/view/push und /view/poll für verschlüsselte View-Payloads. Queue, Payload-Limit, Rate-Limit und Permission-Check sind vorhanden.",
+        "impact": "Hub-Relay für View-Sync ist backendseitig vorbereitet.",
+        "risk": "medium"
+      }
+    ],
+    "gaps_to_close": [
+      "Es fehlt ein Angular-Service, der den sichtbaren UI-Zustand normiert als SharedViewState erfasst.",
+      "Es fehlt ein Delta-Builder, der aus altem und neuem SharedViewState kleine ViewStateDelta-Nachrichten erzeugt.",
+      "Es fehlt die echte Sendelogik für view_payload/cursor/control aus dem Angular-UI-Zustand heraus.",
+      "Es fehlt die Empfangslogik, die view_payload sicher validiert und auf lokale Angular-State-Services anwendet.",
+      "Der vorhandene Hub-Relay-Pfad erwartet encrypted_payload, während WebrtcTransportService aktuell generische TransportMessage an /view/push sendet. Das Datenformat muss vereinheitlicht werden.",
+      "Die Permissions heißen UI-seitig teils Chat/TUI-View/Cursor, backendseitig wird view_tui geprüft. Naming und Mapping müssen sauber typisiert werden.",
+      "Es fehlt ein Follow-Mode: Nutzer kann remote Ansicht folgen, kurz lokal abweichen und später wieder folgen.",
+      "Es fehlt eine saubere Konfliktstrategie für mehrere Driver oder gleichzeitige Navigation.",
+      "Es fehlen Tests für Datenmenge, Rate-Limits, Snapshot/Delta-Recovery und Permission-Grenzen."
+    ]
+  },
+  "target_architecture": {
+    "message_flow": [
+      "Owner erstellt Share-Session in Angular.",
+      "Partner joint per Invite-Code.",
+      "Transport öffnet WebRTC DataChannel oder Hub-Relay-Fallback.",
+      "Owner sendet initialen view_snapshot mit route, activeSurface, activeArtifact, scroll, cursor, selection und viewHash.",
+      "Owner sendet danach nur view_delta und cursor_delta.",
+      "Partner validiert Nachricht, prüft Permissions und wendet State lokal an.",
+      "Bei Hash-Mismatch fordert Partner snapshot_request an.",
+      "Owner sendet neuen Snapshot oder verweigert bei fehlender Permission.",
+      "Control-Nachrichten sind optional und nur mit expliziter driver/control-Permission erlaubt."
+    ],
+    "frontend_services": [
+      {
+        "name": "SharedViewStateService",
+        "responsibility": "Erfasst aktuellen Angular-UI-Zustand aus Router, Panels, CodeCompass-/Artifact-/Chat-State, Scrollpositionen und Cursorpositionen."
+      },
+      {
+        "name": "ViewDeltaService",
+        "responsibility": "Berechnet Hashes, Snapshots und minimale Deltas zwischen zwei SharedViewState-Versionen."
+      },
+      {
+        "name": "PairViewSyncService",
+        "responsibility": "Verbindet SharedViewStateService mit WebrtcTransportService, sendet und empfängt view_payload/cursor/control-Nachrichten."
+      },
+      {
+        "name": "RemoteViewApplyService",
+        "responsibility": "Validiert empfangene View-Nachrichten und wendet sie kontrolliert auf Router und lokale View-State-Services an."
+      },
+      {
+        "name": "PairPresenceService",
+        "responsibility": "Zeigt Teilnehmer, Follow-Status, Driver-Status, Remote-Cursor und Latenz an."
+      }
+    ],
+    "message_types": [
+      "view_snapshot",
+      "view_delta",
+      "cursor_delta",
+      "selection_delta",
+      "scroll_delta",
+      "snapshot_request",
+      "snapshot_ack",
+      "follow_mode_changed",
+      "control_request",
+      "control_grant",
+      "control_revoke",
+      "annotation"
+    ],
+    "default_sync_fields": [
+      "route",
+      "queryParams",
+      "activeSurface",
+      "activeTab",
+      "activePanel",
+      "activeArtifactId",
+      "activeArtifactHash",
+      "activeFilePath",
+      "activeSymbolId",
+      "scrollX",
+      "scrollY",
+      "cursorLine",
+      "cursorColumn",
+      "selectionStart",
+      "selectionEnd",
+      "zoom",
+      "collapsedSections",
+      "viewHash"
+    ]
+  },
+  "data_contracts": {
+    "SharedViewState": {
+      "version": "number",
+      "sessionId": "string",
+      "ownerUserId": "string",
+      "seq": "number",
+      "route": "string",
+      "queryParams": "Record<string,string>",
+      "activeSurface": "'chat' | 'codecompass' | 'artifact' | 'terminal' | 'settings' | 'dashboard' | 'unknown'",
+      "activeTab": "string",
+      "activePanel": "string",
+      "activeArtifactId": "string | null",
+      "activeArtifactHash": "string | null",
+      "activeFilePath": "string | null",
+      "activeSymbolId": "string | null",
+      "scroll": { "x": "number", "y": "number" },
+      "cursor": { "line": "number | null", "column": "number | null" },
+      "selection": { "start": "number | null", "end": "number | null" },
+      "zoom": "number | null",
+      "collapsedSections": "string[]",
+      "viewHash": "string",
+      "createdAt": "number"
+    },
+    "ViewStateDelta": {
+      "version": "number",
+      "sessionId": "string",
+      "senderUserId": "string",
+      "seq": "number",
+      "baseHash": "string",
+      "newHash": "string",
+      "kind": "'snapshot' | 'delta' | 'cursor' | 'selection' | 'scroll' | 'control'",
+      "ops": "Array<{ op: 'set' | 'unset' | 'append' | 'remove'; path: string; value?: unknown }>",
+      "createdAt": "number"
+    },
+    "RelayEnvelope": {
+      "message_id": "string",
+      "kind": "'snapshot' | 'delta' | 'cursor' | 'selection' | 'scroll' | 'control'",
+      "base_hash": "string",
+      "new_hash": "string",
+      "width": "number",
+      "height": "number",
+      "encrypted_payload": "string"
+    },
+    "DataChannelEnvelope": {
+      "type": "'view_payload' | 'cursor' | 'control'",
+      "payload": "ViewStateDelta | CursorDelta | ControlMessage"
+    }
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "SharedViewState erfassen und typisieren",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 10,
+      "acceptance_criteria": [
+        "SharedViewStateService existiert als Angular Injectable Service.",
+        "SharedViewState ist als TypeScript-Interface zentral definiert.",
+        "Router-URL, Query-Params, aktiver Pair-Tab und aktive Hauptfläche werden korrekt erfasst.",
+        "Aktive Artefakt-/Datei-/Symbol-Referenzen werden als IDs/Hashes erfasst, nicht als kompletter Inhalt.",
+        "Scrollpositionen werden pro View erfasst und debounced aktualisiert.",
+        "Cursor- und Selection-Felder sind optional und brechen die Synchronisation nicht, wenn kein Editor aktiv ist.",
+        "Service erzeugt stabile viewHash-Werte bei identischem Zustand.",
+        "Unit-Test beweist: gleicher State ergibt gleichen Hash, geänderter State ergibt anderen Hash."
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Snapshot-/Delta-Algorithmus für kleine Payloads",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 8,
+      "acceptance_criteria": [
+        "ViewDeltaService kann aus SharedViewState einen initialen Snapshot erzeugen.",
+        "ViewDeltaService kann aus zwei States minimale set/unset-Operationen erzeugen.",
+        "Cursor-, Selection- und Scroll-Änderungen können als eigene leichte Delta-Typen gesendet werden.",
+        "Delta enthält baseHash und newHash.",
+        "Delta wird verworfen, wenn baseHash nicht zum aktuellen Remote-State passt.",
+        "Bei Hash-Mismatch wird snapshot_request erzeugt.",
+        "Unit-Test beweist: kleine Scrolländerung erzeugt kein großes Snapshot-Payload.",
+        "Unit-Test beweist: aktiver Artifact-Wechsel überträgt Artifact-ID/Hash, nicht Artifact-Inhalt."
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "PairViewSyncService an WebRTC und Hub-Relay anbinden",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 12,
+      "acceptance_criteria": [
+        "PairViewSyncService lauscht auf SharedViewStateService-Änderungen.",
+        "State-Änderungen werden debounced und über WebrtcTransportService gesendet.",
+        "view_payload wird für Snapshot/Delta verwendet.",
+        "cursor wird für reine Cursorbewegungen verwendet.",
+        "control wird nur für explizite Control-Nachrichten verwendet.",
+        "Bei WebRTC-Modus gehen Nachrichten über DataChannel.",
+        "Bei Hub-Relay-Modus werden Nachrichten im Backend-kompatiblen RelayEnvelope-Format an /view/push geschickt.",
+        "Hub-Relay-Format erfüllt encrypted_payload-Pflicht oder nutzt eine klar definierte Development-Stub-Verschlüsselung nur in Testprofilen.",
+        "Sendefrequenz ist begrenzt: View-Deltas max. 5/s, Cursor max. 20/s, Snapshot nur bei Join/Hash-Mismatch/Reload.",
+        "Unit-Test beweist: Service sendet bei unverändertem State nichts."
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "RemoteViewApplyService: empfangene View sicher anwenden",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 14,
+      "acceptance_criteria": [
+        "RemoteViewApplyService empfängt view_payload/cursor/control über WebrtcTransportService.message$.",
+        "Alle eingehenden Payloads werden gegen Type Guards validiert.",
+        "Nachrichten mit falscher sessionId, falscher Version oder ungültigem kind werden verworfen.",
+        "view_tui-Permission wird geprüft, bevor View-State angewendet wird.",
+        "cursor-Permission wird geprüft, bevor Remote-Cursor angezeigt wird.",
+        "control-Permission wird geprüft, bevor lokale Navigation durch Remote-Control ausgelöst wird.",
+        "Router-Navigation wird nur auf erlaubte interne Angular-Routen angewendet.",
+        "Externe URLs, javascript:-URLs und unbekannte Surface-Typen werden blockiert.",
+        "Scroll und Cursor werden weich angewendet, ohne lokale Eingabe unnötig zu überschreiben.",
+        "Bei Hash-Mismatch wird snapshot_request gesendet statt blind weiterzudriften.",
+        "Unit-Test beweist: fehlende view_tui-Permission verhindert Apply vollständig."
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Follow-Mode, Driver-Modus und UI-Indikatoren",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 10,
+      "acceptance_criteria": [
+        "Share-Panel zeigt Follow-Status: folgt, pausiert, lokal abgewichen, wieder folgen.",
+        "Teilnehmer kann Follow-Mode deaktivieren, ohne die Session zu verlassen.",
+        "Button 'Wieder folgen' springt auf aktuellen Owner-State.",
+        "Remote-Cursor wird mit Teilnehmername angezeigt, falls cursor-Permission aktiv ist.",
+        "Owner sieht, welche Teilnehmer gerade folgen.",
+        "Driver-Modus ist getrennt vom Viewer-Modus.",
+        "Control Request/Grant/Revoke UI ist vorhanden, aber Default bleibt read-only.",
+        "Bei lokalem Scrollen des Viewers pausiert Follow-Mode kurz automatisch oder markiert lokale Abweichung.",
+        "UI zeigt Transportmodus: WebRTC, Hub-Relay oder offline.",
+        "UI zeigt letzte Sync-Latenz und letzte empfangene Sequenznummer."
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Permission-Mapping und Security Boundaries bereinigen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 8,
+      "acceptance_criteria": [
+        "Ein zentrales Permission-TypeScript-Interface definiert chat, view_tui, cursor, control, artifact_view und annotation.",
+        "UI-Labels werden sauber auf backendseitige Permission-Keys gemappt.",
+        "Bestehende Checkbox 'TUI-View' setzt zuverlässig view_tui.",
+        "Bestehende Checkbox 'Cursor' setzt zuverlässig cursor.",
+        "Control ist nicht implizit durch view_tui oder cursor erlaubt.",
+        "Backend- und Frontend-Tests verwenden dieselben Permission-Namen.",
+        "Remote-Apply prüft Permissions lokal und verlässt sich nicht nur auf Backend-Checks.",
+        "Audit-Log enthält verweigerte Apply-/Control-Versuche."
+      ]
+    },
+    {
+      "id": "M7",
+      "title": "Datenmenge, Rate-Limits und Robustheit testen",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 8,
+      "acceptance_criteria": [
+        "Test misst typische Delta-Größe für Route-Wechsel, Scroll, Cursor und Artifact-Wechsel.",
+        "Normale Cursorbewegung überschreitet konfigurierte Rate-Limits nicht.",
+        "Große Snapshots werden abgelehnt oder als Artifact-Referenz statt Payload übertragen.",
+        "Payloads über 64 KB werden nicht unkontrolliert über DataChannel gesendet.",
+        "Hub-Relay-Payloads bleiben unter Backend-Limit 256 KB.",
+        "Bei Paketverlust oder verpasstem Delta wird Snapshot-Recovery ausgelöst.",
+        "Bei Transportwechsel WebRTC -> Hub-Relay bleibt Session konsistent.",
+        "Bei Reconnect wird neuer Snapshot angefordert."
+      ]
+    },
+    {
+      "id": "M8",
+      "title": "End-to-End Pair-Dev-Szenario",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 12,
+      "acceptance_criteria": [
+        "Playwright-E2E startet zwei Angular-Browser-Kontexte als Owner und Partner.",
+        "Owner erstellt Session mit view_tui und cursor.",
+        "Partner joint per Invite-Code.",
+        "Owner wechselt Route/Tab/Artifact; Partner sieht denselben Zustand ohne Reload.",
+        "Owner scrollt; Partner folgt innerhalb definierter Toleranz.",
+        "Owner bewegt Cursor; Partner sieht Remote-Cursor, falls Permission aktiv ist.",
+        "Partner deaktiviert Follow-Mode; Owner-Scroll überschreibt Partner-Scroll nicht mehr.",
+        "Partner klickt 'Wieder folgen'; Partner springt auf aktuellen Owner-State.",
+        "Test läuft einmal mit WebRTC-Mock/DataChannel und einmal mit Hub-Relay-Fallback.",
+        "Test beweist, dass keine Screenshots oder Video-Daten übertragen werden."
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "milestone_id": "M1",
+      "title": "SharedViewState-Typen anlegen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "estimated_h": 2,
+      "description": "Zentrale TypeScript-Interfaces für SharedViewState, ViewStateDelta, CursorDelta, ControlMessage und PermissionSet anlegen.",
+      "files_affected": [
+        "frontend-angular/src/app/services/pair-view-sync.types.ts"
+      ],
+      "acceptance_criteria": [
+        "Alle Interfaces sind exportiert und streng typisiert.",
+        "Keine any-Typen in öffentlichen Interfaces.",
+        "Message-Version ist explizit enthalten.",
+        "PermissionSet enthält mindestens chat, view_tui, cursor und control.",
+        "TypeScript build läuft ohne Fehler."
+      ]
+    },
+    {
+      "id": "T02",
+      "milestone_id": "M1",
+      "title": "SharedViewStateService implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 5,
+      "description": "Service erfasst Router-State, aktive Angular-Oberfläche, aktive Panels, Scrollpositionen und optionale Artefakt-/Datei-/Cursor-Referenzen.",
+      "files_affected": [
+        "frontend-angular/src/app/services/shared-view-state.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Service stellt state$ als Observable bereit.",
+        "Service aktualisiert state$ bei Routerwechsel.",
+        "Service bietet updatePartial(partial) für Komponenten/Feature-Services.",
+        "Service speichert Scrollpositionen pro Surface.",
+        "Service kann aus aktuellem State einen stabilen Hash berechnen.",
+        "Unit-Tests decken Routerwechsel, Partial-Update und Hash-Stabilität ab."
+      ]
+    },
+    {
+      "id": "T03",
+      "milestone_id": "M1",
+      "title": "Angular-Komponenten an SharedViewState anbinden",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 3,
+      "description": "AI-Snake-Chat, Share-Panel und vorhandene Hauptflächen melden aktive Tabs/Panels an SharedViewStateService.",
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-snake-chat-panel.component.ts",
+        "frontend-angular/src/app/components/ai-snake-share-panel.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Wechsel zwischen Chat/Sessions/Login/Pair/Modus/Einstellungen landet im SharedViewState.",
+        "Pair-Dev-Tab setzt activeSurface='pair'.",
+        "Keine zyklischen Updates oder Change-Detection-Loops.",
+        "Bestehende UI-Funktionalität bleibt unverändert nutzbar."
+      ]
+    },
+    {
+      "id": "T04",
+      "milestone_id": "M2",
+      "title": "ViewDeltaService implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 5,
+      "description": "Vergleicht zwei SharedViewState-Objekte und erzeugt kleine typisierte Deltas mit baseHash/newHash.",
+      "files_affected": [
+        "frontend-angular/src/app/services/view-delta.service.ts"
+      ],
+      "acceptance_criteria": [
+        "createSnapshot(state) erzeugt vollständigen Snapshot.",
+        "createDelta(previous,current) erzeugt nur geänderte Felder.",
+        "Scroll-only Änderung erzeugt kind='scroll'.",
+        "Cursor-only Änderung erzeugt kind='cursor'.",
+        "Selection-only Änderung erzeugt kind='selection'.",
+        "Hash-Mismatch kann erkannt werden.",
+        "Unit-Test beweist minimale Deltas."
+      ]
+    },
+    {
+      "id": "T05",
+      "milestone_id": "M3",
+      "title": "PairViewSyncService Sendepfad implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 6,
+      "description": "Service sendet Snapshots/Deltas/Cursor über WebrtcTransportService. WebRTC nutzt DataChannel; Relay nutzt backendkompatibles /view/push-Format.",
+      "files_affected": [
+        "frontend-angular/src/app/services/pair-view-sync.service.ts",
+        "frontend-angular/src/app/services/webrtc-transport.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Beim Aktivieren einer Share-Session wird initialer Snapshot gesendet.",
+        "Nach initialem Snapshot werden nur noch Deltas gesendet.",
+        "Debounce und Rate-Limit sind konfigurierbar.",
+        "Sendeweg nutzt WebrtcTransportService.send('view_payload', payload).",
+        "Cursor nutzt WebrtcTransportService.send('cursor', payload).",
+        "Relay-Pfad erzeugt encrypted_payload-kompatibles Envelope.",
+        "Tests beweisen, dass bei unverändertem State nichts gesendet wird."
+      ]
+    },
+    {
+      "id": "T06",
+      "milestone_id": "M3",
+      "title": "Hub-Relay-Format korrigieren und vereinheitlichen",
+      "type": "frontend_backend_contract",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 4,
+      "description": "Aktueller generischer WebrtcTransportService-Relay-Push passt nicht sauber zum Backend-Endpunkt, der encrypted_payload erwartet. Vertrag vereinheitlichen.",
+      "files_affected": [
+        "frontend-angular/src/app/services/webrtc-transport.service.ts",
+        "frontend-angular/src/app/services/pair-view-sync.service.ts",
+        "agent/routes/share_sessions.py"
+      ],
+      "acceptance_criteria": [
+        "Frontend und Backend verwenden denselben RelayEnvelope-Vertrag.",
+        "Backend akzeptiert keine unverschlüsselte Produktiv-Payload, wenn E2E-Encryption verlangt ist.",
+        "Testprofil darf Development-Stubs explizit markieren.",
+        "Fehlerhafte Payloads liefern 400 statt still zu verschwinden.",
+        "Bestehender Chat-Relay wird nicht beschädigt."
+      ]
+    },
+    {
+      "id": "T07",
+      "milestone_id": "M4",
+      "title": "RemoteViewApplyService implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 7,
+      "description": "Empfängt View-Deltas, validiert sie und wendet sie kontrolliert auf lokale Angular-Routen und View-State an.",
+      "files_affected": [
+        "frontend-angular/src/app/services/remote-view-apply.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Service abonniert WebrtcTransportService.message$.",
+        "Nur erlaubte Message-Typen werden verarbeitet.",
+        "Type Guards validieren alle Felder.",
+        "Router-Navigation erfolgt nur für erlaubte interne Routen.",
+        "Scroll wird nur angewendet, wenn Follow-Mode aktiv ist.",
+        "Cursor wird als Remote-Cursor angezeigt, nicht als lokaler Eingabecursor erzwungen.",
+        "Hash-Mismatch löst snapshot_request aus.",
+        "Unit-Tests decken Validierung, Permission-Block und erfolgreichen Apply ab."
+      ]
+    },
+    {
+      "id": "T08",
+      "milestone_id": "M4",
+      "title": "Type Guards und Payload-Validatoren bauen",
+      "type": "frontend_security",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 3,
+      "description": "Alle Remote-Payloads werden vor Anwendung hart validiert. Keine direkte Verwendung von untrusted JSON.",
+      "files_affected": [
+        "frontend-angular/src/app/services/pair-view-sync.validators.ts"
+      ],
+      "acceptance_criteria": [
+        "isSharedViewState(), isViewStateDelta(), isCursorDelta(), isControlMessage() existieren.",
+        "Ungültige seq/baseHash/newHash/kind/path-Werte werden abgelehnt.",
+        "Unbekannte op-Typen werden abgelehnt.",
+        "Pfad-Whitelist verhindert Manipulation beliebiger Objektpfade.",
+        "Unit-Test prüft mehrere ungültige Payloads."
+      ]
+    },
+    {
+      "id": "T09",
+      "milestone_id": "M5",
+      "title": "Follow-Mode UI ins Share Panel einbauen",
+      "type": "frontend_ui",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 4,
+      "description": "Share-Panel bekommt Follow-Status, Pause/Wieder-Folgen und Sync-Statusanzeige.",
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-snake-share-panel.component.ts",
+        "frontend-angular/src/app/services/pair-presence.service.ts"
+      ],
+      "acceptance_criteria": [
+        "UI zeigt Follow-Mode aktiv/inaktiv.",
+        "Viewer kann Follow-Mode pausieren.",
+        "Viewer kann mit einem Button wieder auf Owner-State springen.",
+        "UI zeigt letzte Sync-Zeit und letzte Sequenznummer.",
+        "UI zeigt Transportmodus WebRTC/Hub-Relay/offline."
+      ]
+    },
+    {
+      "id": "T10",
+      "milestone_id": "M5",
+      "title": "Remote-Cursor Overlay anzeigen",
+      "type": "frontend_ui",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "estimated_h": 4,
+      "description": "Remote-Cursor und optionale Remote-Selection werden in unterstützten Views sichtbar, ohne lokale Eingabe zu übernehmen.",
+      "files_affected": [
+        "frontend-angular/src/app/components/remote-cursor-overlay.component.ts",
+        "frontend-angular/src/app/services/pair-presence.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Overlay zeigt Teilnehmernamen oder Kürzel.",
+        "Cursor verschwindet nach Timeout, wenn keine Updates kommen.",
+        "Overlay ist abschaltbar.",
+        "Cursor wird nur bei cursor-Permission angezeigt.",
+        "Keine Layout-Verschiebung durch Overlay."
+      ]
+    },
+    {
+      "id": "T11",
+      "milestone_id": "M6",
+      "title": "Permission-Namen vereinheitlichen",
+      "type": "frontend_backend_contract",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "estimated_h": 3,
+      "description": "UI-Checkboxen und Backend-Checks müssen dieselben Permission-Keys nutzen. Insbesondere TUI-View -> view_tui.",
+      "files_affected": [
+        "frontend-angular/src/app/components/ai-snake-share-panel.component.ts",
+        "frontend-angular/src/app/services/share-session.service.ts",
+        "agent/routes/share_sessions.py"
+      ],
+      "acceptance_criteria": [
+        "Checkbox TUI-View sendet view_tui=true.",
+        "Checkbox Cursor sendet cursor=true.",
+        "Chat sendet chat=true.",
+        "Control ist eigener Key und default false.",
+        "Backend-Tests und Frontend-Tests verwenden dieselben Keys."
+      ]
+    },
+    {
+      "id": "T12",
+      "milestone_id": "M6",
+      "title": "Control-Modus default-deny absichern",
+      "type": "frontend_security",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 4,
+      "description": "Remote-Control darf nie aus view_tui oder cursor abgeleitet werden. Steuerung nur per explizitem Grant.",
+      "files_affected": [
+        "frontend-angular/src/app/services/remote-view-apply.service.ts",
+        "frontend-angular/src/app/services/pair-view-sync.service.ts",
+        "frontend-angular/src/app/components/ai-snake-share-panel.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Control-Nachrichten werden ohne control=true verworfen.",
+        "UI zeigt expliziten Control-Grant-Dialog.",
+        "Control-Grant kann widerrufen werden.",
+        "Control-Grant ist sessiongebunden und nicht global persistent.",
+        "Audit-Eintrag entsteht bei Grant, Revoke und verweigertem Control-Versuch."
+      ]
+    },
+    {
+      "id": "T13",
+      "milestone_id": "M7",
+      "title": "Datenmengen-Budget testen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "high",
+      "risk": "low",
+      "estimated_h": 3,
+      "description": "Tests messen typische Payload-Größen, damit die billige Synchronisation nicht schleichend zu Screensharing-artigem Datenverkehr mutiert.",
+      "files_affected": [
+        "frontend-angular/src/app/services/view-delta.service.spec.ts",
+        "frontend-angular/src/app/services/pair-view-sync.service.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Scroll-Delta bleibt unter 1 KB.",
+        "Cursor-Delta bleibt unter 1 KB.",
+        "Route-/Tab-Wechsel bleibt unter 4 KB.",
+        "Artifact-Wechsel überträgt IDs/Hashes, nicht Vollinhalt.",
+        "Snapshot-Warnung ab 32 KB.",
+        "Snapshot-Hard-Fail oder Chunking ab 64 KB für DataChannel-Pfad."
+      ]
+    },
+    {
+      "id": "T14",
+      "milestone_id": "M7",
+      "title": "Reconnect und Snapshot-Recovery testen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "estimated_h": 4,
+      "description": "Sicherstellen, dass verpasste Deltas, Hash-Mismatch und Transportwechsel sauber durch Snapshot-Recovery behoben werden.",
+      "files_affected": [
+        "frontend-angular/src/app/services/pair-view-sync.service.spec.ts",
+        "frontend-angular/src/app/services/remote-view-apply.service.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Hash-Mismatch erzeugt snapshot_request.",
+        "Snapshot setzt Remote-State wieder konsistent.",
+        "Transportwechsel WebRTC -> Hub-Relay verliert Session-State nicht.",
+        "Reconnect fordert neuen Snapshot an.",
+        "Veraltete seq-Werte werden ignoriert."
+      ]
+    },
+    {
+      "id": "T15",
+      "milestone_id": "M8",
+      "title": "Playwright E2E: zwei Browser synchronisieren",
+      "type": "e2e",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "estimated_h": 8,
+      "description": "E2E-Test mit zwei Angular-Kontexten: Owner erstellt Session, Partner joint, beide synchronisieren View-State ohne Screensharing.",
+      "files_affected": [
+        "frontend-angular/e2e/pair-dev-view-sync.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Zwei Browser-Kontexte können unterschiedliche Nutzer simulieren oder Auth mocken.",
+        "Owner erstellt Session mit view_tui=true und cursor=true.",
+        "Partner tritt per Invite-Code bei.",
+        "Owner wechselt Tab; Partner folgt.",
+        "Owner scrollt; Partner folgt im aktiven Follow-Mode.",
+        "Partner pausiert Follow-Mode; Owner-Änderungen überschreiben Partner nicht.",
+        "Partner klickt Wieder-Folgen; State stimmt wieder überein.",
+        "Test prüft, dass keine Bild-/Video-Payload übertragen wurde."
+      ]
+    },
+    {
+      "id": "T16",
+      "milestone_id": "M8",
+      "title": "Dokumentation und Demo-Flow ergänzen",
+      "type": "docs",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "estimated_h": 2,
+      "description": "Kurze Dokumentation, warum der Pair-Dev-Modus billig ist und wie WebRTC/Hub-Relay/Permissions zusammenspielen.",
+      "files_affected": [
+        "docs/pair-dev-view-sync.md",
+        "docs/demo-flows.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument erklärt State-Deltas statt Screensharing.",
+        "Dokument enthält Mermaid-Sequenzdiagramm Owner -> Transport -> Partner.",
+        "Dokument beschreibt Permission-Modell view_tui/cursor/control.",
+        "Dokument beschreibt Fallback WebRTC -> Hub-Relay.",
+        "Demo-Flow enthält konkreten Ablauf für zwei Browser."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Kein vollständiges Screensharing als primärer Pair-Dev-Modus.",
+    "Kein kollaborativer Volltexteditor mit CRDT als erster Schritt.",
+    "Kein automatisches Ausführen von Remote-Kommandos.",
+    "Kein Remote-Schreiben in Dateien ohne separates Policy-/Approval-System.",
+    "Kein unverschlüsselter Produktiv-Relay für sensible View-Inhalte.",
+    "Keine harte Abhängigkeit von WebRTC; Hub-Relay muss als Fallback funktionieren."
+  ],
+  "security_acceptance_criteria": [
+    "Jede empfangene Remote-Nachricht wird vor Anwendung validiert.",
+    "Remote-Navigation ist auf erlaubte interne Routen beschränkt.",
+    "view_tui erlaubt nur Ansichtssynchronisierung, keine Steuerung.",
+    "cursor erlaubt nur Cursoranzeige, keine lokale Eingabeübernahme.",
+    "control ist default false und muss explizit gewährt werden.",
+    "Revoked Participants können keine View-Deltas mehr anwenden oder senden.",
+    "Audit-Events dokumentieren Snapshot-Start, Delta-Send, Apply-Block, Control-Grant und Control-Revoke.",
+    "Große oder unbekannte Payloads werden verworfen und nicht an UI-State durchgereicht.",
+    "Keine Secrets, Tokens oder komplette lokale Storage-Inhalte werden im SharedViewState übertragen."
+  ],
+  "performance_acceptance_criteria": [
+    "Typischer Cursor- oder Scroll-Delta bleibt unter 1 KB.",
+    "Typischer Route-/Tab-Wechsel bleibt unter 4 KB.",
+    "Initialer Snapshot bleibt im Normalfall unter 32 KB.",
+    "DataChannel-Nachrichten überschreiten nicht unkontrolliert DC_MAX_MESSAGE_BYTES.",
+    "Hub-Relay-Payloads bleiben unter _VIEW_PAYLOAD_MAX_BYTES.",
+    "View-Deltas werden debounced, damit Scroll-Events nicht ungefiltert gesendet werden.",
+    "Synchronisation blockiert die Angular-UI nicht spürbar.",
+    "Bei langsamem Partner werden alte Cursor-/Scroll-Deltas zusammengefasst oder verworfen."
+  ],
+  "test_plan": [
+    {
+      "level": "unit",
+      "targets": [
+        "SharedViewStateService",
+        "ViewDeltaService",
+        "PairViewSyncService",
+        "RemoteViewApplyService",
+        "pair-view-sync.validators"
+      ]
+    },
+    {
+      "level": "integration",
+      "targets": [
+        "ShareSessionService + WebrtcTransportService + PairViewSyncService",
+        "RemoteViewApplyService + Angular Router",
+        "Hub-Relay /view/push + /view/poll contract"
+      ]
+    },
+    {
+      "level": "e2e",
+      "targets": [
+        "Two-browser Pair-Dev flow",
+        "WebRTC mock path",
+        "Hub-Relay fallback path",
+        "Permission-denied scenarios",
+        "Follow-mode pause/resume"
+      ]
+    }
+  ],
+  "recommended_implementation_order": [
+    "T01",
+    "T02",
+    "T04",
+    "T11",
+    "T05",
+    "T06",
+    "T08",
+    "T07",
+    "T09",
+    "T10",
+    "T12",
+    "T13",
+    "T14",
+    "T15",
+    "T16"
+  ],
+  "definition_of_done": [
+    "Zwei Angular-Clients können per Pair-Dev-Session verbunden werden.",
+    "Partner sieht Route, Tab, aktives Artefakt, Scrollposition und optional Cursor des Owners.",
+    "Normale Synchronisation überträgt strukturierte JSON-Deltas statt Screenshots oder Video.",
+    "WebRTC DataChannel funktioniert als Primärtransport.",
+    "Hub-Relay funktioniert als Fallback.",
+    "Follow-Mode kann pausiert und wieder aktiviert werden.",
+    "Permissions view_tui, cursor und control sind getrennt und getestet.",
+    "Hash-Mismatch und Reconnect führen zu Snapshot-Recovery.",
+    "Unit-, Integration- und E2E-Tests decken Kernpfade ab.",
+    "Dokumentation erklärt Architektur, Datenbudget und Sicherheitsgrenzen."
+  ]
+}
