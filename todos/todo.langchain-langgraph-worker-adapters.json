@@ -127,7 +127,7 @@
         "LCG-006",
         "LCG-027"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -311,7 +311,7 @@
     {
       "id": "LCG-006",
       "title": "Dependency-Grenze für optionale Pakete festlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "build",
@@ -329,7 +329,10 @@
         "Tests für Adapter werden skip/marker-gesteuert, wenn Extras fehlen.",
         "Doku nennt lokale Installation und deaktivierten Default."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "pyproject optional-dependencies: [langchain], [langgraph], [lc-lg]. Setup-Doc docs/setup/langchain-langgraph.md geschrieben."
+      ]
     },
     {
       "id": "LCG-007",
@@ -935,13 +938,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 11,
+      "todo": 10,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 18
+      "done": 19
     },
-    "progress_percent_done": 60.0,
+    "progress_percent_done": 63.3,
     "by_priority": {
       "P0": 18,
       "P1": 10,
@@ -956,16 +959,16 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 13,
-      "remaining": 5
+      "done": 14,
+      "remaining": 4
     },
     "milestones": {
       "total": 5,
-      "todo": 3,
+      "todo": 2,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -1037,18 +1040,18 @@
       },
       "build": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "integration": {
@@ -1231,12 +1234,12 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 12,
+    "todo_remaining": 11,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 18,
-    "milestones_done": 1,
+    "done": 19,
+    "milestones_done": 2,
     "milestones_total": 5
   },
   "summary_notes": [
