@@ -1,13 +1,13 @@
 [
   {
-    "pattern_id": "python.strategy",
+    "pattern_id": "java.strategy",
     "version": "1.0.0",
     "category": "planning_renderer",
-    "language": "python",
-    "title": "Render Python Strategy Pattern (interface + N concretes + context)",
-    "description": "Generates a Python Strategy pattern: a Protocol interface, one or more concrete strategy classes, and a context class that holds a swappable strategy. Includes a pytest suite. Uses the @@context_class@@ placeholder.",
+    "language": "java",
+    "title": "Render Java Strategy Pattern (interface + N concretes + context)",
+    "description": "Generates a Java Strategy pattern: an interface, one or more concrete strategy classes, and a context class that holds a swappable strategy. Uses the @@context_class@@ and @@package_name@@ placeholders.",
     "risk_level": "low",
-    "tags": ["strategy", "python", "GOF"],
+    "tags": ["strategy", "java", "GOF"],
     "parameters": [
       {
         "name": "context_class",
@@ -19,17 +19,43 @@
         "name": "package_name",
         "type": "string",
         "required": true,
-        "description": "Python package name for the generated module."
+        "description": "Java package name, e.g. com.example.patterns.strategy."
       }
     ],
     "templates": [
-      {"name": "protocol", "path": "config/patterns/templates/python/strategy/strategy_protocol.py.tmpl"},
-      {"name": "context", "path": "config/patterns/templates/python/strategy/strategy_context.py.tmpl"},
-      {"name": "primary", "path": "config/patterns/templates/python/strategy/strategy_primary.py.tmpl"},
-      {"name": "secondary", "path": "config/patterns/templates/python/strategy/strategy_secondary.py.tmpl"},
-      {"name": "test", "path": "config/patterns/templates/python/strategy/test_strategy.py.tmpl"}
+      {"name": "protocol", "path": "config/patterns/templates/java/strategy/Strategy.java.tmpl"},
+      {"name": "context", "path": "config/patterns/templates/java/strategy/Context.java.tmpl"},
+      {"name": "primary", "path": "config/patterns/templates/java/strategy/PrimaryStrategy.java.tmpl"},
+      {"name": "secondary", "path": "config/patterns/templates/java/strategy/SecondaryStrategy.java.tmpl"},
+      {"name": "test", "path": "config/patterns/templates/java/strategy/StrategyTest.java.tmpl"}
     ],
-    "entry_point": "config/patterns/templates/python/strategy"
+    "entry_point": "config/patterns/templates/java/strategy"
+  },
+  {
+    "pattern_id": "ts.strategy",
+    "version": "1.0.0",
+    "category": "planning_renderer",
+    "language": "typescript",
+    "title": "Render TypeScript Strategy Pattern (interface + N concretes + context)",
+    "description": "Generates a TypeScript Strategy pattern: an interface, one or more concrete strategy classes, and a context class. Includes a Vitest suite. Uses @@context_class@@ placeholder.",
+    "risk_level": "low",
+    "tags": ["strategy", "typescript", "GOF"],
+    "parameters": [
+      {
+        "name": "context_class",
+        "type": "string",
+        "required": true,
+        "description": "PascalCase name of the context class (also used to derive the Strategy interface name)."
+      }
+    ],
+    "templates": [
+      {"name": "types", "path": "config/patterns/templates/typescript/strategy/strategy.types.ts.tmpl"},
+      {"name": "context", "path": "config/patterns/templates/typescript/strategy/context.ts.tmpl"},
+      {"name": "primary", "path": "config/patterns/templates/typescript/strategy/primary.strategy.ts.tmpl"},
+      {"name": "secondary", "path": "config/patterns/templates/typescript/strategy/secondary.strategy.ts.tmpl"},
+      {"name": "test", "path": "config/patterns/templates/typescript/strategy/context.test.ts.tmpl"}
+    ],
+    "entry_point": "config/patterns/templates/typescript/strategy"
   },
   {
     "pattern_id": "python.function_stub",
