@@ -220,7 +220,7 @@
         "PAT-020",
         "PAT-021"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -810,7 +810,7 @@
     {
       "id": "PAT-020",
       "title": "Dokumentation und Beispiele schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "scope": "docs",
@@ -832,12 +832,13 @@
         "Doku enthält Blueprint workflow.step mit pattern_hints.",
         "Doku enthält Security-Hinweise zu Pfaden, Template-Rendering und Risky Patterns.",
         "Doku nennt Devtool zur Katalogvalidierung."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "PAT-021",
       "title": "Erste End-to-End Demo für Pattern-gestützte Codegenerierung",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "scope": "e2e",
@@ -861,13 +862,14 @@
         "Mindestens ein generierter Test wird ausgeführt oder strukturell geprüft.",
         "Demo dokumentiert die Artefakt-Refs und Hashes.",
         "Fehlerfall-Demo zeigt ungültiges Pattern/unerlaubten Pfad und bricht kontrolliert ab."
-      ]
+      ],
+      "progress_percent": 100.0
     }
   ],
   "tasks_status_summary": {
     "by_status": {
-      "done": 19,
-      "todo": 2,
+      "done": 21,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0
@@ -952,13 +954,13 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "percent_complete": 90.5,
-    "todo_remaining": 2,
+    "state": "done",
+    "percent_complete": 100.0,
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 19
+    "done": 21
   },
   "execution_stage_summary": {
     "total": 21,
