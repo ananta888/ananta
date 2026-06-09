@@ -4099,49 +4099,49 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _cli_session_policy(agent_cfg: dict | None) -> dict:
-        cfg = agent_cfg or {}
-        mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
-        backends = [str(item or "").strip().lower() for item in list(mode.get("stateful_backends") or ["opencode", "codex"]) if str(item or "").strip()]
-        return {
-            "enabled": bool(mode.get("enabled", False)),
-            "stateful_backends": backends,
-            "max_turns_per_session": max(1, min(int(mode.get("max_turns_per_session") or 40), 200)),
-            "max_sessions": max(1, min(int(mode.get("max_sessions") or 200), 2000)),
-            "allow_task_scoped_auto_session": bool(mode.get("allow_task_scoped_auto_session", True)),
-            "reuse_scope": str(mode.get("reuse_scope") or "task").strip().lower() or "task",
-            "native_opencode_sessions": bool(mode.get("native_opencode_sessions", False)),
-        }
+        # SPLIT-001d: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.resolve_cli_session_policy
+        from agent.services._task_scoped_config_policy import resolve_cli_session_policy
+        return resolve_cli_session_policy(agent_cfg)
 
     @staticmethod
     def _resolve_opencode_execution_mode(agent_cfg: dict | None) -> str:
-        cfg = agent_cfg or {}
-        runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
-        mode = str(runtime_cfg.get("execution_mode") or "live_terminal").strip().lower()
-        return mode if mode in {"backend", "live_terminal", "interactive_terminal"} else "live_terminal"
+        # SPLIT-001d: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.resolve_opencode_execution_mode
+        from agent.services._task_scoped_config_policy import (
+            resolve_opencode_execution_mode,
+        )
+        return resolve_opencode_execution_mode(agent_cfg)
 
     @staticmethod
     def _resolve_opencode_interactive_launch_mode(agent_cfg: dict | None) -> str:
-        cfg = agent_cfg or {}
-        runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
-        mode = str(runtime_cfg.get("interactive_launch_mode") or "run").strip().lower()
-        return mode if mode in {"run", "tui"} else "run"
+        # SPLIT-001d: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.resolve_opencode_interactive_launch_mode
+        from agent.services._task_scoped_config_policy import (
+            resolve_opencode_interactive_launch_mode,
+        )
+        return resolve_opencode_interactive_launch_mode(agent_cfg)
 
     @staticmethod
     def _native_worker_runtime_enabled(agent_cfg: dict | None) -> bool:
-        runtime_cfg = (agent_cfg or {}).get("worker_runtime") if isinstance((agent_cfg or {}).get("worker_runtime"), dict) else {}
-        native_cfg = runtime_cfg.get("native_worker_runtime") if isinstance(runtime_cfg.get("native_worker_runtime"), dict) else {}
-        return bool(native_cfg.get("enabled", False))
+        # SPLIT-001d: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.native_worker_runtime_enabled
+        from agent.services._task_scoped_config_policy import (
+            native_worker_runtime_enabled,
+        )
+        return native_worker_runtime_enabled(agent_cfg)
 
     def _should_use_native_worker_runtime(self, *, proposal_meta: dict | None, agent_cfg: dict | None, command: str | None) -> bool:
-        if not str(command or "").strip():
-            return False
-        if not self._native_worker_runtime_enabled(agent_cfg):
-            return False
-        proposal = dict(proposal_meta or {})
-        backend = str(proposal.get("backend") or "").strip().lower()
-        routing = dict(proposal.get("routing") or {})
-        runtime_path = str(routing.get("worker_runtime_path") or "").strip().lower()
-        return backend == "ananta-worker" and runtime_path == "native_worker_pipeline"
+        # SPLIT-001d: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.should_use_native_worker_runtime
+        from agent.services._task_scoped_config_policy import (
+            should_use_native_worker_runtime,
+        )
+        return should_use_native_worker_runtime(
+            proposal_meta=proposal_meta,
+            agent_cfg=agent_cfg,
+            command=command,
+        )
 
     def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
         task_record = get_repository_registry().task_repo.get_by_id(tid)
@@ -4179,9 +4179,12 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _has_native_opencode_runtime(session_payload: dict | None) -> bool:
-        metadata = (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
-        runtime_meta = metadata.get("opencode_runtime") if isinstance(metadata.get("opencode_runtime"), dict) else {}
-        return str(runtime_meta.get("kind") or "").strip().lower() == "native_server"
+        # SPLIT-001d: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_config_policy.has_native_opencode_runtime
+        from agent.services._task_scoped_config_policy import (
+            has_native_opencode_runtime,
+        )
+        return has_native_opencode_runtime(session_payload)
 
     def _prepare_task_cli_session(
         self,

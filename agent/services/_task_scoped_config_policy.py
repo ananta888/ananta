@@ -6,7 +6,7 @@ translating the agent configuration dict into resolved, bounded,
 deduplicated policy structures that the runtime and domain-action
 clusters can consume directly.
 
-Two layers live here:
+Three layers live here:
 
 1. **Pure leaf utilities** (SPLIT-001b): parsing + clamping numeric
    configuration values to documented bounds, with a safe fallback if
@@ -19,6 +19,14 @@ Two layers live here:
    profile, research context compaction, interactive timeouts). They
    call the leaf utilities in the same module; no ``cls`` access
    back into the service.
+
+3. **CLI / opencode / native-worker policy resolvers** (SPLIT-001d):
+   the six pure-resolver methods that translate the agent config
+   into the cli-session policy struct, the opencode execution /
+   interactive-launch mode, the native-worker enablement flag,
+   the native-worker-routing decision, and the native-opencode-runtime
+   detector. These are pure (or, for one method, ``_should_use_native_worker_runtime``,
+   a thin composition over the other pure functions in this same module).
 
 Backwards compatibility is preserved at the service boundary via thin
 delegating wrappers in :class:`TaskScopedExecutionService` (12-month
@@ -292,3 +300,93 @@ def resolve_interactive_retry_timeout(agent_cfg: dict | None, *, fallback: int) 
 
 
 _resolve_interactive_retry_timeout = resolve_interactive_retry_timeout
+
+
+# ======================================================================
+# 3. CLI / opencode / native-worker policy resolvers (SPLIT-001d)
+# ======================================================================
+
+
+def resolve_cli_session_policy(agent_cfg: dict | None) -> dict:
+    cfg = agent_cfg or {}
+    mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
+    backends = [
+        str(item or "").strip().lower()
+        for item in list(mode.get("stateful_backends") or ["opencode", "codex"])
+        if str(item or "").strip()
+    ]
+    return {
+        "enabled": bool(mode.get("enabled", False)),
+        "stateful_backends": backends,
+        "max_turns_per_session": max(1, min(int(mode.get("max_turns_per_session") or 40), 200)),
+        "max_sessions": max(1, min(int(mode.get("max_sessions") or 200), 2000)),
+        "allow_task_scoped_auto_session": bool(mode.get("allow_task_scoped_auto_session", True)),
+        "reuse_scope": str(mode.get("reuse_scope") or "task").strip().lower() or "task",
+        "native_opencode_sessions": bool(mode.get("native_opencode_sessions", False)),
+    }
+
+
+# Backward-compat alias for the pre-split private name.
+_cli_session_policy = resolve_cli_session_policy
+
+
+def resolve_opencode_execution_mode(agent_cfg: dict | None) -> str:
+    cfg = agent_cfg or {}
+    runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+    mode = str(runtime_cfg.get("execution_mode") or "live_terminal").strip().lower()
+    return mode if mode in {"backend", "live_terminal", "interactive_terminal"} else "live_terminal"
+
+
+_resolve_opencode_execution_mode = resolve_opencode_execution_mode
+
+
+def resolve_opencode_interactive_launch_mode(agent_cfg: dict | None) -> str:
+    cfg = agent_cfg or {}
+    runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+    mode = str(runtime_cfg.get("interactive_launch_mode") or "run").strip().lower()
+    return mode if mode in {"run", "tui"} else "run"
+
+
+_resolve_opencode_interactive_launch_mode = resolve_opencode_interactive_launch_mode
+
+
+def native_worker_runtime_enabled(agent_cfg: dict | None) -> bool:
+    runtime_cfg = (agent_cfg or {}).get("worker_runtime")
+    runtime_cfg = runtime_cfg if isinstance(runtime_cfg, dict) else {}
+    native_cfg = runtime_cfg.get("native_worker_runtime")
+    native_cfg = native_cfg if isinstance(native_cfg, dict) else {}
+    return bool(native_cfg.get("enabled", False))
+
+
+_native_worker_runtime_enabled = native_worker_runtime_enabled
+
+
+def should_use_native_worker_runtime(
+    *,
+    proposal_meta: dict | None,
+    agent_cfg: dict | None,
+    command: str | None,
+) -> bool:
+    if not str(command or "").strip():
+        return False
+    if not native_worker_runtime_enabled(agent_cfg):
+        return False
+    proposal = dict(proposal_meta or {})
+    backend = str(proposal.get("backend") or "").strip().lower()
+    routing = dict(proposal.get("routing") or {})
+    runtime_path = str(routing.get("worker_runtime_path") or "").strip().lower()
+    return backend == "ananta-worker" and runtime_path == "native_worker_pipeline"
+
+
+_should_use_native_worker_runtime = should_use_native_worker_runtime
+
+
+def has_native_opencode_runtime(session_payload: dict | None) -> bool:
+    metadata = (session_payload or {}).get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    runtime_meta = metadata.get("opencode_runtime")
+    runtime_meta = runtime_meta if isinstance(runtime_meta, dict) else {}
+    return str(runtime_meta.get("kind") or "").strip().lower() == "native_server"
+
+
+_has_native_opencode_runtime = has_native_opencode_runtime
