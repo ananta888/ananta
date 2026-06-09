@@ -179,7 +179,7 @@
         "LCG-029",
         "LCG-030"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -923,7 +923,7 @@
     {
       "id": "LCG-030",
       "title": "Migrations- und Rollout-Plan erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "documentation",
@@ -939,7 +939,10 @@
         "Tests je Rollout-Stufe sind genannt.",
         "Offene Risiken und spätere Erweiterungen sind dokumentiert."
       ],
-      "progress_percent": 0
+      "progress_percent": 100,
+      "notes": [
+        "docs/operations/langchain-langgraph-rollout-runbook.md — 4-Phasen-Rollout (default-off -> dry-run -> local-live -> multi-task/graph -> cloud-gated), Smoke-Checks pro Phase, Sofort-Rollback, Audit-Event-Liste."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -965,13 +968,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 28
+      "done": 29
     },
-    "progress_percent_done": 93.3,
+    "progress_percent_done": 96.7,
     "by_priority": {
       "P0": 18,
       "P1": 10,
@@ -991,11 +994,11 @@
     },
     "milestones": {
       "total": 5,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -1211,18 +1214,18 @@
       },
       "documentation": {
         "total": 2,
-        "done": 1,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 50.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         }
       },
       "configuration": {
@@ -1261,12 +1264,12 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 2,
+    "todo_remaining": 1,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 28,
-    "milestones_done": 3,
+    "done": 29,
+    "milestones_done": 4,
     "milestones_total": 5
   },
   "summary_notes": [
