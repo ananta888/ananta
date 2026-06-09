@@ -432,7 +432,7 @@
     {
       "id": "LCG-011",
       "title": "Policy-Gates für Tools, Netzwerk und Dateizugriff einbauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -451,15 +451,16 @@
         "Secrets werden nicht in Prompts, Logs oder Artefakte geschrieben.",
         "Tests decken Shell-Block, externes HTTP-Block, Secret-Block und erlaubten Read-only-Kontext ab."
       ],
-      "progress_percent": 80,
+      "progress_percent": 100,
       "notes": [
-        "WorkflowPolicyGate in worker/adapters/workflow_policy_gate.py — Default-Deny Fix in follow-up Commit."
+        "WorkflowPolicyGate in worker/adapters/workflow_policy_gate.py — Default-Deny Fix in follow-up Commit.",
+        "Bugfix-Cluster: check_tool jetzt echte Default-Deny (leer=block); hard-deny wins; allowlist enforcement."
       ]
     },
     {
       "id": "LCG-012",
       "title": "Human-Approval-Gates für riskante Schritte erzwingen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -477,9 +478,10 @@
         "Abgelehnte Approvals werden auditierbar gespeichert.",
         "Auto-merge/push bleibt verboten, sofern nicht explizit über Hub-Policy erlaubt."
       ],
-      "progress_percent": 80,
+      "progress_percent": 100,
       "notes": [
-        "Human-Approval-Logik in LangGraph/LangChain-Adapter (dry.approval_required → blocked_result); Service-Coupling zu approval_service in follow-up."
+        "Human-Approval-Logik in LangGraph/LangChain-Adapter (dry.approval_required → blocked_result); Service-Coupling zu approval_service in follow-up.",
+        "Bugfix-Cluster: requires_human() public in WorkflowPolicyGate, LangGraphAdapter nutzt es statt private _human_required."
       ]
     },
     {
@@ -630,7 +632,8 @@
       ],
       "progress_percent": 100,
       "notes": [
-        "WorkflowAuditLog in worker/adapters/workflow_audit.py; Lifecycle-Fix in follow-up Commit."
+        "WorkflowAuditLog in worker/adapters/workflow_audit.py; Lifecycle-Fix in follow-up Commit.",
+        "Bugfix-Cluster: WorkflowAuditLog.snapshot() liefert+cleart atomar; jede Task bekommt eigenen Trace in DryRunResult.metadata bzw. WorkflowArtifactResult.execution_trace."
       ]
     },
     {
@@ -930,11 +933,11 @@
     "by_status": {
       "todo": 12,
       "in_progress": 0,
-      "partial": 3,
+      "partial": 1,
       "blocked": 0,
-      "done": 15
+      "done": 17
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 56.7,
     "by_priority": {
       "P0": 18,
       "P1": 10,
@@ -949,8 +952,8 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 11,
-      "remaining": 7
+      "done": 13,
+      "remaining": 5
     },
     "milestones": {
       "total": 5,
@@ -1062,18 +1065,18 @@
       },
       "security": {
         "total": 3,
-        "done": 0,
-        "partial": 3,
+        "done": 2,
+        "partial": 1,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 73.3,
+        "progress_percent": 86.7,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "contract": {
@@ -1224,11 +1227,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 15,
+    "todo_remaining": 13,
     "in_progress": 0,
-    "partial": 3,
+    "partial": 1,
     "blocked": 0,
-    "done": 15,
+    "done": 17,
     "milestones_done": 1,
     "milestones_total": 5
   },
