@@ -226,35 +226,18 @@ class TaskScopedExecutionService:
         from agent.services._task_scoped_config_policy import bounded_float
         return bounded_float(value, default=default, minimum=minimum, maximum=maximum)
 
-    @staticmethod
     # --- cluster: workspace_runtime (command rewrite) ---
+    @staticmethod
     def _rewrite_runtime_command_for_workspace_tools(*, command: str | None, workspace_dir: str | None) -> tuple[str | None, dict | None]:
-        command_text = str(command or "").strip()
-        workspace = str(workspace_dir or "").strip()
-        if not command_text or not workspace:
-            return command, None
-        if "uvicorn" not in command_text:
-            return command, None
-
-        venv_uvicorn = Path(workspace) / ".venv" / "bin" / "uvicorn"
-        if venv_uvicorn.exists():
-            # Replace bare uvicorn token only, keep shell operators/arguments unchanged.
-            rewritten = re.sub(r"(?<![\\w./-])uvicorn(?![\\w./-])", str(venv_uvicorn), command_text)
-            if rewritten != command_text:
-                return rewritten, {
-                    "strategy": "workspace_venv_uvicorn_binary",
-                    "from": "uvicorn",
-                    "to": str(venv_uvicorn),
-                }
-
-        venv_activate = Path(workspace) / ".venv" / "bin" / "activate"
-        if venv_activate.exists() and ".venv/bin/activate" not in command_text:
-            rewritten = f"source .venv/bin/activate && {command_text}"
-            return rewritten, {
-                "strategy": "workspace_venv_activate_prefix",
-                "activate_script": ".venv/bin/activate",
-            }
-        return command, None
+        # SPLIT-001v: delegating wrapper. Implementation lives in
+        # agent.services._task_scoped_workspace_runtime.rewrite_runtime_command_for_workspace_tools.
+        from agent.services._task_scoped_workspace_runtime import (
+            rewrite_runtime_command_for_workspace_tools,
+        )
+        return rewrite_runtime_command_for_workspace_tools(
+            command=command,
+            workspace_dir=workspace_dir,
+        )
 
     @classmethod
     def _resolve_worker_semantic_output_correction_policy(cls, agent_cfg: dict | None) -> dict:
