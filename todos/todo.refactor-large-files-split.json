@@ -643,9 +643,12 @@
       "id": "SPLIT-011",
       "milestone": "M3",
       "priority": "P1",
+      "status": "done",
+      "commit": "03cf13fe",
       "title": "agent/cli/prompt_inspect.py aufteilen (2032 Zeilen)",
       "file": "agent/cli/prompt_inspect.py",
-      "current_lines": 2032,
+      "current_lines": 801,
+      "notes": "Done: 2 sub-modules extracted (prompt_inspect_core, prompt_inspect_formatters). Main file 801 lines.",
       "proposed_split": [
         {
           "file": "agent/cli/prompt_inspect_core.py",
