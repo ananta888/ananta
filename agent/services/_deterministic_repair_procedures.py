@@ -29,6 +29,21 @@ from agent.services._deterministic_repair_constants import (
 
 log = logging.getLogger(__name__)
 
+from agent.services import _deterministic_repair_signatures as _drr_signatures
+build_initial_failure_signature_catalog = _drr_signatures.build_initial_failure_signature_catalog
+from agent.services import _deterministic_repair_utils as _drr_utils
+_approval_scope_key = _drr_utils._approval_scope_key
+_default_llm_proposal_conversion = _drr_utils._default_llm_proposal_conversion
+_detect_contradictory_evidence = _drr_utils._detect_contradictory_evidence
+_detect_worsening_signals = _drr_utils._detect_worsening_signals
+_structure_llm_proposal = _drr_utils._structure_llm_proposal
+from agent.services import _deterministic_repair_verification as _drr_verification
+run_step_verification = _drr_verification.run_step_verification
+from agent.services import _deterministic_repair_safety as _drr_safety
+classify_repair_action_safety = _drr_safety.classify_repair_action_safety
+from agent.services import _deterministic_repair_misc as _drr_misc
+evaluate_unsafe_action_guardrails = _drr_misc.evaluate_unsafe_action_guardrails
+
 
 
 
@@ -354,20 +369,6 @@ def convert_llm_proposal_to_reviewed_procedure(
             try:
                 from agent.services.system_prompt_catalog import get_system_prompt
 
-from agent.services import _deterministic_repair_signatures as _drr_signatures
-build_initial_failure_signature_catalog = _drr_signatures.build_initial_failure_signature_catalog
-from agent.services import _deterministic_repair_utils as _drr_utils
-_approval_scope_key = _drr_utils._approval_scope_key
-_default_llm_proposal_conversion = _drr_utils._default_llm_proposal_conversion
-_detect_contradictory_evidence = _drr_utils._detect_contradictory_evidence
-_detect_worsening_signals = _drr_utils._detect_worsening_signals
-_structure_llm_proposal = _drr_utils._structure_llm_proposal
-from agent.services import _deterministic_repair_verification as _drr_verification
-run_step_verification = _drr_verification.run_step_verification
-from agent.services import _deterministic_repair_safety as _drr_safety
-classify_repair_action_safety = _drr_safety.classify_repair_action_safety
-from agent.services import _deterministic_repair_misc as _drr_misc
-evaluate_unsafe_action_guardrails = _drr_misc.evaluate_unsafe_action_guardrails
                 _tpl = get_system_prompt("system.repair_procedure_converter", "")
             except Exception:
                 _tpl = ""

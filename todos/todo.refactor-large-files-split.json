@@ -559,7 +559,9 @@
         "Angular kompiliert ohne Fehler",
         "Alle Settings-Felder weiterhin sichtbar und funktional",
         "settings.component.ts unter 300 Zeilen"
-      ]
+      ],
+      "status": "blocked",
+      "notes": " Blocked: pre-existing TS errors prevent Angular compile verification."
     },
     {
       "id": "SPLIT-009",
