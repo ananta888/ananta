@@ -149,3 +149,26 @@ needed for summary generation — it is fast, non-blocking, and always available
 | `chat_prompt_builder.py` | `ChatPromptBuilder` with budget policy, v2 payload |
 | `chat_mixin.py` | Integration: memory build, prompt build, worker call, summary update |
 | `ai_snake_config_view.py` | Config items and apply handler for all memory settings |
+
+## Related runtime rules
+
+The AI-Snake-Chat surface is covered by the same non-overridable CodeCompass
+runtime rules as the OpenCode and ananta-worker templates. See
+[`docs/codecompass-agent-runtime-instructions.md`](../codecompass-agent-runtime-instructions.md)
+for the canonical ruleset and the
+[`context_reload_request` contract](../contracts/codecompass-context-reload-request.md)
+for the reload-request wire format. The rules relevant to this doc are:
+
+- Empty CodeCompass results must be rendered as "CodeCompass hat zu dieser
+  Frage nichts Belegbares gefunden" — never as a "no, it is not protected"-
+  style negative claim.
+- A chat that receives a security-relevant question without an evidence path
+  is expected to mark the answer as "nachladen empfohlen" and (if the user
+  asks a follow-up that requires the missing data) issue a
+  `context_reload_request` to the Hub at
+  `POST /api/codecompass/reload-context`.
+- The `codecompass_runtime` instruction layer is non-overridable: chat-level
+  user-profile settings, goal overlays, and session overlays cannot disable
+  or weaken the runtime rules. Violations are silently suppressed at the
+  compiler (`suppressed_layers`) and audit-logged as
+  `codecompass_runtime_override_rejected`.
