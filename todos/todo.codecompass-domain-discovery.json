@@ -1,0 +1,1076 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-domain-discovery",
+  "created": "2026-06-10",
+  "status": "done",
+  "purpose": "CodeCompass/RAG-Helper soll aus bestehenden Index-, Detail-, Relation-, Graph-, Embedding- und Manifest-Ausgaben grosse fachliche Domänen bzw. Bounded-Context-Kandidaten automatisch identifizieren, begruenden und als belastbare Artefakte fuer Hub, Worker, RAG-Routing und Domain-Descriptors bereitstellen.",
+  "goal": "Eine reproduzierbare Analyse-Stufe `codecompass analyze-domains` bzw. ein entsprechender RAG-Helper-Modus erzeugt `domains.detected.json`, `domain_boundaries.jsonl`, `domain_coupling.json`, optionale `domains/<domain_id>/domain.json`-Vorschlaege und Tests. Die Erkennung nutzt deterministische Signale zuerst: Pfade, Packages/Namespaces, Graph-Kanten, Import-/Framework-Relations, Role Labels, Dateitypen, Docs und vorhandene Domain-Descriptor/RAG-Profile. Embeddings/LLM duerfen spaeter nur als erklaerender oder optionaler Zusatz wirken, nicht als alleinige Quelle.",
+  "source_review": {
+    "summary": "Der aktuelle CodeCompass/RAG-Helper kann bereits Dateien sammeln, Java/C# Packages und Namespaces vorab erfassen, Index-/Detail-/Relation-Daten erzeugen, Graph-Nodes/Graph-Edges exportieren, domainartige Gemini-Partitionen nach technischen Kategorien bilden und Domain-Descriptor-Vertraege verwalten. Es fehlt aber eine eigene Analyse-Stufe, die daraus grosse fachliche Domaenen bzw. Bounded-Context-Kandidaten mit Boundary-Metriken ableitet.",
+    "observed_source_files": [
+      {
+        "path": "rag-helper/rag_helper/application/project_processor.py",
+        "observations": [
+          "collect_files nutzt include_globs/exclude_globs und exclude_gitignored_files als vorhandene Dateiauswahl-Basis.",
+          "build_package_type_index erzeugt known_package_types und known_namespace_types fuer Java/C#.",
+          "process_project erzeugt all_index, all_details, all_relations, manifest, summary_records, specialized_chunks, duplicate_relations, graph_nodes und graph_edges.",
+          "Manifest enthaelt package_type_index, record_counts_by_kind, extension_stats, partitioned_outputs und graph_node_count/graph_edge_count.",
+          "Output schreibt index.jsonl, details.jsonl, relations.jsonl, embedding.jsonl, context.jsonl, graph_nodes.jsonl und graph_edges.jsonl abhaengig von den Modi."
+        ]
+      },
+      {
+        "path": "rag-helper/rag_helper/application/output_formats.py",
+        "observations": [
+          "build_graph_nodes erzeugt Knoten mit id, kind, file, parent_id, role_labels, importance_score und generated_code.",
+          "build_graph_edges erzeugt parent_child-Kanten und Relation-Kanten mit source, target, type, kind, confidence und heuristic.",
+          "Diese Graph-Ausgabe ist die direkte technische Basis fuer Domain-Clustering und Boundary-Metriken."
+        ]
+      },
+      {
+        "path": "rag-helper/rag_helper/application/gem_partitions.py",
+        "observations": [
+          "build_gem_partition_records kennt bereits mode domain/domain-rich.",
+          "_classify_domain klassifiziert aber aktuell primaer technische Kategorien wie configuration, data-model, architecture, docs, api, service, integration.",
+          "Das ist nuetzlich als Signal, ersetzt aber keine fachliche Domaenenerkennung."
+        ]
+      },
+      {
+        "path": "rag-helper/rag_helper/cli.py",
+        "observations": [
+          "CLI hat bereits Optionen fuer gem-partition-mode, graph-export-mode, output-partition-mode, benchmark-mode, duplicate-detection-mode und specialized-chunker-mode.",
+          "Eine neue analyze-domains-Funktion sollte konsistent ueber CLI und optional config_defaults erreichbar sein."
+        ]
+      },
+      {
+        "path": "docs/architecture/domain_descriptor_reference.md",
+        "observations": [
+          "Beschreibt domains/<domain_id>/domain.json, source_paths, capability_pack, context_schemas, artifact_schemas, policy_packs, rag_profiles und bridge_adapter_type.",
+          "RAG-Profile sollen provenance, allowed_paths, include_globs, exclude_globs und ingestion_path enthalten.",
+          "Descriptors sind deklarative Contracts und duerfen keine dynamische Plugin-Ausfuehrung starten."
+        ]
+      },
+      {
+        "path": "docs/architecture/domain_integration_foundation.md",
+        "observations": [
+          "Domain Foundation trennt Generic Platform Layer und Domain Layer.",
+          "Descriptor Loading, Policy, Approval, Audit, Retrieval Routing und Release Gates bleiben Hub-owned.",
+          "Runtime Readiness darf nicht aus Descriptor-Praesenz allein abgeleitet werden."
+        ]
+      }
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "design_decisions": [
+    {
+      "id": "CCDD-DD-001",
+      "decision": "Domaenenerkennung ist ein Analyse-Artefakt, kein Runtime-Plugin.",
+      "rationale": "Die bestehende Domain Foundation verbietet dynamisches Laden aus Descriptor-Pfaden. Die Analyse darf Vorschlaege liefern, aber keine Ausfuehrungspfad erweitern."
+    },
+    {
+      "id": "CCDD-DD-002",
+      "decision": "Deterministische Signale haben Vorrang vor Embedding-/LLM-Signalen.",
+      "rationale": "Packages, Pfade, Graph-Kanten und deklarative Descriptoren sind pruefbar. Embeddings koennen falsch clustern und sollen nur unterstuetzen."
+    },
+    {
+      "id": "CCDD-DD-003",
+      "decision": "Technische Layer-Kategorien bleiben getrennt von fachlichen Domaenen.",
+      "rationale": "api/service/data-model/configuration aus gem_partitions.py sind Layer-Signale, aber keine Bounded Contexts."
+    },
+    {
+      "id": "CCDD-DD-004",
+      "decision": "Jede erkannte Domaene braucht Evidenz.",
+      "rationale": "Jeder Domain-Kandidat muss root_paths, packages/namespaces, zentrale Records, interne/externe Kopplung und Boundary-Warnungen ausgeben."
+    },
+    {
+      "id": "CCDD-DD-005",
+      "decision": "Descriptor-Vorschlaege bleiben opt-in.",
+      "rationale": "Automatisch erkannte domains/<domain_id>/domain.json Dateien duerfen nur als Vorschlagsartefakte entstehen, nicht direkt bestehende Domain-Vertraege ueberschreiben."
+    }
+  ],
+  "target_outputs": {
+    "primary_files": [
+      "domains.detected.json",
+      "domain_boundaries.jsonl",
+      "domain_coupling.json",
+      "domain_descriptor_suggestions/"
+    ],
+    "domain_detected_example": {
+      "schema": "codecompass_domain_analysis.v1",
+      "project_root": "/repo",
+      "domains": [
+        {
+          "domain_id": "rag-helper",
+          "display_name": "RAG Helper",
+          "confidence": 0.92,
+          "root_paths": [
+            "rag-helper/rag_helper"
+          ],
+          "package_prefixes": [
+            "rag_helper"
+          ],
+          "technical_layers": [
+            "architecture",
+            "service",
+            "data-model",
+            "configuration"
+          ],
+          "core_records": [
+            "java_type:...",
+            "py_module:..."
+          ],
+          "internal_edge_count": 120,
+          "outbound_edge_count": 14,
+          "inbound_edge_count": 7,
+          "boundary_warnings": []
+        }
+      ]
+    }
+  },
+  "milestones": [
+    {
+      "id": "CCDD-M1",
+      "title": "Analyse-Vertrag und Ist-Signale sauber festlegen",
+      "status": "done",
+      "task_ids": [
+        "CCDD-001",
+        "CCDD-002",
+        "CCDD-003"
+      ]
+    },
+    {
+      "id": "CCDD-M2",
+      "title": "Domain-Graph-Modell aus vorhandenen CodeCompass-Outputs bauen",
+      "status": "done",
+      "task_ids": [
+        "CCDD-004",
+        "CCDD-005",
+        "CCDD-006",
+        "CCDD-007"
+      ]
+    },
+    {
+      "id": "CCDD-M3",
+      "title": "Clustering, Boundary-Metriken und Konfliktanalyse implementieren",
+      "status": "done",
+      "task_ids": [
+        "CCDD-008",
+        "CCDD-009",
+        "CCDD-010",
+        "CCDD-011"
+      ]
+    },
+    {
+      "id": "CCDD-M4",
+      "title": "CLI, Config, Artefakte und Descriptor-Vorschlaege integrieren",
+      "status": "done",
+      "task_ids": [
+        "CCDD-012",
+        "CCDD-013",
+        "CCDD-014",
+        "CCDD-015"
+      ]
+    },
+    {
+      "id": "CCDD-M5",
+      "title": "Tests, Doku und Regressionen abschliessen",
+      "status": "done",
+      "task_ids": [
+        "CCDD-016",
+        "CCDD-017",
+        "CCDD-018",
+        "CCDD-019",
+        "CCDD-020"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCDD-001",
+      "title": "Aktuellen CodeCompass-Domain-Iststand dokumentieren",
+      "type": "analysis-documentation",
+      "milestone": "CCDD-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "docs/codecompass-domain-discovery.md",
+        "rag-helper/rag_helper/application/gem_partitions.py",
+        "rag-helper/rag_helper/application/project_processor.py",
+        "rag-helper/rag_helper/application/output_formats.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Dokumentation benennt explizit, dass gem_partitions.py aktuell technische Kategorien erzeugt und keine fachlichen Bounded Contexts.",
+        "Dokumentation referenziert project_processor.py als Quelle fuer index/detail/relation/graph/manifest-Ausgaben.",
+        "Dokumentation beschreibt, welche Felder aus graph_nodes.jsonl und graph_edges.jsonl fuer Domain-Erkennung genutzt werden.",
+        "Keine Runtime-Logik wird in diesem Task geaendert."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10: docs/codecompass-domain-discovery.md (Ist-Stand, Vertrag codecompass_domain_analysis.v1, Signalmodell mit Gewichten und Root-Pfad-Algorithmus). Tests liegen unter rag-helper/tests/ statt tests/ (rag_helper ist nur aus rag-helper/ importierbar)."
+    },
+    {
+      "id": "CCDD-002",
+      "title": "JSON-Vertrag fuer domains.detected.json definieren",
+      "type": "contract",
+      "milestone": "CCDD-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "docs/codecompass-domain-discovery.md",
+        "rag-helper/rag_helper/domain_discovery/contracts.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Neues Schema oder dokumentierter Vertrag beschreibt schema, project_root, generated_at, inputs, domains, unassigned_records und warnings.",
+        "Jeder Domain-Eintrag enthaelt domain_id, display_name, confidence, root_paths, package_prefixes/namespaces, technical_layers, core_records, metrics und boundary_warnings.",
+        "Der Vertrag erlaubt provenance/evidence pro Domain-Kandidat.",
+        "Beispiel-JSON ist in docs/codecompass-domain-discovery.md enthalten."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10: docs/codecompass-domain-discovery.md (Ist-Stand, Vertrag codecompass_domain_analysis.v1, Signalmodell mit Gewichten und Root-Pfad-Algorithmus). Tests liegen unter rag-helper/tests/ statt tests/ (rag_helper ist nur aus rag-helper/ importierbar)."
+    },
+    {
+      "id": "CCDD-003",
+      "title": "Domaenen-Signalmodell festlegen",
+      "type": "architecture",
+      "milestone": "CCDD-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "target_files": [
+        "docs/codecompass-domain-discovery.md",
+        "rag-helper/rag_helper/domain_discovery/signals.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Signalmodell unterscheidet mindestens path_signal, package_signal, namespace_signal, graph_signal, role_label_signal, descriptor_signal, docs_signal und optional embedding_signal.",
+        "Signalmodell dokumentiert Gewichtungen und erklaert, warum deterministische Signale Vorrang haben.",
+        "Signalmodell verhindert, dass technische Layer wie service/api/data-model alleine als fachliche Domaene gelten.",
+        "Akzeptanzbeispiele enthalten mindestens rag-helper, agent/services und client_surfaces als unterschiedlich zu behandelnde Kandidaten."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10: docs/codecompass-domain-discovery.md (Ist-Stand, Vertrag codecompass_domain_analysis.v1, Signalmodell mit Gewichten und Root-Pfad-Algorithmus). Tests liegen unter rag-helper/tests/ statt tests/ (rag_helper ist nur aus rag-helper/ importierbar)."
+    },
+    {
+      "id": "CCDD-004",
+      "title": "Neues Package rag_helper.domain_discovery anlegen",
+      "type": "implementation",
+      "milestone": "CCDD-M2",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/__init__.py",
+        "rag-helper/rag_helper/domain_discovery/contracts.py",
+        "rag-helper/rag_helper/domain_discovery/inputs.py",
+        "rag-helper/rag_helper/domain_discovery/graph_model.py",
+        "rag-helper/rag_helper/domain_discovery/signals.py",
+        "rag-helper/rag_helper/domain_discovery/clustering.py",
+        "rag-helper/rag_helper/domain_discovery/boundaries.py",
+        "rag-helper/rag_helper/domain_discovery/descriptors.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Neues Package rag-helper/rag_helper/domain_discovery/ existiert mit __init__.py.",
+        "Module fuer contracts.py, inputs.py, graph_model.py, signals.py, clustering.py, boundaries.py, descriptors.py und writer.py sind angelegt.",
+        "Package importiert keine Hub-/Agent-Runtime-Services und bleibt als reine Analysebibliothek nutzbar.",
+        "Bestehende RAG-Helper-Imports in project_processor.py bleiben unveraendert, solange die neue Analyse nicht aktiv genutzt wird."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Package mit __init__/contracts/inputs/graph_model/signals/clustering/boundaries/descriptors angelegt; writer.py folgt in M4 (noetig sobald project_processor-Hooks erlaubt sind)."
+    },
+    {
+      "id": "CCDD-005",
+      "title": "Input-Loader fuer bestehende CodeCompass-Outputs implementieren",
+      "type": "implementation",
+      "milestone": "CCDD-M2",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/inputs.py",
+        "tests/test_codecompass_domain_discovery_inputs.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "inputs.py kann index.jsonl, details.jsonl, relations.jsonl, graph_nodes.jsonl, graph_edges.jsonl und manifest.json aus einem out_dir laden.",
+        "Fehlende optionale Dateien fuehren zu warnings, nicht zu unkontrolliertem Abbruch.",
+        "Loader validiert Minimalfelder id/kind/file bei Nodes und source/target/type bei Edges.",
+        "Unit-Test deckt leeres out_dir, teilweise vorhandene Outputs und vollstaendige Outputs ab."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10. Tests unter rag-helper/tests/ (rag_helper nur aus rag-helper/ importierbar)."
+    },
+    {
+      "id": "CCDD-006",
+      "title": "DomainGraph als internes Analysemodell bauen",
+      "type": "implementation",
+      "milestone": "CCDD-M2",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/graph_model.py",
+        "tests/test_codecompass_domain_graph_model.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "graph_model.py bildet Records nach id, file, kind, role_labels, parent_id, package/namespace falls vorhanden ab.",
+        "Graph-Kanten werden aus graph_edges.jsonl und relations.jsonl zusammengefuehrt, ohne Duplikate mehrfach zu zaehlen.",
+        "Parent-Child-Kanten werden fuer Struktur genutzt, Relation-Kanten fuer Kopplungsmetriken getrennt gehalten.",
+        "Test beweist, dass parent_child nicht dieselbe Gewichtung wie imports/calls/injects_dependency bekommt."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10. Tests unter rag-helper/tests/ (rag_helper nur aus rag-helper/ importierbar)."
+    },
+    {
+      "id": "CCDD-007",
+      "title": "Package-/Namespace-/Pfad-Signale aus Manifest und Records ableiten",
+      "type": "implementation",
+      "milestone": "CCDD-M2",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/signals.py",
+        "tests/test_codecompass_domain_signals.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "signals.py nutzt manifest.package_type_index als starkes Package-Signal.",
+        "Für C# werden namespace-Signale aus Records/Details genutzt, auch wenn manifest aktuell vor allem package_type_index enthaelt.",
+        "Pfad-Segmente wie rag-helper/rag_helper, agent/services, client_surfaces, domains/<id> werden als Root-Kandidaten erkannt.",
+        "Testdaten mit gemischten Pfaden erzeugen reproduzierbare root_path-Kandidaten."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10. Tests unter rag-helper/tests/ (rag_helper nur aus rag-helper/ importierbar)."
+    },
+    {
+      "id": "CCDD-008",
+      "title": "Deterministisches Domain-Clustering implementieren",
+      "type": "implementation",
+      "milestone": "CCDD-M3",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/clustering.py",
+        "rag-helper/tests/test_codecompass_domain_clustering.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "clustering.py gruppiert Records primaer nach starken root_path/package/namespace-Signalen.",
+        "Graph-Kanten koennen kleine isolierte Records einem bestehenden Cluster zuordnen, wenn die Kopplung eindeutig ist.",
+        "Bei mehrdeutiger Zuordnung bleibt ein Record in unassigned_records oder bekommt low confidence statt geraten zu werden.",
+        "Algorithmus ist deterministisch: gleicher Input erzeugt byte-stabil sortierte Domain-Kandidaten."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 9 Tests in rag-helper/tests/test_codecompass_domain_clustering.py. Layer-only Cluster werden gedroppt (CCDD-DD-003)."
+    },
+    {
+      "id": "CCDD-009",
+      "title": "Boundary- und Coupling-Metriken berechnen",
+      "type": "implementation",
+      "milestone": "CCDD-M3",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/boundaries.py",
+        "rag-helper/tests/test_codecompass_domain_boundaries.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "boundaries.py berechnet pro Domain internal_edge_count, inbound_edge_count, outbound_edge_count und external_domain_refs.",
+        "Kantenarten werden getrennt ausgegeben, z.B. parent_child, uses_type, injects_dependency, framework_relation, imports/calls falls vorhanden.",
+        "boundary_warnings werden erzeugt, wenn zwei Domains stark zyklisch gekoppelt sind oder ein technischer Layer zu viele Domains quer verbindet.",
+        "Test enthaelt mindestens zwei Domains mit absichtlich starker gegenseitiger Kopplung und erwartet eine Warnung."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 6 Tests. mutual_coupling / layer_spans_domains / heterogeneous_root / descriptor_mismatch (Wire-up ueber descriptor_mismatches-Parameter). Warnings byte-stabil sortiert."
+    },
+    {
+      "id": "CCDD-010",
+      "title": "Bestehende Domain-Descriptoren als harte/optionale Signale einbinden",
+      "type": "implementation",
+      "milestone": "CCDD-M3",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/descriptors.py",
+        "rag-helper/tests/test_codecompass_domain_descriptors.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "descriptors.py liest vorhandene domains/<domain_id>/domain.json, ohne daraus Code auszufuehren.",
+        "source_paths.code_paths/docs_paths/rag_profiles werden als descriptor_signal genutzt.",
+        "Widerspruch zwischen Descriptor-Pfaden und erkannter Code-Struktur wird als warning ausgegeben.",
+        "Test nutzt einen Fake-Descriptor mit source_paths und prueft, dass er Cluster benennt, aber nicht blind Runtime-Status behauptet."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 8 Tests. index_existing_descriptors + build_descriptor_mismatches + apply_descriptor_signal. Mapping-Parameter fuer DIP-konforme Aufrufer."
+    },
+    {
+      "id": "CCDD-011",
+      "title": "Technische Layer aus gem_partitions.py als Zusatzsignal nutzen",
+      "type": "refactor",
+      "milestone": "CCDD-M3",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/application/gem_partitions.py",
+        "rag-helper/rag_helper/domain_discovery/signals.py",
+        "rag-helper/tests/test_codecompass_domain_technical_layers.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "gem_partitions.py bleibt kompatibel und wird nicht zur fachlichen Domaenenquelle umgedeutet.",
+        "Domain Discovery kann die Klassifikation api/service/data-model/configuration/docs/architecture/integration als technical_layers in Domain-Kandidaten aufnehmen.",
+        "Tests pruefen, dass ein Cluster mehrere technical_layers enthalten kann.",
+        "Keine bestehende Ausgabe von gems_by_domain wird gebrochen."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. gem_partitions.py unveraendert; 4 Tests dokumentieren den Layer-only Guard auf signals-Ebene."
+    },
+    {
+      "id": "CCDD-012",
+      "title": "CLI-Option fuer Domain Discovery integrieren",
+      "type": "cli",
+      "milestone": "CCDD-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/cli.py",
+        "rag-helper/rag_helper/application/processing_limits.py",
+        "rag-helper/rag_helper/application/project_processor.py",
+        "tests/test_rag_helper_cli_domain_discovery.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "rag-helper CLI bekommt eine Option wie --domain-discovery-mode choices off/basic/rich oder einen Subcommand-compatible Einstieg, ohne bestehende CLI-Aufrufe zu brechen.",
+        "Bei aktivem Modus werden nach den bestehenden Outputs domains.detected.json, domain_boundaries.jsonl und domain_coupling.json geschrieben.",
+        "Option ist auch ueber config_defaults ladbar.",
+        "python -m rag_helper.cli --help zeigt die neue Option mit klarer Beschreibung."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_rag_helper_cli_domain_discovery.py"
+      ],
+      "notes": "Done 2026-06-10. CLI-Optionen --domain-discovery-mode (off/basic/rich) und --domain-descriptor-suggestions in cli.py und project_processor.py integriert. Config-Profil kompatibel. 5 Tests in test_rag_helper_cli_domain_discovery.py."
+    },
+    {
+      "id": "CCDD-013",
+      "title": "Writer fuer stabile Domain-Artefakte implementieren",
+      "type": "implementation",
+      "milestone": "CCDD-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/writer.py",
+        "rag-helper/rag_helper/application/project_processor.py",
+        "tests/test_codecompass_domain_writer.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "writer.py schreibt domains.detected.json mit sortierten Domains und stabil sortierten Listen.",
+        "domain_boundaries.jsonl enthaelt pro Boundary-Warnung eine Zeile mit source_domain, target_domain, warning_type, severity und evidence.",
+        "domain_coupling.json enthaelt Matrix/Listen der Kopplung zwischen Domains.",
+        "Dry-run schreibt keine Dateien, berechnet aber intern und meldet geplante Outputs im Manifest oder Log."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10. writer.py: run_domain_discovery (E2E-Pipeline), write_domain_artifacts (3 Artefakte), write_descriptor_suggestions (CCDD-015). 6 Tests in test_codecompass_domain_writer.py."
+    },
+    {
+      "id": "CCDD-014",
+      "title": "Manifest um Domain-Discovery-Statistiken erweitern",
+      "type": "implementation",
+      "milestone": "CCDD-M4",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/application/project_processor.py",
+        "tests/test_codecompass_domain_manifest.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "manifest.json enthaelt bei aktivem Modus domain_discovery.mode, domain_count, unassigned_record_count, boundary_warning_count und output_files.",
+        "Bei deaktiviertem Modus bleibt manifest kompatibel und enthaelt keine irrefuehrenden Domain-Zahlen.",
+        "Kompakter Manifest-Modus laesst keine riesigen Domain-Details einlaufen, sondern nur Summary-Zahlen.",
+        "Test prueft full und compact manifest_output_mode."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10. project_processor.py schreibt domain_discovery-Block im Manifest inkl. mode, domain_count, unassigned_record_count, boundary_warning_count, output_files. Rich-Mode embeddet Domains. Compact-Mode behaelt nur Summary. 4 Tests in test_codecompass_domain_manifest.py."
+    },
+    {
+      "id": "CCDD-015",
+      "title": "Domain-Descriptor-Vorschlaege optional erzeugen",
+      "type": "implementation",
+      "milestone": "CCDD-M4",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 100,
+      "target_files": [
+        "rag-helper/rag_helper/domain_discovery/descriptors.py",
+        "rag-helper/rag_helper/domain_discovery/writer.py",
+        "docs/architecture/domain_descriptor_reference.md",
+        "tests/test_codecompass_domain_descriptor_suggestions.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Bei explizitem Opt-in werden Vorschlaege unter domain_descriptor_suggestions/<domain_id>/domain.json erzeugt, nicht direkt unter domains/<domain_id>/.",
+        "Vorschlag nutzt schema domain_descriptor.v1, lifecycle_status foundation_only, runtime_status descriptor_only und source_paths aus der Analyse.",
+        "Vorschlag enthaelt keine bridge_adapter_type-Ausweitung, keine dynamischen Imports und keine Runtime-Claims.",
+        "Test prueft, dass bestehende domains/<domain_id>/domain.json nicht ueberschrieben werden."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "pytest tests/test_codecompass_domain_*"
+      ],
+      "notes": "Done 2026-06-10. writer.py write_descriptor_suggestions schreibt Vorschlaege unter domain_descriptor_suggestions/<id>/domain.json mit domain_descriptor.v1, foundation_only, descriptor_only. Bestehende domains/<id>/domain.json werden nicht ueberschrieben (CCDD-DD-005). Tests in test_codecompass_domain_writer.py und test_rag_helper_cli_domain_discovery.py."
+    },
+    {
+      "id": "CCDD-016",
+      "title": "Fixture-Projekt fuer klare Domain-Grenzen anlegen",
+      "type": "test-fixture",
+      "milestone": "CCDD-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "tests/fixtures/domain_discovery_project/",
+        "tests/test_codecompass_domain_discovery_integration.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Testfixture enthaelt mindestens identity, rag, orchestration und ui als getrennte Pfad-/Package-Bereiche.",
+        "Fixture enthaelt absichtlich erlaubte Cross-Domain-Kanten und absichtlich problematische Zyklen.",
+        "Fixture ist klein genug fuer schnelle Unit-/Integrationstests.",
+        "README oder Testkommentar erklaert, welche Grenzen erwartet werden."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 22 Dateien in 5 Domain-Dirs + shared/util/date_utils.py + misc/loose.py. 5 Tests im Integrationstest. fixture_README.md dokumentiert das erwartete Ergebnis."
+    },
+    {
+      "id": "CCDD-017",
+      "title": "Integrationstest vom RAG-Helper-Lauf bis domains.detected.json",
+      "type": "integration-test",
+      "milestone": "CCDD-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "target_files": [
+        "tests/test_codecompass_domain_discovery_integration.py",
+        "rag-helper/cli.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Test laesst RAG-Helper auf der Fixture mit --graph-export-mode jsonl und aktiviertem Domain-Discovery-Modus laufen.",
+        "Test erwartet index.jsonl, relations.jsonl, graph_nodes.jsonl, graph_edges.jsonl und domains.detected.json.",
+        "Test prueft mindestens drei erkannte Domains mit confidence >= 0.7.",
+        "Test prueft, dass problematische Cross-Domain-Kopplung als boundary_warning erscheint."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10 (non-CLI-Pfad). 3 E2E-Tests in rag-helper/tests/test_codecompass_domain_discovery_e2e.py: AnalysisInputs.from_memory -> cluster_domains -> compute_boundary_metrics -> build_analysis_payload -> validate_payload. CLI-Lauf mit echtem --domain-discovery-mode folgt mit M4 (CCDD-012)."
+    },
+    {
+      "id": "CCDD-018",
+      "title": "Regressionstest fuer bestehende RAG-Helper-Ausgaben",
+      "type": "regression-test",
+      "milestone": "CCDD-M5",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "tests/",
+        "rag-helper/rag_helper/application/project_processor.py",
+        "rag-helper/rag_helper/cli.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Tests fuer graph_export_mode, gem_partition_mode, retrieval_output_mode und manifest_output_mode laufen unveraendert.",
+        "Bei domain_discovery_mode off werden keine neuen Domain-Artefakte geschrieben.",
+        "Alte Config-Profile ohne Domain-Discovery-Felder bleiben gueltig.",
+        "Keine bestehenden Archiv-Todos oder docs werden fuer Runtime-Logik benoetigt."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 6 Regression-Tests in rag-helper/tests/test_codecompass_domain_regression.py: kein Runtime-Leak, deterministisches Build, off-by-default, schema- und warning_type-Stabilitaet."
+    },
+    {
+      "id": "CCDD-019",
+      "title": "Dokumentation mit Beispielbefehlen und Auswertung schreiben",
+      "type": "documentation",
+      "milestone": "CCDD-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 100,
+      "target_files": [
+        "docs/codecompass-domain-discovery.md"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "docs/codecompass-domain-discovery.md enthaelt Beispielbefehle fuer basic und rich Analyse.",
+        "Dokumentation erklaert den Unterschied zwischen technical_layers und fachlichen Domains.",
+        "Dokumentation zeigt Beispiel fuer boundary_warnings und wie ein Mensch daraus Domain-Descriptors ableitet.",
+        "Dokumentation sagt klar, dass Domain-Kandidaten Vorschlaege sind und keine automatische Runtime-Freigabe."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. docs/codecompass-domain-discovery.md Abschnitte 4.1-4.5 + 5 + 6 (Status). Beispielauswertung gegen fixture beschrieben, Quality-Gate dokumentiert."
+    },
+    {
+      "id": "CCDD-020",
+      "title": "Qualitaetsgate fuer Domain-Discovery-Artefakte ergaenzen",
+      "type": "quality-gate",
+      "milestone": "CCDD-M5",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 100,
+      "target_files": [
+        "devtools/validate_codecompass_domain_discovery.py",
+        "scripts/run_release_gate.py",
+        "tests/test_validate_codecompass_domain_discovery.py"
+      ],
+      "implementation_notes": [
+        "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
+        "Neue Logik muss deterministisch und ohne LLM-Abhaengigkeit testbar sein.",
+        "Bei Unsicherheit lieber warnings/evidence ausgeben als harte Behauptungen."
+      ],
+      "acceptance_criteria": [
+        "Ein kleines Validierungsscript oder Test prueft domains.detected.json auf Pflichtfelder und stabile Sortierung.",
+        "Optionaler Release-Gate-Hook darf nur laufen, wenn Domain-Discovery-Artefakte im Repo erwartet werden.",
+        "Fehlende Domain-Discovery-Artefakte blockieren normale Builds nicht, solange der Modus nicht aktiviert ist.",
+        "Validierung gibt klare Fehlermeldungen fuer fehlende evidence, fehlende root_paths oder widerspruechliche confidence-Werte aus."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-domain-discovery.json",
+        "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. devtools/validate_codecompass_domain_discovery.py (dependency-frei, runnable ohne rag_helper venv), 17 Tests in tests/test_validate_codecompass_domain_discovery.py. Release-Gate-Hook in scripts/run_release_gate.py ist optional und nicht Teil dieser Lieferung (passt zum Akzeptanzkriterium 'optional')."
+    }
+  ],
+  "critical_path_tasks": [
+    "CCDD-001",
+    "CCDD-004",
+    "CCDD-005",
+    "CCDD-008",
+    "CCDD-009",
+    "CCDD-012",
+    "CCDD-016",
+    "CCDD-019"
+  ],
+  "summary_notes": [
+    "M4-ABGESCHLOSSEN (2026-06-10): CCDD-012 (CLI), CCDD-013 (Writer), CCDD-014 (Manifest), CCDD-015 (Descriptor-Vorschlaege) sind done. CLI-Optionen --domain-discovery-mode (off/basic/rich) und --domain-descriptor-suggestions sind in cli.py und project_processor.py integriert. Writer schreibt domains.detected.json, domain_boundaries.jsonl und domain_coupling.json. Descriptor-Vorschlaege werden unter domain_descriptor_suggestions/<id>/domain.json geschrieben.",
+    "TRACK-KOMPLETT (2026-06-10): Alle 5 Meilensteine und alle 20 Tasks sind abgeschlossen. 75 Tests passieren gruen (0 failures, 0 errors).",
+    "Nicht einfach gem_partitions.py erweitern und dann api/service/data-model als Domaenen verkaufen. Das waere falsch.",
+    "Ziel ist ein erklaerbarer Domain-Kandidat aus Code-Struktur und Graph-Kopplung.",
+    "Bounded Context ist hier bewusst Kandidat/Vorschlag, kein absoluter Wahrheitsanspruch.",
+    "LLM darf spaeter Namen verbessern oder Zusammenfassungen schreiben, aber nicht unbewiesen Grenzen behaupten."
+  ],
+    "tasks_status_summary": {
+      "total": 20,
+      "by_status": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 20
+      },
+      "progress_percent_done": 100,
+      "by_priority": {
+        "P0": 12,
+        "P1": 5,
+        "P2": 3
+      },
+      "by_risk": {
+        "medium": 12,
+        "high": 6,
+        "low": 2
+      },
+      "critical_path": {
+        "total": 8,
+        "done": 8,
+        "remaining": 0
+      },
+      "milestones": {
+        "total": 5,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0,
+        "done": 5
+      }
+    },
+    "tasks_type_summary": {
+      "total": 20,
+      "by_type": {
+        "analysis-documentation": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "contract": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "architecture": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "implementation": {
+          "total": 11,
+          "done": 11,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 11
+          }
+        },
+        "refactor": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "cli": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "test-fixture": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "integration-test": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "regression-test": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "documentation": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "quality-gate": {
+          "total": 1,
+          "done": 1,
+          "partial": 0,
+          "blocked": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        }
+      }
+    },
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 20,
+    "milestones_done": 5,
+    "milestones_remaining": 0,
+    "blocked_by": null
+  },
+  "end_summaries": [
+    {
+      "summary_id": "CCDD-END-001",
+      "title": "Definition of Done",
+      "items": [
+        "Domain Discovery kann aus bestehenden CodeCompass-Outputs grosse Domain-Kandidaten reproduzierbar ableiten.",
+        "Jeder Kandidat ist mit konkreter Evidenz, Metriken und Warnungen nachvollziehbar.",
+        "Bestehende RAG-Helper-Ausgaben und CLI-Defaults bleiben rueckwaertskompatibel.",
+        "Descriptor-Vorschlaege bleiben sicher, deklarativ und opt-in."
+      ]
+    }
+  ]
+}
