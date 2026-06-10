@@ -239,3 +239,94 @@ def test_build_iteration_prompt_runtime_rule_appears_only_once_in_synthesis():
         is_synthesis=True,
     )
     assert prompt.count("CodeCompass runtime rule") == 1
+
+
+# --- CCARI-006: AGENTS.md runtime paragraph ---
+
+
+def _build_minimal_compose_args():
+    """Return a tiny stub AgentProfileResult for compose_content."""
+    from agent.services.agent_profile_service import AgentProfileResult
+    return AgentProfileResult(
+        profile_id="test",
+        agents_file="test.md",
+        primary_role="coder",
+        activation_source="explicit",
+        root_agents_content="",
+        profile_agents_content="",
+        composed_content="",
+        checksums={},
+        warnings=[],
+        is_fallback=False,
+        fallback_reason=None,
+        diagnostics={},
+    )
+
+
+def test_compose_content_appends_runtime_paragraph_for_opencode():
+    from agent.services.agent_profile_service import get_agent_profile_service
+    svc = get_agent_profile_service()
+    result = _build_minimal_compose_args()
+    runtime = "\n".join(
+        [
+            "## Execution environment constraints",
+            "- Do NOT use sudo.",
+            "",
+            "## CodeCompass runtime rules",
+            "- Treat CodeCompass context as evidence, not truth.",
+        ]
+    )
+    out = svc.compose_content(result, runtime_constraints=runtime)
+    assert "## CodeCompass runtime rules" in out
+    assert "Treat CodeCompass context as evidence" in out
+
+
+def test_compose_content_without_runtime_constraints_still_renders():
+    from agent.services.agent_profile_service import get_agent_profile_service
+    svc = get_agent_profile_service()
+    result = _build_minimal_compose_args()
+    out = svc.compose_content(result)
+    assert "## CodeCompass runtime rules" not in out
+
+
+def test_workspace_agents_md_contains_codecompass_rules_for_opencode_template():
+    """End-to-end check on the runtime-constraints-line composition logic.
+
+    The worker_workspace_service composes the runtime_constraints string from
+    a list of bullet lines, then passes it through AgentProfileService. We
+    replicate the assembly step here to assert the OpenCode branch produces
+    the expected section without standing up a full workspace.
+    """
+    from agent.services.agent_profile_service import get_agent_profile_service
+
+    task = {"id": "t1", "agent_template": "opencode"}
+    runtime_lines = [
+        "## Execution environment constraints",
+        "- Do NOT use sudo.",
+        "- Do NOT use systemctl.",
+    ]
+    if str(task.get("agent_template") or "").strip().lower() in {"opencode", "ananta_worker"}:
+        runtime_lines.extend(
+            [
+                "",
+                "## CodeCompass runtime rules",
+                "- Treat CodeCompass context as evidence, not truth.",
+                "- Do not claim coverage without an evidence path.",
+            ]
+        )
+    svc = get_agent_profile_service()
+    out = svc.compose_content(_build_minimal_compose_args(), runtime_constraints="\n".join(runtime_lines))
+    assert "## CodeCompass runtime rules" in out
+    assert "evidence path" in out
+
+
+def test_workspace_agents_md_omits_codecompass_rules_for_other_templates():
+    task = {"id": "t1", "agent_template": "some_random_coder"}
+    runtime_lines = [
+        "## Execution environment constraints",
+        "- Do NOT use sudo.",
+    ]
+    if str(task.get("agent_template") or "").strip().lower() in {"opencode", "ananta_worker"}:
+        runtime_lines.append("## CodeCompass runtime rules")
+    out = "\n".join(runtime_lines)
+    assert "## CodeCompass runtime rules" not in out

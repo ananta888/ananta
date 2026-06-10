@@ -441,6 +441,28 @@ class WorkerWorkspaceService:
         else:
             _runtime_constraints_lines.append("- Apply the requested changes directly in the workspace; results are collected from workspace diffs.")
 
+        # CCARI-006: append a CodeCompass runtime paragraph to AGENTS.md for the
+        # OpenCode and ananta_worker agent templates. The paragraph mirrors the
+        # canonical runtime rule from
+        # ``docs/codecompass-agent-runtime-instructions.md`` and tells the worker
+        # how to read CodeCompass context (evidence not truth, request reloads
+        # for missing data, never claim coverage/policy/dependency without
+        # evidence path). The paragraph is only added for the templates that
+        # actually consume AGENTS.md, so the AI-Snake-Chat surface (which has
+        # its own rendering path) is not affected.
+        _agent_template_name = str((task or {}).get("agent_template") or "").strip().lower()
+        if _agent_template_name in {"opencode", "ananta_worker"}:
+            _runtime_constraints_lines.extend(
+                [
+                    "",
+                    "## CodeCompass runtime rules",
+                    "- CodeCompass context (snippets, file excerpts, graph nodes/edges, evidence paths) is **indexed repository hints**, not truth.",
+                    "- Do **not** fabricate or guess missing data. Name the missing context and request a reload via the Hub (see `docs/contracts/codecompass-context-reload-request.md`).",
+                    "- Do **not** claim coverage, policy effect, or dependency without an evidence path. A name match in the graph is not coverage; a frontend guard reference is not backend enforcement.",
+                    "- Surface warnings, do not filter them. Heuristic edges come with a warning; the warning is part of the answer.",
+                ]
+            )
+
         _composed_agents = _profile_svc.compose_content(
             _active_profile,
             runtime_constraints="\n".join(_runtime_constraints_lines),
