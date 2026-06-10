@@ -31,17 +31,31 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> tuple[str, list[Any]]
     return format_name, errors
 
 
-def main() -> int:
-    todo = json.loads(TODO_PATH.read_text(encoding="utf-8"))
+def _validate_file(todo_path: Path) -> int:
+    if not todo_path.is_file():
+        print(f"{todo_path}: not found")
+        return 1
+    todo = json.loads(todo_path.read_text(encoding="utf-8"))
     format_name, errors = validate_todo_payload(todo)
     if errors:
-        print(f"todo schema format={format_name} invalid")
+        print(f"{todo_path}: todo schema format={format_name} invalid")
         for err in errors:
             path = ".".join(str(p) for p in err.path) or "<root>"
             print(f"{path}: {err.message}")
         return 1
-    print(f"todo schema validation passed (format={format_name})")
+    print(f"{todo_path}: todo schema validation passed (format={format_name})")
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    import sys
+
+    args = list(sys.argv[1:] if argv is None else argv)
+    paths = [Path(arg) for arg in args] or [TODO_PATH]
+    rc = 0
+    for todo_path in paths:
+        rc = max(rc, _validate_file(todo_path))
+    return rc
 
 
 if __name__ == "__main__":

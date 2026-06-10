@@ -833,6 +833,7 @@
     "CCDD-019"
   ],
   "summary_notes": [
+    "KOORDINATION (2026-06-10): CCDD-012/013/014 erweitern rag-helper/rag_helper/application/project_processor.py — dieselbe Datei will SPLIT-033 (todo.refactor-large-files-split.json, M4) in file_scanner/document_extractor/project_processor zerlegen. Reihenfolge: SPLIT-033 zuerst abschliessen, bevor CCDD-012/013/014 implementiert werden, oder SPLIT-033 bewusst auf nach CCDD-M4 verschieben. Nicht parallel bearbeiten.",
     "Nicht einfach gem_partitions.py erweitern und dann api/service/data-model als Domaenen verkaufen. Das waere falsch.",
     "Ziel ist ein erklaerbarer Domain-Kandidat aus Code-Struktur und Graph-Kopplung.",
     "Bounded Context ist hier bewusst Kandidat/Vorschlag, kein absoluter Wahrheitsanspruch.",
