@@ -1,15 +1,15 @@
 {
   "$schema": "../todo.track.schema.json",
-  "version": "1.1",
+  "version": "1.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-worker-workspace-patch-iteration",
   "created": "2026-06-10",
   "updated": "2026-06-10",
   "status": "todo",
-  "purpose": "Der ananta-worker soll wie OpenCode nicht nur CodeCompass-Kontext analysieren, sondern in einem Hub-begrenzten Workspace kontrolliert Dateien bearbeiten, Diffs erzeugen, Tests/Checks auswerten und iterativ weiterarbeiten koennen.",
-  "goal": "Ein hybrider Workspace-Mutationsloop fuer ananta-worker: Der Hub kontrolliert Workspace, Scope, Policy, Baseline, erlaubte Tools und Ergebnispruefung. Der Worker darf je nach mutation_mode selbst im Workspace arbeiten oder muss einzelne PatchRequests an den Hub geben. Diffs/Tests/Evidence gehen in weitere Iterationen, finale Aenderungen werden als Artefakte synchronisiert.",
+  "purpose": "Der ananta-worker soll wie OpenCode nicht nur CodeCompass-Kontext analysieren, sondern in einem Hub-begrenzten Workspace kontrolliert Dateien bearbeiten, Diffs erzeugen, Tests/Checks auswerten und iterativ weiterarbeiten koennen. Wichtig: Iteration bedeutet hier nicht nur mehrere Kontext-Batches, sondern echte Feedback-Iteration: Aktion -> Diff/Test/PolicyResult -> naechste Worker-Entscheidung.",
+  "goal": "Ein hybrider Workspace-Mutationsloop fuer ananta-worker: Der Hub kontrolliert Workspace, Scope, Policy, Baseline, erlaubte Tools und Ergebnispruefung. Der Worker darf je nach mutation_mode selbst im Workspace arbeiten oder muss einzelne PatchRequests an den Hub geben. DiffResult, TestResult, PolicyResult und ContextReloadResult gehen als Evidence in weitere Iterationen, bis final_answer, max_iterations, policy_blocked oder kein Fortschritt mehr erreicht wird. Finale Aenderungen werden als Artefakte synchronisiert.",
   "source_review": {
-    "summary": "WorkerWorkspaceService kann bereits Workspaces aufloesen, .ananta-Kontextdateien fuer OpenCode vorbereiten, Baselines/Diffs erzeugen und geaenderte Workspace-Dateien als Artefakte zum Hub synchronisieren. OpenCode bekommt aktuell explizite Workspace-Anweisungen und darf je nach Modus direkt im Workspace arbeiten. Der ananta-worker verarbeitet dagegen aktuell hauptsaechlich CodeCompass-Kontext-Batches ueber SGPT und schreibt progress.md/Summary, aber aendert Dateien nicht belastbar wie ein Workspace-Agent. Die urspruengliche Idee 'Hub wendet jeden Patch einzeln an' wurde angepasst: Standardziel ist controlled_workspace, strict_patch_request ist nur fuer Hochrisiko oder enge Policies gedacht.",
+    "summary": "WorkerWorkspaceService kann bereits Workspaces aufloesen, .ananta-Kontextdateien fuer OpenCode vorbereiten, Baselines/Diffs erzeugen und geaenderte Workspace-Dateien als Artefakte zum Hub synchronisieren. OpenCode bekommt aktuell explizite Workspace-Anweisungen und darf je nach Modus direkt im Workspace arbeiten. Der ananta-worker verarbeitet dagegen aktuell hauptsaechlich CodeCompass-Kontext-Batches ueber SGPT und schreibt progress.md/Summary, aber aendert Dateien nicht belastbar wie ein Workspace-Agent. Die urspruengliche Idee 'Hub wendet jeden Patch einzeln an' wurde angepasst: Standardziel ist controlled_workspace, strict_patch_request ist nur fuer Hochrisiko oder enge Policies gedacht. Zusaetzlich wurde klargestellt, dass die fehlende Iterationsintegration nicht Batch-Verarbeitung meint, sondern Aktion/Feedback/Folgeaktion-Schleifen.",
     "observed_source_files": [
       "agent/common/sgpt.py",
       "agent/services/worker_workspace_service.py",
@@ -18,6 +18,35 @@
       "tests/test_sgpt_route.py",
       "tests/test_e2e_workspace_artifact_flow.py",
       "todos/todo.ananta-worker-tool-calling-loop.json"
+    ]
+  },
+  "iteration_model_target": {
+    "not_enough": "Nur mehrere CodeCompass-Kontext-Batches nacheinander analysieren und am Ende synthetisieren.",
+    "required": "Geschlossene Feedback-Schleife: Worker-Aktion -> Hub-Beobachtung/Pruefung -> Evidence-Feedback -> naechste Worker-Aktion.",
+    "feedback_inputs": [
+      "DiffResult",
+      "PolicyResult",
+      "TestResult",
+      "ToolResult",
+      "ContextReloadResult",
+      "WorkspaceChangedFiles",
+      "NoProgressSignal"
+    ],
+    "loop_end_conditions": [
+      "final_answer",
+      "max_iterations",
+      "max_patch_attempts_per_file",
+      "policy_blocked",
+      "approval_required",
+      "invalid_output_limit_reached",
+      "no_progress_detected"
+    ],
+    "example": [
+      "Iteration 1: Worker aendert erlaubte Datei oder fordert Patch/Test/Kontext an.",
+      "Hub erzeugt DiffResult, PolicyResult und optional TestResult.",
+      "Iteration 2: Worker sieht Testfehler oder Policy-Warnung und verbessert gezielt.",
+      "Hub prueft erneut.",
+      "Iteration 3: Worker finalisiert, wenn Diff/Tests/Policy akzeptabel sind."
     ]
   },
   "mutation_modes": {
@@ -73,6 +102,11 @@
       "id": "AWWPI-DD-005",
       "decision": "OpenCode bleibt als externer Workspace-Agent vergleichbar, aber ananta-worker bekommt feinere mutation_modes.",
       "rationale": "ananta-worker soll nicht nur ein zweites OpenCode werden, sondern je nach Risiko enger oder freier laufen koennen."
+    },
+    {
+      "id": "AWWPI-DD-006",
+      "decision": "Feedback-Iteration ist ein eigenes Muss und nicht identisch mit bestehender Batch-Iteration.",
+      "rationale": "Der heutige ananta-worker kann Kontext-Batches analysieren. Fuer Coding-Agent-Verhalten braucht er aber Aktion -> Diff/Test/Policy -> naechste Aktion."
     }
   ],
   "target_runtime_flow": [
@@ -84,16 +118,19 @@
     "Im read_only Modus analysiert ananta-worker nur und darf keine Dateien aendern.",
     "Im controlled_workspace Modus darf ananta-worker innerhalb erlaubter Workspace-Grenzen selbst Dateien aendern und optional allowlisted Tests anfordern/ausfuehren.",
     "Im strict_patch_request Modus muss ananta-worker PatchRequest/WriteRequest liefern; Hub validiert und wendet einzeln an.",
-    "Hub erzeugt nach jeder Iteration oder am Ende Diff gegen Baseline, filtert meaningful changed files und prueft Policy-Verletzungen.",
-    "Diff/TestResult/PolicyResult gehen als Evidence in weitere Iterationen.",
+    "Nach jeder mutierenden Aktion oder Iteration erzeugt der Hub DiffResult und PolicyResult gegen Baseline/Manifest.",
+    "Optional fuehrt der Hub allowlisted Tests aus und erzeugt TestResult.",
+    "DiffResult/TestResult/PolicyResult/ContextReloadResult werden komprimiert als Evidence in den naechsten Worker-Prompt eingebettet.",
+    "Worker nutzt dieses Feedback fuer die naechste Aktion, statt nur eine finale Synthese aus altem Fortschritt zu schreiben.",
+    "NoProgressDetection beendet Schleifen, wenn wiederholt dieselbe Stelle ohne Verbesserung geaendert wird.",
     "Hub synchronisiert finale meaningful changed files und workspace.diff als Artefakte oder blockiert bei Policy-Verletzung."
   ],
   "milestones": [
     {"id": "AWWPI-M1", "title": "Mutation Modes und Workspace-Mutationsvertrag definieren", "status": "todo", "task_ids": ["AWWPI-001", "AWWPI-002", "AWWPI-003", "AWWPI-004"]},
     {"id": "AWWPI-M2", "title": "Workspace-Vorbereitung fuer ananta-worker ergaenzen", "status": "todo", "task_ids": ["AWWPI-005", "AWWPI-006", "AWWPI-007"]},
     {"id": "AWWPI-M3", "title": "Controlled Workspace und Strict Patch Tools implementieren", "status": "todo", "task_ids": ["AWWPI-008", "AWWPI-009", "AWWPI-010", "AWWPI-011"]},
-    {"id": "AWWPI-M4", "title": "Iterativen Workspace-Loop in ananta-worker einbauen", "status": "todo", "task_ids": ["AWWPI-012", "AWWPI-013", "AWWPI-014", "AWWPI-015"]},
-    {"id": "AWWPI-M5", "title": "Tests, Artefakte und Rollout abschliessen", "status": "todo", "task_ids": ["AWWPI-016", "AWWPI-017", "AWWPI-018", "AWWPI-019", "AWWPI-020"]}
+    {"id": "AWWPI-M4", "title": "Iterativen Workspace-Feedback-Loop in ananta-worker einbauen", "status": "todo", "task_ids": ["AWWPI-012", "AWWPI-013", "AWWPI-014", "AWWPI-015", "AWWPI-016"]},
+    {"id": "AWWPI-M5", "title": "Tests, Artefakte und Rollout abschliessen", "status": "todo", "task_ids": ["AWWPI-017", "AWWPI-018", "AWWPI-019", "AWWPI-020", "AWWPI-021"]}
   ],
   "tasks": [
     {
@@ -331,17 +368,20 @@
     },
     {
       "id": "AWWPI-016",
-      "title": "Iterative Verbesserung nach Test-/Diff-Feedback erlauben",
+      "title": "Feedback-Iterationsintegration fuer ananta-worker implementieren",
       "type": "implementation",
       "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "target_files": ["agent/common/sgpt.py", "tests/"],
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/common/sgpt.py", "agent/services/", "tests/test_ananta_worker_workspace_feedback_iteration.py"],
       "acceptance_criteria": [
-        "Worker kann nach fehlgeschlagenem Test oder PolicyResult einen weiteren Versuch starten.",
-        "Vorherige DiffResults, PolicyResults und TestResults werden knapp in den Prompt aufgenommen.",
-        "Maximalzahl Patch-Versuche pro Datei ist konfigurierbar.",
-        "Wiederholtes Aendern derselben Stelle ohne Fortschritt wird erkannt und beendet."
+        "Loop unterscheidet explizit zwischen bestehender Batch-Iteration und neuer Feedback-Iteration.",
+        "Nach einer Worker-Aktion werden DiffResult, PolicyResult und optional TestResult erzeugt und in die naechste LLM-Runde eingebettet.",
+        "Worker kann nach fehlgeschlagenem Test, policy_warning oder policy_violation einen weiteren gezielten Versuch starten.",
+        "Vorherige DiffResults, PolicyResults, TestResults und ContextReloadResults werden knapp, dedupliziert und begrenzt in den Prompt aufgenommen.",
+        "Maximalzahl Feedback-Iterationen und Patch-Versuche pro Datei ist konfigurierbar.",
+        "NoProgressDetection erkennt wiederholtes Aendern derselben Stelle ohne Verbesserung und beendet kontrolliert.",
+        "Final answer darf erst als erfolgreich gelten, wenn letzter PolicyResult akzeptabel ist oder explizit als partial/blocked markiert wurde."
       ]
     },
     {
@@ -362,19 +402,21 @@
     },
     {
       "id": "AWWPI-018",
-      "title": "Unit- und Integrationstests fuer mutation_modes schreiben",
+      "title": "Unit- und Integrationstests fuer mutation_modes und Feedback-Iteration schreiben",
       "type": "test",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["tests/test_ananta_worker_workspace_patch.py", "tests/test_ananta_worker_workspace_patch_iteration.py"],
+      "target_files": ["tests/test_ananta_worker_workspace_patch.py", "tests/test_ananta_worker_workspace_patch_iteration.py", "tests/test_ananta_worker_workspace_feedback_iteration.py"],
       "acceptance_criteria": [
         "Test: read_only aendert keine Dateien.",
         "Test: controlled_workspace erlaubt Aenderung an materialisierter Datei und erzeugt Diff.",
         "Test: controlled_workspace blockiert Aenderung an nicht erlaubtem Pfad.",
         "Test: strict_patch_request wendet validen Patch ueber Hub an.",
         "Test: strict_patch_request blockiert Hash-Konflikt oder Path Traversal.",
-        "Test: policy risk eskaliert controlled_workspace auf strict_patch_request."
+        "Test: policy risk eskaliert controlled_workspace auf strict_patch_request.",
+        "Test: fehlgeschlagener Test erzeugt TestResult und fuehrt zu einer zweiten Worker-Iteration.",
+        "Test: NoProgressDetection beendet Endlosschleifen."
       ]
     },
     {
@@ -387,6 +429,7 @@
       "target_files": ["frontend-angular/src/app/", "agent/routes/"],
       "acceptance_criteria": [
         "UI zeigt mutation_mode, erlaubte Dateien, Policy-Entscheidungen, Diffs und TestResults pro Iteration.",
+        "UI unterscheidet Batch-Iteration und Feedback-Iteration sichtbar.",
         "Geblockte Aenderungen sind sichtbar und erklaert.",
         "Finale geaenderte Dateien und workspace.diff sind verlinkt."
       ]
@@ -402,19 +445,35 @@
       "acceptance_criteria": [
         "Rollout startet mit read_only und diff-only Dry-Run.",
         "Danach controlled_workspace fuer explizit materialisierte Dateien.",
+        "Danach Feedback-Iteration mit DiffResult/PolicyResult ohne test.run.",
         "Danach test.run allowlisted.",
         "strict_patch_request wird fuer Hochrisiko aktiviert.",
         "Write/delete/rename bleiben spaetere separate Stufen mit Approval."
       ]
+    },
+    {
+      "id": "AWWPI-021",
+      "title": "Dokumentation zu Feedback-Iteration gegenueber Batch-Iteration schreiben",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["docs/ananta-worker-workspace-patch-iteration.md"],
+      "acceptance_criteria": [
+        "Doku erklaert bestehende Batch-Iteration: Kontext-Batches -> Progress -> Synthese.",
+        "Doku erklaert neue Feedback-Iteration: Aktion -> Diff/Test/Policy -> naechste Aktion.",
+        "Doku enthaelt ein Bugfix-Beispiel mit fehlschlagendem Test und zweiter Korrekturiteration.",
+        "Doku erklaert Loop-Endbedingungen und NoProgressDetection."
+      ]
     }
   ],
   "tasks_status_summary": {
-    "total": 20,
-    "by_status": {"todo": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "total": 21,
+    "by_status": {"todo": 21, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 12, "P1": 5, "P2": 2, "P3": 0},
-    "by_risk": {"low": 1, "medium": 5, "high": 8, "critical": 6},
-    "critical_path": {"total": 13, "done": 0, "remaining": 13},
+    "by_priority": {"P0": 13, "P1": 6, "P2": 2, "P3": 0},
+    "by_risk": {"low": 1, "medium": 6, "high": 8, "critical": 6},
+    "critical_path": {"total": 14, "done": 0, "remaining": 14},
     "milestones": {"total": 5, "todo": 5, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
   },
   "definition_of_done": [
@@ -422,7 +481,9 @@
     "controlled_workspace erlaubt direkte Aenderungen nur innerhalb Hub-materialisierter und policy-erlaubter Workspace-Grenzen.",
     "strict_patch_request wendet einzelne Patches nur ueber Hub-validierte Tools an.",
     "Jede Mutation erzeugt nachvollziehbare DiffResults, PolicyResults und Workspace-Diffs.",
-    "Iterationen koennen Test-/Diff-/Policy-Feedback verwenden.",
+    "Feedback-Iteration ist implementiert: Aktion -> Diff/Test/Policy/ContextReload -> naechste Worker-Aktion.",
+    "Iterationen koennen Test-/Diff-/Policy-/Reload-Feedback verwenden.",
+    "NoProgressDetection verhindert Endlosschleifen ohne Verbesserung.",
     "Finale Aenderungen werden als Artefakte synchronisiert.",
     "Bestehender Analyse-/CodeCompass-Batch-Loop bleibt als Fallback erhalten."
   ]
