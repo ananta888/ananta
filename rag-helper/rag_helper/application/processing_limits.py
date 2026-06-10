@@ -39,6 +39,8 @@ class ProcessingLimits:
     duplicate_detection_mode: str = "off"
     specialized_chunker_mode: str = "off"
     output_bundle_mode: str = "off"
+    domain_discovery_mode: str = "off"
+    domain_descriptor_suggestions: bool = False
 
     def as_options(self) -> dict[str, int | str]:
         return {
