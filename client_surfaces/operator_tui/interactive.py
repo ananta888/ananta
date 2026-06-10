@@ -121,6 +121,13 @@ from client_surfaces.operator_tui.windowing.window_surface import ExternalWindow
 from client_surfaces.operator_tui.windowing.view_models.ai_snake_window_model import build_ai_snake_window_model
 from client_surfaces.operator_tui.windowing.view_models.center_window_model import build_center_window_model
 
+from client_surfaces.operator_tui import _interactive_keybindings as _ik
+from client_surfaces.operator_tui import _interactive_audit as _ia
+from client_surfaces.operator_tui import _interactive_template as _it
+from client_surfaces.operator_tui import _interactive_command as _ic
+from client_surfaces.operator_tui import _interactive_ai_config as _iconfig
+from client_surfaces.operator_tui import _interactive_visual as _iv
+
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
 
@@ -568,506 +575,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             await asyncio.sleep(0.1)
 
     def _build_keybindings(self) -> KeyBindings:
-        bindings = KeyBindings()
-
-        @bindings.add(key_for_action("quit", "c-q"))
-        def _(event) -> None:
-            self._handle_quit_key(event)
-
-        @bindings.add(":")
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command(":")
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_append(":")
-                return
-            if self._snake_mode_active():
-                self._enter_command_mode_from_anywhere()
-                return
-            # Snake mode does NOT block `:` — commands must remain reachable at all times.
-            if self._chat_focus_active():
-                self._chat_append(":")
-                return
-            self._open_command_mode()
-
-        @bindings.add("/")
-        def _(event) -> None:
-            if self._snake_message_mode_active():
-                self._snake_message_append("/")
-                return
-            if self.state.mode is OperatorMode.COMMAND:
-                self._append_command("/")
-                return
-            self._enter_command_mode_from_anywhere()
-
-        @bindings.add("enter")
-        @bindings.add("c-m")
-        @bindings.add("c-j")
-        def _(event) -> None:
-            self._handle_enter_key()
-
-        @bindings.add("escape")
-        def _(event) -> None:
-            self._escape_to_start_state()
-
-        @bindings.add("backspace")
-        @bindings.add("c-h")
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_backspace()
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_backspace()
-                return
-            if self._chat_focus_active():
-                self._chat_backspace()
-                return
-            if self._audit_viewer_active():
-                return
-            if self._template_editor_active():
-                self._template_editor_backspace()
-                return
-            if self._ai_snake_config_combo_active(game):
-                self._ai_snake_config_combo_backspace()
-                return
-            if self._snake_message_mode_active():
-                self._snake_message_backspace()
-                return
-            if self._snake_mode_active():
-                return
-
-        @bindings.add("delete")
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_delete()
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_delete()
-                return
-            if self._chat_focus_active():
-                self._chat_delete()
-                return
-            if self._audit_viewer_active():
-                return
-            if self._template_editor_active():
-                self._template_editor_delete()
-                return
-            if self._ai_snake_config_combo_active(game):
-                self._ai_snake_config_combo_delete()
-                return
-            if self._snake_message_mode_active():
-                return
-            if self._snake_mode_active():
-                return
-
-        @bindings.add(key_for_action("selection_down", "c-j"))
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                if self._ai_snake_config_combo_active(game):
-                    self._ai_snake_config_combo_move(1)
-                else:
-                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(1, game)))
-                return
-            def _j():
-                self._set_selected_index(self._clamp_down())
-            self._normal_or_text("j", _j)
-
-        @bindings.add(key_for_action("selection_up", "c-k"))
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                if self._ai_snake_config_combo_active(game):
-                    self._ai_snake_config_combo_move(-1)
-                else:
-                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(-1, game)))
-                return
-            self._normal_or_text("k", lambda: self._set_selected_index(max(0, self.state.selected_index - 1)))
-
-        @bindings.add(key_for_action("inspect", "c-f"))
-        def _(event) -> None:
-            def _e():
-                if self.state.section_id == "templates" and self.state.focus is FocusPane.CONTENT:
-                    if self._open_template_editor_for_selected():
-                        return
-                if self.state.section_id == "audit" and self.state.focus is FocusPane.CONTENT:
-                    if self._open_audit_viewer_for_selected():
-                        return
-                if self._open_selected_item_inline():
-                    return
-                section = get_section(self.state.section_id)
-                payload = (self.state.section_payloads or {}).get(section.id, {})
-                plugin = self._plugins.launcher_for(payload, self.state.selected_index)
-                if plugin is None:
-                    return
-                async def _run():
-                    await event.app.run_in_terminal(
-                        lambda: plugin.launch(payload, self.state.selected_index)
-                    )
-                event.app.create_background_task(_run())
-            self._normal_or_text("e", _e)
-
-        @bindings.add(key_for_action("focus_left", "c-a"))
-        def _(event) -> None:
-            self._normal_or_text("h", lambda: self._move_focus(-1))
-
-        @bindings.add(key_for_action("focus_right", "c-d"))
-        def _(event) -> None:
-            self._normal_or_text("l", lambda: self._move_focus(1))
-
-        @bindings.add(key_for_action("refresh", "c-r"))
-        def _(event) -> None:
-            game = dict(self.state.header_logo_game or {})
-            if is_showing_chat_long_message(game):
-                refresh_rendered_view(game)
-                self._set_state(self.state.with_updates(header_logo_game=game, status_message="Chat-Ansicht: Render aktualisiert"))
-                return
-            self._normal_or_text("r", lambda: self._run_command(":refresh"))
-
-        @bindings.add(key_for_action("help", "c-y"))
-        def _(event) -> None:
-            self._normal_or_text("?", lambda: self._run_command(":help"))
-
-        @bindings.add(key_for_action("cycle_focus_or_channel", "c-w"))
-        def _(event) -> None:
-            if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
-                self._chat_cycle_channel()
-                return
-            if self.state.open_tabs and self.state.mode is OperatorMode.NORMAL:
-                self._tab_close_active()
-                return
-            self._exit_command_mode_for_global_shortcut()
-            self._move_focus(1)
-
-        @bindings.add(key_for_action("tab_next", "c-right"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
-            self._tab_cycle(1)
-
-        @bindings.add(key_for_action("tab_prev", "c-left"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
-            self._tab_cycle(-1)
-
-        @bindings.add(key_for_action("snake_pause", "c-p"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
-            if not self._snake_mode_active():
-                return
-            self._toggle_snake_pause()  # T01.02: Space togglet Pause statt Stopp
-
-        @bindings.add(key_for_action("toggle_snake_mode", "c-s"))
-        def _(event) -> None:
-            if self._template_editor_active():
-                self._template_editor_save()
-                return
-            self._exit_command_mode_for_global_shortcut()
-            self._toggle_snake_mode()
-
-        @bindings.add(key_for_action("chat_focus", "c-e"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._toggle_chat_focus()
-
-        @bindings.add(key_for_action("toggle_chat_panel", "c-g"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._toggle_chat_panel_open()
-
-        @bindings.add(key_for_action("copy_chat_panel", "c-c"))
-        def _(event) -> None:
-            if self._snake_mode_active():
-                self._snake_copy_selection()
-                return
-            self._copy_chat_panel_snapshot()
-
-        @bindings.add(key_for_action("copy_tui_snapshot", "c-\\"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._copy_tui_snapshot()
-
-        @bindings.add(key_for_action("save_tui_snapshot", "c-_"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._save_tui_snapshot()
-
-        @bindings.add(key_for_action("clear_chat_input", "c-l"))
-        def _(event) -> None:
-            if self._chat_focus_active():
-                self._chat_clear_input()
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_clear_input()
-
-        @bindings.add(key_for_action("open_long_chat_message", "c-space"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._open_latest_long_chat_message()
-
-        @bindings.add(key_for_action("toggle_visual_view_switcher_overlay", "f8"))
-        def _(event) -> None:
-            self._toggle_visual_view_switcher_overlay()
-
-        @bindings.add(key_for_action("center_browser_toggle", "f5"))
-        def _(event) -> None:
-            if self.state.mode is OperatorMode.COMMAND:
-                return
-            result = execute_command("center.browser.toggle", self.state)
-            self._set_state(result.state)
-
-        @bindings.add(key_for_action("open_center_webview", "c-0"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._run_command(":center.webview.open")
-
-        @bindings.add(key_for_action("open_center_window", "c-9"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._run_command(":center.window.open")
-
-        @bindings.add(key_for_action("switch_center_to_doc_view", "f6"))
-        def _(event) -> None:
-            self._exit_command_mode_for_global_shortcut()
-            self._run_command(":doc switch")
-
-        @bindings.add(key_for_action("next_visual_view", "f9"))
-        def _(event) -> None:
-            self._next_visual_view()
-
-        @bindings.add(key_for_action("previous_visual_view", "f10"))
-        def _(event) -> None:
-            self._previous_visual_view()
-
-        @bindings.add(key_for_action("toggle_ai_snake_config", "f6"))
-        def _(event) -> None:
-            self._toggle_ai_snake_config_panel()
-
-        @bindings.add("left")
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_move_cursor(-1)
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_move_cursor(-1)
-                return
-            if self._chat_focus_active():
-                self._chat_move_cursor(-1)
-                return
-            if self._audit_viewer_active():
-                if self._audit_cleanup_confirm_mode_active():
-                    self._audit_cleanup_set_choice("delete")
-                    return
-                self._audit_viewer_scroll_horizontal(-4)
-                return
-            if self._template_editor_active():
-                self._template_editor_move_cursor(-1)
-                return
-            if self._ai_snake_config_combo_active(game):
-                self._ai_snake_config_combo_move_cursor(-1)
-                return
-            if self._try_header_snake_direction((-1, 0)):
-                return
-            self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
-
-        @bindings.add("right")
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_move_cursor(1)
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_move_cursor(1)
-                return
-            if self._chat_focus_active():
-                self._chat_move_cursor(1)
-                return
-            if self._audit_viewer_active():
-                if self._audit_cleanup_confirm_mode_active():
-                    self._audit_cleanup_set_choice("cancel")
-                    return
-                self._audit_viewer_scroll_horizontal(4)
-                return
-            if self._template_editor_active():
-                self._template_editor_move_cursor(1)
-                return
-            if self._ai_snake_config_combo_active(game):
-                self._ai_snake_config_combo_move_cursor(1)
-                return
-            if self._try_header_snake_direction((1, 0)):
-                return
-            self._set_selected_index(self._clamp_down())
-
-        @bindings.add("up")
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_history_move(-1)
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_history_move(-1)
-                return
-            if self._chat_focus_active():
-                self._chat_history_move(-1)
-                return
-            if self._audit_viewer_active():
-                self._audit_viewer_scroll_vertical(-1)
-                return
-            if self._template_editor_active():
-                self._template_editor_move_cursor_vertical(-1)
-                return
-            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                if self._ai_snake_config_combo_active(game):
-                    self._ai_snake_config_combo_move(-1)
-                else:
-                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(-1, game)))
-                return
-            if self._try_header_snake_direction((0, -1)):
-                return
-            self._set_selected_index(max(0, self.state.selected_index - 1))
-
-        @bindings.add("down")
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self.state.mode is OperatorMode.COMMAND:
-                self._command_history_move(1)
-                return
-            if self._artifact_chat_focus_active():
-                self._artifact_chat_history_move(1)
-                return
-            if self._chat_focus_active():
-                self._chat_history_move(1)
-                return
-            if self._audit_viewer_active():
-                self._audit_viewer_scroll_vertical(1)
-                return
-            if self._template_editor_active():
-                self._template_editor_move_cursor_vertical(1)
-                return
-            if bool(game.get("ai_snake_config_open")) and self.state.focus is FocusPane.CONTENT:
-                if self._ai_snake_config_combo_active(game):
-                    self._ai_snake_config_combo_move(1)
-                else:
-                    self._set_state(self.state.with_updates(selected_index=self._ai_snake_config_next_index(1, game)))
-                return
-            if self._try_header_snake_direction((0, 1)):
-                return
-            self._set_selected_index(self._clamp_down())
-
-        @bindings.add(key_for_action("next_section", "c-n"))
-        def _(event) -> None:
-            self._normal_or_text("n", lambda: self._run_command(":next"))
-
-        @bindings.add("<any>")
-        def _(event) -> None:
-            game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self.state.mode is OperatorMode.COMMAND:
-                data = event.key_sequence[0].data
-                if data == "\x7f":
-                    # \x7f (DEL) is not bound by the specific backspace/c-h binding,
-                    # so handle it here. \x08 (c-h) is already handled by the specific
-                    # binding and must NOT be handled here too (double-fire in pt3).
-                    self._command_backspace()
-                    return
-                if data and data.isprintable():
-                    self._append_command(data)
-                return
-            if self._artifact_chat_focus_active():
-                data = event.key_sequence[0].data
-                if data and data.isprintable():
-                    self._artifact_chat_append(data)
-                return
-            if self._chat_focus_active():
-                data = event.key_sequence[0].data
-                if data and data.isprintable():
-                    self._chat_append(data)
-                return
-            if self._audit_viewer_active():
-                return
-            if self._template_editor_active():
-                data = event.key_sequence[0].data
-                if data and data.isprintable():
-                    self._template_editor_insert_text(data)
-                return
-            if self._ai_snake_config_combo_active(game):
-                data = event.key_sequence[0].data
-                if data and data.isprintable():
-                    self._ai_snake_config_combo_append_filter(data)
-                return
-            if self._snake_message_mode_active():
-                data = event.key_sequence[0].data
-                if data and data.isprintable():
-                    self._snake_message_append(data)
-                return
-
-        @bindings.add(key_for_action("scroll_page_up", "pageup"))
-        def _(event) -> None:
-            self._scroll_active_panel(direction="page_up")
-
-        @bindings.add(key_for_action("scroll_page_down", "pagedown"))
-        def _(event) -> None:
-            self._scroll_active_panel(direction="page_down")
-
-        @bindings.add(key_for_action("scroll_line_up", "s-up"))
-        @bindings.add("c-up")
-        def _(event) -> None:
-            self._scroll_active_panel(direction="line_up")
-
-        @bindings.add(key_for_action("scroll_line_down", "s-down"))
-        @bindings.add("c-down")
-        def _(event) -> None:
-            self._scroll_active_panel(direction="line_down")
-
-        @bindings.add(key_for_action("scroll_home", "s-home"))
-        def _(event) -> None:
-            self._scroll_active_panel(direction="home")
-
-        @bindings.add(key_for_action("scroll_end", "s-end"))
-        def _(event) -> None:
-            self._scroll_active_panel(direction="end")
-
-        @bindings.add(key_for_action("scroll_left", "s-left"))
-        @bindings.add("c-left")
-        def _(event) -> None:
-            self._h_scroll_center(delta=-4)
-
-        @bindings.add(key_for_action("scroll_right", "s-right"))
-        @bindings.add("c-right")
-        def _(event) -> None:
-            self._h_scroll_center(delta=4)
-
-        @bindings.add(key_for_action("scroll_left_page", "s-pageup"))
-        @bindings.add("c-pageup")
-        def _(event) -> None:
-            self._h_scroll_center(delta=-20)
-
-        @bindings.add(key_for_action("scroll_right_page", "s-pagedown"))
-        @bindings.add("c-pagedown")
-        def _(event) -> None:
-            self._h_scroll_center(delta=20)
-
-        @bindings.add(Keys.Vt100MouseEvent)
-        def _(event) -> None:
-            data = event.key_sequence[0].data or ""
-            parsed = self._parse_sgr_mouse_event(data)
-            if parsed is None:
-                return
-            self._ingest_mouse_event(
-                x=parsed[0],
-                y=parsed[1],
-                event_type=parsed[2],
-                buttons=parsed[3],
-                scroll_delta=parsed[4],
-                ctrl_held=parsed[5] if len(parsed) > 5 else False,
-            )
-
-        return bindings
+        return _ik.build_keybindings(self)
 
     # ── Chat focus helpers (E01.04) ───────────────────────────────────────────
 
@@ -1851,1236 +1359,196 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         ))
 
     def _normal_or_text(self, text: str, normal_action) -> None:
-        if self._snake_message_mode_active():
-            self._snake_message_append(text)
-            return
-        if self._artifact_chat_focus_active():
-            self._artifact_chat_append(text)
-            return
-        if self.state.mode is OperatorMode.COMMAND:
-            self._append_command(text)
-            return
-        if self._chat_focus_active():
-            self._chat_append(text)
-            return
-        if self._snake_mode_active():
-            return
-        normal_action()
+        _ic.normal_or_text(self, text, normal_action)
 
     def _audit_viewer_active(self) -> bool:
-        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-        viewer = dict(game.get("audit_viewer") or {})
-        return bool(viewer.get("active")) and self.state.section_id == "audit"
+        return _ia.audit_viewer_active(self)
 
     def _audit_cleanup_confirm_mode_active(self) -> bool:
-        if not self._audit_viewer_active():
-            return False
-        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-        viewer = dict(game.get("audit_viewer") or {})
-        return str(viewer.get("mode") or "") == "confirm_cleanup"
+        return _ia.audit_cleanup_confirm_mode_active(self)
 
     def _audit_cleanup_result_mode_active(self) -> bool:
-        if not self._audit_viewer_active():
-            return False
-        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-        viewer = dict(game.get("audit_viewer") or {})
-        return str(viewer.get("mode") or "") == "cleanup_result"
+        return _ia.audit_cleanup_result_mode_active(self)
 
     def _audit_cleanup_set_choice(self, choice: str) -> None:
-        game = dict(self.state.header_logo_game or {})
-        viewer = dict(game.get("audit_viewer") or {})
-        if str(viewer.get("mode") or "") != "confirm_cleanup":
-            return
-        normalized = "delete" if str(choice).strip().lower() == "delete" else "cancel"
-        viewer["confirm_choice"] = normalized
-        game["audit_viewer"] = viewer
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message=(
-                    "cleanup auswahl: Loeschen" if normalized == "delete" else "cleanup auswahl: Abbrechen"
-                ),
-            )
-        )
+        _ia.audit_cleanup_set_choice(self, choice)
 
     def _audit_cleanup_close_viewer(self, *, status_message: str) -> None:
-        game = dict(self.state.header_logo_game or {})
-        game["audit_viewer"] = {"active": False}
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                mode=OperatorMode.NORMAL,
-                focus=FocusPane.CONTENT,
-                status_message=status_message,
-            )
-        )
+        _ia.audit_cleanup_close_viewer(self, status_message=status_message)
 
     def _audit_cleanup_show_result(self, *, title: str, summary: str) -> None:
-        game = dict(self.state.header_logo_game or {})
-        game["audit_viewer"] = {
-            "active": True,
-            "mode": "cleanup_result",
-            "title": title,
-            "group": "Data Cleanup",
-            "text": summary,
-            "view_line_offset": 0,
-            "view_col_offset": 0,
-        }
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                mode=OperatorMode.NORMAL,
-                focus=FocusPane.CONTENT,
-                status_message=summary,
-            )
-        )
+        _ia.audit_cleanup_show_result(self, title=title, summary=summary)
 
     def _audit_cleanup_button_choice_from_click(self, *, x: int, y: int, width: int, height: int) -> str | None:
-        if not self._audit_cleanup_confirm_mode_active():
-            return None
-        game = dict(self.state.header_logo_game or {})
-        viewer = dict(game.get("audit_viewer") or {})
-        text = str(viewer.get("text") or "")
-        text_lines = text.splitlines() or [""]
-        body_start = 10 if len(self.state.open_tabs) >= 2 else 9
-        body_y1 = body_start
-        body_height = max(3, int(height) - 5 - body_start)
-        y_rel = int(y) - body_y1
-        if y_rel < 0:
-            return None
-        pane_title_rows = 1
-        viewer_header_rows = 3
-        visible_rows = max(1, body_height - pane_title_rows - viewer_header_rows)
-        view_line_offset = max(0, int(viewer.get("view_line_offset") or 0))
-        max_line_offset = max(0, len(text_lines) - visible_rows)
-        view_line_offset = min(view_line_offset, max_line_offset)
-        end_line = min(len(text_lines), view_line_offset + visible_rows)
-        button_row = pane_title_rows + viewer_header_rows + max(0, end_line - view_line_offset)
-        if end_line < len(text_lines):
-            button_row += 1
-        button_row += 1
-        if y_rel != button_row:
-            return None
-        left_width = 22
-        detail_width = 34
-        middle_width = max(12, int(width) - left_width - detail_width - 6)
-        content_x1 = left_width + 2
-        rel_x = int(x) - content_x1
-        if rel_x < 0 or rel_x >= middle_width:
-            return None
-        button_line_mid = len("  [ Loeschen ]   [ Abbrechen ] ") // 2
-        return "delete" if rel_x < button_line_mid else "cancel"
+        return _ia.audit_cleanup_button_choice_from_click(self, x=x, y=y, width=width, height=height)
 
     def _audit_cleanup_handle_mouse_click(self, *, x: int, y: int, width: int, height: int) -> bool:
-        choice = self._audit_cleanup_button_choice_from_click(x=x, y=y, width=width, height=height)
-        if choice is None:
-            return False
-        self._audit_cleanup_set_choice(choice)
-        return self._confirm_audit_cleanup_action()
+        return _ia.audit_cleanup_handle_mouse_click(self, x=x, y=y, width=width, height=height)
 
     def _selected_audit_entry(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
-        if self.state.section_id != "audit":
-            return None
-        payload = dict((self.state.section_payloads or {}).get("audit") or {})
-        items = payload.get("items")
-        if not isinstance(items, list) or not items:
-            return None
-        idx = max(0, min(len(items) - 1, int(self.state.selected_index)))
-        entry = items[idx]
-        if not isinstance(entry, dict):
-            return None
-        return payload, entry
+        return _ia.selected_audit_entry(self)
 
     def _audit_viewer_viewport_metrics(self) -> tuple[int, int]:
-        size = shutil.get_terminal_size((120, 32))
-        width = max(72, int(size.columns))
-        height = max(18, int(size.lines - 1))
-        left_width = 22
-        detail_width = 34
-        middle_width = max(18, width - left_width - detail_width - 6)
-        body_height = max(3, height - 5 - 8)
-        pane_title_rows = 1
-        viewer_header_rows = 3
-        visible_rows = max(1, body_height - pane_title_rows - viewer_header_rows)
-        visible_cols = max(8, middle_width - 8)
-        return visible_rows, visible_cols
+        return _ia.audit_viewer_viewport_metrics(self)
 
     def _audit_viewer_scroll_vertical(self, delta_lines: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        viewer = dict(game.get("audit_viewer") or {})
-        if not bool(viewer.get("active")):
-            return
-        lines = str(viewer.get("text") or "").splitlines() or [""]
-        visible_rows, _ = self._audit_viewer_viewport_metrics()
-        max_offset = max(0, len(lines) - visible_rows)
-        current = max(0, int(viewer.get("view_line_offset") or 0))
-        viewer["view_line_offset"] = max(0, min(max_offset, current + int(delta_lines)))
-        game["audit_viewer"] = viewer
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ia.audit_viewer_scroll_vertical(self, delta_lines)
 
     def _audit_viewer_scroll_horizontal(self, delta_cols: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        viewer = dict(game.get("audit_viewer") or {})
-        if not bool(viewer.get("active")):
-            return
-        lines = str(viewer.get("text") or "").splitlines() or [""]
-        _, visible_cols = self._audit_viewer_viewport_metrics()
-        max_width = max((len(line) for line in lines), default=0)
-        max_offset = max(0, max_width - visible_cols)
-        current = max(0, int(viewer.get("view_col_offset") or 0))
-        viewer["view_col_offset"] = max(0, min(max_offset, current + int(delta_cols)))
-        game["audit_viewer"] = viewer
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ia.audit_viewer_scroll_horizontal(self, delta_cols)
 
     def _open_audit_viewer_for_selected(self) -> bool:
-        game = dict(self.state.header_logo_game or {})
-        if self.state.section_id == "templates" and self.state.focus is FocusPane.CONTENT:
-            return self._open_template_editor_for_selected()
-        if self.state.focus is FocusPane.NAVIGATION:
-            history_idx = (
-                self.state.selected_index
-                - len(SECTIONS)
-                - self._template_nav_selectable_count()
-                - self._audit_nav_selectable_count()
-            )
-            rows = long_message_history_rows(game)
-            if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
-                self._set_state(
-                    self.state.with_updates(
-                        header_logo_game=game,
-                        focus=FocusPane.CONTENT,
-                        selected_index=0,
-                        status_message="Chat-History: Originalausgabe",
-                    )
-                )
-                return True
-        if bool(game.get("ai_snake_config_open")):
-            if self.state.focus is not FocusPane.CONTENT:
-                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))
-            if not self._ai_snake_config_combo_active(game):
-                self._toggle_ai_snake_config_selected()
-            return True
-        selected = self._selected_audit_entry()
-        if selected is None:
-            return False
-        payload, entry = selected
-        dataset_id = str(entry.get("dataset_id") or entry.get("id") or "")
-        datasets = payload.get("datasets")
-        raw = datasets.get(dataset_id) if isinstance(datasets, dict) else None
-        raw_dict = dict(raw) if isinstance(raw, dict) else {}
-        if dataset_id.startswith("llm.requests.chat_prompt.") and isinstance(raw_dict.get("final_prompt_redacted"), str):
-            text = str(raw_dict.get("final_prompt_redacted") or "").strip() or "{}"
-            game = dict(self.state.header_logo_game or {})
-            game["audit_viewer"] = {
-                "active": True,
-                "mode": "read_only",
-                "dataset_id": dataset_id,
-                "title": str(entry.get("title") or dataset_id or "dataset"),
-                "group": str(entry.get("group") or ""),
-                "text": text,
-                "view_line_offset": 0,
-                "view_col_offset": 0,
-            }
-            self._set_state(
-                self.state.with_updates(
-                    mode=OperatorMode.NORMAL,
-                    focus=FocusPane.CONTENT,
-                    header_logo_game=game,
-                    status_message=f"audit viewer: {str(entry.get('title') or dataset_id)}",
-                )
-            )
-            return True
-        raw_kind = str(raw_dict.get("kind") or "")
-        if raw_kind in {"cleanup_action", "cleanup_overview"}:
-            details = [str(line) for line in list(raw_dict.get("details") or []) if str(line).strip()]
-            if raw_kind == "cleanup_action":
-                text_lines = [
-                    "Bitte Loeschung bestaetigen.",
-                    "",
-                    *details,
-                    "",
-                    "Diese Aktion kann nicht rueckgaengig gemacht werden.",
-                ]
-                mode = "confirm_cleanup"
-            else:
-                text_lines = details
-                mode = "read_only"
-            text = "\n".join(text_lines).strip() or "{}"
-            game = dict(self.state.header_logo_game or {})
-            game["audit_viewer"] = {
-                "active": True,
-                "mode": mode,
-                "dataset_id": dataset_id,
-                "cleanup_action_id": str(raw_dict.get("cleanup_action_id") or ""),
-                "confirm_choice": "cancel",
-                "clear_runtime_chat": bool(raw_dict.get("clear_runtime_chat")),
-                "clear_persisted_chat_history": bool(raw_dict.get("clear_persisted_chat_history")),
-                "title": str(entry.get("title") or dataset_id or "dataset"),
-                "group": str(entry.get("group") or ""),
-                "text": text,
-                "view_line_offset": 0,
-                "view_col_offset": 0,
-            }
-            self._set_state(
-                self.state.with_updates(
-                    mode=OperatorMode.NORMAL,
-                    focus=FocusPane.CONTENT,
-                    header_logo_game=game,
-                    status_message=(
-                        f"cleanup bereit: {str(entry.get('title') or dataset_id)}"
-                        if raw_kind == "cleanup_action"
-                        else f"audit viewer: {str(entry.get('title') or dataset_id)}"
-                    ),
-                )
-            )
-            return True
-        text: str
-        if isinstance(raw, str):
-            text = raw
-        elif raw is None:
-            text = "{}"
-        else:
-            text = json.dumps(raw, indent=2, ensure_ascii=False)
-        game = dict(self.state.header_logo_game or {})
-        game["audit_viewer"] = {
-            "active": True,
-            "dataset_id": dataset_id,
-            "title": str(entry.get("title") or dataset_id or "dataset"),
-            "group": str(entry.get("group") or ""),
-            "text": text,
-            "view_line_offset": 0,
-            "view_col_offset": 0,
-        }
-        self._set_state(
-            self.state.with_updates(
-                mode=OperatorMode.NORMAL,
-                focus=FocusPane.CONTENT,
-                header_logo_game=game,
-                status_message=f"audit viewer: {str(entry.get('title') or dataset_id)}",
-            )
-        )
-        return True
+        return _ia.open_audit_viewer_for_selected(self)
 
     def _clear_runtime_chat_history(self, game: dict[str, Any]) -> None:
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-
-        chat = get_chat_state(game)
-        channels = chat.get("channels")
-        if isinstance(channels, dict):
-            for channel in channels.values():
-                if not isinstance(channel, dict):
-                    continue
-                channel["messages"] = []
-                channel["unread"] = 0
-        chat["chat_input_buffer"] = ""
-        chat["chat_input_cursor"] = 0
-        chat["chat_input_history_index"] = None
-        chat["chat_input_saved_draft"] = ""
-        chat["ai_typing"] = False
-        set_chat_state(game, chat)
-
-        game["artifact_chat_input"] = ""
-        game["artifact_chat_cursor"] = 0
-        game["artifact_chat_history"] = []
-        game["artifact_chat_history_index"] = None
-        game["artifact_chat_saved_draft"] = ""
-        game["chat_long_message_history"] = []
-        game["chat_long_message_markdown"] = ""
-        game["chat_long_message_plain_text"] = ""
-        game["chat_long_message_id"] = ""
-        game["chat_memory_summary"] = ""
-        game["chat_memory_summary_turn_count"] = 0
+        _ia.clear_runtime_chat_history(self, game)
 
     def _clear_persisted_chat_history(self) -> None:
-        from client_surfaces.operator_tui.config.user_config_manager import save_user_config
-
-        save_user_config({"chat_input_history": []})
+        _ia.clear_persisted_chat_history(self)
 
     def _confirm_audit_cleanup_action(self) -> bool:
-        game = dict(self.state.header_logo_game or {})
-        viewer = dict(game.get("audit_viewer") or {})
-        if str(viewer.get("mode") or "") != "confirm_cleanup":
-            return False
-        choice = str(viewer.get("confirm_choice") or "cancel").strip().lower()
-        title = str(viewer.get("title") or "Cleanup")
-        if choice != "delete":
-            self._audit_cleanup_show_result(title=title, summary="cleanup abgebrochen")
-            return True
-        action_id = str(viewer.get("cleanup_action_id") or "").strip()
-        if not action_id:
-            return False
-        try:
-            result = run_audit_cleanup_action(action_id)
-        except Exception as exc:
-            self._audit_cleanup_show_result(title=title, summary=f"cleanup fehlgeschlagen: {exc}")
-            return True
-        if bool(result.get("clear_runtime_chat")):
-            self._clear_runtime_chat_history(game)
-        if bool(result.get("clear_persisted_chat_history")):
-            self._clear_persisted_chat_history()
-        counts = dict(result.get("counts") or {})
-        summary_parts = [f"{key}={value}" for key, value in counts.items() if int(value) > 0]
-        summary = ", ".join(summary_parts) if summary_parts else "keine gespeicherten Einträge gefunden"
-        self._audit_cleanup_show_result(title=title, summary=f"cleanup ausgefuehrt: {action_id} ({summary})")
-        return True
+        return _ia.confirm_audit_cleanup_action(self)
 
     def _template_editor_active(self) -> bool:
-        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-        editor = dict(game.get("template_editor") or {})
-        return bool(editor.get("active")) and self.state.section_id == "templates"
+        return _it.template_editor_active(self)
 
     def _selected_template_entry(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]] | None:
-        if self.state.section_id != "templates":
-            return None
-        payload = dict((self.state.section_payloads or {}).get("templates") or {})
-        items = payload.get("items")
-        if not isinstance(items, list) or not items:
-            return None
-        idx = max(0, min(len(items) - 1, int(self.state.selected_index)))
-        item = items[idx]
-        if not isinstance(item, dict):
-            return None
-        kind = str(item.get("kind") or "")
-        if kind not in {"template", "system_prompt", "blueprint"}:
-            return None
-        raw_id = str(item.get("raw_id") or "")
-        raw_list = payload.get("blueprints_raw") if kind == "blueprint" else payload.get("templates_raw")
-        if not isinstance(raw_list, list):
-            return None
-        raw = next((entry for entry in raw_list if isinstance(entry, dict) and str(entry.get("id") or "") == raw_id), {})
-        if not isinstance(raw, dict):
-            return None
-        return payload, item, raw
+        return _it.selected_template_entry(self)
 
     def _template_editor_text_for_item(self, *, kind: str, item: dict[str, Any], raw: dict[str, Any]) -> str:
-        if kind == "blueprint":
-            return json.dumps(raw, indent=2, ensure_ascii=False)
-        return str(raw.get("prompt_template") or item.get("prompt_preview") or "")
+        return _it.template_editor_text_for_item(self, kind=kind, item=item, raw=raw)
 
     def _template_editor_viewport_metrics(self) -> tuple[int, int]:
-        size = shutil.get_terminal_size((120, 32))
-        width = max(72, int(size.columns))
-        height = max(18, int(size.lines - 1))
-        left_width = 22
-        detail_width = 34
-        middle_width = max(18, width - left_width - detail_width - 6)
-        body_height = max(3, height - 5 - 8)
-        pane_title_rows = 1
-        editor_header_rows = 3
-        visible_rows = max(1, body_height - pane_title_rows - editor_header_rows)
-        text_prefix_width = 6  # f"{line_prefix} {row:>3} "
-        visible_cols = max(8, middle_width - text_prefix_width)
-        return visible_rows, visible_cols
+        return _it.template_editor_viewport_metrics(self)
 
     def _template_editor_ensure_cursor_visible(self, editor: dict[str, Any]) -> dict[str, Any]:
-        source = str(editor.get("text") or "")
-        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
-        before = source[:cursor]
-        cursor_line = before.count("\n")
-        cursor_col = len(before.rsplit("\n", 1)[-1])
-        lines = source.splitlines() or [""]
-        max_line = max(0, len(lines) - 1)
-        visible_rows, visible_cols = self._template_editor_viewport_metrics()
-
-        line_offset = max(0, int(editor.get("view_line_offset") or 0))
-        max_line_offset = max(0, len(lines) - visible_rows)
-        line_offset = min(line_offset, max_line_offset)
-        if cursor_line < line_offset:
-            line_offset = cursor_line
-        elif cursor_line >= line_offset + visible_rows:
-            line_offset = max(0, cursor_line - visible_rows + 1)
-
-        col_offset = max(0, int(editor.get("view_col_offset") or 0))
-        max_col = max(0, len(lines[min(cursor_line, max_line)]) - 1)
-        max_col_offset = max(0, max_col - visible_cols + 1)
-        col_offset = min(col_offset, max_col_offset)
-        if cursor_col < col_offset:
-            col_offset = cursor_col
-        elif cursor_col >= col_offset + visible_cols:
-            col_offset = max(0, cursor_col - visible_cols + 1)
-
-        editor["view_line_offset"] = max(0, line_offset)
-        editor["view_col_offset"] = max(0, col_offset)
-        return editor
+        return _it.template_editor_ensure_cursor_visible(self, editor)
 
     def _template_editor_scroll_vertical(self, delta_lines: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        if not bool(editor.get("active")):
-            return
-        source = str(editor.get("text") or "")
-        lines = source.splitlines() or [""]
-        visible_rows, _ = self._template_editor_viewport_metrics()
-        max_offset = max(0, len(lines) - visible_rows)
-        current = max(0, int(editor.get("view_line_offset") or 0))
-        editor["view_line_offset"] = max(0, min(max_offset, current + int(delta_lines)))
-        game["template_editor"] = editor
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _it.template_editor_scroll_vertical(self, delta_lines)
 
     def _template_editor_set_cursor_from_content_click(self, *, x: int, y: int, width: int, height: int) -> bool:
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        if not bool(editor.get("active")):
-            return False
-
-        left_width = 22
-        detail_width = 34
-        middle_width = max(18, int(width) - left_width - detail_width - 6)
-        body_start = 10 if len(self.state.open_tabs) >= 2 else 9
-        content_x1 = left_width + 2
-        content_x2 = content_x1 + middle_width - 1
-        body_y1 = body_start
-        body_height = max(3, int(height) - 5 - body_start)
-        body_y2 = body_y1 + body_height - 1
-        if not (content_x1 <= int(x) <= content_x2 and body_y1 <= int(y) <= body_y2):
-            return False
-
-        local_row = int(y) - body_y1
-        local_col = int(x) - content_x1
-        if local_row < 4:
-            self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))
-            return True
-
-        text = str(editor.get("text") or "")
-        lines = text.splitlines() or [""]
-        view_line_offset = max(0, int(editor.get("view_line_offset") or 0))
-        view_col_offset = max(0, int(editor.get("view_col_offset") or 0))
-        text_row = local_row - 4
-        target_line = max(0, min(len(lines) - 1, view_line_offset + text_row))
-        click_col = max(0, local_col - 6)
-        target_col = max(0, min(len(lines[target_line]), view_col_offset + click_col))
-        new_cursor = target_col
-        for idx in range(target_line):
-            new_cursor += len(lines[idx]) + 1
-        editor["cursor"] = max(0, min(len(text), int(new_cursor)))
-        editor = self._template_editor_ensure_cursor_visible(editor)
-        game["template_editor"] = editor
-        self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT))
-        return True
+        return _it.template_editor_set_cursor_from_content_click(self, x=x, y=y, width=width, height=height)
 
     def _open_template_editor_for_selected(self) -> bool:
-        selected = self._selected_template_entry()
-        if selected is None:
-            return False
-        _, item, raw = selected
-        kind = str(item.get("kind") or "template")
-        text = self._template_editor_text_for_item(kind=kind, item=item, raw=raw)
-        game = dict(self.state.header_logo_game or {})
-        game["template_editor"] = {
-            "active": True,
-            "template_id": str(raw.get("id") or item.get("raw_id") or ""),
-            "kind": kind,
-            "title": str(item.get("title") or ""),
-            "text": text,
-            "cursor": len(text),
-            "view_line_offset": 0,
-            "view_col_offset": 0,
-            "dirty": False,
-        }
-        game["template_editor"] = self._template_editor_ensure_cursor_visible(dict(game["template_editor"]))
-        self._set_state(
-            self.state.with_updates(
-                mode=OperatorMode.EDIT,
-                focus=FocusPane.CONTENT,
-                header_logo_game=game,
-                markdown_source="",
-                status_message=f"template editor: {str(item.get('title') or '')}",
-            )
-        )
-        return True
+        return _it.open_template_editor_for_selected(self)
 
     def _template_editor_insert_text(self, text: str) -> None:
-        if not text:
-            return
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        if not bool(editor.get("active")):
-            return
-        source = str(editor.get("text") or "")
-        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
-        editor["text"] = source[:cursor] + text + source[cursor:]
-        editor["cursor"] = cursor + len(text)
-        editor["dirty"] = True
-        editor = self._template_editor_ensure_cursor_visible(editor)
-        game["template_editor"] = editor
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _it.template_editor_insert_text(self, text)
 
     def _template_editor_backspace(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        if not bool(editor.get("active")):
-            return
-        source = str(editor.get("text") or "")
-        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
-        if cursor <= 0:
-            return
-        editor["text"] = source[: cursor - 1] + source[cursor:]
-        editor["cursor"] = cursor - 1
-        editor["dirty"] = True
-        editor = self._template_editor_ensure_cursor_visible(editor)
-        game["template_editor"] = editor
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _it.template_editor_backspace(self)
 
     def _template_editor_delete(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        if not bool(editor.get("active")):
-            return
-        source = str(editor.get("text") or "")
-        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
-        if cursor >= len(source):
-            return
-        editor["text"] = source[:cursor] + source[cursor + 1 :]
-        editor["cursor"] = cursor
-        editor["dirty"] = True
-        editor = self._template_editor_ensure_cursor_visible(editor)
-        game["template_editor"] = editor
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _it.template_editor_delete(self)
 
     def _template_editor_move_cursor(self, delta: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        if not bool(editor.get("active")):
-            return
-        source = str(editor.get("text") or "")
-        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
-        editor["cursor"] = max(0, min(len(source), cursor + int(delta)))
-        editor = self._template_editor_ensure_cursor_visible(editor)
-        game["template_editor"] = editor
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _it.template_editor_move_cursor(self, delta)
 
     def _template_editor_move_cursor_vertical(self, direction: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        if not bool(editor.get("active")):
-            return
-        source = str(editor.get("text") or "")
-        cursor = max(0, min(len(source), int(editor.get("cursor") or 0)))
-        before = source[:cursor]
-        line_index = before.count("\n")
-        col = len(before.rsplit("\n", 1)[-1])
-        lines = source.splitlines() or [""]
-        target_line = max(0, min(len(lines) - 1, line_index + int(direction)))
-        target_col = min(col, len(lines[target_line]))
-        new_cursor = 0
-        for idx in range(target_line):
-            new_cursor += len(lines[idx]) + 1
-        new_cursor += target_col
-        editor["cursor"] = max(0, min(len(source), new_cursor))
-        editor = self._template_editor_ensure_cursor_visible(editor)
-        game["template_editor"] = editor
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _it.template_editor_move_cursor_vertical(self, direction)
 
     def _template_editor_save(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        editor = dict(game.get("template_editor") or {})
-        template_id = str(editor.get("template_id") or "").strip()
-        editor_kind = str(editor.get("kind") or "template")
-        if not template_id:
-            self._set_state(self.state.with_updates(status_message="template editor: template_id fehlt"))
-            return
-        token = str(os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or "").strip()
-        if not token:
-            self._set_state(self.state.with_updates(status_message="template editor: auth token fehlt"))
-            return
-        if editor_kind == "blueprint":
-            try:
-                blueprint_payload = json.loads(str(editor.get("text") or "{}"))
-            except json.JSONDecodeError:
-                self._set_state(self.state.with_updates(status_message="blueprint save failed: invalid JSON"))
-                return
-            if not isinstance(blueprint_payload, dict):
-                self._set_state(self.state.with_updates(status_message="blueprint save failed: expected JSON object"))
-                return
-            endpoint = f"{str(self.state.endpoint).rstrip('/')}/teams/blueprints/{template_id}"
-            allowed_keys = {"name", "description", "base_team_type_name", "roles", "artifacts"}
-            request_payload = {key: blueprint_payload[key] for key in allowed_keys if key in blueprint_payload}
-        else:
-            endpoint = f"{str(self.state.endpoint).rstrip('/')}/templates/{template_id}"
-            request_payload = {"prompt_template": str(editor.get("text") or "")}
-        request_data = json.dumps(request_payload).encode("utf-8")
-        req = urllib.request.Request(endpoint, data=request_data, method="PATCH")
-        req.add_header("Authorization", f"Bearer {token}")
-        req.add_header("Content-Type", "application/json")
-        req.add_header("Accept", "application/json")
-        try:
-            with urllib.request.urlopen(req, timeout=8.0) as response:
-                body = response.read().decode("utf-8", errors="replace")
-        except urllib.error.HTTPError as exc:
-            self._set_state(self.state.with_updates(status_message=f"template save failed: HTTP {exc.code}"))
-            return
-        except urllib.error.URLError as exc:
-            self._set_state(self.state.with_updates(status_message=f"template save failed: {exc.reason}"))
-            return
-        try:
-            payload = json.loads(body) if body else {}
-        except json.JSONDecodeError:
-            payload = {}
-
-        section_payloads = dict(self.state.section_payloads or {})
-        templates_payload = dict(section_payloads.get("templates") or {})
-        items = [dict(item) if isinstance(item, dict) else item for item in list(templates_payload.get("items") or [])]
-        if editor_kind == "blueprint":
-            blueprints_raw = [
-                dict(item) if isinstance(item, dict) else item
-                for item in list(templates_payload.get("blueprints_raw") or [])
-            ]
-            response_data = payload.get("data") if isinstance(payload, dict) else None
-            for idx, entry in enumerate(blueprints_raw):
-                if isinstance(entry, dict) and str(entry.get("id") or "") == template_id:
-                    if isinstance(response_data, dict):
-                        blueprints_raw[idx] = dict(response_data)
-                    else:
-                        blueprints_raw[idx] = {**entry, **request_payload}
-            for item in items:
-                if isinstance(item, dict) and str(item.get("raw_id") or "") == template_id:
-                    item["title"] = str(request_payload.get("name") or item.get("title") or "")
-                    item["description"] = str(request_payload.get("description") or item.get("description") or "")[:100]
-                    if isinstance(request_payload.get("roles"), list):
-                        item["roles_count"] = len(request_payload["roles"])
-                    if isinstance(request_payload.get("artifacts"), list):
-                        item["artifacts_count"] = len(request_payload["artifacts"])
-            templates_payload["blueprints_raw"] = blueprints_raw
-        else:
-            templates_raw = [
-                dict(item) if isinstance(item, dict) else item
-                for item in list(templates_payload.get("templates_raw") or [])
-            ]
-            for entry in templates_raw:
-                if isinstance(entry, dict) and str(entry.get("id") or "") == template_id:
-                    entry["prompt_template"] = str(editor.get("text") or "")
-            for item in items:
-                if isinstance(item, dict) and str(item.get("raw_id") or "") == template_id:
-                    item["prompt_preview"] = str(editor.get("text") or "")[:120].replace("\n", " ")
-            templates_payload["templates_raw"] = templates_raw
-        templates_payload["items"] = items
-        section_payloads["templates"] = templates_payload
-        editor["dirty"] = False
-        game["template_editor"] = editor
-        data = payload.get("data") if isinstance(payload, dict) else None
-        warnings = ""
-        if isinstance(data, dict) and data.get("warnings"):
-            warnings = " (mit Warnungen)"
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                section_payloads=section_payloads,
-                status_message=("blueprint gespeichert" if editor_kind == "blueprint" else f"template gespeichert{warnings}"),
-            )
-        )
+        _it.template_editor_save(self)
 
     def _handle_enter_key(self) -> None:
-        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-        if self.state.mode is OperatorMode.COMMAND:
-            self._command_commit_history()
-            self._run_command(self._command_buffer)
-            return
-        if self._artifact_chat_focus_active():
-            self._artifact_chat_send_message()
-            return
-        if self._chat_focus_active():
-            self._chat_send_message()
-            return
-        if self._audit_viewer_active():
-            if self._audit_cleanup_result_mode_active():
-                self._audit_cleanup_close_viewer(status_message="cleanup viewer geschlossen")
-                return
-            if self._confirm_audit_cleanup_action():
-                return
-            return
-        if self._template_editor_active():
-            self._template_editor_insert_text("\n")
-            return
-        if bool(game.get("ai_snake_config_open")):
-            if self.state.focus is not FocusPane.CONTENT:
-                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT))
-                game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-            if self._ai_snake_config_combo_active(game):
-                self._ai_snake_config_combo_commit()
-            else:
-                self._toggle_ai_snake_config_selected()
-            return
-        if self._snake_message_mode_active():
-            self._snake_commit_message()
-            return
-        if self.state.focus is FocusPane.NAVIGATION:
-            if 0 <= self.state.selected_index < len(SECTIONS):
-                section = SECTIONS[self.state.selected_index]
-                self._run_command(f":section {section.id}")
-                self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, selected_index=0))
-                return
-            template_selection = self._template_nav_item_for_nav_index(self.state.selected_index)
-            if template_selection is not None:
-                item_index, item = template_selection
-                next_state = self.state.with_updates(focus=FocusPane.CONTENT, selected_index=item_index, section_id="templates")
-                self._set_state(next_state)
-                if not self._open_template_editor_for_selected():
-                    self._run_command(":inspect")
-                return
-            audit_selection = self._audit_nav_item_for_nav_index(self.state.selected_index)
-            if audit_selection is not None:
-                item_index, _ = audit_selection
-                next_state = self.state.with_updates(focus=FocusPane.CONTENT, selected_index=item_index, section_id="audit")
-                self._set_state(next_state)
-                self._open_audit_viewer_for_selected()
-                return
-            history_idx = (
-                self.state.selected_index
-                - len(SECTIONS)
-                - self._template_nav_selectable_count()
-                - self._audit_nav_selectable_count()
-            )
-            game = dict(self.state.header_logo_game or self._default_header_snake())
-            rows = long_message_history_rows(game)
-            if 0 <= history_idx < len(rows) and configure_middle_view_for_history_entry(game, rows[history_idx]):
-                self._set_state(
-                    self.state.with_updates(
-                        header_logo_game=game,
-                        focus=FocusPane.CONTENT,
-                        selected_index=0,
-                        status_message="Chat-History: Originalausgabe",
-                    )
-                )
-            return
-        if self.state.focus is FocusPane.CONTENT and self.state.section_id == "templates":
-            if self._open_template_editor_for_selected():
-                return
-        if self.state.focus is FocusPane.CONTENT and self.state.section_id == "audit":
-            if self._open_audit_viewer_for_selected():
-                return
-        if self._snake_mode_active():
-            # T04.04: Enter advances guided tour immediately
-            game = self.state.header_logo_game or {}
-            ts_raw = game.get("tutorial_state")
-            if isinstance(ts_raw, dict) and ts_raw.get("guided"):
-                self._advance_guided_tour_now()
-            return
-        if self.state.focus is FocusPane.HEADER:
-            from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, cycle_value
-
-            if 0 <= self.state.selected_index < len(CONFIG_ITEMS):
-                self._set_state(cycle_value(self.state, CONFIG_ITEMS[self.state.selected_index]))
-            return
-        self._run_command(":inspect")
+        _ic.handle_enter_key(self)
 
     def _cancel_active_input_mode(self) -> bool:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        if self._ai_snake_config_combo_active(game):
-            self._ai_snake_config_combo_close(status="input: config-auswahl beendet")
-            return True
-        if self.state.mode is OperatorMode.COMMAND:
-            self._command_reset()
-            self._set_state(self.state.with_updates(mode=OperatorMode.NORMAL, status_message="input: command beendet"))
-            return True
-        if self._snake_message_mode_active():
-            self._snake_cancel_message()
-            return True
-        return False
+        return _ic.cancel_active_input_mode(self)
 
     def _append_command(self, text: str) -> None:
-        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
-        self._command_buffer = self._command_buffer[:cursor] + text + self._command_buffer[cursor:]
-        self._command_cursor = min(len(self._command_buffer), cursor + len(text))
-        self._command_history_index = None
-        self._sync_command_line_state()
+        _ic.append_command(self, text)
 
     def _command_backspace(self) -> None:
-        if not self._command_buffer:
-            game = dict(self.state.header_logo_game or {})
-            game["command_input_cursor"] = 0
-            self._command_cursor = 0
-            self._command_history_index = None
-            self._command_saved_draft = ""
-            self._set_state(
-                self.state.with_updates(
-                    header_logo_game=game,
-                    mode=OperatorMode.NORMAL,
-                    command_line="",
-                    status_message="command: beendet",
-                )
-            )
-            return
-        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
-        if cursor <= 0:
-            self._sync_command_line_state()
-            return
-        self._command_buffer = self._command_buffer[:cursor - 1] + self._command_buffer[cursor:]
-        self._command_cursor = max(0, cursor - 1)
-        self._command_history_index = None
-        self._sync_command_line_state()
+        _ic.command_backspace(self)
 
     def _command_delete(self) -> None:
-        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
-        if cursor >= len(self._command_buffer):
-            self._sync_command_line_state()
-            return
-        self._command_buffer = self._command_buffer[:cursor] + self._command_buffer[cursor + 1:]
-        self._command_history_index = None
-        self._sync_command_line_state()
+        _ic.command_delete(self)
 
     def _command_move_cursor(self, delta: int) -> None:
-        cursor = max(0, min(len(self._command_buffer), int(self._command_cursor)))
-        self._command_cursor = max(0, min(len(self._command_buffer), cursor + int(delta)))
-        self._sync_command_line_state()
+        _ic.command_move_cursor(self, delta)
 
     def _command_history_move(self, delta: int) -> None:
-        history = [str(item) for item in self._command_history if str(item).strip()]
-        if not history:
-            return
-        idx_raw = self._command_history_index
-        if idx_raw is None:
-            self._command_saved_draft = self._command_buffer
-            idx = len(history)
-        else:
-            idx = max(0, min(len(history), int(idx_raw)))
-        next_idx = idx + int(delta)
-        if next_idx < 0:
-            next_idx = 0
-        if next_idx >= len(history):
-            self._command_history_index = None
-            self._command_buffer = self._command_saved_draft
-            self._command_cursor = len(self._command_buffer)
-            self._sync_command_line_state()
-            return
-        self._command_history_index = next_idx
-        self._command_buffer = history[next_idx]
-        self._command_cursor = len(self._command_buffer)
-        self._sync_command_line_state()
-
-    # ── Input history persistence ──────────────────────────────────────────────
+        _ic.command_history_move(self, delta)
 
     def _input_history_config(self) -> dict[str, Any]:
-        """Return current input-history config from user.json."""
-        try:
-            from client_surfaces.operator_tui.config.user_config_manager import load_user_config
-            cfg = load_user_config()
-            return cfg
-        except Exception:
-            return {}
-
-    def _load_input_histories(self) -> None:
-        """Load persisted command and chat histories from user.json on startup."""
-        try:
-            cfg = self._input_history_config()
-            if cfg.get("input_history_command_enabled", True):
-                saved = cfg.get("command_input_history", [])
-                if isinstance(saved, list):
-                    self._command_history = [str(e) for e in saved if str(e).strip()]
-            # Chat history is loaded into game state in _default_header_snake via _apply_input_history_to_game
-        except Exception:
-            pass
+        return _ic.input_history_config(self)
 
     def _apply_input_history_to_game(self, game: dict[str, Any]) -> None:
-        """Inject persisted chat input history into game state (called from _default_header_snake)."""
-        try:
-            cfg = self._input_history_config()
-            if cfg.get("input_history_chat_enabled", True):
-                saved = cfg.get("chat_input_history", [])
-                if isinstance(saved, list) and saved:
-                    from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-                    chat = get_chat_state(game)
-                    existing = list(chat.get("chat_input_history") or [])
-                    # Prepend persisted entries (avoid duplicates)
-                    for entry in reversed(saved):
-                        if entry not in existing:
-                            existing.insert(0, entry)
-                    max_entries = int(cfg.get("input_history_max_entries", 100))
-                    chat["chat_input_history"] = existing[-max_entries:]
-                    set_chat_state(game, chat)
-        except Exception:
-            pass
-
-    def _save_command_to_history(self, text: str) -> None:
-        """Persist a command to user.json if history is enabled."""
-        try:
-            cfg = self._input_history_config()
-            if not cfg.get("input_history_command_enabled", True):
-                return
-            max_entries = int(cfg.get("input_history_max_entries", 100))
-            history = list(self._command_history)[-max_entries:]
-            from client_surfaces.operator_tui.config.user_config_manager import save_user_config
-            save_user_config({"command_input_history": history})
-        except Exception:
-            pass
+        _ic.apply_input_history_to_game(self, game)
 
     def _save_chat_to_history(self, text: str) -> None:
-        """Persist a chat input to user.json if history is enabled."""
-        try:
-            cfg = self._input_history_config()
-            if not cfg.get("input_history_chat_enabled", True):
-                return
-            max_entries = int(cfg.get("input_history_max_entries", 100))
-            # Read current persisted history
-            current = cfg.get("chat_input_history", [])
-            if not isinstance(current, list):
-                current = []
-            if not current or current[-1] != text:
-                current = current + [text]
-            current = current[-max_entries:]
-            from client_surfaces.operator_tui.config.user_config_manager import save_user_config
-            save_user_config({"chat_input_history": current})
-        except Exception:
-            pass
+        _ic.save_chat_to_history(self, text)
+
+    def _load_input_histories(self) -> None:
+        _ic.load_input_histories(self)
+
+    def _save_command_to_history(self, text: str) -> None:
+        _ic.save_command_to_history(self, text)
 
     def _command_commit_history(self) -> None:
-        text = str(self._command_buffer).strip()
-        if not text:
-            return
-        if not self._command_history or self._command_history[-1] != text:
-            self._command_history.append(text)
-        self._command_history = self._command_history[-100:]
-        self._command_history_index = None
-        self._command_saved_draft = ""
-        # Persist to user.json
-        self._save_command_to_history(text)
+        _ic.command_commit_history(self)
 
     def _command_reset(self) -> None:
-        self._command_buffer = ""
-        self._command_cursor = 0
-        self._command_history_index = None
-        self._command_saved_draft = ""
-        self._sync_command_line_state()
+        _ic.command_reset(self)
 
     def _open_command_mode(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        self._command_buffer = ""
-        self._command_cursor = 0
-        self._command_history_index = None
-        self._command_saved_draft = ""
-        game["command_input_cursor"] = self._command_cursor
-        self._set_state(self.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line=self._command_buffer))
+        _ic.open_command_mode(self)
 
     def _exit_command_mode_for_global_shortcut(self) -> None:
-        if self.state.mode is not OperatorMode.COMMAND:
-            return
-        game = dict(self.state.header_logo_game or {})
-        self._command_buffer = ""
-        self._command_cursor = 0
-        self._command_history_index = None
-        self._command_saved_draft = ""
-        game["command_input_cursor"] = 0
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                mode=OperatorMode.NORMAL,
-                command_line="",
-            )
-        )
+        _ic.exit_command_mode_for_global_shortcut(self)
 
     def _enter_command_mode_from_anywhere(self) -> None:
-        if self._chat_focus_active():
-            self._chat_focus_leave()
-        if self._artifact_chat_focus_active():
-            self._artifact_chat_focus_leave(clear=False)
-        if self._snake_message_mode_active():
-            self._snake_cancel_message()
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        if bool(game.get("ai_snake_config_open")):
-            game["ai_snake_config_open"] = False
-            game["ai_snake_config_combo"] = {"open": False}
-            self._set_state(
-                self.state.with_updates(
-                    header_logo_game=game,
-                    mode=OperatorMode.NORMAL,
-                    command_line="",
-                )
-            )
-        self._open_command_mode()
+        _ic.enter_command_mode_from_anywhere(self)
 
     def _sync_command_line_state(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        game["command_input_cursor"] = max(0, min(len(self._command_buffer), int(self._command_cursor)))
-        # Expose history count for renderer hint display
-        n = len(self._command_history)
-        game["_command_history_count"] = n if n > 0 else None
-        self._set_state(self.state.with_updates(header_logo_game=game, command_line=self._command_buffer))
+        _ic.sync_command_line_state(self)
 
     def _toggle_ai_snake_config_panel(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        opened = not bool(game.get("ai_snake_config_open"))
-        game["ai_snake_config_open"] = opened
-        if opened:
-            game["artifact_chat_focus"] = False
-            from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-            chat = get_chat_state(game)
-            chat["chat_focus"] = False
-            set_chat_state(game, chat)
-            self._command_buffer = ""
-            self._command_cursor = 0
-            self._command_history_index = None
-            self._command_saved_draft = ""
-            game["ai_snake_config_combo"] = {
-                "open": False,
-                "key": "",
-                "filter": "",
-                "filter_cursor": 0,
-                "selected_option": 0,
-            }
-            self._set_state(self.state.with_updates(
-                header_logo_game=game,
-                focus=FocusPane.CONTENT,
-                mode=OperatorMode.NORMAL,
-                command_line="",
-                selected_index=0,
-                status_message="ai config: offen",
-            ))
-            return
-        game["ai_snake_config_combo"] = {"open": False}
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="ai config: geschlossen"))
+        _iconfig.toggle_ai_snake_config_panel(self)
 
     def _toggle_ai_snake_config_selected(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        items = ai_snake_config_items(game)
-        if not items:
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="ai config: keine felder"))
-            return
-        idx = max(0, min(len(items) - 1, int(self.state.selected_index)))
-        key = str(items[idx].get("key") or "")
-        self._open_ai_snake_config_combo(game, key=key, idx=idx)
+        _iconfig.toggle_ai_snake_config_selected(self)
 
     def _ai_snake_config_combo_active(self, game: dict[str, object] | None = None) -> bool:
-        snapshot = game if isinstance(game, dict) else dict(self.state.header_logo_game or {})
-        combo = snapshot.get("ai_snake_config_combo")
-        return isinstance(combo, dict) and bool(combo.get("open"))
+        return _iconfig.ai_snake_config_combo_active(self, game)
 
     def _ai_snake_config_next_index(self, delta: int, game: dict[str, object] | None = None) -> int:
-        snapshot = game if isinstance(game, dict) else dict(self.state.header_logo_game or {})
-        items = ai_snake_config_items(snapshot)
-        if not items:
-            return 0
-        cur = max(0, min(len(items) - 1, int(self.state.selected_index)))
-        return max(0, min(len(items) - 1, cur + int(delta)))
+        return _iconfig.ai_snake_config_next_index(self, delta, game)
 
     def _open_ai_snake_config_combo(self, game: dict[str, object], *, key: str, idx: int) -> None:
-        if key == "chat_model":
-            _, fetch_error = refresh_chat_backend_models(game, force=True)
-        else:
-            fetch_error = ""
-        options = ai_snake_config_options(game, key=key)
-        if not options:
-            status = "ai config: keine optionen"
-            if key == "chat_model" and fetch_error:
-                status = f"ai config: chat model fetch fehlgeschlagen ({fetch_error})"
-            self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
-            return
-        game["ai_snake_config_combo"] = {
-            "open": True,
-            "key": key,
-            "filter": "",
-            "filter_cursor": 0,
-            "selected_option": 0,
-        }
-        self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=f"ai config: auswahl für {key}"))
+        _iconfig.open_ai_snake_config_combo(self, game, key=key, idx=idx)
 
     def _ai_snake_config_combo_close(self, *, status: str = "ai config: auswahl geschlossen") -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        game["ai_snake_config_combo"] = {"open": False}
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+        _iconfig.ai_snake_config_combo_close(self, status=status)
 
     def _ai_snake_config_combo_filter_text(self, combo: dict[str, object]) -> str:
-        return str(combo.get("filter") or "")
+        return _iconfig.ai_snake_config_combo_filter_text(self, combo)
 
     def _ai_snake_config_combo_apply(self, game: dict[str, object], *, value: str) -> None:
-        combo = dict(game.get("ai_snake_config_combo") or {})
-        key = str(combo.get("key") or "")
-        idx = max(0, int(self.state.selected_index))
-        status = apply_ai_snake_config_value(game, key=key, value=value)
-        game["ai_snake_config_combo"] = {"open": False}
-        if key == "visual_enabled" and not bool(game.get("tutorial_mode")):
-            self._disable_visual_ai_snake_runtime(game)
-            game["ai_snake_config_open"] = True
-        self._set_state(self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=idx, status_message=status))
+        _iconfig.ai_snake_config_combo_apply(self, game, value=value)
 
     def _ai_snake_config_combo_commit(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        combo = dict(game.get("ai_snake_config_combo") or {})
-        key = str(combo.get("key") or "")
-        filter_text = self._ai_snake_config_combo_filter_text(combo)
-        options, _ = ai_snake_config_filter_options(game, key=key, regex_filter=filter_text)
-        if filter_text.strip():
-            self._ai_snake_config_combo_apply(game, value=filter_text.strip())
-            return
-        if not options:
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="ai config: keine treffer"))
-            return
-        selected = max(0, min(len(options) - 1, int(combo.get("selected_option") or 0)))
-        self._ai_snake_config_combo_apply(game, value=options[selected])
+        _iconfig.ai_snake_config_combo_commit(self)
 
     def _ai_snake_config_combo_move(self, delta: int) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        combo = dict(game.get("ai_snake_config_combo") or {})
-        if not bool(combo.get("open")):
-            return
-        key = str(combo.get("key") or "")
-        options, _ = ai_snake_config_filter_options(game, key=key, regex_filter=self._ai_snake_config_combo_filter_text(combo))
-        if not options:
-            combo["selected_option"] = 0
-        else:
-            cur = max(0, min(len(options) - 1, int(combo.get("selected_option") or 0)))
-            combo["selected_option"] = max(0, min(len(options) - 1, cur + int(delta)))
-        game["ai_snake_config_combo"] = combo
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _iconfig.ai_snake_config_combo_move(self, delta)
 
     def _ai_snake_config_combo_append_filter(self, ch: str) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        combo = dict(game.get("ai_snake_config_combo") or {})
-        if not bool(combo.get("open")):
-            return
-        buf = str(combo.get("filter") or "")
-        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
-        next_buf = buf[:cursor] + ch + buf[cursor:]
-        combo["filter"] = next_buf
-        combo["filter_cursor"] = min(len(next_buf), cursor + len(ch))
-        combo["selected_option"] = 0
-        game["ai_snake_config_combo"] = combo
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _iconfig.ai_snake_config_combo_append_filter(self, ch)
 
     def _ai_snake_config_combo_backspace(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        combo = dict(game.get("ai_snake_config_combo") or {})
-        if not bool(combo.get("open")):
-            return
-        buf = str(combo.get("filter") or "")
-        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
-        if cursor <= 0:
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        combo["filter"] = buf[:cursor - 1] + buf[cursor:]
-        combo["filter_cursor"] = cursor - 1
-        combo["selected_option"] = 0
-        game["ai_snake_config_combo"] = combo
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _iconfig.ai_snake_config_combo_backspace(self)
 
     def _ai_snake_config_combo_delete(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        combo = dict(game.get("ai_snake_config_combo") or {})
-        if not bool(combo.get("open")):
-            return
-        buf = str(combo.get("filter") or "")
-        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
-        if cursor >= len(buf):
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        combo["filter"] = buf[:cursor] + buf[cursor + 1:]
-        combo["filter_cursor"] = cursor
-        combo["selected_option"] = 0
-        game["ai_snake_config_combo"] = combo
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _iconfig.ai_snake_config_combo_delete(self)
 
     def _ai_snake_config_combo_move_cursor(self, delta: int) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        combo = dict(game.get("ai_snake_config_combo") or {})
-        if not bool(combo.get("open")):
-            return
-        buf = str(combo.get("filter") or "")
-        cursor = max(0, min(len(buf), int(combo.get("filter_cursor") or len(buf))))
-        combo["filter_cursor"] = max(0, min(len(buf), cursor + int(delta)))
-        game["ai_snake_config_combo"] = combo
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _iconfig.ai_snake_config_combo_move_cursor(self, delta)
 
     def _ai_snake_config_combo_select_value(self, *, value: str) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        self._ai_snake_config_combo_apply(game, value=value)
+        _iconfig.ai_snake_config_combo_select_value(self, value=value)
 
     def _handle_quit_key(self, event) -> None:
         if self._external_window_controller is not None:
@@ -3092,7 +1560,6 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         event.app.exit()
 
     def _flush_config_on_exit(self) -> None:
-        """Flush all AI-Snake config to user.json and global ~/.anana/user.json on Ctrl-Q."""
         try:
             from client_surfaces.operator_tui.config.user_config_manager import flush_user_config
             game = dict(self.state.header_logo_game or {})
@@ -3175,267 +1642,22 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         )
 
     def _visual_capabilities(self) -> TerminalVisualCapabilities:
-        term = dict(os.environ)
-        return TerminalVisualCapabilities(
-            ansi=True,
-            sixel="sixel" in str(term.get("TERM", "")).lower() or str(term.get("ANANTA_TUI_FORCE_SIXEL", "")).strip() == "1",
-            kitty_graphics=bool(str(term.get("KITTY_WINDOW_ID") or "").strip())
-            or str(term.get("TERM", "")).lower() == "xterm-kitty",
-            opengl_offscreen=str(term.get("ANANTA_TUI_VISUAL_OPENGL", "0")).strip().lower() in {"1", "true", "yes", "on"},
-        )
+        return _iv.visual_capabilities(self)
 
     def _load_visual_viewport_config(self) -> VisualViewportConfig:
-        file_mapping: dict[str, Any] = {}
-        cfg_path = Path("config/operator_tui_visual_viewport.default.json")
-        if cfg_path.exists():
-            try:
-                parsed = json.loads(cfg_path.read_text(encoding="utf-8"))
-                if isinstance(parsed, dict):
-                    file_mapping = dict(parsed.get("visual_viewport") or {})
-            except (OSError, json.JSONDecodeError) as exc:
-                self._visual_config_error = f"visual config fehler: {exc}"
-                file_mapping = {}
-        else:
-            self._visual_config_error = ""
-        env_enabled = str(os.environ.get("ANANTA_TUI_VISUAL_VIEWPORT_ENABLED", "0")).strip().lower() in {
-            "1",
-            "true",
-            "yes",
-            "on",
-        }
-        mapping: dict[str, Any] = {
-            **file_mapping,
-            "enabled": env_enabled if "ANANTA_TUI_VISUAL_VIEWPORT_ENABLED" in os.environ else bool(file_mapping.get("enabled", False)),
-            "default_view": str(
-                os.environ.get("ANANTA_TUI_VISUAL_DEFAULT_VIEW", file_mapping.get("default_view", "renderer_diagnostics"))
-            ).strip(),
-            "default_renderer": str(
-                os.environ.get("ANANTA_TUI_VISUAL_DEFAULT_RENDERER", file_mapping.get("default_renderer", "cpu_raster"))
-            ).strip(),
-            "default_output_adapter": str(
-                os.environ.get("ANANTA_TUI_VISUAL_DEFAULT_ADAPTER", file_mapping.get("default_output_adapter", "kitty"))
-            ).strip(),
-        }
-        try:
-            cfg = VisualViewportConfig.from_mapping(mapping)
-            if not self._visual_config_error:
-                self._visual_config_error = ""
-            return cfg
-        except (TypeError, ValueError) as exc:
-            self._visual_config_error = f"visual config fehler: {exc}"
-            return VisualViewportConfig()
+        return _iv.load_visual_viewport_config(self)
 
     def _build_visual_runtime(self) -> VisualRuntime:
-        def _build_opengl_renderer():
-            from client_surfaces.operator_tui.visual.renderers.opengl_offscreen_renderer import OpenGlOffscreenRenderer
-
-            return OpenGlOffscreenRenderer()
-
-        views = ViewRegistry()
-        views.register_factory("logo_animation", lambda: LogoAnimationView())
-        views.register_factory("snake_debug_view", lambda: SnakeDebugView())
-        views.register_factory("artifact_preview", lambda: ArtifactPreviewView())
-        views.register_factory("strategy_map_preview", lambda: StrategyMapPreviewView())
-        views.register_factory("renderer_diagnostics", lambda: RendererDiagnosticsView())
-        views.register_factory("markdown_mermaid_document", lambda: MarkdownMermaidDocumentView())
-
-        renderers = RendererRegistry()
-        renderers.register_factory("ansi_blocks", lambda: AnsiBlocksRenderer())
-        renderers.register_factory("cpu_raster", lambda: CpuRasterRenderer())
-        renderers.register_factory("svg_raster_optional", lambda: SvgRasterRenderer())
-        renderers.register_factory("opengl_offscreen_optional", _build_opengl_renderer)
-
-        adapters = OutputAdapterRegistry()
-        adapters.register_factory("ansi", lambda: AnsiOutputAdapter())
-        adapters.register_factory("sixel", lambda: SixelOutputAdapter(supported=self._visual_capabilities().sixel))
-        adapters.register_factory("kitty", lambda: KittyOutputAdapter(supported=self._visual_capabilities().kitty_graphics))
-        adapters.register_factory("noop_diagnostics", lambda: NoopDiagnosticsAdapter())
-
-        return VisualRuntime(
-            config=self._visual_viewport_config,
-            view_registry=views,
-            renderer_registry=renderers,
-            adapter_registry=adapters,
-            capabilities=self._visual_capabilities(),
-        )
+        return _iv.build_visual_runtime(self)
 
     def _ensure_visual_runtime(self) -> VisualRuntime:
-        if self._visual_runtime is None:
-            self._visual_runtime = self._build_visual_runtime()
-        return self._visual_runtime
+        return _iv.ensure_visual_runtime(self)
 
     def _apply_visual_command_requests(self, state: OperatorState) -> OperatorState:
-        game = dict(state.header_logo_game or {})
-        requested_view = str(game.get("visual_viewport_active_view_request") or "").strip()
-        if not requested_view:
-            return state
-        runtime = self._ensure_visual_runtime()
-        ok = runtime.switch_view(requested_view)
-        game.pop("visual_viewport_active_view_request", None)
-        game["visual_viewport_enabled"] = True
-        game["visual_viewport_active_view"] = requested_view if ok else str(runtime.status().active_view)
-        status = f"visual view: {game['visual_viewport_active_view']}" if ok else f"visual view unbekannt: {requested_view}"
-        return state.with_updates(header_logo_game=game, status_message=status)
+        return _iv.apply_visual_command_requests(self, state)
 
     def _sync_visual_viewport_state(self, *, width: int, height: int) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        # Browser mode owns the center pane while active; pause visual viewport rendering.
-        if bool(game.get("center_browser_active")):
-            game["visual_viewport"] = {"enabled": False}
-            self.state = self.state.with_updates(header_logo_game=game)
-            return
-        enabled = bool(game.get("visual_viewport_enabled", self._visual_viewport_config.enabled))
-        if not enabled:
-            game["visual_viewport"] = {"enabled": False}
-            if self._visual_config_error:
-                game["visual_runtime_status"] = {
-                    "runtime_error": self._visual_config_error,
-                }
-            game.pop("visual_viewport_frame_lines", None)
-            self.state = self.state.with_updates(header_logo_game=game)
-            return
-
-        runtime = self._ensure_visual_runtime()
-        requested_view = str(game.get("visual_viewport_active_view_request") or "").strip()
-        force_render = False
-        if requested_view:
-            if runtime.switch_view(requested_view):
-                game["visual_viewport_active_view"] = requested_view
-            game.pop("visual_viewport_active_view_request", None)
-            force_render = True
-
-        left_width = 22
-        detail_width = 34
-        middle_width = max(18, int(width) - left_width - detail_width - 6)
-        body_height = max(3, int(height) - 5 - 8)
-        body_start = 8
-        self._sync_scroll_focus_and_mouse_regions(
-            width=width,
-            height=height,
-            content_width=middle_width,
-            body_start=body_start,
-            body_height=body_height,
-        )
-        px_w, px_h = derive_pixel_size(
-            columns=middle_width,
-            rows=body_height,
-            default_pixel_width=self._visual_viewport_config.default_pixel_width,
-            default_pixel_height=self._visual_viewport_config.default_pixel_height,
-            max_pixel_width=self._visual_viewport_config.max_pixel_width,
-            max_pixel_height=self._visual_viewport_config.max_pixel_height,
-        )
-        region = ViewportRegion(
-            x=24,
-            y=body_start,
-            columns=middle_width,
-            rows=body_height,
-            pixel_width=px_w,
-            pixel_height=px_h,
-        )
-        # Propagate scroll offset from shared ScrollManager to markdown view (MDP-005)
-        scroll_offset_for_view = 0
-        try:
-            sm = self._get_scroll_manager()
-            sc = sm.get("center_viewport")
-            if sc is not None:
-                scroll_offset_for_view = sc.offset
-                active_view_id = str(game.get("visual_viewport_active_view") or "")
-                if active_view_id == "markdown_mermaid_document":
-                    view_instance = runtime.get_view_instance("markdown_mermaid_document") if hasattr(runtime, "get_view_instance") else None
-                    if view_instance is not None and hasattr(view_instance, "apply_scroll_offset"):
-                        view_instance.apply_scroll_offset(scroll_offset_for_view)
-        except Exception:
-            pass
-
-        state_map = {
-            "runtime_status": dict(game.get("visual_runtime_status") or {}),
-            "active_view": str(game.get("visual_viewport_active_view") or ""),
-            "active_renderer": str(game.get("visual_viewport_active_renderer") or ""),
-            "active_adapter": str(game.get("visual_viewport_active_adapter") or ""),
-            "artifact": dict(game.get("active_artifact") or {}),
-            "allowed_roots": [str(Path.cwd())],
-            "snake": list(game.get("snake") or []),
-            "target": game.get("food"),
-            "territories": list(game.get("territories") or []),
-            "selected_territory": game.get("selected_territory"),
-            "zoom": game.get("map_zoom", 1.0),
-            "selected_heuristic": game.get("selected_heuristic_id"),
-            "heuristic_confidence": game.get("heuristic_confidence"),
-            "visual_state_version": str(game.get("visual_state_version") or int(time.monotonic())),
-            "markdown_text": str(game.get("chat_long_message_markdown") or ""),
-            "markdown_plain_text": str(game.get("chat_long_message_plain_text") or ""),
-            "markdown_auto_follow": bool(game.get("markdown_auto_follow")),
-            "markdown_stream_plain": bool(game.get("markdown_stream_plain")),
-            "chat_long_message_streaming": bool(game.get("chat_long_message_streaming")),
-            "markdown_mermaid_render_requested": bool(game.get("markdown_mermaid_render_requested")),
-            "markdown_mermaid_config": dict(game.get("markdown_mermaid_config") or {}),
-            "scroll_offset": scroll_offset_for_view,
-            "h_scroll_offset": int(game.get("center_h_scroll_offset") or 0),
-            "theme_version": "default",
-        }
-        previous_frame_lines = [
-            str(row) for row in (game.get("visual_viewport_frame_lines") or []) if isinstance(row, str)
-        ]
-        force_render = force_render or bool(game.pop("visual_viewport_force_render", False)) or not previous_frame_lines
-        frame = runtime.render_frame(region=region, now=time.monotonic(), state=state_map, force=force_render)
-        frame_lines: list[str] = list(previous_frame_lines)
-        if frame is not None and frame.frame_type == "ansi" and isinstance(frame.payload, list):
-            frame_lines = [str(row) for row in frame.payload[:body_height]]
-            # Extract scene metadata from frame for scrollbar rendering
-            if frame.metadata:
-                game["visual_viewport_scene_meta"] = {
-                    k: frame.metadata.get(k)
-                    for k in (
-                        "content_lines",
-                        "max_line_width",
-                        "scroll_offset",
-                        "h_offset",
-                        "mermaid_renderer_used",
-                        "mermaid_fallback_count",
-                        "mermaid_cache_hits",
-                        "mermaid_cache_misses",
-                        "docs_graphics_profile",
-                        "docs_graphics_wsl2_detected",
-                    )
-                    if frame.metadata.get(k) is not None
-                }
-                game["visual_viewport_scene_meta"]["viewport_width"] = middle_width
-                game["visual_viewport_scene_meta"]["viewport_height"] = body_height
-                try:
-                    sm = self._get_scroll_manager()
-                    sc = sm.get("center_viewport")
-                    if sc is not None:
-                        sc.update_dimensions(
-                            content_height=max(1, int(game["visual_viewport_scene_meta"].get("content_lines") or body_height)),
-                            viewport_height=max(1, body_height),
-                        )
-                except Exception:
-                    pass
-        elif frame is not None:
-            frame_lines = [f"[{frame.frame_type}] {frame.mime_or_format} {frame.width}x{frame.height}"]
-
-        status = runtime.status()
-        diagnostics = list(status.fallback_diagnostics)
-        game["visual_viewport_frame_lines"] = frame_lines
-        game["visual_viewport_available_views"] = list(runtime.available_views())
-        game["visual_runtime_status"] = {
-            "active_view": status.active_view,
-            "active_renderer": status.active_renderer,
-            "active_adapter": status.active_adapter,
-            "rendered_frames": int(status.scheduler.get("rendered_frames", 0)),
-            "skipped_frames": int(status.scheduler.get("skipped_frames", 0)),
-            "dropped_frames": int(status.scheduler.get("dropped_frames", 0)),
-            "fallback_reason": diagnostics[-1] if diagnostics else "",
-            "runtime_error": status.runtime_errors[-1] if status.runtime_errors else self._visual_config_error,
-        }
-        game["visual_viewport"] = {"enabled": True}
-        game["visual_viewport_active_view"] = status.active_view
-        game["visual_viewport_active_renderer"] = status.active_renderer
-        game["visual_viewport_active_adapter"] = status.active_adapter
-        new_state = self.state.with_updates(header_logo_game=game)
-        scroll_now = int(game.get("scroll_offset_center_viewport") or 0)
-        from client_surfaces.operator_tui.tab_manager import save_scroll_to_active_tab
-        self.state = save_scroll_to_active_tab(new_state, scroll_now)
+        _iv.sync_visual_viewport_state(self, width=width, height=height)
 
     def _tab_close_active(self) -> None:
         if not self.state.active_tab_id:
