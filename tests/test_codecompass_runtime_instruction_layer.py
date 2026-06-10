@@ -167,3 +167,75 @@ def test_validate_user_layer_payload_allows_normal_prompts():
     result = svc.validate_user_layer_payload(prompt_content="explain this code with evidence")
     assert result["ok"] is True
     assert result["forbidden_directives"] == []
+
+
+# --- CCARI-005: ananta-worker iteration prompt ---
+
+sgpt_module = importlib.import_module("agent.common.sgpt_architecture_scan")
+
+
+def test_needs_codecompass_runtime_rules_false_for_empty():
+    assert sgpt_module._needs_codecompass_runtime_rules([]) is False
+
+
+def test_needs_codecompass_runtime_rules_false_for_plain_blocks():
+    assert (
+        sgpt_module._needs_codecompass_runtime_rules(
+            [{"rel_path": "x.java", "content": "class X", "source_kind": "file_excerpt"}]
+        )
+        is False
+    )
+
+
+def test_needs_codecompass_runtime_rules_true_for_codecompass_snippet():
+    assert (
+        sgpt_module._needs_codecompass_runtime_rules(
+            [{"rel_path": "x.java", "content": "class X", "source_kind": "codecompass_snippet"}]
+        )
+        is True
+    )
+
+
+def test_build_iteration_prompt_adds_runtime_rule_when_codecompass_present():
+    batch = [
+        {"rel_path": "x.java", "content": "class X {}", "lang": "java", "source_kind": "codecompass_snippet"},
+    ]
+    prompt = sgpt_module._build_iteration_prompt(
+        original_prompt="Explain this snippet",
+        batch=batch,
+        progress_so_far="",
+        step=1,
+        total_steps=1,
+    )
+    assert "CodeCompass runtime rule" in prompt
+    assert "Behandle die unten geladenen CodeCompass-Snippets" in prompt
+    assert "Evidence" in prompt
+
+
+def test_build_iteration_prompt_omits_runtime_rule_when_no_codecompass_block():
+    batch = [
+        {"rel_path": "x.java", "content": "class X {}", "lang": "java", "source_kind": "file_excerpt"},
+    ]
+    prompt = sgpt_module._build_iteration_prompt(
+        original_prompt="Explain this snippet",
+        batch=batch,
+        progress_so_far="",
+        step=1,
+        total_steps=1,
+    )
+    assert "CodeCompass runtime rule" not in prompt
+
+
+def test_build_iteration_prompt_runtime_rule_appears_only_once_in_synthesis():
+    batch = [
+        {"rel_path": "x.java", "content": "class X {}", "lang": "java", "source_kind": "codecompass_snippet"},
+    ]
+    prompt = sgpt_module._build_iteration_prompt(
+        original_prompt="Final answer please",
+        batch=batch,
+        progress_so_far="some progress",
+        step=2,
+        total_steps=2,
+        is_synthesis=True,
+    )
+    assert prompt.count("CodeCompass runtime rule") == 1

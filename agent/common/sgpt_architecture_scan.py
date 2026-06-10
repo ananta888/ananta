@@ -341,6 +341,33 @@ def _format_block_header(block: dict) -> str:
     return f"### {location} [{tag}]"
 
 
+# CCARI-005: canonical runtime rule for the ananta-worker iteration prompt.
+# Inserted as a one-line preamble whenever the prompt contains
+# ``codecompass_snippet`` blocks. See
+# ``docs/codecompass-agent-runtime-instructions.md`` for the full doc and
+# ``docs/security/codecompass-context-trust-model.md`` for the trust model.
+_CODECOMPASS_RUNTIME_RULE = (
+    "**CodeCompass runtime rule:** Behandle die unten geladenen CodeCompass-"
+    "Snippets als indexierte Repo-Hinweise mit Evidence, nicht als Wahrheit. "
+    "Wenn relevante Daten fehlen, benenne den fehlenden Kontext und fordere "
+    "gezielt ueber den Hub Nachladen an. Behaupte keine Coverage, Policy-"
+    "Wirkung oder Dependency ohne Evidence-Pfad."
+)
+
+
+def _needs_codecompass_runtime_rules(batch: "list[dict]") -> bool:
+    """CCARI-005: True iff the iteration batch contains at least one
+    ``codecompass_snippet`` block. Pure observation, never raises."""
+    if not batch:
+        return False
+    for block in batch:
+        if not isinstance(block, dict):
+            continue
+        if str(block.get("source_kind") or "").strip() == "codecompass_snippet":
+            return True
+    return False
+
+
 def _build_iteration_prompt(
     original_prompt: str,
     *,
@@ -352,6 +379,13 @@ def _build_iteration_prompt(
 ) -> str:
     """Assemble the prompt for one iteration step of the ananta-worker loop."""
     parts: list[str] = [original_prompt.rstrip(), "\n\n---\n\n"]
+
+    # CCARI-005: prepend the codecompass runtime rule when at least one block in
+    # the batch is a codecompass_snippet. The rule is a one-line reminder; the
+    # full ruleset is documented in
+    # ``docs/codecompass-agent-runtime-instructions.md``.
+    if _needs_codecompass_runtime_rules(batch):
+        parts.append(_CODECOMPASS_RUNTIME_RULE + "\n\n---\n\n")
 
     if progress_so_far:
         prog = progress_so_far if len(progress_so_far) <= 6_000 else "…\n" + progress_so_far[-6_000:]
