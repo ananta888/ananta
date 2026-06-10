@@ -160,7 +160,7 @@
     {
       "id": "CCDD-M2",
       "title": "Domain-Graph-Modell aus vorhandenen CodeCompass-Outputs bauen",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "CCDD-004",
         "CCDD-005",
@@ -304,10 +304,10 @@
       "title": "Neues Package rag_helper.domain_discovery anlegen",
       "type": "implementation",
       "milestone": "CCDD-M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/__init__.py",
         "rag-helper/rag_helper/domain_discovery/contracts.py",
@@ -334,17 +334,18 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Package mit __init__/contracts/inputs/graph_model/signals angelegt; clustering/boundaries/descriptors/writer folgen in M3/M4."
     },
     {
       "id": "CCDD-005",
       "title": "Input-Loader fuer bestehende CodeCompass-Outputs implementieren",
       "type": "implementation",
       "milestone": "CCDD-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/inputs.py",
         "tests/test_codecompass_domain_discovery_inputs.py"
@@ -364,17 +365,18 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Done 2026-06-10. Tests unter rag-helper/tests/ (rag_helper nur aus rag-helper/ importierbar)."
     },
     {
       "id": "CCDD-006",
       "title": "DomainGraph als internes Analysemodell bauen",
       "type": "implementation",
       "milestone": "CCDD-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/graph_model.py",
         "tests/test_codecompass_domain_graph_model.py"
@@ -394,17 +396,18 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Done 2026-06-10. Tests unter rag-helper/tests/ (rag_helper nur aus rag-helper/ importierbar)."
     },
     {
       "id": "CCDD-007",
       "title": "Package-/Namespace-/Pfad-Signale aus Manifest und Records ableiten",
       "type": "implementation",
       "milestone": "CCDD-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/signals.py",
         "tests/test_codecompass_domain_signals.py"
@@ -424,7 +427,8 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Done 2026-06-10. Tests unter rag-helper/tests/ (rag_helper nur aus rag-helper/ importierbar)."
     },
     {
       "id": "CCDD-008",
