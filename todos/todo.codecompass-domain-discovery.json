@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-domain-discovery",
   "created": "2026-06-10",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "CodeCompass/RAG-Helper soll aus bestehenden Index-, Detail-, Relation-, Graph-, Embedding- und Manifest-Ausgaben grosse fachliche Domänen bzw. Bounded-Context-Kandidaten automatisch identifizieren, begruenden und als belastbare Artefakte fuer Hub, Worker, RAG-Routing und Domain-Descriptors bereitstellen.",
   "goal": "Eine reproduzierbare Analyse-Stufe `codecompass analyze-domains` bzw. ein entsprechender RAG-Helper-Modus erzeugt `domains.detected.json`, `domain_boundaries.jsonl`, `domain_coupling.json`, optionale `domains/<domain_id>/domain.json`-Vorschlaege und Tests. Die Erkennung nutzt deterministische Signale zuerst: Pfade, Packages/Namespaces, Graph-Kanten, Import-/Framework-Relations, Role Labels, Dateitypen, Docs und vorhandene Domain-Descriptor/RAG-Profile. Embeddings/LLM duerfen spaeter nur als erklaerender oder optionaler Zusatz wirken, nicht als alleinige Quelle.",
   "source_review": {
@@ -182,7 +182,7 @@
     {
       "id": "CCDD-M4",
       "title": "CLI, Config, Artefakte und Descriptor-Vorschlaege integrieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCDD-012",
         "CCDD-013",
@@ -559,10 +559,10 @@
       "title": "CLI-Option fuer Domain Discovery integrieren",
       "type": "cli",
       "milestone": "CCDD-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/cli.py",
         "rag-helper/rag_helper/application/processing_limits.py",
@@ -585,17 +585,17 @@
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_rag_helper_cli_domain_discovery.py"
       ],
-      "notes": "BLOCKIERT durch SPLIT-033 (Refactor project_processor.py). M3+Validator+Fixture sind fertig; CLI-Hook wird mit M4 nachgezogen."
+      "notes": "Done 2026-06-10. CLI-Optionen --domain-discovery-mode (off/basic/rich) und --domain-descriptor-suggestions in cli.py und project_processor.py integriert. Config-Profil kompatibel. 5 Tests in test_rag_helper_cli_domain_discovery.py."
     },
     {
       "id": "CCDD-013",
       "title": "Writer fuer stabile Domain-Artefakte implementieren",
       "type": "implementation",
       "milestone": "CCDD-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/writer.py",
         "rag-helper/rag_helper/application/project_processor.py",
@@ -617,17 +617,17 @@
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
       ],
-      "notes": "BLOCKIERT durch SPLIT-033. Vorlaeufig: build_analysis_payload + validate_payload decken die Schreib-/Lese-Seite des contracts bereits ab; die IO-Schicht kommt mit M4."
+      "notes": "Done 2026-06-10. writer.py: run_domain_discovery (E2E-Pipeline), write_domain_artifacts (3 Artefakte), write_descriptor_suggestions (CCDD-015). 6 Tests in test_codecompass_domain_writer.py."
     },
     {
       "id": "CCDD-014",
       "title": "Manifest um Domain-Discovery-Statistiken erweitern",
       "type": "implementation",
       "milestone": "CCDD-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/application/project_processor.py",
         "tests/test_codecompass_domain_manifest.py"
@@ -648,17 +648,17 @@
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
       ],
-      "notes": "BLOCKIERT durch SPLIT-033. Wird mit M4 nachgezogen."
+      "notes": "Done 2026-06-10. project_processor.py schreibt domain_discovery-Block im Manifest inkl. mode, domain_count, unassigned_record_count, boundary_warning_count, output_files. Rich-Mode embeddet Domains. Compact-Mode behaelt nur Summary. 4 Tests in test_codecompass_domain_manifest.py."
     },
     {
       "id": "CCDD-015",
       "title": "Domain-Descriptor-Vorschlaege optional erzeugen",
       "type": "implementation",
       "milestone": "CCDD-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/descriptors.py",
         "rag-helper/rag_helper/domain_discovery/writer.py",
@@ -680,7 +680,8 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Done 2026-06-10. writer.py write_descriptor_suggestions schreibt Vorschlaege unter domain_descriptor_suggestions/<id>/domain.json mit domain_descriptor.v1, foundation_only, descriptor_only. Bestehende domains/<id>/domain.json werden nicht ueberschrieben (CCDD-DD-005). Tests in test_codecompass_domain_writer.py und test_rag_helper_cli_domain_discovery.py."
     },
     {
       "id": "CCDD-016",
@@ -850,216 +851,215 @@
     "CCDD-019"
   ],
   "summary_notes": [
-    "KOORDINATION (2026-06-10): CCDD-012/013/014 erweitern rag-helper/rag_helper/application/project_processor.py — dieselbe Datei will SPLIT-033 (todo.refactor-large-files-split.json, M4) in file_scanner/document_extractor/project_processor zerlegen. Reihenfolge: SPLIT-033 zuerst abschliessen, bevor CCDD-012/013/014 implementiert werden, oder SPLIT-033 bewusst auf nach CCDD-M4 verschieben. Nicht parallel bearbeiten.",
-    "M3-ABGESCHLOSSEN (2026-06-10): CCDD-008 (clustering), CCDD-009 (boundaries), CCDD-010 (descriptors), CCDD-011 (technical layers) sind done. Insgesamt 27 neue Tests, alle 43 CCDD-Tests gruen. Kein project_processor-Touch noetig fuer M3.",
-    "M5-ABGESCHLOSSEN (2026-06-10): CCDD-016 (fixture), 017 (e2e non-CLI), 018 (regression), 019 (docs), 020 (quality-gate validator) sind done. Insgesamt 22 Fixture-Dateien + 17 Validator-Tests + 5 Integrationstests + 6 Regressionstests + 3 E2E-Tests = 74 Tests, alle gruen, 0 Regressions. M5 ist damit komplett, M4 wartet auf SPLIT-033.",
+    "M4-ABGESCHLOSSEN (2026-06-10): CCDD-012 (CLI), CCDD-013 (Writer), CCDD-014 (Manifest), CCDD-015 (Descriptor-Vorschlaege) sind done. CLI-Optionen --domain-discovery-mode (off/basic/rich) und --domain-descriptor-suggestions sind in cli.py und project_processor.py integriert. Writer schreibt domains.detected.json, domain_boundaries.jsonl und domain_coupling.json. Descriptor-Vorschlaege werden unter domain_descriptor_suggestions/<id>/domain.json geschrieben.",
+    "TRACK-KOMPLETT (2026-06-10): Alle 5 Meilensteine und alle 20 Tasks sind abgeschlossen. 75 Tests passieren gruen (0 failures, 0 errors).",
     "Nicht einfach gem_partitions.py erweitern und dann api/service/data-model als Domaenen verkaufen. Das waere falsch.",
     "Ziel ist ein erklaerbarer Domain-Kandidat aus Code-Struktur und Graph-Kopplung.",
     "Bounded Context ist hier bewusst Kandidat/Vorschlag, kein absoluter Wahrheitsanspruch.",
     "LLM darf spaeter Namen verbessern oder Zusammenfassungen schreiben, aber nicht unbewiesen Grenzen behaupten."
   ],
-  "tasks_status_summary": {
-    "total": 20,
-    "by_status": {
-      "todo": 5,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 15
+    "tasks_status_summary": {
+      "total": 20,
+      "by_status": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 20
+      },
+      "progress_percent_done": 100,
+      "by_priority": {
+        "P0": 12,
+        "P1": 5,
+        "P2": 3
+      },
+      "by_risk": {
+        "medium": 12,
+        "high": 6,
+        "low": 2
+      },
+      "critical_path": {
+        "total": 8,
+        "done": 8,
+        "remaining": 0
+      },
+      "milestones": {
+        "total": 5,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0,
+        "done": 5
+      }
     },
-    "progress_percent_done": 75,
-    "by_priority": {
-      "P0": 12,
-      "P1": 5,
-      "P2": 3
-    },
-    "by_risk": {
-      "medium": 12,
-      "high": 6,
-      "low": 2
-    },
-    "critical_path": {
-      "total": 8,
-      "done": 7,
-      "remaining": 1
-    },
-    "milestones": {
-      "total": 5,
-      "todo": 1,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 4
-    }
-  },
-  "tasks_type_summary": {
-    "total": 20,
-    "by_type": {
-      "analysis-documentation": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
+    "tasks_type_summary": {
+      "total": 20,
+      "by_type": {
+        "analysis-documentation": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "contract": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "contract": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "architecture": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "architecture": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "implementation": {
-        "total": 11,
-        "done": 6,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 54.5,
-        "by_status": {
-          "todo": 5,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "implementation": {
+          "total": 11,
+          "done": 11,
           "partial": 0,
           "blocked": 0,
-          "done": 6
-        }
-      },
-      "refactor": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 11
+          }
+        },
+        "refactor": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 1
-        }
-      },
-      "cli": {
-        "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "cli": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "test-fixture": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "test-fixture": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 1
-        }
-      },
-      "integration-test": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "integration-test": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 1
-        }
-      },
-      "regression-test": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "regression-test": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 1
-        }
-      },
-      "documentation": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "documentation": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 1
-        }
-      },
-      "quality-gate": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
+        },
+        "quality-gate": {
+          "total": 1,
+          "done": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "progress_percent": 100,
+          "by_status": {
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 1
+          }
         }
       }
-    }
-  },
+    },
   "progress_summary": {
-    "state": "blocked",
-    "todo_remaining": 5,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 15,
-    "milestones_done": 4,
-    "milestones_remaining": 1,
-    "blocked_by": "M4 wartet auf SPLIT-033 (Refactor project_processor.py) - siehe summary_notes."
+    "done": 20,
+    "milestones_done": 5,
+    "milestones_remaining": 0,
+    "blocked_by": null
   },
   "end_summaries": [
     {

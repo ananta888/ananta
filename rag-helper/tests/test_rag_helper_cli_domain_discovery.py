@@ -27,15 +27,16 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 
-def _make_project(tmp: Path, *, ext: str = "java") -> Path:
+def _make_project(tmp: Path, *, ext: str = "java", files_per_dir: int = 4) -> Path:
     root = tmp / "project"
     root.mkdir()
     for i in range(3):
         d = root / f"domain_{i}"
         d.mkdir()
-        (d / f"mod.{ext}").write_text(
-            f"class Mod{i} {{}}\n", encoding="utf-8"
-        )
+        for j in range(files_per_dir):
+            (d / f"mod_{j}.{ext}").write_text(
+                f"class Mod{j} {{}}\n", encoding="utf-8"
+            )
     return root
 
 
@@ -58,17 +59,19 @@ class _StubJava(_Stub):
     candidate, and descriptor suggestions are written per candidate.
     """
     def parse(self, rel_path, text=None, known_package_types=None, **kwargs):
+        from pathlib import Path
         domain_id = rel_path.split("/")[0]
         package_name = f"com.example.{domain_id}"
-        type_name = f"Mod{domain_id.replace('domain_', '')}"
+        file_stem = Path(rel_path).stem
+        type_name = f"Mod{domain_id.replace('domain_', '')}_{file_stem}"
         node_id = f"java_type:{package_name}.{type_name}"
         record = {
-            "kind": "java_class", # This is an index-level record
+            "kind": "java_class",
             "file": rel_path,
             "id": node_id,
             "embedding_text": f"class {type_name}",
             "package": package_name,
-            "name": type_name, # `name` or `node_type_name` is used by build_package_type_index
+            "name": type_name,
         }
         return [record], [], [], {"records": 1}
 
@@ -162,6 +165,8 @@ class TestCLIDomainDiscovery(unittest.TestCase):
                     str(root),
                     "-o",
                     str(out_dir),
+                    "--graph-export-mode",
+                    "jsonl",
                     "--domain-discovery-mode",
                     "basic",
                     "--domain-descriptor-suggestions",

@@ -38,6 +38,7 @@ from devtools.validate_codecompass_domain_discovery import (
     validate_payload,
 )
 
+from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.domain_discovery.descriptors import index_existing_descriptors
 from rag_helper.domain_discovery.inputs import AnalysisInputs
 from rag_helper.domain_discovery.writer import (
@@ -99,7 +100,11 @@ class TestWriterArtifacts(unittest.TestCase):
 
     def _run_pipeline(self):
         inputs = _build_inputs()
-        return run_domain_discovery(inputs, project_root="/repo")
+        return run_domain_discovery(
+            inputs, project_root="/repo",
+            limits=ProcessingLimits(),
+            manifest={},
+        )
 
     def test_artifacts_are_written(self) -> None:
         result = self._run_pipeline()
@@ -183,7 +188,11 @@ class TestDescriptorSuggestions(unittest.TestCase):
     """CCDD-015: opt-in descriptor suggestions; never overwrite existing descriptors."""
 
     def test_suggestions_only_when_opt_in(self) -> None:
-        result = run_domain_discovery(_build_inputs(), project_root="/repo")
+        result = run_domain_discovery(
+            _build_inputs(), project_root="/repo",
+            limits=ProcessingLimits(),
+            manifest={},
+        )
         with tempfile_TmpDir() as tmp:
             suggestions_root = Path(tmp) / DOMAIN_DESCRIPTOR_SUGGESTIONS_DIRNAME
             # Default (opt_in=False): nothing is written, descriptor_suggestions
@@ -215,7 +224,11 @@ class TestDescriptorSuggestions(unittest.TestCase):
 
     def test_existing_domains_are_not_touched(self) -> None:
         """An existing domains/<id>/domain.json must not be overwritten."""
-        result = run_domain_discovery(_build_inputs(), project_root="/repo")
+        result = run_domain_discovery(
+            _build_inputs(), project_root="/repo",
+            limits=ProcessingLimits(),
+            manifest={},
+        )
         with tempfile_TmpDir() as tmp:
             existing_root = Path(tmp) / "domains" / "identity"
             existing_root.mkdir(parents=True, exist_ok=True)
@@ -256,7 +269,11 @@ class TestDescriptorSuggestions(unittest.TestCase):
 
     def test_suggestion_payload_is_minimal(self) -> None:
         """Suggestions expose only static analysis evidence; no runtime claims."""
-        result = run_domain_discovery(_build_inputs(), project_root="/repo")
+        result = run_domain_discovery(
+            _build_inputs(), project_root="/repo",
+            limits=ProcessingLimits(),
+            manifest={},
+        )
         with tempfile_TmpDir() as tmp:
             write_descriptor_suggestions(result, tmp, opt_in=True)
             for path in result.domain_candidates:

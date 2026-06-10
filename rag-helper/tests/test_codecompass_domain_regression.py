@@ -38,6 +38,9 @@ class TestNoRuntimeLeak(unittest.TestCase):
         for module_name in list(sys.modules):
             if module_name.startswith("rag_helper.domain_discovery"):
                 sys.modules.pop(module_name, None)
+        # Also remove project_processor if a previous test loaded it.
+        sys.modules.pop("rag_helper.application.project_processor", None)
+        sys.modules.pop("rag_helper.cli", None)
         for module_name in (
             "rag_helper.domain_discovery",
             "rag_helper.domain_discovery.clustering",

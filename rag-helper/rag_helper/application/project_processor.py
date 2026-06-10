@@ -362,7 +362,9 @@ def process_project(
             manifest=manifest,
         )
         discovery_result = run_domain_discovery(
-            analysis_inputs, project_root=root
+            analysis_inputs, project_root=root,
+            limits=limits,
+            manifest=manifest,
         )
         discovery_result = write_domain_artifacts(
             discovery_result, out_dir, dry_run=dry_run

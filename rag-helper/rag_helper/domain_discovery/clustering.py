@@ -250,6 +250,10 @@ def cluster_domains(
         Minimum number of relation edges an isolated record needs to a
         single cluster before graph-signal may attach it.
     """
+    if min_files is None:
+        min_files = DEFAULT_MIN_FILES
+    if min_coupled_edges is None:
+        min_coupled_edges = DEFAULT_MIN_COUPLED_EDGES
     warnings: list[str] = []
     records = list(records or [])
     manifest = dict(manifest or {})
