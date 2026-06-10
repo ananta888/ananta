@@ -12,6 +12,14 @@ Ananta ist eine offene, local-first Multi-Agenten-Plattform fuer sichere KI-gest
 
 Ananta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.
 
+## Sicherheitsgrenze / Nicht-Ziel
+
+Ananta reduziert Risiken durch Hub-Kontrolle, Least-Privilege, getrennte Worker-Kontexte, deterministische Handler, Policy-Gates, Audit und Artefaktpruefung. Ananta garantiert aber keine vollstaendige Absichtserkennung ueber beliebig zerlegte Aufgaben hinweg.
+
+Wenn ein grosses Ziel in viele einzeln harmlose Teilaufgaben zerlegt wird, kann kein System zuverlaessig beweisen, dass daraus spaeter nicht doch ein gefaehrlicher, unerwuenschter oder policy-widriger Gesamtzweck entsteht. Ananta macht Ausfuehrung kontrollierbarer und nachvollziehbarer, ersetzt aber keine menschliche Verantwortung fuer Ziel, Kontext und Zusammenbau von Ergebnissen.
+
+Diese Grenze ist bewusst Teil der Hauptdokumentation: Ananta soll keine Scheinsicherheit versprechen, die technisch nicht belastbar garantiert werden kann.
+
 Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares System fuer:
 
 - Goal -> Plan -> Task -> Execution -> Verification -> Artifact
@@ -219,147 +227,3 @@ Provider auf **OpenAI API**:
 ```bash
 DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
 ```
-
-Hinweise:
-- Wenn `DEFAULT_PROVIDER=openai` gesetzt ist, muss `OPENAI_API_KEY` gesetzt sein.
-- Die Rollen bleiben aus Architekturgruenden in separaten Containern, laufen aber alle aus demselben Image.
-- Ollama bleibt im no-ollama Hauptpfad deaktiviert.
-
-## Was Ananta macht
-
-Ananta folgt einem Goal -> Plan -> Task -> Execution -> Verification -> Artifact Ablauf. Fuer den Einstieg reicht ein Ziel; Teams, Policies, Benchmarks und Expertenoptionen koennen spaeter genutzt werden.
-
-Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
-
-## Release und Governance
-
-- Release-Prozess: `docs/release-process.md`
-- Release-Golden-Path und Evidence Register: `docs/release-golden-path.md`, `docs/release-evidence-register.md`
-- Release-Checklist: `docs/release-checklist.md`
-- Changelog-Strategie: `CHANGELOG.md`
-- Secrets-Inventar fuer GitHub Actions: `docs/github-secrets-inventory.md`
-- GitHub Admin-Setup: `docs/github-admin-setup.md`
-- CI-Testtiefen: `docs/ci-test-depth-strategy.md`
-- Container-Release-Strategie: `docs/container-release-strategy.md`
-- AI-assisted Development Policy: `docs/ai-assisted-development.md`
-- Security Policy: `.github/SECURITY.md`
-- Blueprint Admin/Studio: `docs/blueprint-admin.md`, `docs/blueprint-studio-roadmap.md`
-- Blueprint Rollout/Migration: `docs/blueprint-migration-rollout.md`
-
-## Manifest fuer verantwortliche Agentenentwicklung
-
-Ananta versteht Agentensysteme nicht als harmlose Blackboxes, sondern als wirkungsmaechtige Systeme, die Kontrolle, Nachvollziehbarkeit, Begrenzung und ehrliche Kommunikation brauchen.
-
-Das Projektmanifest dazu steht hier:
-- `docs/responsible-agent-development-manifesto.md`
-
-Kernaussage:
-- keine Macht ohne Begrenzung
-- keine Automatisierung ohne sichtbare Pruefung
-- keine ernsthaften Agentensysteme ohne Verantwortung fuer reale Wirkung
-
-## Wichtige Einstiegspunkte
-- Erster Start und Betrieb (Full-Stack): `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
-- Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`, `docs/generic-control-layer.md`
-- Control-Layer Vertiefung: `docs/loop-correction-pattern.md`, `docs/tool-router-target-architecture.md`, `docs/unified-approval-model.md`, `docs/context-manager-target-model.md`, `docs/context-source-prioritization-rules.md`, `docs/safer-agentic-loop-golden-path.md`
-- Hermes Adapter Architekturgrenze: `docs/architecture/hermes-worker-adapter.md`
-- Hermes Worker Setup und Rollout: `docs/setup/hermes-worker.md`, `docs/release/hermes-rollout-checklist.md`
-- Specialized Worker Guidance: `docs/ml-intern-fit-assessment.md`, `docs/ml-intern-adapter-boundary.md`, `docs/ml-intern-capability-profile.md`, `docs/ml-intern-backend-spike.md`, `docs/specialized-worker-guidance.md`
-- Backend API: `agent/README.md`, `docs/api/openapi.yaml`, `docs/hub-api.md`
-- CLI/API Golden Path: `docs/golden-path-cli.md`, `docs/cli/commands.md`, `docs/setup/bootstrap-install.md`
-- Domain Events und Audit: `docs/domain-events.md`, `docs/audit-log.md`
-- Integrations- und Connector-Governance: `docs/connector-governance.md`, `docs/integration-governance.md`, `docs/mcp-future-integration-plan.md`
-- Kontext und RAG: `docs/codecompass.md`, `docs/rag-helper.md`, `docs/context-source-prioritization-rules.md`, `docs/context-segmentation-and-pointer-model.md`
-- Prompt-/LLM-Steuerung: `docs/llm-routing.md`, `docs/llm-provider-config.md`, `docs/strict-output-contracts.md`, `docs/prompt-golden-tests.md`
-- Security und Rechte: `docs/security/README.md`, `docs/security/default-deny.md`, `docs/security/least-privilege-policy.md`, `docs/security/cloud-worker-policy.md`
-- Agenten- und Worker-Betrieb: `docs/agent-runtime.md`, `docs/worker-contract.md`, `docs/worker-directory.md`
-- Strategie-/Game-Demo: `docs/ananta-game/README.md`, `docs/ananta-game/rules.md`, `docs/ananta-game/development-plan.md`
-- TUI: `docs/tui/README.md`, `docs/tui/e2e-recording.md`, `docs/tui/terminal-rendering.md`
-- Produkt- und Website-Erklaerung: `docs/product-story.md`, `docs/website-content.md`
-- Roadmap/TODO: `todos/README.md`
-
-## Architektur
-
-```mermaid
-flowchart TD
-    User[User oder Team] --> Goal[Goal]
-    Goal --> Hub[Hub]
-    Hub --> Plan[Plan]
-    Plan --> Task[Task]
-    Task --> Worker[Worker]
-    Worker --> Evidence[Evidence]
-    Evidence --> Artifact[Artifact]
-    Artifact --> Verification[Verification]
-    Verification --> Hub
-```
-
-Die wichtigste Regel: Der Hub bleibt Kontrollpunkt. Worker koennen Aufgaben ausfuehren, aber sie sollen nicht unkontrolliert neue Ziele, Berechtigungen oder Seiteneffekte erzeugen.
-
-## Repository-Struktur
-
-```text
-agent/                 Hub-/Worker-Laufzeit, Services, API
-frontend-angular/      Angular UI
-cli/                   CLI-Einstieg und Kommandos
-docs/                  Architektur, Setup, Governance, Use-Cases
-tests/                 Pytest-, Contract-, Golden- und Integrationsnahes
-todos/                 Strukturierte Aufgabenplaene
-examples/              Beispiele und Demo-Flows
-```
-
-## Einfache CLI- und API-Beispiele
-
-Goal per CLI:
-
-```bash
-ananta plan "Analysiere dieses Repository und schlage testbare naechste Schritte vor"
-```
-
-Systemstatus:
-
-```bash
-ananta status
-```
-
-API-Beispiel:
-
-```bash
-curl http://localhost:5000/api/goals
-```
-
-## Python-Kompatibilitaet
-
-- Unterstuetzt: Python 3.10, 3.11, 3.12
-- Empfohlen lokal: Python 3.11
-- CI prueft Python 3.10, 3.11 und 3.12.
-- Hinweis: Python 3.13 wird derzeit nicht als primare Zielversion behandelt.
-
-## Tests
-
-```bash
-python -m pytest
-```
-
-Fokussierte Testsets:
-
-```bash
-python -m pytest tests/test_goals_api.py tests/test_task_scoped_execution_service.py
-python -m pytest tests/test_artifact_first_completion.py tests/test_artifact_traceability.py
-python -m pytest tests/test_context_source_prioritization.py tests/test_context_segmentation_pointer_model.py
-python -m pytest tests/test_worker_contract.py tests/test_domain_events.py tests/test_audit_log.py
-python -m pytest tests/test_cli_commands.py tests/test_ci_offline_quality.py
-python -m pytest tests/test_connector_governance.py tests/test_integration_governance.py
-```
-
-## CI / Quality
-
-```bash
-python -m compileall agent cli tests
-python -m pytest tests/test_ci_offline_quality.py
-```
-
-Die CI ist bewusst auf reproduzierbare Offline-Pruefungen, Smoke-Flows und Dokumentations-Gates ausgelegt. Live-LLM-Flows bleiben getrennt und optional.
-
-## Lizenz
-
-Siehe `LICENSE`.
