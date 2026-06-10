@@ -1,0 +1,451 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-worker-tool-calling-loop",
+  "created": "2026-06-10",
+  "status": "todo",
+  "purpose": "Der ananta-worker soll vom reinen SGPT-/CodeCompass-Kontext-Batch-Worker zu einem Hub-kontrollierten Tool-Calling-Worker ausgebaut werden.",
+  "goal": "Ein sicherer Tool-Calling-Loop fuer ananta-worker: LLM schlaegt Toolbedarf vor, Hub validiert Policy, Hub fuehrt deterministische Tools aus, ToolResults gehen als Evidence zurueck in die naechste Iteration.",
+  "source_review": {
+    "summary": "Der aktuelle ananta-worker ist in agent/common/sgpt.py als Backend registriert, nutzt technisch python -m sgpt, laedt CodeCompass-Kontext in Batches, schreibt progress.md und erzeugt eine finale Synthese. Fuer architecture_full_scan existiert ein Plan-/Batch-/Summary-Loop. Echtes natives Tool Calling im Sinne von LLM -> ToolRequest -> Hub Policy -> ToolResult -> naechste LLM-Runde ist nicht sichtbar. ToolRoutingService enthaelt aber bereits Capability-Klassen und Backend-Auswahl fuer sgpt, opencode, aider, codex, hermes usw.",
+    "observed_source_files": [
+      "agent/common/sgpt.py",
+      "agent/services/tool_routing_service.py",
+      "agent/services/context_delivery_service.py",
+      "worker/core/hermes_adapter.py",
+      "docs/architecture/hermes-worker-adapter.md",
+      "todos/todo.codecompass-architecture-query-engine.json"
+    ]
+  },
+  "design_decisions": [
+    {
+      "id": "AWTCL-DD-001",
+      "decision": "ananta-worker fuehrt Tools nie direkt aus, sondern fordert sie beim Hub an.",
+      "rationale": "Datei-, Shell-, Test-, Git-, Netzwerk- und Agentenaktionen brauchen zentrale Policy, Approval und Audit."
+    },
+    {
+      "id": "AWTCL-DD-002",
+      "decision": "Start mit provider-neutralem JSON-Protokoll statt hartem Function-Calling-Zwang.",
+      "rationale": "Der aktuelle Worker nutzt SGPT/CLI und lokale Modelle; JSON funktioniert auch ohne native Function-Calling-API."
+    },
+    {
+      "id": "AWTCL-DD-003",
+      "decision": "Deterministische Tools haben Vorrang vor LLM-Raten.",
+      "rationale": "Dateien listen, grep, Datei lesen, Tests ausfuehren und CodeCompass-Abfragen sollen reproduzierbar sein."
+    },
+    {
+      "id": "AWTCL-DD-004",
+      "decision": "OpenCode, Hermes, Aider und Codex bleiben externe Backends/Worker unter Hub-Kontrolle.",
+      "rationale": "Keine unkontrollierte Worker-zu-Worker-Kommunikation."
+    }
+  ],
+  "tool_call_protocol_target": {
+    "schema": "ananta_worker_tool_loop.v1",
+    "llm_outputs": [
+      "tool_request",
+      "final_answer",
+      "needs_approval",
+      "cannot_continue_without_context"
+    ],
+    "tool_request_example": {
+      "kind": "tool_request",
+      "tool_name": "repo.grep",
+      "reason": "Need deterministic search for ToolRoutingService usage.",
+      "arguments": {
+        "pattern": "ToolRoutingService",
+        "path_globs": ["agent/**/*.py", "worker/**/*.py"],
+        "limit": 50
+      },
+      "risk_hint": "read"
+    },
+    "tool_result_example": {
+      "schema": "ananta_tool_result.v1",
+      "tool_call_id": "tool_result:1",
+      "tool_name": "repo.grep",
+      "status": "ok",
+      "risk_class": "low",
+      "evidence": [
+        {
+          "path": "agent/services/tool_routing_service.py",
+          "line_start": 11,
+          "line_end": 20,
+          "excerpt": "..."
+        }
+      ],
+      "warnings": []
+    }
+  },
+  "initial_tool_registry_target": {
+    "read_only_tools": [
+      "repo.list_files",
+      "repo.read_file_range",
+      "repo.grep",
+      "codecompass.search",
+      "codecompass.expand_graph",
+      "codecompass.architecture_query",
+      "git.status",
+      "git.diff_readonly"
+    ],
+    "controlled_execution_tools": [
+      "test.discover",
+      "test.run",
+      "shell.run_allowlisted",
+      "opencode.propose",
+      "hermes.review",
+      "aider.propose",
+      "codex.propose"
+    ],
+    "controlled_write_tools": [
+      "repo.write_file",
+      "repo.apply_patch",
+      "todo.create_or_update",
+      "git.add_selected"
+    ],
+    "blocked_without_separate_approval": [
+      "shell.run_unrestricted",
+      "network.fetch_arbitrary",
+      "service.restart",
+      "secret.read",
+      "git.push",
+      "git.commit",
+      "external_worker.execute_mutation"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "AWTCL-M1",
+      "title": "Vertrag und Sicherheitsgrenzen definieren",
+      "status": "todo",
+      "task_ids": ["AWTCL-001", "AWTCL-002", "AWTCL-003", "AWTCL-004"]
+    },
+    {
+      "id": "AWTCL-M2",
+      "title": "Tool Registry und Policy-Gates bauen",
+      "status": "todo",
+      "task_ids": ["AWTCL-005", "AWTCL-006", "AWTCL-007", "AWTCL-008"]
+    },
+    {
+      "id": "AWTCL-M3",
+      "title": "ananta-worker Tool Loop implementieren",
+      "status": "todo",
+      "task_ids": ["AWTCL-009", "AWTCL-010", "AWTCL-011", "AWTCL-012"]
+    },
+    {
+      "id": "AWTCL-M4",
+      "title": "Core-Tools und externe Backend-Tools anbinden",
+      "status": "todo",
+      "task_ids": ["AWTCL-013", "AWTCL-014", "AWTCL-015", "AWTCL-016"]
+    },
+    {
+      "id": "AWTCL-M5",
+      "title": "Tests, Audit und UI-Diagnostik abschliessen",
+      "status": "todo",
+      "task_ids": ["AWTCL-017", "AWTCL-018", "AWTCL-019", "AWTCL-020"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "AWTCL-001",
+      "title": "Ist-Zustand des ananta-worker dokumentieren",
+      "type": "analysis-documentation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": ["docs/ananta-worker-tool-calling-loop.md", "agent/common/sgpt.py"],
+      "acceptance_criteria": [
+        "Doku beschreibt aktuellen SGPT-basierten ananta-worker.",
+        "Doku beschreibt bestehenden Kontext-Batch-Loop und architecture_full_scan.",
+        "Doku nennt explizit die fehlende ToolRequest/ToolResult-Schleife."
+      ]
+    },
+    {
+      "id": "AWTCL-002",
+      "title": "ToolCall-/ToolResult-Vertrag definieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["docs/contracts/ananta-worker-tool-loop.md"],
+      "acceptance_criteria": [
+        "Vertrag definiert tool_request, final_answer, needs_approval und cannot_continue_without_context.",
+        "ToolResult enthaelt status, evidence, warnings, error, risk_class und policy_decision.",
+        "Fenced JSON und rohe JSON-Antworten sind zulaessig."
+      ]
+    },
+    {
+      "id": "AWTCL-003",
+      "title": "Sicherheitsgrenzen fuer Tool Calling festlegen",
+      "type": "security-design",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["docs/ananta-worker-tool-calling-loop.md", "docs/security/"],
+      "acceptance_criteria": [
+        "Doku blockiert unrestricted shell, secret.read, git push/commit und service.restart ohne separates Approval.",
+        "Read, write, execution, admin und external_agent Risk-Klassen sind definiert.",
+        "Hub bleibt finaler Entscheider."
+      ]
+    },
+    {
+      "id": "AWTCL-004",
+      "title": "Feature Flag und Konfig fuer Tool Loop einfuehren",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/config.py", "agent/config_defaults.py"],
+      "acceptance_criteria": [
+        "Tool Loop ist per Default deaktivierbar/aktivierbar ueber klare Config.",
+        "Konfigwerte fuer max_iterations, max_tool_calls, max_tool_result_chars und allowed_tools existieren.",
+        "Bestehender ananta-worker Batch-Loop bleibt als Fallback erhalten."
+      ]
+    },
+    {
+      "id": "AWTCL-005",
+      "title": "Tool Registry Service bauen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/ananta_tool_registry_service.py", "tests/"],
+      "acceptance_criteria": [
+        "Registry listet read_only, controlled_execution, controlled_write und blocked Tools.",
+        "Jedes Tool hat name, risk_class, argument_schema, result_schema und policy_requirements.",
+        "Unbekannte Tools werden deterministisch abgelehnt."
+      ]
+    },
+    {
+      "id": "AWTCL-006",
+      "title": "Policy Gate fuer Tool Requests implementieren",
+      "type": "security-implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/ananta_tool_policy_service.py", "agent/services/tool_routing_service.py", "tests/"],
+      "acceptance_criteria": [
+        "Read-only Tools koennen ohne Approval laufen, wenn Scope passt.",
+        "Write/Execution/Admin Tools koennen policy_blocked oder approval_required liefern.",
+        "Hermes denied capabilities werden nicht durch ananta-worker umgangen.",
+        "OpenCode/Aider/Codex Mutationen werden nicht ohne Hub-Approval ausgefuehrt."
+      ]
+    },
+    {
+      "id": "AWTCL-007",
+      "title": "ToolResult Evidence-Modell einbauen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/services/", "worker/", "tests/"],
+      "acceptance_criteria": [
+        "ToolResults koennen Datei-Line-Ranges, Snippets, Graphpfade und Testausgaben als Evidence enthalten.",
+        "Große Ergebnisse werden begrenzt und mit truncation warning markiert.",
+        "Jede Worker-Antwort kann Evidence-Refs referenzieren."
+      ]
+    },
+    {
+      "id": "AWTCL-008",
+      "title": "Audit fuer Tool Calls einfuehren",
+      "type": "audit",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/common/audit.py", "agent/services/", "tests/"],
+      "acceptance_criteria": [
+        "Jeder ToolRequest und ToolResult wird mit task_id/session_id, tool_name, policy_decision und risk_class auditiert.",
+        "Geblockte und approval_required ToolCalls werden ebenfalls auditiert.",
+        "Secrets und lange Outputs werden nicht roh ins Audit geschrieben."
+      ]
+    },
+    {
+      "id": "AWTCL-009",
+      "title": "ToolRequest Parser fuer ananta-worker bauen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/common/sgpt.py", "worker/core/", "tests/"],
+      "acceptance_criteria": [
+        "Parser erkennt valides JSON und fenced JSON.",
+        "Parser unterscheidet tool_request und final_answer.",
+        "Ungueltige Modellantworten fallen auf normale Textantwort/Fallback zurueck."
+      ]
+    },
+    {
+      "id": "AWTCL-010",
+      "title": "Hub-kontrollierten Tool Loop implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/common/sgpt.py", "agent/services/", "tests/"],
+      "acceptance_criteria": [
+        "Loop fuehrt maximal konfigurierte Iterationen aus.",
+        "Bei tool_request wird Tool Registry und Policy Gate aufgerufen.",
+        "ToolResult wird in naechste LLM-Runde eingebettet.",
+        "final_answer beendet den Loop.",
+        "Bei wiederholten ungueltigen Requests bricht der Loop kontrolliert ab."
+      ]
+    },
+    {
+      "id": "AWTCL-011",
+      "title": "Bestehenden Batch-Loop als Fallback erhalten",
+      "type": "compatibility",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/common/sgpt.py", "tests/test_sgpt_route.py"],
+      "acceptance_criteria": [
+        "Wenn Tool Loop deaktiviert ist, bleibt _run_ananta_worker_iterative funktional.",
+        "architecture_full_scan bleibt funktional.",
+        "Bestehende Tests fuer CodeCompass Snippet-Handoff bleiben gruen."
+      ]
+    },
+    {
+      "id": "AWTCL-012",
+      "title": "Prompt-Instruktionen fuer Tool Loop einbauen",
+      "type": "prompt-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/common/sgpt.py", "docs/ananta-worker-tool-calling-loop.md"],
+      "acceptance_criteria": [
+        "Prompt erklaert erlaubte Output-Kinds und ToolRequest-Schema.",
+        "Prompt sagt klar: nicht raten, Tool anfordern, wenn deterministische Daten fehlen.",
+        "Prompt sagt klar: keine direkte Ausfuehrung behaupten, wenn Hub sie nicht bestaetigt hat."
+      ]
+    },
+    {
+      "id": "AWTCL-013",
+      "title": "repo.list_files, repo.read_file_range und repo.grep implementieren",
+      "type": "tool-implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/tools/", "tests/"],
+      "acceptance_criteria": [
+        "Tools arbeiten nur innerhalb erlaubter Repo-/Workspace-Wurzeln.",
+        "Path Traversal wird blockiert.",
+        "Outputs sind begrenzt, sortiert und deterministisch."
+      ]
+    },
+    {
+      "id": "AWTCL-014",
+      "title": "CodeCompass Tools anbinden",
+      "type": "tool-implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/services/tools/", "worker/retrieval/", "tests/"],
+      "acceptance_criteria": [
+        "codecompass.search liefert relevante Treffer mit Score und Quelle.",
+        "codecompass.expand_graph liefert Nodes/Edges begrenzt und mit Warnings.",
+        "codecompass.architecture_query nutzt den geplanten Query-Engine-Vertrag, sobald vorhanden."
+      ]
+    },
+    {
+      "id": "AWTCL-015",
+      "title": "test.discover und test.run allowlisted implementieren",
+      "type": "tool-implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/services/tools/", "tests/"],
+      "acceptance_criteria": [
+        "Nur konfigurierte Testkommandos duerfen laufen.",
+        "Timeout und Output-Limits greifen.",
+        "TestResult enthaelt command, rc, stdout_excerpt, stderr_excerpt und duration."
+      ]
+    },
+    {
+      "id": "AWTCL-016",
+      "title": "Externe Agenten als propose/review Tools anbinden",
+      "type": "backend-integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "target_files": ["agent/services/tool_routing_service.py", "agent/common/sgpt.py", "worker/core/hermes_adapter.py", "tests/"],
+      "acceptance_criteria": [
+        "opencode.propose darf Vorschlaege erzeugen, aber keine unkontrollierte Mutation ohne Approval ausfuehren.",
+        "hermes.review bleibt auf planning/review/summarize/patch_propose/research_limited begrenzt.",
+        "Aider/Codex werden nur gemaess Capability und Governance geroutet.",
+        "Backend-Auswahl nutzt ToolRoutingService statt separater Sonderlogik."
+      ]
+    },
+    {
+      "id": "AWTCL-017",
+      "title": "Unit-Tests fuer Tool Loop schreiben",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["tests/test_ananta_worker_tool_loop.py"],
+      "acceptance_criteria": [
+        "Test: LLM fordert repo.grep an, Hub liefert ToolResult, LLM gibt final_answer.",
+        "Test: unbekanntes Tool wird policy_blocked.",
+        "Test: max_iterations verhindert Endlosschleife.",
+        "Test: invalid JSON faellt kontrolliert zurueck."
+      ]
+    },
+    {
+      "id": "AWTCL-018",
+      "title": "Integrationstests fuer Policy und externe Backends schreiben",
+      "type": "test",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "target_files": ["tests/"],
+      "acceptance_criteria": [
+        "Hermes shell_execution wird blockiert.",
+        "OpenCode patching benoetigt Approval oder laeuft nur als propose.",
+        "Read-only CodeCompass Tool laeuft ohne Approval im erlaubten Scope.",
+        "Write-Tool wird ohne Approval nicht ausgefuehrt."
+      ]
+    },
+    {
+      "id": "AWTCL-019",
+      "title": "UI/Diagnostics fuer Tool Loop sichtbar machen",
+      "type": "ui-diagnostics",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "target_files": ["frontend-angular/src/app/", "agent/routes/"],
+      "acceptance_criteria": [
+        "UI zeigt ToolCalls, Policy-Entscheidungen und ToolResults pro Worker-Run.",
+        "Geblockte ToolCalls sind sichtbar und erklaert.",
+        "Evidence kann aufgeklappt werden."
+      ]
+    },
+    {
+      "id": "AWTCL-020",
+      "title": "Dokumentation und Rollout-Plan abschliessen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "target_files": ["docs/ananta-worker-tool-calling-loop.md", "docs/release/"],
+      "acceptance_criteria": [
+        "Doku beschreibt sicheren Start mit read-only Tools.",
+        "Doku beschreibt spaeteren Ausbau fuer write/execution Tools.",
+        "Rollout-Plan enthaelt Feature Flag, Tests und Fallback auf alten Batch-Loop."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {"todo": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 13, "P1": 4, "P2": 2, "P3": 0},
+    "by_risk": {"low": 1, "medium": 7, "high": 7, "critical": 5},
+    "critical_path": {"total": 13, "done": 0, "remaining": 13},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
+  "definition_of_done": [
+    "ananta-worker kann read-only ToolRequests ueber den Hub ausfuehren lassen.",
+    "Tool Policy blockiert riskante Aktionen reproduzierbar.",
+    "ToolResults werden als Evidence in Folgeprompts eingebunden.",
+    "OpenCode/Hermes/Aider/Codex bleiben Hub-kontrollierte Backends und keine freien Subagenten.",
+    "Bestehender Kontext-Batch-Loop bleibt als Fallback erhalten."
+  ]
+}
