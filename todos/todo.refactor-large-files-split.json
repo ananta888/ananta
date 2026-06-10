@@ -672,9 +672,12 @@
       "id": "SPLIT-012",
       "milestone": "M3",
       "priority": "P1",
+      "status": "done",
+      "commit": "c592b164",
+      "notes": "First attempt e3fc61b8 was reverted (697e60c3): it rewrote the whole API surface (/team-types etc.), dropped /teams/<id>/activate + blueprint-diff and never registered blueprint_bp. Redone as mechanical extraction: blueprint_routes.py (656), blueprint_seed_service.py (185), blueprint_serializer.py (389), route_utils.py. teams.py 1744 -> 503 lines. Route paths unchanged.",
       "title": "agent/routes/teams.py aufteilen (1744 Zeilen)",
       "file": "agent/routes/teams.py",
-      "current_lines": 1744,
+      "current_lines": 503,
       "problem": "Blueprint-Management, Team-Routen, Bundle-Import, Seed-Blueprints und Blueprint-Serialisierung in einer Datei.",
       "proposed_split": [
         {
@@ -704,9 +707,11 @@
       "id": "SPLIT-013",
       "milestone": "M3",
       "priority": "P1",
+      "status": "done",
+      "notes": "Facade pattern: cli_goals.py (605 lines) keeps SHORTCUT_GOALS + HTTP/auth/output infra + main(); sub-modules cli_goals_query (208), cli_goals_mutation (257), cli_goals_repair (445), cli_goals_planning (184) call infra via _cli.* so existing monkeypatch targets on agent.cli_goals keep working. 83/83 CLI tests green. 200-line target not reachable because facade must keep infra for test compat; milestone DoD (<1000) met. NOTE: tests/test_cli_prompt_inspect.py has 11 PRE-EXISTING failures from SPLIT-011 (cmd_prompt_task_traces etc. missing from agent/cli/prompt_inspect.py) — needs follow-up.",
       "title": "agent/cli_goals.py aufteilen (1609 Zeilen)",
       "file": "agent/cli_goals.py",
-      "current_lines": 1609,
+      "current_lines": 605,
       "proposed_split": [
         {
           "file": "agent/cli_goals_query.py",
