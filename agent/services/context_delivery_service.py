@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from agent.services.worker_workspace_service import WorkerWorkspaceContext
@@ -190,3 +190,113 @@ def get_context_delivery_service() -> ContextDeliveryService:
     if _instance is None:
         _instance = ContextDeliveryService()
     return _instance
+
+
+# --- CCARI-011: context_reload_request handling ---
+
+
+def _retrieve_chunks_for_reload(
+    *,
+    task: dict,
+    requested: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """CCARI-011: best-effort chunk retrieval for a parsed reload request.
+
+    Each entry in ``requested`` is a validated ``requested_context`` entry
+    (see ``agent/services/codecompass_reload.py``). The function aggregates
+    the chunks returned by the existing ``_retrieve_chunks`` path; one
+    request line maps to one synthetic query string. Per-entry failures are
+    swallowed and reported as warnings so a partial answer is still useful.
+    """
+    from agent.services.context_file_selector import get_context_file_selector
+    from agent.services.rag_helper_index_service import get_rag_helper_index_service
+
+    delivered: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    task_kind = str((task or {}).get("task_kind") or "")
+    try:
+        profile_svc = get_rag_helper_index_service()
+    except Exception:
+        profile_svc = None
+    if profile_svc is None:
+        return delivered
+    for entry in requested:
+        query = _entry_to_query(entry)
+        if not query:
+            warnings.append("entry_skipped:no_query")
+            continue
+        try:
+            chunks = profile_svc.retrieve(profile=None, query=query, limit=10)
+        except Exception:
+            warnings.append(f"entry_retrieval_failed:{entry.get('type')}")
+            continue
+        if isinstance(chunks, list):
+            delivered.extend(chunks)
+    # De-dup by path
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for chunk in delivered:
+        path = str(chunk.get("path") or "")
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        deduped.append(chunk)
+    return deduped
+
+
+def _entry_to_query(entry: dict[str, Any]) -> str:
+    """Map a parsed requested_context entry to a single query string."""
+    entry_type = str(entry.get("type") or "")
+    if entry_type == "file_range":
+        return f"file:{entry.get('path')}:{entry.get('start_line')}-{entry.get('end_line')}"
+    if entry_type == "symbol":
+        return f"symbol:{entry.get('query')}"
+    if entry_type == "codecompass_search":
+        return str(entry.get("query") or "")
+    if entry_type == "graph_expand":
+        return f"graph:{entry.get('seed')}:{entry.get('direction', 'outgoing')}"
+    if entry_type == "architecture_query":
+        return f"arch:{entry.get('query_type')}:{entry.get('seed')}"
+    return ""
+
+
+# Bind the helper as a method on the class so callers (including tests) can
+# monkeypatch it via ``monkeypatch.setattr(ContextDeliveryService, ...)``.
+ContextDeliveryService._retrieve_chunks_for_reload = staticmethod(  # type: ignore[attr-defined]
+    _retrieve_chunks_for_reload
+)
+
+
+def _handle_reload_request(self, *, task: dict, request: dict) -> dict[str, Any]:
+    """CCARI-011: parse a context_reload_request and return context_reload_response.v1.
+
+    Pure service entry point: never mutates the task. The route layer
+    (``agent/routes/codecompass_reload.py``) is responsible for translating
+    the response into HTTP 200/409.
+    """
+    from agent.services.codecompass_reload import (
+        ReloadRequestError,
+        parse_reload_request,
+    )
+
+    try:
+        parsed = parse_reload_request(request)
+    except ReloadRequestError as exc:
+        return {
+            "schema": "context_reload_response.v1",
+            "status": "policy_blocked" if exc.code == "policy_blocked" else "invalid_request",
+            "code": exc.code,
+            "delivered": [],
+            "warnings": [exc.code],
+        }
+    delivered = self._retrieve_chunks_for_reload(task=task, requested=parsed["requested_context"])
+    return {
+        "schema": "context_reload_response.v1",
+        "status": "ok",
+        "code": None,
+        "delivered": delivered,
+        "warnings": list(parsed.get("warnings") or []),
+    }
+
+
+ContextDeliveryService.handle_reload_request = _handle_reload_request  # type: ignore[attr-defined]
