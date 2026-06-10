@@ -152,19 +152,22 @@ def select_repair_procedure_from_catalog(
 
 def build_repair_procedure_preview(
     *,
-    selected_catalog_entry: dict[str, Any],
-    matching_outcome: dict[str, Any],
+    selected_catalog_entry: dict[str, Any] | None = None,
+    matching_outcome: dict[str, Any] | None = None,
+    final_plan_json: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    procedure = dict(selected_catalog_entry.get("procedure") or {})
+    entry = selected_catalog_entry or {}
+    outcome = matching_outcome or {}
+    procedure = dict(entry.get("procedure") or {})
     steps = list(procedure.get("steps") or [])
     return {
         "schema": "deterministic_repair_preview_v1",
         "procedure_id": procedure.get("id"),
-        "problem_class": selected_catalog_entry.get("problem_class"),
+        "problem_class": entry.get("problem_class"),
         "step_count": len(steps),
         "dry_run_supported": any(bool(step.get("dry_run_supported")) for step in steps),
         "mutation_step_ids": [step.get("id") for step in steps if bool(step.get("mutation_candidate"))],
-        "matching_outcome": matching_outcome.get("outcome"),
+        "matching_outcome": outcome.get("outcome"),
         "limitations": [
             "preview_only_does_not_apply_state_changes",
             "verification_results_in_preview_are_predictive_not_observed",
@@ -408,19 +411,4 @@ def convert_llm_proposal_to_reviewed_procedure(
 
 
 
-
-def execute_repair_procedure(
-    *,
-    selected_catalog_entry: dict[str, Any],
-    normalized_evidence: dict[str, Any],
-    environment_facts: dict[str, Any],
-    dry_run: bool,
-    approval_policy: dict[str, Any] | None = None,
-    safety_policy: dict[str, Any] | None = None,
-    session_id: str = "repair-session-default",
-    target_scope: str = "service_runtime",
-    stop_on_contradictory_evidence: bool = True,
-    stop_on_worsening_signals: bool = True,
-):
-    return _rpr.execute_repair_procedure(selected_catalog_entry=selected_catalog_entry, normalized_evidence=normalized_evidence, environment_facts=environment_facts, dry_run=dry_run, approval_policy=approval_policy, safety_policy=safety_policy, session_id=session_id, target_scope=target_scope, stop_on_contradictory_evidence=stop_on_contradictory_evidence, stop_on_worsening_signals=stop_on_worsening_signals)
 
