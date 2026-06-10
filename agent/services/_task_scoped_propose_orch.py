@@ -23,8 +23,8 @@ from agent.services.instruction_layer_service import get_instruction_layer_servi
 from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
 from agent.services.propose_policy_service import get_propose_policy_service
 from agent.services.service_registry import get_core_services
-from agent.task_kind_registry import get_task_kind_preset
-from agent.tracking import record_product_event
+from agent.services.propose_policy import get_task_kind_preset
+from agent.services.product_event_service import record_product_event
 from agent.routes.tasks.utils import update_local_task_status
 
 if TYPE_CHECKING:
