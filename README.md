@@ -18,6 +18,8 @@ Ananta reduziert Risiken durch Hub-Kontrolle, Least-Privilege, getrennte Worker-
 
 Wenn ein grosses Ziel in viele einzeln harmlose Teilaufgaben zerlegt wird, kann kein System zuverlaessig beweisen, dass daraus spaeter nicht doch ein gefaehrlicher, unerwuenschter oder policy-widriger Gesamtzweck entsteht. Ananta macht Ausfuehrung kontrollierbarer und nachvollziehbarer, ersetzt aber keine menschliche Verantwortung fuer Ziel, Kontext und Zusammenbau von Ergebnissen.
 
+Als Metapher: Beim Manhattan-Projekt arbeiteten sehr viele Menschen an stark getrennten Teilaufgaben; nicht jede beteiligte Person musste das volle Gesamtziel, die spaetere Wirkung oder alle Zusammenhaenge kennen. Genau diese Art von Kompartimentierung zeigt die Grenze: Ein einzelner Arbeitsschritt kann harmlos wirken, waehrend der spaetere Zusammenbau auf Zielebene kritisch ist. Ananta kann solche Arbeitsschritte begrenzen und auditieren, aber nicht allgemein beweisen, dass beliebig kombinierte Teilergebnisse niemals einem gefaehrlichen Gesamtzweck dienen.
+
 Diese Grenze ist bewusst Teil der Hauptdokumentation: Ananta soll keine Scheinsicherheit versprechen, die technisch nicht belastbar garantiert werden kann.
 
 Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares System fuer:
