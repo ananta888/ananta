@@ -1,0 +1,1048 @@
+from __future__ import annotations
+
+from typing import Any
+
+SHARED_UI_BOUNDARY_MODEL: dict[str, Any] = {
+    "schema": "editor_tui_shared_boundary_v1",
+    "surfaces": {
+        "nvim_plugin": {
+            "focus": "developer_coding_review_context_goal_submission",
+            "must_not_duplicate": ["orchestration", "routing", "governance", "approval_decisions"],
+        },
+        "tui": {
+            "focus": "admin_task_artifact_approval_audit_operations",
+            "must_not_duplicate": ["orchestration", "routing", "policy_enforcement"],
+        },
+        "browser": {
+            "focus": "deep_configuration_and_full_detail_views",
+            "fallback_when_terminal_surface_insufficient": True,
+        },
+    },
+    "split_rules": {
+        "developer_facing": ["nvim_plugin"],
+        "operator_facing": ["tui"],
+        "cross_surface_contract_source": "ananta_backend_contracts",
+    },
+}
+
+FRONTEND_CONTRACT_INVENTORY: dict[str, Any] = {
+    "schema": "editor_tui_contract_inventory_v1",
+    "required_endpoint_domains": [
+        "auth",
+        "goals",
+        "tasks",
+        "artifacts",
+        "approvals",
+        "logs",
+        "health",
+        "runtime_diagnostics",
+        "kritis_visibility",
+    ],
+    "notes": {
+        "inventory_goal": "identify_missing_read_models_before_ui_implementation",
+        "common_contracts_required": True,
+    },
+}
+
+COMMON_OBJECT_MODEL: dict[str, Any] = {
+    "schema": "editor_tui_common_object_model_v1",
+    "objects": {
+        "task_item": {
+            "required_fields": ["id", "title", "status", "priority", "updated_at", "trace_id"],
+            "compact_fields": ["id", "title", "status", "priority"],
+        },
+        "artifact_item": {
+            "required_fields": ["id", "type", "title", "created_at", "related_task_id", "trace_id"],
+            "compact_fields": ["id", "type", "title"],
+        },
+        "approval_item": {
+            "required_fields": ["id", "state", "scope", "requested_by", "requested_at", "trace_id"],
+            "compact_fields": ["id", "state", "scope"],
+        },
+        "log_entry": {
+            "required_fields": ["id", "level", "message", "timestamp", "trace_id"],
+            "compact_fields": ["level", "message", "timestamp"],
+        },
+        "trace_link": {
+            "required_fields": ["trace_id", "task_id", "artifact_ids", "approval_ids", "log_ids"],
+            "compact_fields": ["trace_id", "task_id"],
+        },
+    },
+}
+
+CAPABILITY_SURFACE_MODEL: dict[str, Any] = {
+    "schema": "editor_tui_capability_surface_v1",
+    "capability_categories": {
+        "read_ops": ["task_read", "artifact_read", "log_read", "goal_read"],
+        "write_ops": ["goal_submit", "task_update", "artifact_create"],
+        "sensitive_ops": ["approval_decide", "repair_step_execute", "terminal_usage", "admin_config_change"],
+    },
+    "permission_states": ["allowed", "review_required", "blocked", "missing_capability"],
+}
+
+ERROR_DEGRADED_STATE_MODEL: dict[str, Any] = {
+    "schema": "editor_tui_error_degraded_model_v1",
+    "error_classes": [
+        "auth_failure",
+        "backend_unreachable",
+        "missing_capability",
+        "policy_denial",
+        "runtime_failure",
+    ],
+    "degraded_states": [
+        "read_only_mode",
+        "offline_cache_only",
+        "partial_data_mode",
+    ],
+    "silent_fallback_allowed": False,
+}
+
+TRACE_AUDIT_LINKING_RULES: dict[str, Any] = {
+    "schema": "editor_tui_trace_audit_linking_v1",
+    "linking_keys": ["trace_id", "task_id", "goal_id", "artifact_id", "approval_id"],
+    "must_link": {
+        "task_to_artifact": True,
+        "task_to_approval_when_sensitive": True,
+        "log_to_trace": True,
+    },
+    "kritis_evidence_ready": True,
+}
+
+ONBOARDING_SPLIT_MODEL: dict[str, Any] = {
+    "schema": "editor_tui_onboarding_split_v1",
+    "default_recommendations": {
+        "coding_review": "nvim_plugin",
+        "operations_admin": "tui",
+    },
+    "first_run_message": "Use plugin for coding workflows and TUI for operations workflows.",
+}
+
+RELEASE_SMOKE_STRATEGY: dict[str, Any] = {
+    "schema": "editor_tui_release_smoke_strategy_v1",
+    "targets": ["local_host", "containerized_target"],
+    "smoke_flows": [
+        "connect",
+        "auth",
+        "goal_submit_or_list",
+        "task_list_and_detail",
+        "artifact_list_and_detail",
+    ],
+    "release_rule": "core_flows_must_pass_before_claiming_usability",
+}
+
+NVIM_ARCHITECTURE_DECISION: dict[str, Any] = {
+    "schema": "nvim_plugin_architecture_decision_v1",
+    "support_strategy": "neovim_first_vim_followup",
+    "reasoning": [
+        "neovim_rpc_and_lua_support_simplify_first_release",
+        "vim_compatibility_layer_can_be_added_incrementally",
+        "avoid_overengineering_dual_runtime_from_day_one",
+    ],
+    "maintainability": "single_command_contract_and_shared_backend_api_client",
+}
+
+NVIM_EDITOR_MATRIX: dict[str, Any] = {
+    "schema": "nvim_editor_matrix_v1",
+    "supported_versions": {
+        "neovim": ">=0.9",
+        "vim": "planned_followup_after_neovim_first_release",
+    },
+    "dependencies": ["python3", "ananta_http_api_access"],
+    "optional_dependencies": ["fzf_or_picker_for_quick_actions"],
+}
+
+NVIM_COMMAND_SURFACE: dict[str, Any] = {
+    "schema": "nvim_command_surface_v1",
+    "commands": [
+        {"command": "AnantaGoalSubmit", "use_case": "goal_submission"},
+        {"command": "AnantaAnalyze", "use_case": "analyze"},
+        {"command": "AnantaReview", "use_case": "review"},
+        {"command": "AnantaPatchPlan", "use_case": "patch"},
+        {"command": "AnantaProjectNew", "use_case": "new_project"},
+        {"command": "AnantaProjectEvolve", "use_case": "evolve_project"},
+    ],
+    "naming_style": "editor_native_pascal_commands",
+}
+
+TUI_FRAMEWORK_ARCHITECTURE_DECISION: dict[str, Any] = {
+    "schema": "tui_framework_architecture_decision_v1",
+    "selected_stack": "python_textual_first",
+    "design_principles": [
+        "terminal_native_navigation",
+        "view_state_isolated_from_backend_orchestration",
+        "long_lived_operations_sessions",
+    ],
+    "maintainability": "modular_views_with_shared_backend_client",
+}
+
+TUI_INFORMATION_ARCHITECTURE: dict[str, Any] = {
+    "schema": "tui_information_architecture_v1",
+    "primary_sections": [
+        "dashboard",
+        "tasks",
+        "artifacts",
+        "goals",
+        "approvals",
+        "logs",
+        "kritis",
+        "settings",
+    ],
+    "workflow_pattern": ["overview", "filter_or_search", "detail", "action_confirm"],
+    "browser_handoff_supported": True,
+}
+
+TUI_GLOBAL_NAV_LAYOUT: dict[str, Any] = {
+    "schema": "tui_global_navigation_layout_v1",
+    "layout_regions": ["header", "sidebar", "main_content", "footer_shortcuts"],
+    "default_shortcuts": {
+        "next_view": "tab",
+        "previous_view": "shift+tab",
+        "refresh": "r",
+        "open_detail": "enter",
+        "back": "esc",
+    },
+    "small_terminal_degradation": "single_pane_stack_mode",
+}
+
+
+def _clean_text(value: Any, *, max_chars: int) -> str:
+    text = str(value or "").strip()
+    return text[: max(1, int(max_chars))]
+
+
+def _compact_task_item(task: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": _clean_text(task.get("id"), max_chars=100),
+        "title": _clean_text(task.get("title"), max_chars=200),
+        "status": _clean_text(task.get("status") or "todo", max_chars=40),
+        "priority": _clean_text(task.get("priority") or "P1", max_chars=20),
+    }
+
+
+def _normalize_connection_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    profile_id = _clean_text(profile.get("id") or "default", max_chars=80)
+    endpoint = _clean_text(profile.get("endpoint") or "http://localhost:8080", max_chars=240)
+    environment = _clean_text(profile.get("environment") or "local", max_chars=40).lower()
+    auth_mode = _clean_text(profile.get("auth_mode") or "session_token", max_chars=40).lower()
+    role = _clean_text(profile.get("role") or "developer", max_chars=40).lower()
+    return {
+        "id": profile_id,
+        "endpoint": endpoint,
+        "environment": environment,
+        "auth_mode": auth_mode,
+        "role": role,
+        "kritis_target": bool(profile.get("kritis_target", False)),
+    }
+
+
+def build_connection_profile_abstraction(
+    profiles: list[dict[str, Any]],
+    *,
+    active_profile_id: str | None = None,
+) -> dict[str, Any]:
+    normalized_profiles = []
+    seen_ids: set[str] = set()
+    for profile in profiles or []:
+        normalized = _normalize_connection_profile(profile)
+        if normalized["id"] in seen_ids:
+            continue
+        seen_ids.add(normalized["id"])
+        normalized_profiles.append(normalized)
+    if not normalized_profiles:
+        normalized_profiles.append(_normalize_connection_profile({}))
+    active = _clean_text(active_profile_id or normalized_profiles[0]["id"], max_chars=80)
+    if active not in {profile["id"] for profile in normalized_profiles}:
+        active = normalized_profiles[0]["id"]
+    return {
+        "schema": "editor_tui_connection_profiles_v1",
+        "profiles": normalized_profiles,
+        "active_profile_id": active,
+        "supports_multiple_instances": True,
+    }
+
+
+def build_nvim_connection_auth_support(
+    profile: dict[str, Any],
+    *,
+    token: str | None = None,
+) -> dict[str, Any]:
+    normalized = _normalize_connection_profile(profile)
+    raw_token = _clean_text(token or "", max_chars=400)
+    token_present = bool(raw_token)
+    token_preview = "***" if token_present else None
+    return {
+        "schema": "nvim_connection_auth_support_v1",
+        "connection_profile": normalized,
+        "auth": {
+            "mode": normalized["auth_mode"],
+            "token_present": token_present,
+            "token_preview": token_preview,
+            "secret_logged": False,
+            "secret_exposed_to_command_history": False,
+        },
+    }
+
+
+def collect_nvim_editor_context(
+    editor_state: dict[str, Any],
+    *,
+    max_selection_chars: int = 2000,
+    max_buffer_chars: int = 4000,
+) -> dict[str, Any]:
+    file_path = _clean_text(editor_state.get("file_path"), max_chars=400)
+    project_root = _clean_text(editor_state.get("project_root"), max_chars=400)
+    filetype = _clean_text(editor_state.get("filetype"), max_chars=80)
+    selection_text = _clean_text(editor_state.get("selection_text"), max_chars=max_selection_chars)
+    buffer_text = _clean_text(editor_state.get("buffer_text"), max_chars=max_buffer_chars)
+    return {
+        "schema": "nvim_editor_context_v1",
+        "file_path": file_path or None,
+        "project_root": project_root or None,
+        "filetype": filetype or None,
+        "cursor": {
+            "line": max(1, int(editor_state.get("cursor_line", 1) or 1)),
+            "column": max(1, int(editor_state.get("cursor_column", 1) or 1)),
+        },
+        "selection": {
+            "present": bool(selection_text),
+            "size_chars": len(selection_text),
+            "text": selection_text or None,
+        },
+        "buffer_excerpt": {
+            "size_chars": len(buffer_text),
+            "text": buffer_text or None,
+        },
+        "bounded": True,
+    }
+
+
+def build_nvim_goal_submission_flow(
+    *,
+    goal_text: str,
+    editor_context: dict[str, Any],
+    include_selection: bool = True,
+) -> dict[str, Any]:
+    goal = _clean_text(goal_text, max_chars=600)
+    selection = dict(editor_context.get("selection") or {})
+    payload_context = {
+        "file_path": editor_context.get("file_path"),
+        "project_root": editor_context.get("project_root"),
+        "cursor": dict(editor_context.get("cursor") or {}),
+        "buffer_excerpt": dict(editor_context.get("buffer_excerpt") or {}),
+    }
+    if include_selection and bool(selection.get("present")):
+        payload_context["selection"] = selection
+    return {
+        "schema": "nvim_goal_submission_flow_v1",
+        "goal_text": goal,
+        "use_case_alignment": ["goal_submission", "analyze", "review"],
+        "context_payload": payload_context,
+        "explicit_user_trigger_required": True,
+    }
+
+
+def build_nvim_quick_action_palette() -> dict[str, Any]:
+    action_specs = [
+        ("quick_goal_submit", "AnantaGoalSubmit", "Submit goal from context"),
+        ("quick_analyze_file", "AnantaAnalyze", "Analyze current file"),
+        ("quick_review_selection", "AnantaReview", "Review current selection"),
+        ("quick_patch_plan", "AnantaPatchPlan", "Generate patch plan"),
+        ("quick_project_new", "AnantaProjectNew", "Start new project path"),
+        ("quick_project_evolve", "AnantaProjectEvolve", "Evolve existing project"),
+    ]
+    actions = [
+        {"id": item_id, "command": command, "label": label, "trigger_mode": "command_or_picker"}
+        for item_id, command, label in action_specs
+    ]
+    return {
+        "schema": "nvim_quick_action_palette_v1",
+        "actions": actions,
+        "lightweight_picker_supported": True,
+        "memorization_heavy": False,
+    }
+
+
+def build_nvim_analyze_flow(
+    *,
+    editor_context: dict[str, Any],
+    scope: str = "current_file",
+) -> dict[str, Any]:
+    effective_scope = scope if scope in {"current_file", "project"} else "current_file"
+    return {
+        "schema": "nvim_analyze_flow_v1",
+        "scope": effective_scope,
+        "trigger_command": "AnantaAnalyze",
+        "context_payload": {
+            "file_path": editor_context.get("file_path"),
+            "project_root": editor_context.get("project_root"),
+            "cursor": dict(editor_context.get("cursor") or {}),
+        },
+        "editor_native_result_views": ["scratch_buffer", "floating_window", "location_list"],
+        "requires_editor_exit": False,
+    }
+
+
+def build_nvim_review_flow(
+    *,
+    editor_context: dict[str, Any],
+    review_prompt: str | None = None,
+) -> dict[str, Any]:
+    selection = dict(editor_context.get("selection") or {})
+    return {
+        "schema": "nvim_review_flow_v1",
+        "trigger_command": "AnantaReview",
+        "review_prompt": _clean_text(review_prompt or "Review selected code", max_chars=240),
+        "selection_required": False,
+        "selection_payload": selection,
+        "safe_bounded_context_submission": True,
+        "result_anchor": {
+            "file_path": editor_context.get("file_path"),
+            "cursor_line": dict(editor_context.get("cursor") or {}).get("line"),
+        },
+    }
+
+
+def build_nvim_patch_planning_flow(
+    *,
+    editor_context: dict[str, Any],
+    issue_summary: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema": "nvim_patch_planning_flow_v1",
+        "trigger_command": "AnantaPatchPlan",
+        "issue_summary": _clean_text(issue_summary or "", max_chars=280) or None,
+        "proposal_only": True,
+        "auto_apply": False,
+        "context_payload": {
+            "file_path": editor_context.get("file_path"),
+            "project_root": editor_context.get("project_root"),
+            "selection": dict(editor_context.get("selection") or {}),
+        },
+        "clear_user_control_required": True,
+    }
+
+
+def build_nvim_task_context_view(
+    tasks: list[dict[str, Any]],
+    *,
+    current_project: str | None = None,
+    max_items: int = 20,
+) -> dict[str, Any]:
+    compact = [_compact_task_item(task) for task in tasks[: max(1, int(max_items))]]
+    return {
+        "schema": "nvim_task_context_view_v1",
+        "project_root": current_project,
+        "items": compact,
+        "compact_navigation": True,
+        "editor_exit_required": False,
+    }
+
+
+def build_nvim_artifact_preview(
+    artifact: dict[str, Any],
+    *,
+    max_text_chars: int = 4000,
+) -> dict[str, Any]:
+    artifact_type = _clean_text(artifact.get("type") or "text", max_chars=60).lower()
+    raw_content = _clean_text(artifact.get("content"), max_chars=max_text_chars)
+    supported = artifact_type in {"text", "markdown", "diff", "json"}
+    return {
+        "schema": "nvim_artifact_preview_v1",
+        "artifact_id": _clean_text(artifact.get("id"), max_chars=80),
+        "artifact_type": artifact_type,
+        "supported_in_editor": supported,
+        "preview_content": raw_content if supported else None,
+        "degraded_behavior": "show_metadata_and_offer_open_in_browser" if not supported else "none",
+    }
+
+
+def build_nvim_context_inspection_panel(editor_context: dict[str, Any]) -> dict[str, Any]:
+    selection = dict(editor_context.get("selection") or {})
+    return {
+        "schema": "nvim_context_inspection_panel_v1",
+        "visible_fields": {
+            "file_path": editor_context.get("file_path"),
+            "project_root": editor_context.get("project_root"),
+            "selection_size_chars": int(selection.get("size_chars") or 0),
+            "buffer_excerpt_size_chars": int(dict(editor_context.get("buffer_excerpt") or {}).get("size_chars") or 0),
+        },
+        "can_trim_context": True,
+        "can_cancel_submission": True,
+    }
+
+
+def build_nvim_diff_proposal_render(
+    *,
+    proposals: list[dict[str, Any]],
+    max_hunks_per_proposal: int = 8,
+) -> dict[str, Any]:
+    rendered = []
+    for proposal in proposals or []:
+        hunks = list(proposal.get("hunks") or [])[: max(1, int(max_hunks_per_proposal))]
+        rendered.append(
+            {
+                "proposal_id": _clean_text(proposal.get("id"), max_chars=100),
+                "title": _clean_text(proposal.get("title"), max_chars=200),
+                "hunks": hunks,
+                "apply_requires_explicit_confirmation": True,
+            }
+        )
+    return {
+        "schema": "nvim_diff_proposal_render_v1",
+        "proposals": rendered,
+        "review_first_posture": True,
+    }
+
+
+def build_nvim_navigation_links(
+    *,
+    task_item: dict[str, Any],
+    artifact_items: list[dict[str, Any]],
+    source_locations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema": "nvim_navigation_links_v1",
+        "task": _compact_task_item(task_item),
+        "artifact_links": [
+            {
+                "artifact_id": _clean_text(item.get("id"), max_chars=100),
+                "title": _clean_text(item.get("title"), max_chars=180),
+            }
+            for item in artifact_items or []
+        ],
+        "source_links": [
+            {
+                "file_path": _clean_text(link.get("file_path"), max_chars=400),
+                "line": max(1, int(link.get("line", 1) or 1)),
+            }
+            for link in source_locations or []
+        ],
+        "predictable_navigation": True,
+    }
+
+
+def build_nvim_external_shortcuts(
+    *,
+    base_url: str,
+    task_id: str | None = None,
+    artifact_id: str | None = None,
+    goal_id: str | None = None,
+) -> dict[str, Any]:
+    clean_base = _clean_text(base_url, max_chars=240).rstrip("/")
+    shortcuts = []
+    if task_id:
+        shortcuts.append(
+            {
+                "label": "Open task in browser",
+                "url": f"{clean_base}/tasks/{_clean_text(task_id, max_chars=100)}",
+            }
+        )
+    if artifact_id:
+        shortcuts.append(
+            {
+                "label": "Open artifact in browser",
+                "url": f"{clean_base}/artifacts/{_clean_text(artifact_id, max_chars=100)}",
+            }
+        )
+    if goal_id:
+        shortcuts.append(
+            {
+                "label": "Open goal in browser",
+                "url": f"{clean_base}/goals/{_clean_text(goal_id, max_chars=100)}",
+            }
+        )
+    return {
+        "schema": "nvim_external_shortcuts_v1",
+        "shortcuts": shortcuts,
+        "optional_not_forced": True,
+    }
+
+
+def build_nvim_blueprint_project_start_commands(
+    *,
+    blueprint_options: list[str] | None = None,
+    work_profiles: list[str] | None = None,
+) -> dict[str, Any]:
+    normalized_blueprints = [
+        _clean_text(item, max_chars=80) for item in (blueprint_options or ["web_api", "worker_service"])
+    ]
+    normalized_profiles = [
+        _clean_text(item, max_chars=80) for item in (work_profiles or ["product_fast_line", "kritis_line"])
+    ]
+    return {
+        "schema": "nvim_blueprint_project_start_commands_v1",
+        "commands": [
+            {"command": "AnantaProjectNew", "supports_blueprint_selection": True},
+            {"command": "AnantaProjectEvolve", "supports_work_profile_selection": True},
+        ],
+        "blueprint_options": normalized_blueprints,
+        "work_profiles": normalized_profiles,
+        "terminology_consistent_with_ananta": True,
+    }
+
+
+def build_nvim_approval_awareness_view(
+    *,
+    operation_id: str,
+    approval_state: str,
+    policy_reason: str | None = None,
+) -> dict[str, Any]:
+    state = _clean_text(approval_state, max_chars=40)
+    return {
+        "schema": "nvim_approval_awareness_view_v1",
+        "operation_id": _clean_text(operation_id, max_chars=120),
+        "approval_state": state,
+        "blocked_by_policy": state in {"blocked", "denied"},
+        "policy_reason": _clean_text(policy_reason, max_chars=240) or None,
+        "no_implicit_write_promise": True,
+    }
+
+
+def build_nvim_trace_diagnostic_summary(
+    traces: list[dict[str, Any]],
+    *,
+    max_items: int = 8,
+) -> dict[str, Any]:
+    items = []
+    for trace in traces[: max(1, int(max_items))]:
+        items.append(
+            {
+                "trace_id": _clean_text(trace.get("trace_id"), max_chars=100),
+                "route": _clean_text(trace.get("route"), max_chars=140),
+                "status": _clean_text(trace.get("status"), max_chars=30),
+            }
+        )
+    return {
+        "schema": "nvim_trace_diagnostic_summary_v1",
+        "items": items,
+        "optional_advanced_view": True,
+        "high_noise_guard": True,
+    }
+
+
+def build_nvim_knowledge_context_source_summary(
+    sources: list[dict[str, Any]],
+    *,
+    max_items: int = 10,
+) -> dict[str, Any]:
+    return {
+        "schema": "nvim_knowledge_context_source_summary_v1",
+        "sources": [
+            {
+                "source_class": _clean_text(item.get("source_class"), max_chars=80),
+                "label": _clean_text(item.get("label"), max_chars=140),
+                "weight": float(item.get("weight", 0.0) or 0.0),
+            }
+            for item in sources[: max(1, int(max_items))]
+        ],
+        "compact_and_understandable": True,
+    }
+
+
+def build_nvim_first_run_guided_setup(
+    *,
+    recommended_use_case: str = "analyze",
+) -> dict[str, Any]:
+    recommended = _clean_text(recommended_use_case, max_chars=60) or "analyze"
+    return {
+        "schema": "nvim_first_run_guided_setup_v1",
+        "steps": [
+            "configure_connection_profile",
+            "authenticate",
+            f"run_first_{recommended}_flow",
+            "inspect_result_in_editor",
+        ],
+        "browser_required_for_first_success": False,
+    }
+
+
+def build_tui_auth_session_support(
+    profile: dict[str, Any],
+    *,
+    auth_state: str = "authenticated",
+    session_ttl_minutes: int = 120,
+) -> dict[str, Any]:
+    normalized = _normalize_connection_profile(profile)
+    return {
+        "schema": "tui_auth_session_support_v1",
+        "connection_profile": normalized,
+        "auth_state": _clean_text(auth_state, max_chars=40),
+        "session_ttl_minutes": max(1, int(session_ttl_minutes)),
+        "secret_echoed": False,
+        "long_lived_terminal_safe": True,
+    }
+
+
+def build_tui_runtime_status_header(
+    profile: dict[str, Any],
+    *,
+    connection_state: str = "connected",
+    health_state: str = "ok",
+    runtime_mode: str = "standard",
+) -> dict[str, Any]:
+    normalized = _normalize_connection_profile(profile)
+    return {
+        "schema": "tui_runtime_status_header_v1",
+        "profile_id": normalized["id"],
+        "target_endpoint": normalized["endpoint"],
+        "connection_state": _clean_text(connection_state, max_chars=40),
+        "health_state": _clean_text(health_state, max_chars=40),
+        "runtime_mode": _clean_text(runtime_mode, max_chars=40),
+        "compact_and_visible": True,
+    }
+
+
+def build_tui_task_board_view(
+    tasks: list[dict[str, Any]],
+    *,
+    group_by: str = "status",
+) -> dict[str, Any]:
+    effective_group = group_by if group_by in {"status", "priority"} else "status"
+    compact_tasks = [_compact_task_item(task) for task in tasks]
+    return {
+        "schema": "tui_task_board_view_v1",
+        "group_by": effective_group,
+        "tasks": compact_tasks,
+        "operational_readiness": "task_board_or_list_supported",
+    }
+
+
+def build_tui_task_detail_view(
+    task: dict[str, Any],
+    *,
+    artifacts: list[dict[str, Any]] | None = None,
+    routing_hints: list[str] | None = None,
+) -> dict[str, Any]:
+    artifacts = artifacts or []
+    return {
+        "schema": "tui_task_detail_view_v1",
+        "task": _compact_task_item(task),
+        "summary": _clean_text(task.get("summary") or task.get("title"), max_chars=400),
+        "routing_hints": [_clean_text(hint, max_chars=120) for hint in (routing_hints or [])],
+        "artifacts": [
+            {
+                "id": _clean_text(item.get("id"), max_chars=100),
+                "title": _clean_text(item.get("title"), max_chars=180),
+                "type": _clean_text(item.get("type"), max_chars=40),
+            }
+            for item in artifacts
+        ],
+        "terminal_readable": True,
+    }
+
+
+def build_tui_artifact_view(
+    artifacts: list[dict[str, Any]],
+    *,
+    selected_artifact_id: str | None = None,
+) -> dict[str, Any]:
+    items = [
+        {
+            "id": _clean_text(item.get("id"), max_chars=100),
+            "title": _clean_text(item.get("title"), max_chars=180),
+            "type": _clean_text(item.get("type"), max_chars=40),
+        }
+        for item in artifacts or []
+    ]
+    selected = (
+        _clean_text(selected_artifact_id, max_chars=100)
+        if selected_artifact_id
+        else (items[0]["id"] if items else None)
+    )
+    selected_item = next((item for item in items if item["id"] == selected), None)
+    return {
+        "schema": "tui_artifact_view_v1",
+        "items": items,
+        "selected_artifact_id": selected,
+        "selected_artifact": selected_item,
+    }
+
+
+def build_tui_goal_view(
+    goals: list[dict[str, Any]],
+    *,
+    allow_submission: bool = True,
+) -> dict[str, Any]:
+    items = [
+        {
+            "id": _clean_text(goal.get("id"), max_chars=100),
+            "title": _clean_text(goal.get("title"), max_chars=200),
+            "status": _clean_text(goal.get("status") or "open", max_chars=30),
+        }
+        for goal in goals or []
+    ]
+    return {
+        "schema": "tui_goal_view_v1",
+        "goals": items,
+        "goal_submission_available": bool(allow_submission),
+    }
+
+
+def build_tui_goal_submission_entry(
+    *,
+    quick_actions: list[str] | None = None,
+) -> dict[str, Any]:
+    default_actions = quick_actions or ["analyze", "review", "patch", "new_project", "evolve_project"]
+    return {
+        "schema": "tui_goal_submission_entry_v1",
+        "input_modes": ["single_line_goal", "multiline_goal"],
+        "quick_actions": [_clean_text(action, max_chars=60) for action in default_actions],
+        "explicit_submit_required": True,
+    }
+
+
+def build_tui_task_filtering_grouping(
+    *,
+    task_board: dict[str, Any],
+    status_filters: list[str] | None = None,
+    group_by: str = "status",
+) -> dict[str, Any]:
+    filters = [
+        _clean_text(status, max_chars=30) for status in (status_filters or ["todo", "in_progress", "blocked", "done"])
+    ]
+    effective_group = group_by if group_by in {"status", "priority"} else "status"
+    return {
+        "schema": "tui_task_filtering_grouping_v1",
+        "base_task_board_schema": _clean_text(task_board.get("schema"), max_chars=80),
+        "supported_filters": filters,
+        "grouping_modes": ["status", "priority"],
+        "default_grouping": effective_group,
+    }
+
+
+def build_tui_log_stream_view(
+    logs: list[dict[str, Any]],
+    *,
+    level_filter: str | None = None,
+) -> dict[str, Any]:
+    entries = [
+        {
+            "id": _clean_text(item.get("id"), max_chars=100),
+            "level": _clean_text(item.get("level"), max_chars=20),
+            "message": _clean_text(item.get("message"), max_chars=240),
+            "timestamp": _clean_text(item.get("timestamp"), max_chars=60),
+        }
+        for item in logs or []
+    ]
+    return {
+        "schema": "tui_log_stream_view_v1",
+        "entries": entries,
+        "active_level_filter": _clean_text(level_filter, max_chars=20) or None,
+        "readable_and_filterable": True,
+    }
+
+
+def build_tui_approval_queue_view(approvals: list[dict[str, Any]]) -> dict[str, Any]:
+    queue = [
+        {
+            "id": _clean_text(item.get("id"), max_chars=100),
+            "scope": _clean_text(item.get("scope"), max_chars=120),
+            "state": _clean_text(item.get("state"), max_chars=30),
+            "context_summary": _clean_text(item.get("context_summary"), max_chars=200),
+        }
+        for item in approvals or []
+    ]
+    return {
+        "schema": "tui_approval_queue_view_v1",
+        "queue": queue,
+        "supports_real_workflow": True,
+    }
+
+
+def build_tui_approval_action_flow(
+    approval_item: dict[str, Any],
+    *,
+    action: str,
+    operator_note: str | None = None,
+) -> dict[str, Any]:
+    normalized_action = _clean_text(action, max_chars=20).lower()
+    return {
+        "schema": "tui_approval_action_flow_v1",
+        "approval_id": _clean_text(approval_item.get("id"), max_chars=100),
+        "action": normalized_action,
+        "action_allowed": normalized_action in {"approve", "reject"},
+        "operator_note": _clean_text(operator_note, max_chars=280) or None,
+        "explicit_and_auditable": True,
+        "blind_approval_guard": True,
+    }
+
+
+def build_tui_audit_summary_view(chains: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema": "tui_audit_summary_view_v1",
+        "chains": [
+            {
+                "chain_id": _clean_text(item.get("chain_id"), max_chars=100),
+                "risk_level": _clean_text(item.get("risk_level"), max_chars=30),
+                "headline": _clean_text(item.get("headline"), max_chars=200),
+            }
+            for item in chains or []
+        ],
+        "high_signal_focus": True,
+    }
+
+
+def build_tui_audit_trace_drilldown(
+    *,
+    trace_id: str,
+    events: list[dict[str, Any]],
+    redaction_applied: bool = True,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_audit_trace_drilldown_v1",
+        "trace_id": _clean_text(trace_id, max_chars=100),
+        "events": [
+            {
+                "event_id": _clean_text(event.get("event_id"), max_chars=100),
+                "message": _clean_text(event.get("message"), max_chars=220),
+            }
+            for event in events or []
+        ],
+        "redaction_applied": bool(redaction_applied),
+        "rbac_expected": True,
+    }
+
+
+def build_tui_policy_denial_view(denials: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema": "tui_policy_denial_view_v1",
+        "items": [
+            {
+                "action_id": _clean_text(item.get("action_id"), max_chars=100),
+                "reason": _clean_text(item.get("reason"), max_chars=220),
+                "policy": _clean_text(item.get("policy"), max_chars=100),
+            }
+            for item in denials or []
+        ],
+        "debug_and_governance_useful": True,
+    }
+
+
+def build_tui_kritis_dashboard_summary(
+    *,
+    audit_health: str,
+    approval_backlog: int,
+    mutation_status: str,
+    policy_posture: str,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_kritis_dashboard_summary_v1",
+        "audit_health": _clean_text(audit_health, max_chars=40),
+        "approval_backlog": max(0, int(approval_backlog)),
+        "mutation_status": _clean_text(mutation_status, max_chars=40),
+        "policy_posture": _clean_text(policy_posture, max_chars=60),
+        "terminal_compact": True,
+    }
+
+
+def build_tui_repair_session_views(sessions: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema": "tui_repair_session_views_v1",
+        "sessions": [
+            {
+                "session_id": _clean_text(item.get("session_id"), max_chars=100),
+                "diagnosis": _clean_text(item.get("diagnosis"), max_chars=220),
+                "state": _clean_text(item.get("state"), max_chars=40),
+                "verification_result": _clean_text(item.get("verification_result"), max_chars=80),
+            }
+            for item in sessions or []
+        ],
+        "local_admin_useful": True,
+    }
+
+
+def build_tui_repair_approval_execution_review(
+    *,
+    repair_session_id: str,
+    dry_run_supported: bool,
+    approval_required: bool,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_repair_approval_execution_review_v1",
+        "repair_session_id": _clean_text(repair_session_id, max_chars=100),
+        "dry_run_supported": bool(dry_run_supported),
+        "approval_required": bool(approval_required),
+        "flow_is_explicit": True,
+        "flow_is_auditable": True,
+    }
+
+
+def build_tui_health_runtime_diagnostics_view(
+    *,
+    health: str,
+    readiness: str,
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_health_runtime_diagnostics_view_v1",
+        "health": _clean_text(health, max_chars=40),
+        "readiness": _clean_text(readiness, max_chars=40),
+        "diagnostics": [
+            {
+                "key": _clean_text(item.get("key"), max_chars=80),
+                "value": _clean_text(item.get("value"), max_chars=180),
+            }
+            for item in diagnostics or []
+        ],
+        "daily_ops_ready": True,
+    }
+
+
+def build_tui_provider_backend_visibility_view(
+    providers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_provider_backend_visibility_view_v1",
+        "providers": [
+            {
+                "provider": _clean_text(item.get("provider"), max_chars=80),
+                "backend": _clean_text(item.get("backend"), max_chars=80),
+                "capability_state": _clean_text(item.get("capability_state"), max_chars=60),
+            }
+            for item in providers or []
+        ],
+        "operator_focused_signal": True,
+    }
+
+
+def build_tui_keyboard_navigation_refinement() -> dict[str, Any]:
+    return {
+        "schema": "tui_keyboard_navigation_refinement_v1",
+        "shortcut_model_learnable": True,
+        "important_actions_keyboard_first": True,
+    }
+
+
+def build_tui_cross_view_search_filtering() -> dict[str, Any]:
+    return {
+        "schema": "tui_cross_view_search_filtering_v1",
+        "supported_views": ["tasks", "artifacts", "approvals", "logs"],
+        "behavior_consistent": True,
+    }
+
+
+def build_tui_state_persistence_resume(
+    *,
+    selected_profile_id: str | None,
+    last_view: str | None,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_state_persistence_resume_v1",
+        "persisted_state": {
+            "selected_profile_id": _clean_text(selected_profile_id, max_chars=80) or None,
+            "last_view": _clean_text(last_view, max_chars=80) or None,
+        },
+        "sensitive_data_persisted": False,
+    }
+
+
+def build_tui_empty_error_state_ux() -> dict[str, Any]:
+    return {
+        "schema": "tui_empty_error_state_ux_v1",
+        "empty_state_present": True,
+        "permission_denial_state_present": True,
+        "backend_failure_state_present": True,
+        "distinguishable_states": True,
+    }
+
+

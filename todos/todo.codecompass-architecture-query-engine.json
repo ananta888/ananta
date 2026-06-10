@@ -970,21 +970,21 @@
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 12,
+      "P0": 13,
       "P1": 6,
       "P2": 2,
-      "P3": 3
+      "P3": 2
     },
     "by_risk": {
-      "low": 4,
-      "medium": 12,
-      "high": 5,
+      "low": 3,
+      "medium": 11,
+      "high": 7,
       "critical": 2
     },
     "critical_path": {
-      "total": 12,
+      "total": 13,
       "done": 0,
-      "remaining": 12,
+      "remaining": 13,
       "task_ids": [
         "CCAQE-001",
         "CCAQE-002",
@@ -997,6 +997,7 @@
         "CCAQE-011",
         "CCAQE-013",
         "CCAQE-014",
+        "CCAQE-015",
         "CCAQE-017"
       ]
     },

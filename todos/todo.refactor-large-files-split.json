@@ -84,7 +84,7 @@
       ],
       "status": "in_progress",
       "priority": "P2",
-      "notes": "SPLIT-033 done (2026-06-10): project_processor.py 1114 -> 395 Zeilen, vier neue Module (file_scanner, document_extractor, manifest_builder, output_writer). test_processing_limits.py regression-frei. 14 verbleibende Tasks."
+      "notes": "SPLIT-033 done (2026-06-10): project_processor.py 1114 -> 395 Zeilen. SPLIT-029 done (2026-06-10): editor_tui_surface_foundation_service.py 1198 -> 214 Zeilen, editor_tui_surface_state.py (1048) aufgenommen. 13 verbleibende Tasks."
     },
     {
       "id": "M5",
@@ -1163,9 +1163,10 @@
       "id": "SPLIT-029",
       "milestone": "M4",
       "priority": "P2",
+      "status": "done",
       "title": "agent/services/editor_tui_surface_foundation_service.py aufteilen (1198 Zeilen)",
       "file": "agent/services/editor_tui_surface_foundation_service.py",
-      "current_lines": 1198,
+      "current_lines": 214,
       "proposed_split": [
         {
           "file": "agent/services/editor_tui_surface_state.py",
@@ -1173,13 +1174,14 @@
         },
         {
           "file": "agent/services/editor_tui_surface_foundation_service.py",
-          "responsibility": "EditorTuiSurfaceFoundationService Klasse, get_*() Singleton. Unter 600 Zeilen."
+          "responsibility": "build_editor_tui_foundation_snapshot() Orchestrierung + Re-Exports. 214 Zeilen."
         }
       ],
       "acceptance_criteria": [
         "Editor-TUI-Surface funktioniert",
         "editor_tui_surface_foundation_service.py unter 600 Zeilen"
-      ]
+      ],
+      "notes": "Done: editor_tui_surface_state.py (1048 Zeilen) enthält 14 Dict-Konstanten + 3 Utilities + 42 build_*-Funktionen. editor_tui_surface_foundation_service.py (214 Zeilen) importiert aus state und enthält nur build_editor_tui_foundation_snapshot(). 9/9 Tests grün."
     },
     {
       "id": "SPLIT-030",

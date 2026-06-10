@@ -63,7 +63,7 @@
       "id": "CCARI-M2",
       "title": "InstructionLayer/AgentProfile/Worker verdrahten",
       "status": "todo",
-      "task_ids": ["CCARI-004", "CCARI-005", "CCARI-006", "CCARI-007"]
+      "task_ids": ["CCARI-004", "CCARI-005", "CCARI-006", "CCARI-007", "CCARI-011"]
     },
     {
       "id": "CCARI-M3",
@@ -173,6 +173,22 @@
       ]
     },
     {
+      "id": "CCARI-011",
+      "title": "context_reload_request Parsing und Hub-Handling implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/context_delivery_service.py", "agent/routes/", "tests/"],
+      "notes": "Hinzugefuegt 2026-06-10: CCARI-009 testet das Parsing, aber kein Task implementierte es bisher. Hub-seitige Verarbeitung gemaess CCARI-DD-002: der Hub entscheidet, was unter welcher Policy nachgeladen wird.",
+      "acceptance_criteria": [
+        "Valider context_reload_request wird erkannt, validiert und ueber ContextDeliveryService beantwortet.",
+        "Ungueltige oder mutierende Requests werden abgelehnt oder als policy_blocked markiert; read_only ist Default und wird erzwungen.",
+        "requested_context Eintraege werden begrenzt und dedupliziert, bevor Kontext geliefert wird.",
+        "Unterstuetzte Typen entsprechen dem Schema aus CCARI-002: file_range, symbol, codecompass_search, graph_expand, architecture_query."
+      ]
+    },
+    {
       "id": "CCARI-008",
       "title": "Tests fuer Prompt-Layer schreiben",
       "type": "test",
@@ -216,11 +232,11 @@
     }
   ],
   "tasks_status_summary": {
-    "total": 10,
-    "by_status": {"todo": 10, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "total": 11,
+    "by_status": {"todo": 11, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 7, "P1": 2, "P2": 1, "P3": 0},
-    "by_risk": {"low": 1, "medium": 7, "high": 2, "critical": 0},
+    "by_priority": {"P0": 7, "P1": 3, "P2": 1, "P3": 0},
+    "by_risk": {"low": 1, "medium": 7, "high": 3, "critical": 0},
     "critical_path": {"total": 7, "done": 0, "remaining": 7},
     "milestones": {"total": 3, "todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
   }
