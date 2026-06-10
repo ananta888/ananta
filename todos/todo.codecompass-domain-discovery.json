@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-domain-discovery",
   "created": "2026-06-10",
-  "status": "todo",
+  "status": "in_progress",
   "purpose": "CodeCompass/RAG-Helper soll aus bestehenden Index-, Detail-, Relation-, Graph-, Embedding- und Manifest-Ausgaben grosse fachliche Domänen bzw. Bounded-Context-Kandidaten automatisch identifizieren, begruenden und als belastbare Artefakte fuer Hub, Worker, RAG-Routing und Domain-Descriptors bereitstellen.",
   "goal": "Eine reproduzierbare Analyse-Stufe `codecompass analyze-domains` bzw. ein entsprechender RAG-Helper-Modus erzeugt `domains.detected.json`, `domain_boundaries.jsonl`, `domain_coupling.json`, optionale `domains/<domain_id>/domain.json`-Vorschlaege und Tests. Die Erkennung nutzt deterministische Signale zuerst: Pfade, Packages/Namespaces, Graph-Kanten, Import-/Framework-Relations, Role Labels, Dateitypen, Docs und vorhandene Domain-Descriptor/RAG-Profile. Embeddings/LLM duerfen spaeter nur als erklaerender oder optionaler Zusatz wirken, nicht als alleinige Quelle.",
   "source_review": {
@@ -150,7 +150,7 @@
     {
       "id": "CCDD-M1",
       "title": "Analyse-Vertrag und Ist-Signale sauber festlegen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCDD-001",
         "CCDD-002",
@@ -209,10 +209,10 @@
       "title": "Aktuellen CodeCompass-Domain-Iststand dokumentieren",
       "type": "analysis-documentation",
       "milestone": "CCDD-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/codecompass-domain-discovery.md",
         "rag-helper/rag_helper/application/gem_partitions.py",
@@ -234,17 +234,18 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Done 2026-06-10: docs/codecompass-domain-discovery.md (Ist-Stand, Vertrag codecompass_domain_analysis.v1, Signalmodell mit Gewichten und Root-Pfad-Algorithmus). Tests liegen unter rag-helper/tests/ statt tests/ (rag_helper ist nur aus rag-helper/ importierbar)."
     },
     {
       "id": "CCDD-002",
       "title": "JSON-Vertrag fuer domains.detected.json definieren",
       "type": "contract",
       "milestone": "CCDD-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/codecompass-domain-discovery.md",
         "rag-helper/rag_helper/domain_discovery/contracts.py"
@@ -264,17 +265,18 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Done 2026-06-10: docs/codecompass-domain-discovery.md (Ist-Stand, Vertrag codecompass_domain_analysis.v1, Signalmodell mit Gewichten und Root-Pfad-Algorithmus). Tests liegen unter rag-helper/tests/ statt tests/ (rag_helper ist nur aus rag-helper/ importierbar)."
     },
     {
       "id": "CCDD-003",
       "title": "Domaenen-Signalmodell festlegen",
       "type": "architecture",
       "milestone": "CCDD-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/codecompass-domain-discovery.md",
         "rag-helper/rag_helper/domain_discovery/signals.py"
@@ -294,7 +296,8 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "Done 2026-06-10: docs/codecompass-domain-discovery.md (Ist-Stand, Vertrag codecompass_domain_analysis.v1, Signalmodell mit Gewichten und Root-Pfad-Algorithmus). Tests liegen unter rag-helper/tests/ statt tests/ (rag_helper ist nur aus rag-helper/ importierbar)."
     },
     {
       "id": "CCDD-004",
