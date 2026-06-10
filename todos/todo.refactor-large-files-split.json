@@ -24,9 +24,9 @@
         "SPLIT-004",
         "SPLIT-005"
       ],
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
-      "notes": "SPLIT-001 done (1361 lines). SPLIT-002 done (466 lines, commit 0a055549). SPLIT-003 done (527 lines, commit c6b0d9a2). SPLIT-005 done (34-Zeilen-Shim + 10 Sub-Module, commit c3b70060). SPLIT-004 (interactive.py, 3531 Zeilen) offen."
+      "notes": "SPLIT-001 done (1361 lines). SPLIT-002 done (466 lines, commit 0a055549). SPLIT-003 done (527 lines, commit c6b0d9a2). SPLIT-004 done (1753 lines, commit 6c2d5509). SPLIT-005 done (34-Zeilen-Shim + 10 Sub-Module, commit c3b70060). M1 fully done."
     },
     {
       "id": "M2",
@@ -40,7 +40,7 @@
       ],
       "status": "in_progress",
       "priority": "P1",
-      "notes": "SPLIT-006 done. SPLIT-007 done (sgpt_route.py 326 lines). SPLIT-009 done (sgpt.py 347 lines, 5 sub-modules: sgpt_helpers, sgpt_backend_semaphore, sgpt_backend_routing, sgpt_opencode, sgpt_architecture_scan). SPLIT-010 done (autopilot_tick_engine.py 611 lines, 3 sub-modules: autopilot_model_selector, autopilot_strategy_candidates, autopilot_task_dispatcher). SPLIT-008 blocked (pre-existing TS errors)."
+      "notes": "SPLIT-006 done. SPLIT-007 done (sgpt_route.py 326 lines). SPLIT-009 done (sgpt.py 347 lines, 5 sub-modules). SPLIT-010 done (autopilot_tick_engine.py 611 lines, 3 sub-modules). SPLIT-008 blocked (pre-existing TS errors in frontend-angular, needs Angular compile before split). 4/5 done; only blocked task remains."
     },
     {
       "id": "M3",
@@ -278,6 +278,7 @@
       "id": "SPLIT-002",
       "milestone": "M1",
       "priority": "P0",
+      "status": "done",
       "title": "client_surfaces/operator_tui/commands.py aufteilen (4894 Zeilen)",
       "file": "client_surfaces/operator_tui/commands.py",
       "current_lines": 466,
@@ -378,9 +379,11 @@
       "milestone": "M1",
       "priority": "P0",
       "status": "done",
+      "commit": "6c2d5509",
       "title": "client_surfaces/operator_tui/interactive.py aufteilen (3531 Zeilen)",
       "file": "client_surfaces/operator_tui/interactive.py",
       "current_lines": 1753,
+      "notes": "Done: 6 sub-modules extracted (_interactive_keybindings 520, _interactive_audit 393, _interactive_template 380, _interactive_command 361, _interactive_visual 292, _interactive_ai_config 217). Main file 1753 lines (event loop + delegating wrappers). 218/219 tests preserved.",
       "problem": "Interaktiver TUI-Loop, Keybindings, Session-Management und Event-Handling in einer Datei.",
       "proposed_split": [
         {
