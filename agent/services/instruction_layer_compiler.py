@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import re
 import time
 from typing import Any
@@ -39,6 +40,18 @@ _FORBIDDEN_DIRECTIVE_PATTERNS = [
     ),
     re.compile(r"(disable|remove|ignore)\s+(safety|guardrails?|restrictions?)", re.IGNORECASE),
     re.compile(r"(grant|allow)\s+(unrestricted|full)\s+(shell|command|filesystem)\s+access", re.IGNORECASE),
+    # CCARI-004: codecompass_runtime layer is non-overridable. Patterns that try
+    # to remove or weaken the runtime rules are caught here so the existing
+    # validate_user_layer_payload pipeline suppresses the offending overlay /
+    # profile and records the violation.
+    re.compile(
+        r"(disable|remove|ignore|skip|overrid)\w*\s+(the\s+)?(codecompass[-_ ]?runtime|runtime[-_ ]?rules?)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(behaupte|claim|assert)\w*\s+(ohne|without)\s+evidence",
+        re.IGNORECASE,
+    ),
 ]
 _PROFILE_EXAMPLES = [
     {
@@ -97,20 +110,130 @@ _LAYER_INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
 _TEMPLATE_COMPAT_ENFORCEMENT_VALUES = {"mark", "suppress_on_block"}
 
 
+_CCARI_AGENT_TEMPLATES = frozenset({"opencode", "ananta_worker", "ai_snake_chat"})
+
+
+def _codecompass_runtime_active(task: dict | TaskDB | None) -> bool:
+    """CCARI-004: activation helper for the codecompass_runtime layer.
+
+    Returns True when ANY of the following holds:
+
+    - Environment variable ``ANANTA_CODECOMPASS_RUNTIME_LAYER_ENABLED`` is set
+      to a truthy value (``1``, ``true``, ``yes``).
+    - The task payload carries a non-empty ``codecompass_context`` block.
+    - The task's ``agent_template`` is one of the CodeCompass-aware templates
+      (``opencode``, ``ananta_worker``, ``ai_snake_chat``).
+
+    The function is pure: it never mutates the task and never raises. When the
+    task is ``None`` or unparsable, only the env-var branch can return True.
+    """
+    flag = str(os.environ.get("ANANTA_CODECOMPASS_RUNTIME_LAYER_ENABLED") or "").strip().lower()
+    if flag in {"1", "true", "yes", "on"}:
+        return True
+    if task is None:
+        return False
+    if isinstance(task, TaskDB):
+        payload = task.model_dump()
+    elif isinstance(task, dict):
+        payload = task
+    else:
+        return False
+    cc_block = payload.get("codecompass_context")
+    if isinstance(cc_block, dict) and cc_block:
+        return True
+    if isinstance(cc_block, list) and cc_block:
+        return True
+    template = str(payload.get("agent_template") or "").strip().lower()
+    if template in _CCARI_AGENT_TEMPLATES:
+        return True
+    return False
+
+
+def _codecompass_runtime_trigger(task: dict | TaskDB | None) -> str:
+    """Returns the activation trigger name for the codecompass_runtime layer.
+
+    Pure observation; never raises. The trigger is one of:
+
+    - ``"env_flag"`` — ANANTA_CODECOMPASS_RUNTIME_LAYER_ENABLED was set.
+    - ``"codecompass_context"`` — task carries a non-empty codecompass_context block.
+    - ``"agent_template"`` — agent_template is in the CodeCompass-aware set.
+    - ``"unknown"`` — no task provided (caller is the bare layer_model() path).
+    """
+    if str(os.environ.get("ANANTA_CODECOMPASS_RUNTIME_LAYER_ENABLED") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return "env_flag"
+    if task is None:
+        return "unknown"
+    if isinstance(task, TaskDB):
+        payload = task.model_dump()
+    elif isinstance(task, dict):
+        payload = task
+    else:
+        return "unknown"
+    cc_block = payload.get("codecompass_context")
+    if isinstance(cc_block, (dict, list)) and cc_block:
+        return "codecompass_context"
+    template = str(payload.get("agent_template") or "").strip().lower()
+    if template in _CCARI_AGENT_TEMPLATES:
+        return "agent_template"
+    return "unknown"
+
+
+def _contains_runtime_override_attempt(text: str) -> bool:
+    """Returns True if ``text`` contains a directive that tries to disable or
+    weaken the codecompass_runtime rules. Defense in depth on top of
+    ``_FORBIDDEN_DIRECTIVE_PATTERNS`` which already suppresses such overlays
+    at validation time; this is an additional audit-only check used to log
+    ``codecompass_runtime_override_rejected`` even when the layer was never
+    matched by the upstream pattern (e.g. the wording is a near-miss)."""
+    lowered = str(text or "").lower()
+    if not lowered:
+        return False
+    needles = (
+        "disable codecompass runtime",
+        "remove codecompass runtime",
+        "ignore codecompass runtime",
+        "override codecompass runtime",
+        "skip codecompass runtime",
+        "disable the runtime rules",
+        "ignore the runtime rules",
+        "remove the runtime rules",
+    )
+    return any(needle in lowered for needle in needles)
+
+
 class InstructionLayerService:
     """Resolves policy-safe instruction layers and renders a deterministic stack artifact."""
 
-    def layer_model(self) -> dict[str, Any]:
-        return {
-            "version": _LAYER_MODEL_VERSION,
-            "layers": [
-                {"id": "governance", "source": "hub_policy", "overridable": False},
+    def layer_model(self, *, task: dict | TaskDB | None = None) -> dict[str, Any]:
+        # CCARI-004: insert the non-overridable codecompass_runtime layer between
+        # governance and agent_profile_template when the activation helper says
+        # so. Default-off (env-flag or context-trigger required). The task
+        # parameter is optional; when omitted the layer is omitted (backward
+        # compatible with the v2 layer_model contract that took no args).
+        layers: list[dict[str, Any]] = [
+            {"id": "governance", "source": "hub_policy", "overridable": False},
+        ]
+        if _codecompass_runtime_active(task):
+            layers.append(
+                {"id": "codecompass_runtime", "source": "hub_policy", "overridable": False}
+            )
+        layers.extend(
+            [
                 {"id": "agent_profile_template", "source": "agent_profile_service", "overridable": False},
                 {"id": "blueprint_template", "source": "team_role_template", "overridable": False},
                 {"id": "user_profile", "source": "persistent_profile", "overridable": True},
                 {"id": "task_overlay", "source": "task_goal_session_overlay", "overridable": True},
                 {"id": "task_input", "source": "current_user_request", "overridable": True},
-            ],
+            ]
+        )
+        return {
+            "version": _LAYER_MODEL_VERSION,
+            "layers": layers,
             "precedence": list(_PRECEDENCE),
             "merge_strategy": {
                 "kind": "structured_preference_then_section_concat",
@@ -692,6 +815,33 @@ class InstructionLayerService:
                     "template_name": role_template_context.get("template_name"),
                 }
             )
+        # CCARI-004: emit the codecompass_runtime entry in applied_layers whenever
+        # the helper says the layer is active for this task. The layer is
+        # non-overridable: user_profile and task_overlay validations above may
+        # already have suppressed offending payloads via _FORBIDDEN_DIRECTIVE_PATTERNS;
+        # we additionally log any user-supplied prompt that tried to disable the
+        # layer (defense in depth).
+        if _codecompass_runtime_active(task_payload):
+            applied_layers.append(
+                {
+                    "layer": "codecompass_runtime",
+                    "source": "hub_policy",
+                    "trigger": _codecompass_runtime_trigger(task_payload),
+                    "overridable": False,
+                }
+            )
+            if profile_validation.get("ok") and profile:
+                if _contains_runtime_override_attempt(str(profile.prompt_content or "")):
+                    log_audit(
+                        "codecompass_runtime_override_rejected",
+                        {"layer": "user_profile", "profile_id": profile.id, "actor": "compiler"},
+                    )
+            if overlay_validation.get("ok") and overlay:
+                if _contains_runtime_override_attempt(str(overlay.prompt_content or "")):
+                    log_audit(
+                        "codecompass_runtime_override_rejected",
+                        {"layer": "task_overlay", "overlay_id": overlay.id, "actor": "compiler"},
+                    )
         if profile:
             if profile_validation.get("ok"):
                 applied_layers.append(
