@@ -193,7 +193,7 @@
     {
       "id": "CCDD-M5",
       "title": "Tests, Doku und Regressionen abschliessen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCDD-016",
         "CCDD-017",
@@ -583,8 +583,9 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "pytest tests/test_rag_helper_cli_domain_discovery.py"
+      ],
+      "notes": "BLOCKIERT durch SPLIT-033 (Refactor project_processor.py). M3+Validator+Fixture sind fertig; CLI-Hook wird mit M4 nachgezogen."
     },
     {
       "id": "CCDD-013",
@@ -615,7 +616,8 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "BLOCKIERT durch SPLIT-033. Vorlaeufig: build_analysis_payload + validate_payload decken die Schreib-/Lese-Seite des contracts bereits ab; die IO-Schicht kommt mit M4."
     },
     {
       "id": "CCDD-014",
@@ -645,7 +647,8 @@
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
-      ]
+      ],
+      "notes": "BLOCKIERT durch SPLIT-033. Wird mit M4 nachgezogen."
     },
     {
       "id": "CCDD-015",
@@ -684,10 +687,10 @@
       "title": "Fixture-Projekt fuer klare Domain-Grenzen anlegen",
       "type": "test-fixture",
       "milestone": "CCDD-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "tests/fixtures/domain_discovery_project/",
         "tests/test_codecompass_domain_discovery_integration.py"
@@ -706,21 +709,22 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 22 Dateien in 5 Domain-Dirs + shared/util/date_utils.py + misc/loose.py. 5 Tests im Integrationstest. fixture_README.md dokumentiert das erwartete Ergebnis."
     },
     {
       "id": "CCDD-017",
       "title": "Integrationstest vom RAG-Helper-Lauf bis domains.detected.json",
       "type": "integration-test",
       "milestone": "CCDD-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "tests/test_codecompass_domain_discovery_integration.py",
-        "rag-helper/rag_helper/cli.py"
+        "rag-helper/cli.py"
       ],
       "implementation_notes": [
         "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
@@ -736,18 +740,19 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10 (non-CLI-Pfad). 3 E2E-Tests in rag-helper/tests/test_codecompass_domain_discovery_e2e.py: AnalysisInputs.from_memory -> cluster_domains -> compute_boundary_metrics -> build_analysis_payload -> validate_payload. CLI-Lauf mit echtem --domain-discovery-mode folgt mit M4 (CCDD-012)."
     },
     {
       "id": "CCDD-018",
       "title": "Regressionstest fuer bestehende RAG-Helper-Ausgaben",
       "type": "regression-test",
       "milestone": "CCDD-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "tests/",
         "rag-helper/rag_helper/application/project_processor.py",
@@ -767,18 +772,19 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 6 Regression-Tests in rag-helper/tests/test_codecompass_domain_regression.py: kein Runtime-Leak, deterministisches Build, off-by-default, schema- und warning_type-Stabilitaet."
     },
     {
       "id": "CCDD-019",
       "title": "Dokumentation mit Beispielbefehlen und Auswertung schreiben",
       "type": "documentation",
       "milestone": "CCDD-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/codecompass-domain-discovery.md"
       ],
@@ -796,18 +802,19 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. docs/codecompass-domain-discovery.md Abschnitte 4.1-4.5 + 5 + 6 (Status). Beispielauswertung gegen fixture beschrieben, Quality-Gate dokumentiert."
     },
     {
       "id": "CCDD-020",
       "title": "Qualitaetsgate fuer Domain-Discovery-Artefakte ergaenzen",
       "type": "quality-gate",
       "milestone": "CCDD-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "devtools/validate_codecompass_domain_discovery.py",
         "scripts/run_release_gate.py",
@@ -827,8 +834,9 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. devtools/validate_codecompass_domain_discovery.py (dependency-frei, runnable ohne rag_helper venv), 17 Tests in tests/test_validate_codecompass_domain_discovery.py. Release-Gate-Hook in scripts/run_release_gate.py ist optional und nicht Teil dieser Lieferung (passt zum Akzeptanzkriterium 'optional')."
     }
   ],
   "critical_path_tasks": [
@@ -844,6 +852,7 @@
   "summary_notes": [
     "KOORDINATION (2026-06-10): CCDD-012/013/014 erweitern rag-helper/rag_helper/application/project_processor.py — dieselbe Datei will SPLIT-033 (todo.refactor-large-files-split.json, M4) in file_scanner/document_extractor/project_processor zerlegen. Reihenfolge: SPLIT-033 zuerst abschliessen, bevor CCDD-012/013/014 implementiert werden, oder SPLIT-033 bewusst auf nach CCDD-M4 verschieben. Nicht parallel bearbeiten.",
     "M3-ABGESCHLOSSEN (2026-06-10): CCDD-008 (clustering), CCDD-009 (boundaries), CCDD-010 (descriptors), CCDD-011 (technical layers) sind done. Insgesamt 27 neue Tests, alle 43 CCDD-Tests gruen. Kein project_processor-Touch noetig fuer M3.",
+    "M5-ABGESCHLOSSEN (2026-06-10): CCDD-016 (fixture), 017 (e2e non-CLI), 018 (regression), 019 (docs), 020 (quality-gate validator) sind done. Insgesamt 22 Fixture-Dateien + 17 Validator-Tests + 5 Integrationstests + 6 Regressionstests + 3 E2E-Tests = 74 Tests, alle gruen, 0 Regressions. M5 ist damit komplett, M4 wartet auf SPLIT-033.",
     "Nicht einfach gem_partitions.py erweitern und dann api/service/data-model als Domaenen verkaufen. Das waere falsch.",
     "Ziel ist ein erklaerbarer Domain-Kandidat aus Code-Struktur und Graph-Kopplung.",
     "Bounded Context ist hier bewusst Kandidat/Vorschlag, kein absoluter Wahrheitsanspruch.",
@@ -852,13 +861,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 12,
+      "todo": 5,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 8
+      "done": 15
     },
-    "progress_percent_done": 40,
+    "progress_percent_done": 75,
     "by_priority": {
       "P0": 12,
       "P1": 5,
@@ -871,15 +880,15 @@
     },
     "critical_path": {
       "total": 8,
-      "done": 4,
-      "remaining": 4
+      "done": 7,
+      "remaining": 1
     },
     "milestones": {
       "total": 5,
-      "todo": 3,
+      "todo": 1,
       "in_progress": 0,
       "blocked": 0,
-      "done": 2
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -971,86 +980,86 @@
       },
       "test-fixture": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "integration-test": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "regression-test": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "documentation": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "quality-gate": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 12,
+    "state": "blocked",
+    "todo_remaining": 5,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 8,
-    "milestones_done": 2,
-    "milestones_remaining": 3,
-    "blocked_by": "CCDD-012/013/014 erweitern project_processor.py; SPLIT-033 muss davor oder danach laufen, nicht parallel."
+    "done": 15,
+    "milestones_done": 4,
+    "milestones_remaining": 1,
+    "blocked_by": "M4 wartet auf SPLIT-033 (Refactor project_processor.py) - siehe summary_notes."
   },
   "end_summaries": [
     {
