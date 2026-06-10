@@ -1,0 +1,878 @@
+from __future__ import annotations
+
+import copy
+import re
+import time
+from typing import Any
+
+from agent.services.instruction_stack_artifact_service import InstructionStackArtifact
+from agent.services.instruction_stack_artifact_service import get_instruction_stack_artifact_service
+
+from agent.common.audit import log_audit
+from agent.db_models import GoalDB, InstructionOverlayDB, TaskDB, UserInstructionProfileDB
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_template_resolution import resolve_task_role_template
+
+_LAYER_MODEL_VERSION = "instruction-layer-model-v2"
+_STACK_VERSION = "instruction-stack-v2"
+# APRL-010: agent_profile_template sits between governance and blueprint_template;
+# it is non-overridable and populated from AgentProfileService.
+_PRECEDENCE = ["governance", "agent_profile_template", "blueprint_template", "user_profile", "task_overlay", "task_input"]
+_ALLOWED_USER_INFLUENCE = {"style", "language", "detail_level", "working_mode", "formatting"}
+_FORBIDDEN_METADATA_KEYS = {
+    "approval",
+    "approval_required",
+    "approval_policy",
+    "governance_mode",
+    "security_policy",
+    "execution_risk_policy",
+    "allowed_tools",
+    "write_access",
+    "runtime_execution",
+}
+_OVERLAY_ATTACHMENT_KINDS = {"goal", "task", "session", "usage"}
+_OVERLAY_SCOPES = {"task", "goal", "session", "usage", "one_shot", "project"}
+_FORBIDDEN_DIRECTIVE_PATTERNS = [
+    re.compile(
+        r"(ignore|bypass|override|disable|skip)\s+(all\s+)?(approval|governance|policy|security|guardrail)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(disable|remove|ignore)\s+(safety|guardrails?|restrictions?)", re.IGNORECASE),
+    re.compile(r"(grant|allow)\s+(unrestricted|full)\s+(shell|command|filesystem)\s+access", re.IGNORECASE),
+]
+_PROFILE_EXAMPLES = [
+    {
+        "id": "concise-coding",
+        "name": "Concise Coding",
+        "description": "High-signal implementation answers with short rationale.",
+        "prompt_content": (
+            "Prioritize direct implementation steps, keep explanations concise, "
+            "and include only essential rationale."
+        ),
+        "profile_metadata": {"preferences": {"style": "concise", "detail_level": "high"}},
+        "safety_notes": [
+            "Does not alter governance, approval or security policy.",
+            "Focuses only on style and level of detail.",
+        ],
+    },
+    {
+        "id": "research-helper",
+        "name": "Research Helper",
+        "description": "Structured exploration with explicit assumptions and sources.",
+        "prompt_content": (
+            "Use a research-first mode: state assumptions explicitly, compare options briefly, "
+            "and summarize trade-offs clearly."
+        ),
+        "profile_metadata": {"preferences": {"working_mode": "research", "detail_level": "high"}},
+        "safety_notes": [
+            "No permission escalation directives.",
+            "Keeps policy boundaries unchanged.",
+        ],
+    },
+    {
+        "id": "review-first",
+        "name": "Review First",
+        "description": "Risk-focused review style before proposing edits.",
+        "prompt_content": (
+            "Start with a focused review of risks and edge cases, then propose the minimal safe change set."
+        ),
+        "profile_metadata": {"preferences": {"working_mode": "review", "style": "concise"}},
+        "safety_notes": [
+            "No bypass of approval workflows.",
+            "Keeps security and governance constraints dominant.",
+        ],
+    },
+]
+_TEMPLATE_CONTEXT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "review": ("review", "qa", "quality", "audit", "compliance"),
+    "research": ("research", "analysis", "analyst", "investigation", "discovery"),
+    "implementation": ("implement", "development", "developer", "coding", "engineer", "build"),
+    "security": ("security", "sec", "hardening", "threat"),
+}
+_LAYER_INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "review": ("review", "qa", "quality", "risk", "audit", "test first", "test-first"),
+    "research": ("research", "analysis", "investigate", "explore", "compare"),
+    "implementation": ("implement", "coding", "build", "ship", "develop"),
+}
+_TEMPLATE_COMPAT_ENFORCEMENT_VALUES = {"mark", "suppress_on_block"}
+
+
+class InstructionLayerService:
+    """Resolves policy-safe instruction layers and renders a deterministic stack artifact."""
+
+    def layer_model(self) -> dict[str, Any]:
+        return {
+            "version": _LAYER_MODEL_VERSION,
+            "layers": [
+                {"id": "governance", "source": "hub_policy", "overridable": False},
+                {"id": "agent_profile_template", "source": "agent_profile_service", "overridable": False},
+                {"id": "blueprint_template", "source": "team_role_template", "overridable": False},
+                {"id": "user_profile", "source": "persistent_profile", "overridable": True},
+                {"id": "task_overlay", "source": "task_goal_session_overlay", "overridable": True},
+                {"id": "task_input", "source": "current_user_request", "overridable": True},
+            ],
+            "precedence": list(_PRECEDENCE),
+            "merge_strategy": {
+                "kind": "structured_preference_then_section_concat",
+                "preferences_conflict_resolution": "higher_precedence_wins",
+                "overlay_vs_profile": "task_overlay_overrides_user_profile",
+                "rendering": "ordered_sections",
+            },
+            "allowed_user_influence_scope": sorted(_ALLOWED_USER_INFLUENCE),
+            "forbidden_user_influence_scope": sorted(_FORBIDDEN_METADATA_KEYS),
+            "supported_overlay_attachment_kinds": sorted(_OVERLAY_ATTACHMENT_KINDS),
+            "supported_overlay_scopes": sorted(_OVERLAY_SCOPES),
+            "first_release_attachment_subset": ["task", "goal", "session"],
+            "overlay_lifecycle_modes": {
+                "one_shot": "auto-deactivates after first runtime application",
+                "session": "active while the referenced session context is valid",
+                "project": "active for a project usage key until explicit deactivation/expiry",
+            },
+            "safe_defaults": {
+                "when_no_profile": "only_governance_and_template_and_task_input",
+                "when_no_overlay": "profile_or_template_without_overlay",
+            },
+            "terminology": {
+                "persistent_layer": "user_profile",
+                "scoped_layer": "task_overlay",
+                "combined_output": "instruction_stack",
+            },
+        }
+
+    def profile_examples(self) -> list[dict[str, Any]]:
+        return [copy.deepcopy(item) for item in _PROFILE_EXAMPLES]
+
+    def validate_user_layer_payload(self, *, prompt_content: str, metadata: dict | None = None) -> dict[str, Any]:
+        text = str(prompt_content or "").strip()
+        meta = dict(metadata or {})
+        blocked_patterns = [
+            pattern.pattern for pattern in _FORBIDDEN_DIRECTIVE_PATTERNS if text and pattern.search(text)
+        ]
+        blocked_keys = self._find_forbidden_metadata_keys(meta)
+        ok = not blocked_patterns and not blocked_keys
+        return {
+            "ok": ok,
+            "blocked_reason": None if ok else "forbidden_instruction_scope",
+            "forbidden_directives": blocked_patterns,
+            "forbidden_metadata_keys": blocked_keys,
+            "allowed_user_influence_scope": sorted(_ALLOWED_USER_INFLUENCE),
+            "forbidden_user_influence_scope": sorted(_FORBIDDEN_METADATA_KEYS),
+        }
+
+    def _find_forbidden_metadata_keys(self, metadata: dict) -> list[str]:
+        blocked: set[str] = set()
+
+        def _walk(prefix: str, value: Any) -> None:
+            if isinstance(value, dict):
+                for key, nested in value.items():
+                    key_text = str(key or "").strip()
+                    path = f"{prefix}.{key_text}" if prefix else key_text
+                    normalized = key_text.lower()
+                    if normalized in _FORBIDDEN_METADATA_KEYS:
+                        blocked.add(path)
+                    _walk(path, nested)
+
+        _walk("", metadata)
+        return sorted(blocked)
+
+    def normalize_profile_metadata(self, metadata: dict | None) -> dict[str, Any]:
+        meta = dict(metadata or {})
+        preferences = meta.get("preferences") if isinstance(meta.get("preferences"), dict) else {}
+        normalized_preferences = {
+            str(key).strip(): value
+            for key, value in dict(preferences).items()
+            if str(key).strip() and str(key).strip().lower() in _ALLOWED_USER_INFLUENCE
+        }
+        if normalized_preferences:
+            meta["preferences"] = normalized_preferences
+        else:
+            meta.pop("preferences", None)
+        return meta
+
+    def normalize_overlay_metadata(self, metadata: dict | None) -> dict[str, Any]:
+        meta = self.normalize_profile_metadata(metadata)
+        lifecycle = meta.get("lifecycle")
+        if isinstance(lifecycle, dict):
+            normalized_lifecycle: dict[str, Any] = {}
+            max_uses_raw = lifecycle.get("max_uses")
+            consumed_count_raw = lifecycle.get("consumed_count")
+            if isinstance(max_uses_raw, int) and max_uses_raw > 0:
+                normalized_lifecycle["max_uses"] = int(max_uses_raw)
+            if isinstance(consumed_count_raw, int) and consumed_count_raw >= 0:
+                normalized_lifecycle["consumed_count"] = int(consumed_count_raw)
+            for key in ("last_consumed_at", "consumed_task_id", "consumed_goal_id"):
+                value = lifecycle.get(key)
+                if value is not None:
+                    normalized_lifecycle[key] = value
+            if normalized_lifecycle:
+                meta["lifecycle"] = normalized_lifecycle
+            else:
+                meta.pop("lifecycle", None)
+        else:
+            meta.pop("lifecycle", None)
+        return meta
+
+    def normalize_overlay_scope(self, scope: str | None) -> str:
+        normalized = str(scope or "").strip().lower()
+        return normalized if normalized in _OVERLAY_SCOPES else "task"
+
+    def overlay_lifecycle_summary(self, overlay: InstructionOverlayDB, *, now_ts: float | None = None) -> dict[str, Any]:
+        now = float(now_ts or time.time())
+        scope = self.normalize_overlay_scope(overlay.scope)
+        lifecycle = dict((overlay.overlay_metadata or {}).get("lifecycle") or {})
+        consumed_count = int(lifecycle.get("consumed_count") or 0)
+        max_uses = lifecycle.get("max_uses")
+        if scope == "one_shot":
+            max_uses = int(max_uses) if isinstance(max_uses, int) and max_uses > 0 else 1
+        elif not (isinstance(max_uses, int) and max_uses > 0):
+            max_uses = None
+        remaining_uses = max(0, int(max_uses) - consumed_count) if max_uses is not None else None
+        is_expired = overlay.expires_at is not None and float(overlay.expires_at) <= now
+        return {
+            "kind": scope,
+            "started_at": overlay.created_at,
+            "expires_at": overlay.expires_at,
+            "is_expired": bool(is_expired),
+            "max_uses": max_uses,
+            "consumed_count": consumed_count,
+            "remaining_uses": remaining_uses,
+            "last_consumed_at": lifecycle.get("last_consumed_at"),
+        }
+
+    def _evaluate_role_template_compatibility(
+        self,
+        *,
+        task_payload: dict,
+        profile: UserInstructionProfileDB | None,
+        overlay: InstructionOverlayDB | None,
+    ) -> dict[str, Any]:
+        repos = get_repository_registry()
+        role_template_context = resolve_task_role_template(task_payload, repos=repos)
+        template_text = " ".join(
+            value
+            for value in (
+                str(role_template_context.get("template_name") or "").strip(),
+                str(role_template_context.get("role_name") or "").strip(),
+            )
+            if value
+        ).lower()
+        detected_contexts = sorted(
+            {
+                context
+                for context, keywords in _TEMPLATE_CONTEXT_KEYWORDS.items()
+                if template_text and any(keyword in template_text for keyword in keywords)
+            }
+        )
+        issues: list[dict[str, Any]] = []
+        if profile is not None:
+            issues.extend(
+                self._collect_layer_compatibility_issues(
+                    layer="user_profile",
+                    layer_id=profile.id,
+                    layer_name=profile.name,
+                    prompt_content=str(profile.prompt_content or ""),
+                    metadata=dict(profile.profile_metadata or {}),
+                    template_text=template_text,
+                    detected_template_contexts=detected_contexts,
+                )
+            )
+        if overlay is not None:
+            issues.extend(
+                self._collect_layer_compatibility_issues(
+                    layer="task_overlay",
+                    layer_id=overlay.id,
+                    layer_name=overlay.name,
+                    prompt_content=str(overlay.prompt_content or ""),
+                    metadata=dict(overlay.overlay_metadata or {}),
+                    template_text=template_text,
+                    detected_template_contexts=detected_contexts,
+                )
+            )
+        blocks = [issue for issue in issues if str(issue.get("severity") or "") == "block"]
+        warnings = [issue for issue in issues if str(issue.get("severity") or "") == "warn"]
+        status = "block" if blocks else ("warn" if warnings else "ok")
+        return {
+            "status": status,
+            "role_template_context": role_template_context,
+            "context_available": bool(role_template_context.get("role_name") or role_template_context.get("template_name")),
+            "detected_template_contexts": detected_contexts,
+            "issues": issues,
+            "warning_count": len(warnings),
+            "block_count": len(blocks),
+        }
+
+    def _collect_layer_compatibility_issues(
+        self,
+        *,
+        layer: str,
+        layer_id: str,
+        layer_name: str,
+        prompt_content: str,
+        metadata: dict[str, Any],
+        template_text: str,
+        detected_template_contexts: list[str],
+    ) -> list[dict[str, Any]]:
+        issues: list[dict[str, Any]] = []
+        layer_intents = self._infer_layer_intents(prompt_content=prompt_content, metadata=metadata)
+        compatibility = dict(metadata.get("compatibility") or {})
+        blocked_contexts = {
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("blocked_template_contexts") or [])
+            if str(item or "").strip()
+        }
+        allowed_contexts = {
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("allowed_template_contexts") or [])
+            if str(item or "").strip()
+        }
+        forbidden_keywords = [
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("forbidden_template_keywords") or [])
+            if str(item or "").strip()
+        ]
+        required_keywords = [
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("required_template_keywords") or [])
+            if str(item or "").strip()
+        ]
+
+        for context in detected_template_contexts:
+            if context in blocked_contexts:
+                issues.append(
+                    self._compatibility_issue(
+                        severity="block",
+                        code="blocked_template_context",
+                        message=f"{layer_name} blocks template context '{context}'.",
+                        layer=layer,
+                        layer_id=layer_id,
+                        details={"context": context},
+                    )
+                )
+        if allowed_contexts and detected_template_contexts and not (allowed_contexts & set(detected_template_contexts)):
+            issues.append(
+                self._compatibility_issue(
+                    severity="block",
+                    code="template_context_not_allowed",
+                    message=f"{layer_name} allows only {sorted(allowed_contexts)}, current context is {detected_template_contexts}.",
+                    layer=layer,
+                    layer_id=layer_id,
+                    details={"allowed_template_contexts": sorted(allowed_contexts)},
+                )
+            )
+        for keyword in forbidden_keywords:
+            if template_text and keyword in template_text:
+                issues.append(
+                    self._compatibility_issue(
+                        severity="block",
+                        code="forbidden_template_keyword",
+                        message=f"{layer_name} blocks template keyword '{keyword}'.",
+                        layer=layer,
+                        layer_id=layer_id,
+                        details={"keyword": keyword},
+                    )
+                )
+        if required_keywords and template_text and not any(keyword in template_text for keyword in required_keywords):
+            issues.append(
+                self._compatibility_issue(
+                    severity="block",
+                    code="required_template_keyword_missing",
+                    message=f"{layer_name} requires one of {required_keywords} in role/template naming.",
+                    layer=layer,
+                    layer_id=layer_id,
+                    details={"required_template_keywords": required_keywords},
+                )
+            )
+
+        mismatch_pairs = {
+            "review": {"implementation"},
+            "research": {"implementation"},
+            "implementation": {"review"},
+        }
+        for template_context in detected_template_contexts:
+            mismatching_intents = mismatch_pairs.get(template_context) or set()
+            if layer_intents & mismatching_intents:
+                issues.append(
+                    self._compatibility_issue(
+                        severity="warn",
+                        code="working_mode_template_mismatch",
+                        message=(
+                            f"{layer_name} suggests {sorted(layer_intents)} while template context is '{template_context}'. "
+                            "Review expected behavior before execution."
+                        ),
+                        layer=layer,
+                        layer_id=layer_id,
+                        details={
+                            "template_context": template_context,
+                            "layer_intents": sorted(layer_intents),
+                        },
+                    )
+                )
+                break
+        return issues
+
+    def _infer_layer_intents(self, *, prompt_content: str, metadata: dict[str, Any]) -> set[str]:
+        intents: set[str] = set()
+        preferences = dict(metadata.get("preferences") or {})
+        working_mode = str(preferences.get("working_mode") or "").strip().lower()
+        if working_mode:
+            intents.add(self._normalize_intent(working_mode))
+        prompt_text = str(prompt_content or "").strip().lower()
+        if prompt_text:
+            for context, keywords in _LAYER_INTENT_KEYWORDS.items():
+                if any(keyword in prompt_text for keyword in keywords):
+                    intents.add(context)
+        return {intent for intent in intents if intent}
+
+    @staticmethod
+    def _normalize_intent(raw: str) -> str:
+        value = str(raw or "").strip().lower()
+        if value in {"code", "coding", "implementation", "implement", "build", "delivery"}:
+            return "implementation"
+        if value in {"review", "qa", "quality", "audit", "test_first", "test-first"}:
+            return "review"
+        if value in {"research", "analysis", "investigation"}:
+            return "research"
+        if value in {"security", "secure", "hardening"}:
+            return "security"
+        return value
+
+    @staticmethod
+    def _compatibility_issue(
+        *,
+        severity: str,
+        code: str,
+        message: str,
+        layer: str,
+        layer_id: str,
+        details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "severity": severity,
+            "code": code,
+            "message": message,
+            "layer": layer,
+            "layer_id": layer_id,
+            "details": dict(details or {}),
+        }
+
+    def _consume_one_shot_overlay_if_needed(
+        self,
+        overlay: InstructionOverlayDB,
+        *,
+        task_id: str | None,
+        goal_id: str | None,
+    ) -> InstructionOverlayDB:
+        if self.normalize_overlay_scope(overlay.scope) != "one_shot":
+            return overlay
+        now = time.time()
+        metadata = dict(overlay.overlay_metadata or {})
+        lifecycle = dict(metadata.get("lifecycle") or {})
+        consumed_count = int(lifecycle.get("consumed_count") or 0) + 1
+        max_uses = lifecycle.get("max_uses")
+        max_uses = int(max_uses) if isinstance(max_uses, int) and max_uses > 0 else 1
+        lifecycle["consumed_count"] = consumed_count
+        lifecycle["last_consumed_at"] = now
+        if task_id:
+            lifecycle["consumed_task_id"] = task_id
+        if goal_id:
+            lifecycle["consumed_goal_id"] = goal_id
+        metadata["lifecycle"] = lifecycle
+        overlay.overlay_metadata = self.normalize_overlay_metadata(metadata)
+        if consumed_count >= max_uses:
+            overlay.is_active = False
+        overlay.updated_at = now
+        updated = get_repository_registry().instruction_overlay_repo.save(overlay)
+        log_audit(
+            "instruction_overlay_lifecycle_consumed",
+            {
+                "overlay_id": updated.id,
+                "owner_username": updated.owner_username,
+                "task_id": task_id,
+                "goal_id": goal_id,
+                "consumed_count": consumed_count,
+                "max_uses": max_uses,
+                "is_active": bool(updated.is_active),
+            },
+        )
+        return updated
+
+    # ── helpers moved from service class ──────────────────────────────────
+
+    def _load_goal_for_task(self, task_payload: dict) -> dict | None:
+        goal_id = str(task_payload.get("goal_id") or "").strip()
+        if not goal_id:
+            return None
+        goal = get_repository_registry().goal_repo.get_by_id(goal_id)
+        return goal.model_dump() if goal else None
+
+    def _resolve_owner_username(self, task_payload: dict, goal_payload: dict | None) -> str | None:
+        task_context = dict((task_payload.get("worker_execution_context") or {}).get("instruction_context") or {})
+        goal_context = dict((goal_payload or {}).get("execution_preferences", {}).get("instruction_context", {}) or {})
+        return (
+            str(task_context.get("owner_username") or "").strip()
+            or str(goal_context.get("owner_username") or "").strip()
+            or str((goal_payload or {}).get("requested_by") or "").strip()
+            or None
+        )
+
+    def _resolve_selection_entities(
+        self,
+        *,
+        owner_username: str | None,
+        profile_id: str | None,
+        overlay_id: str | None,
+    ) -> tuple[UserInstructionProfileDB | None, InstructionOverlayDB | None]:
+        repos = get_repository_registry()
+        owner = str(owner_username or "").strip() or None
+        profile: UserInstructionProfileDB | None = None
+        overlay: InstructionOverlayDB | None = None
+        if profile_id:
+            candidate = repos.user_instruction_profile_repo.get_by_id(profile_id)
+            if candidate is not None and (not owner or str(candidate.owner_username or "").strip() == owner):
+                profile = candidate
+        if overlay_id:
+            candidate = repos.instruction_overlay_repo.get_by_id(overlay_id)
+            if candidate is not None and (not owner or str(candidate.owner_username or "").strip() == owner):
+                overlay = candidate
+        return profile, overlay
+
+    @staticmethod
+    def _profile_summary(profile: UserInstructionProfileDB | None) -> dict[str, Any] | None:
+        if profile is None:
+            return None
+        return {
+            "id": profile.id,
+            "name": profile.name,
+            "owner_username": profile.owner_username,
+            "is_default": bool(profile.is_default),
+            "is_active": bool(profile.is_active),
+        }
+
+    def _overlay_summary(self, overlay: InstructionOverlayDB | None) -> dict[str, Any] | None:
+        if overlay is None:
+            return None
+        return {
+            "id": overlay.id,
+            "name": overlay.name,
+            "owner_username": overlay.owner_username,
+            "scope": self.normalize_overlay_scope(overlay.scope),
+            "attachment_kind": overlay.attachment_kind,
+            "attachment_id": overlay.attachment_id,
+            "is_active": bool(overlay.is_active),
+            "expires_at": overlay.expires_at,
+            "lifecycle": self.overlay_lifecycle_summary(overlay),
+        }
+
+    # ── assembly methods ──────────────────────────────────────────────────
+
+    def render_diagnostics_brief(self, diagnostics: dict | None) -> str:
+        payload = dict(diagnostics or {})
+        profile = dict(payload.get("selected_profile") or {})
+        overlay = dict(payload.get("selected_overlay") or {})
+        suppressed = list(payload.get("suppressed_layers") or [])
+        lines = [
+            "Instruction-Stack (high -> low): governance > blueprint_template > user_profile > task_overlay > task_input",
+            f"Aktives Profil: {profile.get('name') or '-'}",
+            f"Aktives Overlay: {overlay.get('name') or '-'}",
+        ]
+        if suppressed:
+            lines.append("Unterdrueckte Layer: " + ", ".join(str(item.get("layer") or "unknown") for item in suppressed))
+        return "\n".join(lines)
+
+    def assemble_for_task(
+        self,
+        *,
+        task: dict | TaskDB | None,
+        base_prompt: str,
+        system_prompt: str | None,
+        session_id: str | None = None,
+        usage_key: str | None = None,
+        emit_audit: bool = False,
+    ) -> dict[str, Any]:
+        if isinstance(task, TaskDB):
+            task_payload = task.model_dump()
+        else:
+            task_payload = dict(task or {})
+            task_id = str(task_payload.get("id") or "").strip()
+            if task_id:
+                stored_task = get_repository_registry().task_repo.get_by_id(task_id)
+                if stored_task is not None:
+                    merged_payload = stored_task.model_dump()
+                    merged_payload.update(task_payload)
+                    task_payload = merged_payload
+        goal_payload = self._load_goal_for_task(task_payload)
+        owner_username = self._resolve_owner_username(task_payload, goal_payload)
+        task_context = dict((task_payload.get("worker_execution_context") or {}).get("instruction_context") or {})
+        goal_context = dict((goal_payload or {}).get("execution_preferences", {}).get("instruction_context", {}) or {})
+        compatibility_enforcement = str(
+            task_context.get("template_compatibility_enforcement")
+            or goal_context.get("template_compatibility_enforcement")
+            or "mark"
+        ).strip().lower()
+        if compatibility_enforcement not in _TEMPLATE_COMPAT_ENFORCEMENT_VALUES:
+            compatibility_enforcement = "mark"
+        explicit_profile_id = str(
+            task_context.get("profile_id")
+            or goal_context.get("profile_id")
+            or ""
+        ).strip() or None
+        explicit_overlay_id = str(
+            task_context.get("overlay_id")
+            or goal_context.get("overlay_id")
+            or ""
+        ).strip() or None
+        profile = (
+            self.resolve_profile_for_owner(owner_username=owner_username, explicit_profile_id=explicit_profile_id)
+            if owner_username
+            else None
+        )
+        overlay = (
+            self.resolve_overlay_for_context(
+                owner_username=owner_username,
+                explicit_overlay_id=explicit_overlay_id,
+                task_id=str(task_payload.get("id") or "").strip() or None,
+                goal_id=str(task_payload.get("goal_id") or "").strip() or None,
+                session_id=session_id,
+                usage_key=usage_key,
+            )
+            if owner_username
+            else None
+        )
+
+        profile_validation = (
+            self.validate_user_layer_payload(
+                prompt_content=str(profile.prompt_content or ""),
+                metadata=dict(profile.profile_metadata or {}),
+            )
+            if profile
+            else {"ok": True, "forbidden_directives": [], "forbidden_metadata_keys": []}
+        )
+        overlay_validation = (
+            self.validate_user_layer_payload(
+                prompt_content=str(overlay.prompt_content or ""),
+                metadata=dict(overlay.overlay_metadata or {}),
+            )
+            if overlay
+            else {"ok": True, "forbidden_directives": [], "forbidden_metadata_keys": []}
+        )
+
+        applied_layers: list[dict[str, Any]] = []
+        suppressed_layers: list[dict[str, Any]] = []
+        effective_preferences: dict[str, Any] = {}
+
+        role_template_context = resolve_task_role_template(task_payload, repos=get_repository_registry())
+        role_template_prompt = str(role_template_context.get("template_prompt") or "").strip() or None
+
+        from agent.services.agent_profile_service import get_agent_profile_service
+
+        _profile_result = get_agent_profile_service().resolve_for_task(task_payload)
+        agent_profile_prompt = _profile_result.composed_content.strip() or None
+
+        if system_prompt:
+            applied_layers.append({"layer": "governance", "source": "system_prompt"})
+        if agent_profile_prompt:
+            applied_layers.append(
+                {
+                    "layer": "agent_profile_template",
+                    "source": "agent_profile_service",
+                    "profile_id": _profile_result.profile_id,
+                    "agents_file": _profile_result.agents_file,
+                    "primary_role": _profile_result.primary_role,
+                    "activation_source": _profile_result.activation_source,
+                    "is_fallback": _profile_result.is_fallback,
+                    "checksums": dict(_profile_result.checksums),
+                }
+            )
+        if role_template_prompt:
+            applied_layers.append(
+                {
+                    "layer": "blueprint_template",
+                    "source": "task_role_template",
+                    "template_id": role_template_context.get("template_id"),
+                    "template_name": role_template_context.get("template_name"),
+                }
+            )
+        if profile:
+            if profile_validation.get("ok"):
+                applied_layers.append(
+                    {
+                        "layer": "user_profile",
+                        "source": "persistent_profile",
+                        "profile_id": profile.id,
+                        "name": profile.name,
+                    }
+                )
+                effective_preferences.update(dict((profile.profile_metadata or {}).get("preferences") or {}))
+            else:
+                suppressed_layers.append(
+                    {
+                        "layer": "user_profile",
+                        "profile_id": profile.id,
+                        "reason": "forbidden_instruction_scope",
+                        "forbidden_directives": profile_validation.get("forbidden_directives") or [],
+                        "forbidden_metadata_keys": profile_validation.get("forbidden_metadata_keys") or [],
+                    }
+                )
+        if overlay:
+            if overlay_validation.get("ok"):
+                applied_layers.append(
+                    {
+                        "layer": "task_overlay",
+                        "source": "overlay",
+                        "overlay_id": overlay.id,
+                        "name": overlay.name,
+                        "scope": self.normalize_overlay_scope(overlay.scope),
+                        "attachment_kind": overlay.attachment_kind,
+                        "attachment_id": overlay.attachment_id,
+                        "lifecycle": self.overlay_lifecycle_summary(overlay),
+                    }
+                )
+                effective_preferences.update(dict((overlay.overlay_metadata or {}).get("preferences") or {}))
+            else:
+                suppressed_layers.append(
+                    {
+                        "layer": "task_overlay",
+                        "overlay_id": overlay.id,
+                        "reason": "forbidden_instruction_scope",
+                        "forbidden_directives": overlay_validation.get("forbidden_directives") or [],
+                        "forbidden_metadata_keys": overlay_validation.get("forbidden_metadata_keys") or [],
+                    }
+                )
+
+        compatibility = self._evaluate_role_template_compatibility(
+            task_payload=task_payload,
+            profile=profile,
+            overlay=overlay,
+        )
+        blocked_layers = {
+            str(item.get("layer") or "").strip().lower()
+            for item in list(compatibility.get("issues") or [])
+            if str(item.get("severity") or "").strip().lower() == "block"
+        }
+        if compatibility.get("status") == "block" and compatibility_enforcement == "suppress_on_block":
+            if "user_profile" in blocked_layers and profile and profile_validation.get("ok"):
+                suppressed_layers.append(
+                    {
+                        "layer": "user_profile",
+                        "profile_id": profile.id,
+                        "reason": "template_incompatible",
+                        "compatibility_status": "block",
+                    }
+                )
+            if "task_overlay" in blocked_layers and overlay and overlay_validation.get("ok"):
+                suppressed_layers.append(
+                    {
+                        "layer": "task_overlay",
+                        "overlay_id": overlay.id,
+                        "reason": "template_incompatible",
+                        "compatibility_status": "block",
+                    }
+                )
+
+        render_profile = bool(profile and profile_validation.get("ok")) and not (
+            compatibility.get("status") == "block"
+            and compatibility_enforcement == "suppress_on_block"
+            and "user_profile" in blocked_layers
+        )
+        render_overlay = bool(overlay and overlay_validation.get("ok")) and not (
+            compatibility.get("status") == "block"
+            and compatibility_enforcement == "suppress_on_block"
+            and "task_overlay" in blocked_layers
+        )
+
+        rendered_sections: list[str] = []
+        if system_prompt:
+            rendered_sections.append(system_prompt)
+        if agent_profile_prompt:
+            rendered_sections.append(f"[AGENT PROFILE: {_profile_result.profile_id}]\n{agent_profile_prompt}")
+        if role_template_prompt:
+            rendered_sections.append(f"[ROLE TEMPLATE]\n{role_template_prompt}")
+        if render_profile:
+            rendered_sections.append(f"[USER PROFILE]\n{str(profile.prompt_content or '').strip()}")
+        if render_overlay:
+            rendered_sections.append(f"[TASK OVERLAY]\n{str(overlay.prompt_content or '').strip()}")
+        rendered_system_prompt = "\n\n".join(section for section in rendered_sections if section).strip() or None
+        if emit_audit and overlay and render_overlay:
+            overlay = self._consume_one_shot_overlay_if_needed(
+                overlay,
+                task_id=str(task_payload.get("id") or "").strip() or None,
+                goal_id=str(task_payload.get("goal_id") or "").strip() or None,
+            )
+
+        diagnostics = {
+            "version": _STACK_VERSION,
+            "precedence": list(_PRECEDENCE),
+            "applied_layers": applied_layers,
+            "suppressed_layers": suppressed_layers,
+            "effective_preferences": effective_preferences,
+            "selected_profile": self._profile_summary(profile) if profile else None,
+            "selected_overlay": self._overlay_summary(overlay) if overlay else None,
+            "owner_username": owner_username or None,
+            "task_id": str(task_payload.get("id") or "").strip() or None,
+            "goal_id": str(task_payload.get("goal_id") or "").strip() or None,
+            "role_template_context": role_template_context,
+            "template_compatibility": compatibility,
+            "template_compatibility_enforcement": compatibility_enforcement,
+            "active_agent_profile": _profile_result.to_metadata(),
+        }
+        artifact = get_instruction_stack_artifact_service().build_artifact(
+            task_id=diagnostics.get("task_id"),
+            goal_id=diagnostics.get("goal_id"),
+            role_template_context=role_template_context,
+            applied_layers=applied_layers,
+            suppressed_layers=suppressed_layers,
+            rendered_system_prompt=rendered_system_prompt,
+            diagnostics=diagnostics,
+        )
+        diagnostics["instruction_stack_checksum"] = artifact.checksum
+        if emit_audit and (profile or overlay):
+            log_audit(
+                "instruction_layers_applied",
+                {
+                    "task_id": diagnostics["task_id"],
+                    "goal_id": diagnostics["goal_id"],
+                    "owner_username": diagnostics["owner_username"],
+                    "profile_id": (diagnostics.get("selected_profile") or {}).get("id"),
+                    "overlay_id": (diagnostics.get("selected_overlay") or {}).get("id"),
+                },
+            )
+
+        return {
+            "rendered_system_prompt": rendered_system_prompt,
+            "diagnostics": diagnostics,
+            "instruction_stack": artifact.as_dict(),
+            "selection": {
+                "owner_username": owner_username or None,
+                "profile_id": (diagnostics.get("selected_profile") or {}).get("id"),
+                "overlay_id": (diagnostics.get("selected_overlay") or {}).get("id"),
+            },
+        }
+
+    def assemble_artifact_for_task(
+        self,
+        *,
+        task: dict | TaskDB | None,
+        base_prompt: str,
+        system_prompt: str | None,
+        session_id: str | None = None,
+        usage_key: str | None = None,
+        emit_audit: bool = False,
+    ) -> InstructionStackArtifact:
+        assembled = self.assemble_for_task(
+            task=task,
+            base_prompt=base_prompt,
+            system_prompt=system_prompt,
+            session_id=session_id,
+            usage_key=usage_key,
+            emit_audit=emit_audit,
+        )
+        stack_payload = dict(assembled.get("instruction_stack") or {})
+        return get_instruction_stack_artifact_service().build_artifact(
+            task_id=stack_payload.get("task_id"),
+            goal_id=stack_payload.get("goal_id"),
+            role_template_context=dict(stack_payload.get("role_template_context") or {}),
+            applied_layers=list(stack_payload.get("applied_layers") or []),
+            suppressed_layers=list(stack_payload.get("suppressed_layers") or []),
+            rendered_system_prompt=stack_payload.get("rendered_system_prompt"),
+            diagnostics=dict(stack_payload.get("diagnostics") or {}),
+        )

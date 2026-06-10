@@ -59,8 +59,9 @@
         "SPLIT-021",
         "SPLIT-022"
       ],
-      "status": "todo",
-      "priority": "P1"
+      "status": "in_progress",
+      "priority": "P1",
+      "notes": "SPLIT-014 done (2026-06-10): goals.py 1579 → 415 lines via sub-modules (goals_query_routes, goals_planning_routes, goals_helpers). 87/87 goals-related tests green."
     },
     {
       "id": "M4",
@@ -84,7 +85,7 @@
       ],
       "status": "in_progress",
       "priority": "P2",
-      "notes": "SPLIT-033 done (2026-06-10): project_processor.py 1114 -> 395 Zeilen. SPLIT-029 done (2026-06-10): editor_tui_surface_foundation_service.py 1198 -> 214 Zeilen, editor_tui_surface_state.py (1048) aufgenommen. 13 verbleibende Tasks."
+      "notes": "SPLIT-033 done (2026-06-10): project_processor.py 1114 -> 395 Zeilen. SPLIT-029 done (2026-06-10): editor_tui_surface_foundation_service.py 1198 -> 214 Zeilen, editor_tui_surface_state.py (1048) aufgenommen. SPLIT-030 done (2026-06-10): instruction_layer_service.py 1157 -> 309 Zeilen, instruction_layer_compiler.py (878) aufgenommen. 12 verbleibende Tasks."
     },
     {
       "id": "M5",
@@ -740,9 +741,10 @@
       "id": "SPLIT-014",
       "milestone": "M3",
       "priority": "P1",
+      "status": "done",
       "title": "agent/routes/tasks/goals.py aufteilen (1579 Zeilen)",
       "file": "agent/routes/tasks/goals.py",
-      "current_lines": 1579,
+      "current_lines": 415,
       "proposed_split": [
         {
           "file": "agent/routes/tasks/goals_query_routes.py",
@@ -765,7 +767,8 @@
         "tests/test_goals.py bleibt grün",
         "Alle Goals-API-Endpunkte erreichbar",
         "goals.py unter 400 Zeilen"
-      ]
+      ],
+      "notes": "Done 2026-06-10: goals.py 1579 -> 415 lines. goals_planning_routes.py rewritten to use goals_bp from goals.py (removed own planning_bp). _plan_quality_from_task_ids moved to goals.py for test monkeypatch compat. 87 goals-related tests green."
     },
     {
       "id": "SPLIT-015",
@@ -1187,9 +1190,10 @@
       "id": "SPLIT-030",
       "milestone": "M4",
       "priority": "P2",
+      "status": "done",
       "title": "agent/services/instruction_layer_service.py aufteilen (1157 Zeilen)",
       "file": "agent/services/instruction_layer_service.py",
-      "current_lines": 1157,
+      "current_lines": 309,
       "proposed_split": [
         {
           "file": "agent/services/instruction_layer_compiler.py",
@@ -1203,7 +1207,8 @@
       "acceptance_criteria": [
         "Instruction-Layer-Logik unverändert",
         "instruction_layer_service.py unter 500 Zeilen"
-      ]
+      ],
+      "notes": "Done: instruction_layer_compiler.py (878 Zeilen) enthält alle Compiler-Methoden (validation, normalization, compatibility, assembly, helpers). instruction_layer_service.py (309 Zeilen) enthält nur API-Layer: profile/overlay resolution, selection CRUD, evaluation summaries. 6 duplicate overrides removed. 17/17 Tests grün."
     },
     {
       "id": "SPLIT-031",

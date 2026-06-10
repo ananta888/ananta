@@ -249,9 +249,9 @@ def test_instruction_stack_precedence_overlay_overrides_profile(client, user_aut
     assert diagnostics["effective_preferences"]["style"] == "detailed"
     assert diagnostics["effective_preferences"]["detail_level"] == "high"
     applied = [layer["layer"] for layer in diagnostics["applied_layers"]]
-    assert applied == ["user_profile", "task_overlay"]
+    assert applied == ["agent_profile_template", "user_profile", "task_overlay"]
     rendered = str(data.get("rendered_system_prompt") or "")
-    assert rendered.index("[USER PROFILE]") < rendered.index("[TASK OVERLAY]")
+    assert rendered.index("[AGENT PROFILE:") < rendered.index("[USER PROFILE]") < rendered.index("[TASK OVERLAY]")
 
 
 def test_goal_instruction_selection_is_resolved_in_effective_stack(client, user_auth_header, app):
