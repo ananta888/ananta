@@ -40,7 +40,7 @@
       ],
       "status": "in_progress",
       "priority": "P1",
-      "notes": "SPLIT-006 done (private Sub-Module-Ansatz, deterministic_repair_path_service.py leer, 18 _deterministic_repair_*.py Module, commit 19708348). SPLIT-007..010 offen."
+      "notes": "SPLIT-006 done. SPLIT-007 done (sgpt_route.py 326 lines). SPLIT-009 done (sgpt.py 347 lines, 5 sub-modules: sgpt_helpers, sgpt_backend_semaphore, sgpt_backend_routing, sgpt_opencode, sgpt_architecture_scan). SPLIT-010 done (autopilot_tick_engine.py 611 lines, 3 sub-modules: autopilot_model_selector, autopilot_strategy_candidates, autopilot_task_dispatcher). SPLIT-008 blocked (pre-existing TS errors)."
     },
     {
       "id": "M3",
@@ -377,9 +377,10 @@
       "id": "SPLIT-004",
       "milestone": "M1",
       "priority": "P0",
+      "status": "done",
       "title": "client_surfaces/operator_tui/interactive.py aufteilen (3531 Zeilen)",
       "file": "client_surfaces/operator_tui/interactive.py",
-      "current_lines": 3531,
+      "current_lines": 1753,
       "problem": "Interaktiver TUI-Loop, Keybindings, Session-Management und Event-Handling in einer Datei.",
       "proposed_split": [
         {
@@ -567,9 +568,10 @@
       "id": "SPLIT-009",
       "milestone": "M2",
       "priority": "P1",
+      "status": "done",
       "title": "agent/common/sgpt.py aufteilen (2396 Zeilen)",
       "file": "agent/common/sgpt.py",
-      "current_lines": 2396,
+      "current_lines": 347,
       "problem": "Backend-Semaphore, CLI-Backend-Routing, Architecture-Full-Scan, Ananta-Worker-Iterator und OpenCode-Runner in einer Datei.",
       "proposed_split": [
         {
@@ -603,9 +605,12 @@
       "id": "SPLIT-010",
       "milestone": "M2",
       "priority": "P1",
+      "status": "done",
+      "commit": "61b86857",
       "title": "agent/routes/tasks/autopilot_tick_engine.py aufteilen (2346 Zeilen)",
       "file": "agent/routes/tasks/autopilot_tick_engine.py",
-      "current_lines": 2346,
+      "current_lines": 611,
+      "notes": "Done: 3 sub-modules extracted (autopilot_model_selector, autopilot_strategy_candidates, autopilot_task_dispatcher). Main file 611 lines (one execute_autopilot_tick() body + imports/re-exports). Recovery helper _maybe_recover_planned_goal_without_candidates lives in autopilot_task_dispatcher. test monkeypatches retargeted onto the new sub-module paths in c6ee891e.",
       "problem": "Modell-Selektion, Strategie-Kandidaten, Task-Dispatch und der eigentliche Tick-Engine-Loop sind in einer Datei.",
       "proposed_split": [
         {
