@@ -19,9 +19,12 @@ def test_select_model_for_task_uses_adaptive_benchmark_when_no_static_override(m
         role_repo=_RoleRepo(),
         template_repo=_TemplateRepo(),
     )
-    monkeypatch.setattr("agent.routes.tasks.autopilot_tick_engine.get_repository_registry", lambda: repos)
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_tick_engine.recommend_model_for_context",
+        "agent.routes.tasks.autopilot_model_selector.get_repository_registry",
+        lambda: repos,
+    )
+    monkeypatch.setattr(
+        "agent.routes.tasks.autopilot_model_selector.recommend_model_for_context",
         lambda **kwargs: {"model": "learned-model", "selection_source": "benchmark_context_learning"},
     )
 
@@ -72,9 +75,12 @@ def test_select_model_for_task_prefers_team_role_template(monkeypatch):
         role_repo=_RoleRepo(),
         template_repo=_TemplateRepo(),
     )
-    monkeypatch.setattr("agent.routes.tasks.autopilot_tick_engine.get_repository_registry", lambda: repos)
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_tick_engine.recommend_model_for_context",
+        "agent.routes.tasks.autopilot_model_selector.get_repository_registry",
+        lambda: repos,
+    )
+    monkeypatch.setattr(
+        "agent.routes.tasks.autopilot_model_selector.recommend_model_for_context",
         lambda **kwargs: {"model": None, "selection_source": "benchmark_context_learning"},
     )
 
@@ -104,9 +110,12 @@ def test_select_model_for_task_normalizes_legacy_ollama_benchmark_model(monkeypa
         role_repo=SimpleNamespace(get_by_id=lambda _role_id: SimpleNamespace(name="Developer", default_template_id=None)),
         template_repo=SimpleNamespace(get_by_id=lambda _template_id: None),
     )
-    monkeypatch.setattr("agent.routes.tasks.autopilot_tick_engine.get_repository_registry", lambda: repos)
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_tick_engine.recommend_model_for_context",
+        "agent.routes.tasks.autopilot_model_selector.get_repository_registry",
+        lambda: repos,
+    )
+    monkeypatch.setattr(
+        "agent.routes.tasks.autopilot_model_selector.recommend_model_for_context",
         lambda **kwargs: {"model": "ananta-default", "selection_source": "benchmark_context_learning"},
     )
 

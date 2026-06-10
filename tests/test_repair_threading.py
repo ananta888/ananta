@@ -210,7 +210,7 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
     loop._app = app
 
     with patch(
-        "agent.routes.tasks.autopilot_tick_engine._dispatch_one_task_inner",
+        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
         side_effect=_fake_inner,
     ):
         _dispatch_one_task(
@@ -258,7 +258,7 @@ def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
     per_task_hard_timeout = 0.1  # very short for the test
 
     with patch(
-        "agent.routes.tasks.autopilot_tick_engine._dispatch_one_task_inner",
+        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
         side_effect=_slow_inner,
     ):
         with cf.ThreadPoolExecutor(max_workers=1) as executor:
@@ -317,7 +317,7 @@ def test_parallel_dispatch_counters_aggregate_exactly(app, monkeypatch):
     workers = [_fake_worker("http://w0:5000")]
 
     with patch(
-        "agent.routes.tasks.autopilot_tick_engine._dispatch_one_task_inner",
+        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
         side_effect=_fake_inner,
     ):
         import concurrent.futures as cf

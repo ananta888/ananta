@@ -58,11 +58,11 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
     services = SimpleNamespace(autopilot_decision_service=_DecisionService())
 
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_tick_engine._select_model_for_task",
+        "agent.routes.tasks.autopilot_model_selector._select_model_for_task",
         lambda **kwargs: ("m1", {"selected_model": "m1", "source": "test"}),
     )
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_tick_engine._proposal_strategy_candidates",
+        "agent.routes.tasks.autopilot_strategy_candidates._proposal_strategy_candidates",
         lambda **kwargs: [{"model": "m1", "source": "test", "temperature": None}],
     )
 
