@@ -189,7 +189,7 @@ def test_audit_cleanup_confirmation_enter_executes_action(monkeypatch) -> None:
     tui = InteractiveOperatorTui(state)
 
     monkeypatch.setattr(
-        "client_surfaces.operator_tui.interactive.run_audit_cleanup_action",
+        "client_surfaces.operator_tui._interactive_audit.run_audit_cleanup_action",
         lambda action_id: {"action_id": action_id, "counts": {"audit_db_rows": 5}},
     )
 
@@ -225,7 +225,7 @@ def test_audit_cleanup_confirmation_enter_on_cancel_aborts(monkeypatch) -> None:
         called.append(action_id)
         return {"action_id": action_id, "counts": {"audit_db_rows": 1}}
 
-    monkeypatch.setattr("client_surfaces.operator_tui.interactive.run_audit_cleanup_action", _fake_run)
+    monkeypatch.setattr("client_surfaces.operator_tui._interactive_audit.run_audit_cleanup_action", _fake_run)
 
     tui._handle_enter_key()
 
@@ -332,7 +332,7 @@ def test_audit_cleanup_mouse_click_delete_executes(monkeypatch) -> None:
     )
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(
-        "client_surfaces.operator_tui.interactive.run_audit_cleanup_action",
+        "client_surfaces.operator_tui._interactive_audit.run_audit_cleanup_action",
         lambda action_id: called.append(action_id) or {"action_id": action_id, "counts": {"audit_db_rows": 1}},
     )
 
@@ -372,7 +372,7 @@ def test_audit_cleanup_mouse_click_cancel_aborts(monkeypatch) -> None:
     )
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(
-        "client_surfaces.operator_tui.interactive.run_audit_cleanup_action",
+        "client_surfaces.operator_tui._interactive_audit.run_audit_cleanup_action",
         lambda action_id: called.append(action_id) or {"action_id": action_id, "counts": {"audit_db_rows": 1}},
     )
 

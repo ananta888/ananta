@@ -26,7 +26,7 @@
       ],
       "status": "in_progress",
       "priority": "P0",
-      "notes": "SPLIT-001 done (1347 lines, target was <1500). SPLIT-002 through SPLIT-005 todo."
+      "notes": "SPLIT-001 done (1361 lines). SPLIT-002 done (466 lines, commit 0a055549). SPLIT-003 done (527 lines, commit c6b0d9a2). SPLIT-005 done (34-Zeilen-Shim + 10 Sub-Module, commit c3b70060). SPLIT-004 (interactive.py, 3531 Zeilen) offen."
     },
     {
       "id": "M2",
@@ -38,8 +38,9 @@
         "SPLIT-009",
         "SPLIT-010"
       ],
-      "status": "todo",
-      "priority": "P1"
+      "status": "in_progress",
+      "priority": "P1",
+      "notes": "SPLIT-006 done (private Sub-Module-Ansatz, deterministic_repair_path_service.py leer, 18 _deterministic_repair_*.py Module, commit 19708348). SPLIT-007..010 offen."
     },
     {
       "id": "M3",
@@ -329,9 +330,12 @@
       "id": "SPLIT-003",
       "milestone": "M1",
       "priority": "P0",
-      "title": "client_surfaces/operator_tui/renderer.py aufteilen (4015 Zeilen)",
+      "status": "done",
+      "commit": "c6b0d9a2",
+      "title": "client_surfaces/operator_tui/renderer.py aufteilen (4015 → 527 Zeilen)",
       "file": "client_surfaces/operator_tui/renderer.py",
-      "current_lines": 4015,
+      "current_lines": 527,
+      "notes": "In 5 Sub-Module aufgeteilt: _renderer_utils.py (12 fns), _renderer_layout.py (16 fns), _renderer_content.py (30 fns), _renderer_chat_ai.py (11 fns), _renderer_snake_overlay.py (13 fns). 87 Delegating-Wrapper in renderer.py. Baseline 304/317 Tests preserved.",
       "problem": "Header-Rendering, Content-Rendering, Navigation, Templates-Editor, Audit-Viewer, Chat-Rendering und Scrollbars sind in einer Datei vermischt.",
       "proposed_split": [
         {
@@ -405,9 +409,12 @@
       "id": "SPLIT-005",
       "milestone": "M1",
       "priority": "P0",
-      "title": "tests/test_operator_tui_shell.py aufteilen (5105 Zeilen)",
+      "status": "done",
+      "commit": "c3b70060",
+      "title": "tests/test_operator_tui_shell.py aufteilen (5105 → 34 Zeilen Shim)",
       "file": "tests/test_operator_tui_shell.py",
-      "current_lines": 5105,
+      "current_lines": 34,
+      "notes": "10 Sub-Module unter tests/test_operator_tui_shell_pkg/ (219 Tests). Shim re-exportiert alle Tests. Baseline 218/219 preserved.",
       "problem": "Alle TUI-Shell-Tests in einer Datei. Sehr lange Pytest-Läufe, schwer navigierbar.",
       "proposed_split": [
         {
@@ -445,9 +452,12 @@
       "id": "SPLIT-006",
       "milestone": "M2",
       "priority": "P1",
-      "title": "agent/services/deterministic_repair_path_service.py aufteilen (2701 Zeilen)",
+      "status": "done",
+      "commit": "19708348",
+      "title": "agent/services/deterministic_repair_path_service.py aufteilen (2701 → leer)",
       "file": "agent/services/deterministic_repair_path_service.py",
-      "current_lines": 2701,
+      "current_lines": 1,
+      "notes": "Privater Sub-Modul-Ansatz: 18 _deterministic_repair_*.py Module (audit, confidence, constants, evidence, foundation, history, knowledge, learning, llm_escalation, misc, operator_views, outcome_memory, playbooks, procedures, safety, signatures, utils, verification). Hauptdatei ist nur noch Kommentar.",
       "problem": "Failure-Signatures, Diagnosis-Playbooks, Repair-Procedures, Escalation-Logik, Repair-Memory und Learning-Model sind alle in einer Datei.",
       "proposed_split": [
         {
