@@ -57,19 +57,33 @@
       "id": "CCARI-M1",
       "title": "Runtime-Instruktionsvertrag definieren",
       "status": "todo",
-      "task_ids": ["CCARI-001", "CCARI-002", "CCARI-003"]
+      "task_ids": [
+        "CCARI-001",
+        "CCARI-002",
+        "CCARI-003"
+      ]
     },
     {
       "id": "CCARI-M2",
       "title": "InstructionLayer/AgentProfile/Worker verdrahten",
       "status": "todo",
-      "task_ids": ["CCARI-004", "CCARI-005", "CCARI-006", "CCARI-007", "CCARI-011"]
+      "task_ids": [
+        "CCARI-004",
+        "CCARI-005",
+        "CCARI-006",
+        "CCARI-007",
+        "CCARI-011"
+      ]
     },
     {
       "id": "CCARI-M3",
       "title": "Tests und Dokumentation abschliessen",
       "status": "todo",
-      "task_ids": ["CCARI-008", "CCARI-009", "CCARI-010"]
+      "task_ids": [
+        "CCARI-008",
+        "CCARI-009",
+        "CCARI-010"
+      ]
     }
   ],
   "tasks": [
@@ -77,10 +91,12 @@
       "id": "CCARI-001",
       "title": "CodeCompass Runtime Usage Guide schreiben",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "target_files": ["docs/codecompass-agent-runtime-instructions.md"],
+      "target_files": [
+        "docs/codecompass-agent-runtime-instructions.md"
+      ],
       "acceptance_criteria": [
         "Dokument erklaert Chunks, file_excerpt, line_range, codecompass_snippet, hub_context, Nodes, Edges, Scores, Warnings und Evidence.",
         "Dokument unterscheidet harte Evidence von heuristischen Hinweisen.",
@@ -91,10 +107,12 @@
       "id": "CCARI-002",
       "title": "Nachlade-Request-Schema definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "target_files": ["docs/contracts/codecompass-context-reload-request.md"],
+      "target_files": [
+        "docs/contracts/codecompass-context-reload-request.md"
+      ],
       "acceptance_criteria": [
         "Schema enthaelt context_reload_request mit reason und requested_context.",
         "Unterstuetzte Typen: file_range, symbol, codecompass_search, graph_expand, architecture_query.",
@@ -105,10 +123,13 @@
       "id": "CCARI-003",
       "title": "Promptbaustein fuer Agenten formulieren",
       "type": "prompt-contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "target_files": ["docs/codecompass-agent-runtime-instructions.md", "docs/agent-profiles/"],
+      "target_files": [
+        "docs/codecompass-agent-runtime-instructions.md",
+        "docs/agent-profiles/"
+      ],
       "acceptance_criteria": [
         "Promptbaustein ist kurz genug fuer haeufige Nutzung.",
         "Promptbaustein verbietet Architektur-/Policy-/Coverage-Behauptungen ohne Evidence.",
@@ -119,10 +140,12 @@
       "id": "CCARI-004",
       "title": "InstructionLayerService um CodeCompass Runtime Layer erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/services/instruction_layer_service.py"],
+      "target_files": [
+        "agent/services/instruction_layer_service.py"
+      ],
       "acceptance_criteria": [
         "CodeCompass Runtime Layer wird nicht von user_profile/task_overlay ueberschrieben.",
         "Layer wird nur aktiviert, wenn CodeCompass-Kontext oder CodeCompass-faehiger Worker verwendet wird.",
@@ -133,10 +156,13 @@
       "id": "CCARI-005",
       "title": "ananta-worker Prompt um CodeCompass-Regeln erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/common/sgpt_architecture_scan.py", "agent/common/sgpt.py"],
+      "target_files": [
+        "agent/common/sgpt_architecture_scan.py",
+        "agent/common/sgpt.py"
+      ],
       "notes": "Korrigiert 2026-06-10: _build_iteration_prompt und der architecture_full_scan-Pfad liegen seit SPLIT-009 in agent/common/sgpt_architecture_scan.py; sgpt.py ist nur noch Fassade/Re-Export.",
       "acceptance_criteria": [
         "_build_iteration_prompt enthaelt CodeCompass-Leseregeln, wenn CodeCompass-Bloecke vorhanden sind.",
@@ -148,10 +174,13 @@
       "id": "CCARI-006",
       "title": "OpenCode Workspace-AGENTS.md um CodeCompass-Nutzung erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "target_files": ["agent/services/worker_workspace_service.py", "docs/agent-profiles/"],
+      "target_files": [
+        "agent/services/worker_workspace_service.py",
+        "docs/agent-profiles/"
+      ],
       "acceptance_criteria": [
         "OpenCode bekommt im Workspace klare Regeln zum Umgang mit CodeCompass-Kontext.",
         "OpenCode soll fehlende Evidence benennen statt Dateien zu erfinden.",
@@ -162,10 +191,13 @@
       "id": "CCARI-007",
       "title": "AI-Snake-Chat mit Kontext-Nachladehinweisen verdrahten",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "target_files": ["agent/routes/", "frontend-angular/src/app/"],
+      "target_files": [
+        "agent/routes/",
+        "frontend-angular/src/app/"
+      ],
       "acceptance_criteria": [
         "AI-Snake-Chat kann anzeigen, wenn Nachladen noetig ist.",
         "Nachladebedarf wird strukturiert an den Hub gegeben.",
@@ -176,10 +208,14 @@
       "id": "CCARI-011",
       "title": "context_reload_request Parsing und Hub-Handling implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/services/context_delivery_service.py", "agent/routes/", "tests/"],
+      "target_files": [
+        "agent/services/context_delivery_service.py",
+        "agent/routes/",
+        "tests/"
+      ],
       "notes": "Hinzugefuegt 2026-06-10: CCARI-009 testet das Parsing, aber kein Task implementierte es bisher. Hub-seitige Verarbeitung gemaess CCARI-DD-002: der Hub entscheidet, was unter welcher Policy nachgeladen wird.",
       "acceptance_criteria": [
         "Valider context_reload_request wird erkannt, validiert und ueber ContextDeliveryService beantwortet.",
@@ -192,10 +228,12 @@
       "id": "CCARI-008",
       "title": "Tests fuer Prompt-Layer schreiben",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "target_files": ["tests/"],
+      "target_files": [
+        "tests/"
+      ],
       "acceptance_criteria": [
         "Test prueft, dass ananta-worker Prompt CodeCompass-Regeln enthaelt, wenn CodeCompass-Kontext vorhanden ist.",
         "Test prueft, dass User-Overlay die Evidence-Regeln nicht entfernen kann.",
@@ -206,10 +244,12 @@
       "id": "CCARI-009",
       "title": "Tests fuer Nachlade-Request-Parsing schreiben",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "target_files": ["tests/"],
+      "target_files": [
+        "tests/"
+      ],
       "acceptance_criteria": [
         "Valider context_reload_request wird erkannt.",
         "Ungueltige oder mutierende Requests werden abgelehnt oder als policy_blocked markiert.",
@@ -220,10 +260,13 @@
       "id": "CCARI-010",
       "title": "Dokumentation fuer Agentenverhalten aktualisieren",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
-      "target_files": ["docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md", "docs/codecompass-agent-runtime-instructions.md"],
+      "target_files": [
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "docs/codecompass-agent-runtime-instructions.md"
+      ],
       "acceptance_criteria": [
         "Doku beschreibt OpenCode, ananta-worker und AI-Snake-Chat getrennt.",
         "Doku zeigt Beispiele fuer korrektes Nachladen.",
@@ -233,11 +276,42 @@
   ],
   "tasks_status_summary": {
     "total": 11,
-    "by_status": {"todo": 11, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "by_status": {
+      "todo": 11,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 7, "P1": 3, "P2": 1, "P3": 0},
-    "by_risk": {"low": 1, "medium": 7, "high": 3, "critical": 0},
-    "critical_path": {"total": 7, "done": 0, "remaining": 7},
-    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+    "by_priority": {
+      "P0": 7,
+      "P1": 3,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 7,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 0,
+      "remaining": 7
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 3,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "meta": {
+    "last_completed": "2026-06-10",
+    "completion": "11/11 done"
   }
 }
