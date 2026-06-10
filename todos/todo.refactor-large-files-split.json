@@ -82,8 +82,9 @@
         "SPLIT-036",
         "SPLIT-037"
       ],
-      "status": "todo",
-      "priority": "P2"
+      "status": "in_progress",
+      "priority": "P2",
+      "notes": "SPLIT-033 done (2026-06-10): project_processor.py 1114 -> 395 Zeilen, vier neue Module (file_scanner, document_extractor, manifest_builder, output_writer). test_processing_limits.py regression-frei. 14 verbleibende Tasks."
     },
     {
       "id": "M5",
@@ -1254,7 +1255,7 @@
       "id": "SPLIT-033",
       "milestone": "M4",
       "priority": "P2",
-      "notes": "KOORDINATION (2026-06-10): todo.codecompass-domain-discovery.json (CCDD-012/013/014) erweitert dieselbe Datei um Domain-Discovery-Hooks. SPLIT-033 vor CCDD-M4 abschliessen oder explizit dahinter einplanen — nicht parallel.",
+      "notes": "KOORDINATION (2026-06-10): todo.codecompass-domain-discovery.json (CCDD-012/013/014) erweitert dieselbe Datei um Domain-Discovery-Hooks. SPLIT-033 vor CCDD-M4 abschliessen oder explizit dahinter einplanen — nicht parallel. STATUS (2026-06-10): done. project_processor.py von 1114 auf 395 Zeilen reduziert (<400 acceptance). Vier neue Module: file_scanner.py (152), document_extractor.py (543), manifest_builder.py (230), output_writer.py (171). test_processing_limits.py: 51 passed, 2 pre-existing failures unveraendert (ultra-mode + xml-overview, nicht in scope). CLI + 4 Test-Imports funktionieren.",
       "title": "rag-helper/rag_helper/application/project_processor.py aufteilen (1114 Zeilen)",
       "file": "rag-helper/rag_helper/application/project_processor.py",
       "current_lines": 1114,
