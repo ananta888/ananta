@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-architecture-query-engine",
   "created": "2026-06-10",
-  "status": "todo",
+  "status": "in_progress",
   "purpose": "CodeCompass soll nicht nur verwandte Dateien und Graph-Nachbarschaften liefern, sondern belastbare Architekturfragen beantworten koennen: indirekte DTO-Abhaengigkeiten, Controller-Testabdeckung ueber mehrere Ebenen, Feld-/Policy-Impact und Service-Abhaengigkeitsketten.",
   "goal": "Auf Basis des vorhandenen CodeCompassGraphStore, der Graph-Expansion und der SQLite-FTS-Suche wird eine deterministische Architecture Query Engine aufgebaut. Jede Antwort liefert nicht nur Treffer, sondern nachvollziehbare Evidence-Pfade mit Knoten, Kanten, Richtung, Tiefe, Confidence und Unsicherheitswarnungen.",
   "source_review": {
@@ -192,7 +192,7 @@
     {
       "id": "CCAQE-M1",
       "title": "Query-Vertrag und GraphStore-Faehigkeiten absichern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCAQE-001",
         "CCAQE-002",
@@ -203,7 +203,7 @@
     {
       "id": "CCAQE-M2",
       "title": "Seed-Resolution und Evidence-Traversal implementieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCAQE-005",
         "CCAQE-006",
@@ -214,7 +214,7 @@
     {
       "id": "CCAQE-M3",
       "title": "Spezialisierte Architektur-Queries bauen",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "CCAQE-009",
         "CCAQE-010",
@@ -225,7 +225,7 @@
     {
       "id": "CCAQE-M4",
       "title": "Extractor-Kanten fuer Java/TypeScript/Tests/Policies erweitern",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "CCAQE-013",
         "CCAQE-014",
@@ -236,7 +236,7 @@
     {
       "id": "CCAQE-M5",
       "title": "API, UI, Dokumentation und Regressionen abschliessen",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "CCAQE-017",
         "CCAQE-018",
@@ -247,7 +247,7 @@
     {
       "id": "CCAQE-M6",
       "title": "Optionalen SQLiteGraphStore vorbereiten",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCAQE-021",
         "CCAQE-022",
@@ -261,10 +261,10 @@
       "title": "Architecture Query Contract dokumentieren",
       "type": "contract-documentation",
       "milestone": "CCAQE-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/codecompass-architecture-query-engine.md",
         "docs/contracts/codecompass-architecture-query-result.md",
@@ -284,17 +284,19 @@
       ],
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-architecture-query-engine.json"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "docs/codecompass-architecture-query-engine.md (8607 chars) und docs/contracts/codecompass-architecture-query-result.md (9342 chars) vorhanden; alle 4 query_types, resolved_node_ids/result_node_id/evidence_paths/warnings, heuristisch-Bezug enthalten."
     },
     {
       "id": "CCAQE-002",
       "title": "GraphStore-Interface fuer Query Engine stabilisieren",
       "type": "architecture-refactor",
       "milestone": "CCAQE-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_graph_store.py",
         "tests/test_codecompass_graph_store.py"
@@ -314,17 +316,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_graph_store.py"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "Alle 6 stabilen Methoden in worker/retrieval/codecompass_graph_store.py: get_node, find_nodes_by_name, find_nodes_by_file, outgoing_edges, incoming_edges, traverse_paths. Bestehende tests/test_codecompass_graph_store.py laufen grün."
     },
     {
       "id": "CCAQE-003",
       "title": "Bidirektionales Traversal mit Evidence-Pfaden einfuehren",
       "type": "graph-algorithm",
       "milestone": "CCAQE-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_graph_store.py",
         "tests/test_codecompass_graph_store.py"
@@ -344,17 +348,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_graph_store.py -k traverse"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "Bidirektionaler traverse mit direction in/out/both, direction_used im Evidence-Pfad, cycle-Guard via visited_set, eingehende Kanten aus incoming_index. Tests grün."
     },
     {
       "id": "CCAQE-004",
       "title": "Graph-Expansion-Profile nicht fuer Architekturantworten missbrauchen",
       "type": "design-hardening",
       "milestone": "CCAQE-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_graph_expansion.py",
         "worker/retrieval/codecompass_architecture_query.py",
@@ -374,17 +380,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_graph_expansion.py"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "worker/retrieval/codecompass_graph_expansion.py enthält KEINEN dto-impact; eigene Datei worker/retrieval/codecompass_architecture_query.py hält alle 4 Query-Typen. _PROFILE_CONFIG unangetastet, /api/codecompass/graph/expand funktional."
     },
     {
       "id": "CCAQE-005",
       "title": "SeedResolver fuer Symbol-, Pfad-, Feld- und Node-ID-Eingaben bauen",
       "type": "retrieval-core",
       "milestone": "CCAQE-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "worker/retrieval/codecompass_fts_store.py",
@@ -405,17 +413,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k seed"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "resolve_seed() in architecture_query.py; FTS-Store liefert Seed-Resolver-Reihenfolge (node_id → record_id → name → file → FTS). Tests in test_codecompass_architecture_query.py grün."
     },
     {
       "id": "CCAQE-006",
       "title": "EvidencePath-Ranking implementieren",
       "type": "ranking",
       "milestone": "CCAQE-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "tests/test_codecompass_architecture_query.py"
@@ -434,17 +444,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k ranking"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "Score kombiniert Pfadlänge, edge_confidence, edge_type_weight, role_multiplier. Sortierung deterministisch (Pfad-Score, Tiefe, node_id als Tie-Breaker). path_score: 4 hits, sort: 7 hits, heuristic: 17 hits, confidence: 5 hits."
     },
     {
       "id": "CCAQE-007",
       "title": "QueryResult-Modell als plain dict/dataclass definieren",
       "type": "contract-implementation",
       "milestone": "CCAQE-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "tests/test_codecompass_architecture_query.py"
@@ -463,17 +475,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k result_contract"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "QueryResult als dataclass mit to_dict; schema=codecompass_architecture_query_result.v1 als Top-Level-Feld; warnings/diagnostics Top-Level."
     },
     {
       "id": "CCAQE-008",
       "title": "Sicherheitsgrenzen fuer Query-Ausfuehrung festlegen",
       "type": "security-hardening",
       "milestone": "CCAQE-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "agent/routes/codecompass_graph.py",
@@ -495,17 +509,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k limits"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "Harte Defaults: max_depth, max_nodes, max_paths_per_result, max_results in architecture_query.py. invalid_query_type → BadRequest via whitelist. bounded=true in diagnostics. Keine Datei-IO außerhalb des Knowledge-Index."
     },
     {
       "id": "CCAQE-009",
       "title": "dto-impact Query implementieren",
       "type": "feature-query",
       "milestone": "CCAQE-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "tests/test_codecompass_architecture_query.py",
@@ -527,17 +543,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k dto_impact"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "dto-impact Query implementiert mit field_type_uses/method_param_type_uses/method_return_type_uses/generic_type_uses/mapper_maps_type als Primärkanten; service/controller/mapper/repository/config-Rollen getrennt. Tests grün."
     },
     {
       "id": "CCAQE-010",
       "title": "controller-test-coverage Query implementieren",
       "type": "feature-query",
       "milestone": "CCAQE-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "tests/test_codecompass_architecture_query.py",
@@ -559,17 +577,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k controller_test_coverage"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "controller-test-coverage mit test_targets_type/test_uses_controller/test_calls_endpoint Primärkanten. _classify_coverage_kind trennt direct_controller_test / endpoint_test / indirect_evidence. suspected_coverage statt 'covered' bei rein heuristischen Pfaden."
     },
     {
       "id": "CCAQE-011",
       "title": "field-policy-impact Query implementieren",
       "type": "feature-query",
       "milestone": "CCAQE-M3",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "tests/test_codecompass_architecture_query.py",
@@ -592,6 +612,12 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k field_policy_impact"
+      ],
+      "verification_note": "PARTIAL: field-policy-Query läuft (permission_checks_field, policy_applies_to_field, frontend_guard_refs_field, role_allows_operation im Code+Fixture). ABBAUSTELLE: docs/security/codecompass-context-trust-model.md ist 2216 chars klein, enforced-vs-reference-Semantik und Confidence-Stufen für Security-relevante Results sind nicht ausdefiniert. frontend_guard_refs_field im Engine-Codepfad nicht aktiv — nur in Fixture präsent.",
+      "open_gaps": [
+        "trust-model doc auf enforced/reference/weak_reference/confidence-Stufen ausbauen",
+        "frontend_guard_refs_field in architecture_query.py aktiv verdrahten (nicht nur Fixture)",
+        "operation=update mit confidence-Stufe in Result sichtbar machen"
       ]
     },
     {
@@ -599,10 +625,10 @@
       "title": "service-dependency-chain Query implementieren",
       "type": "feature-query",
       "milestone": "CCAQE-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "tests/test_codecompass_architecture_query.py",
@@ -623,17 +649,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k service_dependency_chain"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "service-dependency-chain mit injects_dependency/declares_bean/service_uses_repository/transactional_boundary Primärkanten. Repository/Config-Knoten mit eigener result_role. Zyklische Dependencies via cycle-Guard erkennbar."
     },
     {
       "id": "CCAQE-013",
       "title": "Java-Type-Use-Extraktion fuer Felder, Parameter, Returns und Generics erweitern",
       "type": "extractor-enhancement",
       "milestone": "CCAQE-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/",
         "tests/"
@@ -653,17 +681,19 @@
       ],
       "test_expectations": [
         "pytest -q tests -k codecompass"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "java_member_extractor.py erzeugt method_param_type_uses, method_return_type_uses, generic_type_uses neben field_type_uses. Tests in rag-helper/tests grün."
     },
     {
       "id": "CCAQE-014",
       "title": "Test- und Controller-Kanten extrahieren",
       "type": "extractor-enhancement",
       "milestone": "CCAQE-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/",
         "tests/"
@@ -683,17 +713,19 @@
       ],
       "test_expectations": [
         "pytest -q tests -k controller"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "rag-helper/rag_helper/extractors/java_security_test_relations.py erzeugt test_targets_type, test_uses_controller, test_calls_endpoint, controller_endpoint_declares. Erkennt @WebMvcTest, MockMvc, @GetMapping. Endpoint-String-Match mit reduzierter Confidence."
     },
     {
       "id": "CCAQE-015",
       "title": "Policy-, Permission- und Interceptor-Kanten extrahieren",
       "type": "extractor-enhancement",
       "milestone": "CCAQE-M4",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "target_files": [
         "worker/retrieval/",
         "docs/security/codecompass-context-trust-model.md",
@@ -714,6 +746,12 @@
       ],
       "test_expectations": [
         "pytest -q tests -k policy"
+      ],
+      "verification_note": "PARTIAL: permission_checks_field, interceptor_guards_method, role_allows_operation, policy_applies_to_field in Fixture+Security-Test-Relations. ABBAUSTELLE: enforced vs reference Marker fehlt im Result-Format (0 hits im architecture_query.py), source_file/source_record Provenance nicht in permission-Kante sichtbar. trust-model doc trägt 'enforced' nur 1×, 'confidence' 0×.",
+      "open_gaps": [
+        "Provenance (source_file/source_record) auf permission_checks_field-Kanten im Result sichtbar",
+        "enforced/reference-Marker in Engine-Result-Format für Policy-Kanten",
+        "trust-model doc: Confidence-Stufen für security-relevante Kanten dokumentieren"
       ]
     },
     {
@@ -721,10 +759,10 @@
       "title": "Service-, Repository-, Mapper- und Bean-Rollen sicher klassifizieren",
       "type": "classification",
       "milestone": "CCAQE-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/",
         "worker/retrieval/codecompass_architecture_query.py",
@@ -746,17 +784,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k role"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "Rollen-Klassifikation via role_labels, Annotationen (@Service, @Repository, @Controller/@RestController) und Namens-Pattern (*Service, *Repository, *Mapper). result_role in jedem Result. test-Rolle ebenfalls unterscheidbar."
     },
     {
       "id": "CCAQE-017",
       "title": "REST-API fuer Architecture Queries bereitstellen",
       "type": "api",
       "milestone": "CCAQE-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/routes/codecompass_graph.py",
         "tests/test_codecompass_graph_api.py"
@@ -776,17 +816,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_graph_api.py"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "GET /api/codecompass/query in agent/routes/codecompass_graph.py integriert. Validiert type/seed/depth/field/direction. BadRequest bei invalid_query_type. knowledge_index_id-Pflicht. 22 API-Tests grün."
     },
     {
       "id": "CCAQE-018",
       "title": "Graph-Viewer/UI um Architekturfrage-Modus erweitern",
       "type": "ui",
       "milestone": "CCAQE-M5",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "target_files": [
         "web/www/codecompass/index.html",
         "docs/codecompass-graph-viewer.md"
@@ -807,6 +849,11 @@
       "test_expectations": [
         "Manueller Smoke-Test mit statischem Beispielindex",
         "Optional: vorhandene Web-Tests erweitern, falls fuer web/www/codecompass bereits Testharness existiert"
+      ],
+      "verification_note": "PARTIAL: web/www/codecompass/query.html mit allen 4 Query-Typen, Dropdown, Evidence-Pfad-Anzeige, Warnings prominent. docs/codecompass-graph-viewer.md aktualisiert. ABBAUSTELLE: web/www/codecompass/index.html (Hauptseite) verlinkt query.html NICHT — Architektur-Modus ist von der Startseite nicht erreichbar.",
+      "open_gaps": [
+        "index.html: Link/Navigation zu query.html hinzufügen",
+        "Optional: Card oder CTA auf der Startseite für Architektur-Queries"
       ]
     },
     {
@@ -814,10 +861,10 @@
       "title": "ai-snake-chat / Worker-Handoff fuer QueryResult vorbereiten",
       "type": "agent-context",
       "milestone": "CCAQE-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "agent/",
         "worker/",
@@ -837,17 +884,19 @@
       ],
       "test_expectations": [
         "pytest -q tests -k codecompass"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "render_query_result_markdown in architecture_query.py: kompakter Markdown-Handoff mit Query/Seed/Results/Evidence/Warnings. Security-Warnings werden nicht gefiltert. Leere Ergebnisse als 'nicht belegt'."
     },
     {
       "id": "CCAQE-020",
       "title": "End-to-End Beispielindex fuer Architekturqueries anlegen",
       "type": "test-fixture",
       "milestone": "CCAQE-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "tests/fixtures/",
         "tests/test_codecompass_architecture_query.py",
@@ -868,17 +917,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "tests/fixtures/codecompass_architecture/graph_records.json: 11 Nodes, 15 Edges, 12 distinct edge types. Deckt dto-impact, controller-test-coverage, field-policy-impact, service-dependency-chain ab. Heuristic-flag auf 1 Edge. Deterministisch (keine timestamps/IDs)."
     },
     {
       "id": "CCAQE-021",
       "title": "SQLiteGraphStore als optionalen Backend-Adapter entwerfen",
       "type": "storage-design",
       "milestone": "CCAQE-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_graph_store.py",
         "worker/retrieval/codecompass_sqlite_graph_store.py",
@@ -898,17 +949,19 @@
       ],
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-architecture-query-engine.json"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "CodeCompassSqliteGraphStore in worker/retrieval/codecompass_sqlite_graph_store.py mit Tabellen cc_graph_nodes und cc_graph_edges. JSONGraphStore bleibt Default. Beide Stores erfüllen denselben Vertrag. Architecture-Query-Doc dokumentiert Design."
     },
     {
       "id": "CCAQE-022",
       "title": "SQLiteGraphStore minimal implementieren und gegen dieselben Tests laufen lassen",
       "type": "storage-implementation",
       "milestone": "CCAQE-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_sqlite_graph_store.py",
         "tests/test_codecompass_graph_store.py",
@@ -928,17 +981,19 @@
       ],
       "test_expectations": [
         "pytest -q tests/test_codecompass_graph_store.py tests/test_codecompass_architecture_query.py"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "CodeCompassSqliteGraphStore in tests/test_codecompass_graph_store.py (4 refs) und tests/test_codecompass_architecture_query.py (2 refs) parametrisiert. Contract-Tests laufen für JSON und SQLite. 110/110 Tests grün."
     },
     {
       "id": "CCAQE-023",
       "title": "Externe Graphdatenbanken nur als spaeteren Adapter offenhalten",
       "type": "future-extension",
       "milestone": "CCAQE-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "docs/codecompass-architecture-query-engine.md"
       ],
@@ -956,19 +1011,18 @@
       ],
       "test_expectations": [
         "Dokumentationsreview"
-      ]
+      ],
+      "completed_on": "2026-06-10",
+      "verification_note": "Architecture-Query-Doc nennt Neo4j, Memgraph, Kuzu als mögliche spätere Adapter ohne sie einzubauen. SQLite ist explizit die Schwelle, ab der externe Graph-DB sinnvoll wird. Keine Docker-Compose-Pflicht."
     }
   ],
   "tasks_status_summary": {
     "total": 23,
     "by_status": {
-      "todo": 23,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
+      "done": 20,
+      "partial": 3
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 87.0,
     "by_priority": {
       "P0": 13,
       "P1": 6,
@@ -976,57 +1030,75 @@
       "P3": 2
     },
     "by_risk": {
-      "low": 3,
       "medium": 11,
       "high": 7,
+      "low": 3,
       "critical": 2
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13,
+      "done": 11,
+      "remaining": 2,
       "task_ids": [
-        "CCAQE-001",
-        "CCAQE-002",
-        "CCAQE-003",
-        "CCAQE-005",
-        "CCAQE-006",
-        "CCAQE-008",
-        "CCAQE-009",
-        "CCAQE-010",
         "CCAQE-011",
-        "CCAQE-013",
-        "CCAQE-014",
-        "CCAQE-015",
-        "CCAQE-017"
+        "CCAQE-015"
       ]
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
-    }
+      "done": 3,
+      "partial": 3
+    },
+    "last_audit": "2026-06-10",
+    "audit_note": "20/23 done, 3 partial (CCAQE-011, CCAQE-015, CCAQE-018), 0 todo. 110/110 tests grün."
   },
   "recommended_first_implementation_slice": [
-    "CCAQE-001",
-    "CCAQE-002",
-    "CCAQE-003",
-    "CCAQE-005",
-    "CCAQE-006",
-    "CCAQE-007",
-    "CCAQE-009",
-    "CCAQE-017",
-    "CCAQE-020"
+    "CCAQE-018",
+    "CCAQE-011",
+    "CCAQE-015"
   ],
   "definition_of_done": [
-    "CodeCompass kann mindestens dto-impact ueber API beantworten und liefert Evidence-Pfade statt nackter Treffer.",
-    "controller-test-coverage unterscheidet direkte Tests, Endpoint-Tests und heuristische indirekte Hinweise.",
-    "field-policy-impact trennt Backend-Enforcement, Frontend-Referenz und schwache Namens-/FTS-Hinweise.",
-    "Alle Query-Typen sind durch kleine deterministische Fixtures getestet.",
-    "Bestehende Graph-Expansion und Graph-Viewer-Endpunkte bleiben rueckwaertskompatibel.",
-    "Keine externe Graphdatenbank ist fuer Standardbetrieb erforderlich."
-  ]
+    "✓ CodeCompass kann dto-impact ueber API beantworten und liefert Evidence-Pfade statt nackter Treffer. (CCAQE-001, 005, 009, 017 erledigt)",
+    "✓ controller-test-coverage unterscheidet direkte Tests, Endpoint-Tests und heuristische indirekte Hinweise. (CCAQE-010 erledigt)",
+    "PARTIAL: field-policy-impact trennt Backend-Enforcement, Frontend-Referenz und schwache Namens-/FTS-Hinweise — Code vorhanden, trust-model-doc + Result-Marker enforcing/reference fehlen noch. (CCAQE-011, CCAQE-015 partial)",
+    "✓ Alle Query-Typen sind durch kleine deterministische Fixtures getestet. (CCAQE-020 erledigt)",
+    "✓ Bestehende Graph-Expansion und Graph-Viewer-Endpunkte bleiben rueckwaertskompatibel. (CCAQE-004, CCAQE-021 erledigt)",
+    "✓ Keine externe Graphdatenbank ist fuer Standardbetrieb erforderlich. (CCAQE-021, CCAQE-023 erledigt)",
+    "PARTIAL: index.html verlinkt query.html nicht — Architektur-Modus nur direkt erreichbar. (CCAQE-018 partial)"
+  ],
+  "open_partials": [
+    {
+      "task_id": "CCAQE-011",
+      "title": "field-policy-impact Vertrauensmodell",
+      "gaps": [
+        "trust-model doc auf enforced/reference/weak_reference/confidence-Stufen ausbauen",
+        "frontend_guard_refs_field in architecture_query.py aktiv verdrahten (nicht nur Fixture)",
+        "operation=update mit confidence-Stufe in Result sichtbar machen"
+      ],
+      "milestone": "CCAQE-M3",
+      "estimated_complexity": "low"
+    },
+    {
+      "task_id": "CCAQE-015",
+      "title": "Policy-Extractor-Kanten mit Provenance + enforced/reference",
+      "gaps": [
+        "Provenance (source_file/source_record) auf permission_checks_field-Kanten im Result sichtbar",
+        "enforced/reference-Marker in Engine-Result-Format für Policy-Kanten",
+        "trust-model doc: Confidence-Stufen für security-relevante Kanten dokumentieren"
+      ],
+      "milestone": "CCAQE-M4",
+      "estimated_complexity": "medium"
+    },
+    {
+      "task_id": "CCAQE-018",
+      "title": "UI: index.html → query.html Verlinkung",
+      "gaps": [
+        "index.html: Link/Navigation zu query.html hinzufügen",
+        "Optional: Card oder CTA auf der Startseite für Architektur-Queries"
+      ],
+      "milestone": "CCAQE-M5",
+      "estimated_complexity": "low"
+    }
+  ],
+  "status_note": "20/23 done, 3 partial (CCAQE-011/015/018), 0 todo. Empfohlene naechste Schritte: open_partials-Liste."
 }
