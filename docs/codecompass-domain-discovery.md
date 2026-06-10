@@ -239,6 +239,8 @@ erhalten low confidence — es wird nicht geraten (CCDD-DD-004).
 
 ## 4. Nutzung
 
+### 4.1 CLI-Modi (CCDD-012)
+
 ```bash
 # Analyse als Teil eines RAG-Helper-Laufs (basic: Pfad/Package/Graph-Signale)
 cd rag-helper
@@ -256,19 +258,63 @@ Outputs; `manifest.json` erhält einen `domain_discovery`-Block mit
 Summary-Zahlen. Bei `--domain-discovery-mode off` (Default) ändert sich
 nichts an bestehenden Ausgaben.
 
-### Boundary-Warnungen auswerten
+### 4.2 Direkt aus der Analysebibliothek (Tests, Notebooks, Hooks)
+
+Die Bibliothek `rag_helper.domain_discovery` ist runtime-frei und kann
+ohne RAG-Helper-CLI aufgerufen werden — nützlich für CI-Gates,
+Test-Fixtures und Notebooks:
+
+```python
+from rag_helper.domain_discovery.inputs import AnalysisInputs
+from rag_helper.domain_discovery.graph_model import DomainGraph
+from rag_helper.domain_discovery.clustering import cluster_domains
+from rag_helper.domain_discovery.boundaries import compute_boundary_metrics
+from rag_helper.domain_discovery.descriptors import (
+    index_existing_descriptors,
+    build_descriptor_mismatches,
+)
+
+inputs = AnalysisInputs.from_memory(
+    index_records=[...],
+    detail_records=[...],
+    relation_records=[...],
+    graph_nodes=[...],
+    graph_edges=[...],
+    manifest={...},
+)
+graph = DomainGraph.build(inputs)
+clustering = cluster_domains(graph, records=records, manifest=manifest)
+
+descriptors = index_existing_descriptors("/pfad/zum/projekt")
+mismatches = build_descriptor_mismatches(descriptors, clustering.candidates)
+
+result = compute_boundary_metrics(
+    clustering, graph, descriptor_mismatches=mismatches
+)
+# result.candidates: list[DomainCandidate]
+# result.boundary_warnings: list[dict]
+# result.coupling_pairs: list[dict]
+```
+
+### 4.3 Boundary-Warnungen auswerten
 
 `warning_type`-Werte:
 
 - `mutual_coupling`: zwei Domains haben in beide Richtungen ≥ Schwellwert
   Relations-Kanten — Hinweis auf fehlende oder falsch gezogene Grenze.
+  Standard-Schwellwert 3, konfigurierbar pro Lauf.
 - `layer_spans_domains`: ein technischer Layer verbindet ≥ 3 Domains quer —
   Hinweis auf eine geteilte technische Plattform-Schicht, die ggf. als
   eigene (generische) Komponente gehört.
 - `heterogeneous_root`: ein Root-Kandidat bündelt viele kleine, untereinander
-  unverbundene Bereiche.
+  unverbundene Bereiche. Trigger: `record_count >= 3` UND
+  `internal_edge_count <= 1`.
 - `descriptor_mismatch`: ein vorhandener Domain-Descriptor nennt Pfade, die
-  nicht zur erkannten Code-Struktur passen.
+  nicht zur erkannten Code-Struktur passen. Drei Untertypen:
+  `no_matching_cluster` (Descriptor benennt eine Domain, die Analyse
+  nicht), `paths_named_but_empty` (Descriptor-Pfade fallen in keinen
+  Cluster-Root) und `paths_under_different_root` (Descriptor-Pfade
+  gehören zu einem anderen Cluster).
 
 **Vom Befund zum Descriptor (menschlicher Schritt):** Ein Mensch prüft die
 Evidenz (`root_paths`, `core_records`, Kopplungsmetriken), entscheidet über
@@ -276,6 +322,45 @@ den Schnitt und übernimmt dann — bewusst — einen Vorschlag aus
 `domain_descriptor_suggestions/<id>/domain.json` nach `domains/<id>/`.
 Vorschläge nutzen `lifecycle_status: foundation_only` und
 `runtime_status: descriptor_only` und behaupten keine Runtime-Fähigkeit.
+
+### 4.4 Beispielauswertung
+
+Gegeben die Fixture unter `tests/fixtures/domain_discovery_project/`:
+
+```python
+import json
+from rag_helper.domain_discovery.clustering import cluster_domains
+# ... DomainGraph aufbauen, dann:
+
+result = compute_boundary_metrics(clustering, graph)
+print(f"domains: {[c.domain_id for c in result.candidates]}")
+for w in result.boundary_warnings:
+    print(f"  {w['warning_type']}: {w['source_domain']} <-> {w['target_domain']}")
+```
+
+erwartete Ausgabe (siehe `TestFixtureBoundaries.test_shared_utility_drives_layer_spans_warning`):
+
+```
+domains: ['billing', 'identity', 'orchestration', 'rag', 'ui']
+  mutual_coupling: billing <-> identity
+```
+
+`misc/loose.py` taucht nur in `clustering.unassigned_records` auf, nicht
+in `candidates`.
+
+### 4.5 Quality Gate (CCDD-020)
+
+`devtools/validate_codecompass_domain_discovery.py` validiert eine
+`domains.detected.json` / `domain_coupling.json` Datei. Aufruf:
+
+```bash
+python devtools/validate_codecompass_domain_discovery.py out/domains.detected.json
+```
+
+Exit 0 ⇒ Schema-Felder, Sortierung, Confidence-Bereich, Warning-Typen
+stimmen. Exit 1 ⇒ detaillierte Fehler-/Warn-Liste auf stdout. Der
+Validator hat keine `rag_helper`-Abhängigkeit und kann ohne
+RAG-Helper-Venv im Release-Gate laufen.
 
 ## 5. Tests
 
@@ -289,3 +374,22 @@ nicht importieren):
 cd rag-helper
 python -m pytest tests/ -k codecompass_domain -q
 ```
+
+Der Quality-Gate-Validator (`tests/test_validate_codecompass_domain_discovery.py`)
+liegt absichtlich im Root-`tests/`-Verzeichnis, weil er nur
+Standardbibliothek + den Validator selbst importiert.
+
+## 6. Status und offene Punkte
+
+Stand 2026-06-10:
+
+- M1 (Vertrag + Ist-Stand) + M2 (Graph + Inputs) + M3 (Clustering + Boundaries
+  + Descriptor-Einbindung + Technical-Layer-Guard) sind abgeschlossen.
+- M4 (CLI-Hooks, Writer, Manifest-Block, Descriptor-Vorschläge) ist blockiert
+  durch SPLIT-033 (Refactor von `project_processor.py`) — siehe
+  `todo.refactor-large-files-split.json` und `summary_notes` im CCDD-Todo.
+- M5 (Fixture, Regression, Doku, Quality Gate) ist bis auf den CLI-End-to-End-
+  Integrationstest (CCDD-017) abgeschlossen. Der End-to-End-Lauf wird mit M4
+  nachgezogen, sobald der CLI-Hook steht.
+- 48 + 17 Tests grün insgesamt; keine Regression in den
+  RAG-Helper-Standard-Tests.
