@@ -114,7 +114,8 @@ def _match_failure_signatures_impl(
     signature_catalog: tuple[FailureSignature, ...] | None = None,
     top_k: int = 5,
 ) -> dict[str, Any]:
-    catalog = signature_catalog or build_initial_failure_signature_catalog()
+    from agent.services import _deterministic_repair_signatures as _drr_signatures
+    catalog = signature_catalog or _drr_signatures.build_initial_failure_signature_catalog()
     evidence_text = _extract_evidence_text(normalized_evidence)
     matches: list[dict[str, Any]] = []
     for signature in catalog:
