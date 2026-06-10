@@ -28,6 +28,7 @@ from agent.routes.sgpt import sgpt_bp
 from agent.routes.system import system_bp
 from agent.routes.voice import voice_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
+from agent.routes.blueprint_routes import blueprint_bp
 from agent.routes.teams import teams_bp
 from agent.routes.webhooks import webhooks_bp
 from agent.routes.sources import sources_bp
@@ -71,6 +72,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(mcp_bp)
     app.register_blueprint(evolution_bp)
     app.register_blueprint(teams_bp)
+    app.register_blueprint(blueprint_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(context_policy_bp)
     app.register_blueprint(control_center_api_bp)
