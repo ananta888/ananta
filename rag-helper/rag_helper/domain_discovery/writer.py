@@ -151,12 +151,21 @@ def _to_coupling_pairs(coupling_pairs: list[dict]) -> list[dict]:
     return out
 
 
+   154|def run_domain_discovery(
+   155|    inputs: AnalysisInputs,
+   156|    *,
+   157|    project_root: str | Path | None = None,
+   158|    generated_at: str | None = None,
+   159|    domains_dirname: str = "domains",
+   160|    limits: Any,  # New parameter
 def run_domain_discovery(
     inputs: AnalysisInputs,
     *,
     project_root: str | Path | None = None,
     generated_at: str | None = None,
     domains_dirname: str = "domains",
+    limits: Any,  # New parameter
+    manifest: dict,  # New parameter
 ) -> DomainDiscoveryResult:
     """Run the full CCDD analysis pipeline (cluster + boundary + descriptors).
 
@@ -175,7 +184,12 @@ def run_domain_discovery(
     generated = generated_at or _now_iso()
 
     graph = DomainGraph.build(inputs)
-    clustering: ClusteringResult = cluster_domains(graph, records=inputs.index_records)
+    clustering: ClusteringResult = cluster_domains(
+        graph, records=inputs.index_records,
+        manifest=manifest, # Pass manifest to cluster_domains
+        min_files=limits.domain_discovery_min_files if limits else None,
+        min_coupled_edges=limits.domain_discovery_min_coupled_edges if limits else None,
+    )
     descriptors: dict[str, ExistingDescriptor] = index_existing_descriptors(
         project_root_s, domains_dirname=domains_dirname
     )
