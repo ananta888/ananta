@@ -18,7 +18,12 @@ from agent.common.sgpt_helpers import (
     _normalize_openai_base_url,
     _resolve_profile_api_key,
 )
-from agent.common.sgpt_backend_semaphore import _acquire_backend_permit, _SemaphoreTicket
+from agent.common.sgpt_backend_semaphore import (
+    _BACKEND_SEMAPHORES,
+    _SemaphoreTicket,
+    _acquire_backend_permit,
+    _get_backend_semaphore,
+)
 from agent.common.sgpt_backend_routing import (
     SUPPORTED_CLI_BACKENDS,
     CLI_BACKEND_INSTALL_HINTS,
@@ -29,6 +34,7 @@ from agent.common.sgpt_backend_routing import (
     get_cli_backend_capabilities,
     get_cli_backend_preflight,
     get_cli_backend_runtime_status,
+    get_research_backend_preflight,
     normalize_backend_flags,
 )
 from agent.common.sgpt_opencode import (
