@@ -27,8 +27,9 @@ from agent.services._deterministic_repair_constants import (
 
 
 from dataclasses import dataclass, field
-from agent.services import _deterministic_repair_utils as _drr_utils
-_match_failure_signatures_impl = _drr_utils._match_failure_signatures_impl
+def _get_match_impl():
+    from agent.services import _deterministic_repair_utils as _drr_utils
+    return _drr_utils._match_failure_signatures_impl
 
 
 @dataclass
@@ -111,7 +112,7 @@ def match_failure_signatures(
     top_k: int = 5,
 ) -> dict[str, Any]:
     try:
-        return _match_failure_signatures_impl(
+        return _get_match_impl()(
             normalized_evidence=normalized_evidence,
             environment_facts=environment_facts,
             signature_catalog=signature_catalog,

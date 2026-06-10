@@ -39,57 +39,6 @@ from agent.services._deterministic_repair_constants import (
     ROLLOUT_PLAN_MODEL,
     TEST_COVERAGE_MODEL,
 )
-from agent.services import _deterministic_repair_operator_views as _drr_operator_views
-build_operator_proposal_preview = _drr_operator_views.build_operator_proposal_preview
-build_operator_session_summary = _drr_operator_views.build_operator_session_summary
-from agent.services import _deterministic_repair_audit as _drr_audit
-build_repair_audit_chain = _drr_audit.build_repair_audit_chain
-from agent.services import _deterministic_repair_signatures as _drr_signatures
-build_initial_failure_signature_catalog = _drr_signatures.build_initial_failure_signature_catalog
-build_signature_explanation = _drr_signatures.build_signature_explanation
-classify_signature_matching_outcome = _drr_signatures.classify_signature_matching_outcome
-match_failure_signatures = _drr_signatures.match_failure_signatures
-signature_to_dict = _drr_signatures.signature_to_dict
-from agent.services import _deterministic_repair_outcome_memory as _drr_outcome_memory
-build_repair_outcome_memory_entry = _drr_outcome_memory.build_repair_outcome_memory_entry
-track_repair_outcomes = _drr_outcome_memory.track_repair_outcomes
-verify_final_repair_outcome = _drr_outcome_memory.verify_final_repair_outcome
-from agent.services import _deterministic_repair_evidence as _drr_evidence
-collect_environment_facts = _drr_evidence.collect_environment_facts
-compute_environment_similarity = _drr_evidence.compute_environment_similarity
-ingest_structured_logs = _drr_evidence.ingest_structured_logs
-normalize_evidence_bundle = _drr_evidence.normalize_evidence_bundle
-from agent.services import _deterministic_repair_procedures as _drr_procedures
-build_initial_repair_procedure_catalog = _drr_procedures.build_initial_repair_procedure_catalog
-build_repair_procedure_preview = _drr_procedures.build_repair_procedure_preview
-build_repair_procedure_template = _drr_procedures.build_repair_procedure_template
-convert_llm_proposal_to_reviewed_procedure = _drr_procedures.convert_llm_proposal_to_reviewed_procedure
-execute_repair_procedure = _drr_procedures.execute_repair_procedure
-select_repair_procedure_from_catalog = _drr_procedures.select_repair_procedure_from_catalog
-from agent.services import _deterministic_repair_history as _drr_history
-build_path_visibility = _drr_history.build_path_visibility
-build_repair_history_inspection_view = _drr_history.build_repair_history_inspection_view
-from agent.services import _deterministic_repair_playbooks as _drr_playbooks
-get_initial_diagnosis_playbooks = _drr_playbooks.get_initial_diagnosis_playbooks
-run_diagnosis_playbook = _drr_playbooks.run_diagnosis_playbook
-from agent.services import _deterministic_repair_learning as _drr_learning
-build_negative_learning_model = _drr_learning.build_negative_learning_model
-build_success_weighted_repair_recommendations = _drr_learning.build_success_weighted_repair_recommendations
-from agent.services import _deterministic_repair_llm_escalation as _drr_llm_escalation
-build_bounded_escalation_prompt = _drr_llm_escalation.build_bounded_escalation_prompt
-curate_escalation_feedback = _drr_llm_escalation.curate_escalation_feedback
-decide_llm_escalation = _drr_llm_escalation.decide_llm_escalation
-from agent.services import _deterministic_repair_misc as _drr_misc
-build_recovery_hint_bundle = _drr_misc.build_recovery_hint_bundle
-evaluate_unsafe_action_guardrails = _drr_misc.evaluate_unsafe_action_guardrails
-from agent.services import _deterministic_repair_confidence as _drr_confidence
-evaluate_repair_confidence = _drr_confidence.evaluate_repair_confidence
-from agent.services import _deterministic_repair_knowledge as _drr_knowledge
-build_golden_path_examples = _drr_knowledge.build_golden_path_examples
-build_rollout_plan = _drr_knowledge.build_rollout_plan
-build_test_coverage_manifest = _drr_knowledge.build_test_coverage_manifest
-
-
 log = logging.getLogger(__name__)
 
 
@@ -343,8 +292,5 @@ def _detect_severity(message: str) -> str:
         if re.search(pattern, text):
             return severity
     return "info"
-
-
-
 
 
