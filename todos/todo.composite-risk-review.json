@@ -1,0 +1,256 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "composite-risk-review",
+  "created": "2026-06-10",
+  "status": "todo",
+  "purpose": "Kleines, separates und explizit aktivierbares Feature fuer Composite Risk Review: Ananta soll Task-Ketten optional auf erklaerbare Risiko-Indikatoren pruefen, ohne vollstaendige Absichtserkennung zu behaupten.",
+  "goal": "Ein optionaler Review-Layer, der nur bei expliziter Verwendung laeuft, Warnhinweise erzeugt und Audit-/Human-Review-Hinweise liefert. Das Feature darf keine Sicherheitsgarantie geben und darf nicht als automatische Composite Intent Detection vermarktet werden.",
+  "non_goals": [
+    "Keine vollstaendige Absichtserkennung ueber beliebig zerlegte Aufgaben hinweg.",
+    "Keine Garantie, dass einzeln harmlose Teilaufgaben zusammen niemals einem gefaehrlichen Gesamtzweck dienen.",
+    "Kein automatisches Gruenlicht fuer Sicherheit, wenn keine Warnung gefunden wurde.",
+    "Kein Default-Blocker im normalen Task-Flow.",
+    "Kein Ersatz fuer menschliche Verantwortung bei Ziel, Kontext und Zusammenbau von Ergebnissen."
+  ],
+  "mandatory_warning_text": "Composite Risk Review ist nur ein optionaler Risiko-Hinweis. Ananta kann keine vollstaendige Absichtserkennung ueber beliebig zerlegte Aufgaben garantieren. Keine Warnung bedeutet nicht, dass ein Goal, eine Task-Kette oder ein Artefakt sicher ist.",
+  "design_decisions": [
+    {
+      "id": "CRR-DD-001",
+      "decision": "Feature bewusst Composite Risk Review nennen, nicht Composite Intent Detection.",
+      "rationale": "Detection klingt nach belastbarer Absichtserkennung. Review macht klar, dass nur Indikatoren und Warnungen geliefert werden."
+    },
+    {
+      "id": "CRR-DD-002",
+      "decision": "Feature ist per Default deaktiviert und nur explizit nutzbar.",
+      "rationale": "Es soll kein Scheinsicherheits-Layer im normalen Flow entstehen."
+    },
+    {
+      "id": "CRR-DD-003",
+      "decision": "Review darf nur warnen, markieren und Human Review empfehlen.",
+      "rationale": "Das Feature soll keine harte Sicherheitsgarantie behaupten und keine automatische Freigabeentscheidung treffen."
+    },
+    {
+      "id": "CRR-DD-004",
+      "decision": "Warnhinweis muss in API, CLI, UI und Doku sichtbar sein.",
+      "rationale": "Die Sicherheitsgrenze darf nicht versteckt oder als Kleingedrucktes behandelt werden."
+    }
+  ],
+  "target_files": [
+    "agent/config.py",
+    "agent/services/composite_risk_review_service.py",
+    "agent/routes/composite_risk_review.py",
+    "docs/security/composite-risk-review.md",
+    "README.md",
+    "tests/test_composite_risk_review.py"
+  ],
+  "milestones": [
+    {
+      "id": "CRR-M1",
+      "title": "Doku und Grenzen festlegen",
+      "status": "todo",
+      "task_ids": ["CRR-001", "CRR-002"]
+    },
+    {
+      "id": "CRR-M2",
+      "title": "Optionalen Review-Service bauen",
+      "status": "todo",
+      "task_ids": ["CRR-003", "CRR-004", "CRR-005"]
+    },
+    {
+      "id": "CRR-M3",
+      "title": "Explizite Nutzung ueber API/CLI/UI vorbereiten",
+      "status": "todo",
+      "task_ids": ["CRR-006", "CRR-007", "CRR-008"]
+    },
+    {
+      "id": "CRR-M4",
+      "title": "Tests und Acceptance absichern",
+      "status": "todo",
+      "task_ids": ["CRR-009", "CRR-010"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CRR-001",
+      "title": "Composite Risk Review dokumentieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": ["docs/security/composite-risk-review.md", "README.md"],
+      "acceptance_criteria": [
+        "Doku nennt das Feature Composite Risk Review und erklaert, warum es nicht Composite Intent Detection heisst.",
+        "Doku enthaelt den mandatory_warning_text wortgleich oder inhaltlich unverkuerzt.",
+        "Doku verwendet den Manhattan-Projekt-Vergleich nur als Metapher fuer Kompartimentierung, nicht als technische Gleichsetzung.",
+        "README verlinkt prominent auf docs/security/composite-risk-review.md aus dem Abschnitt Sicherheitsgrenze / Nicht-Ziel."
+      ]
+    },
+    {
+      "id": "CRR-002",
+      "title": "Nicht-Ziele als harte Produktgrenze festhalten",
+      "type": "security-design",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["docs/security/composite-risk-review.md"],
+      "acceptance_criteria": [
+        "Doku sagt explizit: keine vollstaendige Absichtserkennung ueber beliebig zerlegte Aufgaben.",
+        "Doku sagt explizit: keine Warnung bedeutet nicht sicher.",
+        "Doku sagt explizit: Feature ist nur ein Review-/Audit-Hinweis und ersetzt keine menschliche Verantwortung.",
+        "Doku enthaelt eine kurze Tabelle: kann warnen / kann nicht garantieren."
+      ]
+    },
+    {
+      "id": "CRR-003",
+      "title": "Konfiguration fuer explizite Aktivierung einfuehren",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": ["agent/config.py"],
+      "acceptance_criteria": [
+        "Neue Config composite_risk_review_enabled existiert und ist per Default false.",
+        "Neue Config composite_risk_review_explicit_only existiert und ist per Default true.",
+        "Neue Config composite_risk_review_warning_text enthaelt den mandatory_warning_text.",
+        "Bestehende Flows rufen das Feature nicht automatisch auf."
+      ]
+    },
+    {
+      "id": "CRR-004",
+      "title": "Minimalen CompositeRiskReviewService implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["agent/services/composite_risk_review_service.py"],
+      "acceptance_criteria": [
+        "Service nimmt goal, tasks, artifacts_metadata und optional audit_events entgegen.",
+        "Service gibt risk_level, indicators, explanation, recommended_action und warning_text zurueck.",
+        "Service nutzt einfache erklaerbare Regeln, keine versteckte LLM-Pflicht.",
+        "Service funktioniert auch leer/teilweise befuellt und gibt dann insufficient_context mit warning_text zurueck."
+      ]
+    },
+    {
+      "id": "CRR-005",
+      "title": "Kleine erklaerbare Risiko-Indikatoren definieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["agent/services/composite_risk_review_service.py", "docs/security/composite-risk-review.md"],
+      "acceptance_criteria": [
+        "Indikatoren sind als Datenstruktur mit id, description, severity und matched_evidence modelliert.",
+        "Startindikatoren umfassen mindestens: viele sicherheitsrelevante Dateien, Kombination aus auth/network/payload/deploy, ploetzlicher Scope-Wechsel, finaler Assembly-Schritt nach vielen Teilartefakten.",
+        "Jeder Indikator liefert nachvollziehbare Evidence statt nur Score.",
+        "Score darf nur als Hinweis verwendet werden und wird nicht als Sicherheitsentscheidung dokumentiert."
+      ]
+    },
+    {
+      "id": "CRR-006",
+      "title": "Expliziten API-Endpunkt bereitstellen",
+      "type": "api",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["agent/routes/composite_risk_review.py", "agent/ai_agent.py"],
+      "acceptance_criteria": [
+        "Endpoint POST /api/security/composite-risk-review existiert nur fuer explizite Review-Anfragen.",
+        "Endpoint fuehrt Review nur aus, wenn composite_risk_review_enabled true ist oder ein lokaler Dev/Test-Kontext das explizit erlaubt.",
+        "Antwort enthaelt immer warning_text.",
+        "Endpoint trifft keine automatische allow/deny-Entscheidung fuer den normalen Task-Flow."
+      ]
+    },
+    {
+      "id": "CRR-007",
+      "title": "CLI-Kommando als explizite Nutzung vorbereiten",
+      "type": "cli",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["cli/", "docs/cli/commands.md"],
+      "acceptance_criteria": [
+        "CLI bietet ein explizites Kommando wie ananta security composite-risk-review <goal-or-run-id>.",
+        "CLI zeigt den warning_text vor oder zusammen mit dem Ergebnis sichtbar an.",
+        "CLI markiert Ergebnis als Hinweis, nicht als Sicherheitsfreigabe.",
+        "CLI-Doku enthaelt ein Beispiel mit low/medium/high und recommended_action."
+      ]
+    },
+    {
+      "id": "CRR-008",
+      "title": "UI nur als separates Review-Panel anbieten",
+      "type": "ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["frontend-angular/", "docs/golden-path-ui.md"],
+      "acceptance_criteria": [
+        "UI zeigt Composite Risk Review nicht als automatischen Safety-Status im normalen Flow an.",
+        "UI bietet nur eine explizite Review-Aktion oder ein separates Security/Audit-Panel.",
+        "UI zeigt den warning_text sichtbar an.",
+        "UI vermeidet Gruen/Rot-Sicherheitsampel, die eine Garantie suggerieren koennte."
+      ]
+    },
+    {
+      "id": "CRR-009",
+      "title": "Unit-Tests fuer Service und Warnhinweis schreiben",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": ["tests/test_composite_risk_review.py"],
+      "acceptance_criteria": [
+        "Tests pruefen, dass warning_text in jedem Ergebnis enthalten ist.",
+        "Tests pruefen, dass leere Eingaben insufficient_context statt sicher liefern.",
+        "Tests pruefen mindestens zwei Indikator-Treffer mit Evidence.",
+        "Tests pruefen, dass der Service keine allow/deny-Freigabeentscheidung zurueckgibt."
+      ]
+    },
+    {
+      "id": "CRR-010",
+      "title": "Regression sicherstellen: Feature bleibt optional",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["tests/", "agent/config.py"],
+      "acceptance_criteria": [
+        "Tests pruefen Default false fuer composite_risk_review_enabled.",
+        "Tests pruefen, dass bestehende Task-Engine-, Planning- und Worker-Flows ohne expliziten Review unveraendert bleiben.",
+        "Tests pruefen, dass kein normaler Task automatisch durch Composite Risk Review blockiert wird.",
+        "CI bleibt ohne externe LLM- oder Netzwerkabhaengigkeit lauffaehig."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 10,
+    "by_status": {
+      "todo": 10,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 4,
+      "P1": 6
+    },
+    "by_risk": {
+      "low": 8,
+      "high": 2
+    },
+    "critical_path": {
+      "total": 4,
+      "done": 0,
+      "remaining": 4
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  }
+}
