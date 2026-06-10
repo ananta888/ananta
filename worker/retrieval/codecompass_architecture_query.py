@@ -20,6 +20,18 @@ HEURISTIC_EDGE_TYPES = {
     "test_calls_endpoint",
 }
 
+# CCAQE-015: security-relevant edge types carry provenance. For these edges
+# the engine exposes source_file + source_record_id on every result so agents
+# can verify WHERE the policy/permission/guard statement came from, not just
+# that one exists. Frontend-only guards are flagged as such.
+SECURITY_RELEVANT_EDGE_TYPES = {
+    "policy_applies_to_field",
+    "permission_checks_field",
+    "interceptor_guards_method",
+    "frontend_guard_refs_field",
+    "role_allows_operation",
+}
+
 _EDGE_TYPE_WEIGHTS: dict[str, float] = {
     "field_type_uses": 1.0,
     "method_param_type_uses": 1.0,
@@ -324,6 +336,52 @@ def _collect_operations(edges: list[dict[str, Any]]) -> list[str]:
     return operations
 
 
+def _annotate_security_provenance(
+    edges: list[dict[str, Any]],
+    *,
+    source_nodes: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """CCAQE-015: enrich security-relevant edges with source_file + source_record_id.
+
+    The graph store carries the originating node's `file` + `record_id`; we
+    propagate that onto every edge in the result so agents can audit WHERE
+    a policy/permission/guard statement came from. Non-security edges are
+    returned unchanged (provenance lives in the Evidence-Path itself).
+
+    `source_nodes` is a lookup from source_id to the materialized node dict
+    (with `file` and `record_id`). When the lookup is missing or the source
+    node is not in it, we fall back to whatever the edge already carries
+    (typically nothing for test-fixture edges, in which case the field is
+    `None` rather than fabricated).
+    """
+    if not edges:
+        return edges
+    annotated: list[dict[str, Any]] = []
+    lookup = source_nodes or {}
+    for edge in edges:
+        edge_type = str(edge.get("edge_type") or "").strip()
+        new_edge = dict(edge)
+        if edge_type in SECURITY_RELEVANT_EDGE_TYPES:
+            source_id = str(edge.get("source_id") or "")
+            source_node = lookup.get(source_id) if source_id else None
+            if "source_file" not in new_edge:
+                new_edge["source_file"] = (
+                    (source_node or {}).get("file")
+                    or edge.get("source_file")
+                    or edge.get("file")
+                )
+            if "source_record_id" not in new_edge:
+                new_edge["source_record_id"] = (
+                    (source_node or {}).get("record_id")
+                    or edge.get("source_record_id")
+                    or edge.get("record_id")
+                )
+            if edge_type == "frontend_guard_refs_field":
+                new_edge["enforcement_scope"] = "frontend_only"
+        annotated.append(new_edge)
+    return annotated
+
+
 def run_architecture_query(
     *,
     store: CodeCompassGraphStore,
@@ -420,6 +478,7 @@ def run_architecture_query(
             edges = [dict(edge) for edge in list(entry.get("edges") or [])]
             if not _path_matches_field(edges, field_name):
                 continue
+            edges = _annotate_security_provenance(edges, source_nodes=node_lookup)
             scored_paths.append({
                 "path_score": score_evidence_path(edges),
                 "edges": edges,

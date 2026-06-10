@@ -411,3 +411,63 @@ def test_role_classification_annotation_and_name_heuristics():
     assert classify_result_role({"name": "PriceMapper", "kind": "java_type", "file": "s.java", "source_record": {}}) == "mapper"
     assert classify_result_role({"name": "BillingServiceImpl", "kind": "java_type", "file": "s.java", "source_record": {}}) == "service"
     assert classify_result_role({"name": "AppConfig", "kind": "java_type", "file": "s.java", "source_record": {}}) == "config"
+
+
+# --- CCAQE-015: security-edge provenance + enforcement_scope ---
+
+
+def test_field_policy_impact_propagates_source_file_and_record_id(store):
+    """Security-relevant edges carry source_file + source_record_id so agents can
+    audit WHERE a policy/permission statement came from."""
+    payload = run_architecture_query(store=store, query_type="field-policy-impact", seed="UserDto", field="price")
+    policy = _result_by_node(payload, _POLICY_ID)
+    assert policy is not None
+    backend_edges = [
+        edge
+        for path in policy["evidence_paths"]
+        for edge in path["edges"]
+        if edge.get("edge_type") in {"permission_checks_field", "policy_applies_to_field"}
+    ]
+    assert backend_edges, "expected at least one backend-enforcement edge"
+    for edge in backend_edges:
+        assert edge.get("source_file"), f"missing source_file on {edge.get('edge_type')}"
+        assert edge.get("source_record_id"), f"missing source_record_id on {edge.get('edge_type')}"
+        assert "PriceFieldPolicy" in edge["source_file"]
+
+
+def test_field_policy_impact_frontend_guard_carries_enforcement_scope(store):
+    """frontend_guard_refs_field edges are tagged with enforcement_scope=frontend_only."""
+    payload = run_architecture_query(store=store, query_type="field-policy-impact", seed="UserDto", field="price")
+    guard = _result_by_node(payload, _FRONTEND_GUARD_ID)
+    assert guard is not None
+    guard_edges = [edge for path in guard["evidence_paths"] for edge in path["edges"]]
+    assert any(edge.get("edge_type") == "frontend_guard_refs_field" for edge in guard_edges)
+    for edge in guard_edges:
+        if edge.get("edge_type") == "frontend_guard_refs_field":
+            assert edge.get("enforcement_scope") == "frontend_only"
+            assert edge.get("source_file") == "frontend/src/app/user-form.guard.ts"
+
+
+def test_non_security_edges_are_not_annotated():
+    """Provenance annotation is scoped to security-relevant edge types only."""
+    from worker.retrieval.codecompass_architecture_query import _annotate_security_provenance
+
+    plain_edges = [
+        {"edge_type": "field_type_uses", "source_id": "a", "target_id": "b", "confidence": 0.9},
+        {"edge_type": "injects_dependency", "source_id": "c", "target_id": "d", "confidence": 0.8},
+    ]
+    annotated = _annotate_security_provenance(plain_edges, source_nodes={})
+    for edge in annotated:
+        assert "source_file" not in edge
+        assert "source_record_id" not in edge
+        assert "enforcement_scope" not in edge
+
+
+def test_security_edge_provenance_falls_back_gracefully_without_source_nodes():
+    """Missing source-node lookup must not fabricate a source_file."""
+    from worker.retrieval.codecompass_architecture_query import _annotate_security_provenance
+
+    edges = [{"edge_type": "permission_checks_field", "source_id": "missing", "target_id": "x", "confidence": 0.9}]
+    annotated = _annotate_security_provenance(edges, source_nodes={})
+    assert annotated[0]["source_file"] is None
+    assert annotated[0]["source_record_id"] is None

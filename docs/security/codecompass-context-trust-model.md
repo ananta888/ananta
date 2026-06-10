@@ -35,6 +35,48 @@ Query results expose this as `enforcement` (`enforced_backend_guard`,
 protected based on `frontend_reference` or `weak_reference` results, and must
 surface the warnings attached to heuristic evidence.
 
-Known limitation: `frontend_guard_refs_field` edges are part of the contract,
-but no TypeScript extractor emits them yet — frontend guard coverage currently
-comes only from manually provided or fixture data.
+## Confidence tiers (CCAQE-015)
+
+Every security-relevant edge carries a `confidence` value (0.0–1.0). The engine
+exposes three bands that humans and agents can read without remembering numeric
+boundaries:
+
+| Band | Range | Meaning | Downstream behaviour |
+|---|---|---|---|
+| **high** | ≥ 0.9 | Direct annotation / explicit policy object | Counts as evidence; no extra warning |
+| **medium** | 0.7–0.89 | Plausible, often name-resolved | Counts as evidence + attaches `medium_confidence` warning to the result entry |
+| **low** | < 0.7 | Heuristic match (e.g. method-name → operation) | Counts as **weak_reference**; agents must not claim enforcement |
+
+The band is informational — the engine does not silently drop low-confidence
+edges. Agents are responsible for treating low-confidence results as
+"potentially relevant, not proven" and for surfacing the band in their answer.
+
+## Provenance on security edges (CCAQE-015)
+
+For every security-relevant edge the engine exposes two extra fields on the
+result's `evidence_paths[].edges[]` entry:
+
+- `source_file` — the file the originating node (policy/permission/guard)
+  belongs to. Resolved via the graph store's source-node lookup, never
+  fabricated. `null` if the source node is not in the materialized index.
+- `source_record_id` — the record id of the originating node, if any. Same
+  fallback rules as `source_file`.
+- `enforcement_scope` — present on `frontend_guard_refs_field` edges only,
+  always `"frontend_only"`. Agents must treat such results as frontend-side
+  hints, never as backend enforcement.
+
+Provenance is additive: the edge's original `edge_type`, `confidence`,
+`operation`, and `field` fields remain untouched. The provenance fields exist
+so an agent (or a human reviewer) can open the source file and verify the
+policy claim rather than trusting a path of edges that might have been
+heuristically derived.
+
+## Frontend-only guards
+
+`frontend_guard_refs_field` edges are part of the contract, but no TypeScript
+extractor emits them yet — frontend guard coverage currently comes only from
+manually provided or fixture data. The engine still classifies them correctly
+as `frontend_reference` (never `enforced_backend_guard`) and tags the
+provenance with `enforcement_scope: "frontend_only"`. Until an extractor ships,
+treat all frontend-only results as developer-supplied hints, not as
+discovered coverage.
