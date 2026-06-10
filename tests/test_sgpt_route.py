@@ -64,7 +64,7 @@ def test_sgpt_execute_rejects_unsupported_flags_for_opencode(client, admin_auth_
 
 def test_sgpt_execute_opencode_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\opencode.cmd"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -86,7 +86,7 @@ def test_sgpt_execute_opencode_backend(client, admin_auth_header):
 
 def test_sgpt_execute_codex_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\codex.cmd"),
+        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\codex.cmd"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -109,7 +109,7 @@ def test_sgpt_execute_codex_backend(client, admin_auth_header):
 
 def test_sgpt_execute_aider_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\aider.exe"),
+        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\aider.exe"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -132,7 +132,7 @@ def test_sgpt_execute_aider_backend(client, admin_auth_header):
 
 def test_sgpt_execute_mistral_code_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\mistral-code.cmd"),
+        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\mistral-code.cmd"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -222,7 +222,20 @@ def test_sgpt_backends_endpoint(client, admin_auth_header):
 
 
 def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admin_auth_header):
-    with patch("agent.common.sgpt.shutil.which", side_effect=lambda cmd: f"/usr/bin/{cmd}" if cmd in {"codex", "opencode"} else None), patch(
+    from unittest.mock import MagicMock as _MagicMock
+    _ms = _MagicMock()
+    _ms.sgpt_execution_backend = "codex"
+    _ms.codex_path = "codex"
+    _ms.opencode_path = "opencode"
+    _ms.aider_path = "aider"
+    _ms.mistral_code_path = "mistral-code"
+    _ms.codex_default_model = "gpt-5-codex"
+    _ms.default_provider = "lmstudio"
+    _ms.lmstudio_url = "http://host.docker.internal:1234/v1"
+    _ms.openai_url = "https://api.openai.com/v1/chat/completions"
+    _ms.openai_api_key = None
+    _ms.http_timeout = 5.0
+    with patch("agent.common.sgpt_backend_routing.shutil.which", side_effect=lambda cmd: f"/usr/bin/{cmd}" if cmd in {"codex", "opencode"} else None), patch(
         "agent.llm_integration.probe_lmstudio_runtime",
         return_value={
             "ok": True,
@@ -231,19 +244,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
             "candidate_count": 3,
             "candidates": [{"id": "qwen2.5-coder"}],
         },
-    ), patch("agent.common.sgpt.settings") as mock_settings:
-        mock_settings.sgpt_execution_backend = "codex"
-        mock_settings.codex_path = "codex"
-        mock_settings.opencode_path = "opencode"
-        mock_settings.aider_path = "aider"
-        mock_settings.mistral_code_path = "mistral-code"
-        mock_settings.codex_default_model = "gpt-5-codex"
-        mock_settings.default_provider = "lmstudio"
-        mock_settings.lmstudio_url = "http://host.docker.internal:1234/v1"
-        mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
-        mock_settings.openai_api_key = None
-        mock_settings.http_timeout = 5.0
-
+    ), patch("agent.common.sgpt_backend_routing.settings", _ms), patch("agent.common.sgpt_helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -289,6 +290,19 @@ def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_
 
 
 def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client, admin_auth_header):
+    from unittest.mock import MagicMock as _MagicMock
+    _ms = _MagicMock()
+    _ms.sgpt_execution_backend = "codex"
+    _ms.codex_path = "codex"
+    _ms.opencode_path = "opencode"
+    _ms.aider_path = "aider"
+    _ms.mistral_code_path = "mistral-code"
+    _ms.codex_default_model = "gpt-5-codex"
+    _ms.default_provider = "lmstudio"
+    _ms.lmstudio_url = "not-a-valid-url"
+    _ms.openai_url = "https://api.openai.com/v1/chat/completions"
+    _ms.openai_api_key = None
+    _ms.http_timeout = 5.0
     with patch(
         "agent.llm_integration.probe_lmstudio_runtime",
         return_value={
@@ -299,19 +313,7 @@ def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client
             "candidate_count": 0,
             "candidates": [],
         },
-    ), patch("agent.common.sgpt.settings") as mock_settings:
-        mock_settings.sgpt_execution_backend = "codex"
-        mock_settings.codex_path = "codex"
-        mock_settings.opencode_path = "opencode"
-        mock_settings.aider_path = "aider"
-        mock_settings.mistral_code_path = "mistral-code"
-        mock_settings.codex_default_model = "gpt-5-codex"
-        mock_settings.default_provider = "lmstudio"
-        mock_settings.lmstudio_url = "not-a-valid-url"
-        mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
-        mock_settings.openai_api_key = None
-        mock_settings.http_timeout = 5.0
-
+    ), patch("agent.common.sgpt_backend_routing.settings", _ms), patch("agent.common.sgpt_helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -671,7 +673,7 @@ class TestSourceFileBatchesPathOnly:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py"}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -691,7 +693,7 @@ class TestSourceFileBatchesPathOnly:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "../secret.txt"}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches == []
@@ -702,7 +704,7 @@ class TestSourceFileBatchesPathOnly:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [{"path": "doesnotexist.py"}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches == []
@@ -713,7 +715,7 @@ class TestSourceFileBatchesPathOnly:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [], hub_content="# Hub context\nsome content")
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -732,7 +734,7 @@ class TestSourceFileBatchesPathOnly:
         hub_dir.mkdir()
         (hub_dir / "hub-context.md").write_text("fallback content", encoding="utf-8")
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         # Should gracefully fall back to hub-context.md
@@ -758,7 +760,7 @@ class TestLineRangeNormalization:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "start_line": 21, "end_line": 22}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0)
 
         assert len(batches) == 1
@@ -777,7 +779,7 @@ class TestLineRangeNormalization:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "line_start": 5, "line_end": 7}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0)
 
         assert len(batches) == 1
@@ -793,7 +795,7 @@ class TestLineRangeNormalization:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "from_line": 10, "to_line": 12}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0)
 
         assert batches[0][0]["source_kind"] == "line_range"
@@ -809,7 +811,7 @@ class TestLineRangeNormalization:
         # end < start — invalid
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "start_line": 10, "end_line": 5}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -824,7 +826,7 @@ class TestSnippetAndChunkPriority:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [{"snippet": "def my_func(): pass"}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -841,7 +843,7 @@ class TestSnippetAndChunkPriority:
         ]
         workdir = _make_workdir(tmp_path / "ws", [{"path": "module.py", "chunks": chunks}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), files_per_batch=5)
 
         # Chunks from ref used, not file-beginning fallback
@@ -862,7 +864,7 @@ class TestSnippetAndChunkPriority:
         # Same path twice → only one block
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py"}, {"path": "sample.py"}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         all_blocks = [b for batch in batches for b in batch]
@@ -882,7 +884,7 @@ class TestSnippetAndChunkPriority:
             {"path": "c.py", "score": 0.6},
         ])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), files_per_batch=10)
 
         all_blocks = [b for batch in batches for b in batch]
@@ -971,7 +973,7 @@ class TestCodeCompassSnippetHandoff:
             "reason": "target function",
         }])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0, per_file_chars=4000)
 
         assert len(batches) == 1
@@ -991,7 +993,7 @@ class TestCodeCompassSnippetHandoff:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "module.py"}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -1008,7 +1010,7 @@ class TestCodeCompassSnippetHandoff:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "../secret.txt", "start_line": 1, "end_line": 1}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches == []
@@ -1023,7 +1025,7 @@ class TestBackwardCompatibility:
         (repo / "legacy.py").write_text("x = 1\n", encoding="utf-8")
         workdir = _make_workdir(tmp_path / "ws", [{"path": "legacy.py"}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -1035,7 +1037,7 @@ class TestBackwardCompatibility:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [], hub_content="hub fallback")
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches[0][0]["source_kind"] == "hub_context"
@@ -1050,7 +1052,7 @@ class TestBackwardCompatibility:
         ananta_dir.mkdir()
         (ananta_dir / "hub-context.md").write_text("hub only", encoding="utf-8")
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches[0][0]["source_kind"] == "hub_context"
@@ -1063,7 +1065,7 @@ class TestBackwardCompatibility:
         (workdir / "rag_helper").mkdir(parents=True)
         (workdir / "rag_helper" / "research-context.json").write_text("{{broken", encoding="utf-8")
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             # Must not raise
             batches = _load_source_file_batches(str(workdir))
 
@@ -1084,7 +1086,7 @@ class TestBudgetGuard:
 
         workdir = _make_workdir(tmp_path / "ws", refs)
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), max_files=3)
 
         all_blocks = [b for batch in batches for b in batch]
@@ -1106,7 +1108,7 @@ class TestBudgetGuard:
         ]
         workdir = _make_workdir(tmp_path / "ws", refs)
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), max_files=2)
 
         all_blocks = [b for batch in batches for b in batch]
@@ -1130,7 +1132,7 @@ class TestConfigDrivenContext:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "start_line": 15, "end_line": 15}])
 
-        with patch("agent.common.sgpt._resolve_repo_root", return_value=repo):
+        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
             batches_narrow = _load_source_file_batches(str(workdir), context_lines=0)
             batches_wide = _load_source_file_batches(str(workdir), context_lines=3)
 
