@@ -14,10 +14,15 @@ _SYMBOL_MAP: dict[str, tuple[str, str]] = {
     "build_operator_proposal_preview": ("agent.services._deterministic_repair_operator_views", "build_operator_proposal_preview"),
     "build_operator_session_summary": ("agent.services._deterministic_repair_operator_views", "build_operator_session_summary"),
     "run_diagnosis_playbook": ("agent.services._deterministic_repair_playbooks", "run_diagnosis_playbook"),
+    "get_initial_diagnosis_playbooks": ("agent.services._deterministic_repair_playbooks", "get_initial_diagnosis_playbooks"),
+    "build_initial_repair_procedure_catalog": ("agent.services._deterministic_repair_procedures", "build_initial_repair_procedure_catalog"),
     "convert_llm_proposal_to_reviewed_procedure": ("agent.services._deterministic_repair_procedures", "convert_llm_proposal_to_reviewed_procedure"),
     "execute_repair_procedure": ("agent.services._deterministic_repair_procedures", "execute_repair_procedure"),
     "select_repair_procedure_from_catalog": ("agent.services._deterministic_repair_procedures", "select_repair_procedure_from_catalog"),
     "match_failure_signatures": ("agent.services._deterministic_repair_signatures", "match_failure_signatures"),
+    "build_initial_failure_signature_catalog": ("agent.services._deterministic_repair_signatures", "build_initial_failure_signature_catalog"),
+    "build_failure_signature": ("agent.services._deterministic_repair_signatures", "build_failure_signature"),
+    "FailureSignature": ("agent.services._deterministic_repair_signatures", "FailureSignature"),
     "verify_final_repair_outcome": ("agent.services._deterministic_repair_outcome_memory", "verify_final_repair_outcome"),
 }
 
