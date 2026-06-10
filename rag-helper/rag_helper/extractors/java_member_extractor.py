@@ -27,6 +27,8 @@ from rag_helper.extractors.java_ast_helpers import (
 from rag_helper.extractors.java_type_resolution import (
     find_resolution_conflicts,
     resolve_type_name,
+    split_generics,
+    strip_generics,
     uniq_conflicts,
     uniq_keep_order,
 )
@@ -62,6 +64,45 @@ class JavaMemberContext:
     mark_import_conflicts: bool
     resolve_method_targets: bool
     field_type_lookup: dict[str, list[str]]
+
+
+def _build_typed_use_relations(
+    *,
+    ctx: JavaMemberContext,
+    source_id: str,
+    source_kind: str,
+    source_name: str,
+    type_texts: dict[str, list[str]],
+) -> list[RelationRecord]:
+    """CCAQE-013: emit <relation> for the outer type and generic_type_uses for
+    generic arguments (List<UserDto> -> generic_type_uses on UserDto)."""
+    relations: list[RelationRecord] = []
+    for relation_name, texts in type_texts.items():
+        for type_text in texts:
+            if not type_text or type_text == "void":
+                continue
+            outer_raw = strip_generics(type_text) or type_text
+            tokens = split_generics(type_text)
+            for raw_token in tokens:
+                token_relation = relation_name if raw_token == outer_raw else "generic_type_uses"
+                for resolved in resolve_type_name(
+                    raw_token,
+                    ctx.package_name,
+                    ctx.import_map,
+                    ctx.known_package_types,
+                    ctx.same_file_types,
+                    wildcard_imports=ctx.wildcard_imports,
+                ):
+                    relations.append(make_relation(
+                        file=ctx.rel_path,
+                        source_id=source_id,
+                        source_kind=source_kind,
+                        source_name=source_name,
+                        relation=token_relation,
+                        target=raw_token,
+                        target_resolved=resolved,
+                    ))
+    return relations
 
 
 def extract_method(
@@ -236,6 +277,24 @@ def extract_method(
                 target_resolved=rt,
             ))
 
+    # CCAQE-013: typed edges for params, return types and generic arguments so
+    # dto-impact works beyond plain field usage.
+    relations.extend(_build_typed_use_relations(
+        ctx=ctx,
+        source_id=method_id,
+        source_kind="java_method",
+        source_name=f"{class_name}.{name}",
+        type_texts={"method_param_type_uses": list(parse_parameter_bindings(params).values())},
+    ))
+    if return_type:
+        relations.extend(_build_typed_use_relations(
+            ctx=ctx,
+            source_id=method_id,
+            source_kind="java_method",
+            source_name=f"{class_name}.{name}",
+            type_texts={"method_return_type_uses": [return_type]},
+        ))
+
     if ctx.relation_mode != "compact":
         for call in calls:
             relations.append(make_relation(
@@ -260,6 +319,16 @@ def extract_method(
                 "confidence": call_target["confidence"],
                 "heuristic": call_target["heuristic"],
             },
+        ))
+
+    if body is not None:
+        from rag_helper.extractors.java_security_test_relations import build_test_endpoint_call_relations
+
+        relations.extend(build_test_endpoint_call_relations(
+            rel_path=ctx.rel_path,
+            method_id=method_id,
+            source_name=f"{class_name}.{name}",
+            body_text=node_text(ctx.src, body),
         ))
 
     return idx, detail, relations, {"is_trivial": is_trivial}

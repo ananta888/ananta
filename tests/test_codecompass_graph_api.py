@@ -220,8 +220,101 @@ def test_expand_graph_default_profile_is_bugfix_local(client, auth_header, tmp_p
     assert resp.json["data"]["metadata"]["profile"] == "bugfix_local"
 
 
+# ── GET /api/codecompass/query (CCAQE-017) ────────────────────────────────────
+
+def _build_architecture_index(tmp_path: Path) -> Path:
+    fixture = json.loads(
+        Path("tests/fixtures/codecompass_architecture/graph_records.json").read_text(encoding="utf-8")
+    )
+    index_path = tmp_path / "cc_graph_index.json"
+    store = CodeCompassGraphStore(index_path=index_path)
+    store.rebuild_from_output_records(records=fixture["records"], manifest_hash=fixture["manifest_hash"])
+    return index_path
+
+
+def test_architecture_query_dto_impact_happy_path(client, auth_header, tmp_path):
+    _build_architecture_index(tmp_path)
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        resp = client.get(
+            "/api/codecompass/query?knowledge_index_id=idx-1&type=dto-impact&seed=UserDto",
+            headers=auth_header,
+        )
+    assert resp.status_code == 200
+    data = resp.json["data"]
+    assert data["schema"] == "codecompass_architecture_query_result.v1"
+    assert data["query_type"] == "dto-impact"
+    assert data["results"]
+    first = data["results"][0]
+    assert first["evidence_paths"]
+    assert data["metadata"]["knowledge_index_id"] == "idx-1"
+
+
+def test_architecture_query_invalid_query_type_returns_400_with_valid_types(client, auth_header, tmp_path):
+    _build_architecture_index(tmp_path)
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        resp = client.get(
+            "/api/codecompass/query?knowledge_index_id=idx-1&type=free-cypher&seed=UserDto",
+            headers=auth_header,
+        )
+    assert resp.status_code == 400
+    assert "dto-impact" in json.dumps(resp.json)
+
+
+def test_architecture_query_missing_knowledge_index_id_returns_400(client, auth_header):
+    resp = client.get("/api/codecompass/query?type=dto-impact&seed=UserDto", headers=auth_header)
+    assert resp.status_code == 400
+
+
+def test_architecture_query_missing_seed_returns_400(client, auth_header, tmp_path):
+    _build_architecture_index(tmp_path)
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        resp = client.get(
+            "/api/codecompass/query?knowledge_index_id=idx-1&type=dto-impact",
+            headers=auth_header,
+        )
+    assert resp.status_code == 400
+
+
+def test_architecture_query_invalid_depth_and_direction_return_400(client, auth_header, tmp_path):
+    _build_architecture_index(tmp_path)
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        bad_depth = client.get(
+            "/api/codecompass/query?knowledge_index_id=idx-1&type=dto-impact&seed=UserDto&depth=abc",
+            headers=auth_header,
+        )
+        bad_direction = client.get(
+            "/api/codecompass/query?knowledge_index_id=idx-1&type=dto-impact&seed=UserDto&direction=sideways",
+            headers=auth_header,
+        )
+    assert bad_depth.status_code == 400
+    assert bad_direction.status_code == 400
+
+
+def test_architecture_query_unknown_seed_returns_valid_empty_result(client, auth_header, tmp_path):
+    _build_architecture_index(tmp_path)
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        resp = client.get(
+            "/api/codecompass/query?knowledge_index_id=idx-1&type=dto-impact&seed=NotThere",
+            headers=auth_header,
+        )
+    assert resp.status_code == 200
+    data = resp.json["data"]
+    assert data["results"] == []
+    assert "seed_not_resolved" in data["warnings"]
+
+
 # ── unauthenticated ───────────────────────────────────────────────────────────
 
 def test_unauthenticated_graph_returns_401(client):
     resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1")
+    assert resp.status_code == 401
+
+
+def test_unauthenticated_query_returns_401(client):
+    resp = client.get("/api/codecompass/query?knowledge_index_id=idx-1&type=dto-impact&seed=UserDto")
     assert resp.status_code == 401

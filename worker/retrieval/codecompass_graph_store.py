@@ -8,10 +8,13 @@ from typing import Any
 class CodeCompassGraphStore:
     def __init__(self, *, index_path: str | Path):
         self._index_path = Path(index_path)
+        self._cached_payload: dict[str, Any] | None = None
 
     def load(self) -> dict[str, Any]:
+        if self._cached_payload is not None:
+            return self._cached_payload
         if not self._index_path.exists():
-            return {
+            self._cached_payload = {
                 "state": {},
                 "nodes": [],
                 "edges": [],
@@ -20,8 +23,9 @@ class CodeCompassGraphStore:
                 "incoming_index": {},
                 "diagnostics": {"status": "degraded", "reason": "graph_index_missing"},
             }
+            return self._cached_payload
         payload = json.loads(self._index_path.read_text(encoding="utf-8"))
-        return {
+        self._cached_payload = {
             "state": dict(payload.get("state") or {}),
             "nodes": [item for item in list(payload.get("nodes") or []) if isinstance(item, dict)],
             "edges": [item for item in list(payload.get("edges") or []) if isinstance(item, dict)],
@@ -30,10 +34,12 @@ class CodeCompassGraphStore:
             "incoming_index": dict(payload.get("incoming_index") or {}),
             "diagnostics": dict(payload.get("diagnostics") or {}),
         }
+        return self._cached_payload
 
     def save(self, payload: dict[str, Any]) -> None:
         self._index_path.parent.mkdir(parents=True, exist_ok=True)
         self._index_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._cached_payload = None
 
     def rebuild_from_output_records(
         self,
@@ -71,18 +77,20 @@ class CodeCompassGraphStore:
                 if not source_id or not target_id:
                     continue
                 edge_type = str(record.get("type") or record.get("edge_type") or "related").strip().lower() or "related"
-                edges.append(
-                    {
-                        "source_id": source_id,
-                        "target_id": target_id,
-                        "edge_type": edge_type,
-                        "confidence": float(record.get("confidence") or 1.0),
-                        "provenance": {
-                            "manifest_hash": str(manifest_hash or ""),
-                            "output_kind": output_kind,
-                        },
-                    }
-                )
+                edge: dict[str, Any] = {
+                    "source_id": source_id,
+                    "target_id": target_id,
+                    "edge_type": edge_type,
+                    "confidence": float(record.get("confidence") or 1.0),
+                    "provenance": {
+                        "manifest_hash": str(manifest_hash or ""),
+                        "output_kind": output_kind,
+                    },
+                }
+                for attribute_key in ("field", "operation", "heuristic"):
+                    if record.get(attribute_key) is not None:
+                        edge[attribute_key] = record[attribute_key]
+                edges.append(edge)
 
         node_index = self._build_node_index(nodes)
         outgoing_index, incoming_index = self._build_edge_indexes(edges)
@@ -153,16 +161,66 @@ class CodeCompassGraphStore:
             incoming.setdefault(target_id, {}).setdefault(edge_type, []).append(dict(edge))
         return outgoing, incoming
 
-    def outgoing_edges(self, *, node_id: str, allowed_edge_types: set[str] | None = None) -> list[dict[str, Any]]:
+    def get_node(self, *, node_id: str) -> dict[str, Any] | None:
         payload = self.load()
-        outgoing = dict(payload.get("outgoing_index") or {}).get(str(node_id), {})
+        by_id = dict((payload.get("node_index") or {}).get("by_id") or {})
+        node = by_id.get(str(node_id or "").strip())
+        return dict(node) if isinstance(node, dict) else None
+
+    def find_nodes_by_name(self, *, name: str) -> list[dict[str, Any]]:
+        query = str(name or "").strip()
+        if not query:
+            return []
+        payload = self.load()
+        node_index = dict(payload.get("node_index") or {})
+        by_id = dict(node_index.get("by_id") or {})
+        by_name = dict(node_index.get("by_name") or {})
+        node_ids = list(by_name.get(query) or [])
+        if not node_ids:
+            lowered = query.lower()
+            for known_name in sorted(by_name):
+                if str(known_name).lower() == lowered:
+                    node_ids.extend(by_name.get(known_name) or [])
+        return [dict(by_id[node_id]) for node_id in sorted(set(node_ids)) if node_id in by_id]
+
+    def find_nodes_by_file(self, *, file: str) -> list[dict[str, Any]]:
+        query = str(file or "").strip()
+        if not query:
+            return []
+        payload = self.load()
+        node_index = dict(payload.get("node_index") or {})
+        by_id = dict(node_index.get("by_id") or {})
+        by_file = dict(node_index.get("by_file") or {})
+        node_ids = list(by_file.get(query) or [])
+        if not node_ids:
+            lowered = query.lower()
+            for known_file in sorted(by_file):
+                if lowered in str(known_file).lower():
+                    node_ids.extend(by_file.get(known_file) or [])
+        return [dict(by_id[node_id]) for node_id in sorted(set(node_ids)) if node_id in by_id]
+
+    @staticmethod
+    def _edges_from_index(
+        index: dict[str, Any],
+        node_id: str,
+        allowed_edge_types: set[str] | None,
+    ) -> list[dict[str, Any]]:
+        bucket = dict(index or {}).get(str(node_id), {})
         rows: list[dict[str, Any]] = []
         allow = {str(item).strip().lower() for item in set(allowed_edge_types or set()) if str(item).strip()}
-        for edge_type in sorted(outgoing):
+        for edge_type in sorted(bucket):
             if allow and edge_type not in allow:
                 continue
-            rows.extend(dict(item) for item in list(outgoing.get(edge_type) or []) if isinstance(item, dict))
+            rows.extend(dict(item) for item in list(bucket.get(edge_type) or []) if isinstance(item, dict))
         return rows
+
+    def outgoing_edges(self, *, node_id: str, allowed_edge_types: set[str] | None = None) -> list[dict[str, Any]]:
+        payload = self.load()
+        return self._edges_from_index(payload.get("outgoing_index") or {}, node_id, allowed_edge_types)
+
+    def incoming_edges(self, *, node_id: str, allowed_edge_types: set[str] | None = None) -> list[dict[str, Any]]:
+        payload = self.load()
+        return self._edges_from_index(payload.get("incoming_index") or {}, node_id, allowed_edge_types)
 
     def traverse(
         self,
@@ -204,5 +262,109 @@ class CodeCompassGraphStore:
             "paths": selected_paths,
             "cycle_guarded": True,
             "bounded": True,
+        }
+
+    def _neighbor_steps(
+        self,
+        payload: dict[str, Any],
+        node_id: str,
+        direction: str,
+        allowed_edge_types: set[str] | None,
+    ) -> list[dict[str, Any]]:
+        steps: list[dict[str, Any]] = []
+        if direction in {"outgoing", "both"}:
+            for edge in self._edges_from_index(payload.get("outgoing_index") or {}, node_id, allowed_edge_types):
+                other = str(edge.get("target_id") or "").strip()
+                if other:
+                    steps.append({**edge, "direction_used": "outgoing", "_other_id": other})
+        if direction in {"incoming", "both"}:
+            for edge in self._edges_from_index(payload.get("incoming_index") or {}, node_id, allowed_edge_types):
+                other = str(edge.get("source_id") or "").strip()
+                if other:
+                    steps.append({**edge, "direction_used": "incoming", "_other_id": other})
+        steps.sort(key=lambda item: (
+            str(item.get("edge_type") or ""),
+            str(item.get("_other_id") or ""),
+            str(item.get("direction_used") or ""),
+        ))
+        return steps
+
+    def traverse_paths(
+        self,
+        *,
+        seed_ids: list[str],
+        max_depth: int,
+        max_nodes: int,
+        allowed_edge_types: set[str] | None = None,
+        direction: str = "outgoing",
+        max_paths_per_node: int = 3,
+    ) -> dict[str, Any]:
+        direction_name = str(direction or "outgoing").strip().lower()
+        if direction_name not in {"outgoing", "incoming", "both"}:
+            direction_name = "outgoing"
+        payload = self.load()
+        by_id = dict((payload.get("node_index") or {}).get("by_id") or {})
+        seeds = sorted({str(item).strip() for item in list(seed_ids or []) if str(item).strip() and str(item).strip() in by_id})
+        depth_cap = max(0, int(max_depth))
+        node_cap = max(1, int(max_nodes))
+        path_cap = max(1, int(max_paths_per_node))
+        expansion_cap = node_cap * max(4, path_cap * 2)
+
+        paths_by_node: dict[str, list[dict[str, Any]]] = {}
+        discovery_order: list[str] = []
+        cycle_count = 0
+        expansions = 0
+        truncated = False
+        queue: list[tuple[str, int, tuple[dict[str, Any], ...], frozenset[str]]] = [
+            (seed, 0, (), frozenset({seed})) for seed in seeds
+        ]
+        while queue:
+            node_id, depth, path, on_path = queue.pop(0)
+            if depth >= depth_cap:
+                continue
+            for step in self._neighbor_steps(payload, node_id, direction_name, allowed_edge_types):
+                other_id = str(step.pop("_other_id"))
+                if other_id in on_path:
+                    cycle_count += 1
+                    continue
+                if other_id not in by_id:
+                    continue
+                if expansions >= expansion_cap:
+                    truncated = True
+                    queue.clear()
+                    break
+                new_path = (*path, dict(step))
+                if other_id not in seeds:
+                    if other_id not in paths_by_node:
+                        if len(discovery_order) >= node_cap:
+                            truncated = True
+                            continue
+                        paths_by_node[other_id] = []
+                        discovery_order.append(other_id)
+                    bucket = paths_by_node[other_id]
+                    if len(bucket) < path_cap:
+                        bucket.append({"depth": depth + 1, "edges": [dict(edge) for edge in new_path]})
+                expansions += 1
+                queue.append((other_id, depth + 1, new_path, on_path | {other_id}))
+
+        result_paths = [
+            {
+                "node_id": node_id,
+                "depth": min(entry["depth"] for entry in paths_by_node[node_id]),
+                "evidence_paths": list(paths_by_node[node_id]),
+            }
+            for node_id in discovery_order
+            if paths_by_node.get(node_id)
+        ]
+        return {
+            "seed_ids": seeds,
+            "direction": direction_name,
+            "nodes": [dict(by_id[node_id]) for node_id in [*seeds, *discovery_order] if node_id in by_id],
+            "paths": result_paths,
+            "cycle_guarded": True,
+            "cycle_count": cycle_count,
+            "bounded": True,
+            "truncated": truncated,
+            "expansions": expansions,
         }
 

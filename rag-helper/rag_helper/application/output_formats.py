@@ -156,6 +156,70 @@ def build_graph_nodes(
     return nodes
 
 
+def _build_graph_resolution_maps(
+    index_records: list[dict],
+    detail_records: list[dict],
+    relation_records: list[dict],
+) -> tuple[set[str], dict[str, str], dict[str, str], dict[str, str]]:
+    """CCAQE-013/014: lookup maps so symbol relations become real graph edges.
+
+    Returns known node ids, FQN->node_id, unique simple name->node_id and
+    endpoint path->method node_id (from controller_endpoint_declares relations).
+    """
+    node_ids: set[str] = set()
+    by_fqn: dict[str, str] = {}
+    simple_candidates: dict[str, list[str]] = {}
+    for record in [*index_records, *detail_records]:
+        record_id = record.get("id")
+        if not record_id:
+            continue
+        node_ids.add(record_id)
+        name = record.get("name")
+        if not name:
+            continue
+        package = record.get("package")
+        if package:
+            by_fqn.setdefault(f"{package}.{name}", record_id)
+        kind = str(record.get("kind") or "")
+        if kind in {"java_type", "csharp_type"}:
+            simple_candidates.setdefault(str(name), []).append(record_id)
+    by_simple_name = {
+        name: candidates[0]
+        for name, candidates in simple_candidates.items()
+        if len(set(candidates)) == 1
+    }
+    endpoint_paths: dict[str, str] = {}
+    for record in relation_records:
+        if str(record.get("relation") or record.get("type") or "") != "controller_endpoint_declares":
+            continue
+        path = str(record.get("endpoint_path") or "").strip()
+        method_id = str(record.get("target_resolved") or "").strip()
+        if path and method_id:
+            endpoint_paths.setdefault(path, method_id)
+    return node_ids, by_fqn, by_simple_name, endpoint_paths
+
+
+def _resolve_graph_node_id(
+    value: str | None,
+    node_ids: set[str],
+    by_fqn: dict[str, str],
+    by_simple_name: dict[str, str],
+) -> str | None:
+    candidate = str(value or "").strip()
+    if not candidate:
+        return None
+    if candidate in node_ids:
+        return candidate
+    if candidate in by_fqn:
+        return by_fqn[candidate]
+    if candidate in by_simple_name:
+        return by_simple_name[candidate]
+    simple = candidate.rsplit(".", 1)[-1]
+    if simple != candidate and simple in by_simple_name:
+        return by_simple_name[simple]
+    return None
+
+
 def build_graph_edges(
     index_records: list[dict],
     detail_records: list[dict],
@@ -163,6 +227,26 @@ def build_graph_edges(
     mode: str = "jsonl",
 ) -> list[dict]:
     edges: list[dict] = []
+    seen_edge_keys: set[tuple] = set()
+
+    def _append_jsonl_edge(source: str, target: str, edge_type: str, record: dict) -> None:
+        key = (source, target, edge_type)
+        if key in seen_edge_keys:
+            return
+        seen_edge_keys.add(key)
+        edge = {
+            "source": source,
+            "target": target,
+            "type": edge_type,
+            "kind": "relation",
+            "confidence": record.get("confidence"),
+            "heuristic": record.get("heuristic"),
+        }
+        for attribute_key in ("field", "operation", "endpoint_path", "http_method"):
+            if record.get(attribute_key) is not None:
+                edge[attribute_key] = record[attribute_key]
+        edges.append(edge)
+
     for record in [*index_records, *detail_records]:
         if not record.get("id") or not record.get("parent_id"):
             continue
@@ -181,27 +265,51 @@ def build_graph_edges(
             "kind": "parent_child",
         })
 
+    node_ids, by_fqn, by_simple_name, endpoint_paths = _build_graph_resolution_maps(
+        index_records, detail_records, relation_records
+    )
+
     for record in relation_records:
         source_id = record.get("from")
         target_id = record.get("to")
-        if not source_id or not target_id:
+        if source_id and target_id:
+            if mode == "neo4j":
+                edges.append({
+                    "source": source_id,
+                    "target": target_id,
+                    "type": str(record.get("type", "RELATED_TO")).upper(),
+                    "properties": _graph_edge_properties(record),
+                })
+                continue
+            _append_jsonl_edge(str(source_id), str(target_id), str(record.get("type") or "related"), record)
+            continue
+
+        # Symbol relations from the language extractors (make_relation format):
+        # resolve source/target to node ids; unresolvable references stay out of
+        # the graph so traversal never follows dangling edges.
+        relation_type = str(record.get("relation") or "").strip()
+        if not relation_type:
+            continue
+        resolved_source = _resolve_graph_node_id(record.get("source_id"), node_ids, by_fqn, by_simple_name)
+        if resolved_source is None:
+            continue
+        if relation_type == "test_calls_endpoint":
+            resolved_target = endpoint_paths.get(str(record.get("target") or "").strip())
+        else:
+            resolved_target = _resolve_graph_node_id(
+                record.get("target_resolved"), node_ids, by_fqn, by_simple_name
+            ) or _resolve_graph_node_id(record.get("target"), node_ids, by_fqn, by_simple_name)
+        if resolved_target is None or resolved_target == resolved_source:
             continue
         if mode == "neo4j":
             edges.append({
-                "source": source_id,
-                "target": target_id,
-                "type": str(record.get("type", "RELATED_TO")).upper(),
+                "source": resolved_source,
+                "target": resolved_target,
+                "type": relation_type.upper(),
                 "properties": _graph_edge_properties(record),
             })
             continue
-        edges.append({
-            "source": source_id,
-            "target": target_id,
-            "type": record.get("type"),
-            "kind": "relation",
-            "confidence": record.get("confidence"),
-            "heuristic": record.get("heuristic"),
-        })
+        _append_jsonl_edge(resolved_source, resolved_target, relation_type, record)
     return edges
 
 

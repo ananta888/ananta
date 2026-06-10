@@ -3,6 +3,7 @@
 GET /api/codecompass/graph?knowledge_index_id=<id>
 GET /api/codecompass/graph/node/<node_id>?knowledge_index_id=<id>
 GET /api/codecompass/graph/expand?knowledge_index_id=<id>&seed=<node_id>&profile=<name>
+GET /api/codecompass/query?knowledge_index_id=<id>&type=<query_type>&seed=<symbol-or-node-id>&field=<optional>&depth=<optional>&direction=<optional>
 """
 from __future__ import annotations
 
@@ -171,6 +172,57 @@ def expand_graph():
         },
         "warnings": [],
     })
+
+
+@codecompass_graph_bp.route("/api/codecompass/query", methods=["GET"])
+@check_auth
+def architecture_query():
+    """CCAQE-017: typed architecture queries with evidence paths."""
+    from worker.retrieval.codecompass_architecture_query import (
+        VALID_QUERY_TYPES,
+        QueryLimits,
+        run_architecture_query,
+    )
+
+    knowledge_index_id = str(request.args.get("knowledge_index_id") or "").strip()
+    query_type = str(request.args.get("type") or "").strip().lower()
+    seed = str(request.args.get("seed") or "").strip()
+    field = str(request.args.get("field") or "").strip() or None
+    direction = str(request.args.get("direction") or "").strip().lower() or None
+    raw_depth = str(request.args.get("depth") or "").strip()
+    if query_type not in VALID_QUERY_TYPES:
+        raise BadRequestError(f"invalid_query_type — valid: {', '.join(VALID_QUERY_TYPES)}")
+    if not seed:
+        raise BadRequestError("seed_required")
+    depth: int | None = None
+    if raw_depth:
+        try:
+            depth = int(raw_depth)
+        except ValueError:
+            raise BadRequestError("invalid_depth")
+    if direction is not None and direction not in {"outgoing", "incoming", "both"}:
+        raise BadRequestError("invalid_direction — valid: outgoing, incoming, both")
+    index_path = _resolve_index_path(knowledge_index_id)
+    store = _load_store(index_path)
+
+    from agent.config import settings
+    limits = QueryLimits(
+        max_depth=int(settings.codecompass_query_max_depth),
+        max_nodes=int(settings.codecompass_query_max_nodes),
+        max_results=int(settings.codecompass_query_max_results),
+        max_paths_per_result=int(settings.codecompass_query_max_paths_per_result),
+    )
+    result = run_architecture_query(
+        store=store,
+        query_type=query_type,
+        seed=seed,
+        field=field,
+        depth=depth,
+        direction=direction,
+        limits=limits,
+    )
+    result.setdefault("metadata", {})["knowledge_index_id"] = knowledge_index_id
+    return api_response(data=result)
 
 
 def _edges_from_paths(paths: list[dict]) -> list[dict]:

@@ -45,11 +45,13 @@ def extract_modifiers(node, src: bytes) -> list[str]:
 
 
 def extract_annotations(node, src: bytes) -> list[str]:
+    # tree-sitter-java emits argument-less annotations as "marker_annotation",
+    # annotations with arguments as "annotation".
     mod_node = first_child_of_type(node, "modifiers")
     anns = []
     if mod_node:
         for c in mod_node.children:
-            if c.type == "annotation":
+            if c.type in ("annotation", "marker_annotation"):
                 anns.append(node_text(src, c).strip())
     return anns
 

@@ -35,18 +35,29 @@ PARENT_LINKED_DETAIL_KINDS = {
 
 AGGRESSIVE_RELATION_TYPES = {
     "bean_factory_method",
+    "controller_endpoint_declares",
     "declares_bean",
     "extends",
     "field_type_uses",
+    "generic_type_uses",
     "implements",
     "injects_dependency",
+    "interceptor_guards_method",
     "jpa_entity_role",
     "jpa_join_column",
     "jpa_many_to_many",
     "jpa_many_to_one",
     "jpa_one_to_many",
     "jpa_one_to_one",
+    "method_param_type_uses",
+    "method_return_type_uses",
+    "mock_injects_dependency",
+    "permission_checks_field",
+    "role_allows_operation",
     "spring_configuration",
+    "test_calls_endpoint",
+    "test_targets_type",
+    "test_uses_controller",
     "transactional_boundary",
 }
 
@@ -56,17 +67,22 @@ ULTRA_DETAIL_KINDS = {
 }
 
 ULTRA_RELATION_TYPES = {
+    "controller_endpoint_declares",
     "declares_bean",
     "extends",
     "implements",
     "injects_dependency",
+    "interceptor_guards_method",
     "jpa_entity_role",
     "jpa_join_column",
     "jpa_many_to_many",
     "jpa_many_to_one",
     "jpa_one_to_many",
     "jpa_one_to_one",
+    "permission_checks_field",
+    "role_allows_operation",
     "spring_configuration",
+    "test_targets_type",
     "transactional_boundary",
 }
 

@@ -289,6 +289,14 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="CODECOMPASS_RELATION_EXPANSION_ENABLED",
     )
+    # CCAQE-008: hard bounds for the architecture query engine
+    codecompass_query_max_depth: int = Field(default=4, validation_alias="CODECOMPASS_QUERY_MAX_DEPTH")
+    codecompass_query_max_nodes: int = Field(default=200, validation_alias="CODECOMPASS_QUERY_MAX_NODES")
+    codecompass_query_max_results: int = Field(default=25, validation_alias="CODECOMPASS_QUERY_MAX_RESULTS")
+    codecompass_query_max_paths_per_result: int = Field(
+        default=3,
+        validation_alias="CODECOMPASS_QUERY_MAX_PATHS_PER_RESULT",
+    )
 
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")

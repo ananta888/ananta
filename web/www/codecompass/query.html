@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeCompass Architecture Query | Ananta</title>
+  <meta name="description" content="Architekturfragen an den CodeCompass-Graph: DTO-Impact, Controller-Testabdeckung, Feld-Policy-Impact und Service-Abhängigkeitsketten mit Evidence-Pfaden.">
+  <link rel="stylesheet" href="../assets/site.css">
+  <style>
+    .query-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+    .query-form label { display: flex; flex-direction: column; font-size: 0.85rem; gap: 0.25rem; }
+    .query-form input, .query-form select { padding: 0.45rem 0.6rem; border: 1px solid #44485a; border-radius: 6px; background: #14161f; color: inherit; }
+    .query-actions { margin: 0.5rem 0 1.5rem; }
+    .query-actions button { padding: 0.55rem 1.4rem; border-radius: 6px; border: 1px solid #6c7cff; background: #2a2f4a; color: inherit; cursor: pointer; }
+    .warnings { border: 1px solid #b58900; border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.75rem 0; }
+    .warnings strong { color: #e2b714; }
+    .error-box { border: 1px solid #c0392b; border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.75rem 0; color: #ff8b81; }
+    .result-card { border: 1px solid #3a3f52; border-radius: 8px; padding: 0.8rem 1rem; margin: 0.6rem 0; }
+    .result-card h3 { margin: 0 0 0.3rem; font-size: 0.95rem; word-break: break-all; }
+    .result-meta { font-size: 0.8rem; opacity: 0.85; margin-bottom: 0.4rem; }
+    .evidence { font-family: monospace; font-size: 0.78rem; margin: 0.25rem 0 0.25rem 1rem; word-break: break-all; }
+    .result-warning { color: #e2b714; font-size: 0.8rem; margin-left: 1rem; }
+    .seed-info { font-size: 0.85rem; opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Hauptnavigation">
+      <span class="brand">ananta / codecompass / query</span>
+      <div class="nav-links">
+        <a href="./">CodeCompass</a>
+        <a href="../">Start</a>
+      </div>
+    </nav>
+
+    <section class="section-block">
+      <p class="eyebrow">Architecture Query Engine</p>
+      <h1>Architekturfragen mit Evidence-Pfaden</h1>
+      <p>
+        Stellt typisierte Fragen an den CodeCompass-Graph eines Knowledge-Index. Jede Antwort liefert
+        Evidence-Pfade mit Kantentyp, Richtung und Confidence — Warnungen zeigen, wo nur heuristische
+        Hinweise existieren.
+      </p>
+
+      <form id="queryForm" class="query-form" autocomplete="off">
+        <label>Hub-URL
+          <input id="hubUrl" type="text" value="http://localhost:5000" required>
+        </label>
+        <label>Agent-Token
+          <input id="token" type="password" placeholder="AGENT_TOKEN">
+        </label>
+        <label>Knowledge-Index-ID
+          <input id="knowledgeIndexId" type="text" required>
+        </label>
+        <label>Query-Typ
+          <select id="queryType">
+            <option value="dto-impact">dto-impact</option>
+            <option value="controller-test-coverage">controller-test-coverage</option>
+            <option value="field-policy-impact">field-policy-impact</option>
+            <option value="service-dependency-chain">service-dependency-chain</option>
+          </select>
+        </label>
+        <label>Seed (Symbol, Pfad oder Node-ID)
+          <input id="seed" type="text" placeholder="UserDto" required>
+        </label>
+        <label>Feld (optional, fuer field-policy-impact)
+          <input id="field" type="text" placeholder="price">
+        </label>
+        <label>Tiefe (optional)
+          <input id="depth" type="number" min="1" max="4" placeholder="3">
+        </label>
+        <label>Richtung (optional)
+          <select id="direction">
+            <option value="">Default des Query-Typs</option>
+            <option value="incoming">incoming</option>
+            <option value="outgoing">outgoing</option>
+            <option value="both">both</option>
+          </select>
+        </label>
+      </form>
+      <div class="query-actions">
+        <button id="runQuery" type="button">Query ausfuehren</button>
+      </div>
+
+      <div id="output" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    const output = document.getElementById('output');
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function renderError(message) {
+      output.replaceChildren(el('div', 'error-box', message));
+    }
+
+    function renderResult(data) {
+      output.replaceChildren();
+      const seed = data.seed || {};
+      const resolvedCount = (seed.resolved_node_ids || []).length;
+      output.appendChild(el('p', 'seed-info',
+        `Seed "${seed.input || ''}"` + (seed.field ? ` (Feld: ${seed.field})` : '') +
+        (resolvedCount ? ` — aufgeloest auf ${resolvedCount} Knoten` : ' — nicht aufgeloest')));
+
+      const warnings = data.warnings || [];
+      if (warnings.length) {
+        const box = el('div', 'warnings');
+        box.appendChild(el('strong', null, 'Warnungen: '));
+        box.appendChild(document.createTextNode(warnings.join('; ')));
+        output.appendChild(box);
+      }
+
+      const results = data.results || [];
+      if (!results.length) {
+        output.appendChild(el('p', null, 'Keine belegten Ergebnisse — nicht gefunden / nicht belegt.'));
+        return;
+      }
+      results.forEach((entry) => {
+        const card = el('div', 'result-card');
+        card.appendChild(el('h3', null, entry.result_node_id));
+        let meta = `Rolle: ${entry.result_role} · Score: ${entry.score} · Tiefe: ${entry.depth}`;
+        for (const key of ['coverage_kind', 'enforcement', 'dependency_kind']) {
+          if (entry[key]) meta += ` · ${key}: ${entry[key]}`;
+        }
+        if (entry.operations && entry.operations.length) meta += ` · Operationen: ${entry.operations.join(', ')}`;
+        card.appendChild(el('div', 'result-meta', meta));
+        (entry.evidence_paths || []).forEach((path) => {
+          const chain = (path.edges || []).map((edge) =>
+            `${edge.edge_type}(${edge.direction_used}, c=${edge.confidence})`).join(' -> ');
+          card.appendChild(el('div', 'evidence', `Evidence (Score ${path.path_score}): ${chain}`));
+        });
+        (entry.warnings || []).forEach((warning) => {
+          card.appendChild(el('div', 'result-warning', `Warnung: ${warning}`));
+        });
+        output.appendChild(card);
+      });
+    }
+
+    document.getElementById('runQuery').addEventListener('click', async () => {
+      const hubUrl = document.getElementById('hubUrl').value.trim().replace(/\/$/, '');
+      const params = new URLSearchParams({
+        knowledge_index_id: document.getElementById('knowledgeIndexId').value.trim(),
+        type: document.getElementById('queryType').value,
+        seed: document.getElementById('seed').value.trim(),
+      });
+      const field = document.getElementById('field').value.trim();
+      const depth = document.getElementById('depth').value.trim();
+      const direction = document.getElementById('direction').value;
+      if (field) params.set('field', field);
+      if (depth) params.set('depth', depth);
+      if (direction) params.set('direction', direction);
+
+      output.replaceChildren(el('p', null, 'Query laeuft…'));
+      try {
+        const headers = {};
+        const token = document.getElementById('token').value.trim();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`${hubUrl}/api/codecompass/query?${params}`, { headers });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const detail = (body && (body.error || body.message)) || `HTTP ${response.status}`;
+          renderError(`Query fehlgeschlagen: ${detail}`);
+          return;
+        }
+        renderResult(body.data || body);
+      } catch (error) {
+        renderError(`Verbindung fehlgeschlagen: ${error}`);
+      }
+    });
+  </script>
+</body>
+</html>

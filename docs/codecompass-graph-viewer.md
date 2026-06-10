@@ -201,3 +201,27 @@ Adapter and state service tests use `new GraphAdapterService().fromDomainArtifac
 Components use `ChangeDetectionStrategy.OnPush`; input changes in tests must be applied via `fixture.componentRef.setInput('inputName', value)` rather than direct property assignment.
 
 Cytoscape is loaded via dynamic import; JSDOM will log a canvas warning during 2D renderer tests — this is expected and does not indicate a test failure.
+
+---
+
+## Architecture Query UI (CCAQE-018)
+
+Static page: `web/www/codecompass/query.html` (linked from the CodeCompass page).
+
+Usage: enter hub URL + agent token (the page is served statically and calls
+`GET /api/codecompass/query` on the hub), pick a knowledge index id, choose one
+of the four query types (`dto-impact`, `controller-test-coverage`,
+`field-policy-impact`, `service-dependency-chain`), set seed and optional
+field/depth/direction, run.
+
+Results show `result_role`, score, depth, the per-result classification
+(`coverage_kind` / `enforcement` / `dependency_kind`) and up to
+`max_paths_per_result` evidence paths as
+`edge_type(direction, c=confidence)` chains. Top-level and per-result warnings
+are rendered prominently (yellow box), errors such as `seed_not_resolved` or an
+invalid query type are shown as readable messages instead of raw JSON.
+
+Limits: the page renders at most what the API returns (bounded by the
+`CODECOMPASS_QUERY_*` settings); it does not visualize result nodes inside the
+2D/3D graph views yet — that remains a possible follow-up via
+`GraphAdapterService`.

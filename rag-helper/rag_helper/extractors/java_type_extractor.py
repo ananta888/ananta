@@ -15,12 +15,23 @@ from rag_helper.extractors.java_ast_helpers import (
     first_child_of_type,
     make_relation,
 )
-from rag_helper.extractors.java_member_extractor import JavaMemberContext, extract_constructor, extract_method
+from rag_helper.extractors.java_member_extractor import (
+    JavaMemberContext,
+    extract_constructor,
+    extract_method,
+    parse_parameter_bindings,
+)
 from rag_helper.extractors.java_role_detection import detect_type_roles
+from rag_helper.extractors.java_security_test_relations import (
+    build_endpoint_relations,
+    build_policy_relations,
+    build_test_type_relations,
+)
 from rag_helper.extractors.java_type_resolution import (
     find_resolution_conflicts,
     resolve_type_name,
     split_generics,
+    strip_generics,
     uniq_conflicts,
     uniq_keep_order,
 )
@@ -135,7 +146,11 @@ def extract_type(
                 fields.append(field)
                 field_type_resolved.extend(field["resolved_types"])
 
-                for raw_t in split_generics(field.get("type") or ""):
+                field_type_text = field.get("type") or ""
+                field_outer_raw = strip_generics(field_type_text) or field_type_text
+                for raw_t in split_generics(field_type_text):
+                    # CCAQE-013: generic arguments get their own typed edge.
+                    field_relation = "field_type_uses" if raw_t == field_outer_raw else "generic_type_uses"
                     for rt in resolve_type_name(
                         raw_t,
                         ctx.package_name,
@@ -149,7 +164,7 @@ def extract_type(
                             source_id=type_id,
                             source_kind="java_type",
                             source_name=name,
-                            relation="field_type_uses",
+                            relation=field_relation,
                             target=raw_t,
                             target_resolved=rt,
                         ))
@@ -254,6 +269,42 @@ def extract_type(
         fields=fields,
         methods=method_indexes,
     )
+
+    if ctx.resolve_framework_relations:
+        # CCAQE-014/015: test-, endpoint- and policy edges for architecture queries.
+        def _resolve_first(type_text: str) -> str | None:
+            resolved = resolve_type_name(
+                strip_generics(type_text) or type_text,
+                ctx.package_name,
+                ctx.import_map,
+                ctx.known_package_types,
+                ctx.same_file_types,
+                wildcard_imports=ctx.wildcard_imports,
+            )
+            return resolved[0] if resolved else None
+
+        relation_records.extend(build_test_type_relations(
+            rel_path=ctx.rel_path,
+            type_id=type_id,
+            type_name=name,
+            annotations=annotations,
+            fields=fields,
+            resolve=_resolve_first,
+        ))
+        for method_index in method_indexes:
+            relation_records.extend(build_endpoint_relations(
+                rel_path=ctx.rel_path,
+                type_id=type_id,
+                type_name=name,
+                method_record=method_index,
+            ))
+            relation_records.extend(build_policy_relations(
+                rel_path=ctx.rel_path,
+                type_name=name,
+                method_record=method_index,
+                parameter_bindings=parse_parameter_bindings(list(method_index.get("parameters") or [])),
+                resolve=_resolve_first,
+            ))
 
     extends_resolved = resolve_type_name(
         extends,
