@@ -1,0 +1,1031 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-architecture-query-engine",
+  "created": "2026-06-10",
+  "status": "todo",
+  "purpose": "CodeCompass soll nicht nur verwandte Dateien und Graph-Nachbarschaften liefern, sondern belastbare Architekturfragen beantworten koennen: indirekte DTO-Abhaengigkeiten, Controller-Testabdeckung ueber mehrere Ebenen, Feld-/Policy-Impact und Service-Abhaengigkeitsketten.",
+  "goal": "Auf Basis des vorhandenen CodeCompassGraphStore, der Graph-Expansion und der SQLite-FTS-Suche wird eine deterministische Architecture Query Engine aufgebaut. Jede Antwort liefert nicht nur Treffer, sondern nachvollziehbare Evidence-Pfade mit Knoten, Kanten, Richtung, Tiefe, Confidence und Unsicherheitswarnungen.",
+  "source_review": {
+    "summary": "Der aktuelle Stand enthaelt bereits einen JSON-basierten CodeCompassGraphStore mit Nodes, Edges, node_index, outgoing_index und incoming_index. Die Graph-Expansion unterstuetzt Profile wie bugfix_local, refactor_navigation, architecture_review und config_integration mit max_depth 2 bis 3. Der vorhandene FTS-Store nutzt SQLite FTS5 fuer textuelle Suche und Metadatenranking. Damit ist Graph-Navigation grundsaetzlich vorhanden, aber noch keine spezialisierte Query Engine fuer konkrete Architekturfragen mit domain-spezifischen Kantentypen, inversen Traversals, Evidence-Ranking und Antwortvertraegen.",
+    "observed_source_files": [
+      {
+        "path": "worker/retrieval/codecompass_graph_store.py",
+        "observations": [
+          "CodeCompassGraphStore speichert aktuell cc_graph_index.json und laedt nodes, edges, node_index, outgoing_index und incoming_index.",
+          "rebuild_from_output_records akzeptiert graph_nodes und graph_edges aus CodeCompass-Output-Records.",
+          "traverse unterstuetzt seed_ids, max_depth, max_nodes und allowed_edge_types, aber aktuell nur outgoing traversal.",
+          "incoming_index existiert bereits, wird aber fuer Query-Templates noch nicht voll ausgeschoepft."
+        ]
+      },
+      {
+        "path": "worker/retrieval/codecompass_graph_expansion.py",
+        "observations": [
+          "Profile erlauben bereits Edge-Typen wie calls_probable_target, injects_dependency, field_type_uses, extends, implements, declares_bean, transactional_boundary und jpa_relation.",
+          "architecture_review laeuft bereits mit max_depth 3 und max_nodes 40.",
+          "Die Expansion ist fuer Kontextnavigation geeignet, aber nicht fuer praezise Frageklassen wie DTO-Impact, Test-Coverage oder Policy-Impact spezialisiert."
+        ]
+      },
+      {
+        "path": "agent/routes/codecompass_graph.py",
+        "observations": [
+          "REST-Endpunkte fuer Graph, Node und Expand existieren bereits.",
+          "Antworten werden als domain_graph_artifact.v1 mit nodes, edges, metadata und warnings geliefert.",
+          "Es fehlt ein dedizierter Query-Endpunkt fuer Architekturfragen mit typisiertem Query-Vertrag."
+        ]
+      },
+      {
+        "path": "worker/retrieval/codecompass_fts_store.py",
+        "observations": [
+          "SQLite FTS5 wird bereits fuer symbol_text, path_text, kind_text, summary_text, content_text, relation_text und focus_text genutzt.",
+          "FTS kann als Seed-Resolver fuer Namen wie DTO, Controller, Feldname oder Policy genutzt werden.",
+          "Graph-Knoten und Graph-Kanten liegen noch nicht im selben relationalen Speicher."
+        ]
+      },
+      {
+        "path": "tests/test_codecompass_graph_store.py",
+        "observations": [
+          "Tests fuer GraphStore existieren bereits und sollten erweitert werden, statt eine zweite ungetestete Graphlogik aufzubauen."
+        ]
+      },
+      {
+        "path": "tests/test_codecompass_graph_expansion.py",
+        "observations": [
+          "Tests fuer Expansion existieren bereits und sind naheliegender Einstieg fuer Query-Profile und Evidence-Pfade."
+        ]
+      }
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "design_decisions": [
+    {
+      "id": "CCAQE-DD-001",
+      "decision": "Keine externe Graphdatenbank als Pflicht einfuehren.",
+      "rationale": "CodeCompass soll lokal, leichtgewichtig, testbar und ohne zusaetzlichen Service funktionieren. Der aktuelle JSON-GraphStore bleibt Fallback. SQLiteGraphStore kann spaeter der Default werden."
+    },
+    {
+      "id": "CCAQE-DD-002",
+      "decision": "Architecture Queries liefern Evidence-Pfade statt nur Trefferlisten.",
+      "rationale": "Agenten und Menschen muessen nachvollziehen koennen, warum ein Service, Test oder Policy-Objekt als relevant gilt."
+    },
+    {
+      "id": "CCAQE-DD-003",
+      "decision": "Query-Typen sind explizit und whitelisted.",
+      "rationale": "Freie Graphabfragen sind fuer spaeter ok, aber der produktive Kern soll deterministisch, sicher und reproduzierbar sein."
+    },
+    {
+      "id": "CCAQE-DD-004",
+      "decision": "FTS dient als Seed-Resolver, Graph Traversal als Beweisfuehrung.",
+      "rationale": "Namen wie UserDto, AccountController oder permissions.priceField werden zuerst robust gefunden, danach wird kontrolliert ueber typisierte Kanten traversiert."
+    },
+    {
+      "id": "CCAQE-DD-005",
+      "decision": "Unsicherheit wird explizit ausgegeben.",
+      "rationale": "Kanten wie calls_probable_target sind probabilistisch/heuristisch. Antworten duerfen nicht so tun, als waere alles harte Compiler-Wahrheit."
+    }
+  ],
+  "architecture_query_contract": {
+    "endpoint_target": "GET /api/codecompass/query?knowledge_index_id=<id>&type=<query_type>&seed=<symbol-or-node-id>&field=<optional>&depth=<optional>",
+    "query_types": [
+      "dto-impact",
+      "controller-test-coverage",
+      "field-policy-impact",
+      "service-dependency-chain"
+    ],
+    "request_example": {
+      "type": "dto-impact",
+      "seed": "UserDto",
+      "depth": 3,
+      "direction": "incoming",
+      "include_evidence": true
+    },
+    "response_example": {
+      "schema": "codecompass_architecture_query_result.v1",
+      "query_type": "dto-impact",
+      "seed": {
+        "input": "UserDto",
+        "resolved_node_ids": [
+          "java_type:src/main/java/example/UserDto.java:UserDto"
+        ]
+      },
+      "results": [
+        {
+          "result_node_id": "java_type:src/main/java/example/UserService.java:UserService",
+          "result_kind": "java_type",
+          "result_role": "service",
+          "score": 0.91,
+          "depth": 2,
+          "evidence_paths": [
+            {
+              "path_score": 0.91,
+              "edges": [
+                {
+                  "source_id": "java_type:src/main/java/example/UserService.java:UserService",
+                  "target_id": "java_type:src/main/java/example/UserDto.java:UserDto",
+                  "edge_type": "field_type_uses",
+                  "direction_used": "incoming",
+                  "confidence": 0.94
+                }
+              ]
+            }
+          ],
+          "warnings": []
+        }
+      ],
+      "warnings": [
+        "calls_probable_target edges are heuristic"
+      ]
+    }
+  },
+  "target_edge_taxonomy": {
+    "existing_or_expected": [
+      "calls_probable_target",
+      "injects_dependency",
+      "field_type_uses",
+      "extends",
+      "implements",
+      "child_of_type",
+      "child_of_file",
+      "declares_bean",
+      "transactional_boundary",
+      "jpa_relation"
+    ],
+    "new_required_for_architecture_queries": [
+      "method_param_type_uses",
+      "method_return_type_uses",
+      "generic_type_uses",
+      "controller_endpoint_declares",
+      "test_targets_type",
+      "test_calls_endpoint",
+      "test_uses_controller",
+      "mock_injects_dependency",
+      "policy_applies_to_field",
+      "permission_checks_field",
+      "interceptor_guards_method",
+      "frontend_guard_refs_field",
+      "role_allows_operation",
+      "mapper_maps_type",
+      "repository_handles_entity",
+      "service_uses_repository"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "CCAQE-M1",
+      "title": "Query-Vertrag und GraphStore-Faehigkeiten absichern",
+      "status": "todo",
+      "task_ids": [
+        "CCAQE-001",
+        "CCAQE-002",
+        "CCAQE-003",
+        "CCAQE-004"
+      ]
+    },
+    {
+      "id": "CCAQE-M2",
+      "title": "Seed-Resolution und Evidence-Traversal implementieren",
+      "status": "todo",
+      "task_ids": [
+        "CCAQE-005",
+        "CCAQE-006",
+        "CCAQE-007",
+        "CCAQE-008"
+      ]
+    },
+    {
+      "id": "CCAQE-M3",
+      "title": "Spezialisierte Architektur-Queries bauen",
+      "status": "todo",
+      "task_ids": [
+        "CCAQE-009",
+        "CCAQE-010",
+        "CCAQE-011",
+        "CCAQE-012"
+      ]
+    },
+    {
+      "id": "CCAQE-M4",
+      "title": "Extractor-Kanten fuer Java/TypeScript/Tests/Policies erweitern",
+      "status": "todo",
+      "task_ids": [
+        "CCAQE-013",
+        "CCAQE-014",
+        "CCAQE-015",
+        "CCAQE-016"
+      ]
+    },
+    {
+      "id": "CCAQE-M5",
+      "title": "API, UI, Dokumentation und Regressionen abschliessen",
+      "status": "todo",
+      "task_ids": [
+        "CCAQE-017",
+        "CCAQE-018",
+        "CCAQE-019",
+        "CCAQE-020"
+      ]
+    },
+    {
+      "id": "CCAQE-M6",
+      "title": "Optionalen SQLiteGraphStore vorbereiten",
+      "status": "todo",
+      "task_ids": [
+        "CCAQE-021",
+        "CCAQE-022",
+        "CCAQE-023"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCAQE-001",
+      "title": "Architecture Query Contract dokumentieren",
+      "type": "contract-documentation",
+      "milestone": "CCAQE-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/codecompass-architecture-query-engine.md",
+        "docs/contracts/codecompass-architecture-query-result.md",
+        "todos/todo.codecompass-architecture-query-engine.json"
+      ],
+      "problem": "Aktuell gibt es Graph-Expansion, aber keinen klaren Vertrag fuer konkrete Architekturfragen und deren Evidence-Antworten.",
+      "implementation_notes": [
+        "Definiere Query-Typen dto-impact, controller-test-coverage, field-policy-impact und service-dependency-chain.",
+        "Dokumentiere Request- und Response-Schema inklusive seed resolution, results, evidence_paths, warnings und confidence.",
+        "Halte fest, welche Antworten harte Fakten sind und welche auf heuristischen Kanten beruhen."
+      ],
+      "acceptance_criteria": [
+        "docs/codecompass-architecture-query-engine.md beschreibt Zweck, Grenzen und Query-Typen nachvollziehbar.",
+        "docs/contracts/codecompass-architecture-query-result.md enthaelt mindestens ein vollstaendiges JSON-Beispiel pro Query-Typ.",
+        "Der Vertrag unterscheidet explizit zwischen resolved_node_ids, result_node_id und evidence_paths.",
+        "Warnings fuer heuristische Kanten sind im Vertrag vorgesehen."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-architecture-query-engine.json"
+      ]
+    },
+    {
+      "id": "CCAQE-002",
+      "title": "GraphStore-Interface fuer Query Engine stabilisieren",
+      "type": "architecture-refactor",
+      "milestone": "CCAQE-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_graph_store.py",
+        "tests/test_codecompass_graph_store.py"
+      ],
+      "problem": "CodeCompassGraphStore ist aktuell konkrete JSON-Implementierung und bietet nur einfache outgoing traversal als oeffentliche Kernfunktion.",
+      "implementation_notes": [
+        "Fuehre kleine, stabile Methoden ein: get_node, find_nodes_by_name, find_nodes_by_file, outgoing_edges, incoming_edges, traverse_paths.",
+        "Bestehendes load/save/rebuild Verhalten nicht brechen.",
+        "Kein externer Graph-DB-Zwang; JSONGraphStore bleibt funktional."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Tests fuer CodeCompassGraphStore laufen unveraendert oder mit minimalen Anpassungen weiter.",
+        "incoming_edges(node_id=...) gibt Kanten aus incoming_index zurueck.",
+        "outgoing_edges(node_id=...) bleibt rueckwaertskompatibel.",
+        "find_nodes_by_name unterstuetzt exakte Treffer und case-insensitive Fallback.",
+        "Alle neuen Methoden geben leere Listen statt Exceptions zurueck, wenn der Index fehlt oder der Knoten nicht existiert."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_graph_store.py"
+      ]
+    },
+    {
+      "id": "CCAQE-003",
+      "title": "Bidirektionales Traversal mit Evidence-Pfaden einfuehren",
+      "type": "graph-algorithm",
+      "milestone": "CCAQE-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_graph_store.py",
+        "tests/test_codecompass_graph_store.py"
+      ],
+      "problem": "Fragen wie 'Welche Services haengen an diesem DTO?' brauchen oft incoming traversal. Aktuell traversiert CodeCompassGraphStore.traverse effektiv ausgehend vom Seed.",
+      "implementation_notes": [
+        "Erweitere Traversal um direction: outgoing, incoming, both.",
+        "Jeder Pfad muss die verwendete Richtung pro Kante ausweisen.",
+        "Cycle-Guard und max_depth/max_nodes muessen erhalten bleiben."
+      ],
+      "acceptance_criteria": [
+        "Traversal mit direction=incoming findet Knoten, die auf den Seed zeigen.",
+        "Traversal mit direction=outgoing bleibt wie bisher nutzbar.",
+        "Traversal mit direction=both dedupliziert Knoten und Pfade stabil.",
+        "Evidence-Pfade enthalten edge_type, source_id, target_id, direction_used und confidence.",
+        "Zyklen im Graph fuehren nicht zu Endlosschleifen."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_graph_store.py -k traverse"
+      ]
+    },
+    {
+      "id": "CCAQE-004",
+      "title": "Graph-Expansion-Profile nicht fuer Architekturantworten missbrauchen",
+      "type": "design-hardening",
+      "milestone": "CCAQE-M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_graph_expansion.py",
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/test_codecompass_graph_expansion.py"
+      ],
+      "problem": "Die vorhandenen Profile sind gut fuer Kontextnavigation, aber Architekturfragen brauchen andere Semantik, Richtung und Ergebnisrollen.",
+      "implementation_notes": [
+        "Belasse expand_codecompass_graph fuer UI-/Kontext-Expansion.",
+        "Lege neue Query-Engine-Datei fuer typisierte Architekturfragen an.",
+        "Nutze Edge-Sets aus bestehenden Profilen nur als Startpunkt, nicht als alleinigen Vertrag."
+      ],
+      "acceptance_criteria": [
+        "Bestehende /api/codecompass/graph/expand Route bleibt unveraendert funktionsfaehig.",
+        "Architecture Query Engine hat eigene Query-Konfigurationen pro query_type.",
+        "Tests fuer Graph-Expansion muessen nicht wissen, wie dto-impact intern funktioniert.",
+        "Keine Breaking Changes an _PROFILE_CONFIG fuer bestehende Profile."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_graph_expansion.py"
+      ]
+    },
+    {
+      "id": "CCAQE-005",
+      "title": "SeedResolver fuer Symbol-, Pfad-, Feld- und Node-ID-Eingaben bauen",
+      "type": "retrieval-core",
+      "milestone": "CCAQE-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "worker/retrieval/codecompass_fts_store.py",
+        "tests/test_codecompass_architecture_query.py"
+      ],
+      "problem": "User fragen mit Namen wie UserDto, AccountController oder priceLimit. Die Engine muss diese Eingaben robust auf Graph-Knoten aufloesen.",
+      "implementation_notes": [
+        "Resolver-Reihenfolge: node_id exakt, record_id exakt, name exakt, file/path Match, FTS-Fallback.",
+        "Bei Mehrdeutigkeit mehrere resolved candidates mit Score und reason ausgeben.",
+        "Bei keinem Treffer klares no_seed_match Ergebnis liefern, nicht halluzinieren."
+      ],
+      "acceptance_criteria": [
+        "Exakte node_id wird ohne FTS aufgeloest.",
+        "Exakter Klassenname wird gegen node_index.by_name gefunden.",
+        "Pfadfragmente koennen Knoten ueber by_file oder FTS finden.",
+        "Mehrdeutige Seeds liefern mehrere Kandidaten und eine ambiguity warning.",
+        "Nicht gefundene Seeds liefern leere results und warning seed_not_resolved."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k seed"
+      ]
+    },
+    {
+      "id": "CCAQE-006",
+      "title": "EvidencePath-Ranking implementieren",
+      "type": "ranking",
+      "milestone": "CCAQE-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/test_codecompass_architecture_query.py"
+      ],
+      "problem": "Mehrere Pfade koennen zu einem Ergebnis fuehren. Die Engine braucht nachvollziehbares Ranking statt zufaelliger BFS-Reihenfolge.",
+      "implementation_notes": [
+        "Score kombiniert Pfadlaenge, Edge-Confidence, Edge-Typ-Gewicht und Ergebnisrolle.",
+        "Direkte harte Kanten schlagen indirekte heuristische Ketten.",
+        "Ranking muss deterministisch sortieren, auch bei gleichen Scores."
+      ],
+      "acceptance_criteria": [
+        "Kuerzere Pfade erhalten bei gleicher Confidence hoehere Scores.",
+        "Harte Kanten wie field_type_uses schlagen calls_probable_target bei gleicher Tiefe.",
+        "Mehrere Evidence-Pfade pro Ergebnis werden sortiert und begrenzt.",
+        "Sortierung ist zwischen Testlaeufen stabil."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k ranking"
+      ]
+    },
+    {
+      "id": "CCAQE-007",
+      "title": "QueryResult-Modell als plain dict/dataclass definieren",
+      "type": "contract-implementation",
+      "milestone": "CCAQE-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/test_codecompass_architecture_query.py"
+      ],
+      "problem": "Ohne klares Ergebnisformat werden API, UI und Agenten-Prompt-Handoff schnell uneinheitlich.",
+      "implementation_notes": [
+        "Nutze einfache serialisierbare dicts oder dataclasses mit to_dict.",
+        "Schema-Feld immer codecompass_architecture_query_result.v1 setzen.",
+        "Warnings und diagnostics als Top-Level-Felder vorsehen."
+      ],
+      "acceptance_criteria": [
+        "Jedes QueryResult enthaelt schema, query_type, seed, results, diagnostics und warnings.",
+        "Jeder result-Eintrag enthaelt result_node_id, result_kind, result_role, score, depth und evidence_paths.",
+        "JSON-Serialisierung funktioniert ohne Custom Encoder.",
+        "Leere Ergebnisse sind valide und enthalten erklaerende warnings."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k result_contract"
+      ]
+    },
+    {
+      "id": "CCAQE-008",
+      "title": "Sicherheitsgrenzen fuer Query-Ausfuehrung festlegen",
+      "type": "security-hardening",
+      "milestone": "CCAQE-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "agent/routes/codecompass_graph.py",
+        "agent/config.py",
+        "tests/test_codecompass_architecture_query.py"
+      ],
+      "problem": "Graph-Abfragen koennen bei grossen Repos teuer werden oder ungewollt zu viel Kontext offenlegen.",
+      "implementation_notes": [
+        "Setze harte Defaults fuer max_depth, max_nodes, max_paths_per_result und max_results.",
+        "Erlaube nur bekannte query_type Werte.",
+        "Keine beliebige User-gelieferte Graph Query Language ausfuehren."
+      ],
+      "acceptance_criteria": [
+        "Unbekannter query_type wird mit invalid_query_type abgelehnt.",
+        "depth > configured max wird auf Maximalwert begrenzt oder abgelehnt.",
+        "max_nodes und max_results begrenzen alle Query-Typen wirksam.",
+        "Diagnostics zeigen bounded=true und die angewendeten Limits.",
+        "Keine Query liest Dateien ausserhalb des vorhandenen Knowledge-Index-Outputs."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k limits"
+      ]
+    },
+    {
+      "id": "CCAQE-009",
+      "title": "dto-impact Query implementieren",
+      "type": "feature-query",
+      "milestone": "CCAQE-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/test_codecompass_architecture_query.py",
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "Die Frage 'Welche Services haengen indirekt an diesem DTO?' braucht incoming und both Traversal mit DTO-/Type-Use-Kanten.",
+      "implementation_notes": [
+        "Seed wird als DTO/Java-Type aufgeloest.",
+        "Primarkanten: field_type_uses, method_param_type_uses, method_return_type_uses, generic_type_uses, mapper_maps_type.",
+        "Sekundaerkanten: injects_dependency, calls_probable_target, service_uses_repository, repository_handles_entity.",
+        "Ergebnisrollen service, controller, mapper, repository, config unterscheiden."
+      ],
+      "acceptance_criteria": [
+        "Ein Service mit field_type_uses auf das DTO wird als direkter Treffer erkannt.",
+        "Ein Controller, der den Service nutzt, wird ueber Tiefe 2/3 als indirekter Treffer erkannt.",
+        "Mapper und Repository werden nicht faelschlich als Service markiert, sondern mit eigener result_role ausgegeben.",
+        "Evidence-Pfade zeigen die Kette vom Ergebnis zum DTO oder vom DTO zum Ergebnis mit direction_used.",
+        "Wenn nur heuristische calls_probable_target Kanten genutzt wurden, enthaelt das Ergebnis eine warning."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k dto_impact"
+      ]
+    },
+    {
+      "id": "CCAQE-010",
+      "title": "controller-test-coverage Query implementieren",
+      "type": "feature-query",
+      "milestone": "CCAQE-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/test_codecompass_architecture_query.py",
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "Die Frage 'Welche Tests decken diesen Controller ueber 3 Ebenen ab?' braucht test-spezifische Kanten. Reine calls_probable_target Treffer sind dafuer nicht genug.",
+      "implementation_notes": [
+        "Seed wird als Controller-Type oder Endpoint-Knoten aufgeloest.",
+        "Primarkanten: test_targets_type, test_uses_controller, test_calls_endpoint.",
+        "Sekundaerkanten: controller_endpoint_declares, calls_probable_target, mock_injects_dependency.",
+        "Unterscheide direkte Controller-Tests, Endpoint-/WebMvc-Tests, Service-nahe Tests und nur indirekte Heuristiken."
+      ],
+      "acceptance_criteria": [
+        "Ein Test mit test_targets_type auf den Controller wird als direct_controller_test erkannt.",
+        "Ein Test, der einen vom Controller deklarierten Endpoint aufruft, wird als endpoint_test erkannt.",
+        "Ein Test, der nur indirekt ueber Service-Calls mit dem Controller verbunden ist, wird niedriger gerankt und gewarnt.",
+        "Tiefe 3 wird unterstuetzt und in diagnostics ausgewiesen.",
+        "Ergebnisse enthalten keine Behauptung 'covered', wenn nur heuristische Kanten existieren; stattdessen suspected_coverage oder indirect_evidence."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k controller_test_coverage"
+      ]
+    },
+    {
+      "id": "CCAQE-011",
+      "title": "field-policy-impact Query implementieren",
+      "type": "feature-query",
+      "milestone": "CCAQE-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/test_codecompass_architecture_query.py",
+        "docs/security/codecompass-context-trust-model.md",
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "Die Frage 'Welche Policy-Regeln beeinflussen dieses Feld?' ist sicherheitsrelevant und darf nicht heuristisch als harte Wahrheit verkauft werden.",
+      "implementation_notes": [
+        "Seed besteht aus Type plus field oder direktem Feldknoten.",
+        "Primarkanten: policy_applies_to_field, permission_checks_field, interceptor_guards_method, frontend_guard_refs_field, role_allows_operation.",
+        "Unterscheide Backend-Policy, Frontend-Guard, Interceptor, Role/Permission und Config-Regel.",
+        "Jede Antwort muss klar zwischen enforced, referenced und suspected unterscheiden."
+      ],
+      "acceptance_criteria": [
+        "Backend-Interceptor-Kanten werden als enforced_backend_guard ausgegeben, wenn die Kette method->interceptor->field/policy vorhanden ist.",
+        "Frontend-Guard-Referenzen werden nicht als Backend-Enforcement ausgegeben.",
+        "Role/Permission-Regeln werden mit Operationen wie read, create, update, delete verknuepft, sofern vorhanden.",
+        "Wenn nur Namensgleichheit oder FTS-Treffer existiert, wird das Ergebnis als weak_reference markiert.",
+        "Security-relevante Ergebnisse enthalten Evidence-Pfade und Confidence; keine nackten Treffer ohne Beweis."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k field_policy_impact"
+      ]
+    },
+    {
+      "id": "CCAQE-012",
+      "title": "service-dependency-chain Query implementieren",
+      "type": "feature-query",
+      "milestone": "CCAQE-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/test_codecompass_architecture_query.py",
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "Service-Abhaengigkeiten sind fuer Refactoring, Impact-Analyse und Architekturdrift wichtig, aber aktuell nur als generische Graph-Navigation sichtbar.",
+      "implementation_notes": [
+        "Seed wird als Service-Type oder Bean aufgeloest.",
+        "Primarkanten: injects_dependency, declares_bean, service_uses_repository, calls_probable_target, transactional_boundary.",
+        "Optional incoming und outgoing Abhaengigkeiten getrennt ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Direkte injizierte Dependencies werden als direct_dependency erkannt.",
+        "Indirekte Service-Ketten bis Tiefe 3 werden ausgegeben und begrenzt.",
+        "Repository- und Config-Knoten werden als solche markiert, nicht als Service.",
+        "Transaktionale Grenzen werden als Annotation/Boundary im Evidence-Pfad sichtbar.",
+        "Zyklische Service-Abhaengigkeiten werden erkannt und in diagnostics gemeldet."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k service_dependency_chain"
+      ]
+    },
+    {
+      "id": "CCAQE-013",
+      "title": "Java-Type-Use-Extraktion fuer Felder, Parameter, Returns und Generics erweitern",
+      "type": "extractor-enhancement",
+      "milestone": "CCAQE-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/",
+        "tests/"
+      ],
+      "problem": "dto-impact ist nur belastbar, wenn DTO-Nutzung nicht nur in Feldern, sondern auch in Methodenparametern, Return Types und Generics erkannt wird.",
+      "implementation_notes": [
+        "Suche vorhandene Java-Extractor/CodeCompass-Output-Erzeugung und erweitere dort die Kanten.",
+        "Erzeuge method_param_type_uses, method_return_type_uses und generic_type_uses.",
+        "Bei unsicherem Parser-Fallback Confidence reduzieren."
+      ],
+      "acceptance_criteria": [
+        "Ein Feld private UserDto dto erzeugt field_type_uses.",
+        "Eine Methode save(UserDto dto) erzeugt method_param_type_uses.",
+        "Eine Methode UserDto getUser() erzeugt method_return_type_uses.",
+        "Eine Verwendung List<UserDto> erzeugt generic_type_uses oder eine aequivalente typed edge.",
+        "Tests enthalten mindestens eine Java-Beispieldatei mit allen vier Faellen."
+      ],
+      "test_expectations": [
+        "pytest -q tests -k codecompass"
+      ]
+    },
+    {
+      "id": "CCAQE-014",
+      "title": "Test- und Controller-Kanten extrahieren",
+      "type": "extractor-enhancement",
+      "milestone": "CCAQE-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/",
+        "tests/"
+      ],
+      "problem": "Controller-Testabdeckung kann ohne explizite Test-Kanten nicht serioes beantwortet werden.",
+      "implementation_notes": [
+        "Erkenne typische Java/Spring-Testsignale wie @WebMvcTest, @SpringBootTest, MockMvc, Controller-Klassenreferenzen und Endpoint-Strings.",
+        "Erzeuge test_targets_type, test_uses_controller und test_calls_endpoint.",
+        "Erzeuge controller_endpoint_declares fuer Controller-Methoden mit Mapping-Annotationen."
+      ],
+      "acceptance_criteria": [
+        "@WebMvcTest(UserController.class) erzeugt test_targets_type auf UserController.",
+        "MockMvc perform(get('/users')) erzeugt test_calls_endpoint auf passenden Endpoint-Knoten, sofern vorhanden.",
+        "@GetMapping('/users') erzeugt controller_endpoint_declares.",
+        "Tests unterscheiden direkte Controller-Tests von rein indirekten Service-Tests.",
+        "Unsichere Endpoint-String-Matches erhalten reduzierte Confidence."
+      ],
+      "test_expectations": [
+        "pytest -q tests -k controller"
+      ]
+    },
+    {
+      "id": "CCAQE-015",
+      "title": "Policy-, Permission- und Interceptor-Kanten extrahieren",
+      "type": "extractor-enhancement",
+      "milestone": "CCAQE-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/",
+        "docs/security/codecompass-context-trust-model.md",
+        "tests/"
+      ],
+      "problem": "Feldberechtigungen sind ein Kernbereich von Ananta. Ohne konkrete Policy-Kanten bleibt field-policy-impact zu schwach.",
+      "implementation_notes": [
+        "Analysiere vorhandene Permission-/Interceptor-/Policy-Dateien im Repo, bevor konkrete Parser hart verdrahtet werden.",
+        "Erzeuge policy_applies_to_field, permission_checks_field, interceptor_guards_method, frontend_guard_refs_field und role_allows_operation, wo Daten vorhanden sind.",
+        "Operationen read/create/update/delete als Attribute an Kanten oder Knoten speichern."
+      ],
+      "acceptance_criteria": [
+        "Ein Backend-Check fuer Feld update erzeugt permission_checks_field mit operation=update.",
+        "Ein Interceptor, der eine Methode schuetzt, erzeugt interceptor_guards_method.",
+        "Frontend-only Guards werden als frontend_guard_refs_field markiert und nicht als Backend-Enforcement gewertet.",
+        "Policy-Kanten enthalten source_file/source_record oder vergleichbare Provenance.",
+        "Security-Dokumentation beschreibt, welche Kanten enforcement bedeuten und welche nur reference."
+      ],
+      "test_expectations": [
+        "pytest -q tests -k policy"
+      ]
+    },
+    {
+      "id": "CCAQE-016",
+      "title": "Service-, Repository-, Mapper- und Bean-Rollen sicher klassifizieren",
+      "type": "classification",
+      "milestone": "CCAQE-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/",
+        "worker/retrieval/codecompass_architecture_query.py",
+        "tests/"
+      ],
+      "problem": "Architecture Queries brauchen Rollen wie service, controller, repository, mapper, policy, test. Nur node.kind reicht dafuer vermutlich nicht aus.",
+      "implementation_notes": [
+        "Klassifiziere Rollen ueber Annotationen, Namen, Pfade und vorhandene role_labels.",
+        "Bevorzuge explizite role_labels, falls vorhanden.",
+        "Unsichere Namensheuristiken niedriger gewichten."
+      ],
+      "acceptance_criteria": [
+        "@Service oder *Service wird als service klassifiziert.",
+        "@Repository oder *Repository wird als repository klassifiziert.",
+        "@Controller/@RestController wird als controller klassifiziert.",
+        "*Mapper oder Mapping-Annotationen werden als mapper klassifiziert.",
+        "Tests koennen result_role=test erhalten.",
+        "Role-Klassifikation ist im QueryResult sichtbar."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py -k role"
+      ]
+    },
+    {
+      "id": "CCAQE-017",
+      "title": "REST-API fuer Architecture Queries bereitstellen",
+      "type": "api",
+      "milestone": "CCAQE-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/routes/codecompass_graph.py",
+        "tests/test_codecompass_graph_api.py"
+      ],
+      "problem": "Die Engine muss aus UI, ai-snake-chat und Worker-Kontext abrufbar sein.",
+      "implementation_notes": [
+        "Fuege GET /api/codecompass/query hinzu oder lagere in eigene route-Datei aus.",
+        "Nutze knowledge_index_id wie bestehende Graph-Endpunkte.",
+        "Validiere type, seed, depth und optionale field/direction Parameter."
+      ],
+      "acceptance_criteria": [
+        "Gueltige Query liefert schema=codecompass_architecture_query_result.v1.",
+        "Fehlende knowledge_index_id wird wie bei Graph-Endpunkten abgelehnt.",
+        "Unbekannter query_type liefert BadRequest mit valid types.",
+        "API-Test deckt mindestens dto-impact happy path und invalid_query_type ab.",
+        "Bestehende Graph-API-Tests bleiben gruen."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_graph_api.py"
+      ]
+    },
+    {
+      "id": "CCAQE-018",
+      "title": "Graph-Viewer/UI um Architekturfrage-Modus erweitern",
+      "type": "ui",
+      "milestone": "CCAQE-M5",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "web/www/codecompass/index.html",
+        "docs/codecompass-graph-viewer.md"
+      ],
+      "problem": "Gefundene Evidence-Pfade muessen sichtbar und klickbar werden, sonst bleibt die Funktion fuer Menschen schwer nachvollziehbar.",
+      "implementation_notes": [
+        "Einfaches UI reicht: Query-Typ Dropdown, Seed Input, Depth Input, Ergebnisliste, Evidence-Pfade.",
+        "Knoten/Edges aus Results optional im bestehenden Graph anzeigen.",
+        "Warnings prominent anzeigen."
+      ],
+      "acceptance_criteria": [
+        "UI erlaubt Auswahl von dto-impact, controller-test-coverage, field-policy-impact und service-dependency-chain.",
+        "Ergebnisse zeigen result_role, score, depth und mindestens einen Evidence-Pfad.",
+        "Warnings werden sichtbar angezeigt und nicht im JSON versteckt.",
+        "Fehler wie seed_not_resolved werden lesbar dargestellt.",
+        "Dokumentation beschreibt Bedienung und Grenzen."
+      ],
+      "test_expectations": [
+        "Manueller Smoke-Test mit statischem Beispielindex",
+        "Optional: vorhandene Web-Tests erweitern, falls fuer web/www/codecompass bereits Testharness existiert"
+      ]
+    },
+    {
+      "id": "CCAQE-019",
+      "title": "ai-snake-chat / Worker-Handoff fuer QueryResult vorbereiten",
+      "type": "agent-context",
+      "milestone": "CCAQE-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/",
+        "worker/",
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "Agenten sollen Architekturfragen direkt nutzen koennen, ohne rohe Graphdaten selbst interpretieren zu muessen.",
+      "implementation_notes": [
+        "Definiere ein kompaktes Markdown-Handoff fuer QueryResults mit Evidence-Pfaden.",
+        "Bei sicherheitsrelevanten field-policy-impact Ergebnissen Warnings immer mitgeben.",
+        "Keine LLM-Uminterpretation der Evidence als harte Wahrheit ohne Confidence/Warnhinweise."
+      ],
+      "acceptance_criteria": [
+        "Ein QueryResult kann als kompakter Markdown-Kontext gerendert werden.",
+        "Markdown enthaelt Query, Seed, Results, Evidence und Warnings.",
+        "Security-Warnings werden nicht weggefiltert.",
+        "Leere Ergebnisse werden als 'nicht gefunden / nicht belegt' dargestellt, nicht als Erfolg."
+      ],
+      "test_expectations": [
+        "pytest -q tests -k codecompass"
+      ]
+    },
+    {
+      "id": "CCAQE-020",
+      "title": "End-to-End Beispielindex fuer Architekturqueries anlegen",
+      "type": "test-fixture",
+      "milestone": "CCAQE-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "tests/fixtures/",
+        "tests/test_codecompass_architecture_query.py",
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "Ohne kleine, stabile Fixture bleiben Query-Tests bruechig und schwer zu verstehen.",
+      "implementation_notes": [
+        "Lege Mini-Graph mit UserDto, UserController, UserService, UserRepository, UserControllerTest und FieldPolicy an.",
+        "Fixture soll alle vier Query-Typen abdecken.",
+        "Keine grossen realen Projektdateien in Tests kopieren."
+      ],
+      "acceptance_criteria": [
+        "Fixture enthaelt mindestens 8 Nodes und 12 Edges mit unterschiedlichen Edge-Typen.",
+        "dto-impact findet Controller und Service ueber definierte Pfade.",
+        "controller-test-coverage findet direkten und indirekten Testfall.",
+        "field-policy-impact findet Backend- und Frontend-Regel getrennt.",
+        "service-dependency-chain erkennt Repository-Abhaengigkeit."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_architecture_query.py"
+      ]
+    },
+    {
+      "id": "CCAQE-021",
+      "title": "SQLiteGraphStore als optionalen Backend-Adapter entwerfen",
+      "type": "storage-design",
+      "milestone": "CCAQE-M6",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_graph_store.py",
+        "worker/retrieval/codecompass_sqlite_graph_store.py",
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "JSON-Graph ist fuer kleine/mittlere Indizes ok, aber wiederholte Multi-Hop-Abfragen werden mit relationalen Node/Edge-Indizes robuster und schneller.",
+      "implementation_notes": [
+        "Erst Design und Interface, keine Pflichtmigration.",
+        "Tabellen cc_graph_nodes und cc_graph_edges analog zum Zielmodell dokumentieren.",
+        "FTS-Store und Graph-Store koennen spaeter dieselbe SQLite-Datei oder getrennte Dateien nutzen."
+      ],
+      "acceptance_criteria": [
+        "Dokumentation enthaelt vorgeschlagene SQLite-Tabellen und Indizes.",
+        "JSONGraphStore bleibt Default/Fallback.",
+        "Es ist klar definiert, wie beide Stores denselben QueryEngine-Vertrag erfuellen.",
+        "Keine neue externe Runtime-Abhaengigkeit wird eingefuehrt."
+      ],
+      "test_expectations": [
+        "python -m json.tool todos/todo.codecompass-architecture-query-engine.json"
+      ]
+    },
+    {
+      "id": "CCAQE-022",
+      "title": "SQLiteGraphStore minimal implementieren und gegen dieselben Tests laufen lassen",
+      "type": "storage-implementation",
+      "milestone": "CCAQE-M6",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "worker/retrieval/codecompass_sqlite_graph_store.py",
+        "tests/test_codecompass_graph_store.py",
+        "tests/test_codecompass_architecture_query.py"
+      ],
+      "problem": "Ein optionaler SQLiteGraphStore lohnt sich nur, wenn er denselben Vertrag wie JSONGraphStore erfuellt und nicht zweite Logik erzeugt.",
+      "implementation_notes": [
+        "Nutze sqlite3 aus der Standardbibliothek.",
+        "Implementiere Laden/Rebuild/Indexes fuer Nodes und Edges.",
+        "Gemeinsame Contract-Tests fuer JSON und SQLite parametrisieren."
+      ],
+      "acceptance_criteria": [
+        "SQLiteGraphStore kann denselben Fixture-Graph wie JSONGraphStore rebuilden.",
+        "incoming_edges/outgoing_edges/traverse_paths liefern aequivalente Ergebnisse.",
+        "Architecture Query Tests laufen gegen JSONGraphStore und SQLiteGraphStore.",
+        "SQLiteGraphStore ist optional konfigurierbar und nicht Default, solange nicht explizit aktiviert."
+      ],
+      "test_expectations": [
+        "pytest -q tests/test_codecompass_graph_store.py tests/test_codecompass_architecture_query.py"
+      ]
+    },
+    {
+      "id": "CCAQE-023",
+      "title": "Externe Graphdatenbanken nur als spaeteren Adapter offenhalten",
+      "type": "future-extension",
+      "milestone": "CCAQE-M6",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/codecompass-architecture-query-engine.md"
+      ],
+      "problem": "Neo4j/Memgraph/Kuzu koennen spaeter sinnvoll sein, duerfen aber die lokale Standardnutzung nicht verkomplizieren.",
+      "implementation_notes": [
+        "Dokumentiere Kriterien, ab wann externe Graph-DB sinnvoll ist: mehrere Repos, sehr grosser Graph, interaktive komplexe Cypher-Queries, persistente Multi-User-Analyse.",
+        "Halte Kuzu, Memgraph und Neo4j als moegliche Adapter fest, ohne sie jetzt einzubauen.",
+        "Keine Docker-Compose-Pflicht fuer CodeCompass einfuehren."
+      ],
+      "acceptance_criteria": [
+        "Dokumentation nennt externe Graph-DBs als optionale spaetere Adapter, nicht als Pflicht.",
+        "Entscheidungskriterien fuer SQLite vs externe Graph-DB sind beschrieben.",
+        "Ananta bleibt lokal ohne zusaetzlichen Graph-Service lauffaehig.",
+        "Keine neue Runtime-Abhaengigkeit wird fuer diesen Task eingefuehrt."
+      ],
+      "test_expectations": [
+        "Dokumentationsreview"
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 23,
+    "by_status": {
+      "todo": 23,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 12,
+      "P1": 6,
+      "P2": 2,
+      "P3": 3
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 12,
+      "high": 5,
+      "critical": 2
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12,
+      "task_ids": [
+        "CCAQE-001",
+        "CCAQE-002",
+        "CCAQE-003",
+        "CCAQE-005",
+        "CCAQE-006",
+        "CCAQE-008",
+        "CCAQE-009",
+        "CCAQE-010",
+        "CCAQE-011",
+        "CCAQE-013",
+        "CCAQE-014",
+        "CCAQE-017"
+      ]
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "recommended_first_implementation_slice": [
+    "CCAQE-001",
+    "CCAQE-002",
+    "CCAQE-003",
+    "CCAQE-005",
+    "CCAQE-006",
+    "CCAQE-007",
+    "CCAQE-009",
+    "CCAQE-017",
+    "CCAQE-020"
+  ],
+  "definition_of_done": [
+    "CodeCompass kann mindestens dto-impact ueber API beantworten und liefert Evidence-Pfade statt nackter Treffer.",
+    "controller-test-coverage unterscheidet direkte Tests, Endpoint-Tests und heuristische indirekte Hinweise.",
+    "field-policy-impact trennt Backend-Enforcement, Frontend-Referenz und schwache Namens-/FTS-Hinweise.",
+    "Alle Query-Typen sind durch kleine deterministische Fixtures getestet.",
+    "Bestehende Graph-Expansion und Graph-Viewer-Endpunkte bleiben rueckwaertskompatibel.",
+    "Keine externe Graphdatenbank ist fuer Standardbetrieb erforderlich."
+  ]
+}
