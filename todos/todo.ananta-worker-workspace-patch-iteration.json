@@ -1,0 +1,373 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-worker-workspace-patch-iteration",
+  "created": "2026-06-10",
+  "status": "todo",
+  "purpose": "Der ananta-worker soll wie OpenCode nicht nur CodeCompass-Kontext analysieren, sondern Hub-bereitgestellte Workspace-Dateien kontrolliert ändern, Diffs erzeugen, Tests/Checks auswerten und iterativ weiterarbeiten koennen.",
+  "goal": "Ein sicherer Workspace-Patch-Loop fuer ananta-worker: Hub materialisiert erlaubte Dateien in einen Workspace, Worker schlaegt Patch-/Write-Operationen vor, Hub validiert und wendet sie an, Diffs/Tests/ToolResults gehen zurueck in die naechste Iteration, finale Aenderungen werden als Artefakte synchronisiert.",
+  "source_review": {
+    "summary": "WorkerWorkspaceService kann bereits Workspaces aufloesen, .ananta-Kontextdateien fuer OpenCode vorbereiten, Baselines/Diffs erzeugen und geaenderte Workspace-Dateien als Artefakte zum Hub synchronisieren. OpenCode bekommt aktuell explizite Workspace-Anweisungen und darf je nach Modus direkt im Workspace arbeiten. Der ananta-worker verarbeitet dagegen aktuell hauptsaechlich CodeCompass-Kontext-Batches ueber SGPT und schreibt progress.md/Summary, aber aendert Dateien nicht belastbar wie ein Workspace-Agent.",
+    "observed_source_files": [
+      "agent/common/sgpt.py",
+      "agent/services/worker_workspace_service.py",
+      "agent/services/context_delivery_service.py",
+      "agent/services/task_scoped_execution_service.py",
+      "tests/test_sgpt_route.py",
+      "tests/test_e2e_workspace_artifact_flow.py",
+      "todos/todo.ananta-worker-tool-calling-loop.json"
+    ]
+  },
+  "design_decisions": [
+    {
+      "id": "AWWPI-DD-001",
+      "decision": "ananta-worker schreibt nicht unkontrolliert direkt, sondern ueber Hub-validierte Patch-/Write-Tools.",
+      "rationale": "So bleibt Least-Privilege erhalten und OpenCode-artige Faehigkeit wird ohne unkontrollierte Shell-/Dateizugriffe moeglich."
+    },
+    {
+      "id": "AWWPI-DD-002",
+      "decision": "Workspace-Baseline und Diff-Artefakte sind Pflicht fuer jede mutierende Iteration.",
+      "rationale": "Jede Aenderung muss auditierbar, reproduzierbar und fuer den Hub nachvollziehbar sein."
+    },
+    {
+      "id": "AWWPI-DD-003",
+      "decision": "Der bestehende Analyse-/Batch-Loop bleibt Fallback.",
+      "rationale": "Bestehende CodeCompass-Analysefunktionen duerfen durch Patch-Faehigkeit nicht brechen."
+    },
+    {
+      "id": "AWWPI-DD-004",
+      "decision": "Patch-Iteration nutzt den geplanten Tool-Calling-Loop, bleibt aber als eigener Track sichtbar.",
+      "rationale": "Tool Calling ist die Infrastruktur; Workspace-Patching ist ein spezieller, risikoreicher Use Case mit eigenen Akzeptanzkriterien."
+    }
+  ],
+  "target_runtime_flow": [
+    "Hub erstellt oder reused WorkerWorkspaceContext.",
+    "Hub materialisiert nur erlaubte Dateien/Artefakte in den Workspace.",
+    "Hub schreibt .ananta/task-brief.md, AGENTS.md, response-contract.md und optional CodeCompass-Kontext.",
+    "ananta-worker analysiert Aufgabe und fordert read/patch/test Tools an.",
+    "Hub validiert ToolRequest gegen Policy und Scope.",
+    "Hub wendet Patch/Write kontrolliert im Workspace an.",
+    "Hub erzeugt Diff gegen Baseline und gibt Diff/TestResult als Evidence zurueck.",
+    "Worker iteriert bis final_answer, max_iterations oder policy_blocked.",
+    "Hub synchronisiert finale meaningful changed files und workspace.diff als Artefakte."
+  ],
+  "milestones": [
+    {
+      "id": "AWWPI-M1",
+      "title": "Workspace-Mutationsvertrag definieren",
+      "status": "todo",
+      "task_ids": ["AWWPI-001", "AWWPI-002", "AWWPI-003"]
+    },
+    {
+      "id": "AWWPI-M2",
+      "title": "Workspace-Vorbereitung fuer ananta-worker ergaenzen",
+      "status": "todo",
+      "task_ids": ["AWWPI-004", "AWWPI-005", "AWWPI-006"]
+    },
+    {
+      "id": "AWWPI-M3",
+      "title": "Patch-/Write-/Diff-Tools implementieren",
+      "status": "todo",
+      "task_ids": ["AWWPI-007", "AWWPI-008", "AWWPI-009", "AWWPI-010"]
+    },
+    {
+      "id": "AWWPI-M4",
+      "title": "Iterativen Patch-Loop in ananta-worker einbauen",
+      "status": "todo",
+      "task_ids": ["AWWPI-011", "AWWPI-012", "AWWPI-013", "AWWPI-014"]
+    },
+    {
+      "id": "AWWPI-M5",
+      "title": "Tests, Artefakte und Rollout abschliessen",
+      "status": "todo",
+      "task_ids": ["AWWPI-015", "AWWPI-016", "AWWPI-017", "AWWPI-018"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "AWWPI-001",
+      "title": "Unterschied OpenCode vs ananta-worker Workspace-Verhalten dokumentieren",
+      "type": "analysis-documentation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": ["docs/ananta-worker-workspace-patch-iteration.md", "agent/services/worker_workspace_service.py", "agent/common/sgpt.py"],
+      "acceptance_criteria": [
+        "Doku beschreibt, dass OpenCode bereits direkt im Workspace arbeiten kann.",
+        "Doku beschreibt, dass ananta-worker aktuell vor allem Kontext-Batch-/Analyse-Loop ist.",
+        "Doku nennt Baseline, Workspace-Diff und Artifact-Sync als vorhandene Bausteine."
+      ]
+    },
+    {
+      "id": "AWWPI-002",
+      "title": "PatchRequest-/PatchResult-Vertrag definieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["docs/contracts/ananta-worker-workspace-patch.md"],
+      "acceptance_criteria": [
+        "PatchRequest unterstuetzt unified_diff, replace_range und write_file_create_only als Varianten.",
+        "PatchRequest enthaelt reason, target_path, expected_old_hash oder base_excerpt, und risk_hint.",
+        "PatchResult enthaelt applied, rejected_reason, changed_files, diff_excerpt, content_hashes und warnings.",
+        "Unklare oder unsichere Patches werden abgelehnt statt geraten."
+      ]
+    },
+    {
+      "id": "AWWPI-003",
+      "title": "Workspace-Mutation-Policy definieren",
+      "type": "security-design",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["docs/security/ananta-worker-workspace-mutation-policy.md", "docs/ananta-worker-workspace-patch-iteration.md"],
+      "acceptance_criteria": [
+        "Nur explizit materialisierte oder policy-erlaubte Dateien duerfen geaendert werden.",
+        "Path Traversal, absolute Hostpfade, Secrets und .git werden blockiert.",
+        "Mutationen ausserhalb WorkspaceRoot werden blockiert.",
+        "Loeschen, Umbenennen und grosse Datei-Ersetzungen brauchen eigene Policy/Approval."
+      ]
+    },
+    {
+      "id": "AWWPI-004",
+      "title": "prepare_ananta_worker_context_files einfuehren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/worker_workspace_service.py", "tests/"],
+      "acceptance_criteria": [
+        "Methode erzeugt AGENTS.md, .ananta/task-brief.md, .ananta/response-contract.md und rag_helper/research-context.json fuer ananta-worker.",
+        "Methode ist getrennt von prepare_opencode_context_files, nutzt aber gemeinsame Hilfslogik, wo sinnvoll.",
+        "Response-Contract beschreibt PatchRequest/ToolRequest statt freier Textantwort.",
+        "Bestehende OpenCode-Kontextvorbereitung bleibt unveraendert funktionsfaehig."
+      ]
+    },
+    {
+      "id": "AWWPI-005",
+      "title": "Workspace-Baseline vor ananta-worker Mutation refreshen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/services/worker_workspace_service.py", "agent/services/task_scoped_execution_service.py", "tests/"],
+      "acceptance_criteria": [
+        "Vor mutierender ananta-worker Ausfuehrung wird refresh_interactive_terminal_baseline oder aequivalente Baseline erstellt.",
+        "Baseline ignoriert .ananta und rag_helper fuer meaningful source diffs.",
+        "Fehlende Baseline verhindert Artifact-Diff-Sync nicht stillschweigend, sondern erzeugt Warning."
+      ]
+    },
+    {
+      "id": "AWWPI-006",
+      "title": "Erlaubte Workspace-Dateien aus Hub-Kontext materialisieren",
+      "type": "context-materialization",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/context_delivery_service.py", "agent/services/worker_workspace_service.py", "tests/"],
+      "acceptance_criteria": [
+        "Read-/Patch-erlaubte Dateien werden in den Workspace kopiert oder materialisiert.",
+        "Materialization manifest enthaelt source, workspace_path, hash und allowed_operations.",
+        "Nicht erlaubte Dateien erscheinen hoechstens als Snippet/Evidence, nicht als patchbare Datei.",
+        "Cloud-/LLM-Scope-Regeln aus ContextDeliveryService bleiben wirksam."
+      ]
+    },
+    {
+      "id": "AWWPI-007",
+      "title": "repo.apply_patch Tool implementieren",
+      "type": "tool-implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/tools/", "tests/test_ananta_worker_workspace_patch.py"],
+      "acceptance_criteria": [
+        "Tool akzeptiert unified_diff nur fuer Dateien innerhalb WorkspaceRoot.",
+        "Tool prueft expected_old_hash oder Kontext gegen aktuellen Dateiinhalt.",
+        "Patch-Konflikte liefern rejected_reason statt halber Aenderung.",
+        "Erfolgreicher Patch liefert changed_files und diff_excerpt."
+      ]
+    },
+    {
+      "id": "AWWPI-008",
+      "title": "repo.write_file kontrolliert implementieren",
+      "type": "tool-implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "target_files": ["agent/services/tools/", "tests/test_ananta_worker_workspace_patch.py"],
+      "acceptance_criteria": [
+        "Create-only und replace-existing sind getrennte Operationen.",
+        "Replace-existing braucht Hash-/Baseline-Abgleich oder Approval.",
+        "Grosse Dateien werden begrenzt oder abgelehnt.",
+        "Binary-Dateien werden nicht als Text ersetzt."
+      ]
+    },
+    {
+      "id": "AWWPI-009",
+      "title": "workspace.diff ToolResult erzeugen",
+      "type": "tool-implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/services/worker_workspace_service.py", "agent/services/tools/", "tests/"],
+      "acceptance_criteria": [
+        "Tool kann aktuellen Diff gegen Baseline liefern.",
+        "Diff ist groessenbegrenzt und verweist auf vollstaendiges Artifact, falls synchronisiert.",
+        "Nicht relevante .ananta/rag_helper Dateien werden aus meaningful diff gefiltert.",
+        "DiffResult kann als Evidence in den ananta-worker Folgeprompt eingebettet werden."
+      ]
+    },
+    {
+      "id": "AWWPI-010",
+      "title": "test.run nach Patch als optionalen Check einbinden",
+      "type": "tool-implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/services/tools/", "tests/"],
+      "acceptance_criteria": [
+        "Nur allowlisted Testkommandos duerfen laufen.",
+        "Timeout, Outputlimit und cwd=workspace greifen.",
+        "TestResult wird mit rc, stdout_excerpt, stderr_excerpt und duration geliefert.",
+        "Fehlende Tests blockieren nicht automatisch, werden aber als Warning sichtbar."
+      ]
+    },
+    {
+      "id": "AWWPI-011",
+      "title": "ananta-worker Patch-Loop Feature Flag einbauen",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/config.py", "agent/config_defaults.py", "agent/common/sgpt.py"],
+      "acceptance_criteria": [
+        "Feature Flag aktiviert Workspace-Patch-Loop getrennt vom normalen Analyse-Loop.",
+        "Default kann sicher auf disabled oder read-only gesetzt werden.",
+        "Fallback auf bestehenden _run_ananta_worker_iterative bleibt erhalten."
+      ]
+    },
+    {
+      "id": "AWWPI-012",
+      "title": "Patch-Loop in ananta-worker Runtime einbauen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/common/sgpt.py", "agent/services/", "tests/"],
+      "acceptance_criteria": [
+        "Worker kann PatchRequest aus Modellantwort extrahieren.",
+        "Hub validiert und wendet Patch ueber Tool an.",
+        "PatchResult/Diff/TestResult geht in naechste Iteration.",
+        "Loop endet bei final_answer, max_iterations, policy_blocked oder wiederholtem invalid_output.",
+        "Kein Patch wird ausgefuehrt, wenn Policy oder Scope ihn blockiert."
+      ]
+    },
+    {
+      "id": "AWWPI-013",
+      "title": "Iterative Verbesserung nach Test-/Diff-Feedback erlauben",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/common/sgpt.py", "tests/"],
+      "acceptance_criteria": [
+        "Worker kann nach fehlgeschlagenem Test einen weiteren PatchRequest erzeugen.",
+        "Vorherige PatchResults und TestResults werden knapp in den Prompt aufgenommen.",
+        "Maximalzahl Patch-Versuche pro Datei ist konfigurierbar.",
+        "Wiederholtes Aendern derselben Stelle ohne Fortschritt wird erkannt und beendet."
+      ]
+    },
+    {
+      "id": "AWWPI-014",
+      "title": "Finale Workspace-Artefakte synchronisieren",
+      "type": "artifact-sync",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/worker_workspace_service.py", "agent/services/task_scoped_execution_service.py", "tests/"],
+      "acceptance_criteria": [
+        "Nach erfolgreicher Patch-Iteration werden meaningful changed files synchronisiert.",
+        "workspace.diff wird als Artefakt erzeugt.",
+        "Artifact-Refs werden an Task-/Goal-Ausgabe registriert.",
+        "Keine .ananta/rag_helper Hilfsdateien werden als fachliche Aenderungen ausgegeben."
+      ]
+    },
+    {
+      "id": "AWWPI-015",
+      "title": "Unit-Tests fuer Patch-Tools schreiben",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["tests/test_ananta_worker_workspace_patch.py"],
+      "acceptance_criteria": [
+        "apply_patch happy path wird getestet.",
+        "Path Traversal wird getestet.",
+        "Hash-Konflikt wird getestet.",
+        "Binary/grosse Datei wird getestet.",
+        "DiffResult gegen Baseline wird getestet."
+      ]
+    },
+    {
+      "id": "AWWPI-016",
+      "title": "Integrationstest fuer ananta-worker Patch-Iteration schreiben",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["tests/test_ananta_worker_workspace_patch_iteration.py"],
+      "acceptance_criteria": [
+        "Fake-LLM liefert PatchRequest, Hub wendet Patch an, Folgeprompt enthaelt PatchResult, final_answer beendet Loop.",
+        "Test prueft, dass Datei im Workspace geaendert wurde.",
+        "Test prueft, dass workspace.diff Artefakt erzeugt wird.",
+        "Test prueft, dass geblockter Patch keine Datei aendert."
+      ]
+    },
+    {
+      "id": "AWWPI-017",
+      "title": "UI/Diagnostics fuer Workspace-Patch-Iteration anzeigen",
+      "type": "ui-diagnostics",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "target_files": ["frontend-angular/src/app/", "agent/routes/"],
+      "acceptance_criteria": [
+        "UI zeigt PatchRequests, Policy-Entscheidungen, Diffs und TestResults pro Iteration.",
+        "Geblockte Patches sind sichtbar und erklaert.",
+        "Finale geaenderte Dateien und workspace.diff sind verlinkt."
+      ]
+    },
+    {
+      "id": "AWWPI-018",
+      "title": "Rollout-Plan fuer read-only zu patching erstellen",
+      "type": "release-planning",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "target_files": ["docs/release/ananta-worker-workspace-patch-rollout.md"],
+      "acceptance_criteria": [
+        "Rollout startet mit read-only und diff-only Dry-Run.",
+        "Danach apply_patch fuer explizit materialisierte Dateien.",
+        "Danach test.run allowlisted.",
+        "Write/delete/rename bleiben spaetere separate Stufen mit Approval."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 18,
+    "by_status": {"todo": 18, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 12, "P1": 4, "P2": 2, "P3": 0},
+    "by_risk": {"low": 1, "medium": 5, "high": 7, "critical": 5},
+    "critical_path": {"total": 12, "done": 0, "remaining": 12},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
+  "definition_of_done": [
+    "ananta-worker kann erlaubte Workspace-Dateien ueber Hub-validierte PatchRequests aendern.",
+    "Jede Mutation erzeugt nachvollziehbare PatchResults und Workspace-Diffs.",
+    "Iterationen koennen Test-/Diff-Feedback verwenden.",
+    "Finale Aenderungen werden als Artefakte synchronisiert.",
+    "Bestehender Analyse-/CodeCompass-Batch-Loop bleibt als Fallback erhalten."
+  ]
+}
