@@ -160,7 +160,7 @@
     {
       "id": "CCDD-M2",
       "title": "Domain-Graph-Modell aus vorhandenen CodeCompass-Outputs bauen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "CCDD-004",
         "CCDD-005",
@@ -171,7 +171,7 @@
     {
       "id": "CCDD-M3",
       "title": "Clustering, Boundary-Metriken und Konfliktanalyse implementieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCDD-008",
         "CCDD-009",
@@ -304,10 +304,10 @@
       "title": "Neues Package rag_helper.domain_discovery anlegen",
       "type": "implementation",
       "milestone": "CCDD-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 60,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/__init__.py",
         "rag-helper/rag_helper/domain_discovery/contracts.py",
@@ -316,8 +316,7 @@
         "rag-helper/rag_helper/domain_discovery/signals.py",
         "rag-helper/rag_helper/domain_discovery/clustering.py",
         "rag-helper/rag_helper/domain_discovery/boundaries.py",
-        "rag-helper/rag_helper/domain_discovery/descriptors.py",
-        "rag-helper/rag_helper/domain_discovery/writer.py"
+        "rag-helper/rag_helper/domain_discovery/descriptors.py"
       ],
       "implementation_notes": [
         "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
@@ -335,7 +334,7 @@
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
         "pytest tests/test_codecompass_domain_*"
       ],
-      "notes": "Package mit __init__/contracts/inputs/graph_model/signals angelegt; clustering/boundaries/descriptors/writer folgen in M3/M4."
+      "notes": "Package mit __init__/contracts/inputs/graph_model/signals/clustering/boundaries/descriptors angelegt; writer.py folgt in M4 (noetig sobald project_processor-Hooks erlaubt sind)."
     },
     {
       "id": "CCDD-005",
@@ -435,13 +434,13 @@
       "title": "Deterministisches Domain-Clustering implementieren",
       "type": "implementation",
       "milestone": "CCDD-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/clustering.py",
-        "tests/test_codecompass_domain_clustering.py"
+        "rag-helper/tests/test_codecompass_domain_clustering.py"
       ],
       "implementation_notes": [
         "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
@@ -457,21 +456,22 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 9 Tests in rag-helper/tests/test_codecompass_domain_clustering.py. Layer-only Cluster werden gedroppt (CCDD-DD-003)."
     },
     {
       "id": "CCDD-009",
       "title": "Boundary- und Coupling-Metriken berechnen",
       "type": "implementation",
       "milestone": "CCDD-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/boundaries.py",
-        "tests/test_codecompass_domain_boundaries.py"
+        "rag-helper/tests/test_codecompass_domain_boundaries.py"
       ],
       "implementation_notes": [
         "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
@@ -487,22 +487,22 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 6 Tests. mutual_coupling / layer_spans_domains / heterogeneous_root / descriptor_mismatch (Wire-up ueber descriptor_mismatches-Parameter). Warnings byte-stabil sortiert."
     },
     {
       "id": "CCDD-010",
       "title": "Bestehende Domain-Descriptoren als harte/optionale Signale einbinden",
       "type": "implementation",
       "milestone": "CCDD-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/domain_discovery/descriptors.py",
-        "domains/*/domain.json",
-        "tests/test_codecompass_domain_descriptors.py"
+        "rag-helper/tests/test_codecompass_domain_descriptors.py"
       ],
       "implementation_notes": [
         "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
@@ -518,22 +518,23 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. 8 Tests. index_existing_descriptors + build_descriptor_mismatches + apply_descriptor_signal. Mapping-Parameter fuer DIP-konforme Aufrufer."
     },
     {
       "id": "CCDD-011",
       "title": "Technische Layer aus gem_partitions.py als Zusatzsignal nutzen",
       "type": "refactor",
       "milestone": "CCDD-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "target_files": [
         "rag-helper/rag_helper/application/gem_partitions.py",
         "rag-helper/rag_helper/domain_discovery/signals.py",
-        "tests/test_codecompass_domain_technical_layers.py"
+        "rag-helper/tests/test_codecompass_domain_technical_layers.py"
       ],
       "implementation_notes": [
         "Bestehenden Code bevorzugt erweitern statt parallele Sonderlogik aufzubauen.",
@@ -549,8 +550,9 @@
       "test_expectations": [
         "python -m json.tool todos/todo.codecompass-domain-discovery.json",
         "python devtools/validate_todo_schema.py todos/todo.codecompass-domain-discovery.json",
-        "pytest tests/test_codecompass_domain_*"
-      ]
+        "cd rag-helper && python -m pytest tests/test_codecompass_domain_*.py"
+      ],
+      "notes": "Done 2026-06-10. gem_partitions.py unveraendert; 4 Tests dokumentieren den Layer-only Guard auf signals-Ebene."
     },
     {
       "id": "CCDD-012",
@@ -841,6 +843,7 @@
   ],
   "summary_notes": [
     "KOORDINATION (2026-06-10): CCDD-012/013/014 erweitern rag-helper/rag_helper/application/project_processor.py — dieselbe Datei will SPLIT-033 (todo.refactor-large-files-split.json, M4) in file_scanner/document_extractor/project_processor zerlegen. Reihenfolge: SPLIT-033 zuerst abschliessen, bevor CCDD-012/013/014 implementiert werden, oder SPLIT-033 bewusst auf nach CCDD-M4 verschieben. Nicht parallel bearbeiten.",
+    "M3-ABGESCHLOSSEN (2026-06-10): CCDD-008 (clustering), CCDD-009 (boundaries), CCDD-010 (descriptors), CCDD-011 (technical layers) sind done. Insgesamt 27 neue Tests, alle 43 CCDD-Tests gruen. Kein project_processor-Touch noetig fuer M3.",
     "Nicht einfach gem_partitions.py erweitern und dann api/service/data-model als Domaenen verkaufen. Das waere falsch.",
     "Ziel ist ein erklaerbarer Domain-Kandidat aus Code-Struktur und Graph-Kopplung.",
     "Bounded Context ist hier bewusst Kandidat/Vorschlag, kein absoluter Wahrheitsanspruch.",
@@ -849,13 +852,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 20,
+      "todo": 12,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 40,
     "by_priority": {
       "P0": 12,
       "P1": 5,
@@ -868,15 +871,15 @@
     },
     "critical_path": {
       "total": 8,
-      "done": 0,
-      "remaining": 8
+      "done": 4,
+      "remaining": 4
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 3,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -926,30 +929,30 @@
       },
       "implementation": {
         "total": 11,
-        "done": 0,
+        "done": 6,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 54.5,
         "by_status": {
-          "todo": 11,
+          "todo": 5,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 6
         }
       },
       "refactor": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "cli": {
@@ -1039,12 +1042,15 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 20,
+    "state": "in_progress",
+    "todo_remaining": 12,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 8,
+    "milestones_done": 2,
+    "milestones_remaining": 3,
+    "blocked_by": "CCDD-012/013/014 erweitern project_processor.py; SPLIT-033 muss davor oder danach laufen, nicht parallel."
   },
   "end_summaries": [
     {
