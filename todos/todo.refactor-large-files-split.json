@@ -497,7 +497,7 @@
       "priority": "P1",
       "title": "scripts/firefox_live_click_extended.py aufteilen (2541 Zeilen)",
       "file": "scripts/firefox_live_click_extended.py",
-      "current_lines": 2541,
+      "current_lines": 326,
       "problem": "Monolithisches Script — Browser-Automation-Core, Click-Handler, Screenshot-Logic und CLI-Einstieg sind vermischt.",
       "proposed_split": [
         {
@@ -521,7 +521,9 @@
         "Script ist als CLI aufrufbar",
         "Alle bestehenden Funktionalitäten erhalten",
         "firefox_live_click_extended.py unter 200 Zeilen"
-      ]
+      ],
+      "status": "done",
+      "notes": " Done: 6 sub-modules in scripts/firefox_automation/. Main file: 326 lines."
     },
     {
       "id": "SPLIT-008",
