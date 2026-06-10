@@ -1254,6 +1254,7 @@
       "id": "SPLIT-033",
       "milestone": "M4",
       "priority": "P2",
+      "notes": "KOORDINATION (2026-06-10): todo.codecompass-domain-discovery.json (CCDD-012/013/014) erweitert dieselbe Datei um Domain-Discovery-Hooks. SPLIT-033 vor CCDD-M4 abschliessen oder explizit dahinter einplanen — nicht parallel.",
       "title": "rag-helper/rag_helper/application/project_processor.py aufteilen (1114 Zeilen)",
       "file": "rag-helper/rag_helper/application/project_processor.py",
       "current_lines": 1114,

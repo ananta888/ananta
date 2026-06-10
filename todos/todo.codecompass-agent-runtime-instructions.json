@@ -13,7 +13,7 @@
       "agent/services/instruction_layer_service.py",
       "agent/services/agent_profile_service.py",
       "agent/services/context_delivery_service.py",
-      "agent/common/sgpt.py",
+      "agent/common/sgpt.py (Fassade; Prompt-Logik seit SPLIT-009 in agent/common/sgpt_architecture_scan.py)",
       "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
       "docs/codecompass-retrieval-profile-source-policy.md"
     ]
@@ -136,7 +136,8 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/common/sgpt.py"],
+      "target_files": ["agent/common/sgpt_architecture_scan.py", "agent/common/sgpt.py"],
+      "notes": "Korrigiert 2026-06-10: _build_iteration_prompt und der architecture_full_scan-Pfad liegen seit SPLIT-009 in agent/common/sgpt_architecture_scan.py; sgpt.py ist nur noch Fassade/Re-Export.",
       "acceptance_criteria": [
         "_build_iteration_prompt enthaelt CodeCompass-Leseregeln, wenn CodeCompass-Bloecke vorhanden sind.",
         "architecture_full_scan Prompt enthaelt Evidence- und Warning-Regeln.",
