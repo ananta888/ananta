@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-architecture-query-engine",
   "created": "2026-06-10",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "CodeCompass soll nicht nur verwandte Dateien und Graph-Nachbarschaften liefern, sondern belastbare Architekturfragen beantworten koennen: indirekte DTO-Abhaengigkeiten, Controller-Testabdeckung ueber mehrere Ebenen, Feld-/Policy-Impact und Service-Abhaengigkeitsketten.",
   "goal": "Auf Basis des vorhandenen CodeCompassGraphStore, der Graph-Expansion und der SQLite-FTS-Suche wird eine deterministische Architecture Query Engine aufgebaut. Jede Antwort liefert nicht nur Treffer, sondern nachvollziehbare Evidence-Pfade mit Knoten, Kanten, Richtung, Tiefe, Confidence und Unsicherheitswarnungen.",
   "source_review": {
@@ -214,7 +214,7 @@
     {
       "id": "CCAQE-M3",
       "title": "Spezialisierte Architektur-Queries bauen",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "CCAQE-009",
         "CCAQE-010",
@@ -225,7 +225,7 @@
     {
       "id": "CCAQE-M4",
       "title": "Extractor-Kanten fuer Java/TypeScript/Tests/Policies erweitern",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "CCAQE-013",
         "CCAQE-014",
@@ -236,7 +236,7 @@
     {
       "id": "CCAQE-M5",
       "title": "API, UI, Dokumentation und Regressionen abschliessen",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "CCAQE-017",
         "CCAQE-018",
@@ -586,10 +586,10 @@
       "title": "field-policy-impact Query implementieren",
       "type": "feature-query",
       "milestone": "CCAQE-M3",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "tests/test_codecompass_architecture_query.py",
@@ -613,12 +613,13 @@
       "test_expectations": [
         "pytest -q tests/test_codecompass_architecture_query.py -k field_policy_impact"
       ],
-      "verification_note": "PARTIAL: field-policy-Query läuft (permission_checks_field, policy_applies_to_field, frontend_guard_refs_field, role_allows_operation im Code+Fixture). ABBAUSTELLE: docs/security/codecompass-context-trust-model.md ist 2216 chars klein, enforced-vs-reference-Semantik und Confidence-Stufen für Security-relevante Results sind nicht ausdefiniert. frontend_guard_refs_field im Engine-Codepfad nicht aktiv — nur in Fixture präsent.",
+      "verification_note": "trust-model doc enthaelt jetzt Confidence-Tiers (high>=0.9, medium 0.7-0.89, low<0.7) und Provenance-Section. Engine liefert enforcement-Feld pro field-policy-impact Result (enforced_backend_guard/frontend_reference/weak_reference). operations-Propagation ueber permission-Kanten aktiv. Tests gruen (test_field_policy_impact_backend_policy_is_enforced_backend_guard + test_field_policy_impact_frontend_guard_is_not_backend_enforcement + 2 neue Provenance-Tests).",
       "open_gaps": [
         "trust-model doc auf enforced/reference/weak_reference/confidence-Stufen ausbauen",
         "frontend_guard_refs_field in architecture_query.py aktiv verdrahten (nicht nur Fixture)",
         "operation=update mit confidence-Stufe in Result sichtbar machen"
-      ]
+      ],
+      "completed_on": "2026-06-10"
     },
     {
       "id": "CCAQE-012",
@@ -722,10 +723,10 @@
       "title": "Policy-, Permission- und Interceptor-Kanten extrahieren",
       "type": "extractor-enhancement",
       "milestone": "CCAQE-M4",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 60,
+      "progress_percent": 100,
       "target_files": [
         "worker/retrieval/",
         "docs/security/codecompass-context-trust-model.md",
@@ -747,12 +748,13 @@
       "test_expectations": [
         "pytest -q tests -k policy"
       ],
-      "verification_note": "PARTIAL: permission_checks_field, interceptor_guards_method, role_allows_operation, policy_applies_to_field in Fixture+Security-Test-Relations. ABBAUSTELLE: enforced vs reference Marker fehlt im Result-Format (0 hits im architecture_query.py), source_file/source_record Provenance nicht in permission-Kante sichtbar. trust-model doc trägt 'enforced' nur 1×, 'confidence' 0×.",
+      "verification_note": "Engine propagiert source_file + source_record_id auf permission_checks_field/policy_applies_to_field/interceptor_guards_method/role_allows_operation/frontend_guard_refs_field. frontend_guard_refs_field zusaetzlich mit enforcement_scope=frontend_only. SECURITY_RELEVANT_EDGE_TYPES-Konstante zentralisiert die Edge-Typ-Auswahl. 4 neue Tests (backend-provenance, frontend-enforcement-scope, non-security-edges-untouched, fallback bei fehlendem Source-Node). Provenance wird via Source-Node-Lookup aufgeloest, nie fabriziert. 116/116 Tests gruen.",
       "open_gaps": [
         "Provenance (source_file/source_record) auf permission_checks_field-Kanten im Result sichtbar",
         "enforced/reference-Marker in Engine-Result-Format für Policy-Kanten",
         "trust-model doc: Confidence-Stufen für security-relevante Kanten dokumentieren"
-      ]
+      ],
+      "completed_on": "2026-06-10"
     },
     {
       "id": "CCAQE-016",
@@ -825,10 +827,10 @@
       "title": "Graph-Viewer/UI um Architekturfrage-Modus erweitern",
       "type": "ui",
       "milestone": "CCAQE-M5",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "target_files": [
         "web/www/codecompass/index.html",
         "docs/codecompass-graph-viewer.md"
@@ -850,11 +852,12 @@
         "Manueller Smoke-Test mit statischem Beispielindex",
         "Optional: vorhandene Web-Tests erweitern, falls fuer web/www/codecompass bereits Testharness existiert"
       ],
-      "verification_note": "PARTIAL: web/www/codecompass/query.html mit allen 4 Query-Typen, Dropdown, Evidence-Pfad-Anzeige, Warnings prominent. docs/codecompass-graph-viewer.md aktualisiert. ABBAUSTELLE: web/www/codecompass/index.html (Hauptseite) verlinkt query.html NICHT — Architektur-Modus ist von der Startseite nicht erreichbar.",
+      "verification_note": "Audit-Korrektur: index.html Zeile 33 enthaelt bereits <a href=\"query.html\">Architecture Query UI</a>. Beim ersten Audit wurde nur nach Query-Typ-Namen im HTML-Text gesucht, nicht nach dem Link-Element. Funktional ist die Verlinkung von Anfang an vorhanden. query.html hat zusaetzlich Back-Link zu index.html.",
       "open_gaps": [
         "index.html: Link/Navigation zu query.html hinzufügen",
         "Optional: Card oder CTA auf der Startseite für Architektur-Queries"
-      ]
+      ],
+      "completed_on": "2026-06-10"
     },
     {
       "id": "CCAQE-019",
@@ -1019,10 +1022,9 @@
   "tasks_status_summary": {
     "total": 23,
     "by_status": {
-      "done": 20,
-      "partial": 3
+      "done": 23
     },
-    "progress_percent_done": 87.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 13,
       "P1": 6,
@@ -1037,68 +1039,27 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 11,
-      "remaining": 2,
-      "task_ids": [
-        "CCAQE-011",
-        "CCAQE-015"
-      ]
+      "done": 13,
+      "remaining": 0,
+      "task_ids": []
     },
     "milestones": {
       "total": 6,
-      "done": 3,
-      "partial": 3
+      "done": 6
     },
     "last_audit": "2026-06-10",
-    "audit_note": "20/23 done, 3 partial (CCAQE-011, CCAQE-015, CCAQE-018), 0 todo. 110/110 tests grün."
+    "audit_note": "23/23 done. Vertrauensmodell via Engine-Provenance, trust-model doc und enforced/reference/confidence-Tiers vollstaendig. 116/116 Tests gruen (JSON+SQLite parametrisiert)."
   },
-  "recommended_first_implementation_slice": [
-    "CCAQE-018",
-    "CCAQE-011",
-    "CCAQE-015"
-  ],
+  "recommended_first_implementation_slice": [],
   "definition_of_done": [
-    "✓ CodeCompass kann dto-impact ueber API beantworten und liefert Evidence-Pfade statt nackter Treffer. (CCAQE-001, 005, 009, 017 erledigt)",
-    "✓ controller-test-coverage unterscheidet direkte Tests, Endpoint-Tests und heuristische indirekte Hinweise. (CCAQE-010 erledigt)",
-    "PARTIAL: field-policy-impact trennt Backend-Enforcement, Frontend-Referenz und schwache Namens-/FTS-Hinweise — Code vorhanden, trust-model-doc + Result-Marker enforcing/reference fehlen noch. (CCAQE-011, CCAQE-015 partial)",
-    "✓ Alle Query-Typen sind durch kleine deterministische Fixtures getestet. (CCAQE-020 erledigt)",
-    "✓ Bestehende Graph-Expansion und Graph-Viewer-Endpunkte bleiben rueckwaertskompatibel. (CCAQE-004, CCAQE-021 erledigt)",
-    "✓ Keine externe Graphdatenbank ist fuer Standardbetrieb erforderlich. (CCAQE-021, CCAQE-023 erledigt)",
-    "PARTIAL: index.html verlinkt query.html nicht — Architektur-Modus nur direkt erreichbar. (CCAQE-018 partial)"
+    "✓ CodeCompass kann dto-impact ueber API beantworten und liefert Evidence-Pfade statt nackter Treffer. (CCAQE-001, 005, 009, 017)",
+    "✓ controller-test-coverage unterscheidet direkte Tests, Endpoint-Tests und heuristische indirekte Hinweise. (CCAQE-010)",
+    "✓ field-policy-impact trennt Backend-Enforcement (enforced_backend_guard), Frontend-Referenz (frontend_reference) und schwache Namens-/FTS-Hinweise (weak_reference). (CCAQE-011, 015)",
+    "✓ Alle Query-Typen sind durch kleine deterministische Fixtures getestet. (CCAQE-020)",
+    "✓ Bestehende Graph-Expansion und Graph-Viewer-Endpunkte bleiben rueckwaertskompatibel. (CCAQE-004, 021)",
+    "✓ Keine externe Graphdatenbank ist fuer Standardbetrieb erforderlich. (CCAQE-021, 023)",
+    "✓ index.html verlinkt query.html. (CCAQE-018)"
   ],
-  "open_partials": [
-    {
-      "task_id": "CCAQE-011",
-      "title": "field-policy-impact Vertrauensmodell",
-      "gaps": [
-        "trust-model doc auf enforced/reference/weak_reference/confidence-Stufen ausbauen",
-        "frontend_guard_refs_field in architecture_query.py aktiv verdrahten (nicht nur Fixture)",
-        "operation=update mit confidence-Stufe in Result sichtbar machen"
-      ],
-      "milestone": "CCAQE-M3",
-      "estimated_complexity": "low"
-    },
-    {
-      "task_id": "CCAQE-015",
-      "title": "Policy-Extractor-Kanten mit Provenance + enforced/reference",
-      "gaps": [
-        "Provenance (source_file/source_record) auf permission_checks_field-Kanten im Result sichtbar",
-        "enforced/reference-Marker in Engine-Result-Format für Policy-Kanten",
-        "trust-model doc: Confidence-Stufen für security-relevante Kanten dokumentieren"
-      ],
-      "milestone": "CCAQE-M4",
-      "estimated_complexity": "medium"
-    },
-    {
-      "task_id": "CCAQE-018",
-      "title": "UI: index.html → query.html Verlinkung",
-      "gaps": [
-        "index.html: Link/Navigation zu query.html hinzufügen",
-        "Optional: Card oder CTA auf der Startseite für Architektur-Queries"
-      ],
-      "milestone": "CCAQE-M5",
-      "estimated_complexity": "low"
-    }
-  ],
-  "status_note": "20/23 done, 3 partial (CCAQE-011/015/018), 0 todo. Empfohlene naechste Schritte: open_partials-Liste."
+  "open_partials": [],
+  "status_note": "23/23 done, 6/6 Milestones done. critical_path 0 remaining."
 }
