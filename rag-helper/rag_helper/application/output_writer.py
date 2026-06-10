@@ -49,6 +49,7 @@ def write_output_files(
     save_incremental_cache,
     compact_manifest_fn,
     write_jsonl_fn,
+    manifest_extras: dict | None = None,
 ) -> list[str]:
     """Write all pipeline outputs and return the list of written file names.
 
@@ -159,6 +160,9 @@ def write_output_files(
     if limits.output_bundle_mode == "zip":
         manifest["output_bundle"]["path"] = str(out_dir / "output_bundle.zip")
         manifest["output_bundle"]["file_count"] = len(written_output_files)
+    if manifest_extras:
+        for key, value in manifest_extras.items():
+            manifest[key] = value
     with (out_dir / "manifest.json").open("w", encoding="utf-8") as f:
         json.dump(
             compact_manifest_fn(manifest),

@@ -312,6 +312,18 @@ def run_cli(
         help="Schreibt optional zusätzlich ein gebündeltes Archiv der erzeugten Outputs",
     )
     parser.add_argument(
+        "--domain-discovery-mode",
+        choices=("off", "basic", "rich"),
+        default=config_default("domain_discovery_mode", "off"),
+        help="Aktiviert die CodeCompass-Domain-Discovery und schreibt domains.detected.json, domain_boundaries.jsonl und domain_coupling.json",
+    )
+    parser.add_argument(
+        "--domain-descriptor-suggestions",
+        action="store_true",
+        default=config_default("domain_descriptor_suggestions", False),
+        help="Erzeugt opt-in Descriptor-Vorschlaege unter domain_descriptor_suggestions/<id>/domain.json (CCDD-015)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         default=config_default("dry_run", False),
@@ -372,6 +384,8 @@ def run_cli(
         duplicate_detection_mode=args.duplicate_detection_mode,
         specialized_chunker_mode=args.specialized_chunker_mode,
         output_bundle_mode=args.output_bundle_mode,
+        domain_discovery_mode=args.domain_discovery_mode,
+        domain_descriptor_suggestions=args.domain_descriptor_suggestions,
     )
 
     if not root.exists() or not root.is_dir():

@@ -344,6 +344,63 @@ def process_project(
         out_dir=out_dir,
     )
 
+    domain_discovery_extras: dict | None = None
+    if limits.domain_discovery_mode in {"basic", "rich"}:
+        from rag_helper.domain_discovery.inputs import AnalysisInputs
+        from rag_helper.domain_discovery.writer import (
+            run_domain_discovery,
+            write_descriptor_suggestions,
+            write_domain_artifacts,
+        )
+
+        analysis_inputs = AnalysisInputs.from_memory(
+            index_records=all_index,
+            detail_records=all_details,
+            relation_records=all_relations,
+            graph_nodes=graph_nodes,
+            graph_edges=graph_edges,
+            manifest=manifest,
+        )
+        discovery_result = run_domain_discovery(
+            analysis_inputs, project_root=root
+        )
+        discovery_result = write_domain_artifacts(
+            discovery_result, out_dir, dry_run=dry_run
+        )
+        discovery_result = write_descriptor_suggestions(
+            discovery_result,
+            out_dir,
+            opt_in=limits.domain_descriptor_suggestions,
+            dry_run=dry_run,
+        )
+        output_files_for_manifest: list[str] = []
+        for path in discovery_result.output_files:
+            try:
+                output_files_for_manifest.append(
+                    str(path.relative_to(out_dir))
+                )
+            except ValueError:
+                output_files_for_manifest.append(str(path))
+        domain_discovery_extras = {
+            "domain_discovery": {
+                "mode": limits.domain_discovery_mode,
+                "domain_count": len(discovery_result.domain_candidates),
+                "unassigned_record_count": len(
+                    discovery_result.unassigned_records
+                ),
+                "boundary_warning_count": len(
+                    discovery_result.boundary_warnings
+                ),
+                "output_files": output_files_for_manifest,
+                "warnings": list(discovery_result.warnings),
+            }
+        }
+        if limits.domain_discovery_mode == "rich":
+            domain_discovery_extras["domain_discovery"]["domains"] = [
+                candidate.to_dict(include_members=False)
+                for candidate in discovery_result.domain_candidates
+            ]
+
     if not dry_run:
         write_output_files(
             out_dir=out_dir,
@@ -369,6 +426,7 @@ def process_project(
             save_incremental_cache=save_incremental_cache,
             compact_manifest_fn=lambda m: _compact_manifest(m, limits.manifest_output_mode),
             write_jsonl_fn=write_jsonl,
+            manifest_extras=domain_discovery_extras,
         )
 
     print(f"{'Dry-run fertig' if dry_run else 'Fertig'}: {out_dir}")
@@ -392,4 +450,17 @@ def _compact_manifest(manifest: dict, mode: str) -> dict:
         ),
     }
     compacted["package_type_index"] = {}
+    domain_discovery = compacted.get("domain_discovery")
+    if isinstance(domain_discovery, dict) and "domains" in domain_discovery:
+        compacted["domain_discovery"] = {
+            "mode": domain_discovery.get("mode"),
+            "domain_count": domain_discovery.get("domain_count", 0),
+            "unassigned_record_count": domain_discovery.get(
+                "unassigned_record_count", 0
+            ),
+            "boundary_warning_count": domain_discovery.get(
+                "boundary_warning_count", 0
+            ),
+            "output_files": domain_discovery.get("output_files", []),
+        }
     return compacted
