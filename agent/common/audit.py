@@ -30,6 +30,17 @@ AUDIT_WORKSPACE_BASELINE_CREATED = "workspace_baseline_created"
 AUDIT_WORKER_MUTATION_EVALUATED = AUDIT_WORKSPACE_MUTATION_EVALUATED
 AUDIT_WORKER_MUTATION_BLOCKED = AUDIT_WORKSPACE_MUTATION_BLOCKED
 
+# HDE-009: hub-direct execution audit event constants. The hub decides
+# and dispatches (control plane); execution happens in the worker
+# runtime, which is audited via AUDIT_WORKER_RUNTIME_DISPATCH (HDW-005).
+AUDIT_HUB_DIRECT_CANDIDATE_DETECTED = "hub_direct_candidate_detected"
+AUDIT_HUB_DIRECT_TOOL_REQUESTED = "hub_direct_tool_requested"
+AUDIT_HUB_DIRECT_TOOL_COMPLETED = "hub_direct_tool_completed"
+AUDIT_HUB_DIRECT_TOOL_BLOCKED = "hub_direct_tool_blocked"
+AUDIT_HUB_DIRECT_APPROVAL_REQUIRED = "hub_direct_approval_required"
+AUDIT_HUB_DIRECT_FALLBACK_TO_WORKER = "hub_direct_fallback_to_worker"
+AUDIT_WORKER_RUNTIME_DISPATCH = "worker_runtime_dispatch"
+
 # AFH-T020: Artifact-first audit event constants
 AUDIT_WORKER_HANDOFF_CREATED = "worker_handoff_created"
 AUDIT_ARTIFACT_MANIFEST_COLLECTED = "artifact_manifest_collected"
@@ -115,6 +126,50 @@ def audit_worker_tool_event(
             "detail_excerpt": excerpt or None,
         },
     )
+
+
+def audit_hub_direct_event(
+    action: str,
+    *,
+    tool_name: str | None = None,
+    policy_decision: str | None = None,
+    risk_class: str | None = None,
+    reason_code: str | None = None,
+    task_id: str | None = None,
+    goal_id: str | None = None,
+    status: str | None = None,
+    detail: str | None = None,
+    **extras: Any,
+) -> None:
+    """HDE-009: audit one hub-direct decision/dispatch.
+
+    Payloads carry IDs, tool name, policy decision, risk and reason
+    codes — never secrets, raw prompts or full tool outputs (long
+    details are excerpted, log_audit redacts on top). Audit failures
+    must never break execution.
+    """
+    excerpt = str(detail or "")
+    if len(excerpt) > _TOOL_AUDIT_EXCERPT_CHARS:
+        excerpt = excerpt[:_TOOL_AUDIT_EXCERPT_CHARS] + "…[truncated]"
+    details: dict[str, Any] = {
+        "task_id": task_id,
+        "goal_id": goal_id,
+        "tool_name": tool_name,
+        "policy_decision": policy_decision,
+        "risk_class": risk_class,
+        "reason_code": reason_code,
+        "status": status,
+        "detail_excerpt": excerpt or None,
+    }
+    for key, value in extras.items():
+        if str(key or "").lower() in _FORBIDDEN_RAW_FIELDS:
+            continue
+        details[key] = value
+    details = {k: v for k, v in details.items() if v is not None}
+    try:
+        log_audit(action, details)
+    except Exception:
+        audit_logger.error("hub_direct_audit_failed", exc_info=True)
 
 
 # ALWA-012: workspace-audit helper. Forbidden raw fields are dropped,

@@ -25,6 +25,10 @@ from agent.services.ananta_tool_registry_service import (
     CATEGORY_CONTROLLED_EXECUTION,
     CATEGORY_CONTROLLED_WRITE,
     CATEGORY_READ_ONLY,
+    KNOWN_EXECUTION_PLANES,
+    PLANE_SANDBOX_RUNTIME,
+    PLANE_WORKER_RUNTIME,
+    AnantaToolSpec,
     get_ananta_tool_registry_service,
 )
 
@@ -78,10 +82,23 @@ class AnantaToolPolicyService:
         registry = get_ananta_tool_registry_service()
         spec = registry.get_tool(name)
         if spec is None:
+            spec = self._resolve_dynamic_spec(name)
+        if spec is None:
             return ToolPolicyDecision(
                 decision=DECISION_POLICY_BLOCKED,
                 reason=f"unknown_tool:{name or 'empty'}",
                 rule_id="unknown_tool_rejected",
+                tool_name=name,
+            )
+
+        # HDW-003: tools without a known execution plane never execute —
+        # the hub cannot dispatch what it cannot place.
+        if spec.execution_plane not in KNOWN_EXECUTION_PLANES:
+            return ToolPolicyDecision(
+                decision=DECISION_POLICY_BLOCKED,
+                reason=f"missing_or_unknown_execution_plane:{spec.execution_plane or 'none'}",
+                rule_id="execution_plane_gate",
+                risk_class=spec.risk_class,
                 tool_name=name,
             )
 
@@ -189,6 +206,43 @@ class AnantaToolPolicyService:
             rule_id="category_fallback_block",
             risk_class=spec.risk_class,
             tool_name=name,
+        )
+
+    @staticmethod
+    def _resolve_dynamic_spec(name: str) -> AnantaToolSpec | None:
+        """HDE-012/HDW-003: resolve an active custom tool as a ToolSpec.
+
+        Only ``custom.*``/``project.*`` names are looked up; static names
+        always win (they were checked first). Dynamic tools must declare
+        a worker/sandbox execution plane — anything else stays unknown
+        and is rejected by the caller.
+        """
+        if not (name.startswith("custom.") or name.startswith("project.")):
+            return None
+        try:
+            from agent.services.dynamic_tool_registry_service import get_dynamic_tool_registry_service
+
+            record = get_dynamic_tool_registry_service().get_active_tool(name)
+        except Exception:
+            return None
+        if not record:
+            return None
+        spec = dict(record.get("spec") or {})
+        plane = str(spec.get("execution_plane") or "").strip()
+        if plane not in {PLANE_WORKER_RUNTIME, PLANE_SANDBOX_RUNTIME}:
+            plane = "missing"
+        return AnantaToolSpec(
+            name=name,
+            category=str(spec.get("category") or ""),
+            risk_class=str(spec.get("risk_class") or "unknown"),
+            description=str(spec.get("description") or ""),
+            argument_schema=dict(spec.get("argument_schema") or {}),
+            policy_requirements={
+                "requires_approval": bool(spec.get("requires_approval", True)),
+                "requires_workspace": True,
+                "allowed_mutation_modes": list(spec.get("allowed_mutation_modes") or []),
+            },
+            execution_plane=plane,
         )
 
     @staticmethod

@@ -28,6 +28,13 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 - Hub-kontrollierte Orchestrierung statt Worker-zu-Worker-Automation
 - Docker-basierte Hub- und Worker-Laufzeiten
 - reproduzierbare Releases, CI-Gates und Security-/Governance-Regeln
+- optional: Hub-Direct-Execution und Custom-Tool-Promotion — einfache,
+  deterministische Anfragen ohne Worker-LLM, wiederkehrende Loesungen
+  als geprueft-promotete Tools. Standardmaessig deaktiviert
+  (`hub_direct_execution.enabled=false`), kein Default-Autonomie-Modus;
+  der Hub entscheidet und dispatcht, ausgefuehrt wird in der
+  WorkerRuntime. Siehe [docs/architecture/hub-direct-execution.md](docs/architecture/hub-direct-execution.md)
+  und [docs/security/custom-tool-promotion.md](docs/security/custom-tool-promotion.md)
 
 | Einstieg | Fuer wen | Link |
 | --- | --- | --- |

@@ -26,6 +26,19 @@ RISK_WRITE = "write"
 RISK_ADMIN = "admin"
 RISK_EXTERNAL_AGENT = "external_agent"
 
+# HDW-003: every tool declares where it executes. The hub process never
+# runs workspace/shell logic itself (HDW-DD-001); it only dispatches.
+PLANE_HUB_CONTROL_ONLY = "hub_control_only"
+PLANE_WORKER_RUNTIME = "worker_runtime"
+PLANE_SANDBOX_RUNTIME = "sandbox_runtime"
+PLANE_EXTERNAL_BACKEND = "external_backend"
+KNOWN_EXECUTION_PLANES = {
+    PLANE_HUB_CONTROL_ONLY,
+    PLANE_WORKER_RUNTIME,
+    PLANE_SANDBOX_RUNTIME,
+    PLANE_EXTERNAL_BACKEND,
+}
+
 _TOOL_RESULT_SCHEMA_REF = "ananta_tool_result.v1"
 
 
@@ -38,6 +51,7 @@ class AnantaToolSpec:
     argument_schema: dict[str, Any]
     result_schema: str = _TOOL_RESULT_SCHEMA_REF
     policy_requirements: dict[str, Any] = field(default_factory=dict)
+    execution_plane: str = PLANE_WORKER_RUNTIME
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -48,6 +62,7 @@ class AnantaToolSpec:
             "argument_schema": dict(self.argument_schema),
             "result_schema": self.result_schema,
             "policy_requirements": dict(self.policy_requirements),
+            "execution_plane": self.execution_plane,
         }
 
 
@@ -61,7 +76,12 @@ def _spec(
     requires_approval: bool = False,
     requires_workspace: bool = True,
     allowed_mutation_modes: tuple[str, ...] | None = None,
+    execution_plane: str | None = None,
 ) -> AnantaToolSpec:
+    # HDW-003 default derivation: workspace tools run in the worker
+    # runtime, workspace-free tools talk to an external backend/index.
+    if execution_plane is None:
+        execution_plane = PLANE_WORKER_RUNTIME if requires_workspace else PLANE_EXTERNAL_BACKEND
     return AnantaToolSpec(
         name=name,
         category=category,
@@ -73,6 +93,7 @@ def _spec(
             "requires_workspace": requires_workspace,
             "allowed_mutation_modes": list(allowed_mutation_modes or []),
         },
+        execution_plane=execution_plane,
     )
 
 
@@ -287,8 +308,19 @@ class AnantaToolRegistryService:
     def is_known_tool(self, name: str | None) -> bool:
         return self.get_tool(name) is not None
 
-    def describe_for_prompt(self, allowed_tools: list[str] | None = None) -> str:
-        """Compact tool list for the worker prompt (name, args, purpose)."""
+    def describe_for_prompt(
+        self,
+        allowed_tools: list[str] | None = None,
+        *,
+        include_dynamic: bool = False,
+    ) -> str:
+        """Compact tool list for the worker prompt (name, args, purpose).
+
+        HDE-013: with ``include_dynamic`` active custom tools from the
+        dynamic registry are appended — name, purpose, arguments and
+        risk only, never script internals. ``allowed_tools`` filters
+        dynamic tools the same way it filters static ones.
+        """
         allowed = {str(item or "").strip() for item in (allowed_tools or []) if str(item or "").strip()}
         lines: list[str] = []
         for spec in self.list_tools():
@@ -298,13 +330,60 @@ class AnantaToolRegistryService:
                 continue
             args = ", ".join(sorted((spec.argument_schema.get("properties") or {}).keys()))
             lines.append(f"- `{spec.name}` ({spec.risk_class}): {spec.description} Arguments: {args or 'none'}")
+        if include_dynamic:
+            for row in self._dynamic_tool_rows():
+                name = str(row.get("name") or "")
+                if not name or (allowed and name not in allowed):
+                    continue
+                args = ", ".join(sorted((row.get("argument_schema", {}).get("properties") or {}).keys()))
+                description = str(row.get("description") or "")
+                risk = str(row.get("risk_class") or "unknown")
+                lines.append(f"- `{name}` ({risk}, custom): {description} Arguments: {args or 'none'}")
         return "\n".join(lines)
 
-    def registry_snapshot(self) -> dict[str, Any]:
+    def registry_snapshot(self, *, include_dynamic: bool = False) -> dict[str, Any]:
+        tools = [dict(spec.as_dict(), source="static") for spec in self.list_tools()]
+        if include_dynamic:
+            tools.extend(self._dynamic_tool_rows())
         return {
             "schema": "ananta_worker_tool_registry.v1",
-            "tools": [spec.as_dict() for spec in self.list_tools()],
+            "tools": tools,
         }
+
+    def _dynamic_tool_rows(self) -> list[dict[str, Any]]:
+        """Active custom tools as redacted snapshot rows (HDE-012/HDE-013).
+
+        Static names always win: a dynamic tool shadowing a static name
+        is skipped here (defense in depth — the dynamic registry already
+        refuses such records).
+        """
+        try:
+            from agent.services.dynamic_tool_registry_service import get_dynamic_tool_registry_service
+
+            dynamic = get_dynamic_tool_registry_service()
+            rows = []
+            for record in dynamic.list_active_tools():
+                spec = dict(record.get("spec") or {})
+                name = str(spec.get("name") or "")
+                if not name or name in _REGISTRY:
+                    continue
+                rows.append(
+                    {
+                        "name": name,
+                        "category": spec.get("category"),
+                        "risk_class": spec.get("risk_class"),
+                        "description": spec.get("description"),
+                        "argument_schema": dict(spec.get("argument_schema") or {}),
+                        "result_schema": _TOOL_RESULT_SCHEMA_REF,
+                        "execution_plane": spec.get("execution_plane"),
+                        "source": "dynamic",
+                        "version": record.get("version"),
+                        "proposal_digest": record.get("proposal_digest"),
+                    }
+                )
+            return rows
+        except Exception:
+            return []
 
 
 ananta_tool_registry_service = AnantaToolRegistryService()

@@ -466,6 +466,29 @@ def build_default_agent_config() -> dict:
                 "git.diff_readonly",
             ],
         },
+        # HDE-002: hub-direct execution before worker/LLM. Disabled by
+        # default. The hub only decides, authorizes and audits (control
+        # plane, HDW-DD-001); tool execution is dispatched to a
+        # WorkerRuntime (execution plane, HDW-002) — never run as
+        # untrusted logic inside the hub process.
+        "hub_direct_execution": {
+            "enabled": False,
+            "direct_before_worker": True,
+            "fallback_to_worker": True,
+            "require_policy_gate": True,
+            "audit_enabled": True,
+            "confidence_threshold": 0.8,
+            "max_result_chars": 8000,
+            "allowed_tools": [
+                "repo.list_files",
+                "repo.read_file_range",
+                "repo.grep",
+                "git.status",
+                "git.diff_readonly",
+                "test.discover",
+                "workspace.diff",
+            ],
+        },
         # AWWPI-013: workspace mutation loop for ananta-worker. Disabled by
         # default; mutation_mode defaults to read_only and can be derived per
         # task_kind. Risk rules escalate controlled_workspace to

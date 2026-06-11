@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 
 from flask import current_app
@@ -10,6 +11,91 @@ from agent.llm_benchmarks import resolve_benchmark_identity as shared_resolve_be
 from agent.runtime_policy import normalize_task_kind
 from agent.services.repository_registry import get_repository_registry
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens
+
+
+# HDE-021: in-process counters for hub-direct execution and tool reuse.
+# Only reason codes and tool names are recorded — never raw prompts or
+# tool outputs.
+_HUB_DIRECT_METRIC_NAMES = (
+    "direct_execution_count",
+    "direct_execution_success_count",
+    "direct_execution_blocked_count",
+    "fallback_to_worker_count",
+    "avoided_llm_call_count",
+    "custom_tool_reuse_count",
+)
+_hub_direct_lock = threading.Lock()
+_hub_direct_counters: dict[str, int] = {name: 0 for name in _HUB_DIRECT_METRIC_NAMES}
+_hub_direct_by_tool: dict[str, int] = {}
+_hub_direct_by_reason: dict[str, int] = {}
+_HUB_DIRECT_BREAKDOWN_LIMIT = 200
+
+
+def record_hub_direct_metric(
+    metric: str,
+    *,
+    tool_name: str | None = None,
+    reason_code: str | None = None,
+) -> None:
+    if metric not in _HUB_DIRECT_METRIC_NAMES:
+        return
+    with _hub_direct_lock:
+        _hub_direct_counters[metric] += 1
+        tool = str(tool_name or "").strip()
+        if tool and len(_hub_direct_by_tool) < _HUB_DIRECT_BREAKDOWN_LIMIT:
+            _hub_direct_by_tool[tool] = int(_hub_direct_by_tool.get(tool) or 0) + 1
+        reason = str(reason_code or "").strip()
+        if reason and len(_hub_direct_by_reason) < _HUB_DIRECT_BREAKDOWN_LIMIT:
+            _hub_direct_by_reason[reason] = int(_hub_direct_by_reason.get(reason) or 0) + 1
+
+
+def hub_direct_metrics_snapshot() -> dict:
+    with _hub_direct_lock:
+        return {
+            "version": "hub-direct-metrics-v1",
+            **dict(_hub_direct_counters),
+            "by_tool": dict(sorted(_hub_direct_by_tool.items(), key=lambda item: (-item[1], item[0]))),
+            "by_reason": dict(sorted(_hub_direct_by_reason.items(), key=lambda item: (-item[1], item[0]))),
+            "updated_at": time.time(),
+        }
+
+
+_hub_direct_recent_decisions: list[dict] = []
+_HUB_DIRECT_RECENT_LIMIT = 50
+
+
+def record_hub_direct_decision(entry: dict) -> None:
+    """Keep the last direct-execution decisions for diagnostics (HDE-022).
+
+    Entries carry tool name, reason code, kind and IDs — no prompts and
+    no tool outputs.
+    """
+    slim = {
+        "tool_name": entry.get("tool_name"),
+        "reason_code": entry.get("reason_code"),
+        "kind": entry.get("kind"),
+        "task_id": entry.get("task_id"),
+        "status": entry.get("status"),
+        "source": entry.get("source"),
+        "at": time.time(),
+    }
+    with _hub_direct_lock:
+        _hub_direct_recent_decisions.append(slim)
+        del _hub_direct_recent_decisions[:-_HUB_DIRECT_RECENT_LIMIT]
+
+
+def last_hub_direct_decisions() -> list[dict]:
+    with _hub_direct_lock:
+        return list(reversed(_hub_direct_recent_decisions))
+
+
+def reset_hub_direct_metrics() -> None:
+    with _hub_direct_lock:
+        for name in _HUB_DIRECT_METRIC_NAMES:
+            _hub_direct_counters[name] = 0
+        _hub_direct_by_tool.clear()
+        _hub_direct_by_reason.clear()
+        _hub_direct_recent_decisions.clear()
 
 
 def build_execution_cost_summary(

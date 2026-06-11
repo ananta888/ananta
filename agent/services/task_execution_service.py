@@ -96,6 +96,15 @@ class TaskExecutionService:
         prompt = request_data.prompt or "Was soll ich als nächstes tun?"
         caller = llm_caller or _call_llm
 
+        # HDE-005/HDE-020: reuse-before-LLM. When hub-direct execution is
+        # enabled and the router classifies the prompt as safely
+        # deterministic, the call is authorized and dispatched to the
+        # worker runtime — no LLM is invoked and no llm_call_profile is
+        # created. Policy blocks never silently fall back to the LLM.
+        direct_response = self._try_hub_direct_execution(request_data, prompt=prompt, agent_cfg=agent_cfg)
+        if direct_response is not None:
+            return direct_response
+
         if request_data.providers:
             results: dict[str, dict] = {}
 
@@ -168,6 +177,171 @@ class TaskExecutionService:
             tool_calls=proposal_payload.get("tool_calls"),
             raw=proposal_payload["raw"],
         ).model_dump()
+
+    def _try_hub_direct_execution(
+        self,
+        request_data: TaskStepProposeRequest,
+        *,
+        prompt: str,
+        agent_cfg: dict,
+    ) -> dict | None:
+        """HDE-005: classify, authorize and dispatch before any LLM call.
+
+        Returns None when the worker/LLM path should run (feature off,
+        not eligible with fallback, or no resolvable workspace). Policy
+        blocks and approval-required outcomes return a direct response —
+        they must not be bypassed by a silent LLM fallback (HDE-020).
+        """
+        from agent.common.audit import (
+            AUDIT_HUB_DIRECT_CANDIDATE_DETECTED,
+            AUDIT_HUB_DIRECT_FALLBACK_TO_WORKER,
+            audit_hub_direct_event,
+        )
+        from agent.services.hub_direct_execution_router import get_hub_direct_execution_router
+        from agent.services.hub_tool_execution_adapter import get_hub_tool_execution_adapter
+        from agent.services.task_execution_metrics import record_hub_direct_metric
+
+        cfg = agent_cfg.get("hub_direct_execution") if isinstance(agent_cfg.get("hub_direct_execution"), dict) else {}
+        if not bool(cfg.get("enabled", False)) or not bool(cfg.get("direct_before_worker", True)):
+            return None
+
+        task = get_local_task_status(request_data.task_id) if request_data.task_id else None
+        decision = get_hub_direct_execution_router().classify(prompt, task=task, agent_cfg=agent_cfg)
+        audit_enabled = bool(cfg.get("audit_enabled", True))
+
+        if not decision.eligible:
+            if audit_enabled and bool(cfg.get("fallback_to_worker", True)):
+                audit_hub_direct_event(
+                    AUDIT_HUB_DIRECT_FALLBACK_TO_WORKER,
+                    task_id=request_data.task_id,
+                    reason_code=decision.reason_code,
+                )
+            record_hub_direct_metric("fallback_to_worker_count", reason_code=decision.reason_code)
+            if bool(cfg.get("fallback_to_worker", True)):
+                return None
+            return self._direct_proposal_response(
+                request_data,
+                decision=decision,
+                direct_result={"kind": "direct_not_eligible", "reason_code": decision.reason_code},
+            )
+
+        workspace_ref = self._resolve_direct_workspace(task, agent_cfg)
+        if workspace_ref is None:
+            record_hub_direct_metric("fallback_to_worker_count", reason_code="no_workspace_ref")
+            return None
+
+        if audit_enabled:
+            audit_hub_direct_event(
+                AUDIT_HUB_DIRECT_CANDIDATE_DETECTED,
+                tool_name=decision.tool_name,
+                reason_code=decision.reason_code,
+                task_id=request_data.task_id,
+                confidence=decision.confidence,
+            )
+
+        record_hub_direct_metric("direct_execution_count", tool_name=decision.tool_name, reason_code=decision.reason_code)
+        direct_result = get_hub_tool_execution_adapter().execute_direct(
+            tool_name=decision.tool_name or "",
+            arguments=decision.arguments,
+            agent_cfg=agent_cfg,
+            task=task,
+            task_id=request_data.task_id,
+            workspace_ref=workspace_ref,
+            reason_code=decision.reason_code,
+        )
+
+        kind = str(direct_result.get("kind") or "")
+        if kind == "direct_tool_result" and str((direct_result.get("tool_result") or {}).get("status")) == "ok":
+            record_hub_direct_metric("direct_execution_success_count", tool_name=decision.tool_name)
+            if decision.source == "dynamic":
+                record_hub_direct_metric("custom_tool_reuse_count", tool_name=decision.tool_name)
+        elif kind == "direct_policy_blocked":
+            record_hub_direct_metric(
+                "direct_execution_blocked_count",
+                tool_name=decision.tool_name,
+                reason_code=str((direct_result.get("policy_decision") or {}).get("reason") or ""),
+            )
+        elif kind == "direct_tool_result":
+            # Recoverable tool failure: the worker may still take over.
+            if bool(cfg.get("fallback_to_worker", True)):
+                record_hub_direct_metric("fallback_to_worker_count", tool_name=decision.tool_name, reason_code="direct_tool_failed")
+                if audit_enabled:
+                    audit_hub_direct_event(
+                        AUDIT_HUB_DIRECT_FALLBACK_TO_WORKER,
+                        tool_name=decision.tool_name,
+                        task_id=request_data.task_id,
+                        reason_code="direct_tool_failed",
+                    )
+                return None
+        record_hub_direct_metric("avoided_llm_call_count", tool_name=decision.tool_name)
+        from agent.services.task_execution_metrics import record_hub_direct_decision
+
+        record_hub_direct_decision(
+            {
+                "tool_name": decision.tool_name,
+                "reason_code": decision.reason_code,
+                "kind": kind,
+                "task_id": request_data.task_id,
+                "status": str((direct_result.get("tool_result") or {}).get("status") or ""),
+                "source": decision.source,
+            }
+        )
+        return self._direct_proposal_response(request_data, decision=decision, direct_result=direct_result)
+
+    def _direct_proposal_response(self, request_data, *, decision, direct_result: dict) -> dict:
+        """TaskStepProposeResponse-compatible payload without any LLM cost."""
+        reason = f"hub_direct_execution:{decision.tool_name or decision.reason_code}"
+        if request_data.task_id:
+            get_task_runtime_service().update_local_task_status(
+                request_data.task_id,
+                "proposing",
+                last_proposal={"reason": reason, "direct_execution_kind": str(direct_result.get("kind") or "")},
+            )
+        response = TaskStepProposeResponse(reason=reason, command=None, tool_calls=None, raw="").model_dump()
+        response["direct_execution"] = {**direct_result, "decision": decision.as_dict()}
+        response["cost_summary"] = {
+            "provider": None,
+            "model": None,
+            "task_kind": getattr(request_data, "task_kind", None),
+            "tokens_total": 0,
+            "cost_units": 0.0,
+            "latency_ms": None,
+            "pricing_source": "hub_direct_execution",
+        }
+        return response
+
+    @staticmethod
+    def _resolve_direct_workspace(task: dict | None, agent_cfg: dict) -> str | None:
+        """Explicit workspace only (HDW-004): task workspace or configured root."""
+        candidate = str((task or {}).get("workspace_dir") or "").strip()
+        if not candidate:
+            runtime_cfg = agent_cfg.get("worker_runtime") if isinstance(agent_cfg.get("worker_runtime"), dict) else {}
+            candidate = str(runtime_cfg.get("workspace_root") or "").strip()
+        return candidate or None
+
+    def execute_direct_decision(
+        self,
+        decision,
+        *,
+        agent_cfg: dict,
+        task_id: str | None = None,
+        workspace_ref: str | None = None,
+    ) -> dict:
+        """HDE-005: execute a DirectExecutionDecision without synthesizing
+        a command string — the decision carries tool name and arguments."""
+        from agent.services.hub_tool_execution_adapter import get_hub_tool_execution_adapter
+
+        task = get_local_task_status(task_id) if task_id else None
+        resolved_workspace = workspace_ref or self._resolve_direct_workspace(task, agent_cfg)
+        return get_hub_tool_execution_adapter().execute_direct(
+            tool_name=decision.tool_name or "",
+            arguments=decision.arguments,
+            agent_cfg=agent_cfg,
+            task=task,
+            task_id=task_id,
+            workspace_ref=resolved_workspace,
+            reason_code=decision.reason_code,
+        )
 
     def execute_direct_step(
         self,
