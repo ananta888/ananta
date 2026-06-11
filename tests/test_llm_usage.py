@@ -19,8 +19,8 @@ def test_extract_llm_text_and_usage_from_strategy_result():
 def test_update_lmstudio_history_delegates_to_record_helper():
     from agent.llm_integration import _update_lmstudio_history
 
-    with patch("agent.llm_integration.update_json") as mock_update_json:
-        with patch("agent.llm_integration._record_lmstudio_result", return_value={"models": {}}) as mock_record:
+    with patch("agent.llm_integration_lmstudio.update_json") as mock_update_json:
+        with patch("agent.llm_integration_lmstudio._record_lmstudio_result", return_value={"models": {}}) as mock_record:
             _update_lmstudio_history("model-a", True)
             update_callback = mock_update_json.call_args.args[1]
             update_callback({"models": {}})
@@ -32,9 +32,9 @@ def test_prepare_lmstudio_history_touches_and_persists_models():
     from agent.llm_integration import _prepare_lmstudio_history
 
     candidates = [{"id": "model-a"}, {"id": "model-b"}]
-    with patch("agent.llm_integration._load_lmstudio_history", return_value={"models": {}}) as mock_load:
-        with patch("agent.llm_integration._touch_lmstudio_models", wraps=lambda history, _: {"models": history["models"]}) as mock_touch:
-            with patch("agent.llm_integration._save_lmstudio_history") as mock_save:
+    with patch("agent.llm_integration_lmstudio._load_lmstudio_history", return_value={"models": {}}) as mock_load:
+        with patch("agent.llm_integration_lmstudio._touch_lmstudio_models", wraps=lambda history, _: {"models": history["models"]}) as mock_touch:
+            with patch("agent.llm_integration_lmstudio._save_lmstudio_history") as mock_save:
                 history = _prepare_lmstudio_history(candidates)
 
     assert history == {"models": {}}
@@ -50,7 +50,7 @@ def test_resolve_lmstudio_model_matches_short_name_to_long_import_id():
         {"id": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest"},
     ]
 
-    with patch("agent.llm_integration._list_lmstudio_candidates", return_value=candidates):
+    with patch("agent.llm_integration_lmstudio._list_lmstudio_candidates", return_value=candidates):
         resolved = _resolve_lmstudio_model("qwen2.5-coder:14b", "http://127.0.0.1:1234/v1", timeout=5)
 
     assert resolved == candidates[0]
@@ -506,7 +506,7 @@ def test_call_llm_records_real_profile_on_error(app):
 def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
     from agent.llm_integration import probe_lmstudio_runtime
 
-    with patch("agent.llm_integration._http_get", return_value={
+    with patch("agent.llm_integration_lmstudio._http_get", return_value={
         "data": [
             {"id": "model-a", "context_length": 32768},
             {"id": "embed-model", "context_length": 8192},
@@ -524,7 +524,7 @@ def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
 def test_probe_lmstudio_runtime_normalizes_root_base_url():
     from agent.llm_integration import probe_lmstudio_runtime
 
-    with patch("agent.llm_integration._http_get", return_value={"data": [{"id": "model-a"}]}):
+    with patch("agent.llm_integration_lmstudio._http_get", return_value={"data": [{"id": "model-a"}]}):
         result = probe_lmstudio_runtime("http://127.0.0.1:1234", timeout=5)
 
     assert result["ok"] is True
@@ -535,7 +535,7 @@ def test_probe_lmstudio_runtime_normalizes_root_base_url():
 def test_probe_ollama_runtime_reports_tags_url_and_models():
     from agent.llm_integration import probe_ollama_runtime
 
-    with patch("agent.llm_integration._http_get", return_value={"models": [{"name": "llama3:latest"}]}):
+    with patch("agent.llm_integration_ollama._http_get", return_value={"models": [{"name": "llama3:latest"}]}):
         result = probe_ollama_runtime("http://ollama:11434/api/generate", timeout=5)
 
     assert result["ok"] is True

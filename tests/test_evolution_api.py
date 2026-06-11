@@ -314,6 +314,7 @@ def test_task_evolution_apply_is_blocked_when_mutation_gate_denies(client, app, 
             return _BlockedDecision()
 
     monkeypatch.setattr("agent.services.evolution_service.get_mutation_gate_service", lambda: _BlockedGate())
+    monkeypatch.setattr("agent.services.evolution_proposal_service.get_mutation_gate_service", lambda: _BlockedGate())
     try:
         analyze_response = client.post(
             "/tasks/T-EVO-MUT-BLOCK/evolution/analyze",

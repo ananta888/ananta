@@ -4,14 +4,10 @@ import argparse
 import json
 import os
 import sys
-from collections import Counter
-from copy import deepcopy
-from dataclasses import dataclass
-from time import sleep
 from typing import Any, Sequence
 
 from client_surfaces.common.client_api import AnantaApiClient
-from client_surfaces.common.profile_auth import build_client_profile, contains_secret_key, resolve_session_auth_token
+from client_surfaces.common.profile_auth import build_client_profile, resolve_session_auth_token
 from client_surfaces.common.types import ClientResponse
 from client_surfaces.tui_runtime.ananta_tui.browser_fallback import build_browser_fallback_snapshot
 from client_surfaces.tui_runtime.ananta_tui.fixture_transport import build_fixture_transport
@@ -37,146 +33,30 @@ from client_surfaces.tui_runtime.ananta_tui.views import (
     render_template_management_view,
 )
 
-_SAFE_CONFIG_PATHS = {
-    "runtime_profile",
-    "governance_mode",
-    "goal_workflow_enabled",
-    "persisted_plans_enabled",
-    "feature_flags.goal_workflow_enabled",
-    "feature_flags.persisted_plans_enabled",
-}
-
-
-def _safe_dict(payload: Any) -> dict[str, Any]:
-    return payload if isinstance(payload, dict) else {}
-
-
-def _safe_items(payload: Any) -> list[dict[str, Any]]:
-    if isinstance(payload, dict) and isinstance(payload.get("items"), list):
-        return [item for item in payload["items"] if isinstance(item, dict)]
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    return []
-
-
-def _empty_response(data: Any = None) -> ClientResponse:
-    return ClientResponse(ok=True, status_code=200, state="healthy", data=data, error=None, retriable=False)
-
-
-def _parse_scalar(raw_value: str) -> Any:
-    text = raw_value.strip()
-    if not text:
-        return ""
-    lowered = text.lower()
-    if lowered in {"true", "false"}:
-        return lowered == "true"
-    if lowered == "null":
-        return None
-    try:
-        if "." in text:
-            return float(text)
-        return int(text)
-    except ValueError:
-        pass
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return text
-
-
-def _assign_path(target: dict[str, Any], dotted_path: str, value: Any) -> None:
-    cursor = target
-    parts = [part for part in dotted_path.split(".") if part]
-    for part in parts[:-1]:
-        next_value = cursor.get(part)
-        if not isinstance(next_value, dict):
-            next_value = {}
-            cursor[part] = next_value
-        cursor = next_value
-    if parts:
-        cursor[parts[-1]] = value
-
-
-def _flatten(payload: dict[str, Any], parent: str = "") -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for key, value in payload.items():
-        full_key = f"{parent}.{key}" if parent else str(key)
-        if isinstance(value, dict):
-            out.update(_flatten(value, full_key))
-        else:
-            out[full_key] = value
-    return out
-
-
-def _merge_dict(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
-    merged = deepcopy(base)
-    for key, value in patch.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _merge_dict(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
-
-
-def _parse_safe_config_edits(raw_edits: Sequence[str]) -> tuple[dict[str, Any], list[str]]:
-    patch: dict[str, Any] = {}
-    errors: list[str] = []
-    for entry in raw_edits:
-        text = str(entry or "").strip()
-        if not text or "=" not in text:
-            errors.append(f"invalid_edit_format:{text}")
-            continue
-        key, raw_value = text.split("=", 1)
-        dotted_key = key.strip()
-        if dotted_key not in _SAFE_CONFIG_PATHS:
-            errors.append(f"unsafe_key:{dotted_key}")
-            continue
-        if contains_secret_key(dotted_key):
-            errors.append(f"secret_like_key_blocked:{dotted_key}")
-            continue
-        _assign_path(patch, dotted_key, _parse_scalar(raw_value))
-    return patch, errors
-
-
-def _render_api_map_summary() -> str:
-    payload = build_hub_api_surface_map()
-    classifications = Counter(
-        item.get("classification")
-        for methods in payload.get("by_section", {}).values()
-        for item in methods
-        if isinstance(item, dict)
-    )
-    lines = ["[API-MAP]"]
-    lines.append(f"sections={len(payload.get('sections') or [])}")
-    lines.append(f"methods={sum(classifications.values())}")
-    lines.append(
-        (
-            f"class_tui_mvp={classifications.get('tui-mvp', 0)} "
-            f"class_tui_advanced={classifications.get('tui-advanced', 0)} "
-            f"class_browser_fallback={classifications.get('browser-fallback', 0)} "
-            f"class_not_terminal={classifications.get('not-suitable-for-terminal', 0)}"
-        )
-    )
-    return "\n".join(lines)
-
-
-def _parse_json_object(raw: str, *, default: dict[str, Any] | None = None) -> tuple[dict[str, Any], str | None]:
-    text = str(raw or "").strip()
-    if not text:
-        return default or {}, None
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError as exc:
-        return default or {}, f"json_parse_error:{exc.msg}"
-    if not isinstance(parsed, dict):
-        return default or {}, "json_must_be_object"
-    return parsed, None
-
-
-@dataclass(frozen=True)
-class ConfigEditRuntime:
-    summary_line: str | None
-    config_response: ClientResponse
+from .app_keybindings import (
+    _render_live_refresh_block,
+    _run_approval_action,
+    _run_archived_action,
+    _run_artifact_action,
+    _run_automation_action,
+    _run_goal_create_action,
+    _run_instruction_action,
+    _run_knowledge_action,
+    _run_repair_action,
+    _run_task_action,
+    _run_team_action,
+    _run_template_operation,
+)
+from .app_widgets import (
+    _empty_response,
+    _flatten,
+    _merge_dict,
+    _parse_safe_config_edits,
+    _render_api_map_summary,
+    _safe_dict,
+    _safe_items,
+    ConfigEditRuntime,
+)
 
 
 class TuiRuntimeApp:
@@ -354,328 +234,6 @@ class TuiRuntimeApp:
             config_response=config_response,
         )
 
-    def _run_goal_create_action(self) -> str | None:
-        if not self._goal_create_text:
-            return None
-        context_payload, parse_err = _parse_json_object(self._goal_create_context_json, default={})
-        if parse_err:
-            return f"[GOAL-CREATE] rejected={parse_err}"
-        payload: dict[str, Any] = {"goal_text": self._goal_create_text, "context": context_payload}
-        if self._goal_create_mode:
-            payload["mode"] = self._goal_create_mode
-        response = self._client.create_goal(payload)
-        return (
-            f"[GOAL-CREATE] state={response.state} status={response.status_code} "
-            f"goal_id={_safe_dict(response.data).get('goal_id')} task_id={_safe_dict(response.data).get('task_id')}"
-        )
-
-    def _run_task_action(self, selected_task_id: str | None) -> str | None:
-        if not self._task_action:
-            return None
-        if not selected_task_id:
-            return "[TASK-ACTION] rejected=selected_task_required"
-        payload, parse_err = _parse_json_object(self._task_action_json, default={})
-        if parse_err:
-            return f"[TASK-ACTION] rejected={parse_err}"
-        if not self._confirm_task_action:
-            return f"[TASK-ACTION] preview_only action={self._task_action} task_id={selected_task_id}"
-        action_map = {
-            "patch": lambda: self._client.patch_task(selected_task_id, payload),
-            "assign": lambda: self._client.assign_task(selected_task_id, payload),
-            "propose": lambda: self._client.propose_task_step(selected_task_id, payload),
-            "execute": lambda: self._client.execute_task_step(selected_task_id, payload),
-        }
-        handler = action_map.get(self._task_action)
-        if not handler:
-            return f"[TASK-ACTION] rejected=unsupported_action:{self._task_action}"
-        response = handler()
-        return f"[TASK-ACTION] applied action={self._task_action} state={response.state} status={response.status_code}"
-
-    def _run_archived_action(self) -> str | None:
-        if not self._archived_action:
-            return None
-        payload, parse_err = _parse_json_object(self._archived_action_json, default={})
-        if parse_err:
-            return f"[ARCHIVED-ACTION] rejected={parse_err}"
-        if not self._confirm_archived_action:
-            return f"[ARCHIVED-ACTION] preview_only action={self._archived_action}"
-        if self._archived_action == "restore":
-            if not self._selected_archived_task_id:
-                return "[ARCHIVED-ACTION] rejected=selected_archived_task_id_required"
-            response = self._client.restore_archived_task(self._selected_archived_task_id)
-        elif self._archived_action == "delete":
-            if not self._selected_archived_task_id:
-                return "[ARCHIVED-ACTION] rejected=selected_archived_task_id_required"
-            response = self._client.delete_archived_task(self._selected_archived_task_id)
-        elif self._archived_action == "cleanup":
-            response = self._client.cleanup_archived_tasks(payload)
-        else:
-            return f"[ARCHIVED-ACTION] rejected=unsupported_action:{self._archived_action}"
-        return (
-            f"[ARCHIVED-ACTION] applied action={self._archived_action} "
-            f"state={response.state} status={response.status_code}"
-        )
-
-    def _run_artifact_action(self, selected_artifact_id: str | None) -> str | None:
-        if not self._artifact_action:
-            return None
-        if not selected_artifact_id:
-            return "[ARTIFACT-ACTION] rejected=selected_artifact_required"
-        payload, parse_err = _parse_json_object(self._artifact_action_json, default={})
-        if parse_err:
-            return f"[ARTIFACT-ACTION] rejected={parse_err}"
-        if not self._confirm_artifact_action:
-            return f"[ARTIFACT-ACTION] preview_only action={self._artifact_action} artifact_id={selected_artifact_id}"
-        if self._artifact_action == "extract":
-            response = self._client.extract_artifact(selected_artifact_id)
-        elif self._artifact_action == "index":
-            response = self._client.index_artifact(selected_artifact_id, payload)
-        else:
-            return f"[ARTIFACT-ACTION] rejected=unsupported_action:{self._artifact_action}"
-        return (
-            f"[ARTIFACT-ACTION] applied action={self._artifact_action} "
-            f"state={response.state} status={response.status_code}"
-        )
-
-    def _run_knowledge_action(self, selected_collection_id: str | None) -> str | None:
-        parts: list[str] = []
-        if self._index_selected_collection:
-            if not selected_collection_id:
-                parts.append("index_rejected:selected_collection_required")
-            elif not self._confirm_knowledge_index:
-                parts.append("index_preview_only")
-            else:
-                response = self._client.index_knowledge_collection(selected_collection_id, payload={})
-                parts.append(f"index_state={response.state}")
-        if self._knowledge_search_query:
-            if not selected_collection_id:
-                parts.append("search_rejected:selected_collection_required")
-            else:
-                response = self._client.search_knowledge_collection(
-                    selected_collection_id,
-                    query=self._knowledge_search_query,
-                    top_k=self._knowledge_top_k,
-                )
-                items = _safe_items(response.data)
-                parts.append(f"search_state={response.state}")
-                parts.append(f"search_hits={len(items)}")
-                if items:
-                    top = items[0]
-                    parts.append(
-                        (
-                            f"top_hit={top.get('source')} "
-                            f"score={top.get('score')} "
-                            f"snippet={str(top.get('snippet') or '')[:80]}"
-                        )
-                    )
-        if not parts:
-            return None
-        return "[KNOWLEDGE-ACTION] " + " ".join(parts)
-
-    def _run_template_operation(self) -> str | None:
-        if not self._template_operation:
-            return None
-        payload, parse_err = _parse_json_object(self._template_payload_json, default={})
-        if parse_err:
-            return f"[TEMPLATE-OP] rejected={parse_err}"
-        if self._template_operation == "validate":
-            response = self._client.validate_template(payload)
-        elif self._template_operation == "preview":
-            response = self._client.preview_template(payload)
-        elif self._template_operation == "diagnostics":
-            response = self._client.template_validation_diagnostics(payload)
-        else:
-            return f"[TEMPLATE-OP] rejected=unsupported_operation:{self._template_operation}"
-        return (
-            f"[TEMPLATE-OP] operation={self._template_operation} state={response.state} status={response.status_code}"
-        )
-
-    def _run_team_action(self, selected_team_id: str | None) -> str | None:
-        if not self._team_action:
-            return None
-        payload, parse_err = _parse_json_object(self._team_action_json, default={})
-        if parse_err:
-            return f"[TEAM-ACTION] rejected={parse_err}"
-        if self._team_action != "activate":
-            return f"[TEAM-ACTION] rejected=unsupported_action:{self._team_action}"
-        if not selected_team_id:
-            return "[TEAM-ACTION] rejected=selected_team_required"
-        if not self._confirm_team_action:
-            return f"[TEAM-ACTION] preview_only action=activate team_id={selected_team_id}"
-        response = self._client.activate_team(selected_team_id)
-        return (
-            f"[TEAM-ACTION] applied action=activate team_id={selected_team_id} "
-            f"state={response.state} status={response.status_code}"
-        )
-
-    def _run_instruction_action(self, state: TuiViewState) -> str | None:
-        if not self._instruction_action:
-            return None
-        payload, parse_err = _parse_json_object(self._instruction_action_json, default={})
-        if parse_err:
-            return f"[INSTRUCTION-ACTION] rejected={parse_err}"
-        if not self._confirm_instruction_action:
-            return f"[INSTRUCTION-ACTION] preview_only action={self._instruction_action}"
-
-        if self._instruction_action == "select_profile":
-            if not state.selected_instruction_profile_id:
-                return "[INSTRUCTION-ACTION] rejected=selected_instruction_profile_required"
-            response = self._client.select_instruction_profile(state.selected_instruction_profile_id)
-        elif self._instruction_action == "select_overlay":
-            if not state.selected_instruction_overlay_id:
-                return "[INSTRUCTION-ACTION] rejected=selected_instruction_overlay_required"
-            response = self._client.select_instruction_overlay(state.selected_instruction_overlay_id, payload=payload)
-        elif self._instruction_action == "link_overlay":
-            if not state.selected_instruction_overlay_id:
-                return "[INSTRUCTION-ACTION] rejected=selected_instruction_overlay_required"
-            response = self._client.link_instruction_overlay(state.selected_instruction_overlay_id, payload=payload)
-        elif self._instruction_action == "unlink_overlay":
-            if not state.selected_instruction_overlay_id:
-                return "[INSTRUCTION-ACTION] rejected=selected_instruction_overlay_required"
-            response = self._client.unlink_instruction_overlay(state.selected_instruction_overlay_id)
-        elif self._instruction_action == "set_goal_selection":
-            if not state.selected_goal_id:
-                return "[INSTRUCTION-ACTION] rejected=selected_goal_required"
-            response = self._client.set_goal_instruction_selection(state.selected_goal_id, payload=payload)
-        elif self._instruction_action == "set_task_selection":
-            if not state.selected_task_id:
-                return "[INSTRUCTION-ACTION] rejected=selected_task_required"
-            response = self._client.set_task_instruction_selection(state.selected_task_id, payload=payload)
-        else:
-            return f"[INSTRUCTION-ACTION] rejected=unsupported_action:{self._instruction_action}"
-        return (
-            f"[INSTRUCTION-ACTION] applied action={self._instruction_action} "
-            f"state={response.state} status={response.status_code}"
-        )
-
-    def _run_automation_action(self) -> str | None:
-        if not self._automation_action:
-            return None
-        payload, parse_err = _parse_json_object(self._automation_action_json, default={})
-        if parse_err:
-            return f"[AUTOMATION-ACTION] rejected={parse_err}"
-        if not self._confirm_automation_action:
-            return f"[AUTOMATION-ACTION] preview_only action={self._automation_action}"
-
-        if self._automation_action == "autopilot_start":
-            response = self._client.start_autopilot(payload)
-        elif self._automation_action == "autopilot_stop":
-            response = self._client.stop_autopilot()
-        elif self._automation_action == "autopilot_tick":
-            response = self._client.tick_autopilot()
-        elif self._automation_action == "configure_planner":
-            response = self._client.configure_auto_planner(payload)
-        elif self._automation_action == "configure_triggers":
-            response = self._client.configure_triggers(payload)
-        else:
-            return f"[AUTOMATION-ACTION] rejected=unsupported_action:{self._automation_action}"
-        return (
-            f"[AUTOMATION-ACTION] applied action={self._automation_action} "
-            f"state={response.state} status={response.status_code}"
-        )
-
-    def _run_approval_action(self, selected_task_id: str | None) -> str | None:
-        if not self._approval_action:
-            return None
-        payload, parse_err = _parse_json_object(self._approval_action_json, default={})
-        if parse_err:
-            return f"[APPROVAL-ACTION] rejected={parse_err}"
-        task_id = str(payload.get("task_id") or selected_task_id or "").strip()
-        if not task_id:
-            return "[APPROVAL-ACTION] rejected=selected_task_required"
-        if not self._confirm_approval_action:
-            return f"[APPROVAL-ACTION] preview_only action={self._approval_action} task_id={task_id}"
-
-        if self._approval_action not in {"approve", "reject"}:
-            return f"[APPROVAL-ACTION] rejected=unsupported_action:{self._approval_action}"
-
-        task_response = self._client.get_task(task_id)
-        detail = _safe_dict(task_response.data)
-        proposal_state = str(detail.get("proposal_state") or "").strip().lower()
-        if proposal_state in {"approved", "rejected", "already_handled"}:
-            return f"[APPROVAL-ACTION] skipped=already_handled task_id={task_id}"
-        if proposal_state in {"denied", "policy_denied", "blocked"}:
-            return f"[APPROVAL-ACTION] skipped=denied_or_blocked task_id={task_id}"
-        if proposal_state in {"stale", "expired"}:
-            return f"[APPROVAL-ACTION] skipped=stale task_id={task_id}"
-
-        response = self._client.review_task_proposal(
-            task_id,
-            action=self._approval_action,
-            comment=str(payload.get("comment") or "").strip() or None,
-        )
-        return (
-            f"[APPROVAL-ACTION] applied action={self._approval_action} task_id={task_id} "
-            f"state={response.state} status={response.status_code}"
-        )
-
-    def _run_repair_action(self, selected_repair_session_id: str | None) -> str | None:
-        if not self._repair_action:
-            return None
-        payload, parse_err = _parse_json_object(self._repair_action_json, default={})
-        if parse_err:
-            return f"[REPAIR-ACTION] rejected={parse_err}"
-        session_id = str(payload.get("session_id") or selected_repair_session_id or "").strip()
-        if not session_id:
-            return "[REPAIR-ACTION] rejected=selected_repair_session_required"
-        if not self._confirm_repair_action:
-            return f"[REPAIR-ACTION] preview_only action={self._repair_action} session_id={session_id}"
-        if self._repair_action not in {"dry_run", "execute", "verify"}:
-            return f"[REPAIR-ACTION] rejected=unsupported_action:{self._repair_action}"
-
-        if bool(payload.get("unsafe")):
-            return f"[REPAIR-ACTION] blocked=unsafe_payload session_id={session_id}"
-        return (
-            f"[REPAIR-ACTION] blocked=browser_fallback_required action={self._repair_action} "
-            f"session_id={session_id}"
-        )
-
-    def _render_live_refresh_block(self, state: TuiViewState) -> str | None:
-        if self._live_refresh_cycles <= 1 or self._live_refresh_target not in {
-            "system",
-            "task_logs",
-            "system_task_logs",
-        }:
-            return None
-        include_system = self._live_refresh_target in {"system", "system_task_logs"}
-        include_task_logs = self._live_refresh_target in {"task_logs", "system_task_logs"}
-        lines = ["[LIVE-REFRESH]"]
-        lines.append(
-            (
-                f"target={self._live_refresh_target} cycles={self._live_refresh_cycles} "
-                f"interval_seconds={self._live_refresh_interval_seconds}"
-            )
-        )
-        for cycle in range(1, self._live_refresh_cycles + 1):
-            health = self._client.get_health()
-            lines.append(f"cycle={cycle}/{self._live_refresh_cycles} health={health.state}")
-            if include_system:
-                stats = self._client.get_stats()
-                stats_payload = _safe_dict(stats.data)
-                lines.append(
-                    (
-                        f"system_state={stats.state} queue_depth={stats_payload.get('queue_depth')} "
-                        f"tasks_in_progress={stats_payload.get('tasks_in_progress')}"
-                    )
-                )
-            if include_task_logs:
-                if state.selected_task_id:
-                    task_logs = self._client.get_task_logs(state.selected_task_id)
-                    log_items = _safe_items(task_logs.data)
-                    latest = log_items[-1] if log_items else {}
-                    lines.append(
-                        (
-                            f"task_logs_state={task_logs.state} task_id={state.selected_task_id} "
-                            f"latest={latest.get('line')}"
-                        )
-                    )
-                else:
-                    lines.append("task_logs_skipped=selected_task_required")
-            if cycle < self._live_refresh_cycles:
-                sleep(self._live_refresh_interval_seconds)
-        lines.append("live_refresh_stoppable=limit_cycles_or_ctrl_c")
-        return "\n".join(lines)
-
     def run_once(self) -> str:
         health = self._client.get_health()
         capabilities = self._client.get_capabilities()
@@ -761,17 +319,48 @@ class TuiRuntimeApp:
         runtime_cfg = self._apply_config_edits(config)
         config = runtime_cfg.config_response
 
-        create_goal_summary = self._run_goal_create_action()
-        task_action_summary = self._run_task_action(state.selected_task_id)
-        archived_action_summary = self._run_archived_action()
-        artifact_action_summary = self._run_artifact_action(state.selected_artifact_id)
-        knowledge_action_summary = self._run_knowledge_action(state.selected_collection_id)
-        template_operation_summary = self._run_template_operation()
-        team_action_summary = self._run_team_action(state.selected_team_id)
-        instruction_action_summary = self._run_instruction_action(state)
-        automation_action_summary = self._run_automation_action()
-        approval_action_summary = self._run_approval_action(state.selected_task_id)
-        repair_action_summary = self._run_repair_action(state.selected_repair_session_id)
+        create_goal_summary = _run_goal_create_action(
+            self._client, self._goal_create_text, self._goal_create_mode, self._goal_create_context_json
+        )
+        task_action_summary = _run_task_action(
+            self._client, self._task_action, self._task_action_json,
+            self._confirm_task_action, state.selected_task_id
+        )
+        archived_action_summary = _run_archived_action(
+            self._client, self._archived_action, self._archived_action_json,
+            self._confirm_archived_action, self._selected_archived_task_id
+        )
+        artifact_action_summary = _run_artifact_action(
+            self._client, self._artifact_action, self._artifact_action_json,
+            self._confirm_artifact_action, state.selected_artifact_id
+        )
+        knowledge_action_summary = _run_knowledge_action(
+            self._client, self._index_selected_collection, self._confirm_knowledge_index,
+            self._knowledge_search_query, self._knowledge_top_k, state.selected_collection_id
+        )
+        template_operation_summary = _run_template_operation(
+            self._client, self._template_operation, self._template_payload_json
+        )
+        team_action_summary = _run_team_action(
+            self._client, self._team_action, self._team_action_json,
+            self._confirm_team_action, state.selected_team_id
+        )
+        instruction_action_summary = _run_instruction_action(
+            self._client, self._instruction_action, self._instruction_action_json,
+            self._confirm_instruction_action, state
+        )
+        automation_action_summary = _run_automation_action(
+            self._client, self._automation_action, self._automation_action_json,
+            self._confirm_automation_action
+        )
+        approval_action_summary = _run_approval_action(
+            self._client, self._approval_action, self._approval_action_json,
+            self._confirm_approval_action, state.selected_task_id
+        )
+        repair_action_summary = _run_repair_action(
+            self._client, self._repair_action, self._repair_action_json,
+            self._confirm_repair_action, state.selected_repair_session_id
+        )
 
         goal_detail = (
             self._client.get_goal_detail(state.selected_goal_id) if state.selected_goal_id else _empty_response({})
@@ -844,66 +433,46 @@ class TuiRuntimeApp:
             capability_line,
             render_dashboard_view(self._client.profile, dashboard, assistant, health),
             render_goals_view(
-                goals,
-                goal_modes,
-                goal_detail,
-                goal_plan,
-                goal_governance,
-                create_goal_summary,
-                state.selected_goal_id,
+                goals, goal_modes, goal_detail, goal_plan, goal_governance,
+                create_goal_summary, state.selected_goal_id,
             ),
             render_task_workbench_view(tasks, task_timeline, selected_task, task_logs, task_action_summary),
             render_task_orchestration_view(orchestration),
             render_archived_tasks_view(archived_tasks, archived_action_summary),
             render_artifact_explorer_view(
-                artifacts,
-                artifact_detail,
-                artifact_rag_status,
-                artifact_rag_preview,
-                artifact_action_summary,
+                artifacts, artifact_detail, artifact_rag_status, artifact_rag_preview, artifact_action_summary,
             ),
             render_knowledge_view(
-                knowledge_collections, knowledge_profiles, collection_detail, knowledge_action_summary
+                knowledge_collections, knowledge_profiles, collection_detail, knowledge_action_summary,
             ),
             render_template_management_view(
-                templates,
-                template_variable_registry,
-                template_sample_contexts,
-                template_operation_summary,
-                state.selected_template_id,
+                templates, template_variable_registry, template_sample_contexts,
+                template_operation_summary, state.selected_template_id,
             ),
             render_config_and_provider_view(
-                config,
-                providers,
-                provider_catalog,
-                benchmarks,
-                benchmark_config,
-                runtime_cfg.summary_line,
+                config, providers, provider_catalog, benchmarks,
+                benchmark_config, runtime_cfg.summary_line,
             ),
             render_system_view(health, contracts, agents, stats, stats_history),
             render_team_blueprint_view(
-                teams,
-                blueprints,
-                blueprint_catalog,
-                blueprint_detail,
-                team_types,
-                team_roles,
-                roles_for_type,
-                team_action_summary,
+                teams, blueprints, blueprint_catalog, blueprint_detail,
+                team_types, team_roles, roles_for_type, team_action_summary,
             ),
             render_instruction_layers_view(
-                instruction_model,
-                effective_layers,
-                instruction_profiles,
-                instruction_overlays,
-                instruction_action_summary,
+                instruction_model, effective_layers,
+                instruction_profiles, instruction_overlays, instruction_action_summary,
             ),
             render_automation_view(autopilot, auto_planner, triggers, automation_action_summary),
             render_audit_view(audit_logs, audit_analysis),
-            render_approval_repair_view(approvals, repairs, tasks, approval_action_summary, repair_action_summary),
+            render_approval_repair_view(
+                approvals, repairs, tasks, approval_action_summary, repair_action_summary,
+            ),
             render_help_view(fallback_snapshot),
         ]
-        live_block = self._render_live_refresh_block(state)
+        live_block = _render_live_refresh_block(
+            self._client, state, self._live_refresh_cycles,
+            self._live_refresh_interval_seconds, self._live_refresh_target,
+        )
         if live_block:
             sections_output.append(live_block)
         return "\n\n".join(sections_output)

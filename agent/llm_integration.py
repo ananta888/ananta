@@ -1,10 +1,6 @@
 import logging
-import os
-import re
 import time
 import uuid
-import hashlib
-from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
 
@@ -14,82 +10,65 @@ from agent.common.errors import PermanentError
 from agent.config import settings
 from agent.llm_strategies import get_strategy
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
-from agent.utils import _http_get, get_data_dir, log_llm_entry, read_json, update_json, write_json
+from agent.utils import _http_get, log_llm_entry, read_json, update_json, write_json, get_data_dir
+
+from agent.llm_integration_lmstudio import (
+    _sha256_text,
+    _model_identifier_tokens,
+    _model_identifier_matches,
+    _find_matching_lmstudio_candidate,
+    _load_lmstudio_history,
+    _save_lmstudio_history,
+    _touch_lmstudio_models,
+    _record_lmstudio_result,
+    _update_lmstudio_history,
+    _prepare_lmstudio_history,
+    _select_best_lmstudio_model,
+    _normalize_lmstudio_base_url,
+    _lmstudio_models_url,
+    _resolve_lmstudio_model,
+    _extract_lmstudio_candidates,
+    _list_lmstudio_candidates,
+    probe_lmstudio_runtime,
+    _extract_lmstudio_text,
+    _extract_lmstudio_usage,
+    _LMSTUDIO_HISTORY_FILE,
+)
+from agent.llm_integration_ollama import (
+    _find_matching_ollama_candidate,
+    _normalize_ollama_base_url,
+    _ollama_tags_url,
+    _ollama_ps_url,
+    resolve_ollama_model,
+    probe_ollama_runtime,
+    probe_ollama_activity,
+)
+from agent.llm_resilience import (
+    CIRCUIT_BREAKER,
+    _CB_DEFAULT_THRESHOLD,
+    _CB_DEFAULT_RECOVERY_TIME,
+    _RATE_LIMIT_WINDOW,
+    _RATE_LIMIT_LOCK,
+    _ERR_RATE_LOCK,
+    _ERR_SUCCESS_WINDOW,
+    _ERR_FAILURE_WINDOW,
+    _cb_config,
+    _check_circuit_breaker,
+    _report_llm_failure,
+    _report_llm_success,
+    _record_llm_failure_rate,
+    _rl_config,
+    _check_rate_limit,
+    get_provider_error_rate,
+    get_rate_limit_state,
+    get_circuit_breaker_state,
+)
 
 HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 
-_LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
 _LOCAL_RUNTIME_SELECTION_CACHE: dict[str, dict[str, Any]] = {}
 _LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS = 30
 _LOCAL_RUNTIME_PROBE_TIMEOUT_SECONDS = 2
-
-
-def _sha256_text(value: str | None) -> str | None:
-    text = str(value or "")
-    if not text:
-        return None
-    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
-
-
-def _model_identifier_tokens(value: str | None) -> set[str]:
-    normalized = re.sub(r"[^a-z0-9.]+", " ", str(value or "").strip().lower())
-    return {token for token in normalized.split() if token}
-
-
-def _model_identifier_matches(left: str | None, right: str | None) -> bool:
-    left_value = str(left or "").strip()
-    right_value = str(right or "").strip()
-    if not left_value or not right_value:
-        return False
-    if left_value.lower() == right_value.lower():
-        return True
-    left_tokens = _model_identifier_tokens(left_value)
-    right_tokens = _model_identifier_tokens(right_value)
-    overlap = left_tokens & right_tokens
-    if len(overlap) < 2:
-        return False
-    return left_tokens.issubset(right_tokens) or right_tokens.issubset(left_tokens)
-
-
-def _find_matching_lmstudio_candidate(model: str | None, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
-    normalized_model = str(model or "").strip()
-    if not normalized_model:
-        return None
-    for candidate in candidates:
-        candidate_id = str((candidate or {}).get("id") or "").strip()
-        if _model_identifier_matches(normalized_model, candidate_id):
-            return candidate
-    return None
-
-
-def _find_matching_ollama_candidate(model: str | None, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
-    normalized_model = str(model or "").strip()
-    if not normalized_model:
-        return None
-    for candidate in candidates:
-        candidate_name = str((candidate or {}).get("name") or "").strip()
-        if _model_identifier_matches(normalized_model, candidate_name):
-            return candidate
-    if normalized_model.lower() == "qwen2.5-coder:7b":
-        for candidate in candidates:
-            candidate_name = str((candidate or {}).get("name") or "").strip().lower()
-            if candidate_name == "ananta-default:latest":
-                return candidate
-    return None
-
-
-def resolve_ollama_model(model: str | None, base_url: str, timeout: int) -> Optional[str]:
-    normalized_model = str(model or "").strip()
-    if not normalized_model:
-        return None
-    probe = probe_ollama_runtime(base_url, timeout)
-    candidates = list(probe.get("models") or []) if isinstance(probe, dict) else []
-    matched = _find_matching_ollama_candidate(normalized_model, candidates)
-    if matched:
-        candidate_name = str((matched or {}).get("name") or "").strip()
-        if candidate_name:
-            return candidate_name
-    return normalized_model
 
 
 def _runtime_default_provider() -> str:
@@ -163,7 +142,6 @@ def _normalize_llm_usage(usage: Any) -> dict[str, int]:
         return {}
 
 
-# Canonical field order for llm_call_profile entries — used by both real and synthetic entries.
 LLM_CALL_PROFILE_FIELDS: tuple[str, ...] = (
     "name",
     "backend",
@@ -225,13 +203,6 @@ def build_llm_call_profile_entry(
 
 
 def normalize_llm_call_profile_entry(entry: dict[str, Any]) -> dict[str, Any]:
-    """Coerce an arbitrary llm_call_profile dict to the canonical field set.
-
-    Entries created outside llm_integration (orchestrator synthetic entries,
-    legacy CLI result dicts) may be missing fields or use different key names
-    such as ``phase`` instead of ``name``.  This function fills gaps with safe
-    defaults so downstream aggregation code can assume a stable schema.
-    """
     if not isinstance(entry, dict):
         return build_llm_call_profile_entry(
             name="unknown",
@@ -244,7 +215,6 @@ def normalize_llm_call_profile_entry(entry: dict[str, Any]) -> dict[str, Any]:
             source="normalized",
             estimated=True,
         )
-    # Accept 'phase' as an alias for 'name' used by some legacy paths.
     name = str(entry.get("name") or entry.get("phase") or "").strip() or "unknown"
     latency_raw = entry.get("latency_ms")
     try:
@@ -284,7 +254,6 @@ def normalize_llm_call_profile_entry(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-# Backward-compatible private alias so existing internal call sites still work.
 _build_llm_call_profile_entry = build_llm_call_profile_entry
 
 
@@ -308,7 +277,6 @@ def extract_llm_text_and_usage(result: Any) -> tuple[str, dict[str, int]]:
     if isinstance(result.get("text"), str):
         return result.get("text", ""), _normalize_llm_usage(result.get("usage"))
 
-    # Fallback for raw provider-like payloads.
     usage = _normalize_llm_usage(result.get("usage"))
     if isinstance(result.get("response"), str):
         return result.get("response", ""), usage
@@ -329,331 +297,10 @@ def extract_llm_text_and_usage(result: Any) -> tuple[str, dict[str, int]]:
 
 
 def extract_llm_call_metadata(result: Any) -> dict[str, Any]:
-    """Extract provider-attached metadata (e.g. context_overflow hints) from a result.
-
-    Strategies may attach a `metadata` dict carrying diagnostic info such as
-    `empty_reason`, `context_limit`, `model_id`. This helper keeps the existing
-    `extract_llm_text_and_usage` signature stable while making that metadata
-    available to callers that want to react to it.
-    """
     if not isinstance(result, dict):
         return {}
     raw = result.get("metadata")
     return dict(raw) if isinstance(raw, dict) else {}
-
-
-def _load_lmstudio_history() -> dict:
-    data_dir = get_data_dir()
-    path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
-    return read_json(path, {"models": {}})
-
-
-def _save_lmstudio_history(history: dict) -> None:
-    data_dir = get_data_dir()
-    os.makedirs(data_dir, exist_ok=True)
-    path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
-    write_json(path, history)
-
-
-def _touch_lmstudio_models(history: dict, model_ids: list[str]) -> dict:
-    models = history.setdefault("models", {})
-    now = int(time.time())
-    for mid in model_ids:
-        if mid not in models:
-            models[mid] = {
-                "success": 0,
-                "fail": 0,
-                "last_success": None,
-                "last_fail": None,
-                "last_used": None,
-                "first_seen": now,
-            }
-    return history
-
-
-def _record_lmstudio_result(history: dict, model_id: str, success: bool) -> dict:
-    if not model_id:
-        return history
-    models = history.setdefault("models", {})
-    entry = models.setdefault(
-        model_id,
-        {
-            "success": 0,
-            "fail": 0,
-            "last_success": None,
-            "last_fail": None,
-            "last_used": None,
-            "first_seen": int(time.time()),
-        },
-    )
-    now = int(time.time())
-    entry["last_used"] = now
-    if success:
-        entry["success"] = int(entry.get("success", 0)) + 1
-        entry["last_success"] = now
-    else:
-        entry["fail"] = int(entry.get("fail", 0)) + 1
-        entry["last_fail"] = now
-    models[model_id] = entry
-    history["models"] = models
-    return history
-
-
-def _update_lmstudio_history(model_id: str, success: bool) -> None:
-    if not model_id:
-        return
-    data_dir = get_data_dir()
-    path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
-
-    def _update(data: dict) -> dict:
-        if not isinstance(data, dict):
-            data = {"models": {}}
-        return _record_lmstudio_result(data, model_id, success)
-
-    update_json(path, _update, default={"models": {}})
-
-
-def _prepare_lmstudio_history(candidates: list[dict]) -> dict:
-    history = _load_lmstudio_history()
-    history = _touch_lmstudio_models(history, [c.get("id") for c in candidates if c.get("id")])
-    _save_lmstudio_history(history)
-    return history
-
-
-def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict | None:
-    if not candidates:
-        return None
-
-    # 1. Filtere nach Mindest-Kontextlänge falls konfiguriert
-    min_ctx = getattr(settings, "lmstudio_max_context_tokens", 0)
-    api_mode = getattr(settings, "lmstudio_api_mode", "chat")
-
-    filtered = [c for c in candidates if (c.get("context_length") or 0) >= min_ctx]
-    if not filtered:
-        # Graceful fallback: some model endpoints do not expose context_length.
-        filtered = list(candidates)
-
-    # Capability filter: Check if model supports chat if we are in chat mode
-    if api_mode == "chat":
-        chat_filtered = [
-            c for c in filtered if "chat" in (c.get("id") or "").lower() or "instruct" in (c.get("id") or "").lower()
-        ]
-        if chat_filtered:
-            filtered = chat_filtered
-        elif not filtered:
-            filtered = list(candidates)
-
-    # Sort candidates by ID for determinism before scoring
-    filtered = sorted(filtered, key=lambda x: x.get("id") or "")
-
-    models_hist = history.get("models", {})
-
-    def _score(item: dict) -> tuple:
-        mid = item.get("id") or ""
-        h = models_hist.get(mid, {})
-        success = int(h.get("success", 0))
-        fail = int(h.get("fail", 0))
-        total = success + fail
-        success_rate = (success / total) if total > 0 else -1.0
-        last_success = h.get("last_success") or 0
-        last_used = h.get("last_used") or 0
-        # Bevorzuge Modelle mit Erfolg, dann nach Erfolgsrate, dann nach Gesamterfolgen,
-        # dann nach letztem Erfolg, dann nach letzter Nutzung
-        return (1 if success > 0 else 0, success_rate, success, last_success, last_used)
-
-    # Bevorzuge Modelle aus dem gefilterten Set, die schon mal funktioniert haben
-    if any(int(models_hist.get(c.get("id") or "", {}).get("success", 0)) > 0 for c in filtered):
-        return sorted(filtered, key=_score, reverse=True)[0]
-
-    # Wenn noch keins funktioniert hat, nimm das erste unbenutzte aus dem gefilterten Set
-    for c in filtered:
-        mid = c.get("id") or ""
-        h = models_hist.get(mid)
-        if not h or (int(h.get("success", 0)) + int(h.get("fail", 0)) == 0):
-            return c
-
-    def _fallback_score(item: dict) -> tuple:
-        mid = item.get("id") or ""
-        h = models_hist.get(mid, {})
-        fail = int(h.get("fail", 0))
-        last_used = h.get("last_used") or 0
-        # Wenigste Fehler zuerst, dann am längsten nicht benutzt (altes Fallback)
-        return (fail, -last_used)
-
-    if not filtered:
-        return sorted(candidates, key=lambda x: x.get("id") or "")[0]
-    return sorted(filtered, key=_fallback_score)[0]
-
-
-# Circuit Breaker Status
-CIRCUIT_BREAKER = {"failures": defaultdict(int), "last_failure": defaultdict(float), "open": defaultdict(bool)}
-# Defaults used when no Flask app config is available (e.g. tests, CLI).
-_CB_DEFAULT_THRESHOLD = 5
-_CB_DEFAULT_RECOVERY_TIME = 60
-
-# PRI-010: Per-provider rate limiter (sliding window, tracks request timestamps).
-# Key: provider name → deque of float timestamps (seconds since epoch).
-import collections as _collections
-_RATE_LIMIT_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collections.deque())
-_RATE_LIMIT_LOCK = __import__("threading").Lock()
-
-# PRI-012: Per-provider sliding-window error rate tracking (60s window).
-# Separate deques for successes and failures to compute error_rate.
-_ERR_RATE_LOCK = __import__("threading").Lock()
-_ERR_SUCCESS_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collections.deque())
-_ERR_FAILURE_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collections.deque())
-
-
-def _cb_config() -> tuple[int, int]:
-    """Return (threshold, recovery_seconds) from live app config when available."""
-    try:
-        from flask import current_app
-        cfg = (current_app.config.get("AGENT_CONFIG") or {}).get("llm_config") or {}
-        threshold = int(cfg.get("circuit_breaker_threshold") or _CB_DEFAULT_THRESHOLD)
-        recovery = int(cfg.get("circuit_breaker_open_seconds") or _CB_DEFAULT_RECOVERY_TIME)
-        return max(1, threshold), max(5, recovery)
-    except RuntimeError:
-        return _CB_DEFAULT_THRESHOLD, _CB_DEFAULT_RECOVERY_TIME
-
-
-def _check_circuit_breaker(provider: str) -> bool:
-    _, recovery_time = _cb_config()
-    if CIRCUIT_BREAKER["open"][provider]:
-        if time.time() - CIRCUIT_BREAKER["last_failure"][provider] > recovery_time:
-            logging.info("circuit_breaker provider=%s state=half_open", provider)
-            CIRCUIT_BREAKER["open"][provider] = False
-            CIRCUIT_BREAKER["failures"][provider] = 0
-            return True
-        return False
-    return True
-
-
-def _report_llm_failure(provider: str) -> None:
-    threshold, _ = _cb_config()
-    CIRCUIT_BREAKER["failures"][provider] += 1
-    CIRCUIT_BREAKER["last_failure"][provider] = time.time()
-    if CIRCUIT_BREAKER["failures"][provider] >= threshold:
-        if not CIRCUIT_BREAKER["open"][provider]:
-            logging.error(
-                "circuit_breaker_open provider=%s failures=%s",
-                provider,
-                CIRCUIT_BREAKER["failures"][provider],
-            )
-            CIRCUIT_BREAKER["open"][provider] = True
-    _record_llm_failure_rate(provider)
-
-
-def _report_llm_success(provider: str) -> None:
-    CIRCUIT_BREAKER["failures"][provider] = 0
-    CIRCUIT_BREAKER["open"][provider] = False
-    now = time.time()
-    with _ERR_RATE_LOCK:
-        _ERR_SUCCESS_WINDOW[provider].append(now)
-
-
-def _record_llm_failure_rate(provider: str) -> None:
-    """Record failure timestamp for error-rate tracking (separate from CB)."""
-    now = time.time()
-    with _ERR_RATE_LOCK:
-        _ERR_FAILURE_WINDOW[provider].append(now)
-
-
-def get_provider_error_rate(provider: str, window_s: float = 60.0) -> dict:
-    """Return error rate for provider over the last window_s seconds (PRI-012)."""
-    now = time.time()
-    cutoff = now - window_s
-    with _ERR_RATE_LOCK:
-        s_dq = _ERR_SUCCESS_WINDOW[provider]
-        f_dq = _ERR_FAILURE_WINDOW[provider]
-        while s_dq and s_dq[0] < cutoff:
-            s_dq.popleft()
-        while f_dq and f_dq[0] < cutoff:
-            f_dq.popleft()
-        successes = len(s_dq)
-        failures = len(f_dq)
-    total = successes + failures
-    error_rate = round(failures / total, 3) if total > 0 else 0.0
-    return {
-        "provider": provider,
-        "window_seconds": window_s,
-        "successes": successes,
-        "failures": failures,
-        "total": total,
-        "error_rate": error_rate,
-    }
-
-
-def _rl_config(provider: str) -> int:
-    """Return max requests-per-minute for provider (0 = disabled)."""
-    try:
-        from flask import current_app
-        cfg = (current_app.config.get("AGENT_CONFIG") or {}).get("llm_config") or {}
-        rl = cfg.get("rate_limit_rpm") or 0
-        # Per-provider override: rate_limit_rpm_<provider>
-        rl_per = cfg.get(f"rate_limit_rpm_{provider}") or rl
-        return max(0, int(rl_per))
-    except (RuntimeError, TypeError, ValueError):
-        return 0
-
-
-def _check_rate_limit(provider: str) -> bool:
-    """Return True if request is allowed, False if rate limit exceeded (PRI-010).
-
-    Uses a 60-second sliding window. Thread-safe.
-    """
-    rpm = _rl_config(provider)
-    if rpm <= 0:
-        return True  # rate limiting disabled
-    now = time.time()
-    window_start = now - 60.0
-    with _RATE_LIMIT_LOCK:
-        dq = _RATE_LIMIT_WINDOW[provider]
-        # Evict timestamps outside the window.
-        while dq and dq[0] < window_start:
-            dq.popleft()
-        if len(dq) >= rpm:
-            logging.warning(
-                "rate_limit_exceeded provider=%s requests_in_window=%s limit_rpm=%s",
-                provider, len(dq), rpm,
-            )
-            return False
-        dq.append(now)
-        return True
-
-
-def get_rate_limit_state(provider: str) -> dict:
-    """Return observable rate-limit state for a provider (for health/diagnostics)."""
-    rpm = _rl_config(provider)
-    now = time.time()
-    window_start = now - 60.0
-    with _RATE_LIMIT_LOCK:
-        dq = _RATE_LIMIT_WINDOW[provider]
-        while dq and dq[0] < window_start:
-            dq.popleft()
-        count = len(dq)
-    return {
-        "provider": provider,
-        "requests_in_last_60s": count,
-        "limit_rpm": rpm,
-        "enabled": rpm > 0,
-    }
-
-
-def get_circuit_breaker_state(provider: str) -> dict:
-    """Return observable circuit breaker state for a provider (for health/diagnostics)."""
-    threshold, recovery_time = _cb_config()
-    is_open = bool(CIRCUIT_BREAKER["open"][provider])
-    last_failure = float(CIRCUIT_BREAKER["last_failure"][provider] or 0)
-    failures = int(CIRCUIT_BREAKER["failures"][provider] or 0)
-    age_s = round(time.time() - last_failure, 1) if last_failure else None
-    return {
-        "provider": provider,
-        "state": "open" if is_open else "closed",
-        "failures": failures,
-        "threshold": threshold,
-        "recovery_seconds": recovery_time,
-        "last_failure_age_seconds": age_s,
-    }
 
 
 def _build_chat_messages(prompt: str, history: list | None) -> list:
@@ -730,276 +377,6 @@ def _trim_messages(messages: list, max_context_tokens: int, max_output_tokens: i
     if system_msg:
         return [trimmed_messages[0]] + trimmed_messages_tail
     return trimmed_messages_tail
-
-
-def _normalize_lmstudio_base_url(base_url: str | None) -> Optional[str]:
-    raw_url = str(base_url or "").strip()
-    if not raw_url:
-        return None
-
-    normalized = raw_url.rstrip("/")
-    normalized_lower = normalized.lower()
-    for suffix in ("/chat/completions", "/completions", "/responses", "/models"):
-        if normalized_lower.endswith(suffix):
-            normalized = normalized[: -len(suffix)]
-            break
-
-    parsed = urlsplit(normalized)
-    if not parsed.scheme or not parsed.netloc:
-        return None
-
-    path = parsed.path.rstrip("/")
-    path_lower = path.lower()
-    if path_lower.endswith("/v1"):
-        resolved_path = path
-    elif "/v1" in path_lower:
-        idx = path_lower.index("/v1")
-        resolved_path = path[: idx + 3]
-    elif not path:
-        resolved_path = "/v1"
-    else:
-        resolved_path = f"{path}/v1"
-
-    return urlunsplit((parsed.scheme, parsed.netloc, resolved_path, "", ""))
-
-
-def _lmstudio_models_url(base_url: str) -> Optional[str]:
-    normalized = _normalize_lmstudio_base_url(base_url)
-    if not normalized:
-        return None
-    return f"{normalized}/models"
-
-
-def _normalize_ollama_base_url(base_url: str | None) -> Optional[str]:
-    raw_url = str(base_url or "").strip()
-    if not raw_url:
-        return None
-
-    normalized = raw_url.rstrip("/")
-    normalized_lower = normalized.lower()
-    for suffix in ("/api/generate", "/api/chat", "/api/tags"):
-        if normalized_lower.endswith(suffix):
-            normalized = normalized[: -len(suffix)]
-            break
-
-    parsed = urlsplit(normalized)
-    if not parsed.scheme or not parsed.netloc:
-        return None
-
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
-
-
-def _ollama_tags_url(base_url: str) -> Optional[str]:
-    normalized = _normalize_ollama_base_url(base_url)
-    if not normalized:
-        return None
-    return f"{normalized}/api/tags"
-
-
-def _ollama_ps_url(base_url: str) -> Optional[str]:
-    normalized = _normalize_ollama_base_url(base_url)
-    if not normalized:
-        return None
-    return f"{normalized}/api/ps"
-
-
-def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:
-    candidates = _list_lmstudio_candidates(base_url, timeout)
-    if model and str(model).strip().lower() != "auto":
-        matched = _find_matching_lmstudio_candidate(model, candidates)
-        return matched or {"id": model}
-    if candidates:
-        history = _prepare_lmstudio_history(candidates)
-        if not model or str(model).strip().lower() == "auto":
-            best = _select_best_lmstudio_model(candidates, history)
-            if best:
-                return best
-        return candidates[0]
-    return None
-
-
-def _extract_lmstudio_candidates(payload: Any) -> list[dict]:
-    if not isinstance(payload, dict):
-        return []
-    data = payload.get("data")
-    if not isinstance(data, list) or not data:
-        return []
-
-    llm_candidates = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        mid = item.get("id") or item.get("name") or ""
-        if "embed" in str(mid).lower():
-            continue
-        llm_candidates.append(
-            {
-                "id": mid,
-                "context_length": item.get("context_length") or item.get("max_context_length") or item.get("n_ctx"),
-            }
-        )
-
-    if llm_candidates:
-        return llm_candidates
-
-    first = data[0]
-    if isinstance(first, dict):
-        return [
-            {
-                "id": first.get("id") or first.get("name"),
-                "context_length": first.get("context_length") or first.get("max_context_length") or first.get("n_ctx"),
-            }
-        ]
-    return []
-
-
-def _list_lmstudio_candidates(base_url: str, timeout: int) -> list[dict]:
-    models_url = _lmstudio_models_url(base_url)
-    if not models_url:
-        return []
-    try:
-        resp = _http_get(models_url, timeout=timeout, silent=True)
-    except Exception:
-        return []
-
-    return _extract_lmstudio_candidates(resp)
-
-
-def probe_lmstudio_runtime(base_url: str, timeout: int) -> dict[str, Any]:
-    models_url = _lmstudio_models_url(base_url)
-    if not models_url:
-        return {
-            "ok": False,
-            "status": "invalid_url",
-            "base_url": base_url,
-            "models_url": None,
-            "candidates": [],
-            "candidate_count": 0,
-        }
-    try:
-        resp = _http_get(models_url, timeout=timeout, silent=True)
-    except Exception:
-        return {
-            "ok": False,
-            "status": "error",
-            "base_url": base_url,
-            "models_url": models_url,
-            "candidates": [],
-            "candidate_count": 0,
-        }
-
-    candidates = _extract_lmstudio_candidates(resp)
-    status = "ok" if candidates else "reachable_no_models"
-    return {
-        "ok": True,
-        "status": status,
-        "base_url": base_url,
-        "models_url": models_url,
-        "candidates": candidates,
-        "candidate_count": len(candidates),
-    }
-
-
-def probe_ollama_runtime(base_url: str, timeout: int) -> dict[str, Any]:
-    tags_url = _ollama_tags_url(base_url)
-    if not tags_url:
-        return {
-            "ok": False,
-            "status": "invalid_url",
-            "base_url": base_url,
-            "tags_url": None,
-            "models": [],
-            "candidate_count": 0,
-        }
-    try:
-        resp = _http_get(tags_url, timeout=timeout, silent=True)
-    except Exception:
-        return {
-            "ok": False,
-            "status": "error",
-            "base_url": base_url,
-            "tags_url": tags_url,
-            "models": [],
-            "candidate_count": 0,
-        }
-
-    raw_models = resp.get("models") if isinstance(resp, dict) else None
-    models = [item for item in (raw_models or []) if isinstance(item, dict) and str(item.get("name") or "").strip()]
-    status = "ok" if models else "reachable_no_models"
-    return {
-        "ok": True,
-        "status": status,
-        "base_url": base_url,
-        "tags_url": tags_url,
-        "models": models,
-        "candidate_count": len(models),
-    }
-
-
-def probe_ollama_activity(base_url: str, timeout: int) -> dict[str, Any]:
-    ps_url = _ollama_ps_url(base_url)
-    if not ps_url:
-        return {
-            "ok": False,
-            "status": "invalid_url",
-            "base_url": base_url,
-            "ps_url": None,
-            "active_count": 0,
-            "active_models": [],
-            "gpu_active": False,
-            "executor_summary": {"gpu": 0, "cpu": 0, "unknown": 0},
-        }
-    try:
-        resp = _http_get(ps_url, timeout=timeout, silent=True)
-    except Exception:
-        return {
-            "ok": False,
-            "status": "error",
-            "base_url": base_url,
-            "ps_url": ps_url,
-            "active_count": 0,
-            "active_models": [],
-            "gpu_active": False,
-            "executor_summary": {"gpu": 0, "cpu": 0, "unknown": 0},
-        }
-
-    raw_models = resp.get("models") if isinstance(resp, dict) else None
-    models = [item for item in (raw_models or []) if isinstance(item, dict) and str(item.get("name") or "").strip()]
-    active_models: list[dict[str, Any]] = []
-    summary = {"gpu": 0, "cpu": 0, "unknown": 0}
-    for item in models:
-        details = item.get("details") if isinstance(item.get("details"), dict) else {}
-        size_vram = int(item.get("size_vram") or 0)
-        processor = str(item.get("processor") or "").strip().lower()
-        if not processor:
-            processor = str(details.get("processor") or "").strip().lower()
-        if processor in {"gpu", "cuda", "vulkan", "metal"} or size_vram > 0:
-            executor = "gpu"
-        elif processor in {"cpu"}:
-            executor = "cpu"
-        else:
-            executor = "unknown"
-        summary[executor] = int(summary.get(executor) or 0) + 1
-        active_models.append(
-            {
-                "name": str(item.get("name") or "").strip(),
-                "size": int(item.get("size") or 0),
-                "size_vram": size_vram,
-                "expires_at": item.get("expires_at"),
-                "executor": executor,
-                "context_length": item.get("context_length") or item.get("num_ctx") or details.get("num_ctx"),
-            }
-        )
-    return {
-        "ok": True,
-        "status": "ok" if active_models else "reachable_no_active_models",
-        "base_url": base_url,
-        "ps_url": ps_url,
-        "active_count": len(active_models),
-        "active_models": active_models,
-        "gpu_active": bool(summary.get("gpu")),
-        "executor_summary": summary,
-    }
 
 
 def _is_same_provider_url(provider: str, left: str | None, right: str | None) -> bool:
@@ -1080,59 +457,6 @@ def resolve_preferred_local_runtime(
     return result
 
 
-def _extract_lmstudio_text(payload: Any) -> str:
-    if not payload:
-        return ""
-    if isinstance(payload, str):
-        return payload
-    if not isinstance(payload, dict):
-        return ""
-    if "response" in payload:
-        return str(payload.get("response") or "")
-
-    choices = payload.get("choices")
-    if not choices or not isinstance(choices, list):
-        error = payload.get("error")
-        if isinstance(error, dict):
-            return f"Error: {error.get('message', 'Unknown LMStudio error')}"
-        if error is not None:
-            return f"Error: {error}"
-        return ""
-
-    first = choices[0] if choices else None
-    if not isinstance(first, dict):
-        return ""
-    if "text" in first:
-        return str(first.get("text") or "")
-
-    message = first.get("message")
-    if isinstance(message, dict):
-        content = message.get("content")
-        if content:
-            return str(content)
-        reasoning = message.get("reasoning_content")
-        if reasoning:
-            return str(reasoning)
-        if content is not None:
-            return str(content)
-        tool_calls = message.get("tool_calls")
-        if tool_calls is not None:
-            try:
-                return json.dumps({"tool_calls": tool_calls})
-            except Exception:
-                return ""
-    return ""
-
-
-def _extract_lmstudio_usage(payload: Any) -> dict:
-    if not isinstance(payload, dict):
-        return {}
-    usage = payload.get("usage")
-    if isinstance(usage, dict):
-        return usage
-    return {}
-
-
 def _build_history_prompt(prompt: str, history: list | None) -> str:
     full_prompt = prompt
     if history:
@@ -1171,12 +495,10 @@ def generate_text(
     trace_goal_id: Optional[str] = None,
     trace_task_id: Optional[str] = None,
 ) -> Any:
-    """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or _runtime_default_provider()
     m = model or _runtime_default_model()
     urls = _runtime_provider_urls()
 
-    # Timeout bestimmen: Parameter oder globaler Default
     actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
 
     runtime_default_provider = _runtime_default_provider()
@@ -1185,7 +507,6 @@ def generate_text(
     provider_uses_runtime_url = not effective_base_url or _is_same_provider_url(p, effective_base_url, urls.get(p))
 
     if p in {"lmstudio", "ollama"} and provider_uses_runtime_url and (not provider_was_explicit or p == runtime_default_provider):
-        # Runtime probing must stay cheap; otherwise probe latency dominates local Ollama calls.
         probe_timeout = max(1, min(int(actual_timeout), _LOCAL_RUNTIME_PROBE_TIMEOUT_SECONDS))
         runtime_choice = resolve_preferred_local_runtime(p, urls, timeout=probe_timeout)
         selected_provider = str(runtime_choice.get("provider") or p).strip().lower() or p
@@ -1210,7 +531,6 @@ def generate_text(
     if not key:
         key = _runtime_api_key(p)
 
-    # Idempotency Key generieren für diesen logischen Call (bleibt über Retries gleich)
     idempotency_key = str(uuid.uuid4())
 
     return _call_llm(
@@ -1251,7 +571,6 @@ def _call_llm(
     trace_task_id: Optional[str] = None,
     idempotency_key: Optional[str] = None,
 ) -> Any:
-    """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
     if not _check_circuit_breaker(provider):
         logging.warning(f"Abbruch: Circuit Breaker für {provider} ist offen.")
         return ""
@@ -1268,7 +587,6 @@ def _call_llm(
     else:
         backoff_factor = float(backoff_factor)
 
-    # Sicherstellen, dass wir einen Key haben
     if not idempotency_key:
         idempotency_key = str(uuid.uuid4())
 
@@ -1293,15 +611,11 @@ def _call_llm(
         request_method=request_method,
     )
 
-    # PTI-004: create PromptTrace before the first attempt
     _prompt_trace = None
     try:
         from agent.services.prompt_trace_service import get_prompt_trace_service
         from agent.services.context_file_selector import provider_to_llm_scope
         _trace_svc = get_prompt_trace_service()
-        # Planning/background calls often run with app context but without request context.
-        # Use app-context metadata so traces can still be correlated to goals/tasks.
-        # Explicit trace metadata always wins; app-context fallback is best-effort.
         _goal_id = str(trace_goal_id or "").strip() or (getattr(g, "llm_goal_id", None) if has_app_context() else None)
         _task_id = str(trace_task_id or "").strip() or (getattr(g, "llm_task_id", None) if has_app_context() else None)
         _llm_scope = provider_to_llm_scope(provider, urls.get(provider))
@@ -1386,10 +700,6 @@ def _call_llm(
                 source="llm_integration",
                 estimated=False,
             )
-            # Capture strategy-attached metadata (e.g. context_overflow hints) so
-            # callers can distinguish an empty response caused by prompt overflow
-            # from other failure modes. The metadata is folded into the profile
-            # entry's error fields when the call produced no usable text.
             call_metadata = extract_llm_call_metadata(res)
             if not (text_out and text_out.strip()) and call_metadata:
                 success_entry["error_type"] = str(
@@ -1419,7 +729,6 @@ def _call_llm(
                     attempts=attempt + 1,
                     response=text_out,
                 )
-                # PTI-004: finalize trace on success
                 if _prompt_trace is not None:
                     try:
                         _trace_svc = get_prompt_trace_service()
@@ -1450,7 +759,6 @@ def _call_llm(
             if has_request_context():
                 g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [error_entry]
             logging.error(f"Permanenter Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
-            # PTI-004: store failed trace
             if _prompt_trace is not None:
                 try:
                     _trace_svc = get_prompt_trace_service()
@@ -1496,7 +804,6 @@ def _call_llm(
         attempts=max_retries + 1,
         response="",
     )
-    # PTI-004: store failed trace if not already stored
     if _prompt_trace is not None:
         try:
             _trace_svc = get_prompt_trace_service()
@@ -1524,8 +831,6 @@ def _execute_llm_call(
     tool_choice: Any | None = None,
     idempotency_key: Optional[str] = None,
 ) -> Any:
-    """Ruft den konfigurierten LLM-Provider über das Strategy Pattern auf."""
-
     with LLM_CALL_DURATION.time():
         strategy = get_strategy(provider)
         if not strategy:
@@ -1552,6 +857,3 @@ def _execute_llm_call(
             idempotency_key=idempotency_key,
             provider=provider,
         )
-
-
-# Die alten Implementierungen in _execute_llm_call wurden durch das Strategy Pattern ersetzt.

@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 import uuid
@@ -9,17 +8,35 @@ from typing import Any, Optional
 
 from flask import current_app, g
 
-from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
+from agent.db_models import PlanDB, PlanNodeDB
 from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependency_graph
 from agent.services.lifecycle_service import get_task_lifecycle_service
+from agent.services.planning_feature_flags import (
+    get_goal_feature_flags,
+    get_plan_generation_limits,
+    set_goal_feature_flags,
+)
+from agent.services.planning_proposal_service import (
+    build_plan_proposal,
+    normalize_planning_policy_config,
+    select_planning_agent_candidate,
+    validate_plan_proposal_payload,
+)
 from agent.services.planning_strategies import (
     HubCopilotPlanningStrategy,
     LLMPlanningStrategy,
     PlanningStrategyResult,
     TemplatePlanningStrategy,
 )
-from agent.services.planning_utils import sanitize_input, validate_goal
-from agent.services.planning_utils import parse_subtasks_from_llm_response
+from agent.services.planning_subtask_sanitizer import (
+    infer_subtask_task_kind,
+    merge_verification_defaults,
+    retrieval_hints_for_task_kind,
+    sanitize_blueprint_provenance,
+    sanitize_llm_subtask_policy_hints,
+    sanitize_role_defaults,
+)
+from agent.services.planning_utils import parse_subtasks_from_llm_response, sanitize_input, validate_goal
 from agent.services.planning_evaluation_service import get_planning_evaluation_service
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
@@ -34,256 +51,8 @@ from agent.services.goal_config_runtime_service import get_goal_config_runtime_s
 from agent.services.verification_policy_service import default_verification_spec
 from agent.services.worker_routing_policy_utils import (
     derive_required_capabilities,
-    extract_blueprint_role_defaults,
     merge_capabilities_with_blueprint_defaults,
 )
-from agent.services.planning_proposal_service import (
-    build_plan_proposal,
-    normalize_planning_policy_config,
-    select_planning_agent_candidate,
-    validate_plan_proposal_payload,
-)
-
-PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
-
-
-def _infer_subtask_task_kind(subtask: dict[str, Any]) -> str:
-    task_like = {
-        "title": str(subtask.get("title") or ""),
-        "description": str(subtask.get("description") or ""),
-    }
-    capabilities = derive_required_capabilities(task_like)
-    for kind in ("testing", "review", "planning", "research", "coding"):
-        if kind in capabilities:
-            return kind
-    return "coding"
-
-
-def _retrieval_hints_for_task_kind(task_kind: str | None) -> dict[str, str]:
-    normalized = str(task_kind or "").strip().lower()
-    if normalized in {"bugfix", "testing", "test"}:
-        return {
-            "retrieval_intent": "localize_failure_and_fix",
-            "required_context_scope": "local_code_and_failure_neighbors",
-            "preferred_bundle_mode": "standard",
-        }
-    if normalized in {"refactor", "implement", "coding"}:
-        return {
-            "retrieval_intent": "symbol_and_dependency_neighborhood",
-            "required_context_scope": "module_and_related_symbols",
-            "preferred_bundle_mode": "standard",
-        }
-    if normalized in {"architecture", "analysis", "doc", "research"}:
-        return {
-            "retrieval_intent": "architecture_and_decision_context",
-            "required_context_scope": "cross_module_docs_and_contracts",
-            "preferred_bundle_mode": "full",
-        }
-    if normalized in {"config", "xml", "ops"}:
-        return {
-            "retrieval_intent": "configuration_contracts_and_runtime_edges",
-            "required_context_scope": "config_and_integration_points",
-            "preferred_bundle_mode": "standard",
-        }
-    return {
-        "retrieval_intent": "execution_focused_context",
-        "required_context_scope": "task_and_direct_neighbors",
-        "preferred_bundle_mode": "standard",
-    }
-
-
-def _sanitize_blueprint_provenance(subtask: dict[str, Any]) -> dict[str, str]:
-    role_hints = list(subtask.get("blueprint_role_template_hints") or [])
-    primary_hint = role_hints[0] if role_hints and isinstance(role_hints[0], dict) else {}
-    blueprint_role_name = (
-        str(subtask.get("blueprint_role_name") or "").strip()
-        or str(primary_hint.get("role_name") or "").strip()
-    )
-    template_name = (
-        str(subtask.get("template_name") or "").strip()
-        or str(primary_hint.get("template_name") or "").strip()
-        or str(primary_hint.get("template_id") or "").strip()
-    )
-    provenance = {
-        "blueprint_id": str(subtask.get("blueprint_id") or "").strip(),
-        "blueprint_name": str(subtask.get("blueprint_name") or "").strip(),
-        "blueprint_artifact_id": str(subtask.get("blueprint_artifact_id") or "").strip(),
-        "blueprint_role_name": blueprint_role_name,
-        "template_name": template_name,
-        "template_id": str(subtask.get("template_id") or "").strip(),
-    }
-    return {key: value for key, value in provenance.items() if value}
-
-
-def _sanitize_role_defaults(subtask: dict[str, Any]) -> dict[str, Any]:
-    explicit_defaults = extract_blueprint_role_defaults(subtask)
-    if explicit_defaults:
-        return explicit_defaults
-
-    role_hints = list(subtask.get("blueprint_role_template_hints") or [])
-    if not role_hints or not isinstance(role_hints[0], dict):
-        return {}
-    hint = dict(role_hints[0])
-    return extract_blueprint_role_defaults(
-        {
-            "blueprint_role_defaults": {
-                "capability_defaults": hint.get("capability_defaults"),
-                "risk_profile": hint.get("risk_profile"),
-                "verification_defaults": hint.get("verification_defaults"),
-            }
-        }
-    )
-
-
-_ALLOWED_CAPS_BY_KIND: dict[str, set[str]] = {
-    "coding": {"coding", "analysis", "doc"},
-    "testing": {"testing", "analysis", "doc"},
-    "review": {"review", "analysis", "doc"},
-    "research": {"research", "analysis", "doc"},
-    "planning": {"planning", "analysis", "doc"},
-    "ops": {"ops", "analysis", "doc"},
-    "analysis": {"analysis", "doc"},
-    "doc": {"doc", "analysis"},
-}
-
-
-def _sanitize_llm_subtask_policy_hints(subtask: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    """Apply deterministic safety gates to LLM-suggested policy hints.
-
-    LLM output may suggest capabilities/context/tooling, but cannot expand policy.
-    """
-    out = dict(subtask or {})
-    warnings: list[str] = []
-    task_kind = str(out.get("task_kind") or "").strip().lower() or _infer_subtask_task_kind(out)
-    allowed_caps = _ALLOWED_CAPS_BY_KIND.get(task_kind, {"analysis", "doc"})
-    requested_caps = [str(item).strip().lower() for item in list(out.get("required_capabilities") or []) if str(item).strip()]
-    filtered_caps = [cap for cap in requested_caps if cap in allowed_caps]
-    if requested_caps and len(filtered_caps) != len(requested_caps):
-        warnings.append("capability_escalation_blocked")
-    out["required_capabilities"] = filtered_caps
-
-    requested_scope = str(out.get("context_scope") or "").strip().lower()
-    if requested_scope in {"full", "global", "admin"}:
-        warnings.append("context_scope_escalation_blocked")
-        out.pop("context_scope", None)
-
-    if "tool_permissions" in out or "allowed_tools" in out:
-        warnings.append("tool_escalation_blocked")
-        out.pop("tool_permissions", None)
-        out.pop("allowed_tools", None)
-    return out, warnings
-
-
-def _merge_verification_defaults(
-    base_verification_spec: dict[str, Any],
-    role_defaults: dict[str, Any],
-) -> dict[str, Any]:
-    merged = dict(base_verification_spec or {})
-    if not role_defaults:
-        return merged
-
-    merged["blueprint_role_defaults"] = dict(role_defaults)
-    verification_defaults = role_defaults.get("verification_defaults")
-    if not isinstance(verification_defaults, dict):
-        return merged
-
-    if bool(verification_defaults.get("required")):
-        merged["required"] = True
-    if bool(verification_defaults.get("policy")):
-        merged["policy"] = True
-
-    gates: list[str] = []
-    for item in list(verification_defaults.get("gates") or []):
-        gate = str(item).strip()
-        if gate and gate not in gates:
-            gates.append(gate)
-    if gates:
-        existing_gates = [
-            str(item).strip()
-            for item in list(merged.get("required_gates") or [])
-            if str(item).strip()
-        ]
-        for gate in gates:
-            if gate not in existing_gates:
-                existing_gates.append(gate)
-        merged["required_gates"] = existing_gates
-    return merged
-
-
-def get_goal_feature_flags() -> dict[str, bool]:
-    # Defaults are taken from agent settings when available, otherwise fallback to True
-    try:
-        from agent.config import settings as _settings
-        defaults = {
-            "goal_workflow_enabled": bool(getattr(_settings, "goal_workflow_enabled", True)),
-            "persisted_plans_enabled": bool(getattr(_settings, "persisted_plans_enabled", True)),
-        }
-    except Exception:
-        defaults = {
-            "goal_workflow_enabled": True,
-            "persisted_plans_enabled": True,
-        }
-    stored = get_repository_registry().config_repo.get_by_key(PLAN_FEATURE_FLAGS_KEY)
-    # Debug: log settings and stored flags to help tests diagnose
-    try:
-        import logging
-
-        logging.getLogger("agent.services.planning_service").debug(
-            f"get_goal_feature_flags: defaults={defaults}, stored={stored.value_json if stored else None}"
-        )
-    except Exception:
-        pass
-
-    if not stored:
-        return defaults
-    try:
-        payload = json.loads(stored.value_json or "{}")
-        if isinstance(payload, dict):
-            merged = {**defaults, **{k: bool(v) for k, v in payload.items()}}
-            try:
-                import logging
-
-                logging.getLogger("agent.services.planning_service").debug(f"merged feature flags: {merged}")
-            except Exception:
-                pass
-            return merged
-    except Exception:
-        pass
-    return defaults
-
-
-def set_goal_feature_flags(flags: dict[str, Any]) -> dict[str, bool]:
-    merged = {**get_goal_feature_flags(), **{k: bool(v) for k, v in (flags or {}).items()}}
-    get_repository_registry().config_repo.save(ConfigDB(key=PLAN_FEATURE_FLAGS_KEY, value_json=json.dumps(merged)))
-    return merged
-
-
-def get_plan_generation_limits() -> dict[str, int]:
-    config = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("goal_plan_limits", {}) or {}
-
-    def _safe_int(value: Any, fallback: int) -> int:
-        try:
-            return int(value)
-        except Exception:
-            return int(fallback)
-
-    raw_max_nodes = config.get("max_plan_nodes")
-    if raw_max_nodes is None:
-        raw_max_nodes = config.get("max_nodes")
-    max_nodes = max(1, min(_safe_int(raw_max_nodes, 8), 50))
-
-    raw_max_depth = config.get("max_plan_depth")
-    if raw_max_depth is None:
-        raw_max_depth = config.get("max_depth")
-    max_depth = max(1, min(_safe_int(raw_max_depth, max_nodes), max_nodes))
-
-    return {
-        "max_plan_nodes": max_nodes,
-        "max_plan_depth": max_depth,
-        # Legacy aliases for backward compatibility.
-        "max_nodes": max_nodes,
-        "max_depth": max_depth,
-    }
 
 
 class PlanningService:
@@ -560,10 +329,10 @@ class PlanningService:
         for index, subtask in enumerate(subtasks, start=1):
             node_key = f"{plan_id}-node-{index}"
             node_keys.append(node_key)
-            task_kind = _infer_subtask_task_kind(subtask)
-            retrieval_hints = _retrieval_hints_for_task_kind(task_kind)
-            blueprint_provenance = _sanitize_blueprint_provenance(subtask)
-            role_defaults = _sanitize_role_defaults(subtask)
+            task_kind = infer_subtask_task_kind(subtask)
+            retrieval_hints = retrieval_hints_for_task_kind(task_kind)
+            blueprint_provenance = sanitize_blueprint_provenance(subtask)
+            role_defaults = sanitize_role_defaults(subtask)
             required_capabilities = derive_required_capabilities(
                 {
                     "title": str(subtask.get("title") or ""),
@@ -625,7 +394,7 @@ class PlanningService:
                         **blueprint_provenance,
                         **({"blueprint_role_defaults": role_defaults} if role_defaults else {}),
                     },
-                    verification_spec=_merge_verification_defaults(
+                    verification_spec=merge_verification_defaults(
                         default_verification_spec(
                             {
                                 "task_kind": task_kind,
@@ -957,7 +726,7 @@ class PlanningService:
         policy_gate_warnings: list[str] = []
         hardened_subtasks: list[dict[str, Any]] = []
         for subtask in list(subtasks or []):
-            cleaned, warns = _sanitize_llm_subtask_policy_hints(subtask)
+            cleaned, warns = sanitize_llm_subtask_policy_hints(subtask)
             hardened_subtasks.append(cleaned)
             policy_gate_warnings.extend(list(warns or []))
         subtasks = hardened_subtasks
