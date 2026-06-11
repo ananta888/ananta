@@ -1,0 +1,562 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "generated-source-line-policy",
+  "created": "2026-06-11",
+  "status": "todo",
+  "purpose": "Ananta soll bei selbst erzeugtem oder geaendertem Code verhindern, dass Worker neue Monolith-Dateien erzeugen oder bestehende Source-Dateien unkontrolliert ueber sinnvolle Zeilenlimits wachsen lassen.",
+  "goal": "Nach repo.apply_patch, repo.write_file, workspace_write und spaeter Custom-Tool-Ausfuehrung werden geaenderte Dateien klassifiziert, Zeilen gezaehlt, gegen eine konfigurierbare Source-Line-Policy bewertet und als ok, warning, followup_required oder blocked behandelt. Die Policy ergaenzt bestehende MutationGate-, WorkspaceScope-, Approval- und Patch-first-Regeln, ersetzt sie aber nicht.",
+  "source_review": {
+    "reviewed_ref": "main after 564c5422f9634f23725aa8d34401f63829816c74",
+    "summary": "Im aktuellen Code existieren bereits MutationMode, WorkspaceMutationPolicy, strict_patch_request Defaults fuer coding/bugfix/refactor/test, Byte-Limits fuer write/replace/range und Tool-Output-Compaction. Es fehlt aber eine semantische Source-Line-Policy, die nach Aenderungen prueft, wie viele Zeilen eine Source-Datei jetzt hat und ob eine neue/generierte Datei zu gross wurde.",
+    "existing_foundations": [
+      {
+        "file": "agent/config_defaults.py",
+        "observed": "ananta_worker_workspace_mutation setzt coding, bugfix, refactor und test bereits auf strict_patch_request; max_write_file_bytes, max_replace_existing_bytes und max_replace_range_lines existieren."
+      },
+      {
+        "file": "agent/services/ananta_workspace_mutation_policy.py",
+        "observed": "AnantaWorkspaceMutationPolicyService validiert MutationMode, Workspace-Scope, forbidden segments, secret-like filenames, materialized scope und strict path markers."
+      },
+      {
+        "file": "agent/services/tools/workspace_mutation_tools.py",
+        "observed": "repo.apply_patch, repo.write_file und workspace.diff liefern changed_files/content_hashes/policy_result und sind natuerliche Integrationspunkte fuer eine Line-Policy."
+      },
+      {
+        "file": "agent/common/sgpt_workspace_mutation.py",
+        "observed": "Workspace mutation loop ruft nach Aenderungen _hub_check() auf, erzeugt DiffResult/PolicyResult und schreibt mutation-report.json."
+      },
+      {
+        "file": "agent/services/task_execution_service.py",
+        "observed": "execute_local_step fuehrt ToolCalls aus und compactet Tool-Outputs; fuer klassische tool_calls ist dies ein weiterer Integrationspunkt."
+      },
+      {
+        "file": "todos/todo.refactor-remaining-source-files-over-1000.json",
+        "observed": "Follow-up-Track fordert bereits ein repo-weites source_file_line_count.py Audit-Script und CI-Gate gegen verbleibende >1000 Source-Dateien."
+      }
+    ],
+    "current_gaps": [
+      "Keine Config source_line_policy/generated_source_line_policy vorhanden.",
+      "Keine zentrale Klassifikation von Source/Test/Generated/Schema/Config anhand Pfad und Extension fuer Worker-Outputs.",
+      "Keine Line-Count-Pruefung nach repo.apply_patch/repo.write_file/workspace_write.",
+      "Keine Entscheidung ok|warning|followup_required|blocked fuer Dateien, die durch Ananta neu erzeugt oder vergroessert wurden.",
+      "Keine automatische Follow-up-Todo-Erzeugung bei ueberschrittenen Limits.",
+      "Keine Audit-/MutationReport-Felder fuer Line-Policy-Ergebnisse.",
+      "Keine Tests, die verhindern, dass Ananta neue riesige Source-Dateien erzeugt."
+    ],
+    "related_tracks": [
+      "todos/todo.refactor-remaining-source-files-over-1000.json",
+      "todos/archiv/todo.refactor-large-files-split.json",
+      "todos/archiv/todo.ananta-worker-patch-first-range-context.json",
+      "todos/todo.codecompass-range-context-planner.json"
+    ]
+  },
+  "policy_defaults_proposal": {
+    "production_source": {
+      "target_max_lines": 800,
+      "warn_after_lines": 600,
+      "hard_max_lines": 1000,
+      "new_file_over_hard_action": "block",
+      "existing_file_crosses_hard_action": "followup_required",
+      "existing_file_already_over_hard_action": "warn_followup"
+    },
+    "facade_or_routes": {
+      "target_max_lines": 900,
+      "warn_after_lines": 700,
+      "hard_max_lines": 1000,
+      "new_file_over_hard_action": "followup_required"
+    },
+    "tests": {
+      "target_max_lines": 1000,
+      "warn_after_lines": 1000,
+      "hard_max_lines": 1500,
+      "new_file_over_hard_action": "warn_followup"
+    },
+    "data_schema_config": {
+      "target_max_lines": 1200,
+      "warn_after_lines": 1200,
+      "hard_max_lines": 1500,
+      "new_file_over_hard_action": "allowed_with_reason"
+    }
+  },
+  "design_decisions": [
+    {
+      "id": "GSLP-DD-001",
+      "decision": "Line-Policy ist eine Post-Mutation-Quality-Policy, keine Ersatz-Security-Policy.",
+      "rationale": "WorkspacePolicy entscheidet ob Aenderung grundsaetzlich erlaubt ist; LinePolicy entscheidet ob der erzeugte/geaenderte Code wartbar genug bleibt."
+    },
+    {
+      "id": "GSLP-DD-002",
+      "decision": "Neue Produktiv-Source-Dateien ueber hard_max_lines werden standardmaessig blockiert.",
+      "rationale": "Ananta soll keine neuen Monolithen erzeugen."
+    },
+    {
+      "id": "GSLP-DD-003",
+      "decision": "Bestehende Legacy-Dateien ueber hard_max_lines werden nicht blind blockiert, wenn sie durch einen kleinen Patch nicht verschlechtert werden.",
+      "rationale": "Sonst blockieren Altlasten sinnvolle kleine Fixes. Stattdessen Warnung/Folge-Todo."
+    },
+    {
+      "id": "GSLP-DD-004",
+      "decision": "Die Policy bewertet vorher/nachher, nicht nur absolute Zeilenzahl.",
+      "rationale": "Relevant ist, ob Ananta eine Datei neu gross erzeugt, ueber eine Grenze hebt oder eine bereits grosse Datei weiter aufblaeht."
+    },
+    {
+      "id": "GSLP-DD-005",
+      "decision": "Policy-Aktion ist konfigurierbar: off, warn, followup_required, block.",
+      "rationale": "Lokale Entwicklung und CI/Autopilot brauchen unterschiedliche Haertegrade."
+    },
+    {
+      "id": "GSLP-DD-006",
+      "decision": "Line-Policy muss auch in mutation-report.json und Audit sichtbar sein.",
+      "rationale": "Agenten duerfen nicht still grosse Dateien erzeugen und danach Erfolg melden."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "GSLP-M1",
+      "title": "Policy-Konfiguration und Datei-Klassifikation anlegen",
+      "status": "todo",
+      "task_ids": ["GSLP-001", "GSLP-002", "GSLP-003", "GSLP-004", "GSLP-005"]
+    },
+    {
+      "id": "GSLP-M2",
+      "title": "Line-Count-Evaluator und Baseline-Vergleich implementieren",
+      "status": "todo",
+      "task_ids": ["GSLP-006", "GSLP-007", "GSLP-008", "GSLP-009", "GSLP-010"]
+    },
+    {
+      "id": "GSLP-M3",
+      "title": "Integration in Patch/Write/Workspace-Mutation und Hub-Tool-Ausfuehrung",
+      "status": "todo",
+      "task_ids": ["GSLP-011", "GSLP-012", "GSLP-013", "GSLP-014", "GSLP-015", "GSLP-016"]
+    },
+    {
+      "id": "GSLP-M4",
+      "title": "Follow-up-Todos, Audit, Reports, CI und Doku",
+      "status": "todo",
+      "task_ids": ["GSLP-017", "GSLP-018", "GSLP-019", "GSLP-020", "GSLP-021", "GSLP-022"]
+    },
+    {
+      "id": "GSLP-M5",
+      "title": "Regression/E2E fuer Worker-generierten Code absichern",
+      "status": "todo",
+      "task_ids": ["GSLP-023", "GSLP-024", "GSLP-025", "GSLP-026"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "GSLP-001",
+      "title": "Config-Block generated_source_line_policy in agent/config_defaults.py anlegen",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/config_defaults.py", "tests/test_generated_source_line_policy_config.py"],
+      "acceptance_criteria": [
+        "agent/config_defaults.py enthaelt neuen Block generated_source_line_policy mit enabled=false als sicherem Backward-Compatible-Default.",
+        "Config enthaelt mode mit Werten off|warn|followup_required|block; Default ist warn oder off, aber nicht block fuer bestehende Installationen.",
+        "Config enthaelt Kategorien production_source, facade_or_routes, tests, data_schema_config und generated mit target_max_lines, warn_after_lines, hard_max_lines und action-Feldern.",
+        "Config enthaelt exclude_globs und generated_globs, kompatibel mit RFS-001 Audit-Script-Excludes.",
+        "Tests pruefen Defaults, erlaubte Modi und dass fehlende Kategorie-Werte sinnvoll normalisiert werden."
+      ]
+    },
+    {
+      "id": "GSLP-002",
+      "title": "Settings-/Runtime-Normalisierung fuer Line-Policy bauen",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/config.py", "agent/config_defaults.py", "tests/test_generated_source_line_policy_config.py"],
+      "acceptance_criteria": [
+        "Runtime liest generated_source_line_policy aus Agent-Konfiguration, nicht hartkodiert aus Defaults.",
+        "Ungültige Zahlenwerte werden auf sichere Min/Max-Bereiche begrenzt.",
+        "Ungültige action-Werte fallen auf warn oder followup_required zurueck, nie auf stilles allow bei Produktiv-Source.",
+        "Goal-/Task-scoped Config kann die Policy verschaerfen, aber nicht ohne expliziten Admin-Kontext unbemerkt komplett deaktivieren.",
+        "Tests pruefen Override, Partial-Config und ungueltige Werte."
+      ]
+    },
+    {
+      "id": "GSLP-003",
+      "title": "SourceFileCategory Klassifikation definieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/generated_source_line_policy_service.py", "tests/test_source_file_category_classifier.py"],
+      "acceptance_criteria": [
+        "Neuer Service oder Modul definiert Kategorien: production_source, facade_or_routes, test, data_schema_config, generated, non_source, excluded.",
+        "Klassifikation basiert auf repo-relativem Pfad, Extension und Pfadsegmenten, nicht auf absoluten Hostpfaden.",
+        "Tests decken .py, .ts, .tsx, .js, test_*.py, *_test.py, tests/, schemas/, config, generated/dist/out und node_modules ab.",
+        "Facade/Routes-Erkennung erkennt z.B. agent/routes/* und *_routes.py als facade_or_routes, aber nicht automatisch jede Service-Datei.",
+        "Classifier markiert unbekannte Source-Extensions konservativ als production_source, wenn sie in configured source_extensions stehen."
+      ]
+    },
+    {
+      "id": "GSLP-004",
+      "title": "Exclusion- und Generated-Patterns mit Audit-Script RFS-001 abstimmen",
+      "type": "integration-contract",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["scripts/audit/source_file_line_count.py", "agent/services/generated_source_line_policy_service.py", "docs/development/source-line-limit-policy.md"],
+      "acceptance_criteria": [
+        "LinePolicy-Service und source_file_line_count.py verwenden kompatible Default-Excludes.",
+        "Unterschiede zwischen Audit-Klassifikation und Runtime-Klassifikation sind dokumentiert, falls sie fachlich noetig sind.",
+        "Generated-Dateien koennen per Pattern anders bewertet werden als handgeschriebene Source-Dateien.",
+        "Tests pruefen mindestens eine Datei, die im Audit und in der Runtime gleich klassifiziert wird."
+      ]
+    },
+    {
+      "id": "GSLP-005",
+      "title": "PolicyResult-Schema generated_source_line_policy_result.v1 dokumentieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": ["docs/contracts/generated-source-line-policy.md", "agent/services/generated_source_line_policy_service.py"],
+      "acceptance_criteria": [
+        "Neues Contract-Dokument beschreibt generated_source_line_policy_result.v1.",
+        "Schema enthaelt status=ok|warning|followup_required|blocked, file_results, summary, warnings und recommended_actions.",
+        "FileResult enthaelt path, category, before_lines, after_lines, delta_lines, thresholds, decision, reason_code und followup_suggested.",
+        "Doku erklaert Unterschied zwischen Byte-Limits und Line-Limits.",
+        "Doku erklaert, dass diese Policy nach WorkspacePolicy/MutationGate laeuft."
+      ]
+    },
+    {
+      "id": "GSLP-006",
+      "title": "LineCounter fuer einzelne Dateien implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/services/generated_source_line_policy_service.py", "tests/test_generated_source_line_counter.py"],
+      "acceptance_criteria": [
+        "LineCounter zaehlt Textdateien streaming/zeilenweise und laedt grosse Dateien nicht unnoetig komplett in den Speicher.",
+        "Binary-Dateien werden erkannt und als non_source oder unreadable markiert, nicht als Fehler mit Crash.",
+        "LineCounter gibt line_count, file_size_bytes und unreadable_reason zurueck.",
+        "Tests pruefen leere Datei, Datei ohne abschliessenden Newline, grosse Datei, Binary-Datei und Unicode-Datei.",
+        "Zaehllogik ist deterministisch und plattformunabhaengig bezueglich CRLF/LF."
+      ]
+    },
+    {
+      "id": "GSLP-007",
+      "title": "Before/After Baseline fuer geaenderte Dateien erfassen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/generated_source_line_policy_service.py", "agent/common/sgpt_workspace_mutation.py", "tests/test_generated_source_line_baseline.py"],
+      "acceptance_criteria": [
+        "Service kann before_lines aus Workspace-Baseline/Manifest/Pre-Mutation Snapshot erfassen, wenn vorhanden.",
+        "Wenn before_lines unbekannt ist, wird before_lines=null gesetzt und Entscheidung konservativ fuer neue/generierte Dateien getroffen.",
+        "Neue Datei wird eindeutig als new_file=true bewertet.",
+        "Geloeschte Datei erzeugt kein Line-Limit-Blocking, sondern wird an WorkspaceMutationPolicy delegiert.",
+        "Tests pruefen neue Datei, bestehende Datei unter Limit, bestehende Datei ueber Limit und unbekannte Baseline."
+      ]
+    },
+    {
+      "id": "GSLP-008",
+      "title": "Decision Engine fuer ok/warning/followup_required/blocked implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/generated_source_line_policy_service.py", "tests/test_generated_source_line_policy_decisions.py"],
+      "acceptance_criteria": [
+        "Neue production_source Datei ueber hard_max_lines wird bei mode=block als blocked bewertet.",
+        "Neue production_source Datei zwischen warn_after_lines und hard_max_lines wird warning oder followup_required gemaess Config.",
+        "Bestehende Datei, die durch Aenderung ueber hard_max_lines gehoben wird, wird mindestens followup_required, optional blocked gemaess Config.",
+        "Bestehende Datei, die bereits ueber hard_max_lines war und nur kleiner wird, wird nicht blocked.",
+        "Bestehende Datei, die bereits ueber hard_max_lines war und weiter waechst, wird followup_required oder blocked gemaess Config.",
+        "Tests decken production_source, facade_or_routes, tests und data_schema_config getrennt ab."
+      ]
+    },
+    {
+      "id": "GSLP-009",
+      "title": "Policy-Service Public API definieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/services/generated_source_line_policy_service.py", "tests/test_generated_source_line_policy_service_api.py"],
+      "acceptance_criteria": [
+        "Service bietet evaluate_changed_files(workspace_dir, changed_rel_paths, cfg, baseline=None, context=None).",
+        "API akzeptiert nur workspace-relative Pfade und blockt/markiert absolute Pfade konservativ.",
+        "API gibt ein serialisierbares Result-Dict oder Dataclass mit as_dict() zurueck.",
+        "API kann mit empty changed_rel_paths ok zurueckgeben.",
+        "Tests pruefen Serialisierung und stabile reason_codes."
+      ]
+    },
+    {
+      "id": "GSLP-010",
+      "title": "Reason-Codes und Actions stabilisieren",
+      "type": "contract-hardening",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["agent/services/generated_source_line_policy_service.py", "docs/contracts/generated-source-line-policy.md", "tests/test_generated_source_line_reason_codes.py"],
+      "acceptance_criteria": [
+        "Stabile reason_codes existieren: new_file_over_hard_limit, crossed_hard_limit, existing_over_limit_grew, over_warning_threshold, category_excluded, generated_allowed_with_reason, unreadable_file.",
+        "Actions sind stabil: allow, warn, require_followup, block.",
+        "Doku listet alle reason_codes und ihre Bedeutung.",
+        "Tests verhindern versehentliches Umbenennen der reason_codes ohne Contract-Update."
+      ]
+    },
+    {
+      "id": "GSLP-011",
+      "title": "repo.apply_patch Ergebnis mit Line-Policy pruefen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/tools/workspace_mutation_tools.py", "agent/services/generated_source_line_policy_service.py", "tests/test_apply_patch_source_line_policy.py"],
+      "acceptance_criteria": [
+        "Nach erfolgreichem repo.apply_patch wird fuer target_path die Source-Line-Policy evaluiert, sofern generated_source_line_policy.enabled aktiv ist.",
+        "ToolResult data enthaelt source_line_policy_result oder policy_result_extension mit status und file_results.",
+        "Bei blocked wird ToolResult status rejected oder policy_blocked und die Datei darf nicht dauerhaft veraendert bleiben; Patch muss entweder vor Write validiert oder bei Block rollbacken.",
+        "Bei warning/followup_required bleibt Patch angewendet, aber warnings enthalten source_line_policy_* Eintrag.",
+        "Tests pruefen ok, warning und blocked mit Rollback."
+      ]
+    },
+    {
+      "id": "GSLP-012",
+      "title": "repo.write_file create_only/replace_existing mit Line-Policy pruefen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/tools/workspace_mutation_tools.py", "tests/test_write_file_source_line_policy.py"],
+      "acceptance_criteria": [
+        "repo.write_file mode=create_only blockiert neue production_source Dateien ueber hard_max_lines bei block-Mode.",
+        "repo.write_file mode=replace_existing bewertet before/after lines und unterscheidet Legacy-Datei vs neu ueber Grenze gehoben.",
+        "Bei blocked darf keine Datei geschrieben oder muss atomar wiederhergestellt werden.",
+        "ToolResult enthaelt source_line_policy_result in data.",
+        "Tests pruefen create_only small, create_only too large, replace_existing crossing hard limit und existing over limit shrinks."
+      ]
+    },
+    {
+      "id": "GSLP-013",
+      "title": "workspace_write im controlled_workspace Modus mit Line-Policy pruefen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/common/sgpt_workspace_mutation.py", "tests/test_workspace_write_source_line_policy.py"],
+      "acceptance_criteria": [
+        "Bei KIND_WORKSPACE_WRITE wird vor oder direkt nach dem Schreiben pro Datei die Line-Policy evaluiert.",
+        "Blocked-Dateien werden nicht geschrieben oder werden in derselben Iteration zurueckgerollt.",
+        "Evidence bekommt ein ToolResult/PolicyBlock mit reason source_line_policy_blocked.",
+        "Loop zaehlt blockierte Line-Policy-Verletzungen als policy_blocked oder gibt dem Worker gezielte Evidence zum Splitten.",
+        "Tests pruefen grosse workspace_write-Datei wird blockiert und kleine Datei bleibt erlaubt."
+      ]
+    },
+    {
+      "id": "GSLP-014",
+      "title": "workspace.diff um Line-Policy-Zusammenfassung erweitern",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/services/tools/workspace_mutation_tools.py", "tests/test_workspace_diff_source_line_policy.py"],
+      "acceptance_criteria": [
+        "workspace.diff kann optional source_line_policy_result fuer changed_files liefern.",
+        "Diff-Evidence bleibt bounded; Line-Policy liefert nur Metadaten/Counts, keine File-Inhalte.",
+        "Bei disabled Policy bleibt workspace.diff Verhalten kompatibel.",
+        "Tests pruefen workspace.diff mit Policy disabled/enabled."
+      ]
+    },
+    {
+      "id": "GSLP-015",
+      "title": "TaskExecutionService ToolCall-Pfad mit Line-Policy-Ergebnissen kompatibel machen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/services/task_execution_service.py", "agent/services/task_execution_result_handler.py", "tests/test_task_execution_source_line_policy.py"],
+      "acceptance_criteria": [
+        "execute_local_step behandelt ToolResults mit source_line_policy_result korrekt und verliert die Daten nicht bei Output-Compaction.",
+        "Bei status policy_blocked/rejected wird failure_type passend gesetzt oder vorhandene Policy-Block-Logik wiederverwendet.",
+        "Output-Compaction darf source_line_policy_result.summary und blocked file paths nicht entfernen.",
+        "Tests pruefen ToolResult aus Fake-Tool mit source_line_policy_result bleibt im Output/Audit sichtbar."
+      ]
+    },
+    {
+      "id": "GSLP-016",
+      "title": "HubToolExecutionAdapter/WorkerRuntime fuer Line-Policy vorbereiten",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/services/hub_tool_execution_adapter.py", "agent/services/worker_runtime_execution_adapter.py", "tests/test_hub_tool_execution_source_line_policy.py"],
+      "acceptance_criteria": [
+        "Hub-dispatchte ToolResults koennen source_line_policy_result zurueckgeben und werden nicht verworfen.",
+        "Policy bleibt im Hub sichtbar, auch wenn Execution Plane WorkerRuntime ist.",
+        "Bei HubDirectExecution mit Schreibtools muss Line-Policy vor finaler Antwort ausgewertet sein oder der ToolResult muss bereits eine WorkerRuntime-LinePolicy enthalten.",
+        "Tests nutzen FakeWorkerRuntime und pruefen source_line_policy_result Durchreichung."
+      ]
+    },
+    {
+      "id": "GSLP-017",
+      "title": "Automatische Follow-up-Todo-Erzeugung bei followup_required implementieren",
+      "type": "workflow-integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/generated_source_line_policy_service.py", "agent/services/task_runtime_service.py", "agent/services/artifact_service.py", "tests/test_source_line_followup_todo.py"],
+      "acceptance_criteria": [
+        "Bei decision=followup_required kann ein Follow-up-Artefakt oder Todo-Eintrag erzeugt werden, sofern Config create_followup_todo=true ist.",
+        "Follow-up enthaelt path, after_lines, threshold, reason_code, task_id, goal_id und vorgeschlagene Split-Richtung.",
+        "Follow-up-Erzeugung ist idempotent pro task_id+path+reason_code, damit keine Todo-Flut entsteht.",
+        "Wenn kein Task/Goal-Kontext existiert, wird warning followup_not_persisted gesetzt.",
+        "Tests pruefen Erstellung, Idempotenz und fehlenden Kontext."
+      ]
+    },
+    {
+      "id": "GSLP-018",
+      "title": "Audit-Events fuer Source-Line-Policy einfuehren",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": ["agent/common/audit.py", "agent/common/sgpt_workspace_mutation.py", "agent/services/tools/workspace_mutation_tools.py", "tests/test_source_line_policy_audit.py"],
+      "acceptance_criteria": [
+        "Neue Audit-Action generated_source_line_policy_evaluated existiert.",
+        "Bei blocked/followup_required wird zusaetzlich generated_source_line_policy_violation oder vergleichbarer Event emittiert.",
+        "Audit enthaelt keine Datei-Inhalte, nur Pfad, Kategorie, Zeilenzahlen, Thresholds, decision und reason_code.",
+        "Audit ist best-effort und darf Tool-Ausfuehrung bei Logging-Fehlern nicht crashen.",
+        "Tests pruefen Events fuer ok und blocked."
+      ]
+    },
+    {
+      "id": "GSLP-019",
+      "title": "mutation-report.json um Line-Policy-Daten erweitern",
+      "type": "diagnostics",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/common/sgpt_workspace_mutation.py", "tests/test_mutation_report_source_line_policy.py"],
+      "acceptance_criteria": [
+        ".ananta/mutation-report.json enthaelt source_line_policy_summary mit counts ok/warning/followup_required/blocked.",
+        "Pro Iteration wird optional source_line_policy_result referenziert oder zusammengefasst.",
+        "Report enthaelt keine grossen File-Inhalte.",
+        "Tests lesen mutation-report.json und pruefen Summary nach workspace_write/patch."
+      ]
+    },
+    {
+      "id": "GSLP-020",
+      "title": "Metriken fuer Source-Line-Policy erfassen",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["agent/services/task_execution_metrics.py", "agent/services/generated_source_line_policy_service.py", "tests/test_source_line_policy_metrics.py"],
+      "acceptance_criteria": [
+        "Metriken erfassen source_line_policy_evaluations_total, blocked_total, followup_required_total, warning_total.",
+        "Metriken unterscheiden Kategorien production_source, facade_or_routes, tests, generated, data_schema_config.",
+        "Metriken enthalten keine Code-Excerpts.",
+        "Tests pruefen Metrik-Inkremente fuer ok/warn/block."
+      ]
+    },
+    {
+      "id": "GSLP-021",
+      "title": "CI/Audit-Script RFS-001 mit Runtime-Policy verbinden",
+      "type": "ci-quality-gate",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["scripts/audit/source_file_line_count.py", ".github/workflows/", "tests/test_source_file_line_count_audit.py"],
+      "acceptance_criteria": [
+        "source_file_line_count.py kann die gleichen Schwellen aus generated_source_line_policy oder einer kompatiblen JSON-Policy-Datei verwenden.",
+        "CI kann neue nicht-allowlistete production_source Dateien >1000 blockieren.",
+        "Bestehende Legacy-Dateien koennen allowlisted bleiben, muessen aber Follow-up-Task referenzieren.",
+        "Tests pruefen Allowlist und Policy-Threshold-Import."
+      ]
+    },
+    {
+      "id": "GSLP-022",
+      "title": "Doku fuer Generated Source Line Policy schreiben",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": ["docs/contracts/generated-source-line-policy.md", "docs/development/source-line-limit-policy.md", "README.md"],
+      "acceptance_criteria": [
+        "Doku beschreibt Ziel: Ananta darf neue Monolithen nicht erzeugen.",
+        "Doku nennt Default-Schwellen fuer production_source, facade_or_routes, tests und data_schema_config.",
+        "Doku zeigt Beispiele: neue Datei >1000 blockiert, Legacy-Datei >1000 kleiner Patch erlaubt mit Follow-up, Testdatei >1500 warning.",
+        "README erwaehnt die Policy als Worker-Qualitaetsguardrail, ohne zu behaupten, dass sie vor Implementierung aktiv ist."
+      ]
+    },
+    {
+      "id": "GSLP-023",
+      "title": "Regressionstest: Ananta darf keine neue 1200-Zeilen-Source-Datei erzeugen",
+      "type": "regression-tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["tests/test_generated_source_line_policy_e2e.py"],
+      "acceptance_criteria": [
+        "Test nutzt repo.write_file create_only fuer neue production_source Datei mit >1000 Zeilen.",
+        "Bei Policy mode=block wird ToolResult blocked/rejected und Datei existiert danach nicht oder ist unveraendert.",
+        "ToolResult enthaelt reason_code new_file_over_hard_limit.",
+        "Test laeuft ohne echtes LLM."
+      ]
+    },
+    {
+      "id": "GSLP-024",
+      "title": "Regressionstest: Kleiner Patch an Legacy-Datei >1000 wird nicht blockiert, aber markiert",
+      "type": "regression-tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["tests/test_generated_source_line_policy_legacy.py"],
+      "acceptance_criteria": [
+        "Test erzeugt bestehende Datei mit >1000 Zeilen und wendet kleinen Patch an, der Zeilenzahl nicht erhoeht.",
+        "Policy blockiert nicht, aber erzeugt warning oder followup_required gemaess Config.",
+        "Result enthaelt before_lines und after_lines.",
+        "Follow-up-Erzeugung ist optional und wird separat getestet."
+      ]
+    },
+    {
+      "id": "GSLP-025",
+      "title": "E2E: Worker patcht und LinePolicy erscheint im Mutation-Feedback",
+      "type": "e2e-tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["tests/test_worker_source_line_policy_feedback_e2e.py"],
+      "acceptance_criteria": [
+        "Fake-LLM/MutationLoop erzeugt patch_request oder workspace_write, danach enthaelt naechste Evidence source_line_policy_result.",
+        "Bei warning/followup_required kann Worker final_answer mit Hinweis liefern, aber darf Verletzung nicht verschweigen.",
+        "Bei blocked beendet Loop mit policy_blocked oder fordert Split/kleineren Patch.",
+        "Test laeuft ohne Cloud-LLM und ohne externe Tools."
+      ]
+    },
+    {
+      "id": "GSLP-026",
+      "title": "E2E: Generated Source Line Policy mit Patch-first und CodeCompass kombinieren",
+      "type": "e2e-tests",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["tests/test_codecompass_patch_first_source_line_policy_e2e.py"],
+      "acceptance_criteria": [
+        "E2E kombiniert codecompass.plan_context -> repo.read_file_range -> repo.apply_patch -> workspace.diff -> source_line_policy_result.",
+        "Test stellt sicher, dass grosse Datei nicht voll gelesen wird und LinePolicy trotzdem after_lines bewertet.",
+        "Patch auf grosse Legacy-Datei mit kleiner Aenderung wird nicht hart blockiert, aber als legacy_over_limit markiert.",
+        "Neue grosse Datei im selben Ablauf wird blockiert."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 26,
+    "by_status": {"todo": 26, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 15, "P1": 11},
+    "by_risk": {"low": 5, "medium": 9, "high": 12},
+    "critical_path": {"total": 15, "done": 0, "remaining": 15},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+  }
+}
