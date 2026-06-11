@@ -35,6 +35,43 @@ class AuditLogDB(SQLModel, table=True):
     details: dict = Field(default={}, sa_column=Column(JSON))
 
 
+APPROVAL_REQUEST_STATUSES = ("pending", "granted", "denied", "expired", "consumed", "superseded")
+
+
+class ApprovalRequestDB(SQLModel, table=True):
+    """ALWA-001: persistent, digest-bound approval request per tool/mutation call.
+
+    ``canonical_arguments`` is content-free: content-bearing fields are
+    replaced by their content hash (ALWA-DD-007); the raw payload lives
+    behind ``content_artifact_ref`` and is verified against
+    ``content_hash`` before any re-execution. ``scope`` must never carry
+    raw prompts or file contents.
+    """
+
+    __tablename__ = "approval_requests"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    tool_name: str = Field(index=True)
+    canonical_arguments: dict = Field(default={}, sa_column=Column(JSON))
+    content_artifact_ref: Optional[str] = None
+    content_hash: Optional[str] = None
+    arguments_digest: str = Field(index=True)
+    target_fingerprint: Optional[str] = Field(default=None, index=True)
+    k_class: Optional[str] = None
+    risk_class: str = Field(default="unknown", index=True)
+    governance_mode: str = Field(default="balanced")
+    status: str = Field(default="pending", index=True)
+    scope: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time, index=True)
+    expires_at: Optional[float] = Field(default=None, index=True)
+    decided_at: Optional[float] = None
+    decided_by: Optional[str] = None
+    decision_reason: Optional[str] = None
+    consumed_at: Optional[float] = None
+
+
 class ShareSessionDB(SQLModel, table=True):
     __tablename__ = "share_sessions"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

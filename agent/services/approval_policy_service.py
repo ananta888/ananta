@@ -84,6 +84,7 @@ class ApprovalPolicyService:
         task: dict | None,
         agent_cfg: dict | None,
         command_analysis: "CommandChainAnalysisResult | None" = None,
+        approval_context: dict | None = None,
     ) -> ApprovalDecision:
         cfg = dict(agent_cfg or {})
         policy = self.normalize_policy(cfg.get("unified_approval_policy"))
@@ -141,11 +142,30 @@ class ApprovalPolicyService:
         enforced = bool(policy.get("enabled", True)) and (
             classification == "blocked" or (classification == "confirm_required" and bool(policy.get("enforce_confirm_required")))
         )
-        if classification == "confirm_required" and approval_confirmed:
+
+        # ALWA-005: digest-bound grant resolution comes first — a persisted
+        # ApprovalRequest grant for exactly this canonicalized call turns
+        # confirm_required into allow.
+        granted_request_details: dict[str, Any] | None = None
+        if classification == "confirm_required" and approval_context:
+            granted_request_details = self._resolve_request_grant(approval_context=approval_context, task=task)
+            if granted_request_details is not None:
+                classification = "allow"
+                reason = "approval_granted_by_request"
+                confirmation_level = "none"
+                enforced = False
+
+        # ALWA-004: task.approval_confirmed is legacy-only. It applies only
+        # while the backward-compatibility policy is enabled and is audited
+        # as approval_legacy_bypass_used whenever it actually bypasses.
+        lifecycle_cfg = dict(cfg.get("approval_lifecycle") or {})
+        legacy_enabled = bool(lifecycle_cfg.get("legacy_approval_confirmed_enabled", True))
+        if classification == "confirm_required" and approval_confirmed and legacy_enabled:
             classification = "allow"
             reason = "approval_confirmed_by_operator"
             confirmation_level = "none"
             enforced = False
+            self._audit_legacy_bypass(task=task, operation_class=operation_class)
 
         return ApprovalDecision(
             classification=classification,
@@ -160,6 +180,7 @@ class ApprovalPolicyService:
                 "approval_confirmed": approval_confirmed,
                 "policy": policy,
                 "task_id": str((task or {}).get("id") or "").strip() or None,
+                **({"approval_request": granted_request_details} if granted_request_details else {}),
                 **({"segment_operation_classes": seg_op_classes} if seg_op_classes else {}),
                 "specialized_backend": {
                     "backend_id": specialized_backend_id,
@@ -170,6 +191,58 @@ class ApprovalPolicyService:
                 else None,
             },
         )
+
+    @staticmethod
+    def _resolve_request_grant(*, approval_context: dict, task: dict | None) -> dict[str, Any] | None:
+        """ALWA-005: look up a digest-bound grant for the requested call.
+
+        Returns content-free details (request_id, digest_prefix,
+        scope_summary, reason_code) or None. A wrong digest, wrong scope or
+        an expired grant resolves to None — the classification then stays
+        confirm_required/blocked.
+        """
+        try:
+            from agent.services.approval_request_service import (
+                digest_prefix,
+                get_approval_request_service,
+            )
+
+            svc = get_approval_request_service()
+            grant = svc.resolve_grant_for_call(
+                tool_name=str(approval_context.get("tool_name") or ""),
+                arguments=approval_context.get("arguments") if isinstance(approval_context.get("arguments"), dict) else {},
+                task_id=str(approval_context.get("task_id") or (task or {}).get("id") or "").strip() or None,
+                goal_id=str(approval_context.get("goal_id") or (task or {}).get("goal_id") or "").strip() or None,
+                target_fingerprint=str(approval_context.get("target_fingerprint") or "").strip() or None,
+            )
+            if grant is None:
+                return None
+            return {
+                "request_id": grant.id,
+                "digest_prefix": digest_prefix(grant.arguments_digest),
+                "scope_summary": {k: v for k, v in dict(grant.scope or {}).items() if k in {"approval_class", "pre_approval", "goal_id"}},
+                "reason_code": "approval_granted_by_request",
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def _audit_legacy_bypass(*, task: dict | None, operation_class: str) -> None:
+        try:
+            from agent.services.approval_request_service import AUDIT_APPROVAL_LEGACY_BYPASS_USED
+            from agent.common.audit import log_audit
+
+            log_audit(
+                AUDIT_APPROVAL_LEGACY_BYPASS_USED,
+                {
+                    "task_id": str((task or {}).get("id") or "").strip() or None,
+                    "goal_id": str((task or {}).get("goal_id") or "").strip() or None,
+                    "operation_class": operation_class,
+                    "warning": "legacy task.approval_confirmed bypassed confirm_required",
+                },
+            )
+        except Exception:
+            pass
 
     @staticmethod
     def _normalize_action_classes(raw: Any, default: list[str]) -> list[str]:

@@ -25,6 +25,7 @@ from .blueprints import (
 )
 from .governance import (
     ActionPackDB,
+    ApprovalRequestDB,
     AgentSessionDB,
     AuditLogDB,
     DecisionTraceDB,
@@ -92,6 +93,7 @@ __all__ = [
     "ArtifactDB",
     "ArtifactVersionDB",
     "ArchivedTaskDB",
+    "ApprovalRequestDB",
     "AuditLogDB",
     "BannedIPDB",
     "BlueprintArtifactDB",

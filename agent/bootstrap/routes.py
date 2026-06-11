@@ -7,6 +7,7 @@ from agent.routes.artifacts import artifacts_bp
 from agent.routes.codecompass_graph import codecompass_graph_bp
 from agent.routes.codecompass_reload import codecompass_reload_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
+from agent.routes.approvals import approvals_bp
 from agent.routes.auth import auth_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.context_policy import context_policy_bp
@@ -70,6 +71,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(codecompass_graph_bp)
     app.register_blueprint(codecompass_reload_bp)
     app.register_blueprint(worker_tool_loop_diagnostics_bp)
+    app.register_blueprint(approvals_bp)
     app.register_blueprint(knowledge_bp)
     app.register_blueprint(openai_compat_bp)
     app.register_blueprint(voice_bp)

@@ -500,6 +500,31 @@ def build_default_agent_config() -> dict:
             "test_timeout_seconds": 120,
             "test_output_max_chars": 4000,
         },
+        # ALWA-011/020: persistent approval lifecycle. Disabled by default —
+        # legacy approval_confirmed keeps working as explicit
+        # backward-compatibility policy until the lifecycle is rolled out.
+        # Auto-approval never grants the human_required tools.
+        "approval_lifecycle": {
+            "enabled": False,
+            "legacy_approval_confirmed_enabled": True,
+            "default_ttl_seconds": 3600,
+            "grant_one_shot": True,
+            "auto_approval_policy": {
+                "safe": {"read_only": True, "controlled_workspace_writes": False, "test_run": False},
+                "balanced": {"read_only": True, "controlled_workspace_writes": True, "test_run": True},
+                "strict": {"read_only": True, "controlled_workspace_writes": False, "test_run": False},
+            },
+            "human_required_tools": [
+                "git.push", "git.commit", "secret.read", "service.restart",
+                "network.fetch_arbitrary", "shell.run_unrestricted",
+                "external_worker.execute_mutation",
+            ],
+            "goal_pre_approvals": {
+                "enabled": False,
+                "tools": ["test.run"],
+                "ttl_seconds": 7200,
+            },
+        },
         "propose_policy": {
             "context_compaction_enabled": True,
             "context_compaction_required": False,

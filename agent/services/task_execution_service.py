@@ -86,6 +86,100 @@ class TaskExecutionService:
             self._compaction_svc = _build_compaction_svc(cfg)
         return self._compaction_svc
 
+    @staticmethod
+    def _approval_call_identity(*, command: str | None, tool_calls: list[dict] | None) -> tuple[str, dict]:
+        """Stable call identity for ApprovalRequest digests (ALWA-007).
+
+        The same identity is used when creating the pending request and when
+        resolving a grant on re-dispatch — a changed command or tool call
+        yields a different digest and therefore requires a new approval.
+        """
+        first_tool = ""
+        for item in list(tool_calls or []):
+            if isinstance(item, dict):
+                first_tool = str(item.get("name") or item.get("tool_name") or "").strip()
+                if first_tool:
+                    break
+        tool_name = first_tool or ("shell.command" if str(command or "").strip() else "task.step")
+        return tool_name, {"command": str(command or ""), "tool_calls": list(tool_calls or [])}
+
+    def _enter_pending_approval(
+        self,
+        *,
+        tid: str | None,
+        task: dict,
+        guard_cfg: dict,
+        tool_name: str,
+        arguments: dict,
+        approval_payload: dict,
+        pipeline: dict | None = None,
+        target_fingerprint: str | None = None,
+    ) -> "tuple[str, LocalExecutionResult | None]":
+        """ALWA-007: park the step as pending_approval instead of raising.
+
+        Returns ("disabled", None) when the lifecycle is off or registration
+        failed (legacy guardrail behavior applies), ("auto_granted", None)
+        when the auto-approval policy granted immediately (execution
+        continues), or ("pending", result) with the pending_approval result.
+        """
+        try:
+            from agent.services.approval_request_service import get_approval_request_service
+
+            svc = get_approval_request_service()
+            if not svc.get_lifecycle_config(guard_cfg).get("enabled"):
+                return "disabled", None
+            request = svc.create_pending_request(
+                task_id=tid,
+                goal_id=str((task or {}).get("goal_id") or "").strip() or None,
+                trace_id=self._resolve_loop_trace_id(task or {}),
+                tool_name=tool_name,
+                arguments=arguments,
+                target_fingerprint=target_fingerprint,
+                risk_class=str((approval_payload or {}).get("operation_class") or "unknown"),
+                governance_mode=str((approval_payload or {}).get("governance_mode") or "balanced"),
+                scope={"source": "task_execution_service", "reason_code": (approval_payload or {}).get("reason_code")},
+                agent_cfg=guard_cfg,
+            )
+        except Exception:
+            logging.getLogger(__name__).warning("pending approval registration failed", exc_info=True)
+            return "disabled", None
+        if request.status == "granted":
+            return "auto_granted", None
+        if tid:
+            try:
+                from agent.services.repository_registry import get_repository_registry
+
+                task_repo = get_repository_registry().task_repo
+                task_row = task_repo.get_by_id(tid)
+                if task_row is not None:
+                    task_row.status = "pending_approval"
+                    task_row.status_reason_code = "approval_request_pending"
+                    task_repo.save(task_row)
+            except Exception:
+                logging.getLogger(__name__).warning("task pending_approval status update failed", exc_info=True)
+        if pipeline is not None:
+            append_stage(
+                pipeline,
+                name="pending_approval",
+                status="blocked",
+                metadata={"approval_request_id": request.id, "tool_name": tool_name},
+            )
+        return "pending", LocalExecutionResult(
+            output=f"Pending approval: {tool_name} requires hub approval (request {request.id}).",
+            exit_code=None,
+            retries_used=0,
+            failure_type="pending_approval",
+            retry_history=[{"attempt": 0, "approval_request_id": request.id}],
+            status="pending_approval",
+            loop_signals=[],
+            loop_detection=None,
+            approval_decision={
+                **dict(approval_payload or {}),
+                "approval_request_id": request.id,
+                "status": "pending_approval",
+            },
+        )
+
     def resolve_policy(
         self,
         request_data: TaskStepExecuteRequest,
@@ -363,12 +457,19 @@ class TaskExecutionService:
                     )
                 _chain_preflight_deferred = True
 
+        _call_tool_name, _call_arguments = self._approval_call_identity(command=command, tool_calls=tool_calls)
         approval_decision = get_approval_policy_service().evaluate(
             command=command,
             tool_calls=tool_calls,
             task=effective_task,
             agent_cfg=guard_cfg,
             command_analysis=_command_analysis,
+            approval_context={
+                "tool_name": _call_tool_name,
+                "arguments": _call_arguments,
+                "task_id": tid,
+                "goal_id": effective_task.get("goal_id"),
+            },
         )
         approval_payload = approval_decision.as_dict()
         if pipeline is not None:
@@ -415,13 +516,28 @@ class TaskExecutionService:
                     approval_decision=approval_payload,
                     reason="approval_confirmation_required",
                 )
-            raise ToolGuardrailError(
-                details={
-                    "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
-                    "blocked_reasons": [approval_payload.get("reason_code")],
-                    "approval": approval_payload,
-                }
+            # ALWA-007: with the approval lifecycle enabled, confirm_required
+            # is normal control flow — register a pending ApprovalRequest and
+            # park the task instead of raising a guardrail error.
+            pending_state, pending_result = self._enter_pending_approval(
+                tid=tid,
+                task=effective_task,
+                guard_cfg=guard_cfg,
+                tool_name=_call_tool_name,
+                arguments=_call_arguments,
+                approval_payload=approval_payload,
+                pipeline=pipeline,
             )
+            if pending_state == "pending":
+                return pending_result
+            if pending_state != "auto_granted":
+                raise ToolGuardrailError(
+                    details={
+                        "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                        "blocked_reasons": [approval_payload.get("reason_code")],
+                        "approval": approval_payload,
+                    }
+                )
 
         risk_decision = evaluate_execution_risk(
             command=command,
@@ -513,13 +629,35 @@ class TaskExecutionService:
                     },
                     reason=str(mutation_payload.get("reason_code") or "mutation_gate_blocked"),
                 )
-            raise ToolGuardrailError(
-                details={
-                    "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
-                    "blocked_reasons": [mutation_payload.get("reason_code")],
-                    "mutation_gate": mutation_payload,
-                }
-            )
+            if mutation_payload.get("classification") == "confirm_required":
+                pending_state, pending_result = self._enter_pending_approval(
+                    tid=tid,
+                    task=effective_task,
+                    guard_cfg=guard_cfg,
+                    tool_name="mutation_gate",
+                    arguments={"command": str(command or ""), "tool_calls": list(tool_calls or [])},
+                    approval_payload={
+                        "classification": "confirm_required",
+                        "reason_code": mutation_payload.get("reason_code"),
+                        "operation_class": mutation_payload.get("mutation_class"),
+                        "governance_mode": (mutation_payload.get("approval_scope") or {}).get("governance_mode"),
+                    },
+                    pipeline=pipeline,
+                    target_fingerprint=str((mutation_payload.get("normalized_target") or {}).get("target_fingerprint") or "") or None,
+                )
+                if pending_state == "pending":
+                    return pending_result
+                _mutation_auto_granted = pending_state == "auto_granted"
+            else:
+                _mutation_auto_granted = False
+            if not _mutation_auto_granted:
+                raise ToolGuardrailError(
+                    details={
+                        "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                        "blocked_reasons": [mutation_payload.get("reason_code")],
+                        "mutation_gate": mutation_payload,
+                    }
+                )
 
         normalized_tool_calls = self._normalize_runtime_tool_calls(tool_calls)
         if normalized_tool_calls:

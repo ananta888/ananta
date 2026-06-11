@@ -147,6 +147,39 @@ def build_tool_loop_prompt(
     return "\n".join(parts)
 
 
+def register_pending_approval_request(
+    *,
+    task_id: str | None,
+    tool_name: str,
+    arguments: dict[str, Any] | None,
+    risk_class: str = "unknown",
+    reason: str | None = None,
+) -> str | None:
+    """ALWA-007: persist a pending ApprovalRequest when a loop stops on approval.
+
+    Guarded by the approval_lifecycle feature flag; failures are non-fatal
+    (worker contexts without DB simply skip registration — the outcome
+    stays visible in the workspace report either way).
+    """
+    try:
+        from agent.services.approval_request_service import get_approval_request_service
+
+        svc = get_approval_request_service()
+        if not svc.get_lifecycle_config().get("enabled"):
+            return None
+        request = svc.create_pending_request(
+            task_id=task_id,
+            tool_name=tool_name,
+            arguments=arguments,
+            risk_class=risk_class,
+            scope={"source": "ananta_worker_loop", "reason": str(reason or "")[:300]},
+        )
+        return request.id
+    except Exception:
+        log.debug("pending approval registration failed (non-fatal)", exc_info=True)
+        return None
+
+
 def run_ananta_worker_tool_loop(
     prompt: str,
     workdir: str | None,
@@ -280,6 +313,15 @@ def run_ananta_worker_tool_loop(
                 "reason": str(message.get("reason") or ""),
                 "tool_results_so_far": len(tool_results),
             }
+            if kind == KIND_NEEDS_APPROVAL:
+                request_id = register_pending_approval_request(
+                    task_id=task_id,
+                    tool_name=str(message.get("tool_name") or "worker.needs_approval"),
+                    arguments=dict(message.get("arguments") or {}),
+                    reason=str(message.get("reason") or ""),
+                )
+                if request_id:
+                    summary["approval_request_id"] = request_id
             return 0, json.dumps(summary, ensure_ascii=False), err
 
         # kind == tool_request
@@ -292,6 +334,7 @@ def run_ananta_worker_tool_loop(
             arguments=arguments,
             allowed_tools=cfg.get("allowed_tools"),
             mutation_mode=mutation_mode,
+            task_id=task_id,
         )
         report_iterations.append(
             {
@@ -319,16 +362,25 @@ def run_ananta_worker_tool_loop(
             _audit(blocked_action, tool_name=tool_name, decision=decision.decision, risk=decision.risk_class, detail=decision.reason)
             from agent.services.tools._evidence import build_tool_result
 
-            tool_results.append(
-                build_tool_result(
-                    tool_name=tool_name,
-                    tool_call_id=tool_call_id,
-                    status=decision.decision,
-                    risk_class=decision.risk_class,
-                    error=decision.reason,
-                    policy_decision=decision.as_dict(),
-                )
+            blocked_result = build_tool_result(
+                tool_name=tool_name,
+                tool_call_id=tool_call_id,
+                status=decision.decision,
+                risk_class=decision.risk_class,
+                error=decision.reason,
+                policy_decision=decision.as_dict(),
             )
+            if decision.decision == "approval_required":
+                request_id = register_pending_approval_request(
+                    task_id=task_id,
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    risk_class=decision.risk_class,
+                    reason=decision.reason,
+                )
+                if request_id:
+                    blocked_result["approval_request_id"] = request_id
+            tool_results.append(blocked_result)
         else:
             result = execute_ananta_tool(
                 tool_name=tool_name,

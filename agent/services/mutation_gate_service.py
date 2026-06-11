@@ -121,7 +121,23 @@ class MutationGateService:
                 details={"blocked_by": "execution_risk_policy", "risk_level": risk_payload.get("risk_level")},
             )
 
-        scoped = self._validate_scoped_approval(task=task, mutation_class=mutation_class, normalized_target=normalized_target, trace_id=trace_id, actor=actor)
+        # ALWA-006: digest over the concrete mutation call. Scoped
+        # mutation_approval entries may pin this digest; ApprovalRequest
+        # grants are matched against it.
+        call_arguments = {"command": str(command or ""), "tool_calls": list(tool_calls or [])}
+        arguments_digest = self._compute_call_digest(
+            call_arguments=call_arguments,
+            target_fingerprint=str(normalized_target.get("target_fingerprint") or "") or None,
+        )
+
+        scoped = self._validate_scoped_approval(
+            task=task,
+            mutation_class=mutation_class,
+            normalized_target=normalized_target,
+            trace_id=trace_id,
+            actor=actor,
+            arguments_digest=arguments_digest,
+        )
         if not scoped["ok"] and scoped["present"]:
             return MutationGateDecision(
                 classification="blocked",
@@ -142,7 +158,24 @@ class MutationGateService:
                     approval_scope=scope,
                     details={"approval_binding": "scoped"},
                 )
-            if bool((task or {}).get("approval_confirmed")):
+            # ALWA-006: a persisted ApprovalRequest grant for exactly this
+            # digest (and matching target fingerprint) beats the legacy path.
+            request_grant = self._resolve_request_grant(
+                task=task,
+                call_arguments=call_arguments,
+                target_fingerprint=str(normalized_target.get("target_fingerprint") or "") or None,
+            )
+            if request_grant is not None:
+                return MutationGateDecision(
+                    classification="allow",
+                    reason_code="mutation_approved_by_request",
+                    mutation_class=mutation_class,
+                    normalized_target=normalized_target,
+                    approval_scope=scope,
+                    details={"approval_binding": "approval_request", "approval_request": request_grant},
+                )
+            if bool((task or {}).get("approval_confirmed")) and self._legacy_approval_enabled(agent_cfg):
+                self._audit_legacy_bypass(task=task, mutation_class=mutation_class)
                 return MutationGateDecision(
                     classification="allow",
                     reason_code="mutation_approved_legacy_task_scope",
@@ -157,7 +190,7 @@ class MutationGateService:
                 mutation_class=mutation_class,
                 normalized_target=normalized_target,
                 approval_scope=scope,
-                details={"scope_check": scoped},
+                details={"scope_check": scoped, "arguments_digest_prefix": arguments_digest[:12]},
             )
 
         return MutationGateDecision(
@@ -379,6 +412,59 @@ class MutationGateService:
             "expires_at": scoped.get("expires_at"),
         }
 
+    @staticmethod
+    def _compute_call_digest(*, call_arguments: dict[str, Any], target_fingerprint: str | None) -> str:
+        from agent.services.approval_request_service import canonicalize_tool_call, compute_arguments_digest
+
+        canonical, _, _ = canonicalize_tool_call("mutation_gate", call_arguments)
+        return compute_arguments_digest("mutation_gate", canonical, target_fingerprint)
+
+    @staticmethod
+    def _resolve_request_grant(
+        *,
+        task: dict | None,
+        call_arguments: dict[str, Any],
+        target_fingerprint: str | None,
+    ) -> dict[str, Any] | None:
+        try:
+            from agent.services.approval_request_service import digest_prefix, get_approval_request_service
+
+            grant = get_approval_request_service().resolve_grant_for_call(
+                tool_name="mutation_gate",
+                arguments=call_arguments,
+                task_id=str((task or {}).get("id") or "").strip() or None,
+                goal_id=str((task or {}).get("goal_id") or "").strip() or None,
+                target_fingerprint=target_fingerprint,
+            )
+            if grant is None:
+                return None
+            return {"request_id": grant.id, "digest_prefix": digest_prefix(grant.arguments_digest)}
+        except Exception:
+            return None
+
+    @staticmethod
+    def _legacy_approval_enabled(agent_cfg: dict | None) -> bool:
+        lifecycle = dict((agent_cfg or {}).get("approval_lifecycle") or {})
+        return bool(lifecycle.get("legacy_approval_confirmed_enabled", True))
+
+    @staticmethod
+    def _audit_legacy_bypass(*, task: dict | None, mutation_class: str) -> None:
+        try:
+            from agent.common.audit import log_audit
+            from agent.services.approval_request_service import AUDIT_APPROVAL_LEGACY_BYPASS_USED
+
+            log_audit(
+                AUDIT_APPROVAL_LEGACY_BYPASS_USED,
+                {
+                    "task_id": str((task or {}).get("id") or "").strip() or None,
+                    "goal_id": str((task or {}).get("goal_id") or "").strip() or None,
+                    "mutation_class": mutation_class,
+                    "warning": "legacy task.approval_confirmed bypassed mutation gate confirm_required",
+                },
+            )
+        except Exception:
+            pass
+
     def _validate_scoped_approval(
         self,
         *,
@@ -387,6 +473,7 @@ class MutationGateService:
         normalized_target: dict[str, Any],
         trace_id: str | None,
         actor: str | None,
+        arguments_digest: str | None = None,
     ) -> dict[str, Any]:
         scoped = dict((task or {}).get("mutation_approval") or {})
         if not scoped:
@@ -418,6 +505,12 @@ class MutationGateService:
         actual_fingerprint = str(normalized_target.get("target_fingerprint") or "").strip()
         if expected_fingerprint and expected_fingerprint != actual_fingerprint:
             return {"ok": False, "present": True, "reason_code": "mutation_scope_mismatch:target"}
+
+        # ALWA-006: a scoped approval may pin the exact call via
+        # arguments_digest; a mismatch must not silently allow.
+        expected_digest = str(scoped.get("arguments_digest") or "").strip()
+        if expected_digest and expected_digest != str(arguments_digest or "").strip():
+            return {"ok": False, "present": True, "reason_code": "mutation_scope_mismatch:arguments_digest"}
 
         return {"ok": True, "present": True, "reason_code": "mutation_scope_ok"}
 

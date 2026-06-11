@@ -71,7 +71,8 @@ class AnantaToolPolicyService:
         arguments: dict[str, Any] | None = None,
         allowed_tools: list[str] | None = None,
         mutation_mode: str = "read_only",
-        approvals: list[str] | None = None,
+        task_id: str | None = None,
+        goal_id: str | None = None,
     ) -> ToolPolicyDecision:
         name = str(tool_name or "").strip()
         registry = get_ananta_tool_registry_service()
@@ -83,8 +84,6 @@ class AnantaToolPolicyService:
                 rule_id="unknown_tool_rejected",
                 tool_name=name,
             )
-
-        granted = {str(item or "").strip() for item in (approvals or []) if str(item or "").strip()}
 
         if spec.category == CATEGORY_BLOCKED:
             # Blocked tools never run via the worker loop. Even an approval
@@ -136,7 +135,9 @@ class AnantaToolPolicyService:
                     risk_class=spec.risk_class,
                     tool_name=name,
                 )
-            if spec.policy_requirements.get("requires_approval") and name not in granted:
+            if spec.policy_requirements.get("requires_approval") and not self._has_request_grant(
+                tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id
+            ):
                 return ToolPolicyDecision(
                     decision=DECISION_APPROVAL_REQUIRED,
                     reason="write_tool_requires_hub_approval",
@@ -164,7 +165,9 @@ class AnantaToolPolicyService:
                     risk_class=spec.risk_class,
                     tool_name=name,
                 )
-            if spec.policy_requirements.get("requires_approval") and name not in granted:
+            if spec.policy_requirements.get("requires_approval") and not self._has_request_grant(
+                tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id
+            ):
                 return ToolPolicyDecision(
                     decision=DECISION_APPROVAL_REQUIRED,
                     reason="execution_tool_requires_hub_approval",
@@ -187,6 +190,35 @@ class AnantaToolPolicyService:
             risk_class=spec.risk_class,
             tool_name=name,
         )
+
+    @staticmethod
+    def _has_request_grant(
+        *,
+        tool_name: str,
+        arguments: dict[str, Any] | None,
+        task_id: str | None,
+        goal_id: str | None,
+    ) -> bool:
+        """ALWA-005/ALWA-FIND-007: digest-bound grant resolution.
+
+        Replaces the former tool-name-based approvals list: a grant counts
+        only when a persisted ApprovalRequest with status=granted matches
+        the exact arguments_digest of this call (or a goal-scoped
+        pre-approval covers the tool). Without DB access (worker context)
+        this resolves to False — never to a silent allow.
+        """
+        try:
+            from agent.services.approval_request_service import get_approval_request_service
+
+            svc = get_approval_request_service()
+            grant = svc.resolve_grant_for_call(
+                tool_name=tool_name, arguments=arguments, task_id=task_id, goal_id=goal_id
+            )
+            if grant is not None:
+                return True
+            return svc.resolve_goal_pre_approval(goal_id=goal_id, tool_name=tool_name) is not None
+        except Exception:
+            return False
 
 
 ananta_tool_policy_service = AnantaToolPolicyService()

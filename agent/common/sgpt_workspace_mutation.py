@@ -369,6 +369,17 @@ def run_ananta_worker_workspace_mutation(
         if kind in {KIND_NEEDS_APPROVAL, KIND_CANNOT_CONTINUE}:
             iteration_row["reason"] = str(message.get("reason") or "")
             summary = {"kind": kind, "reason": str(message.get("reason") or "")}
+            if kind == KIND_NEEDS_APPROVAL:
+                from agent.common.sgpt_tool_loop import register_pending_approval_request
+
+                request_id = register_pending_approval_request(
+                    task_id=task_id,
+                    tool_name=str(message.get("tool_name") or "worker.needs_approval"),
+                    arguments=dict(message.get("arguments") or {}),
+                    reason=str(message.get("reason") or ""),
+                )
+                if request_id:
+                    summary["approval_request_id"] = request_id
             return _finish(kind, 0, json.dumps(summary, ensure_ascii=False), err)
 
         if kind == KIND_WORKSPACE_WRITE:
@@ -463,6 +474,7 @@ def run_ananta_worker_workspace_mutation(
                 arguments=arguments,
                 allowed_tools=None,
                 mutation_mode=mode,
+                task_id=task_id,
             )
             iteration_row["tool_name"] = tool_name
             iteration_row["policy_decision"] = decision.decision
@@ -478,7 +490,18 @@ def run_ananta_worker_workspace_mutation(
                     )
                 )
                 if decision.decision == "approval_required":
+                    from agent.common.sgpt_tool_loop import register_pending_approval_request
+
+                    request_id = register_pending_approval_request(
+                        task_id=task_id,
+                        tool_name=tool_name,
+                        arguments=arguments,
+                        risk_class=decision.risk_class,
+                        reason=decision.reason,
+                    )
                     summary = {"kind": "loop_aborted", "reason": "approval_required", "tool_name": tool_name}
+                    if request_id:
+                        summary["approval_request_id"] = request_id
                     return _finish("approval_required", 0, json.dumps(summary, ensure_ascii=False), err)
                 continue
             result = execute_ananta_tool(
@@ -504,20 +527,32 @@ def run_ananta_worker_workspace_mutation(
                 arguments=arguments,
                 allowed_tools=None,
                 mutation_mode=mode,
+                task_id=task_id,
             )
             iteration_row["tool_name"] = tool_name
             iteration_row["policy_decision"] = decision.decision
             if not decision.allowed:
-                _add_evidence(
-                    build_tool_result(
-                        tool_name=tool_name,
-                        tool_call_id=tool_call_id,
-                        status=decision.decision,
-                        risk_class=decision.risk_class,
-                        error=decision.reason,
-                        policy_decision=decision.as_dict(),
-                    )
+                blocked_result = build_tool_result(
+                    tool_name=tool_name,
+                    tool_call_id=tool_call_id,
+                    status=decision.decision,
+                    risk_class=decision.risk_class,
+                    error=decision.reason,
+                    policy_decision=decision.as_dict(),
                 )
+                if decision.decision == "approval_required":
+                    from agent.common.sgpt_tool_loop import register_pending_approval_request
+
+                    request_id = register_pending_approval_request(
+                        task_id=task_id,
+                        tool_name=tool_name,
+                        arguments=arguments,
+                        risk_class=decision.risk_class,
+                        reason=decision.reason,
+                    )
+                    if request_id:
+                        blocked_result["approval_request_id"] = request_id
+                _add_evidence(blocked_result)
                 continue
             tool_cfg = {**cfg, "materialization_manifest": materialization_manifest}
             result = execute_ananta_tool(
