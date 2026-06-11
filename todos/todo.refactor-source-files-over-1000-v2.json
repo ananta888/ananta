@@ -1,0 +1,679 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "2.0",
+  "owner": "Krusty / Ananta",
+  "track": "refactor-source-files-over-1000-v2",
+  "created": "2026-06-11",
+  "status": "todo",
+  "purpose": "Jede Source-Datei >1000 Zeilen bekommt einen eigenen Task mit Acceptance Criteria. Der Vorgaenger-Track (todo.refactor-remaining-source-files-over-1000.json) hatte nur grobe Tasks fuer eine Teilmenge; dieser Track erfasst alle 41 Dateien aus dem maschinellen Audit granular.",
+  "source_audit_ref": "reports/source-files-over-1000.json",
+  "policy_ref": "docs/development/source-line-limit-policy.md",
+  "milestones": [
+    {
+      "id": "V2-M1",
+      "title": "Python agent/ & routes/ (14 Dateien)",
+      "status": "todo",
+      "task_ids": [
+        "SPLIT-101", "SPLIT-102", "SPLIT-103", "SPLIT-104", "SPLIT-105",
+        "SPLIT-106", "SPLIT-107", "SPLIT-108", "SPLIT-109", "SPLIT-110",
+        "SPLIT-111", "SPLIT-112", "SPLIT-113", "SPLIT-114"
+      ]
+    },
+    {
+      "id": "V2-M2",
+      "title": "client_surfaces/operator_tui/ (5 Dateien)",
+      "status": "todo",
+      "task_ids": [
+        "SPLIT-115", "SPLIT-116", "SPLIT-117", "SPLIT-118", "SPLIT-119"
+      ]
+    },
+    {
+      "id": "V2-M3",
+      "title": "Frontend Angular TypeScript (6 Dateien)",
+      "status": "todo",
+      "task_ids": [
+        "SPLIT-120", "SPLIT-121", "SPLIT-122", "SPLIT-123", "SPLIT-124", "SPLIT-125"
+      ]
+    },
+    {
+      "id": "V2-M4",
+      "title": "Java Android / Scripts (4 Dateien)",
+      "status": "todo",
+      "task_ids": [
+        "SPLIT-126", "SPLIT-127", "SPLIT-128", "SPLIT-129"
+      ]
+    },
+    {
+      "id": "V2-M5",
+      "title": "Test-Dateien >1000 Zeilen (12 Dateien)",
+      "status": "todo",
+      "task_ids": [
+        "SPLIT-130", "SPLIT-131", "SPLIT-132", "SPLIT-133", "SPLIT-134",
+        "SPLIT-135", "SPLIT-136", "SPLIT-137", "SPLIT-138", "SPLIT-139",
+        "SPLIT-140", "SPLIT-141"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SPLIT-101",
+      "title": "agent/config_defaults.py aufteilen (1089 -> <1000 Zeilen)",
+      "file": "agent/config_defaults.py",
+      "line_count": 1089,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "config_defaults.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Alle Konfigurations-Standardwerte bleiben importierbar und unveraendert",
+        "Config-bezogene Tests bleiben gruen",
+        "Keine zirkulaeren Imports durch Extraktion"
+      ]
+    },
+    {
+      "id": "SPLIT-102",
+      "title": "agent/research_backend.py aufteilen (1052 -> <1000 Zeilen)",
+      "file": "agent/research_backend.py",
+      "line_count": 1052,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "research_backend.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Research-Backend-Funktionen bleiben korrekt registriert",
+        "Research-bezogene Tests bleiben gruen",
+        "Public imports bleiben kompatibel"
+      ]
+    },
+    {
+      "id": "SPLIT-103",
+      "title": "agent/tools.py aufteilen (1433 -> <1000 Zeilen)",
+      "file": "agent/tools.py",
+      "line_count": 1433,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "tools.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Tool-Definitionen und -Registry bleiben korrekt registriert",
+        "Alle Tool-bezogenen Tests bleiben gruen",
+        "Tool-Call-Flow bleibt unveraendert"
+      ]
+    },
+    {
+      "id": "SPLIT-104",
+      "title": "agent/routes/snakes_execution_routes.py aufteilen (1199 -> <1000 Zeilen)",
+      "file": "agent/routes/snakes_execution_routes.py",
+      "line_count": 1199,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "snakes_execution_routes.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Route-Pfade bleiben unveraendert und snakes_bp korrekt registriert",
+        "AI-Snake-Tests bleiben gruen",
+        "Run/Result-Endpunkte bleiben funktional"
+      ]
+    },
+    {
+      "id": "SPLIT-105",
+      "title": "agent/routes/tasks/autopilot_task_dispatcher.py aufteilen (1439 -> <1000 Zeilen)",
+      "file": "agent/routes/tasks/autopilot_task_dispatcher.py",
+      "line_count": 1439,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "autopilot_task_dispatcher.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Task-Dispatch-Logik bleibt korrekt",
+        "Autopilot-Tests bleiben gruen",
+        "Keine Aenderung am Task-Dispatch-Vertrag"
+      ]
+    },
+    {
+      "id": "SPLIT-106",
+      "title": "agent/services/eclipse_plugin_protocol.py aufteilen (1117 -> <1000 Zeilen)",
+      "file": "agent/services/eclipse_plugin_protocol.py",
+      "line_count": 1117,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "eclipse_plugin_protocol.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Modelle und Builder werden in getrennte Module extrahiert",
+        "Eclipse-Adapter-Tests bleiben gruen",
+        "Public Imports bleiben via Re-Export kompatibel"
+      ]
+    },
+    {
+      "id": "SPLIT-107",
+      "title": "agent/services/editor_tui_surface_state.py aufteilen (1048 -> <1000 Zeilen)",
+      "file": "agent/services/editor_tui_surface_state.py",
+      "line_count": 1048,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "editor_tui_surface_state.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "State-Management-Logik bleibt korrekt",
+        "TUI-State-Tests bleiben gruen",
+        "Keine Aenderung an der Surface-State-API"
+      ]
+    },
+    {
+      "id": "SPLIT-108",
+      "title": "agent/services/instruction_layer_compiler.py aufteilen (1028 -> <1000 Zeilen)",
+      "file": "agent/services/instruction_layer_compiler.py",
+      "line_count": 1028,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "instruction_layer_compiler.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Compiler-Logik bleibt korrekt",
+        "Instruction-Layer-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-109",
+      "title": "agent/services/planning_service.py weiter reduzieren (1342 -> <1000 Zeilen)",
+      "file": "agent/services/planning_service.py",
+      "line_count": 1342,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "planning_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "PlanningService bleibt als Orchestrator erhalten",
+        "Planungs-Tests bleiben gruen",
+        "JSON-Vertrag fuer Plan/Subtasks bleibt unveraendert"
+      ]
+    },
+    {
+      "id": "SPLIT-110",
+      "title": "agent/services/rag_helper_index_service.py weiter reduzieren (1147 -> <1000 Zeilen)",
+      "file": "agent/services/rag_helper_index_service.py",
+      "line_count": 1147,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "rag_helper_index_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Profilkatalog und Runtime-Pfad-Logik werden ausgelagert",
+        "RAG/Knowledge-Index-Tests bleiben gruen",
+        "RagHelperIndexService API bleibt kompatibel"
+      ]
+    },
+    {
+      "id": "SPLIT-111",
+      "title": "agent/services/task_execution_service.py weiter reduzieren (1244 -> <1000 Zeilen)",
+      "file": "agent/services/task_execution_service.py",
+      "line_count": 1244,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "task_execution_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Preflight-Checks und ToolCall-Ausfuehrungsloop werden ausgelagert",
+        "execute_direct_step und execute_local_step bleiben kompatibel",
+        "Approval/Risk/Mutation-Gate-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-112",
+      "title": "agent/services/task_execution_tracking_service.py aufteilen (1124 -> <1000 Zeilen)",
+      "file": "agent/services/task_execution_tracking_service.py",
+      "line_count": 1124,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "task_execution_tracking_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Tracking-Logik und Metriken werden in eigene Module extrahiert",
+        "Tracking-bezogene Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-113",
+      "title": "agent/services/task_scoped_execution_service.py weiter reduzieren (1361 -> <1000 Zeilen)",
+      "file": "agent/services/task_scoped_execution_service.py",
+      "line_count": 1361,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "task_scoped_execution_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Weitere Logik wird in bestehende _task_scoped_* Module verschoben",
+        "TaskScopedExecutionService API bleibt nutzbar",
+        "Task-Scoped-Execution-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-114",
+      "title": "agent/services/worker_workspace_service.py aufteilen (1150 -> <1000 Zeilen)",
+      "file": "agent/services/worker_workspace_service.py",
+      "line_count": 1150,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "worker_workspace_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Workspace-Management-Logik bleibt korrekt",
+        "Worker-Workspace-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-115",
+      "title": "client_surfaces/operator_tui/_renderer_content.py aufteilen (1888 -> <1000 Zeilen)",
+      "file": "client_surfaces/operator_tui/_renderer_content.py",
+      "line_count": 1888,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "_renderer_content.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Content-Rendering-Funktionen bleiben korrekt",
+        "TUI-Renderer-Tests bleiben gruen",
+        "Keine sichtbaren Aenderungen im TUI-Rendering"
+      ]
+    },
+    {
+      "id": "SPLIT-116",
+      "title": "client_surfaces/operator_tui/ai_snake_config_view.py aufteilen (1113 -> <1000 Zeilen)",
+      "file": "client_surfaces/operator_tui/ai_snake_config_view.py",
+      "line_count": 1113,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "ai_snake_config_view.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Config-View-Funktionalitaet bleibt erhalten",
+        "Snake-Config-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-117",
+      "title": "client_surfaces/operator_tui/interactive.py weiter reduzieren (1753 -> <1000 Zeilen)",
+      "file": "client_surfaces/operator_tui/interactive.py",
+      "line_count": 1753,
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "interactive.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Event-Loop bleibt funktional",
+        "TUI-Tests bleiben gruen",
+        "TUI startet und reagiert korrekt auf Eingaben"
+      ]
+    },
+    {
+      "id": "SPLIT-118",
+      "title": "client_surfaces/operator_tui/snake_ops_mixin.py aufteilen (1285 -> <1000 Zeilen)",
+      "file": "client_surfaces/operator_tui/snake_ops_mixin.py",
+      "line_count": 1285,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "snake_ops_mixin.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Snake-Operations-Logik bleibt korrekt",
+        "TUI-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-119",
+      "title": "client_surfaces/operator_tui/snake_tick_mixin.py aufteilen (1179 -> <1000 Zeilen)",
+      "file": "client_surfaces/operator_tui/snake_tick_mixin.py",
+      "line_count": 1179,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "snake_tick_mixin.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Tick-Logik bleibt korrekt",
+        "TUI-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-120",
+      "title": "frontend-angular/src/app/components/ai-assistant.component.ts aufteilen (1164 -> <1000 Zeilen)",
+      "file": "frontend-angular/src/app/components/ai-assistant.component.ts",
+      "line_count": 1164,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "ai-assistant.component.ts hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Angular kompiliert ohne Fehler (ng build)",
+        "AI-Assistant-Funktionalitaet bleibt vollstaendig",
+        "Frontend-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-121",
+      "title": "frontend-angular/src/app/components/artifacts.component.ts aufteilen (1494 -> <1000 Zeilen)",
+      "file": "frontend-angular/src/app/components/artifacts.component.ts",
+      "line_count": 1494,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "artifacts.component.ts hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Angular kompiliert ohne Fehler (ng build)",
+        "Artifact-Anzeige, Diff-View und Download bleiben funktional",
+        "Frontend-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-122",
+      "title": "frontend-angular/src/app/components/dashboard.component.ts aufteilen (1422 -> <1000 Zeilen)",
+      "file": "frontend-angular/src/app/components/dashboard.component.ts",
+      "line_count": 1422,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "dashboard.component.ts hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Angular kompiliert ohne Fehler (ng build)",
+        "Dashboard-Anzeige bleibt vollstaendig",
+        "Frontend-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-123",
+      "title": "frontend-angular/src/app/components/settings.component.ts aufteilen (2501 -> <1000 Zeilen)",
+      "file": "frontend-angular/src/app/components/settings.component.ts",
+      "line_count": 2501,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "settings.component.ts hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Angular kompiliert ohne Fehler (ng build)",
+        "Alle Settings-Bereiche (LLM, Backend, Security, UI) bleiben vollstaendig",
+        "Settings-Werte korrekt lesbar und speicherbar"
+      ]
+    },
+    {
+      "id": "SPLIT-124",
+      "title": "frontend-angular/src/app/components/task-detail.component.ts aufteilen (1534 -> <1000 Zeilen)",
+      "file": "frontend-angular/src/app/components/task-detail.component.ts",
+      "line_count": 1534,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "task-detail.component.ts hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Angular kompiliert ohne Fehler (ng build)",
+        "Task-Detail-View bleibt vollstaendig funktional",
+        "Frontend-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-125",
+      "title": "frontend-angular/src/app/components/teams.component.ts aufteilen (1454 -> <1000 Zeilen)",
+      "file": "frontend-angular/src/app/components/teams.component.ts",
+      "line_count": 1454,
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "teams.component.ts hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Angular kompiliert ohne Fehler (ng build)",
+        "Team-Anzeige und -Management bleiben vollstaendig",
+        "Frontend-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-126",
+      "title": "frontend-angular/android/.../LiveTerminalAndroidE2ETest.java aufteilen (1158 -> <1000 Zeilen)",
+      "file": "frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java",
+      "line_count": 1158,
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "LiveTerminalAndroidE2ETest.java hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Android-E2E-Tests bleiben vollstaendig",
+        "Gradle-Compile bleibt fehlerfrei"
+      ]
+    },
+    {
+      "id": "SPLIT-127",
+      "title": "frontend-angular/android/.../PythonRuntimePlugin.java aufteilen (2274 -> <1000 Zeilen)",
+      "file": "frontend-angular/android/app/src/main/java/com/ananta/mobile/python/PythonRuntimePlugin.java",
+      "line_count": 2274,
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "acceptance_criteria": [
+        "PythonRuntimePlugin.java hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Python-Runtime-Funktionalitaet bleibt vollstaendig",
+        "Android-App kompiliert und laeuft",
+        "Gradle-Build bleibt fehlerfrei"
+      ]
+    },
+    {
+      "id": "SPLIT-128",
+      "title": "frontend-angular/android/.../VoxtralOfflinePlugin.java aufteilen (2885 -> <1000 Zeilen)",
+      "file": "frontend-angular/android/app/src/main/java/com/ananta/mobile/voxtral/VoxtralOfflinePlugin.java",
+      "line_count": 2885,
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "acceptance_criteria": [
+        "VoxtralOfflinePlugin.java hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Voxtral-Offline-Funktionalitaet bleibt vollstaendig",
+        "Android-App kompiliert und laeuft",
+        "Gradle-Build bleibt fehlerfrei"
+      ]
+    },
+    {
+      "id": "SPLIT-129",
+      "title": "scripts/firefox_automation/_benchmark.py aufteilen (1477 -> <1000 Zeilen)",
+      "file": "scripts/firefox_automation/_benchmark.py",
+      "line_count": 1477,
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "_benchmark.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Benchmark-Funktionalitaet bleibt vollstaendig",
+        "Benchmark-Script bleibt als CLI ausfuehrbar"
+      ]
+    },
+    {
+      "id": "SPLIT-130",
+      "title": "frontend-angular/tests/utils.ts aufteilen (1315 -> <1000 Zeilen)",
+      "file": "frontend-angular/tests/utils.ts",
+      "line_count": 1315,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "utils.ts hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Test-Utilities bleiben vollstaendig importierbar",
+        "Frontend-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-131",
+      "title": "rag-helper/tests/test_processing_limits.py aufteilen (1391 -> <1000 Zeilen)",
+      "file": "rag-helper/tests/test_processing_limits.py",
+      "line_count": 1391,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_processing_limits.py hat nach Split weniger als 1000 Zeilen laut Audit-Script",
+        "Rag-Helper-Tests bleiben gruen",
+        "Keine Testabdeckung verloren"
+      ]
+    },
+    {
+      "id": "SPLIT-132",
+      "title": "tests/test_codecompass_candidate_resolver_caps.py aufteilen (1020 -> <1000 Zeilen)",
+      "file": "tests/test_codecompass_candidate_resolver_caps.py",
+      "line_count": 1020,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_codecompass_candidate_resolver_caps.py hat nach Split weniger als 1000 Zeilen",
+        "Alle CodeCompass-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-133",
+      "title": "tests/test_codex_cli_backend.py aufteilen (1171 -> <1000 Zeilen)",
+      "file": "tests/test_codex_cli_backend.py",
+      "line_count": 1171,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_codex_cli_backend.py hat nach Split weniger als 1000 Zeilen",
+        "Alle Codex-CLI-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-134",
+      "title": "tests/test_config_api.py aufteilen (1510 -> <1000 Zeilen)",
+      "file": "tests/test_config_api.py",
+      "line_count": 1510,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_config_api.py hat nach Split weniger als 1000 Zeilen",
+        "Alle Config-API-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-135",
+      "title": "tests/test_goals.py aufteilen (1315 -> <1000 Zeilen)",
+      "file": "tests/test_goals.py",
+      "line_count": 1315,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_goals.py hat nach Split weniger als 1000 Zeilen",
+        "Alle Goals-API-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-136",
+      "title": "tests/test_llm_usage.py aufteilen (1002 -> <1000 Zeilen)",
+      "file": "tests/test_llm_usage.py",
+      "line_count": 1002,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_llm_usage.py hat nach Split weniger als 1000 Zeilen",
+        "Alle LLM-Usage-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-137",
+      "title": "tests/test_sgpt_route.py aufteilen (1198 -> <1000 Zeilen)",
+      "file": "tests/test_sgpt_route.py",
+      "line_count": 1198,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_sgpt_route.py hat nach Split weniger als 1000 Zeilen",
+        "Alle SGPT-Route-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-138",
+      "title": "tests/test_task_endpoints.py aufteilen (1752 -> <1000 Zeilen)",
+      "file": "tests/test_task_endpoints.py",
+      "line_count": 1752,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_task_endpoints.py hat nach Split weniger als 1000 Zeilen",
+        "Alle Task-Endpoint-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-139",
+      "title": "tests/test_tasks_autopilot.py aufteilen (1065 -> <1000 Zeilen)",
+      "file": "tests/test_tasks_autopilot.py",
+      "line_count": 1065,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_tasks_autopilot.py hat nach Split weniger als 1000 Zeilen",
+        "Alle Autopilot-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-140",
+      "title": "tests/test_team_blueprints.py aufteilen (1186 -> <1000 Zeilen)",
+      "file": "tests/test_team_blueprints.py",
+      "line_count": 1186,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_team_blueprints.py hat nach Split weniger als 1000 Zeilen",
+        "Alle Team-Blueprint-Tests bleiben gruen"
+      ]
+    },
+    {
+      "id": "SPLIT-141",
+      "title": "tests/test_operator_tui_shell_pkg/test_tui_command_modes.py aufteilen (1040 -> <1000 Zeilen)",
+      "file": "tests/test_operator_tui_shell_pkg/test_tui_command_modes.py",
+      "line_count": 1040,
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "acceptance_criteria": [
+        "test_tui_command_modes.py hat nach Split weniger als 1000 Zeilen",
+        "Alle TUI-Command-Mode-Tests bleiben gruen"
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 41,
+    "by_status": {
+      "todo": 41,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 8,
+      "P1": 17,
+      "P2": 4,
+      "P3": 12
+    },
+    "by_risk": {
+      "high": 24,
+      "medium": 5,
+      "low": 12
+    },
+    "critical_path": {
+      "total": 25,
+      "done": 0,
+      "remaining": 25
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  }
+}
