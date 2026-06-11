@@ -1,0 +1,165 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "hub-direct-execution-worker-runtime-amendment",
+  "created": "2026-06-11",
+  "status": "todo",
+  "purpose": "Klarstellung zum Track todo.hub-direct-execution-dynamic-tools.json: Der Hub soll deterministische Ausfuehrung entscheiden, autorisieren, auditieren und dispatchen, aber nicht direkt in seiner eigenen Prozess-/Host-Umgebung ausfuehren.",
+  "goal": "Alle Direct-Execution- und Dynamic-Tool-Arbeiten muessen so umgesetzt werden, dass der Hub als Kontroll- und Orchestrierungsschicht fungiert. Die tatsaechliche Tool-, Shell-, Test- oder Script-Ausfuehrung erfolgt in einer WorkerRuntime/Sandbox/Worker-Instanz mit klarer Policy, Workspace-Scope, Audit und Ergebnisrueckgabe.",
+  "source_review": {
+    "amends_track": "todos/todo.hub-direct-execution-dynamic-tools.json",
+    "reason": "Die Formulierung 'Hub fuehrt aus' ist sicherheitlich ungenau. Gemeint ist: Hub entscheidet und dispatcht; WorkerRuntime fuehrt aus.",
+    "reviewed_commit": "fcc3edc21e32fed0ac801f3c0ff7d918f798b84e",
+    "relevant_existing_files": [
+      "agent/services/task_execution_service.py",
+      "agent/services/task_execution_context_builder.py",
+      "agent/services/task_execution_result_handler.py",
+      "agent/services/ananta_tool_policy_service.py",
+      "agent/services/ananta_tool_registry_service.py",
+      "agent/services/tools/__init__.py",
+      "agent/common/sgpt_tool_loop.py"
+    ]
+  },
+  "design_decisions": [
+    {
+      "id": "HDW-DD-001",
+      "decision": "Hub-Direct-Execution bedeutet direkte Hub-Entscheidung, nicht direkte Hub-Prozess-Ausfuehrung.",
+      "rationale": "Der Hub darf keine untrusted oder workspace-mutierende Logik in seiner eigenen Umgebung ausfuehren."
+    },
+    {
+      "id": "HDW-DD-002",
+      "decision": "ToolExecution wird an eine WorkerRuntime/Sandbox delegiert.",
+      "rationale": "Worker-Instanzen koennen Workspace, Rechte, Timeouts, Isolation und Prozessgrenzen sauberer kapseln."
+    },
+    {
+      "id": "HDW-DD-003",
+      "decision": "Read-only Tools duerfen ebenfalls ueber WorkerRuntime laufen, wenn sie Workspace-Zugriff brauchen.",
+      "rationale": "Auch Lesen kann Daten exfiltrieren oder falsche Workspace-Grenzen verletzen."
+    },
+    {
+      "id": "HDW-DD-004",
+      "decision": "Hub bleibt Policy-Authority und Evidence-Collector.",
+      "rationale": "Der Hub entscheidet allow/block/approval_required, erzeugt Audit, korreliert ToolResults und gibt das Ergebnis an User/Task/Worker zurueck."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "HDW-M1",
+      "title": "Hub/Worker-Verantwortung sauber trennen",
+      "status": "todo",
+      "task_ids": ["HDW-001", "HDW-002", "HDW-003", "HDW-004", "HDW-005"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "HDW-001",
+      "title": "Begriffe im Hub-Direct-Track korrigieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": [
+        "todos/todo.hub-direct-execution-dynamic-tools.json",
+        "docs/contracts/hub-direct-execution.md",
+        "docs/architecture/hub-direct-execution.md"
+      ],
+      "acceptance_criteria": [
+        "Alle missverstaendlichen Formulierungen wie 'Hub fuehrt Tool aus' werden ersetzt durch 'Hub dispatcht ToolExecution an WorkerRuntime/Sandbox'.",
+        "Doku erklaert explizit: Hub ist Control Plane, WorkerRuntime ist Execution Plane.",
+        "HDE-DD-002 wird ergaenzt oder ersetzt, sodass Policy/Audit im Hub bleiben, Ausfuehrung aber nicht im Hub-Prozess stattfindet.",
+        "Sequenzdiagramm zeigt User/Task -> HubDirectRouter -> Policy/Approval -> WorkerRuntime -> ToolResult -> Hub -> Response."
+      ]
+    },
+    {
+      "id": "HDW-002",
+      "title": "WorkerRuntimeExecutionAdapter als Ausfuehrungsebene definieren",
+      "type": "implementation-design",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/worker_runtime_execution_adapter.py",
+        "agent/services/hub_tool_execution_adapter.py",
+        "agent/services/task_execution_service.py",
+        "tests/test_worker_runtime_execution_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Neuer WorkerRuntimeExecutionAdapter kapselt die tatsaechliche ToolExecution ausserhalb der Hub-Control-Plane.",
+        "Adapter nimmt tool_name, arguments, task_id, goal_id, workspace_ref, mutation_mode und policy_decision entgegen.",
+        "Adapter liefert ananta_tool_result.v1-kompatible Ergebnisse zurueck.",
+        "HubToolExecutionAdapter ruft nicht direkt Shell/Script/Workspace-mutierende Logik auf, sondern delegiert an WorkerRuntimeExecutionAdapter.",
+        "Tests beweisen mit FakeWorkerRuntime, dass der Hub nur dispatcht und kein lokales Executor-Callable im Hub ausfuehrt."
+      ]
+    },
+    {
+      "id": "HDW-003",
+      "title": "Execution Plane fuer Toolklassen festlegen",
+      "type": "security-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "docs/contracts/hub-direct-execution.md",
+        "agent/services/ananta_tool_registry_service.py",
+        "agent/services/dynamic_tool_registry_service.py"
+      ],
+      "acceptance_criteria": [
+        "Jedes ToolSpec enthaelt oder erbt execution_plane: hub_control_only, worker_runtime, sandbox_runtime oder external_backend.",
+        "repo.*, git.*, test.*, workspace.* und custom.* mit Workspace-Zugriff laufen nicht im Hub-Prozess.",
+        "Reine Metadaten-/Registry-Leseoperationen duerfen hub_control_only sein, sofern sie keinen Workspace-/Shell-Zugriff brauchen.",
+        "Policy blockt Tools ohne passende execution_plane oder ohne verfuegbare WorkerRuntime.",
+        "Tests pruefen, dass custom.* ohne execution_plane nicht aktivierbar ist."
+      ]
+    },
+    {
+      "id": "HDW-004",
+      "title": "Workspace- und Sandbox-Grenzen fuer Direct Execution erzwingen",
+      "type": "security-implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/worker_runtime_execution_adapter.py",
+        "agent/services/custom_tool_executor.py",
+        "agent/services/workspace_mutation_tools.py",
+        "tests/test_worker_runtime_workspace_scope.py"
+      ],
+      "acceptance_criteria": [
+        "WorkerRuntimeExecutionAdapter erhaelt nur einen expliziten workspace_ref oder workspace_dir aus Task/Goal-Scope, nie implizit den Hub-Arbeitsordner.",
+        "Pfadnormalisierung verhindert Zugriff ausserhalb des erlaubten Workspace.",
+        "Secrets/Hub-Konfiguration werden nicht in WorkerRuntime-Env durchgereicht ausser explizit allowlisted.",
+        "Timeouts, Output-Limits und MutationGate werden auch bei Hub-Direct-Dispatch angewendet.",
+        "Tests pruefen Pfad-Ausbruch, fehlenden Workspace, nicht erlaubte Env-Variable und Mutation ausserhalb Scope."
+      ]
+    },
+    {
+      "id": "HDW-005",
+      "title": "E2E fuer Hub entscheidet, Worker fuehrt aus schreiben",
+      "type": "e2e-tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "tests/test_hub_direct_worker_runtime_e2e.py",
+        "tests/test_hub_direct_e2e.py"
+      ],
+      "acceptance_criteria": [
+        "E2E zeigt: Anfrage 'liste dateien' -> HubDirectRouter eligible -> Policy allow -> WorkerRuntimeExecutionAdapter dispatch -> ToolResult -> Antwort ohne Worker-LLM.",
+        "FakeWorkerRuntime protokolliert erhaltenen workspace_ref und tool_name; Test prueft, dass kein Hub-lokaler Shell/Filesystem-Executor verwendet wurde.",
+        "E2E zeigt: approval_required erzeugt pending ApprovalRequest im Hub, WorkerRuntime wird vor Grant nicht aufgerufen.",
+        "E2E zeigt: nach Grant wird WorkerRuntime mit exakt gleichem arguments_digest dispatcht.",
+        "Audit enthaelt hub_direct_tool_requested, hub_direct_approval_required oder hub_direct_tool_completed plus worker_runtime_dispatch."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 5,
+    "by_status": {"todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 5, "P1": 0},
+    "by_risk": {"low": 1, "high": 4},
+    "critical_path": {"total": 5, "done": 0, "remaining": 5},
+    "milestones": {"total": 1, "todo": 1, "in_progress": 0, "blocked": 0, "done": 0}
+  }
+}
