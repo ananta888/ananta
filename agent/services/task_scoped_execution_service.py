@@ -1,21 +1,8 @@
 from __future__ import annotations
 
-import concurrent.futures
-import hashlib
-import inspect
-import json
-import re
-import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable
-from urllib.parse import urlparse
 
-from flask import current_app, g, has_app_context, has_request_context
-
-from agent.common.api_envelope import unwrap_api_envelope
-from agent.common.errors import TaskConflictError, TaskNotFoundError, WorkerForwardingError
-from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, resolve_codex_runtime_config
 from agent.common.utils.structured_action_utils import (
     extract_structured_action_fields,
     locally_repair_structured_action_output,
@@ -23,101 +10,20 @@ from agent.common.utils.structured_action_utils import (
     parse_structured_action_payload,
     sanitize_structured_output_text,
 )
-from agent.config import settings
-from agent.model_selection import normalize_legacy_model_name
-from agent.models import TaskStepExecuteRequest
-from agent.pipeline_trace import append_stage, new_pipeline_trace
-from agent.research_backend import is_research_backend, normalize_research_artifact
-from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
-from agent.runtime_policy import (
-    build_trace_record,
-    normalize_task_kind,
-    resolve_cli_backend,
-    review_policy,
-    runtime_routing_config,
-)
-from agent.security_risk import (
-    classify_command_risk,
-    classify_tool_calls_risk,
-    has_file_access_signal,
-    has_terminal_signal,
-    max_risk_level,
-)
-from agent.services.cli_session_service import get_cli_session_service
-from agent.services.context_manager_service import get_context_manager_service
-from agent.services.live_terminal_session_service import get_live_terminal_session_service
-from agent.services.instruction_layer_service import get_instruction_layer_service
-from agent.services.bridge_adapter_registry import BridgeAdapterRegistry
-from agent.services.capability_registry import CapabilityRegistry
-from agent.services.domain_action_router import DomainActionRouter
-from agent.services.domain_policy_loader import DomainPolicyLoader
-from agent.services.domain_policy_service import DomainPolicyService
-from agent.services.domain_registry import DomainRegistry
-from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
-from agent.services.repository_registry import get_repository_registry
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
-from agent.services.task_execution_service import LocalExecutionResult
-from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
-from agent.services.task_handler_registry import get_task_handler_registry
-from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
+from agent.services.live_terminal_session_service import get_live_terminal_session_service
+from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
-from agent.services.product_event_service import record_product_event
-from agent.services.worker_execution_profile_service import (
-    normalize_worker_execution_profile,
-    resolve_worker_execution_profile,
-)
-from agent.services.task_runtime_service import (
-    apply_artifact_first_completion,
-    get_local_task_status,
-    update_local_task_status,
-)
-from agent.services.task_template_resolution import resolve_task_role_template
-from agent.services.verification_service import get_verification_service
-from agent.llm_integration import build_llm_call_profile_entry, normalize_llm_call_profile_entry
-from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.services.propose_policy_service import get_propose_policy_service
-from agent.services.propose_policy import get_task_kind_preset
-from agent.utils import _extract_reason, _log_terminal_entry
-from worker.core.propose import ExecutableProposal
-
-_INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_runtime_service import update_local_task_status
 
 
-def _build_workspace_state_sync_record(
-    *,
-    task: dict,
-    materialization_manifest: object,
-    workspace_artifact_refs: list,
-    git_pushed: bool,
-) -> dict:
-    # Implementation lives in agent.services._task_scoped_workspace_sync.
-    # Re-exported here for backward compat (12-month deprecation window, see
-    # SPLIT-001 in todos/todo.refactor-large-files-split.json).
-    from agent.services._task_scoped_workspace_sync import (
-        build_workspace_state_sync_record as _impl,
-    )
-    return _impl(
-        task=task,
-        materialization_manifest=materialization_manifest,
-        workspace_artifact_refs=workspace_artifact_refs,
-        git_pushed=git_pushed,
-    )
-
-
-def build_hermes_context_blocks(
-    *,
-    task: dict,
-    request_data: object,
-    research_context: object,
-) -> list:
-    # SPLIT-001k: implementation lives in agent.services._task_scoped_hermes_context.
-    # Re-exported here for backward compat (12-month deprecation window).
-    from agent.services._task_scoped_hermes_context import (
-        build_hermes_context_blocks as _impl,
-    )
-    return _impl(task=task, request_data=request_data, research_context=research_context)
+def _build_workspace_state_sync_record(*, task, materialization_manifest, workspace_artifact_refs, git_pushed):
+    from agent.services._task_scoped_workspace_sync import build_workspace_state_sync_record as _impl
+    return _impl(task=task, materialization_manifest=materialization_manifest, workspace_artifact_refs=workspace_artifact_refs, git_pushed=git_pushed)
 
 
 @dataclass(frozen=True)
@@ -129,37 +35,7 @@ class TaskScopedRouteResponse:
 
 
 class TaskScopedExecutionService:
-    """Owns task-scoped proposal/execution orchestration so routes stay thin.
-
-    .. note::
-
-        The class is being progressively split (SPLIT-001) into focused
-        helper modules under ``agent.services._task_scoped_*`` plus this
-        thin orchestrator. The method groups below are the SRP clusters
-        the split targets. Do not add new logic into a method that belongs
-        to a different cluster; open a new helper module instead.
-
-        Cluster map (matches todos/todo.refactor-large-files-split.json):
-
-        ====================  ==============  =================================
-        Cluster               Methods (n)     Helper module
-        ====================  ==============  =================================
-        config_policy         21              _task_scoped_config_policy
-        workspace_runtime     1               _task_scoped_workspace_sync
-        domain_action         5               _task_scoped_domain_actions
-        forwarding_hub        5               _task_scoped_forwarding
-        adapters (hermes/     5               _task_scoped_adapters
-          handler)
-        cli_session (native   12              _task_scoped_runtime
-          opencode / research)
-        repair (structured    14              _task_scoped_repair
-          action)
-        citation / grounded   7               _task_scoped_citation
-          answer
-        propose + execute     2 public        this class
-        task_aux              5               this class
-        ====================  ==============  =================================
-    """
+    """Thin orchestrator delegating to ``_task_scoped_*`` helper modules."""
 
     # --- cluster: config_policy (resolvers, bounded_*, normalize) ---
     @staticmethod
@@ -391,179 +267,8 @@ class TaskScopedExecutionService:
         forwarder: Callable,
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse:
-        task = self._require_task(tid)
-        terminal_guard = self._terminal_parent_goal_guard(tid=tid, task=task, phase="propose")
-        if terminal_guard is not None:
-            return terminal_guard
-        forwarded = self._forward_task_request_if_remote(
-            tid=tid,
-            task=task,
-            endpoint=f"/tasks/{tid}/step/propose",
-            payload=request_data.model_dump(),
-            forwarder=forwarder,
-            on_success=lambda response, loaded_task: self._persist_forwarded_proposal(
-                response,
-                loaded_task,
-                request_payload=request_data.model_dump(),
-            ),
-        )
-        if forwarded is not None:
-            return forwarded
-
-        scoped_resolution = get_goal_config_runtime_service().get_effective_config(
-            goal_id=str(task.get("goal_id") or "").strip() or None,
-            task_id=tid,
-        )
-        base_cfg = {}
-        if has_app_context():
-            base_cfg = dict((current_app.config.get("AGENT_CONFIG") or {}))
-        scoped_cfg = dict(scoped_resolution.config or {})
-        # Keep explicit scoped overrides, but do not erase valid app-level defaults with None values.
-        cfg = {**base_cfg, **{k: v for k, v in scoped_cfg.items() if v is not None}}
-        base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
-        source_catalog = self._build_source_catalog_from_execution_context(
-            tid=tid,
-            task=task,
-            llm_scope="local_only",
-        )
-        if not isinstance(source_catalog, dict):
-            existing_source_catalog = dict((task.get("verification_status") or {}).get("source_catalog") or {})
-            if existing_source_catalog:
-                source_catalog = {
-                    "catalog_id": existing_source_catalog.get("source_catalog_id"),
-                    "catalog_hash": existing_source_catalog.get("source_catalog_hash"),
-                    "sources": list(existing_source_catalog.get("sources") or []),
-                }
-        citation_contract = self._render_citation_contract_prompt(source_catalog)
-        explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
-        task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
-        rc_input = getattr(request_data, "research_context", None)
-        if rc_input is None:
-            stored = dict((task or {}).get("worker_execution_context") or {}).get("research_context_input")
-            if stored:
-                rc_input = stored
-        research_context_summary = get_research_context_bridge_service().build_context(
-            task=task,
-            research_context=rc_input,
-            query=base_prompt,
-        )
-        # Research proposals already have a dedicated CLI-backed research result
-        # path. Route them there directly so we do not run generic LLM proposal
-        # strategies first and risk a slow or unreachable model HTTP call.
-        if task_kind == "research" and not str(getattr(request_data, "strategy_mode", "") or "").strip():
-            return self._propose_single_task_step(
-                tid=tid,
-                task=task,
-                request_data=request_data,
-                base_prompt=base_prompt,
-                research_context=research_context_summary,
-                cli_runner=cli_runner,
-                cfg=cfg,
-                tool_definitions_resolver=tool_definitions_resolver,
-                allow_legacy_path=True,
-            )
-        explicit_task_kind = str(
-            task.get("task_kind")
-            or getattr(request_data, "task_kind", "")
-            or ""
-        ).strip().lower()
-        legacy_cli_task_kinds = {
-            "generic",
-            "analysis",
-            "coding",
-            "implementation",
-            "ops",
-            "testing",
-            "doc",
-            "review",
-        }
-        if explicit_task_kind and task_kind in legacy_cli_task_kinds and not str(getattr(request_data, "strategy_mode", "") or "").strip():
-            routed_backend, _routing_reason = self._resolve_cli_backend(
-                task_kind,
-                requested_backend="auto",
-                agent_cfg=cfg,
-                required_capabilities=derive_required_capabilities(task, task_kind),
-            )
-            if routed_backend in SUPPORTED_CLI_BACKENDS:
-                return self._propose_single_task_step(
-                    tid=tid,
-                    task=task,
-                    request_data=request_data,
-                    base_prompt=base_prompt,
-                    research_context=research_context_summary,
-                    cli_runner=cli_runner,
-                    cfg=cfg,
-                    tool_definitions_resolver=tool_definitions_resolver,
-                    allow_legacy_path=True,
-                )
-        strategy_mode = str(getattr(request_data, "strategy_mode", "") or "").strip().lower()
-        if not strategy_mode:
-            if list(getattr(request_data, "providers", None) or []):
-                worker_profile, profile_source = resolve_worker_execution_profile(
-                    worker_execution_context=(task.get("worker_execution_context") or {}),
-                    agent_cfg=cfg,
-                )
-                return self._propose_task_with_comparisons(
-                    tid=tid,
-                    task=task,
-                    request_data=request_data,
-                    prompt=base_prompt,
-                    base_prompt=base_prompt,
-                    worker_context_meta={
-                        "worker_profile": worker_profile,
-                        "profile_source": profile_source,
-                    },
-                    research_context=research_context_summary,
-                    cli_runner=cli_runner,
-                    cfg=cfg,
-                )
-            if explicit_task_kind and not get_task_kind_preset(explicit_task_kind):
-                handler_response = self._try_handler_propose(
-                    tid=tid,
-                    task=task,
-                    task_kind=explicit_task_kind,
-                    request_data=request_data,
-                    base_prompt=base_prompt,
-                    cli_runner=cli_runner,
-                    forwarder=forwarder,
-                    tool_definitions_resolver=tool_definitions_resolver,
-                )
-                if handler_response is not None:
-                    return handler_response
-            legacy_enabled = bool(((cfg.get("task_scoped_execution") or {}).get("allow_legacy_single_step_path", False)))
-            if legacy_enabled and task_kind in legacy_cli_task_kinds and has_app_context():
-                return self._propose_single_task_step(
-                    tid=tid,
-                    task=task,
-                    request_data=request_data,
-                    base_prompt=base_prompt,
-                    research_context=research_context_summary,
-                    cli_runner=cli_runner,
-                    cfg=cfg,
-                    tool_definitions_resolver=tool_definitions_resolver,
-                    allow_legacy_path=True,
-                )
-        from agent.services._task_scoped_propose_orch import run_propose_orchestrator_path
-        return run_propose_orchestrator_path(
-            tid=tid,
-            task=task,
-            request_data=request_data,
-            base_prompt=base_prompt,
-            research_context_summary=research_context_summary,
-            task_kind=task_kind,
-            citation_contract=citation_contract,
-            cfg=cfg,
-            source_catalog=source_catalog,
-            scoped_resolution_source=scoped_resolution.source,
-            cli_runner=cli_runner,
-            tool_definitions_resolver=tool_definitions_resolver,
-            resolve_cli_backend=self._resolve_cli_backend,
-            resolve_task_propose_timeout=self._resolve_task_propose_timeout,
-            invoke_cli_runner=self._invoke_cli_runner,
-            coalesce_cli_output=self._coalesce_cli_output,
-            get_system_prompt_for_task=self._get_system_prompt_for_task,
-            allow_synthetic_llm_profile_fallback=self._allow_synthetic_llm_profile_fallback,
-        )
+        from agent.services._task_scoped_step_orchestrator import run_propose_step
+        return run_propose_step(self, tid, request_data, cli_runner=cli_runner, forwarder=forwarder, tool_definitions_resolver=tool_definitions_resolver)
 
 
     def execute_task_step(
@@ -575,162 +280,8 @@ class TaskScopedExecutionService:
         cli_runner: Callable | None = None,
         tool_definitions_resolver: Callable | None = None,
     ) -> TaskScopedRouteResponse:
-        task = self._require_task(tid)
-        terminal_guard = self._terminal_parent_goal_guard(tid=tid, task=task, phase="execute")
-        if terminal_guard is not None:
-            return terminal_guard
-        forwarded = self._forward_task_request_if_remote(
-            tid=tid,
-            task=task,
-            endpoint=f"/tasks/{tid}/step/execute",
-            payload=request_data.model_dump(),
-            forwarder=forwarder,
-            on_success=lambda response, loaded_task: self._persist_forwarded_execution(
-                tid=tid,
-                response=response,
-                task=loaded_task,
-                request_data=request_data,
-            ),
-        )
-        if forwarded is not None:
-            return forwarded
-
-        explicit_task_kind = str(
-            getattr(request_data, "task_kind", None)
-            or ((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind")
-            or task.get("task_kind")
-            or ""
-        ).strip().lower()
-        task_kind = explicit_task_kind or normalize_task_kind(
-            None,
-            request_data.command or task.get("description") or task.get("prompt") or "",
-        )
-        handler_response = self._try_handler_execute(
-            tid=tid,
-            task=task,
-            task_kind=task_kind,
-            request_data=request_data,
-            forwarder=forwarder,
-        )
-        if handler_response is not None:
-            return handler_response
-
-        # HF-T023: Hermes is proposal/review-only in phase 1 — block mutation paths
-        requested_backend = str(getattr(request_data, "requested_backend", None) or "").strip().lower()
-        if requested_backend == "hermes":
-            return TaskScopedRouteResponse(
-                data={
-                    "status": "denied",
-                    "reason": "hermes_phase1_no_execute_mutation",
-                    "task_id": tid,
-                    "task_kind": task_kind,
-                    "backend": "hermes",
-                },
-                status="denied",
-                message="Hermes cannot execute mutation tasks in phase 1",
-                code=403,
-            )
-
-        scoped_resolution = get_goal_config_runtime_service().get_effective_config(
-            goal_id=str(task.get("goal_id") or "").strip() or None,
-            task_id=tid,
-        )
-        agent_cfg = dict(scoped_resolution.config or {})
-        execution_policy = get_core_services().task_execution_service.resolve_policy(
-            request_data,
-            agent_cfg=agent_cfg,
-            source="task_execute",
-        )
-
-        command = request_data.command
-        tool_calls = request_data.tool_calls
-        reason = "Direkte Ausführung"
-        used_last_proposal = False
-        proposal_meta = dict(task.get("last_proposal") or {})
-        proposal_routing = dict(proposal_meta.get("routing") or {})
-        proposal_worker_context = dict(proposal_meta.get("worker_context") or {})
-        worker_profile = normalize_worker_execution_profile(
-            proposal_worker_context.get("worker_profile") or proposal_routing.get("worker_profile")
-        )
-        profile_source = str(
-            proposal_worker_context.get("profile_source") or proposal_routing.get("profile_source") or "agent_default"
-        ).strip().lower() or "agent_default"
-        policy_classification_summary = str(
-            proposal_routing.get("policy_classification_summary") or proposal_routing.get("reason") or ""
-        ).strip().lower() or None
-
-        if not command and not tool_calls:
-            proposal = task.get("last_proposal")
-            if not proposal:
-                raise TaskConflictError("no_proposal")
-            research_artifact = proposal.get("research_artifact") if isinstance(proposal, dict) else None
-            if isinstance(research_artifact, dict):
-                return self._execute_research_artifact(
-                    tid=tid,
-                    task=task,
-                    proposal=proposal,
-                    research_artifact=research_artifact,
-                    execution_policy=execution_policy,
-                )
-            try:
-                from worker.core.propose import validate_executable_proposal
-                command, tool_calls, _reason = validate_executable_proposal(proposal)
-                reason = _reason or proposal.get("reason", "ExecutableProposal executed")
-            except (ValueError, TypeError) as ve:
-                return TaskScopedRouteResponse(
-                    data={
-                        "status": "denied",
-                        "reason": "invalid_executable_proposal_format",
-                        "task_id": tid,
-                        "proposal_preview": str(proposal)[:200],
-                        "validation_errors": [str(ve)],
-                    },
-                    status="denied",
-                    message="ExecutableProposal validation failed",
-                    code=400,
-                )
-            used_last_proposal = True
-
-        if task_kind == "domain_action":
-            return self._execute_domain_action(
-                tid=tid,
-                task=task,
-                task_kind=task_kind,
-                request_data=request_data,
-                command=command,
-                reason=reason,
-                execution_policy=execution_policy,
-            )
-
-        if command == _INTERACTIVE_TERMINAL_FINALIZE_COMMAND:
-            return self._finalize_interactive_terminal_execution(
-                tid=tid,
-                task=task,
-                reason=reason,
-                execution_policy=execution_policy,
-            )
-
-        from agent.services._task_scoped_execute_workspace import run_execute_workspace_path
-        return run_execute_workspace_path(
-            tid=tid,
-            task=task,
-            command=command,
-            tool_calls=tool_calls,
-            reason=reason,
-            used_last_proposal=used_last_proposal,
-            task_kind=task_kind,
-            proposal_meta=proposal_meta,
-            worker_profile=worker_profile,
-            profile_source=profile_source,
-            policy_classification_summary=policy_classification_summary,
-            agent_cfg=agent_cfg,
-            execution_policy=execution_policy,
-            cli_runner=cli_runner,
-            tool_definitions_resolver=tool_definitions_resolver,
-            rewrite_runtime_command_for_workspace_tools=self._rewrite_runtime_command_for_workspace_tools,
-            attempt_repaired_execute_after_meta_block=self._attempt_repaired_execute_after_meta_block,
-            register_goal_artifact_outputs=self._register_goal_artifact_outputs,
-        )
+        from agent.services._task_scoped_step_orchestrator import run_execute_step
+        return run_execute_step(self, tid, request_data, forwarder=forwarder, cli_runner=cli_runner, tool_definitions_resolver=tool_definitions_resolver)
 
 
     @staticmethod

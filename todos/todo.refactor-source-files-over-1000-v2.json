@@ -208,8 +208,8 @@
       "id": "SPLIT-111",
       "title": "agent/services/task_execution_service.py weiter reduzieren (1244 -> <1000 Zeilen)",
       "file": "agent/services/task_execution_service.py",
-      "line_count": 1244,
-      "status": "todo",
+      "line_count": 791,
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -237,8 +237,8 @@
       "id": "SPLIT-113",
       "title": "agent/services/task_scoped_execution_service.py weiter reduzieren (1361 -> <1000 Zeilen)",
       "file": "agent/services/task_scoped_execution_service.py",
-      "line_count": 1361,
-      "status": "todo",
+      "line_count": 912,
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -641,16 +641,16 @@
       ]
     }
   ],
-  "tasks_status_summary": {
-    "total": 41,
-    "by_status": {
-      "todo": 35,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 6
-    },
-    "progress_percent_done": 14.6,
+    "tasks_status_summary": {
+      "total": 41,
+      "by_status": {
+        "todo": 33,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 8
+      },
+      "progress_percent_done": 19.5,
     "by_priority": {
       "P0": 8,
       "P1": 17,
@@ -663,17 +663,9 @@
       "low": 12
     },
     "critical_path": {
-      "total": 25,
-      "done": 6,
-      "remaining": 19
-    },
-    "milestones": {
-      "total": 5,
-      "todo": 4,
-      "in_progress": 0,
-      "partial": 1,
-      "blocked": 0,
-      "done": 0
-    }
+        "total": 25,
+        "done": 8,
+        "remaining": 17
+      }
   }
 }
