@@ -26,6 +26,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   help: { label: 'Hilfe', area: 'General', navGroup: 'Arbeiten', navOrder: 50, simpleNav: true },
   agents: { label: 'Agenten', area: 'Operate', navGroup: 'Betrieb', navOrder: 20, expertOnly: true },
   'worker-pool': { label: 'Worker Pool', area: 'Operate', navGroup: 'Betrieb', navOrder: 25, expertOnly: true },
+  'worker-loop-diagnostics': { label: 'Worker Loop Diagnostik', area: 'Operate', navGroup: 'Betrieb', navOrder: 25.5, expertOnly: true },
   sources: { label: 'Sources', area: 'Operate', navGroup: 'Betrieb', navOrder: 26, expertOnly: true },
   'goal-artifacts': { label: 'Goal Artifacts', area: 'Operate', navGroup: 'Betrieb', navOrder: 27, expertOnly: true },
   'strategy-game-demo': { label: 'Strategy Game Demo', area: 'Operate', navGroup: 'Betrieb', navOrder: 28, expertOnly: true },

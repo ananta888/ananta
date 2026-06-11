@@ -10,6 +10,15 @@ from agent.common.redaction import DEFAULT_SENSITIVE_KEYS, VisibilityLevel, reda
 from agent.db_models import AuditLogDB
 from agent.services.hub_event_service import build_hub_event
 
+# AWTCL-008: tool calling loop audit event constants
+AUDIT_WORKER_TOOL_REQUESTED = "ananta_worker_tool_requested"
+AUDIT_WORKER_TOOL_COMPLETED = "ananta_worker_tool_completed"
+AUDIT_WORKER_TOOL_BLOCKED = "ananta_worker_tool_blocked"
+AUDIT_WORKER_TOOL_APPROVAL_REQUIRED = "ananta_worker_tool_approval_required"
+# AWWPI-008/017: workspace mutation audit event constants
+AUDIT_WORKER_MUTATION_EVALUATED = "ananta_worker_mutation_evaluated"
+AUDIT_WORKER_MUTATION_BLOCKED = "ananta_worker_mutation_blocked"
+
 # AFH-T020: Artifact-first audit event constants
 AUDIT_WORKER_HANDOFF_CREATED = "worker_handoff_created"
 AUDIT_ARTIFACT_MANIFEST_COLLECTED = "artifact_manifest_collected"
@@ -58,6 +67,43 @@ def _sanitize_details(details: dict | None) -> dict:
     sanitized = redact(details or {}, VisibilityLevel.USER)
     sanitized = _drop_forbidden_raw_fields(sanitized)
     return sanitized if isinstance(sanitized, dict) else {}
+
+
+_TOOL_AUDIT_EXCERPT_CHARS = 600
+
+
+def audit_worker_tool_event(
+    action: str,
+    *,
+    tool_name: str,
+    policy_decision: str,
+    risk_class: str,
+    task_id: str | None = None,
+    session_id: str | None = None,
+    status: str | None = None,
+    detail: str | None = None,
+) -> None:
+    """AWTCL-008: audit one ToolRequest/ToolResult of the worker tool loop.
+
+    Long outputs are excerpted before they reach the audit log; raw
+    prompts/outputs never land here (log_audit additionally redacts
+    sensitive keys and forbidden raw fields).
+    """
+    excerpt = str(detail or "")
+    if len(excerpt) > _TOOL_AUDIT_EXCERPT_CHARS:
+        excerpt = excerpt[:_TOOL_AUDIT_EXCERPT_CHARS] + "…[truncated]"
+    log_audit(
+        action,
+        {
+            "task_id": task_id,
+            "session_id": session_id,
+            "tool_name": tool_name,
+            "policy_decision": policy_decision,
+            "risk_class": risk_class,
+            "status": status,
+            "detail_excerpt": excerpt or None,
+        },
+    )
 
 
 def log_audit(action: str, details: dict = None):

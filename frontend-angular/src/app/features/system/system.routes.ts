@@ -13,6 +13,7 @@ export const systemRoutes: Routes = [
   { path: 'audit-log', canActivate: [adminGuard], data: routeDataFor('audit-log'), loadComponent: () => import('../../components/audit-log.component').then(m => m.AuditLogComponent) },
   { path: 'agents', data: routeDataFor('agents'), loadComponent: () => import('../../components/agents-list.component').then(m => m.AgentsListComponent) },
   { path: 'worker-pool', data: routeDataFor('worker-pool'), loadComponent: () => import('../../components/worker-pool-dashboard.component').then(m => m.WorkerPoolDashboardComponent) },
+  { path: 'worker-loop-diagnostics', data: routeDataFor('worker-loop-diagnostics'), loadComponent: () => import('../../components/worker-loop-diagnostics.component').then(m => m.WorkerLoopDiagnosticsComponent) },
   { path: 'sources', data: routeDataFor('sources'), loadComponent: () => import('../../components/sources.component').then(m => m.SourcesComponent) },
   { path: 'goal-artifacts', data: routeDataFor('goal-artifacts'), loadComponent: () => import('../../components/goal-artifacts.component').then(m => m.GoalArtifactsComponent) },
   { path: 'strategy-game-demo', data: routeDataFor('strategy-game-demo'), loadComponent: () => import('../../components/strategy-game-demo.component').then(m => m.StrategyGameDemoComponent) },

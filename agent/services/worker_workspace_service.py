@@ -673,6 +673,213 @@ class WorkerWorkspaceService:
         _record(context_index, key="context_index_path")
         return manifest
 
+    def prepare_ananta_worker_context_files(
+        self,
+        *,
+        task: dict,
+        workspace_context: WorkerWorkspaceContext,
+        base_prompt: str,
+        system_prompt: str | None = None,
+        context_text: str | None = None,
+        research_context: dict | None = None,
+        mutation_mode: str = "read_only",
+    ) -> dict:
+        """AWWPI-005: workspace context files for the native ananta-worker.
+
+        Reuses the OpenCode preparation for AGENTS.md/task-brief/research
+        context and then writes an ananta-worker specific response contract
+        that differs per mutation_mode (read_only / controlled_workspace /
+        strict_patch_request). The OpenCode path itself stays untouched.
+        """
+        manifest = self.prepare_opencode_context_files(
+            task=task,
+            workspace_context=workspace_context,
+            base_prompt=base_prompt,
+            system_prompt=system_prompt,
+            context_text=context_text,
+            expected_output_schema=None,
+            tool_definitions=None,
+            research_context=research_context,
+            include_response_contract=False,
+        )
+        mode = str(mutation_mode or "read_only").strip().lower()
+        contract_lines = [
+            "# Ananta-Worker Response Contract",
+            "",
+            f"- mutation_mode: `{mode}`",
+            "- Antworte mit genau einem JSON-Objekt nach `ananta_worker_tool_loop.v1`",
+            "  (siehe docs/contracts/ananta-worker-tool-loop.md).",
+            "",
+        ]
+        if mode == "read_only":
+            contract_lines += [
+                "## read_only",
+                "- Du darfst KEINE Dateien ändern. Nur Analyse, Tool-Requests (read-only) und final_answer.",
+            ]
+        elif mode == "controlled_workspace":
+            contract_lines += [
+                "## controlled_workspace",
+                "- Du darfst innerhalb der erlaubten (materialisierten) Dateien direkt arbeiten:",
+                '  nutze `{"kind": "workspace_write", "files": [{"path": "...", "content": "..."}]}`.',
+                "- Der Hub prüft danach Diff, Pfade, Größe und Policy gegen die Baseline.",
+                "- Änderungen außerhalb des Manifests werden blockiert.",
+            ]
+        elif mode == "strict_patch_request":
+            contract_lines += [
+                "## strict_patch_request",
+                "- Du darfst KEINE Dateien direkt ändern.",
+                "- Liefere einzelne PatchRequests als tool_request `repo.apply_patch` oder `repo.write_file`;",
+                "  der Hub validiert und wendet jeden Patch einzeln an.",
+            ]
+        response_contract = workspace_context.workspace_dir / ".ananta" / "response-contract.md"
+        self._write_text(response_contract, "\n".join(contract_lines).strip() + "\n")
+        rel = self._safe_rel(response_contract, workspace_context.workspace_dir)
+        files = manifest.setdefault("files", [])
+        if isinstance(files, list) and rel not in files:
+            files.append(rel)
+        manifest["response_contract_path"] = rel
+        manifest["mutation_mode"] = mode
+        return manifest
+
+    def refresh_mutation_baseline(self, *, workspace_dir: Path, mutation_mode: str = "controlled_workspace") -> dict:
+        """AWWPI-006: refresh the baseline before any mutating execution.
+
+        read_only mode needs no mutating baseline. The baseline reuses the
+        interactive-terminal snapshot (ignores .ananta/rag_helper via the
+        meaningful-diff filter); a failed refresh returns a warning instead
+        of failing silently so artifact diff sync is never skipped quietly.
+        """
+        mode = str(mutation_mode or "").strip().lower()
+        if mode == "read_only":
+            return {"baseline_dir": None, "file_count": 0, "skipped": "read_only_mode"}
+        try:
+            return self.refresh_interactive_terminal_baseline(workspace_dir=workspace_dir)
+        except OSError as exc:
+            return {"baseline_dir": None, "file_count": 0, "warning": f"baseline_refresh_failed:{exc}"}
+
+    def materialize_allowed_workspace_files(
+        self,
+        *,
+        workspace_dir: Path,
+        allowed_files: list[dict],
+        source_root: Path | None = None,
+    ) -> list[dict]:
+        """AWWPI-007: copy hub-allowed files into the workspace with a manifest.
+
+        Each entry of ``allowed_files`` is {"source": rel_path_in_repo,
+        "allowed_operations": ["read"|"write"|"patch", ...]}. Files outside
+        the source root or with traversal segments are skipped with a
+        warning entry; the manifest records source, workspace_path, hash and
+        allowed_operations and is persisted to
+        ``.ananta/materialization-manifest.json``.
+        """
+        import hashlib
+
+        root = (source_root or self._repo_root()).resolve()
+        manifest: list[dict] = []
+        for row in list(allowed_files or []):
+            if not isinstance(row, dict):
+                continue
+            source_rel = str(row.get("source") or "").strip().replace("\\", "/")
+            ops = [str(item or "").strip().lower() for item in list(row.get("allowed_operations") or ["read"])]
+            if not source_rel or any(part == ".." for part in Path(source_rel).parts) or Path(source_rel).is_absolute():
+                manifest.append({"source": source_rel, "skipped": "invalid_source_path"})
+                continue
+            source_path = (root / source_rel).resolve()
+            if not self._is_within(source_path, root) or not source_path.is_file():
+                manifest.append({"source": source_rel, "skipped": "outside_source_root_or_missing"})
+                continue
+            destination = workspace_dir / source_rel
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, destination)
+            digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+            manifest.append(
+                {
+                    "source": source_rel,
+                    "workspace_path": source_rel,
+                    "hash": digest,
+                    "allowed_operations": ops,
+                }
+            )
+        self._write_json(workspace_dir / ".ananta" / "materialization-manifest.json", manifest)
+        return manifest
+
+    @staticmethod
+    def load_materialization_manifest(workspace_dir: Path) -> list[dict] | None:
+        path = Path(workspace_dir) / ".ananta" / "materialization-manifest.json"
+        if not path.exists():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return payload if isinstance(payload, list) else None
+
+    def build_workspace_diff_text(
+        self,
+        *,
+        workspace_dir: Path,
+        changed_rel_paths: list[str],
+        max_chars: int = 12000,
+    ) -> tuple[str, bool]:
+        """AWWPI-011: bounded unified diff against the baseline.
+
+        Returns (diff_text, truncated). The full diff is still synced as a
+        workspace_diff artifact by the regular sync path.
+        """
+        baseline_dir = self._interactive_terminal_baseline_dir(workspace_dir)
+        if not baseline_dir.exists():
+            return "", False
+        chunks: list[str] = []
+        for rel in list(changed_rel_paths or []):
+            before_lines, before_note = self._read_text_lines_for_diff(baseline_dir / rel)
+            after_lines, after_note = self._read_text_lines_for_diff(workspace_dir / rel)
+            if before_note or after_note:
+                chunks.append(f"diff --ananta {rel}\n# {before_note or after_note}\n")
+                continue
+            diff_text = "".join(
+                difflib.unified_diff(
+                    before_lines or [], after_lines or [], fromfile=f"a/{rel}", tofile=f"b/{rel}", lineterm=""
+                )
+            )
+            if diff_text:
+                chunks.append(diff_text + "\n")
+        payload = "".join(chunks).strip()
+        if max_chars > 0 and len(payload) > max_chars:
+            return payload[: max(1, max_chars - 30)] + "\n…[diff truncated, see artifact]", True
+        return payload, False
+
+    @staticmethod
+    def load_mutation_report(workspace_dir: Path) -> dict | None:
+        path = Path(workspace_dir) / ".ananta" / "mutation-report.json"
+        if not path.exists():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    @classmethod
+    def _mutation_sync_filter(cls, *, workspace_dir: Path, changed_rel_paths: list[str]) -> tuple[list[str], str | None]:
+        """AWWPI-017: drop blocked paths (or everything on policy_blocked).
+
+        Without a mutation report the change list passes through unchanged
+        so non-mutation workers keep their existing sync behavior.
+        """
+        report = cls.load_mutation_report(workspace_dir)
+        if not report:
+            return list(changed_rel_paths or []), None
+        outcome = str(report.get("outcome") or "")
+        policy = dict(report.get("final_policy_result") or {})
+        if outcome == "policy_blocked" or str(policy.get("status") or "") == "policy_violation":
+            blocked = {str(row.get("path") or "") for row in list(policy.get("blocked_changes") or [])}
+            remaining = [rel for rel in list(changed_rel_paths or []) if rel not in blocked]
+            if outcome == "policy_blocked":
+                return [], "mutation_policy_blocked"
+            return remaining, "mutation_blocked_paths_filtered"
+        return list(changed_rel_paths or []), None
+
     @staticmethod
     def snapshot_directory(workspace_dir: Path) -> dict[str, tuple[int, int]]:
         return WorkerWorkspaceService._snapshot_tree(workspace_dir, tracked_only=True)
@@ -782,6 +989,12 @@ class WorkerWorkspaceService:
     ) -> dict | None:
         if not sync_cfg.get("enabled") or not sync_cfg.get("sync_to_hub"):
             return None
+        changed_rel_paths, sync_note = self._mutation_sync_filter(
+            workspace_dir=workspace_dir, changed_rel_paths=changed_rel_paths
+        )
+        if sync_note == "mutation_policy_blocked":
+            logging.warning("workspace diff artifact skipped: mutation policy blocked (task %s)", task_id)
+            return None
         baseline_dir = self._interactive_terminal_baseline_dir(workspace_dir)
         if not baseline_dir.exists():
             return None
@@ -846,6 +1059,12 @@ class WorkerWorkspaceService:
         sync_cfg: dict,
     ) -> list[dict]:
         if not sync_cfg.get("enabled") or not sync_cfg.get("sync_to_hub"):
+            return []
+        changed_rel_paths, sync_note = self._mutation_sync_filter(
+            workspace_dir=workspace_dir, changed_rel_paths=changed_rel_paths
+        )
+        if sync_note == "mutation_policy_blocked":
+            logging.warning("workspace file sync skipped: mutation policy blocked (task %s)", task_id)
             return []
         max_changed_files = int(sync_cfg.get("max_changed_files") or 30)
         max_file_size = int(sync_cfg.get("max_file_size_bytes") or (2 * 1024 * 1024))

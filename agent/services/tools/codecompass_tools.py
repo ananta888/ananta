@@ -1,0 +1,205 @@
+"""AWTCL-014: CodeCompass tools for the ananta-worker tool loop.
+
+``codecompass.search`` reuses the same RagHelper retrieval path as
+``ContextDeliveryService``; ``codecompass.expand_graph`` and
+``codecompass.architecture_query`` go through the CodeCompass graph
+store of the latest completed knowledge index (or an explicitly
+requested one). All results are bounded; missing indexes degrade to an
+error ToolResult with a warning instead of raising.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from agent.services.tools._evidence import (
+    EVIDENCE_KIND_GRAPH_PATH,
+    EVIDENCE_KIND_RETRIEVAL_CHUNK,
+    build_evidence_entry,
+    build_tool_result,
+)
+
+_GRAPH_INDEX_FILENAME = "codecompass-graph.jsonl"
+_MAX_SEARCH_LIMIT = 20
+_MAX_GRAPH_NODES = 40
+
+
+def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return build_tool_result(
+            tool_name="codecompass.search", tool_call_id=tool_call_id, status="error", error="query_required"
+        )
+    limit = max(1, min(int(args.get("limit") or 8), _MAX_SEARCH_LIMIT))
+    try:
+        from agent.services.rag_helper_index_service import get_rag_helper_index_service
+
+        chunks = get_rag_helper_index_service().retrieve(profile=None, query=query, limit=limit)
+    except Exception as exc:
+        return build_tool_result(
+            tool_name="codecompass.search",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=f"retrieval_unavailable:{exc}",
+            warnings=["codecompass_index_unavailable"],
+        )
+    evidence: list[dict[str, Any]] = []
+    for chunk in list(chunks or [])[:limit]:
+        if not isinstance(chunk, dict):
+            continue
+        entry, _ = build_evidence_entry(
+            kind=EVIDENCE_KIND_RETRIEVAL_CHUNK,
+            path=str(chunk.get("path") or chunk.get("source") or ""),
+            excerpt=str(chunk.get("content") or chunk.get("text") or chunk.get("snippet") or ""),
+            score=float(chunk.get("score") or 0.0),
+            source=str(chunk.get("source") or "codecompass"),
+            max_excerpt_chars=1500,
+        )
+        evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.search",
+        tool_call_id=tool_call_id,
+        status="ok",
+        evidence=evidence,
+        data={"hit_count": len(evidence)},
+        warnings=([] if evidence else ["no_results"]),
+    )
+
+
+def _resolve_graph_store(arguments: dict[str, Any]):
+    """Open the graph store for the requested or latest completed index."""
+    from agent.services.repository_registry import get_repository_registry
+
+    repo = get_repository_registry().knowledge_index_repo
+    requested = str((arguments or {}).get("knowledge_index_id") or "").strip()
+    candidates = []
+    if requested:
+        index = repo.get_by_id(requested)
+        if index is not None:
+            candidates = [index]
+    else:
+        candidates = list(repo.list_completed() or [])
+    for index in candidates:
+        output_dir = str(getattr(index, "output_dir", "") or "").strip()
+        if not output_dir:
+            continue
+        index_path = Path(output_dir) / _GRAPH_INDEX_FILENAME
+        if not index_path.exists():
+            continue
+        from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
+
+        return CodeCompassGraphStore(index_path=index_path), str(getattr(index, "id", "") or "")
+    return None, None
+
+
+def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    node = str(args.get("node") or "").strip()
+    if not node:
+        return build_tool_result(
+            tool_name="codecompass.expand_graph", tool_call_id=tool_call_id, status="error", error="node_required"
+        )
+    try:
+        store, index_id = _resolve_graph_store(args)
+    except Exception as exc:
+        store, index_id = None, None
+        unavailable_reason = str(exc)
+    else:
+        unavailable_reason = "no_completed_graph_index"
+    if store is None:
+        return build_tool_result(
+            tool_name="codecompass.expand_graph",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=f"graph_unavailable:{unavailable_reason}",
+            warnings=["codecompass_graph_unavailable"],
+        )
+    from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
+
+    profile = str(args.get("profile") or "bugfix_local").strip() or "bugfix_local"
+    expansion = expand_codecompass_graph(store=store, seed_node_ids=[node], profile=profile)
+    nodes = list(expansion.get("nodes") or [])[:_MAX_GRAPH_NODES]
+    evidence: list[dict[str, Any]] = []
+    for row in nodes:
+        entry, _ = build_evidence_entry(
+            kind=EVIDENCE_KIND_GRAPH_PATH,
+            path=str(row.get("file") or ""),
+            excerpt=f"{row.get('kind')}:{row.get('name') or row.get('id')}",
+            source="codecompass_graph",
+            max_excerpt_chars=300,
+        )
+        evidence.append(entry)
+    warnings = [str(item) for item in list(expansion.get("warnings") or [])]
+    if len(list(expansion.get("nodes") or [])) > _MAX_GRAPH_NODES:
+        warnings.append("graph_nodes_truncated")
+    return build_tool_result(
+        tool_name="codecompass.expand_graph",
+        tool_call_id=tool_call_id,
+        status="ok",
+        evidence=evidence,
+        data={
+            "knowledge_index_id": index_id,
+            "node_count": len(nodes),
+            "paths": list(expansion.get("paths") or [])[:_MAX_GRAPH_NODES],
+            "allowed_edge_types": list(expansion.get("allowed_edge_types") or []),
+        },
+        warnings=warnings,
+    )
+
+
+def codecompass_architecture_query(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    query_type = str(args.get("query_type") or args.get("question") or "").strip()
+    seed = str(args.get("seed") or "").strip()
+    if not query_type:
+        return build_tool_result(
+            tool_name="codecompass.architecture_query",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="query_type_required",
+        )
+    try:
+        store, index_id = _resolve_graph_store(args)
+    except Exception as exc:
+        store, index_id = None, None
+        unavailable_reason = str(exc)
+    else:
+        unavailable_reason = "no_completed_graph_index"
+    if store is None:
+        return build_tool_result(
+            tool_name="codecompass.architecture_query",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=f"graph_unavailable:{unavailable_reason}",
+            warnings=["codecompass_graph_unavailable"],
+        )
+    from worker.retrieval.codecompass_architecture_query import run_architecture_query
+
+    result = run_architecture_query(
+        store=store,
+        query_type=query_type,
+        seed=seed,
+        field=str(args.get("field") or "").strip() or None,
+        depth=int(args["depth"]) if args.get("depth") is not None else None,
+        direction=str(args.get("direction") or "").strip() or None,
+    )
+    evidence: list[dict[str, Any]] = []
+    for row in list(result.get("results") or [])[:10]:
+        entry, _ = build_evidence_entry(
+            kind=EVIDENCE_KIND_GRAPH_PATH,
+            path=str((row.get("node") or {}).get("file") or row.get("file") or ""),
+            excerpt=str(row.get("summary") or row.get("role") or row)[:500],
+            source="codecompass_architecture_query",
+            max_excerpt_chars=500,
+        )
+        evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.architecture_query",
+        tool_call_id=tool_call_id,
+        status="ok" if not result.get("error") else "error",
+        evidence=evidence,
+        data={"knowledge_index_id": index_id, "query_result": result},
+        warnings=[str(item) for item in list(result.get("warnings") or [])],
+        error=str(result.get("error") or "") or None,
+    )

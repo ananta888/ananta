@@ -446,6 +446,60 @@ def build_default_agent_config() -> dict:
                 "task_kinds": [],
             },
         },
+        # AWTCL-004: hub-controlled tool calling loop for ananta-worker.
+        # Disabled by default; the existing context batch loop stays the fallback.
+        "ananta_worker_tool_loop": {
+            "enabled": False,
+            "schema": "ananta_worker_tool_loop.v1",
+            "max_iterations": 6,
+            "max_tool_calls": 12,
+            "max_tool_result_chars": 8000,
+            "max_invalid_outputs": 2,
+            "allowed_tools": [
+                "repo.list_files",
+                "repo.read_file_range",
+                "repo.grep",
+                "codecompass.search",
+                "codecompass.expand_graph",
+                "codecompass.architecture_query",
+                "git.status",
+                "git.diff_readonly",
+            ],
+        },
+        # AWWPI-013: workspace mutation loop for ananta-worker. Disabled by
+        # default; mutation_mode defaults to read_only and can be derived per
+        # task_kind. Risk rules escalate controlled_workspace to
+        # strict_patch_request.
+        "ananta_worker_workspace_mutation": {
+            "enabled": False,
+            "mutation_mode": "read_only",
+            "mode_by_task_kind": {
+                "coding": "controlled_workspace",
+                "bugfix": "controlled_workspace",
+                "refactor": "controlled_workspace",
+                "test": "controlled_workspace",
+                "doc": "controlled_workspace",
+                "analysis": "read_only",
+                "review": "read_only",
+                "research": "read_only",
+                "plan_only": "read_only",
+            },
+            "escalate_to_strict_risks": ["high", "critical"],
+            "strict_path_markers": [
+                "auth", "oidc", "keycloak", "deployment", "kubernetes",
+                "secret", "security", ".github", "docker-compose",
+            ],
+            "require_materialized_scope": True,
+            "allowed_new_file_globs": [],
+            "max_feedback_iterations": 4,
+            "max_patch_attempts_per_file": 3,
+            "max_invalid_outputs": 2,
+            "max_diff_chars": 12000,
+            "max_write_file_bytes": 262144,
+            "allowlisted_test_commands": [],
+            "test_timeout_seconds": 120,
+            "test_output_max_chars": 4000,
+        },
         "propose_policy": {
             "context_compaction_enabled": True,
             "context_compaction_required": False,

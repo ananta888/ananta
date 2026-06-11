@@ -156,6 +156,46 @@ def _run_ananta_worker_iterative(
     max_iterations: int = 8,
 ) -> tuple[int, str, str]:
     """Iterative execution loop for ananta-worker."""
+    # AWWPI-013/014: workspace mutation loop takes precedence when enabled and
+    # the resolved mutation mode is not read_only. Falls back to the batch loop
+    # on any setup error so existing behavior never breaks.
+    try:
+        from agent.common.sgpt_workspace_mutation import (
+            get_workspace_mutation_config,
+            run_ananta_worker_workspace_mutation,
+        )
+
+        mutation_cfg = get_workspace_mutation_config(workdir)
+        if mutation_cfg.get("enabled") and workdir and str(mutation_cfg.get("resolved_mode") or "read_only") != "read_only":
+            return run_ananta_worker_workspace_mutation(
+                prompt,
+                workdir,
+                options=options,
+                timeout=timeout,
+                model=model,
+                config=mutation_cfg,
+            )
+    except Exception:
+        log.warning("workspace mutation loop unavailable, falling back", exc_info=True)
+
+    # AWTCL-010/011: hub-controlled tool loop behind a feature flag; the
+    # context batch loop below stays the default and the fallback.
+    try:
+        from agent.common.sgpt_tool_loop import get_tool_loop_config, run_ananta_worker_tool_loop
+
+        tool_loop_cfg = get_tool_loop_config()
+        if tool_loop_cfg.get("enabled"):
+            return run_ananta_worker_tool_loop(
+                prompt,
+                workdir,
+                options=options,
+                timeout=timeout,
+                model=model,
+                config=tool_loop_cfg,
+            )
+    except Exception:
+        log.warning("tool loop unavailable, falling back to batch loop", exc_info=True)
+
     files_per_batch = _bounded_worker_int("ananta_worker_context_files_per_batch", files_per_batch, 1, 20)
     per_file_chars = _bounded_worker_int("ananta_worker_context_per_file_chars", per_file_chars, 500, 40_000)
     max_iterations = _bounded_worker_int("ananta_worker_context_max_iterations", max_iterations, 1, 32)
