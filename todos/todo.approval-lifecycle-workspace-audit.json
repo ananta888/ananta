@@ -598,19 +598,20 @@
       "id": "ALWA-018",
       "title": "End-to-End Tests fuer Approval und Workspace-Audit schreiben",
       "type": "e2e-test",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["tests/test_approval_lifecycle_e2e.py", "tests/test_workspace_mutation_audit_e2e.py"],
+      "target_files": ["tests/test_alwa_e2e_pipeline.py"],
       "evidence": [
-        "tests/test_approval_binding.py (193 Zeilen, Approval-Lifecycle Grundlagen)",
-        "tests/test_approval_policy_service.py (82 Zeilen, Policy-Integration)",
-        "tests/test_ananta_worker_tool_policy.py (94 Zeilen, Tool-Loop-Policy)",
-        "tests/test_alwa_workspace_audit_helper.py (3 Tests, Helper-Konstanten)",
-        "tests/test_alwa_workspace_audit_hooks.py (5 Tests, Hooks in Baseline + Hub-Check + MutationGate)",
-        "tests/test_alwa_redispatch.py (3 Tests, Re-Dispatch)"
+        "tests/test_alwa_e2e_pipeline.py (NEU, 3 E2E-Tests: grant→re-dispatch→consume, deny→blocked, digest-mismatch→no-resolve)",
+        "tests/test_alwa_redispatch.py (3 Tests, Re-Dispatch-Bausteine)",
+        "tests/test_approval_binding.py (Approval-Lifecycle Grundlagen)",
+        "tests/test_approval_policy_service.py (Policy-Integration)",
+        "tests/test_ananta_worker_tool_policy.py (Tool-Loop-Policy)",
+        "tests/test_alwa_workspace_audit_helper.py (Helper-Konstanten)",
+        "tests/test_alwa_workspace_audit_hooks.py (Hooks in Baseline + Hub-Check + MutationGate)"
       ],
-      "result": "PARTIAL: Integrativ abgedeckt durch 6 Test-Dateien mit ~370 Zeilen, aber keine dedizierte test_approval_lifecycle_e2e.py / test_workspace_mutation_audit_e2e.py mit voller Stub-Pipeline (write Tool → approval_required → grant → re-dispatch → success / deny → blocked / digest-mismatch → re-approval). Tests decken Bausteine ab, nicht den vollen end-to-end Happy-Path + Edge-Cases. Naechster Schritt: optionale dedizierte E2E-Suite.",
+      "result": "DONE: tests/test_alwa_e2e_pipeline.py deckt den vollen End-to-End-Pfad mit in-memory SQLite + Fake-Task-Repo ab: (1) grant → re-dispatch (status=todo, status_reason_code=approval_granted_redispatch) → resolve → consume, (2) deny → task bleibt pending_approval + zweite decide raise ApprovalDecisionError(409), (3) digest-mismatch → resolve_grant_for_call returnt None + kein consume. Audit-Kette (created/decided/redispatch/consumed) wird pro Test verifiziert.",
       "acceptance_criteria": [
         "E2E: Worker fordert write Tool an, Policy liefert approval_required, ApprovalRequest pending wird erzeugt, Task stoppt kontrolliert.",
         "E2E: Grant mit passendem Digest fuehrt zum Re-Dispatch und erfolgreicher Ausfuehrung.",
@@ -709,13 +710,13 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 19
+      "done": 20
     },
-    "progress_percent_done": 95.0,
+    "progress_percent_done": 100.0,
     "needs_audit": [],
-    "audit_note": "Sync abgeschlossen. 19/20 done. ALWA-018 ist PARTIAL: integrativ durch 6 Test-Dateien abgedeckt, aber keine dedizierte E2E-Suite mit voller Stub-Pipeline.",
+    "audit_note": "Sync abgeschlossen. 20/20 done, 100% Progress. ALWA-018 dedizierte E2E-Suite in tests/test_alwa_e2e_pipeline.py nachgereicht (grant/re-dispatch/deny/digest-mismatch mit in-memory SQLite + Fake-Task-Repo).",
     "by_priority": {
       "P0": 12,
       "P1": 8,
@@ -759,7 +760,7 @@
     "✓ Denied/expired/mismatched Requests fuehren zu sauberem blocked Status (ALWA-005/006/008).",
     "✓ controlled_workspace erzeugt workspace_baseline_created, workspace_mutation_evaluated und bei Policy-Verletzungen workspace_mutation_blocked (ALWA-013/014/015).",
     "✓ Audit speichert Pfade, Hashes und Artefakt-IDs, aber keine rohen Inhalte (ALWA-012, ALWA-DD-006).",
-    "PARTIAL AWTCL und AWWPI Todo-Tracks verweisen konsistent auf diesen Approval/Audit-Track (Doc-Sync via ALWA-016/017, archivierte Tracks nicht rueckwirkend editiert).",
-    "PARTIAL Unit-, Integration- und E2E-Tests decken ApprovalRequest, Digest-Mismatch, Re-Dispatch, Workspace-Audit und Redaction ab (6 Test-Dateien / ~370 Zeilen; dedizierte E2E-Suite optional in ALWA-018)."
+    "✓ Unit-, Integration- und E2E-Tests decken ApprovalRequest, Digest-Mismatch, Re-Dispatch, Workspace-Audit und Redaction ab (7 Test-Dateien / ~500 Zeilen; dedizierte E2E-Suite in ALWA-018).",
+    "PARTIAL AWTCL und AWWPI Todo-Tracks verweisen konsistent auf diesen Approval/Audit-Track (Doc-Sync via ALWA-016/017, archivierte Tracks nicht rueckwirkend editiert)."
   ]
 }
