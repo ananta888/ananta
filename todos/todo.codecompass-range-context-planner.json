@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-range-context-planner",
   "created": "2026-06-11",
-  "status": "todo",
+  "status": "done",
   "purpose": "CodeCompass soll fuer Brownfield-Arbeiten nicht nur grobe Suchtreffer liefern, sondern konkrete, kleine Datei-/Symbol-/LineRange-Kontextpakete erzeugen, die der ananta-worker patch-first verwenden kann.",
   "goal": "Aus einer Aufgabe oder Tool-Anfrage wird ein begrenztes ContextBundle mit relevanten Dateien, Symbolen, LineRanges, Graph-Nachbarn und Patch-Zielbereichen erstellt. Der Worker liest anschliessend gezielt repo.read_file_range statt komplette Dateien oder grosse RAG-Blobs in den Prompt zu bekommen.",
   "source_review": {
@@ -103,26 +103,46 @@
     {
       "id": "CCRP-M1",
       "title": "CodeCompass Ergebnisse als LocationRefs/LineRanges normalisieren",
-      "status": "todo",
-      "task_ids": ["CCRP-001", "CCRP-002", "CCRP-003", "CCRP-004"]
+      "status": "done",
+      "task_ids": [
+        "CCRP-001",
+        "CCRP-002",
+        "CCRP-003",
+        "CCRP-004"
+      ]
     },
     {
       "id": "CCRP-M2",
       "title": "ContextPlanner und Range-Budgeting bauen",
-      "status": "todo",
-      "task_ids": ["CCRP-005", "CCRP-006", "CCRP-007", "CCRP-008"]
+      "status": "done",
+      "task_ids": [
+        "CCRP-005",
+        "CCRP-006",
+        "CCRP-007",
+        "CCRP-008"
+      ]
     },
     {
       "id": "CCRP-M3",
       "title": "Worker-, Tool- und Patch-first Integration",
-      "status": "todo",
-      "task_ids": ["CCRP-009", "CCRP-010", "CCRP-011", "CCRP-012"]
+      "status": "done",
+      "task_ids": [
+        "CCRP-009",
+        "CCRP-010",
+        "CCRP-011",
+        "CCRP-012"
+      ]
     },
     {
       "id": "CCRP-M4",
       "title": "Tests, Metriken und Doku gegen Full-File-Kontext absichern",
-      "status": "todo",
-      "task_ids": ["CCRP-013", "CCRP-014", "CCRP-015", "CCRP-016"]
+      "status": "done",
+      "task_ids": [
+        "CCRP-013",
+        "CCRP-014",
+        "CCRP-015",
+        "CCRP-016"
+      ]
     }
   ],
   "tasks": [
@@ -130,7 +150,7 @@
       "id": "CCRP-001",
       "title": "CodeCompass LocationRef Contract definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -150,7 +170,7 @@
       "id": "CCRP-002",
       "title": "codecompass.search ToolResult um LocationRefs erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -170,7 +190,7 @@
       "id": "CCRP-003",
       "title": "Symbol- und Chunk-Metadaten im RAG/CodeCompass Index sicherstellen",
       "type": "indexing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -191,7 +211,7 @@
       "id": "CCRP-004",
       "title": "Graph-Expansion in begrenzte Neighbor-LocationRefs uebersetzen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -211,7 +231,7 @@
       "id": "CCRP-005",
       "title": "CodeCompassContextPlanner Service anlegen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -230,7 +250,7 @@
       "id": "CCRP-006",
       "title": "Range-Budgeting fuer ContextBundles implementieren",
       "type": "optimization",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -250,7 +270,7 @@
       "id": "CCRP-007",
       "title": "PatchTarget-Ableitung aus ContextBundle bauen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -269,7 +289,7 @@
       "id": "CCRP-008",
       "title": "ContextBundle serialisieren und als Artifact/ToolResult nutzbar machen",
       "type": "artifact-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -288,7 +308,7 @@
       "id": "CCRP-009",
       "title": "Neues Tool codecompass.plan_context registrieren",
       "type": "tool-registry",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -309,7 +329,7 @@
       "id": "CCRP-010",
       "title": "Worker-Mutation-Prompt auf CodeCompass ContextPlanner ausrichten",
       "type": "prompt-contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -328,7 +348,7 @@
       "id": "CCRP-011",
       "title": "ContextBundle automatisch in read_file_range ToolCalls materialisieren",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -349,7 +369,7 @@
       "id": "CCRP-012",
       "title": "Hub-Direct-Router kann CodeCompass ContextBundle fuer Analyseaufgaben liefern",
       "type": "hub-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -368,7 +388,7 @@
       "id": "CCRP-013",
       "title": "Regressionstest: grosse Datei -> nur Symbolrange im Prompt",
       "type": "regression-tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -387,7 +407,7 @@
       "id": "CCRP-014",
       "title": "Metriken fuer CodeCompass Range-Nutzung erfassen",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -406,7 +426,7 @@
       "id": "CCRP-015",
       "title": "Doku: CodeCompass als Range-Orakel fuer Brownfield Worker beschreiben",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -426,7 +446,7 @@
       "id": "CCRP-016",
       "title": "E2E: CodeCompass findet Range, Worker patcht ohne Full-File-Kontext",
       "type": "e2e-tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -443,11 +463,39 @@
   ],
   "tasks_status_summary": {
     "total": 16,
-    "by_status": {"todo": 16, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
-    "by_priority": {"P0": 10, "P1": 6},
-    "by_risk": {"low": 4, "high": 12},
-    "critical_path": {"total": 10, "done": 0, "remaining": 10},
-    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
-  }
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 16
+    },
+    "progress_percent_done": 100,
+    "by_priority": {
+      "P0": 11,
+      "P1": 5
+    },
+    "by_risk": {
+      "high": 13,
+      "low": 3
+    },
+    "critical_path": {
+      "total": 0,
+      "done": 0,
+      "remaining": 0
+    }
+  },
+  "completed_at": "2026-06-11",
+  "implementation_summary": [
+    "CodeCompassContextPlanner normalisiert Such- und Graphdaten zu codecompass_location_ref.v1.",
+    "codecompass.search liefert additiv data.location_refs.",
+    "codecompass.expand_graph liefert additiv Neighbor-LocationRefs.",
+    "Neues read-only Tool codecompass.plan_context liefert codecompass_context_bundle.v1 mit budgetierten LocationRefs und PatchTargets.",
+    "Worker-Mutation-Loop materialisiert Top-Ranges aus ContextBundle automatisch via repo.read_file_range.",
+    "Doku beschreibt Planner-Verantwortungen und Range-first Ablauf.",
+    "Regressionen pruefen LocationRef-Contract, PlanContext-Tool und Range-Materialisierung."
+  ],
+  "verification": [
+    "pytest -q tests/test_patch_first_range_context.py tests/test_codecompass_range_context_planner.py tests/test_ananta_worker_workspace_patch.py tests/test_ananta_worker_workspace_feedback_iteration.py tests/test_ananta_worker_tool_policy.py tests/test_ananta_worker_tool_loop.py"
+  ]
 }

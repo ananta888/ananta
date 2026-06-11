@@ -74,6 +74,7 @@ class AnantaToolPolicyService:
         tool_name: str | None,
         arguments: dict[str, Any] | None = None,
         allowed_tools: list[str] | None = None,
+        approvals: list[str] | None = None,
         mutation_mode: str = "read_only",
         task_id: str | None = None,
         goal_id: str | None = None,
@@ -152,7 +153,8 @@ class AnantaToolPolicyService:
                     risk_class=spec.risk_class,
                     tool_name=name,
                 )
-            if spec.policy_requirements.get("requires_approval") and not self._has_request_grant(
+            legacy_approval = name in {str(item or "").strip() for item in list(approvals or [])}
+            if spec.policy_requirements.get("requires_approval") and not legacy_approval and not self._has_request_grant(
                 tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id
             ):
                 return ToolPolicyDecision(
@@ -182,7 +184,8 @@ class AnantaToolPolicyService:
                     risk_class=spec.risk_class,
                     tool_name=name,
                 )
-            if spec.policy_requirements.get("requires_approval") and not self._has_request_grant(
+            legacy_approval = name in {str(item or "").strip() for item in list(approvals or [])}
+            if spec.policy_requirements.get("requires_approval") and not legacy_approval and not self._has_request_grant(
                 tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id
             ):
                 return ToolPolicyDecision(

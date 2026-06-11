@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-worker-patch-first-range-context",
   "created": "2026-06-11",
-  "status": "todo",
+  "status": "done",
   "purpose": "Der ananta-worker soll konsequent patch-, diff-, grep- und range-basiert arbeiten, damit LLMs nicht unnoetig ganze Dateien lesen oder komplette Dateien neu schreiben muessen.",
   "goal": "Fuer Brownfield-Codeaenderungen soll der Worker standardmaessig kleine Ausschnitte suchen/lesen, gezielte Patches erzeugen, Diffs gegen Baseline pruefen und nur in eng begrenzten Ausnahmefaellen ganze Dateien lesen oder ersetzen. strict_patch_request wird zum bevorzugten Modus fuer Coding/Refactor/Bugfix; controlled_workspace bleibt nur fuer kleine, explizit erlaubte Faelle.",
   "source_review": {
@@ -68,26 +68,48 @@
     {
       "id": "APR-M1",
       "title": "Range-/Search-Tools speicherschonend und evidence-begrenzt machen",
-      "status": "todo",
-      "task_ids": ["APR-001", "APR-002", "APR-003", "APR-004"]
+      "status": "done",
+      "task_ids": [
+        "APR-001",
+        "APR-002",
+        "APR-003",
+        "APR-004"
+      ]
     },
     {
       "id": "APR-M2",
       "title": "Patch-first Mutation Mode als Default und Policy absichern",
-      "status": "todo",
-      "task_ids": ["APR-005", "APR-006", "APR-007", "APR-008", "APR-009"]
+      "status": "done",
+      "task_ids": [
+        "APR-005",
+        "APR-006",
+        "APR-007",
+        "APR-008",
+        "APR-009"
+      ]
     },
     {
       "id": "APR-M3",
       "title": "Worker-Prompts, Feedback und Tests auf grep/range/patch/diff ausrichten",
-      "status": "todo",
-      "task_ids": ["APR-010", "APR-011", "APR-012", "APR-013", "APR-014"]
+      "status": "done",
+      "task_ids": [
+        "APR-010",
+        "APR-011",
+        "APR-012",
+        "APR-013",
+        "APR-014"
+      ]
     },
     {
       "id": "APR-M4",
       "title": "Diagnostik, Metriken und E2E gegen Full-File-Regressions",
-      "status": "todo",
-      "task_ids": ["APR-015", "APR-016", "APR-017", "APR-018"]
+      "status": "done",
+      "task_ids": [
+        "APR-015",
+        "APR-016",
+        "APR-017",
+        "APR-018"
+      ]
     }
   ],
   "tasks": [
@@ -95,7 +117,7 @@
       "id": "APR-001",
       "title": "repo.read_file_range intern streaming-/range-basiert umbauen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -114,7 +136,7 @@
       "id": "APR-002",
       "title": "repo.grep um Kontextfenster optional erweitern statt Datei voll zu lesen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -133,7 +155,7 @@
       "id": "APR-003",
       "title": "Evidence-Output fuer Datei- und Diff-Tools zentral begrenzen und auditierbar machen",
       "type": "hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -154,7 +176,7 @@
       "id": "APR-004",
       "title": "ToolResult-Daten fuer grosse Dateien um Hash-/Range-Metadaten erweitern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -173,7 +195,7 @@
       "id": "APR-005",
       "title": "Default mutation_mode fuer Coding/Bugfix/Refactor auf strict_patch_request umstellen",
       "type": "configuration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -192,7 +214,7 @@
       "id": "APR-006",
       "title": "controlled_workspace auf kleine Dateien und explizite Allowlist begrenzen",
       "type": "security-policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -213,7 +235,7 @@
       "id": "APR-007",
       "title": "repo.write_file replace_existing schaerfer gegen Full-File-Rewrite absichern",
       "type": "security-hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -233,7 +255,7 @@
       "id": "APR-008",
       "title": "PatchRequest-Varianten vereinheitlichen und replace_range sauber definieren",
       "type": "contract-implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -253,7 +275,7 @@
       "id": "APR-009",
       "title": "Patch-Anwendung robuster gegen Kontextdrift und Mehrfachhunks testen",
       "type": "testing-hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -272,7 +294,7 @@
       "id": "APR-010",
       "title": "Mutation-Prompt auf grep -> range -> patch -> diff -> test Ablauf haerten",
       "type": "prompt-contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -292,7 +314,7 @@
       "id": "APR-011",
       "title": "Feedback-Evidence deduplizieren und klein halten",
       "type": "optimization",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -310,7 +332,7 @@
       "id": "APR-012",
       "title": "Tool-Loop allowed_tools fuer patch-first Workflow erweitern",
       "type": "configuration-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -329,7 +351,7 @@
       "id": "APR-013",
       "title": "CodeCompass/RAG Kontext bevorzugt als Dateipfad+Range statt Volltext einspeisen",
       "type": "rag-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -349,7 +371,7 @@
       "id": "APR-014",
       "title": "Tests fuer 'keine Full-File-Prompts' im Worker schreiben",
       "type": "regression-tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -368,7 +390,7 @@
       "id": "APR-015",
       "title": "Metriken fuer Patch-first und Context-Sparsamkeit einfuehren",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -388,7 +410,7 @@
       "id": "APR-016",
       "title": "Mutation-Report um Patch-first Diagnose erweitern",
       "type": "diagnostics",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -406,7 +428,7 @@
       "id": "APR-017",
       "title": "E2E fuer grossen Refactor mit grep/range/patch/diff schreiben",
       "type": "e2e-tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -424,7 +446,7 @@
       "id": "APR-018",
       "title": "Doku fuer patch-first Arbeitsweise des ananta-worker aktualisieren",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -444,11 +466,39 @@
   ],
   "tasks_status_summary": {
     "total": 18,
-    "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
-    "by_priority": {"P0": 10, "P1": 8},
-    "by_risk": {"low": 7, "high": 11},
-    "critical_path": {"total": 10, "done": 0, "remaining": 10},
-    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
-  }
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 18
+    },
+    "progress_percent_done": 100,
+    "by_priority": {
+      "P0": 9,
+      "P1": 9
+    },
+    "by_risk": {
+      "high": 12,
+      "low": 6
+    },
+    "critical_path": {
+      "total": 0,
+      "done": 0,
+      "remaining": 0
+    }
+  },
+  "completed_at": "2026-06-11",
+  "implementation_summary": [
+    "repo.read_file_range liest intern zeilenweise und liefert Datei-/Range-Hashes.",
+    "repo.grep unterstuetzt bounded context_before/context_after ohne Full-File-Prompt.",
+    "Coding/Bugfix/Refactor/Test Defaults laufen ueber strict_patch_request; controlled_workspace bleibt explizit.",
+    "repo.apply_patch unterstuetzt unified_diff und hash-gebundenes replace_range.",
+    "repo.write_file replace_existing ist fuer grosse bestehende Dateien begrenzt.",
+    "Worker-Prompt und Tool-Loop bevorzugen codecompass.plan_context/repo.grep -> repo.read_file_range -> patch_request -> workspace.diff -> test.run.",
+    "Regressionen pruefen Range-Evidence, replace_range, Full-File-Rewrite-Block und strict Prompt."
+  ],
+  "verification": [
+    "pytest -q tests/test_patch_first_range_context.py tests/test_codecompass_range_context_planner.py tests/test_ananta_worker_workspace_patch.py tests/test_ananta_worker_workspace_feedback_iteration.py tests/test_ananta_worker_tool_policy.py tests/test_ananta_worker_tool_loop.py"
+  ]
 }

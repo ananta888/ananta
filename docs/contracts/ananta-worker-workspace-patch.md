@@ -5,8 +5,9 @@ AWWPI-003. Definiert die Patch-Verträge für den
 `agent/common/sgpt_workspace_mutation.py` (Loop) und
 `agent/services/tools/workspace_mutation_tools.py` (Anwendung).
 
-> **Wichtig:** `strict_patch_request` ist **nicht** der Default für normale
-> kleine Codefixes — dafür ist `controlled_workspace` gedacht
+> **Wichtig:** `strict_patch_request` ist der bevorzugte Default für
+> Coding-, Bugfix- und Refactor-Aufgaben. `controlled_workspace` bleibt
+> ein expliziter Kompatibilitätsmodus für kleine, eng erlaubte Workspaces
 > (siehe `docs/contracts/ananta-worker-mutation-mode.md`).
 
 ## PatchRequest (LLM → Hub)
@@ -28,14 +29,20 @@ Varianten (`variant`):
 | Variante | Bedeutung | Pflichtfelder |
 |---|---|---|
 | `unified_diff` | Hunk-basierter Patch auf bestehende Datei | `unified_diff` |
-| `replace_range` | Ersetzt Bereich (als unified_diff-Hunk ausgedrückt) | `unified_diff` |
+| `replace_range` | Ersetzt einen kleinen LineRange in bestehender Datei | `line_start`, `line_end`, `replacement` |
 | `write_file_create_only` | Neue Datei anlegen | `content` |
 
-- `expected_old_hash` **oder** ausreichender Hunk-Kontext (`base_excerpt`
-  via Kontextzeilen im Diff) ist Pflicht für Änderungen an bestehenden
-  Dateien; bei Konflikt wird abgelehnt statt halb angewendet.
+- `expected_old_hash` ist für bestehende Dateien empfohlen und wird, wenn
+  vorhanden, vor jeder Anwendung geprüft. Bei Konflikt wird abgelehnt statt
+  halb angewendet.
 - `target_path` ist workspace-relativ; absolute Pfade und Traversal werden
   abgelehnt.
+- `replace_range` ist auf kleine Bereiche begrenzt
+  (`max_replace_range_lines`, Default 120), damit der Worker keine
+  Full-File-Rewrites als Range-Patch tarnt.
+- `repo.write_file replace_existing` ist nur für kleine bestehende Dateien
+  gedacht (`max_replace_existing_bytes`, Default 64 KiB); große Dateien
+  müssen über `unified_diff` oder `replace_range` geändert werden.
 
 ## PatchResult (Hub → LLM)
 

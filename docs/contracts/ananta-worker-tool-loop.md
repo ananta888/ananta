@@ -16,6 +16,10 @@ Function Calling ist nicht erforderlich (AWTCL-DD-002).
   (AWTCL-DD-001/DD-003).
 - Der Hub bleibt finaler Entscheider; `approval_required` wird nie
   automatisch zu `allow`.
+- Für Brownfield-Codeänderungen gilt patch-first/range-first:
+  `codecompass.plan_context` oder `repo.grep` → `repo.read_file_range` →
+  `patch_request` → `workspace.diff` → `test.run`. Vollständige
+  Datei-Rewrites sind Ausnahmefälle.
 
 ## LLM-Outputs (`kind`)
 
@@ -29,9 +33,27 @@ Function Calling ist nicht erforderlich (AWTCL-DD-002).
   "arguments": {
     "pattern": "ToolRoutingService",
     "path_globs": ["agent/**/*.py", "worker/**/*.py"],
-    "limit": 50
+    "limit": 50,
+    "context_before": 2,
+    "context_after": 2
   },
   "risk_hint": "read"
+}
+```
+
+Für CodeCompass-gestützte Brownfield-Arbeiten ist
+`codecompass.plan_context` der bevorzugte erste ToolRequest:
+
+```json
+{
+  "kind": "tool_request",
+  "tool_name": "codecompass.plan_context",
+  "arguments": {
+    "query": "Task approval flow",
+    "max_ranges": 8,
+    "include_neighbors": true,
+    "task_kind": "bugfix"
+  }
 }
 ```
 
@@ -128,6 +150,16 @@ Tool sie liefern kann. Nicht raten — dieses Signal verwenden.
 - `policy_decision`: Entscheidung des Policy Gates — auch geblockte und
   approval-pflichtige Requests erzeugen einen ToolResult, damit das LLM den
   Grund sieht.
+
+## CodeCompass ContextBundle
+
+`codecompass.plan_context` liefert `data.context_bundle` mit
+`schema=codecompass_context_bundle.v1`. Das Bundle enthält begrenzte
+`location_refs` (`path`, `line_start`, `line_end`, `symbol`, `reason`,
+`score`, `source`) und daraus abgeleitete `patch_targets`. Der
+Mutation-Loop kann die Top-Ranges unmittelbar über `repo.read_file_range`
+materialisieren; große RAG-Volltextblöcke sollen dadurch nicht in den
+Prompt gelangen.
 
 ## Loop-Verhalten
 

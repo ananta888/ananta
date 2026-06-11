@@ -123,7 +123,7 @@ def _build_mode_instructions(mode: str) -> str:
         "## Workspace-Mutations-Protokoll (ananta_worker_mutation.v1)",
         "",
         "Antworte mit GENAU EINEM JSON-Objekt. Erlaubte `kind`-Werte:",
-        '- `tool_request` — z.B. workspace.diff, test.run, repo.read_file_range, repo.grep.',
+        '- `tool_request` — z.B. codecompass.plan_context, repo.grep, repo.read_file_range, workspace.diff, test.run.',
         '- `final_answer` — {"kind": "final_answer", "answer": "...", "summary_of_changes": "..."}',
         "- `needs_approval` / `cannot_continue_without_context`.",
     ]
@@ -138,10 +138,12 @@ def _build_mode_instructions(mode: str) -> str:
         ]
     else:
         common += [
-            '- `patch_request` — {"kind": "patch_request", "target_path": "rel/pfad", "variant": "unified_diff|write_file_create_only|replace_range", "unified_diff": "...", "content": "...", "expected_old_hash": "...", "reason": "..."}',
+            '- `patch_request` — {"kind": "patch_request", "target_path": "rel/pfad", "variant": "unified_diff|write_file_create_only|replace_range", "unified_diff": "...", "line_start": 10, "line_end": 20, "replacement": "...", "expected_old_hash": "...", "reason": "..."}',
             "",
             "Regeln (strict_patch_request):",
             "- Du darfst KEINE Dateien direkt ändern; jeder Patch wird vom Hub einzeln validiert und angewendet.",
+            "- Nutze fuer Brownfield-Aufgaben bevorzugt: codecompass.plan_context -> repo.read_file_range -> patch_request -> workspace.diff -> test.run.",
+            "- Verwende replace_range oder unified_diff statt kompletter Datei-Rewrites; repo.write_file ist nur fuer kleine neue Dateien gedacht.",
             "- PatchResults, Diffs und Policy-Ergebnisse kommen als Evidence zurück.",
         ]
     common += [
@@ -533,7 +535,19 @@ def run_ananta_worker_workspace_mutation(
                 tool_name = "repo.apply_patch"
                 arguments = {
                     "target_path": rel,
+                    "variant": "unified_diff",
                     "unified_diff": str(message.get("unified_diff") or ""),
+                    "expected_old_hash": str(message.get("expected_old_hash") or ""),
+                    "reason": str(message.get("reason") or ""),
+                }
+            elif variant == "replace_range":
+                tool_name = "repo.apply_patch"
+                arguments = {
+                    "target_path": rel,
+                    "variant": "replace_range",
+                    "line_start": int(message.get("line_start") or 0),
+                    "line_end": int(message.get("line_end") or 0),
+                    "replacement": str(message.get("replacement") if message.get("replacement") is not None else message.get("content") or ""),
                     "expected_old_hash": str(message.get("expected_old_hash") or ""),
                     "reason": str(message.get("reason") or ""),
                 }
@@ -638,6 +652,27 @@ def run_ananta_worker_workspace_mutation(
                 tool_call_id=tool_call_id,
                 config=tool_cfg,
             )
+            if tool_name == "codecompass.plan_context":
+                refs = list(((result.get("data") or {}).get("context_bundle") or {}).get("location_refs") or [])
+                materialized = []
+                for ref_index, ref in enumerate(refs[:4], start=1):
+                    path = str((ref or {}).get("path") or "").strip()
+                    if not path:
+                        continue
+                    range_result = execute_ananta_tool(
+                        tool_name="repo.read_file_range",
+                        arguments={
+                            "path": path,
+                            "line_start": int((ref or {}).get("line_start") or 1),
+                            "line_end": int((ref or {}).get("line_end") or 1),
+                        },
+                        workspace_dir=str(workspace),
+                        tool_call_id=f"{tool_call_id}:range:{ref_index}",
+                        config=tool_cfg,
+                    )
+                    materialized.append(range_result)
+                if materialized:
+                    result["data"] = {**dict(result.get("data") or {}), "materialized_range_results": materialized}
             if tool_name == "test.run":
                 check = _hub_check(
                     iteration_number=iteration,

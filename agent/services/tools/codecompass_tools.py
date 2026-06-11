@@ -44,10 +44,17 @@ def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_ca
             error=f"retrieval_unavailable:{exc}",
             warnings=["codecompass_index_unavailable"],
         )
+    from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
+
+    planner = get_codecompass_context_planner()
     evidence: list[dict[str, Any]] = []
+    location_refs: list[dict[str, Any]] = []
     for chunk in list(chunks or [])[:limit]:
         if not isinstance(chunk, dict):
             continue
+        ref = planner.location_ref_from_hit(chunk)
+        if ref is not None:
+            location_refs.append(ref)
         entry, _ = build_evidence_entry(
             kind=EVIDENCE_KIND_RETRIEVAL_CHUNK,
             path=str(chunk.get("path") or chunk.get("source") or ""),
@@ -62,8 +69,52 @@ def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_ca
         tool_call_id=tool_call_id,
         status="ok",
         evidence=evidence,
-        data={"hit_count": len(evidence)},
+        data={"hit_count": len(evidence), "location_refs": location_refs},
         warnings=([] if evidence else ["no_results"]),
+    )
+
+
+def codecompass_plan_context(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return build_tool_result(
+            tool_name="codecompass.plan_context", tool_call_id=tool_call_id, status="error", error="query_required"
+        )
+    from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
+
+    bundle = get_codecompass_context_planner().plan_context(
+        query=query,
+        task_kind=str(args.get("task_kind") or "").strip() or None,
+        budget={
+            "max_ranges": args.get("max_ranges"),
+            "max_lines_per_range": args.get("max_lines_per_range"),
+            "max_neighbors": args.get("max_neighbors"),
+        },
+        workspace_dir=workspace_dir,
+        include_neighbors=bool(args.get("include_neighbors", True)),
+    )
+    evidence: list[dict[str, Any]] = []
+    for ref in list(bundle.get("location_refs") or [])[:10]:
+        entry, _ = build_evidence_entry(
+            kind="location_ref",
+            path=str(ref.get("path") or ""),
+            line_start=int(ref.get("line_start") or 1),
+            line_end=int(ref.get("line_end") or 1),
+            excerpt=f"{ref.get('symbol') or ''} {ref.get('reason') or ''}".strip(),
+            source=str(ref.get("source") or "codecompass"),
+            score=ref.get("score"),
+            max_excerpt_chars=300,
+        )
+        evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.plan_context",
+        tool_call_id=tool_call_id,
+        status="ok",
+        evidence=evidence,
+        data={"context_bundle": bundle},
+        warnings=list(bundle.get("warnings") or []),
+        max_total_chars=6000,
     )
 
 
@@ -116,12 +167,18 @@ def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], t
             warnings=["codecompass_graph_unavailable"],
         )
     from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
+    from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
 
     profile = str(args.get("profile") or "bugfix_local").strip() or "bugfix_local"
     expansion = expand_codecompass_graph(store=store, seed_node_ids=[node], profile=profile)
     nodes = list(expansion.get("nodes") or [])[:_MAX_GRAPH_NODES]
+    planner = get_codecompass_context_planner()
+    location_refs = []
     evidence: list[dict[str, Any]] = []
     for row in nodes:
+        ref = planner.location_ref_from_node(row)
+        if ref is not None:
+            location_refs.append(ref)
         entry, _ = build_evidence_entry(
             kind=EVIDENCE_KIND_GRAPH_PATH,
             path=str(row.get("file") or ""),
@@ -143,6 +200,7 @@ def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], t
             "node_count": len(nodes),
             "paths": list(expansion.get("paths") or [])[:_MAX_GRAPH_NODES],
             "allowed_edge_types": list(expansion.get("allowed_edge_types") or []),
+            "location_refs": location_refs,
         },
         warnings=warnings,
     )

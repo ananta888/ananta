@@ -20,10 +20,11 @@ Der **ananta-worker** war dagegen primär ein Kontext-Batch-/Analyse-Loop
 (`_run_ananta_worker_iterative`): CodeCompass-Batches → progress.md →
 Synthese. Dateien änderte er nicht belastbar.
 
-**Warum nicht jeden Patch einzeln über den Hub anwenden?** Das wäre für
-normale Codefixes zu schwerfällig (AWWPI-DD-001). Stattdessen:
-Workspace-Sandbox plus harte Nachprüfung (`controlled_workspace`) als
-Standard; `strict_patch_request` nur für Hochrisiko.
+**Warum patch-first?** Brownfield-Codefixes sollen gezielt gesucht,
+range-basiert gelesen und als kleine Patches angewendet werden. Deshalb ist
+`strict_patch_request` der bevorzugte Standard für Coding/Bugfix/Refactor.
+`controlled_workspace` bleibt für kleine, explizit materialisierte
+Kompatibilitätsfälle verfügbar.
 
 ## Batch-Iteration vs. Feedback-Iteration (AWWPI-021)
 

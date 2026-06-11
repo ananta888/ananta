@@ -16,7 +16,7 @@ Konfiguration: `ananta_worker_workspace_mutation` in
 - Default-Einsatz: architecture_review, repo_analysis, security_review,
   planning. Keine mutierende Baseline nötig.
 
-### `controlled_workspace` (Standard für normale Coding-Aufgaben)
+### `controlled_workspace` (expliziter Kompatibilitätsmodus)
 
 - Hub setzt den Rahmen: Workspace-Grenzen, materialisierte Dateien
   (Manifest mit `allowed_operations`), erlaubte Tools.
@@ -26,18 +26,22 @@ Konfiguration: `ananta_worker_workspace_mutation` in
 - Pflicht-Hub-Checks danach: workspace_root_boundary,
   materialized_file_scope, forbidden_path_filter, diff_against_baseline,
   artifact_sync, optional allowlisted Tests.
-- Default-Einsatz: normal_bugfix, small_feature, test_update,
-  documentation_update, refactor_low_risk.
+- Einsatz: kleine, explizit materialisierte Workspaces oder
+  Dokumentations-/Generatorfälle, bei denen Full-File-Inhalt fachlich
+  kontrollierbar ist.
 
-### `strict_patch_request` (Hochrisiko)
+### `strict_patch_request` (Default für Coding/Bugfix/Refactor)
 
 - Worker darf **keine** Dateien direkt ändern; er liefert
   PatchRequest/WriteRequest (`docs/contracts/ananta-worker-workspace-patch.md`),
   der Hub validiert und wendet **einzeln** an.
+- Default-Einsatz: coding, bugfix, refactor und test_update.
 - Erforderlich für: security_policy_files, auth_oidc_keycloak,
   deployment_kubernetes, secrets_or_config, large_refactor,
   destructive_change, outside_initial_scope.
-- **Nicht** Default für normale kleine Codefixes (AWWPI-DD-001/DD-002).
+- Brownfield-Ablauf: `codecompass.plan_context` oder `repo.grep` →
+  `repo.read_file_range` → `patch_request` → `workspace.diff` →
+  allowlisted `test.run`.
 
 ### `external_agent_workspace`
 

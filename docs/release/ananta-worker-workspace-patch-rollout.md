@@ -21,8 +21,12 @@ jeder Stufe: Flags aus → bestehender Analyse-/Batch-Loop
 - Erfolgskriterium: Tool-Loop-Reports in der Diagnostik-UI, keine
   Mutationen, Audit-Events vorhanden.
 
-### Stufe 2 — controlled_workspace für materialisierte Dateien
-- `mode_by_task_kind`: coding/bugfix/refactor → `controlled_workspace`.
+### Stufe 2 — strict_patch_request für Coding/Bugfix/Refactor
+- `mode_by_task_kind`: coding/bugfix/refactor/test →
+  `strict_patch_request`.
+- Worker nutzt bevorzugt `codecompass.plan_context`/`repo.grep`,
+  `repo.read_file_range`, `patch_request`, `workspace.diff` und
+  allowlisted `test.run`.
 - Voraussetzung: Materialization-Manifest pro Task
   (`materialize_allowed_workspace_files`) — ohne Manifest blockiert
   `require_materialized_scope: true` jede Änderung.
@@ -41,11 +45,13 @@ jeder Stufe: Flags aus → bestehender Analyse-/Batch-Loop
 - Erfolgskriterium: fehlgeschlagener Test führt nachweisbar zu einer
   zweiten gezielten Iteration.
 
-### Stufe 5 — strict_patch_request für Hochrisiko
+### Stufe 5 — controlled_workspace nur explizit
 - `escalate_to_strict_risks` und `strict_path_markers` aktiv lassen;
-  zusätzlich explizite Zuweisung für security/auth/infra Task-Kinds.
+  security/auth/infra bleiben strict.
 - Jeder Patch läuft über `repo.apply_patch`/`repo.write_file` mit
   Hash-Prüfung; Konflikte enden als `rejected_reason`, nie als halbe Datei.
+- `controlled_workspace` nur noch für kleine, eng materialisierte
+  Kompatibilitätsfälle aktivieren.
 
 ### Spätere, separate Stufen (nicht Teil dieses Rollouts)
 - **write/delete/rename** außerhalb des Manifests sowie

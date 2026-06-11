@@ -24,6 +24,8 @@ from agent.services.tools._evidence import (
 from agent.services.tools.repo_tools import WorkspacePathError, resolve_workspace_path
 
 _DEFAULT_MAX_WRITE_BYTES = 262144
+_DEFAULT_MAX_REPLACE_EXISTING_BYTES = 65536
+_DEFAULT_MAX_REPLACE_RANGE_LINES = 120
 
 
 def _sha256_text(text: str) -> str:
@@ -95,8 +97,29 @@ def _apply_hunks(original_lines: list[str], hunks: list[dict[str, Any]]) -> list
     return result
 
 
+def _replace_range(
+    original_text: str,
+    *,
+    line_start: int,
+    line_end: int,
+    replacement: str,
+    max_lines: int,
+) -> str:
+    if line_start < 1 or line_end < line_start:
+        raise ValueError("invalid_line_range")
+    if (line_end - line_start + 1) > max_lines:
+        raise ValueError("replace_range_too_large")
+    original_lines = original_text.splitlines()
+    if line_start > len(original_lines) + 1:
+        raise ValueError("line_start_out_of_bounds")
+    patched = list(original_lines)
+    patched[line_start - 1 : min(line_end, len(original_lines))] = str(replacement or "").splitlines()
+    return "\n".join(patched) + ("\n" if original_text.endswith("\n") else "")
+
+
 def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
     args = arguments or {}
+    cfg = dict(config or {})
     target = str(args.get("target_path") or "").strip()
     diff_text = str(args.get("unified_diff") or "")
     try:
@@ -130,10 +153,24 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
             error="expected_old_hash_mismatch",
             data={"applied": False, "rejected_reason": "expected_old_hash_mismatch"},
         )
-    keep_trailing_newline = original_text.endswith("\n")
     try:
-        hunks = _parse_unified_diff(diff_text)
-        patched_lines = _apply_hunks(original_text.splitlines(), hunks)
+        variant = str(args.get("variant") or ("replace_range" if args.get("line_start") is not None else "unified_diff")).strip().lower()
+        if variant == "replace_range":
+            replacement = args.get("replacement") if args.get("replacement") is not None else args.get("content")
+            patched_text = _replace_range(
+                original_text,
+                line_start=int(args.get("line_start") or 0),
+                line_end=int(args.get("line_end") or 0),
+                replacement=str(replacement or ""),
+                max_lines=max(1, min(int(cfg.get("max_replace_range_lines") or _DEFAULT_MAX_REPLACE_RANGE_LINES), _DEFAULT_MAX_REPLACE_RANGE_LINES)),
+            )
+            diff_excerpt = f"replace_range {target}:{args.get('line_start')}-{args.get('line_end')}\n{str(replacement or '')[:3500]}"
+        else:
+            keep_trailing_newline = original_text.endswith("\n")
+            hunks = _parse_unified_diff(diff_text)
+            patched_lines = _apply_hunks(original_text.splitlines(), hunks)
+            patched_text = "\n".join(patched_lines) + ("\n" if keep_trailing_newline else "")
+            diff_excerpt = diff_text[:4000]
     except ValueError as exc:
         return build_tool_result(
             tool_name="repo.apply_patch",
@@ -143,10 +180,8 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
             error=str(exc),
             data={"applied": False, "rejected_reason": str(exc)},
         )
-    patched_text = "\n".join(patched_lines) + ("\n" if keep_trailing_newline else "")
     path.write_text(patched_text, encoding="utf-8")
     rel = str(path.relative_to(Path(workspace_dir).resolve())).replace("\\", "/")
-    diff_excerpt = diff_text[:4000]
     entry, _ = build_evidence_entry(kind=EVIDENCE_KIND_DIFF, path=rel, excerpt=diff_excerpt, max_excerpt_chars=4000)
     return build_tool_result(
         tool_name="repo.apply_patch",
@@ -159,6 +194,7 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
             "changed_files": [rel],
             "diff_excerpt": diff_excerpt,
             "content_hashes": {rel: _sha256_text(patched_text)},
+            "variant": variant,
             "reason": str(args.get("reason") or ""),
         },
     )
@@ -168,6 +204,13 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
     args = arguments or {}
     cfg = dict(config or {})
     max_bytes = max(1024, min(int(cfg.get("max_write_file_bytes") or _DEFAULT_MAX_WRITE_BYTES), 10 * 1024 * 1024))
+    max_replace_existing_bytes = max(
+        1024,
+        min(
+            int(cfg.get("max_replace_existing_bytes") or _DEFAULT_MAX_REPLACE_EXISTING_BYTES),
+            _DEFAULT_MAX_REPLACE_EXISTING_BYTES,
+        ),
+    )
     mode = str(args.get("mode") or "create_only").strip().lower()
     content = args.get("content")
     if not isinstance(content, str):
@@ -204,6 +247,12 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
                 error="file_not_found", data={"applied": False, "rejected_reason": "file_not_found"},
             )
         payload = path.read_bytes()
+        if len(payload) > max_replace_existing_bytes:
+            return build_tool_result(
+                tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
+                error="replace_existing_file_too_large",
+                data={"applied": False, "rejected_reason": "replace_existing_file_too_large"},
+            )
         if b"\x00" in payload:
             return build_tool_result(
                 tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
