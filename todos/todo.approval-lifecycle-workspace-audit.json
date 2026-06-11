@@ -438,10 +438,15 @@
       "id": "ALWA-013",
       "title": "workspace_baseline_created Event in Baseline-Erstellung integrieren",
       "type": "audit-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/services/worker_workspace_service.py", "agent/services/task_scoped_execution_service.py", "agent/common/audit.py", "tests/test_ananta_worker_workspace_patch.py"],
+      "target_files": ["agent/services/worker_workspace_service.py", "agent/common/audit.py", "tests/test_alwa_workspace_audit_hooks.py"],
+      "evidence": [
+        "agent/services/worker_workspace_service.py:744-792 (refresh_mutation_baseline emits workspace_baseline_created via audit_workspace_mutation_event)",
+        "agent/common/audit.py:18-30 (canonical AUDIT_WORKSPACE_BASELINE_CREATED constant)"
+      ],
+      "result": "M4 Welle 2: refresh_mutation_baseline emits workspace_baseline_created with baseline_id, baseline_hash (sha256 of manifest.json), workspace_root_hash_or_id, materialized_paths_count. read_only mode emits no event. 2/2 baseline tests green.",
       "acceptance_criteria": [
         "Beim Erstellen/Aktualisieren einer Baseline fuer controlled_workspace oder strict_patch_request wird workspace_baseline_created geloggt.",
         "Event enthaelt task_id, goal_id, trace_id, workspace_id/root, baseline_id oder baseline_hash, mutation_mode und materialized_paths_count.",
@@ -454,10 +459,15 @@
       "id": "ALWA-014",
       "title": "workspace_mutation_evaluated nach jeder controlled_workspace Evaluation loggen",
       "type": "audit-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/worker_workspace_service.py", "agent/services/task_scoped_execution_service.py", "agent/common/sgpt.py", "agent/common/audit.py", "tests/test_ananta_worker_workspace_patch.py"],
+      "target_files": ["agent/common/sgpt_workspace_mutation.py", "agent/common/audit.py", "tests/test_alwa_workspace_audit_hooks.py"],
+      "evidence": [
+        "agent/common/sgpt_workspace_mutation.py:249-318 (_hub_check emits workspace_mutation_evaluated via audit_workspace_mutation_event)",
+        "agent/common/sgpt_workspace_mutation.py:392, 463, 550, 602 (all 4 _hub_check call sites pass iteration_number)"
+      ],
+      "result": "M4 Welle 2: _hub_check emits workspace_mutation_evaluated with task_id, iteration_number, mode, changed_paths, diff_hash (sha256 of truncated diff_text), policy_decision, violation_ids, violation_summary. 30/30 workspace + audit tests green.",
       "acceptance_criteria": [
         "Nach jeder mutierenden Feedback-Iteration erzeugt der Hub workspace_mutation_evaluated.",
         "Event enthaelt task_id, goal_id, trace_id, iteration_number, mutation_mode, changed_paths, diff_hash oder diff_artifact_id, policy_decision und violation_summary.",
@@ -472,10 +482,15 @@
       "id": "ALWA-015",
       "title": "workspace_mutation_blocked bei Policy-Verletzungen loggen",
       "type": "audit-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/worker_workspace_service.py", "agent/services/mutation_gate_service.py", "agent/services/task_execution_service.py", "agent/common/audit.py", "tests/"],
+      "target_files": ["agent/services/mutation_gate_service.py", "agent/common/sgpt_workspace_mutation.py", "agent/common/audit.py", "tests/"],
+      "evidence": [
+        "agent/services/mutation_gate_service.py:76-101 (_block closure helper consolidates all 5 Block-Decision paths)",
+        "agent/common/sgpt_workspace_mutation.py:391-433 (KIND_FINAL_ANSWER with policy_status != 'ok' emits workspace_mutation_blocked)"
+      ],
+      "result": "M4 Welle 2: workspace_mutation_blocked fires on (a) every MutationGate Block-Decision (global_deny, hardening, approval_blocked, execution_risk_denied, scoped_mismatch) and (b) the KIND_FINAL_ANSWER final-answer policy_blocked path. Audit failures never break the gate decision. 2/2 new mutation-gate block tests + 11/11 existing green.",
       "acceptance_criteria": [
         "Bei Aenderungen ausserhalb Materialization Manifest, WorkspaceRoot, erlaubten Pfaden oder bei forbidden paths wird workspace_mutation_blocked geloggt.",
         "Event enthaelt blocked_reason, violation_ids, violation_summary, changed_paths, diff_hash/diff_artifact_id, task_id, goal_id, trace_id und iteration_number.",
@@ -615,11 +630,11 @@
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 2
+      "done": 5
     },
-    "progress_percent_done": 10.0,
+    "progress_percent_done": 25.0,
     "needs_audit": ["ALWA-001", "ALWA-002", "ALWA-003", "ALWA-005", "ALWA-007", "ALWA-009"],
-    "audit_note": "needs_audit-Tasks sind in commit 33d820 als Teil des persistent approval lifecycle implementiert, aber der ALWA-Track-Status wurde seither nicht nachgezogen und kein per-task evidence/result existiert. Sie sind NICHT in den done-Counter eingerechnet. Welle 1 hat ALWA-006 + ALWA-012 explizit mit evidence + result auditiert. Naechster Sync-Pass: pro Task den 4-Phasen-Audit (existence + content-marker + test + gap) laufen lassen, siehe references/todo-code-audit-pattern.md.",
+    "audit_note": "needs_audit-Tasks sind in commit 33d820 als Teil des persistent approval lifecycle implementiert, aber der ALWA-Track-Status wurde seither nicht nachgezogen und kein per-task evidence/result existiert. Sie sind NICHT in den done-Counter eingerechnet. M4 Welle 1+2 hat 5 Tasks (ALWA-006/012/013/014/015) explizit auditiert. Naechster Sync-Pass: 4-Phasen-Audit fuer die 6 needs_audit-Tasks.",
     "by_priority": {
       "P0": 12,
       "P1": 8,
@@ -634,22 +649,23 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 2,
-      "remaining": 4,
-      "remaining_task_ids_audited": ["ALWA-008", "ALWA-013", "ALWA-014", "ALWA-015"],
+      "done": 5,
+      "remaining": 1,
+      "remaining_task_ids_audited": ["ALWA-008"],
       "remaining_task_ids_needs_audit": ["ALWA-001", "ALWA-002", "ALWA-003", "ALWA-005", "ALWA-007", "ALWA-009"]
     },
     "milestones": {
       "total": 5,
-      "todo": 4,
+      "todo": 3,
       "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     },
     "welle_progress": {
       "M4-Welle-1": "done (ALWA-006 + ALWA-012)",
-      "M4-Welle-2": "todo (ALWA-013 baseline hook + ALWA-014 evaluated hook + ALWA-015 blocked hook + Aufrufstellen-Migration in sgpt_workspace_mutation._hub_check)"
+      "M4-Welle-2": "done (ALWA-013 baseline hook + ALWA-014 evaluated hook + ALWA-015 blocked hook in mutation_gate + final-answer path)",
+      "M4-Welle-3": "todo (Doc-Sync ALWA-016/017/019 + Rollout-Plan ALWA-020 + 6 needs_audit Tasks)"
     }
   },
   "definition_of_done": [
