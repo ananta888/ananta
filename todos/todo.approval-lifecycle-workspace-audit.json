@@ -1,10 +1,23 @@
 {
   "$schema": "../todo.track.schema.json",
-  "version": "1.0",
+  "version": "1.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "approval-lifecycle-workspace-audit",
   "created": "2026-06-11",
   "updated": "2026-06-11",
+  "changelog": [
+    {
+      "version": "1.1",
+      "date": "2026-06-11",
+      "changes": [
+        "Neue Tool-Loop-Dateien (ananta_tool_policy_service.py, sgpt_tool_loop.py, sgpt_workspace_mutation.py) als Integrationsziele in ALWA-005/007 ergaenzt; neues Finding ALWA-FIND-007 zum toolnamen-basierten approvals-Parameter.",
+        "canonical_arguments-Widerspruch aufgeloest: ALWA-DD-007 + ALWA-001/003/008 definieren content_artifact_ref fuer content-tragende Argumente.",
+        "ALWA-016/017 von archivierten Todo-Tracks auf die kanonischen Docs umgebogen (AWTCL/AWWPI sind done und liegen in todos/archiv/).",
+        "ALWA-012 superseded explizit die bestehenden ananta_worker_mutation_* Audit-Konstanten; ALWA-014 praezisiert diff_hash pro Iteration vs. diff_artifact_id final.",
+        "Pfadkorrekturen: agent/db_models/ ist ein Paket (governance.py), Blueprint-Registrierung in agent/bootstrap/routes.py."
+      ]
+    }
+  ],
   "status": "todo",
   "purpose": "Die vorhandenen Approval-, Mutation-Gate- und Audit-Bausteine sollen zu einem belastbaren Hub-kontrollierten Approval-Lifecycle und zu einer manipulationssicheren Workspace-Mutation-Audit-Kette ausgebaut werden. Ziel ist nicht mehr ein pauschales task.approval_confirmed, sondern ein persistenter, scoped, digest-gebundener ApprovalRequest pro konkretem Tool-/Mutation-Call sowie Audit-Events fuer Baseline, Diff-Evaluation und Policy-Verletzungen.",
   "goal": "Ein sicherer Approval- und Audit-Layer fuer ananta-worker, controlled_workspace und Tool-Calling: approval_required beendet Loops kontrolliert, erzeugt einen pending ApprovalRequest, blockiert den Task ohne Busy-Wait, erlaubt nach Grant nur exakt denselben kanonisierten Call erneut, und auditiert jede Workspace-Mutation gegen Baseline/Diff/Policy mit Hash-Kette und Artefakt-Referenz.",
@@ -14,13 +27,17 @@
       "agent/services/approval_policy_service.py",
       "agent/services/mutation_gate_service.py",
       "agent/services/task_execution_service.py",
+      "agent/services/ananta_tool_policy_service.py",
+      "agent/common/sgpt_tool_loop.py",
+      "agent/common/sgpt_workspace_mutation.py",
       "worker/loop/stop_conditions.py",
       "agent/common/audit.py",
-      "agent/db_models.py",
+      "agent/db_models/governance.py",
       "agent/routes/",
+      "agent/bootstrap/routes.py",
       "frontend-angular/src/app/features/control-center/",
-      "todos/todo.ananta-worker-tool-calling-loop.json",
-      "todos/todo.ananta-worker-workspace-patch-iteration.json"
+      "todos/archiv/todo.ananta-worker-tool-calling-loop.json",
+      "todos/archiv/todo.ananta-worker-workspace-patch-iteration.json"
     ],
     "current_code_findings": [
       {
@@ -50,8 +67,13 @@
       },
       {
         "id": "ALWA-FIND-006",
-        "finding": "AWWPI-006/008/011 definieren Baseline, controlled_workspace Ergebnispruefung und workspace.diff/policy_result als Evidence.",
-        "current_gap": "Die Acceptance Criteria enthalten noch kein hartes Audit-Kriterium mit changed_paths, diff_hash/diff_artifact_id, policy_decision und violation_summary."
+        "finding": "AWWPI-006/008/011 definieren Baseline, controlled_workspace Ergebnispruefung und workspace.diff/policy_result als Evidence. Beide Tracks sind inzwischen done und nach todos/archiv/ verschoben; die kanonischen Beschreibungen leben jetzt in docs/ananta-worker-*.md, docs/contracts/ und docs/security/.",
+        "current_gap": "Die Docs enthalten noch kein hartes Audit-Kriterium mit changed_paths, diff_hash/diff_artifact_id, policy_decision und violation_summary. Archivierte Done-Tracks werden nicht rueckwirkend editiert."
+      },
+      {
+        "id": "ALWA-FIND-007",
+        "finding": "Das neue Tool-Loop-Policy-Gate (agent/services/ananta_tool_policy_service.py) hat bereits einen approvals-Parameter, und sgpt_tool_loop.py/sgpt_workspace_mutation.py beenden Loops kontrolliert mit approval_required (Report-Outcome).",
+        "current_gap": "Der approvals-Parameter matcht Grants nur per Toolname (list[str]) — exakt das Anti-Pattern aus ALWA-DD-001/non_goals. Die Loops registrieren beim approval_required-Ende keinen ApprovalRequest; das Outcome steht nur im Workspace-Report. Beide Pfade muessen an arguments_digest und ApprovalRequestService angebunden werden."
       }
     ]
   },
@@ -85,6 +107,11 @@
       "id": "ALWA-DD-006",
       "decision": "Audit speichert Pfade, Hashes, IDs und Policy-Zusammenfassungen, aber keine rohen Inhalte, Prompts oder vollstaendigen Diffs.",
       "rationale": "agent/common/audit.py hat bereits Redaction/Forbidden-Raw-Field-Schutz; Workspace-Audit muss diese Linie beibehalten."
+    },
+    {
+      "id": "ALWA-DD-007",
+      "decision": "Content-tragende canonical_arguments (z.B. repo.write_file content, unified_diff) werden nie roh im ApprovalRequest oder Audit gespeichert. Stattdessen persistiert der Hub den Payload als Workspace-/Hub-Artefakt und der ApprovalRequest speichert content_artifact_ref + content_hash; der arguments_digest wird ueber die kanonisierten Argumente inklusive content_hash (statt Roh-Content) gebildet.",
+      "rationale": "Aufloesung des Zielkonflikts: ALWA-008 verlangt deterministische Re-Ausfuehrung nach Grant ohne Re-Prompt (Digest allein kann den Call nicht rekonstruieren), waehrend scope/Audit keine Datei-Inhalte enthalten duerfen. Artefakt-Referenz + Hash erfuellt beides: Re-Dispatch laedt den Payload ueber die Referenz, Audit/Scope bleiben inhaltsfrei, und der Digest bleibt manipulationssicher an den exakten Inhalt gebunden."
     }
   ],
   "target_approval_lifecycle": {
@@ -96,6 +123,8 @@
       "trace_id",
       "tool_name",
       "canonical_arguments",
+      "content_artifact_ref",
+      "content_hash",
       "arguments_digest",
       "target_fingerprint",
       "k_class",
@@ -183,7 +212,7 @@
     },
     {
       "id": "ALWA-M5",
-      "title": "Tests, Doku, Cross-Track-Sync und Rollout",
+      "title": "Tests, Doku, Doc-Sync (AWTCL/AWWPI archiviert) und Rollout",
       "status": "todo",
       "task_ids": ["ALWA-017", "ALWA-018", "ALWA-019", "ALWA-020"]
     }
@@ -196,9 +225,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/db_models.py", "agent/database.py", "tests/"],
+      "target_files": ["agent/db_models/governance.py", "agent/database.py", "tests/"],
       "acceptance_criteria": [
-        "ApprovalRequestDB existiert mit id, task_id, goal_id, trace_id, tool_name, arguments_digest, target_fingerprint, k_class, risk_class, governance_mode, status, scope, created_at, expires_at, decided_at, decided_by, decision_reason und consumed_at.",
+        "ApprovalRequestDB existiert mit id, task_id, goal_id, trace_id, tool_name, canonical_arguments, content_artifact_ref, content_hash, arguments_digest, target_fingerprint, k_class, risk_class, governance_mode, status, scope, created_at, expires_at, decided_at, decided_by, decision_reason und consumed_at.",
+        "canonical_arguments speichert nur die inhaltsfreien kanonisierten Argumente; content-tragende Felder sind gemaess ALWA-DD-007 durch content_artifact_ref + content_hash ersetzt, nie als Roh-Content.",
         "Status ist auf pending, granted, denied, expired, consumed und superseded begrenzt.",
         "expires_at ist fuer pending/granted Requests Pflicht oder wird zentral mit Default-TTL gesetzt.",
         "scope wird als JSON gespeichert und darf keine rohen Prompts, raw_messages oder Datei-Inhalte enthalten.",
@@ -219,8 +249,8 @@
         "arguments_digest ist SHA-256 ueber canonical_arguments plus tool_name plus optional normalized_target/target_fingerprint.",
         "Semantisch gleiche Argumente mit anderer Key-Reihenfolge erzeugen denselben Digest.",
         "Unterschiedliche Pfade, Inhalte, Kommandos oder Toolnamen erzeugen unterschiedliche Digests.",
-        "Digest-Bildung speichert keine rohen Datei-Inhalte im Audit; Inhalte duerfen nur in Digest-Eingang eingehen, nicht als Details persistiert werden.",
-        "Tests decken read-only Tool, write Tool, shell command, target_refs und Pfadnormalisierung ab."
+        "Content-tragende Felder (content, unified_diff) werden vor der Digest-Bildung gemaess ALWA-DD-007 durch ihren content_hash ersetzt; der Digest bleibt damit an den exakten Inhalt gebunden, ohne dass Roh-Content persistiert oder auditiert wird.",
+        "Tests decken read-only Tool, write Tool, shell command, target_refs, Pfadnormalisierung und content_hash-Substitution ab."
       ]
     },
     {
@@ -259,19 +289,21 @@
     },
     {
       "id": "ALWA-005",
-      "title": "ApprovalPolicyService mit ApprovalRequestService verbinden",
+      "title": "ApprovalPolicyService und Tool-Loop-Policy-Gate mit ApprovalRequestService verbinden",
       "type": "policy-integration",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/approval_policy_service.py", "agent/services/approval_request_service.py", "tests/test_approval_policy_service.py"],
+      "target_files": ["agent/services/approval_policy_service.py", "agent/services/ananta_tool_policy_service.py", "agent/services/approval_request_service.py", "tests/test_approval_policy_service.py", "tests/test_ananta_worker_tool_policy.py"],
       "acceptance_criteria": [
         "evaluate() kann einen approval_context oder request_identity entgegennehmen, der tool_name, canonical_arguments/arguments_digest und target_fingerprint enthaelt.",
         "Bei confirm_required prueft der Service, ob ein passender Grant existiert.",
         "Passender Grant wandelt confirm_required in allow mit reason_code approval_granted_by_request um.",
         "Falscher Digest, falscher Scope oder abgelaufener Grant bleiben confirm_required oder blocked.",
+        "ALWA-FIND-007: AnantaToolPolicyService.evaluate() ersetzt den toolnamen-basierten approvals-Parameter (list[str]) durch digest-gebundene Grant-Aufloesung ueber resolve_grant_for_call(); ein Grant fuer einen Toolnamen ohne passenden arguments_digest fuehrt nicht zu allow.",
+        "Bestehende Aufrufstellen des approvals-Parameters (sgpt_tool_loop.py, sgpt_workspace_mutation.py, Tests) werden migriert; reine Toolnamen-Grants sind danach nicht mehr moeglich.",
         "Details enthalten nur request_id, digest_prefix, scope_summary und reason_code, nicht die rohen Argumente.",
-        "Tests decken grant_ok, digest_mismatch, expired, denied und missing_request ab."
+        "Tests decken grant_ok, digest_mismatch, expired, denied und missing_request fuer beide Gates (ApprovalPolicyService und AnantaToolPolicyService) ab."
       ]
     },
     {
@@ -292,19 +324,20 @@
     },
     {
       "id": "ALWA-007",
-      "title": "task_execution_service pending_approval Flow statt hartem Guardrail-Abbruch geben",
+      "title": "task_execution_service und Worker-Loops auf pending_approval Flow statt hartem Guardrail-Abbruch umstellen",
       "type": "runtime-integration",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/task_execution_service.py", "agent/services/task_runtime_service.py", "agent/services/approval_request_service.py", "tests/test_task_execution_service.py"],
+      "target_files": ["agent/services/task_execution_service.py", "agent/services/task_runtime_service.py", "agent/services/approval_request_service.py", "agent/common/sgpt_tool_loop.py", "agent/common/sgpt_workspace_mutation.py", "tests/test_task_execution_service.py"],
       "acceptance_criteria": [
         "Bei confirm_required erzeugt task_execution_service einen ApprovalRequestDB(status=pending), sofern noch kein passender Request existiert.",
-        "Task-Status wird auf pending_approval oder blocked_pending_approval gesetzt, nicht nur als Exception verloren.",
+        "Task-Status wird auf pending_approval oder blocked_pending_approval gesetzt, nicht nur als Exception verloren; der bestehende Gating-Status pending_approval aus workflow_status_service wird wiederverwendet statt einen neuen Status einzufuehren.",
         "LocalExecutionResult/status kann approval_required bzw. pending_approval ausdruecken.",
         "ToolGuardrailError wird nur fuer echte blocked/denied Policy-Verletzungen genutzt, nicht fuer normalen pending_approval Kontrollfluss.",
         "approval_required Stop-Condition bleibt kompatibel und beendet die Iteration kontrolliert.",
-        "Tests pruefen pending Request, Taskstatus, Output, retry_history und approval_decision Payload."
+        "ALWA-FIND-007: Wenn sgpt_tool_loop oder sgpt_workspace_mutation mit approval_required/needs_approval enden, registriert die Hub-Schicht daraus einen pending ApprovalRequest mit tool_name und arguments_digest des blockierten Calls; das Outcome bleibt zusaetzlich im Workspace-Report sichtbar.",
+        "Tests pruefen pending Request, Taskstatus, Output, retry_history, approval_decision Payload und die Registrierung aus beiden Loop-Pfaden."
       ]
     },
     {
@@ -318,7 +351,7 @@
       "acceptance_criteria": [
         "Nach granted Decision wird der zugehoerige Task fuer erneute Ausfuehrung markiert oder direkt ueber bestehenden Dispatch-Mechanismus eingeplant.",
         "Re-Dispatch bekommt Approval-Kontext mit request_id und arguments_digest, aber keine rohen Argumente im Audit.",
-        "Der Worker muss nicht neu prompten, wenn der blockierte Call deterministisch erneut ausgefuehrt werden kann.",
+        "Der Worker muss nicht neu prompten, wenn der blockierte Call deterministisch erneut ausgefuehrt werden kann: der Hub rekonstruiert den Call aus canonical_arguments und laedt content-tragende Payloads gemaess ALWA-DD-007 ueber content_artifact_ref; der geladene Payload wird vor Ausfuehrung gegen content_hash verifiziert.",
         "Wenn sich der ToolCall beim Re-Run aendert, wird der alte Grant nicht verwendet und ein neuer ApprovalRequest ist erforderlich.",
         "Denied/expired Requests fuehren nicht zu Re-Dispatch.",
         "Tests pruefen Grant->Re-Dispatch, Deny->Blocked, Expiry->Blocked und ChangedArguments->NewApprovalRequired."
@@ -331,7 +364,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/routes/approvals.py", "agent/routes/__init__.py", "agent/app.py", "agent/services/approval_request_service.py", "tests/test_approvals_api.py"],
+      "target_files": ["agent/routes/approvals.py", "agent/bootstrap/routes.py", "agent/services/approval_request_service.py", "tests/test_approvals_api.py"],
       "acceptance_criteria": [
         "GET /api/approvals?status=pending liefert offene ApprovalRequests mit request_id, task_id, goal_id, tool_name, digest_prefix, risk_class, k_class, scope_summary, created_at und expires_at.",
         "GET /api/approvals unterstuetzt Filter fuer status, task_id und goal_id.",
@@ -381,13 +414,14 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/common/audit.py", "tests/test_audit.py"],
+      "target_files": ["agent/common/audit.py", "agent/common/sgpt_workspace_mutation.py", "tests/test_audit.py"],
       "acceptance_criteria": [
         "Konstanten fuer workspace_baseline_created, workspace_mutation_evaluated und workspace_mutation_blocked existieren eindeutig und werden dokumentiert.",
+        "Die bestehenden Konstanten AUDIT_WORKER_MUTATION_EVALUATED (ananta_worker_mutation_evaluated) und AUDIT_WORKER_MUTATION_BLOCKED (ananta_worker_mutation_blocked) werden explizit superseded: Aufrufstellen (sgpt_workspace_mutation.py::_hub_check) migrieren auf die neuen workspace_*-Events, die alten Konstanten werden entfernt oder als deprecated Alias dokumentiert — es existieren keine zwei Event-Namen fuer dasselbe Ereignis.",
         "Helper audit_workspace_mutation_event() normalisiert Details und ruft log_audit auf.",
         "Helper entfernt/kuerzt verbotene Felder wie prompt, raw_messages, raw_response, full_diff und file_content.",
         "changed_paths werden sortiert und begrenzt; bei Ueberlauf gibt es changed_paths_truncated=true und counts.",
-        "Tests pruefen Redaction, Hash-Kette ueber AuditLogDB und dass keine rohen Inhalte gespeichert werden."
+        "Tests pruefen Redaction, Hash-Kette ueber AuditLogDB, Migration der Aufrufstellen und dass keine rohen Inhalte gespeichert werden."
       ]
     },
     {
@@ -419,8 +453,9 @@
         "Event enthaelt task_id, goal_id, trace_id, iteration_number, mutation_mode, changed_paths, diff_hash oder diff_artifact_id, policy_decision und violation_summary.",
         "Event enthaelt keine Datei-Inhalte und keinen vollstaendigen Diff.",
         "policy_decision ist allowed, violation oder unknown und wird deterministisch aus PolicyResult abgeleitet.",
-        "Wenn workspace.diff als Artefakt synchronisiert wird, referenziert das Audit diff_artifact_id.",
-        "Tests pruefen erfolgreiche Mutation mit allowed und Audit-Referenz auf Diff-Artefakt."
+        "Pro Iteration genuegt diff_hash (Hash ueber den ungekuerzten Diff-Text); diff_artifact_id ist erst fuer die finale Evaluation Pflicht, weil das workspace.diff-Artefakt erst beim Abschluss-Sync entsteht.",
+        "Wenn workspace.diff als Artefakt synchronisiert wird, referenziert das finale Audit-Event diff_artifact_id.",
+        "Tests pruefen erfolgreiche Mutation mit allowed, diff_hash pro Iteration und Audit-Referenz auf das Diff-Artefakt im finalen Event."
       ]
     },
     {
@@ -441,34 +476,34 @@
     },
     {
       "id": "ALWA-016",
-      "title": "AWWPI-006/008/011 Acceptance Criteria mit Audit-Pflichten synchronisieren",
-      "type": "track-sync",
+      "title": "Workspace-Mutation-Docs mit Audit-Pflichten synchronisieren (AWWPI ist archiviert)",
+      "type": "doc-sync",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "target_files": ["todos/todo.ananta-worker-workspace-patch-iteration.json"],
+      "target_files": ["docs/ananta-worker-workspace-patch-iteration.md", "docs/security/ananta-worker-workspace-mutation-policy.md", "docs/contracts/ananta-worker-mutation-mode.md"],
       "acceptance_criteria": [
-        "AWWPI-006 enthaelt explizit workspace_baseline_created Audit als Acceptance Criterion.",
-        "AWWPI-008 enthaelt explizit workspace_mutation_evaluated und workspace_mutation_blocked Audit als Acceptance Criteria.",
-        "AWWPI-011 verweist auf diff_artifact_id/diff_hash als Audit-Referenz.",
-        "tasks_status_summary wird aktualisiert, falls neue Kriterien/Tasks eingefuegt werden.",
-        "Keine doppelten widerspruechlichen Audit-Begriffe zwischen ALWA und AWWPI."
+        "Der AWWPI-Track ist done und liegt in todos/archiv/ — er wird nicht rueckwirkend editiert; kanonische Sync-Ziele sind die Docs.",
+        "docs/security/ananta-worker-workspace-mutation-policy.md dokumentiert workspace_baseline_created als Pflicht-Audit bei Baseline-Erstellung (Bezug: Abschnitt Baseline- und Artefakt-Pflichten).",
+        "docs/ananta-worker-workspace-patch-iteration.md dokumentiert workspace_mutation_evaluated pro Feedback-Iteration und workspace_mutation_blocked bei Policy-Verletzungen im Runtime-Flow.",
+        "Die Diff-Beschreibung (workspace.diff / DiffResult) verweist auf diff_hash pro Iteration und diff_artifact_id im finalen Event als Audit-Referenz.",
+        "Keine doppelten widerspruechlichen Audit-Begriffe zwischen ALWA-Events und den in den Docs beschriebenen ananta_worker_mutation_*-Altnamen (siehe ALWA-012 Supersede)."
       ]
     },
     {
       "id": "ALWA-017",
-      "title": "AWTCL Track mit Approval-Lifecycle Querverweis synchronisieren",
-      "type": "track-sync",
+      "title": "Tool-Loop-Docs mit Approval-Lifecycle Querverweis synchronisieren (AWTCL ist archiviert)",
+      "type": "doc-sync",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "target_files": ["todos/todo.ananta-worker-tool-calling-loop.json"],
+      "target_files": ["docs/ananta-worker-tool-calling-loop.md", "docs/contracts/ananta-worker-tool-loop.md", "docs/security/ananta-worker-tool-calling-policy.md"],
       "acceptance_criteria": [
-        "AWTCL-006 Policy Gate verweist auf ApprovalRequestDB/arguments_digest fuer approval_required.",
-        "AWTCL-008 Audit fuer ToolCalls verweist auf ApprovalRequest-Events und Digest-Prefix statt roher Argumente.",
-        "AWTCL-010 Hub Tool Loop beschreibt approval_required als kontrollierte Stop-Condition mit pending ApprovalRequest.",
-        "Optional wird AWTCL-021 als Cross-Track Marker ergaenzt oder dieser ALWA-Track als kanonische Quelle verlinkt.",
-        "tasks_status_summary wird konsistent gehalten."
+        "Der AWTCL-Track ist done und liegt in todos/archiv/ — er wird nicht rueckwirkend editiert; kanonische Sync-Ziele sind die Docs.",
+        "docs/security/ananta-worker-tool-calling-policy.md beschreibt, dass das Policy Gate Grants ueber ApprovalRequestDB/arguments_digest aufloest und reine Toolnamen-Grants nicht existieren.",
+        "docs/contracts/ananta-worker-tool-loop.md beschreibt approval_required/needs_approval als kontrollierten Loop-Endstatus, der hub-seitig einen pending ApprovalRequest erzeugt, sowie den Re-Dispatch nach Grant.",
+        "Der Audit-Abschnitt verweist auf ApprovalRequest-Events und Digest-Prefix statt roher Argumente.",
+        "docs/security/approval-lifecycle.md (ALWA-019) wird aus beiden Docs als kanonische Quelle verlinkt."
       ]
     },
     {
@@ -527,21 +562,32 @@
   "cross_track_updates_required": [
     {
       "track": "ananta-worker-tool-calling-loop",
-      "file": "todos/todo.ananta-worker-tool-calling-loop.json",
+      "file": "todos/archiv/todo.ananta-worker-tool-calling-loop.json",
+      "note": "Track ist done und archiviert; wird nicht rueckwirkend editiert. Sync laeuft ueber die Docs (ALWA-017).",
+      "canonical_sync_targets": [
+        "docs/ananta-worker-tool-calling-loop.md",
+        "docs/contracts/ananta-worker-tool-loop.md",
+        "docs/security/ananta-worker-tool-calling-policy.md"
+      ],
       "updates": [
-        "AWTCL-006: Policy Gate muss ApprovalRequestDB + arguments_digest referenzieren.",
-        "AWTCL-008: ToolCall Audit muss ApprovalRequest-Status und Digest-Prefix aufnehmen.",
-        "AWTCL-010: approval_required als pending ApprovalRequest + kontrollierter Loop-Endstatus beschreiben.",
-        "Optional AWTCL-021 als Verweis auf diesen ALWA-Track aufnehmen."
+        "Policy-Gate-Doku muss ApprovalRequestDB + arguments_digest referenzieren (statt AWTCL-006).",
+        "ToolCall-Audit-Doku muss ApprovalRequest-Status und Digest-Prefix aufnehmen (statt AWTCL-008).",
+        "Loop-Contract beschreibt approval_required als pending ApprovalRequest + kontrollierten Endstatus mit Re-Dispatch (statt AWTCL-010)."
       ]
     },
     {
       "track": "ananta-worker-workspace-patch-iteration",
-      "file": "todos/todo.ananta-worker-workspace-patch-iteration.json",
+      "file": "todos/archiv/todo.ananta-worker-workspace-patch-iteration.json",
+      "note": "Track ist done und archiviert; wird nicht rueckwirkend editiert. Sync laeuft ueber die Docs (ALWA-016).",
+      "canonical_sync_targets": [
+        "docs/ananta-worker-workspace-patch-iteration.md",
+        "docs/security/ananta-worker-workspace-mutation-policy.md",
+        "docs/contracts/ananta-worker-mutation-mode.md"
+      ],
       "updates": [
-        "AWWPI-006: workspace_baseline_created Audit-Kriterium ergaenzen.",
-        "AWWPI-008: workspace_mutation_evaluated und workspace_mutation_blocked Audit-Kriterien ergaenzen.",
-        "AWWPI-011: diff_hash/diff_artifact_id als Audit-Referenz ergaenzen."
+        "workspace_baseline_created als Pflicht-Audit bei Baseline-Erstellung dokumentieren (statt AWWPI-006).",
+        "workspace_mutation_evaluated und workspace_mutation_blocked im Runtime-Flow dokumentieren (statt AWWPI-008).",
+        "diff_hash/diff_artifact_id als Audit-Referenz in der Diff-Beschreibung ergaenzen (statt AWWPI-011)."
       ]
     }
   ],
