@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import hashlib
 import json
 import logging
 import os
@@ -742,20 +743,50 @@ class WorkerWorkspaceService:
         return manifest
 
     def refresh_mutation_baseline(self, *, workspace_dir: Path, mutation_mode: str = "controlled_workspace") -> dict:
-        """AWWPI-006: refresh the baseline before any mutating execution.
+        """AWWPI-006 / ALWA-013: refresh the baseline before any mutating
+        execution. Emits a ``workspace_baseline_created`` audit event
+        via ``audit_workspace_mutation_event`` with the baseline id /
+        hash / workspace root / materialized file count.
 
-        read_only mode needs no mutating baseline. The baseline reuses the
-        interactive-terminal snapshot (ignores .ananta/rag_helper via the
-        meaningful-diff filter); a failed refresh returns a warning instead
-        of failing silently so artifact diff sync is never skipped quietly.
+        ``read_only`` mode does NOT emit a mutating-baseline event (it
+        is skipped entirely per the track spec).
         """
         mode = str(mutation_mode or "").strip().lower()
         if mode == "read_only":
             return {"baseline_dir": None, "file_count": 0, "skipped": "read_only_mode"}
         try:
-            return self.refresh_interactive_terminal_baseline(workspace_dir=workspace_dir)
+            meta = self.refresh_interactive_terminal_baseline(workspace_dir=workspace_dir)
         except OSError as exc:
             return {"baseline_dir": None, "file_count": 0, "warning": f"baseline_refresh_failed:{exc}"}
+
+        # ALWA-013: audit the baseline creation. We hash the helper's
+        # manifest.json (the only deterministic artifact of the
+        # snapshot) so the audit row has a content-free reference to
+        # the exact baseline state. If the manifest is missing we
+        # still emit (id-only) so the audit row exists. We never
+        # read file contents — the helper already redacts them.
+        try:
+            from agent.common.audit import (
+                AUDIT_WORKSPACE_BASELINE_CREATED,
+                audit_workspace_mutation_event,
+            )
+            manifest_path = Path(str(meta.get("baseline_dir") or "")) / "manifest.json"
+            baseline_hash: str | None = None
+            if manifest_path.is_file():
+                baseline_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+            file_count = int(meta.get("file_count") or 0)
+            audit_workspace_mutation_event(
+                AUDIT_WORKSPACE_BASELINE_CREATED,
+                mutation_mode=mode,
+                baseline_id=str(meta.get("baseline_dir") or "") or None,
+                baseline_hash=baseline_hash,
+                workspace_root_hash_or_id=str(workspace_dir),
+                materialized_paths_count=file_count,
+            )
+        except Exception:
+            # Audit must never fail the refresh.
+            pass
+        return meta
 
     def materialize_allowed_workspace_files(
         self,
