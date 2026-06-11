@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "hub-direct-execution-dynamic-tools",
   "created": "2026-06-11",
-  "status": "todo",
+  "status": "in_progress",
   "purpose": "Ananta soll einfache, deterministische Aufgaben direkt im Hub ohne Worker-LLM ausfuehren koennen und wiederkehrende Loesungen langfristig als sichere, gepruefte, wiederverwendbare Tools materialisieren.",
   "goal": "Vor dem Start eines Worker-LLM prueft der Hub, ob ein Auftrag sicher und deterministisch durch vorhandene Tools beantwortbar ist. Fuer neue wiederkehrende Loesungen entsteht ein kontrollierter Tool-Proposal-, Test-, Approval- und Promotion-Lifecycle, ohne dass LLMs jemals direkt Code registrieren oder Shell frei ausfuehren duerfen.",
   "source_review": {
@@ -40,18 +40,17 @@
     "current_capabilities": [
       "Worker-LLM kann per JSON-Protokoll ToolRequests anfordern.",
       "Hub validiert ToolRequests ueber Registry und Policy-Gate.",
-      "Hub fuehrt registrierte Tools deterministisch aus und liefert ToolResults als Evidence zurueck.",
+      "Hub entscheidet, autorisiert, auditiert und dispatcht registrierte Tools deterministisch an die WorkerRuntime; ToolResults kommen als Evidence zurueck.",
       "ApprovalRequestService kann digest-gebundene Grants persistieren, entscheiden, redispatchen und konsumieren.",
       "Workspace-Mutation-Audit emittiert Baseline-, Evaluated- und Blocked-Events.",
       "TaskExecutionService kann bereits direkte command/tool_calls ausfuehren, prueft Approval, Risk, MutationGate, Scope und Guardrails."
     ],
     "current_gaps": [
-      "Kein vorgeschalteter HubDirectExecutionRouter, der einfache User-/Task-Anfragen ohne Worker-LLM direkt auf Tools mappt.",
-      "Keine einheitliche Bruecke zwischen ananta-worker Registry (agent/services/ananta_tool_registry_service.py) und klassischer agent.tools Registry.",
-      "Keine persistente Custom-Tool-Registry fuer dynamisch promotete Tools.",
-      "Kein ToolProposal-Artefakt mit Schema, Tests, Policy-Metadaten und Approval-Status.",
-      "Keine Promotion-Pipeline von LLM-/User-vorgeschlagenem Script zu geprueftem Tool.",
-      "Keine Vorab-Reuse-Entscheidung: existierendes deterministisches Tool vor LLM benutzen."
+      "Track-Status war nach 426e10523 veraltet: Router, Config, Policy, Approval, Audit, Registry, Proposal, Promotion, Validation, Executor, Metrics und Diagnostics sind implementiert und muessen im Track als erledigt markiert werden.",
+      "E2E-Abdeckung fuer den vollstaendigen Direct-Execution-, Approval- und Dynamic-Tool-Promotion-Pfad ist noch nicht als dedizierte E2E-Testdatei vorhanden.",
+      "Script-basierte Custom Tools sind noch nicht content-digest-bound; proposal_digest bindet script_body_ref, aber nicht zwingend den aktuellen Script-Inhalt im Store.",
+      "Workspace-Mutation-Baseline ist bounded und muss bei Scan-Limit-Ueberschreitung fail-closed werden.",
+      "Dateibasierte Dynamic-Registry-/Proposal-Writes brauchen atomare Persistenz oder Locking, damit parallele Promotion/Usage/Disable-Operationen keine Updates verlieren."
     ]
   },
   "design_decisions": [
@@ -62,7 +61,7 @@
     },
     {
       "id": "HDE-DD-002",
-      "decision": "Direkte Hub-Ausfuehrung nutzt dieselben Policy-, Approval-, Risk-, Mutation- und Audit-Grenzen wie Worker-ToolCalls.",
+      "decision": "Hub-Direct-Execution nutzt dieselben Policy-, Approval-, Risk-, Mutation- und Audit-Grenzen wie Worker-ToolCalls; der Hub dispatcht, die WorkerRuntime fuehrt aus.",
       "rationale": "Kein zweiter unkontrollierter Ausfuehrungspfad."
     },
     {
@@ -90,7 +89,7 @@
     {
       "id": "HDE-M1",
       "title": "Hub-Direct-Execution vor Worker/LLM einfuehren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "HDE-001",
         "HDE-002",
@@ -102,7 +101,7 @@
     {
       "id": "HDE-M2",
       "title": "Tool-Registry-Bridge und sichere direkte Toolausfuehrung vereinheitlichen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "HDE-006",
         "HDE-007",
@@ -113,7 +112,7 @@
     {
       "id": "HDE-M3",
       "title": "Custom-Tool-Proposals und persistente Dynamic Registry bauen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "HDE-010",
         "HDE-011",
@@ -125,7 +124,7 @@
     {
       "id": "HDE-M4",
       "title": "Promotion-, Approval-, Test- und Sandbox-Lifecycle fuer Custom Tools",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "HDE-015",
         "HDE-016",
@@ -137,13 +136,23 @@
     {
       "id": "HDE-M5",
       "title": "Reuse vor LLM, Metriken, Diagnostik, Doku und E2E absichern",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "HDE-020",
         "HDE-021",
         "HDE-022",
         "HDE-023",
         "HDE-024"
+      ]
+    },
+    {
+      "id": "HDE-M6",
+      "title": "Follow-up-Hardening fuer Dynamic Tools abschliessen",
+      "status": "todo",
+      "task_ids": [
+        "HDE-025",
+        "HDE-026",
+        "HDE-027"
       ]
     }
   ],
@@ -152,7 +161,7 @@
       "id": "HDE-001",
       "title": "HubDirectExecutionRouter als vorgeschaltete Entscheidungsschicht anlegen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -172,7 +181,7 @@
       "id": "HDE-002",
       "title": "Konfiguration fuer Hub-Direct-Execution einfuehren",
       "type": "configuration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -192,7 +201,7 @@
       "id": "HDE-003",
       "title": "Erste deterministische Intent-Regeln fuer einfache Hub-Aufgaben implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -211,7 +220,7 @@
       "id": "HDE-004",
       "title": "DirectExecutionDecision und Result-Vertrag dokumentieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "target_files": [
@@ -230,7 +239,7 @@
       "id": "HDE-005",
       "title": "Hub-Direct-Ausfuehrung in TaskExecutionService integrieren",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -251,7 +260,7 @@
       "id": "HDE-006",
       "title": "Adapter zwischen Ananta-Worker-Registry und klassischer agent.tools Registry entwerfen",
       "type": "design-implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -262,9 +271,9 @@
         "tests/test_hub_tool_execution_adapter.py"
       ],
       "acceptance_criteria": [
-        "Neuer HubToolExecutionAdapter kann ToolSpecs aus agent/services/ananta_tool_registry_service.py lesen und execute_ananta_tool(...) nutzen.",
+        "Neuer HubToolExecutionAdapter kann ToolSpecs aus agent/services/ananta_tool_registry_service.py lesen und ueber HubToolExecutionAdapter an WorkerRuntimeExecutionAdapter dispatchen.",
         "Adapter dokumentiert Unterschied zu agent.tools.registry und vermeidet doppelte Tooldefinitionen fuer repo.*, git.*, codecompass.*, test.*.",
-        "Hub-Direct-Execution nutzt fuer ananta-worker-kompatible Tools execute_ananta_tool, nicht direkt agent.tools.registry.execute.",
+        "Hub-Direct-Execution nutzt fuer ananta-worker-kompatible Tools den WorkerRuntimeExecutionAdapter und ruft weder agent.tools.registry.execute noch Workspace-/Shell-Logik direkt im Hub-Prozess auf.",
         "Bestehende TaskExecutionService tool_calls ueber agent.tools.registry bleiben funktional.",
         "Tests pruefen, dass repo.grep ueber Adapter ein ananta_tool_result.v1-kompatibles Result liefert."
       ]
@@ -273,7 +282,7 @@
       "id": "HDE-007",
       "title": "Policy-Gate fuer Hub-Direct-Tools erzwingen",
       "type": "security-implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -282,10 +291,10 @@
         "tests/test_hub_direct_policy_gate.py"
       ],
       "acceptance_criteria": [
-        "Jeder Hub-Direct-ToolCall geht durch AnantaToolPolicyService.evaluate vor execute_ananta_tool.",
+        "Jeder Hub-Direct-ToolCall geht durch AnantaToolPolicyService.evaluate vor dem Dispatch an die WorkerRuntime.",
         "allowed_tools aus hub_direct_execution Config wird an evaluate uebergeben.",
         "mutation_mode wird aus Task/Agent-Config abgeleitet und nicht pauschal auf controlled_workspace gesetzt.",
-        "approval_required liefert strukturiertes Direct-Result und fuehrt das Tool nicht aus.",
+        "approval_required liefert strukturiertes Direct-Result und dispatcht nicht an die WorkerRuntime.",
         "Tests beweisen: unbekanntes Tool, blocked Tool, Write im read_only-Modus und Tool ausserhalb allowed_tools werden nicht ausgefuehrt."
       ]
     },
@@ -293,7 +302,7 @@
       "id": "HDE-008",
       "title": "Approval-Lifecycle fuer Hub-Direct-Execution anschliessen",
       "type": "security-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -314,7 +323,7 @@
       "id": "HDE-009",
       "title": "Audit-Events fuer Hub-Direct-Execution einfuehren",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "target_files": [
@@ -334,7 +343,7 @@
       "id": "HDE-010",
       "title": "ToolProposal-Artefakt-Schema definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -354,7 +363,7 @@
       "id": "HDE-011",
       "title": "CustomToolProposalService fuer Proposal-Erstellung bauen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -374,7 +383,7 @@
       "id": "HDE-012",
       "title": "Persistente DynamicToolRegistry implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -394,7 +403,7 @@
       "id": "HDE-013",
       "title": "Dynamic Tools in Prompt-Beschreibung und Hub-Direct-Router sichtbar machen",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -415,7 +424,7 @@
       "id": "HDE-014",
       "title": "Custom Tool Intent-Aliase und Reuse-Metadaten speichern",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -436,7 +445,7 @@
       "id": "HDE-015",
       "title": "Promotion-Pipeline pending -> validated -> approved -> active bauen",
       "type": "security-workflow",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -457,7 +466,7 @@
       "id": "HDE-016",
       "title": "Sandbox-/Allowlist-Executor fuer Custom Tools implementieren",
       "type": "security-implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -471,14 +480,15 @@
         "ShellCommandAnalyzer wird auf das final gerenderte Kommando angewendet.",
         "Timeout, cwd, allowed_paths, denied_paths, output_max_chars und env_allowlist werden erzwungen.",
         "Keine unrestricted shell, keine Pipes/Command-Substitution ausser explizit per bestehender Shell-Policy erlaubt.",
-        "Tests pruefen Block fuer command injection, Pfad-Ausbruch, zu langes Output, Timeout und nicht erlaubte Env-Variablen."
+        "Tests pruefen Block fuer command injection, Pfad-Ausbruch, zu langes Output, Timeout und nicht erlaubte Env-Variablen.",
+        "CustomToolExecutor ist Execution-Plane-Logik und darf nur ueber WorkerRuntimeExecutionAdapter fuer Hub-Direct aufgerufen werden."
       ]
     },
     {
       "id": "HDE-017",
       "title": "Validation-Tests fuer Custom Tool Proposals ausfuehren",
       "type": "testing-infrastructure",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -498,7 +508,7 @@
       "id": "HDE-018",
       "title": "MutationGate und Workspace-Audit fuer Custom Tool Ausfuehrung anbinden",
       "type": "security-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -519,7 +529,7 @@
       "id": "HDE-019",
       "title": "Custom Tool Rollback/Disable und sichere Deaktivierung bauen",
       "type": "operations",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -539,7 +549,7 @@
       "id": "HDE-020",
       "title": "Reuse-vor-LLM Strategie implementieren",
       "type": "optimization",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -560,7 +570,7 @@
       "id": "HDE-021",
       "title": "Metriken fuer gesparte LLM-Aufrufe und Tool-Reuse erfassen",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -579,7 +589,7 @@
       "id": "HDE-022",
       "title": "Diagnostik/API fuer Direct Execution und Custom Tools bereitstellen",
       "type": "api-ui",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -601,7 +611,7 @@
       "id": "HDE-023",
       "title": "End-to-End Tests fuer Direct Execution, Approval und Dynamic Tool Promotion schreiben",
       "type": "e2e-tests",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -621,7 +631,7 @@
       "id": "HDE-024",
       "title": "Doku und Rollout-Plan fuer Hub-Direct und Dynamic Tools abschliessen",
       "type": "documentation-rollout",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -638,36 +648,99 @@
         "Security-Doku betont: LLM darf Tools vorschlagen, aber nicht aktivieren; unrestricted shell bleibt verboten.",
         "README nennt Feature als optionalen, standardmaessig sicheren Ausbau, nicht als Default-Autonomie."
       ]
+    },
+    {
+      "id": "HDE-025",
+      "title": "Script-Content-Digest fuer Custom Tools erzwingen",
+      "type": "security-hardening",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/custom_tool_proposal_service.py",
+        "agent/services/custom_tool_validation_service.py",
+        "agent/services/custom_tool_promotion_service.py",
+        "agent/services/custom_tool_executor.py",
+        "docs/contracts/tool-proposal-artifact.md",
+        "tests/test_custom_tool_script_digest.py"
+      ],
+      "acceptance_criteria": [
+        "Script-basierte ToolProposals speichern einen script_body_digest oder kopieren den Script-Inhalt in einen digest-adressierten immutable Store.",
+        "Validation und Promotion binden den Script-Content-Digest an proposal_digest, validated_digest und approval target_fingerprint.",
+        "CustomToolExecutor prueft vor jeder Ausfuehrung, dass der aktuelle script_body_ref-Inhalt exakt dem freigegebenen Digest entspricht.",
+        "Eine nachtraegliche Aenderung am Script-Store invalidiert Ausfuehrung und liefert ein policy_blocked/rejected ToolResult mit Audit.",
+        "Tests decken Happy Path und Script-Tampering nach Approval ab."
+      ]
+    },
+    {
+      "id": "HDE-026",
+      "title": "Workspace-Mutation-Baseline fail-closed hardenen",
+      "type": "security-hardening",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/custom_tool_executor.py",
+        "agent/common/audit.py",
+        "tests/test_custom_tool_mutation_gate.py"
+      ],
+      "acceptance_criteria": [
+        "Wenn die Workspace-Baseline wegen File-Limit, Lesefehlern oder Traversal-Abbruch unvollstaendig ist, wird read_only/controlled_execution nicht still erlaubt.",
+        "Baseline-Ergebnis enthaelt complete=true/false, scanned_file_count und reason_code.",
+        "Bei incomplete baseline blockt der Executor fail-closed oder nutzt einen belastbaren Git-Diff/Status-Fallback, bevor ein Ergebnis erlaubt wird.",
+        "Audit macht incomplete_baseline und block_reason sichtbar, ohne Pfadlisten unbounded auszugeben.",
+        "Tests erzeugen einen Workspace ueber dem Scan-Limit und beweisen, dass Mutationen ausserhalb des gescannten Ausschnitts nicht durchrutschen."
+      ]
+    },
+    {
+      "id": "HDE-027",
+      "title": "Dynamic-Registry-Persistenz atomar machen",
+      "type": "reliability-hardening",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/services/dynamic_tool_registry_service.py",
+        "agent/services/custom_tool_proposal_service.py",
+        "tests/test_dynamic_tool_registry_service.py",
+        "tests/test_custom_tool_promotion_service.py"
+      ],
+      "acceptance_criteria": [
+        "Writes fuer Proposals, Registry Records, Statuswechsel, Rollback und Usage-Updates erfolgen atomar via temp-file plus rename oder ueber eine dedizierte Repository-Abstraktion.",
+        "Gleichzeitige Promotion/Disable/Usage-Updates verlieren keine Versionen, Usage-Zaehler oder Statusaenderungen.",
+        "Fehlerhafte Teilwrites hinterlassen keine korrupten JSON-Dateien, die aktive Tools unlesbar machen.",
+        "Tests simulieren konkurrierende Updates oder interleaved read-modify-write und pruefen konsistente Version History."
+      ]
     }
   ],
   "tasks_status_summary": {
-    "total": 24,
+    "total": 27,
     "by_status": {
-      "todo": 24,
-      "in_progress": 0,
+      "todo": 3,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 22
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 81.5,
     "by_priority": {
-      "P0": 18,
-      "P1": 6
+      "P0": 20,
+      "P1": 7
     },
     "by_risk": {
       "low": 6,
-      "high": 18
+      "high": 21
     },
     "critical_path": {
-      "total": 18,
-      "done": 0,
-      "remaining": 18
+      "total": 20,
+      "done": 17,
+      "remaining": 3
     },
     "milestones": {
-      "total": 5,
-      "todo": 5,
-      "in_progress": 0,
+      "total": 6,
+      "todo": 1,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   }
 }

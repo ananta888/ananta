@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "hub-direct-execution-worker-runtime-amendment",
   "created": "2026-06-11",
-  "status": "todo",
+  "status": "in_progress",
   "purpose": "Klarstellung zum Track todo.hub-direct-execution-dynamic-tools.json: Der Hub soll deterministische Ausfuehrung entscheiden, autorisieren, auditieren und dispatchen, aber nicht direkt in seiner eigenen Prozess-/Host-Umgebung ausfuehren.",
   "goal": "Alle Direct-Execution- und Dynamic-Tool-Arbeiten muessen so umgesetzt werden, dass der Hub als Kontroll- und Orchestrierungsschicht fungiert. Die tatsaechliche Tool-, Shell-, Test- oder Script-Ausfuehrung erfolgt in einer WorkerRuntime/Sandbox/Worker-Instanz mit klarer Policy, Workspace-Scope, Audit und Ergebnisrueckgabe.",
   "source_review": {
@@ -23,10 +23,20 @@
       "agent/services/worker_runtime_selection_service.py",
       "agent/services/worker_runtime_target_service.py"
     ],
-    "known_conflicts_with_amended_track": [
-      "HDE-006 verlangt, dass Hub-Direct-Execution execute_ananta_tool nutzt; agent/services/tools/__init__.py definiert execute_ananta_tool aber als hub-seitigen In-Process-Dispatch. Entweder wird execute_ananta_tool selbst zum Dispatcher Richtung WorkerRuntime oder der WorkerRuntimeExecutionAdapter ersetzt es fuer Hub-Direct (siehe HDW-001/HDW-002).",
-      "HDW-002 darf keinen dritten parallelen Ausfuehrungspfad neben NativeWorkerRuntimeService und worker_runtime_selection_service/worker_runtime_target_service schaffen; das Verhaeltnis muss explizit entschieden werden.",
-      "Registry-Landschaft ist breiter als in HDE-006 angenommen: neben ananta_tool_registry_service und agent.tools.registry existieren worker.core.tool_registry (genutzt von NativeWorkerRuntimeService), mcp_tool_registry und tui_tool_registry. Fuer execution_plane (HDW-003) muss die kanonische ToolSpec-Quelle festgelegt werden."
+    "implementation_review_after_426e10523": {
+      "reviewed_commit": "426e10523cf1a5a01b7e5ef1d77eacf0568508aa",
+      "summary": "Der Amendment ist im Code groesstenteils umgesetzt: HubToolExecutionAdapter bleibt Control Plane, WorkerRuntimeExecutionAdapter ist die Dispatch-Naht, ToolSpecs tragen execution_plane und Workspace/Env/Output-Grenzen sind implementiert. Offen bleibt die echte containerisierte/remote WorkerRuntime-Anbindung fuer Hub-Direct; der Default LocalProcessWorkerRuntime ist eine lokale Execution-Plane-Abstraktion, aber noch keine harte Docker-Container-Grenze.",
+      "remaining_gaps": [
+        "WorkerRuntimeExecutionAdapter nutzt aktuell standardmaessig LocalProcessWorkerRuntime; Docker-/Remote-Targets aus worker_runtime_target_service und worker_runtime_selection_service sind dokumentiert, aber noch nicht als Backend angeschlossen.",
+        "Dedizierte E2E-Dateien fuer Hub entscheidet / WorkerRuntime fuehrt aus fehlen noch.",
+        "Workspace-Mutation-Baseline und Script-Digest-Hardening werden im Dynamic-Tools-Track als HDE-025/HDE-026 nachgezogen."
+      ]
+    },
+    "amendment_findings_after_implementation": [
+      "HDE-006 wurde durch HubToolExecutionAdapter plus WorkerRuntimeExecutionAdapter umgesetzt; Hub-Direct ruft keine Workspace-/Shell-Logik direkt ueber agent.tools.registry im Hub-Control-Plane-Pfad auf.",
+      "HDW-002 ist als Adapter-Naht umgesetzt und dokumentiert; offen bleibt ein echtes Docker-/Remote-/NativeRuntime-Backend fuer harte Prozess-/Containertrennung (HDW-006).",
+      "HDW-003 ist in AnantaToolSpec.execution_plane, Policy-Gate und Vertrag dokumentiert; Tools ohne bekannte execution_plane werden geblockt.",
+      "Weitere Security-Hardening-Follow-ups liegen im Dynamic-Tools-Track: script_body_digest (HDE-025), fail-closed Mutation-Baseline (HDE-026), atomare Registry-Persistenz (HDE-027)."
     ]
   },
   "design_decisions": [
@@ -55,8 +65,15 @@
     {
       "id": "HDW-M1",
       "title": "Hub/Worker-Verantwortung sauber trennen",
-      "status": "todo",
-      "task_ids": ["HDW-001", "HDW-002", "HDW-003", "HDW-004", "HDW-005"]
+      "status": "in_progress",
+      "task_ids": [
+        "HDW-001",
+        "HDW-002",
+        "HDW-003",
+        "HDW-004",
+        "HDW-005",
+        "HDW-006"
+      ]
     }
   ],
   "tasks": [
@@ -64,7 +81,7 @@
       "id": "HDW-001",
       "title": "Begriffe im Hub-Direct-Track korrigieren",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "target_files": [
@@ -84,7 +101,7 @@
       "id": "HDW-002",
       "title": "WorkerRuntimeExecutionAdapter als Ausfuehrungsebene definieren",
       "type": "implementation-design",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -99,14 +116,15 @@
         "Adapter nimmt tool_name, arguments, task_id, goal_id, workspace_ref, mutation_mode und policy_decision entgegen.",
         "Adapter liefert ananta_tool_result.v1-kompatible Ergebnisse zurueck.",
         "HubToolExecutionAdapter ruft nicht direkt Shell/Script/Workspace-mutierende Logik auf, sondern delegiert an WorkerRuntimeExecutionAdapter.",
-        "Tests beweisen mit FakeWorkerRuntime, dass der Hub nur dispatcht und kein lokales Executor-Callable im Hub ausfuehrt."
+        "Tests beweisen mit FakeWorkerRuntime, dass der Hub nur dispatcht und kein lokales Executor-Callable im Hub ausfuehrt.",
+        "Aktueller Stand: Adapter und FakeWorkerRuntime-Tests existieren; echte Docker-/Remote-Backends bleiben HDW-006."
       ]
     },
     {
       "id": "HDW-003",
       "title": "Execution Plane fuer Toolklassen festlegen",
       "type": "security-contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -126,7 +144,7 @@
       "id": "HDW-004",
       "title": "Workspace- und Sandbox-Grenzen fuer Direct Execution erzwingen",
       "type": "security-implementation",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -140,14 +158,15 @@
         "Pfadnormalisierung verhindert Zugriff ausserhalb des erlaubten Workspace.",
         "Secrets/Hub-Konfiguration werden nicht in WorkerRuntime-Env durchgereicht ausser explizit allowlisted.",
         "Timeouts, Output-Limits und MutationGate werden auch bei Hub-Direct-Dispatch angewendet.",
-        "Tests pruefen Pfad-Ausbruch, fehlenden Workspace, nicht erlaubte Env-Variable und Mutation ausserhalb Scope."
+        "Tests pruefen Pfad-Ausbruch, fehlenden Workspace, nicht erlaubte Env-Variable und Mutation ausserhalb Scope.",
+        "Aktueller Stand: expliziter workspace_ref, Env-Allowlist, Output-Limits und CustomTool-MutationGate existieren; fail-closed Baseline-Hardening bleibt HDE-026."
       ]
     },
     {
       "id": "HDW-005",
       "title": "E2E fuer Hub entscheidet, Worker fuehrt aus schreiben",
       "type": "e2e-tests",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -159,17 +178,62 @@
         "FakeWorkerRuntime protokolliert erhaltenen workspace_ref und tool_name; Test prueft, dass kein Hub-lokaler Shell/Filesystem-Executor verwendet wurde.",
         "E2E zeigt: approval_required erzeugt pending ApprovalRequest im Hub, WorkerRuntime wird vor Grant nicht aufgerufen.",
         "E2E zeigt: nach Grant wird WorkerRuntime mit exakt gleichem arguments_digest dispatcht.",
-        "Audit enthaelt hub_direct_tool_requested, hub_direct_approval_required oder hub_direct_tool_completed plus worker_runtime_dispatch."
+        "Audit enthaelt hub_direct_tool_requested, hub_direct_approval_required oder hub_direct_tool_completed plus worker_runtime_dispatch.",
+        "Aktueller Stand: Unit-/Integrationstests decken Router, Policy, Approval, Audit und Adapter ab; dedizierte E2E-Dateien bleiben offen."
+      ]
+    },
+    {
+      "id": "HDW-006",
+      "title": "Containerisierte oder remote WorkerRuntime fuer Hub-Direct anbinden",
+      "type": "runtime-integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/worker_runtime_execution_adapter.py",
+        "agent/services/worker_runtime_selection_service.py",
+        "agent/services/worker_runtime_target_service.py",
+        "agent/services/native_worker_runtime_service.py",
+        "tests/test_worker_runtime_execution_adapter.py",
+        "tests/test_hub_direct_worker_runtime_e2e.py"
+      ],
+      "acceptance_criteria": [
+        "WorkerRuntimeExecutionAdapter kann neben LocalProcessWorkerRuntime mindestens ein Docker-/Remote-/NativeRuntime-Backend aus worker_runtime_target_service auswaehlen.",
+        "Hub-Direct-Execution kann so konfiguriert werden, dass Workspace-/Shell-/Script-Execution in einem separaten Worker-Container oder Remote-Worker statt im Hub-Prozess laeuft.",
+        "Runtime-Auswahl nutzt bestehende worker_runtime_selection_service/worker_runtime_target_service-Abstraktionen statt einen parallelen dritten Auswahlpfad einzufuehren.",
+        "Bei nicht verfuegbarer WorkerRuntime blockt Policy/Dispatch mit klarem Fehler, statt auf den Hub-Arbeitsordner oder lokale Shell-Ausfuehrung zurueckzufallen.",
+        "E2E-Test beweist: Hub-Prozess dispatcht nur, WorkerRuntime-Backend fuehrt aus, Audit enthaelt worker_runtime_dispatch mit runtime_kind und workspace_ref."
       ]
     }
   ],
   "tasks_status_summary": {
-    "total": 5,
-    "by_status": {"todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
-    "by_priority": {"P0": 5, "P1": 0},
-    "by_risk": {"low": 1, "high": 4},
-    "critical_path": {"total": 5, "done": 0, "remaining": 5},
-    "milestones": {"total": 1, "todo": 1, "in_progress": 0, "blocked": 0, "done": 0}
+    "total": 6,
+    "by_status": {
+      "todo": 1,
+      "in_progress": 3,
+      "blocked": 0,
+      "done": 2
+    },
+    "progress_percent_done": 33.3,
+    "by_priority": {
+      "P0": 6,
+      "P1": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "high": 5
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 2,
+      "remaining": 4
+    },
+    "milestones": {
+      "total": 1,
+      "todo": 0,
+      "in_progress": 1,
+      "blocked": 0,
+      "done": 0
+    }
   }
 }
