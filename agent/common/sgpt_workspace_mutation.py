@@ -246,8 +246,18 @@ def run_ananta_worker_workspace_mutation(
         seen_evidence.add(signature)
         evidence_blocks.append(entry)
 
-    def _hub_check(*, ran_tests_result: dict[str, Any] | None = None) -> dict[str, Any]:
-        """DiffResult + PolicyResult against baseline (the hub observation step)."""
+    def _hub_check(
+        *,
+        iteration_number: int | None = None,
+        ran_tests_result: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """DiffResult + PolicyResult against baseline (the hub observation step).
+
+        ALWA-014: emits ``workspace_mutation_evaluated`` on every call
+        with the canonical schema fields. The KIND_FINAL_ANSWER caller
+        picks the action name based on the policy outcome and emits
+        ``workspace_mutation_blocked`` for non-ok final policies.
+        """
         nonlocal last_policy_result
         changed = ws_svc.detect_changed_files_against_interactive_baseline(workspace_dir=workspace)
         meaningful = ws_svc.filter_meaningful_changed_files(changed)
@@ -270,17 +280,43 @@ def run_ananta_worker_workspace_mutation(
         }
         if ran_tests_result is not None:
             check["test_result"] = ran_tests_result
+        # ALWA-014: emit workspace_mutation_evaluated with the full
+        # required field set. diff_hash is computed over the truncated
+        # diff_text (the same text the caller logs); diff_artifact_id
+        # stays None here — the workspace.diff artifact is set by the
+        # final sync path. We never read file contents.
         try:
-            from agent.common.audit import AUDIT_WORKER_MUTATION_EVALUATED, audit_worker_tool_event
-
-            audit_worker_tool_event(
-                AUDIT_WORKER_MUTATION_EVALUATED,
-                tool_name="workspace.mutation",
-                policy_decision=policy_result.status,
-                risk_class="write",
+            from agent.common.audit import (
+                AUDIT_WORKSPACE_MUTATION_EVALUATED,
+                audit_workspace_mutation_event,
+            )
+            blocked_changes = list(policy_result.blocked_changes or [])
+            violation_ids = [
+                f"{row.get('path','')}:{row.get('reason','')}"
+                for row in blocked_changes
+                if isinstance(row, dict)
+            ]
+            violation_summary = (
+                "; ".join(
+                    f"{row.get('path','')}:{row.get('reason','')}"
+                    for row in blocked_changes
+                    if isinstance(row, dict)
+                )
+                or None
+            )
+            diff_hash = (
+                hashlib.sha256(diff_text.encode("utf-8")).hexdigest() if diff_text else None
+            )
+            audit_workspace_mutation_event(
+                AUDIT_WORKSPACE_MUTATION_EVALUATED,
                 task_id=task_id,
-                session_id=session_id,
-                detail=f"changed={meaningful}",
+                iteration_number=iteration_number,
+                mutation_mode=mode,
+                changed_paths=meaningful,
+                diff_hash=diff_hash,
+                policy_decision=str(policy_result.status or "unknown"),
+                violation_ids=violation_ids,
+                violation_summary=violation_summary,
             )
         except Exception:
             pass
@@ -353,10 +389,50 @@ def run_ananta_worker_workspace_mutation(
         report_iterations.append(iteration_row)
 
         if kind == KIND_FINAL_ANSWER:
-            final_check = _hub_check()
+            final_check = _hub_check(iteration_number=iteration)
             policy_status = str((final_check.get("policy_result") or {}).get("status") or "ok")
             answer = str(message.get("answer") or out)
             if policy_status != "ok":
+                # ALWA-015: a final answer that violates the workspace
+                # policy emits workspace_mutation_blocked. The
+                # workspace_mutation_evaluated event already fired
+                # inside _hub_check — this row is the *blocked* signal
+                # for the audit chain.
+                try:
+                    from agent.common.audit import (
+                        AUDIT_WORKSPACE_MUTATION_BLOCKED,
+                        audit_workspace_mutation_event,
+                    )
+                    policy_dict = dict(final_check.get("policy_result") or {})
+                    blocked_changes = list(policy_dict.get("blocked_changes") or [])
+                    violation_ids = [
+                        f"{row.get('path','')}:{row.get('reason','')}"
+                        for row in blocked_changes
+                        if isinstance(row, dict)
+                    ]
+                    violation_summary = (
+                        "; ".join(
+                            f"{row.get('path','')}:{row.get('reason','')}"
+                            for row in blocked_changes
+                            if isinstance(row, dict)
+                        )
+                        or None
+                    )
+                    audit_workspace_mutation_event(
+                        AUDIT_WORKSPACE_MUTATION_BLOCKED,
+                        task_id=task_id,
+                        iteration_number=iteration,
+                        mutation_mode=mode,
+                        changed_paths=list(
+                            (final_check.get("diff_result") or {}).get("changed_files") or []
+                        ),
+                        policy_decision=str(policy_status),
+                        violation_ids=violation_ids,
+                        violation_summary=violation_summary,
+                        blocked_reason=str(policy_status),
+                    )
+                except Exception:
+                    pass
                 summary = {
                     "kind": "final_answer_blocked",
                     "status": "policy_blocked",
@@ -424,7 +500,7 @@ def run_ananta_worker_workspace_mutation(
                 iteration_row["result"] = "max_patch_attempts_per_file"
                 summary = {"kind": "loop_aborted", "reason": "max_patch_attempts_per_file", "rejected": rejected}
                 return _finish("max_patch_attempts_per_file", 0, json.dumps(summary, ensure_ascii=False), err)
-            check = _hub_check()
+            check = _hub_check(iteration_number=iteration)
             check["write_result"] = {"applied": applied, "rejected": rejected}
             iteration_row["applied"] = applied
             iteration_row["rejected"] = rejected
@@ -511,7 +587,7 @@ def run_ananta_worker_workspace_mutation(
                 tool_call_id=tool_call_id,
                 config=cfg,
             )
-            check = _hub_check()
+            check = _hub_check(iteration_number=iteration)
             check["patch_result"] = result
             _add_evidence(check)
             iteration_row["patch_status"] = str(result.get("status") or "")
@@ -563,7 +639,10 @@ def run_ananta_worker_workspace_mutation(
                 config=tool_cfg,
             )
             if tool_name == "test.run":
-                check = _hub_check(ran_tests_result=dict(result.get("data") or {}))
+                check = _hub_check(
+                    iteration_number=iteration,
+                    ran_tests_result=dict(result.get("data") or {}),
+                )
                 check["tool_result"] = result
                 _add_evidence(check)
             else:
