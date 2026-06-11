@@ -650,17 +650,17 @@
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 17,
-      "P1": 7
+      "P0": 18,
+      "P1": 6
     },
     "by_risk": {
       "low": 6,
       "high": 18
     },
     "critical_path": {
-      "total": 17,
+      "total": 18,
       "done": 0,
-      "remaining": 17
+      "remaining": 18
     },
     "milestones": {
       "total": 5,

@@ -18,7 +18,15 @@
       "agent/services/ananta_tool_policy_service.py",
       "agent/services/ananta_tool_registry_service.py",
       "agent/services/tools/__init__.py",
-      "agent/common/sgpt_tool_loop.py"
+      "agent/common/sgpt_tool_loop.py",
+      "agent/services/native_worker_runtime_service.py",
+      "agent/services/worker_runtime_selection_service.py",
+      "agent/services/worker_runtime_target_service.py"
+    ],
+    "known_conflicts_with_amended_track": [
+      "HDE-006 verlangt, dass Hub-Direct-Execution execute_ananta_tool nutzt; agent/services/tools/__init__.py definiert execute_ananta_tool aber als hub-seitigen In-Process-Dispatch. Entweder wird execute_ananta_tool selbst zum Dispatcher Richtung WorkerRuntime oder der WorkerRuntimeExecutionAdapter ersetzt es fuer Hub-Direct (siehe HDW-001/HDW-002).",
+      "HDW-002 darf keinen dritten parallelen Ausfuehrungspfad neben NativeWorkerRuntimeService und worker_runtime_selection_service/worker_runtime_target_service schaffen; das Verhaeltnis muss explizit entschieden werden.",
+      "Registry-Landschaft ist breiter als in HDE-006 angenommen: neben ananta_tool_registry_service und agent.tools.registry existieren worker.core.tool_registry (genutzt von NativeWorkerRuntimeService), mcp_tool_registry und tui_tool_registry. Fuer execution_plane (HDW-003) muss die kanonische ToolSpec-Quelle festgelegt werden."
     ]
   },
   "design_decisions": [
@@ -68,6 +76,7 @@
         "Alle missverstaendlichen Formulierungen wie 'Hub fuehrt Tool aus' werden ersetzt durch 'Hub dispatcht ToolExecution an WorkerRuntime/Sandbox'.",
         "Doku erklaert explizit: Hub ist Control Plane, WorkerRuntime ist Execution Plane.",
         "HDE-DD-002 wird ergaenzt oder ersetzt, sodass Policy/Audit im Hub bleiben, Ausfuehrung aber nicht im Hub-Prozess stattfindet.",
+        "Acceptance Criteria von HDE-006, HDE-007 und HDE-016 werden nachgezogen: execute_ananta_tool bzw. CustomToolExecutor duerfen keine In-Process-Hub-Ausfuehrung mehr implizieren, sondern muessen den Dispatch an die WorkerRuntime beschreiben.",
         "Sequenzdiagramm zeigt User/Task -> HubDirectRouter -> Policy/Approval -> WorkerRuntime -> ToolResult -> Hub -> Response."
       ]
     },
@@ -86,6 +95,7 @@
       ],
       "acceptance_criteria": [
         "Neuer WorkerRuntimeExecutionAdapter kapselt die tatsaechliche ToolExecution ausserhalb der Hub-Control-Plane.",
+        "Verhaeltnis zu bestehender Runtime-Infrastruktur ist explizit entschieden und dokumentiert: NativeWorkerRuntimeService ist entweder die Execution Plane (Adapter delegiert dorthin) oder eines von mehreren Backends hinter dem Adapter; worker_runtime_selection_service und worker_runtime_target_service werden fuer Auswahl/Target wiederverwendet statt dupliziert.",
         "Adapter nimmt tool_name, arguments, task_id, goal_id, workspace_ref, mutation_mode und policy_decision entgegen.",
         "Adapter liefert ananta_tool_result.v1-kompatible Ergebnisse zurueck.",
         "HubToolExecutionAdapter ruft nicht direkt Shell/Script/Workspace-mutierende Logik auf, sondern delegiert an WorkerRuntimeExecutionAdapter.",
