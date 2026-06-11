@@ -32,7 +32,7 @@ from agent.routes.tasks.autopilot_strategy_candidates import (
     _safe_context_length,
     _strategy_cfg,
 )
-from agent.routes.tasks.autopilot_task_dispatcher import (
+from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
     TaskDispatchResult,
     _current_task_status,
     _dispatch_one_task,

@@ -12,7 +12,7 @@
     {
       "id": "V2-M1",
       "title": "Python agent/ & routes/ (14 Dateien)",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "SPLIT-101", "SPLIT-102", "SPLIT-103", "SPLIT-104", "SPLIT-105",
         "SPLIT-106", "SPLIT-107", "SPLIT-108", "SPLIT-109", "SPLIT-110",
@@ -60,7 +60,7 @@
       "title": "agent/config_defaults.py aufteilen (1089 -> <1000 Zeilen)",
       "file": "agent/config_defaults.py",
       "line_count": 1089,
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -75,7 +75,7 @@
       "title": "agent/research_backend.py aufteilen (1052 -> <1000 Zeilen)",
       "file": "agent/research_backend.py",
       "line_count": 1052,
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -90,7 +90,7 @@
       "title": "agent/tools.py aufteilen (1433 -> <1000 Zeilen)",
       "file": "agent/tools.py",
       "line_count": 1433,
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -105,7 +105,7 @@
       "title": "agent/routes/snakes_execution_routes.py aufteilen (1199 -> <1000 Zeilen)",
       "file": "agent/routes/snakes_execution_routes.py",
       "line_count": 1199,
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -120,7 +120,7 @@
       "title": "agent/routes/tasks/autopilot_task_dispatcher.py aufteilen (1439 -> <1000 Zeilen)",
       "file": "agent/routes/tasks/autopilot_task_dispatcher.py",
       "line_count": 1439,
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -179,7 +179,7 @@
       "title": "agent/services/planning_service.py weiter reduzieren (1342 -> <1000 Zeilen)",
       "file": "agent/services/planning_service.py",
       "line_count": 1342,
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -644,13 +644,13 @@
   "tasks_status_summary": {
     "total": 41,
     "by_status": {
-      "todo": 41,
+      "todo": 35,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 14.6,
     "by_priority": {
       "P0": 8,
       "P1": 17,
@@ -664,14 +664,14 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 0,
-      "remaining": 25
+      "done": 6,
+      "remaining": 19
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
       "done": 0
     }
