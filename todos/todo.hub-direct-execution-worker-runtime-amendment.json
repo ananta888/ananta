@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "hub-direct-execution-worker-runtime-amendment",
   "created": "2026-06-11",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "Klarstellung zum Track todo.hub-direct-execution-dynamic-tools.json: Der Hub soll deterministische Ausfuehrung entscheiden, autorisieren, auditieren und dispatchen, aber nicht direkt in seiner eigenen Prozess-/Host-Umgebung ausfuehren.",
   "goal": "Alle Direct-Execution- und Dynamic-Tool-Arbeiten muessen so umgesetzt werden, dass der Hub als Kontroll- und Orchestrierungsschicht fungiert. Die tatsaechliche Tool-, Shell-, Test- oder Script-Ausfuehrung erfolgt in einer WorkerRuntime/Sandbox/Worker-Instanz mit klarer Policy, Workspace-Scope, Audit und Ergebnisrueckgabe.",
   "source_review": {
@@ -65,7 +65,7 @@
     {
       "id": "HDW-M1",
       "title": "Hub/Worker-Verantwortung sauber trennen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HDW-001",
         "HDW-002",
@@ -101,7 +101,7 @@
       "id": "HDW-002",
       "title": "WorkerRuntimeExecutionAdapter als Ausfuehrungsebene definieren",
       "type": "implementation-design",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -144,7 +144,7 @@
       "id": "HDW-004",
       "title": "Workspace- und Sandbox-Grenzen fuer Direct Execution erzwingen",
       "type": "security-implementation",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -166,7 +166,7 @@
       "id": "HDW-005",
       "title": "E2E fuer Hub entscheidet, Worker fuehrt aus schreiben",
       "type": "e2e-tests",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -186,7 +186,7 @@
       "id": "HDW-006",
       "title": "Containerisierte oder remote WorkerRuntime fuer Hub-Direct anbinden",
       "type": "runtime-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -209,15 +209,14 @@
   "tasks_status_summary": {
     "total": 6,
     "by_status": {
-      "todo": 1,
-      "in_progress": 3,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 2
+      "done": 6
     },
-    "progress_percent_done": 33.3,
+    "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 6,
-      "P1": 0
+      "P0": 6
     },
     "by_risk": {
       "low": 1,
@@ -225,15 +224,24 @@
     },
     "critical_path": {
       "total": 6,
-      "done": 2,
-      "remaining": 4
+      "done": 6,
+      "remaining": 0
     },
     "milestones": {
       "total": 1,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
+  },
+  "completion_review": {
+    "completed_ref": "working-tree",
+    "completed_at": "2026-06-11",
+    "summary": "Track finalisiert: Status an die Implementierung angepasst, offene Hardening-/E2E-/Doku-Punkte umgesetzt und verifiziert.",
+    "verification": [
+      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/test_worker_runtime_execution_adapter.py tests/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
+      "pytest tests/test_hub_direct_diagnostics_api.py -q"
+    ]
   }
 }

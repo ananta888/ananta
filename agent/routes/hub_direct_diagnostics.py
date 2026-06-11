@@ -148,9 +148,10 @@ def activate_custom_tool(digest: str):
 @hub_direct_diagnostics_bp.post("/api/custom-tools/<name>/disable")
 @admin_required
 def disable_custom_tool(name: str):
-    from agent.services.custom_tool_promotion_service import get_custom_tool_promotion_service
+    from agent.services.custom_tool_promotion_service import CustomToolPromotionService
+    from agent.services.dynamic_tool_registry_service import get_dynamic_tool_registry_service
 
-    record = get_custom_tool_promotion_service().disable(name)
+    record = CustomToolPromotionService(registry=get_dynamic_tool_registry_service()).disable(name)
     if record is None:
         return jsonify({"error": "unknown_custom_tool"}), 404
     return jsonify({"name": record.get("name"), "status": record.get("status")})
@@ -159,10 +160,11 @@ def disable_custom_tool(name: str):
 @hub_direct_diagnostics_bp.post("/api/custom-tools/<name>/enable")
 @admin_required
 def enable_custom_tool(name: str):
-    from agent.services.custom_tool_promotion_service import get_custom_tool_promotion_service
+    from agent.services.custom_tool_promotion_service import CustomToolPromotionService
+    from agent.services.dynamic_tool_registry_service import get_dynamic_tool_registry_service
 
     try:
-        record = get_custom_tool_promotion_service().reactivate(name)
+        record = CustomToolPromotionService(registry=get_dynamic_tool_registry_service()).reactivate(name)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 409
     if record is None:
@@ -173,11 +175,12 @@ def enable_custom_tool(name: str):
 @hub_direct_diagnostics_bp.post("/api/custom-tools/<name>/rollback")
 @admin_required
 def rollback_custom_tool(name: str):
-    from agent.services.custom_tool_promotion_service import get_custom_tool_promotion_service
+    from agent.services.custom_tool_promotion_service import CustomToolPromotionService
+    from agent.services.dynamic_tool_registry_service import get_dynamic_tool_registry_service
 
     payload = request.get_json(silent=True) or {}
     try:
-        record = get_custom_tool_promotion_service().rollback(name, int(payload.get("version") or 0))
+        record = CustomToolPromotionService(registry=get_dynamic_tool_registry_service()).rollback(name, int(payload.get("version") or 0))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 409
     return jsonify({"name": record.get("name"), "version": record.get("version"), "status": record.get("status")})

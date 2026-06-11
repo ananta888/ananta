@@ -156,3 +156,35 @@ def test_local_process_runtime_executes_static_tool(tmp_path):
     )
     assert result["schema"] == "ananta_tool_result.v1"
     assert result["status"] == "ok"
+
+
+def test_configured_local_runtime_target_executes_static_tool(tmp_path):
+    from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+
+    (tmp_path / "hello.py").write_text("print('hi')\n", encoding="utf-8")
+    target = WorkerRuntimeTargetService().local_process_default().model_dump(mode="json")
+    result = WorkerRuntimeExecutionAdapter().dispatch(
+        tool_name="repo.list_files",
+        arguments={"limit": 10},
+        workspace_ref=str(tmp_path),
+        policy_decision=_allow_decision(),
+        config={"worker_runtime_target": target},
+        audit_enabled=False,
+    )
+    assert result["status"] == "ok"
+
+
+def test_configured_docker_runtime_target_fails_closed_without_backend(tmp_path):
+    from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+
+    target = WorkerRuntimeTargetService().docker_default().model_dump(mode="json")
+    result = WorkerRuntimeExecutionAdapter().dispatch(
+        tool_name="repo.list_files",
+        arguments={"limit": 10},
+        workspace_ref=str(tmp_path),
+        policy_decision=_allow_decision(),
+        config={"worker_runtime_target": target},
+        audit_enabled=False,
+    )
+    assert result["status"] == "error"
+    assert result["error"].startswith("worker_runtime_backend_unavailable:docker_container")

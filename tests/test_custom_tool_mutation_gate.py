@@ -78,3 +78,26 @@ def test_read_only_tool_without_mutation_passes(tmp_path, captured_audit):
     actions = [action for action, _ in captured_audit]
     assert "workspace_mutation_evaluated" in actions
     assert "workspace_mutation_blocked" not in actions
+
+
+def test_incomplete_workspace_baseline_blocks_fail_closed(tmp_path, captured_audit, monkeypatch):
+    import agent.services.custom_tool_executor as executor_module
+
+    monkeypatch.setattr(executor_module, "_BASELINE_MAX_FILES", 1)
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / "a.txt").write_text("a", encoding="utf-8")
+    (ws / "b.txt").write_text("b", encoding="utf-8")
+    result = CustomToolExecutor(tmp_path / "data").execute_spec(
+        spec=_spec(command_template=["true"]),
+        arguments={},
+        workspace_dir=str(ws),
+        tool_call_id="t-1",
+        config={"task_id": "task-7"},
+    )
+    assert result["status"] == "rejected"
+    assert result["error"] == "workspace_baseline_incomplete"
+    blocked = next(details for action, details in captured_audit if action == "workspace_mutation_blocked")
+    assert blocked["blocked_reason"] == "workspace_baseline_incomplete"
+    assert blocked["baseline_complete"] is False
+    assert blocked["reason_code"] == "baseline_file_limit_exceeded"

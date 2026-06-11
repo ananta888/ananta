@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+import hashlib
 from sqlmodel import SQLModel, create_engine
 
 from agent.services.custom_tool_promotion_service import (
@@ -135,3 +136,32 @@ def test_admin_override_still_requires_validation(world):
     world["promo"].validate(digest)
     record = world["promo"].activate(digest, actor="admin:test", admin_override=True)
     assert record["status"] == "active"
+
+
+def test_script_digest_is_bound_into_promoted_spec(world, tmp_path):
+    store = tmp_path / "tool-scripts"
+    store.mkdir(parents=True)
+    script = store / "hello.sh"
+    script.write_text("#!/bin/bash\necho script-ok\n", encoding="utf-8")
+    expected_digest = hashlib.sha256(script.read_bytes()).hexdigest()
+    payload = _proposal(
+        name="custom.hello_script",
+        execution_kind="script",
+        command_template=None,
+        script_body_ref="tool-scripts/hello.sh",
+        argument_schema={"type": "object", "properties": {}},
+        path_arguments=[],
+        tests=[
+            {"name": "ok", "kind": "positive", "arguments": {}, "expect_status": "ok", "expect_output_contains": ["script-ok"]},
+            {"name": "neg", "kind": "negative", "arguments": {"extra": "x"}, "expect_status": "rejected"},
+        ],
+    )
+    digest = world["proposals"].create_proposal(payload)["proposal_digest"]
+    proposal = world["proposals"].get_proposal(digest)
+    assert proposal["script_body_digest"] == expected_digest
+    world["promo"].validate(digest)
+    proposal = world["promo"].request_approval(digest)
+    world["approvals"].decide_request(proposal["approval_request_id"], decision="granted", decided_by="operator")
+    world["promo"].refresh_approval(digest)
+    record = world["promo"].activate(digest)
+    assert record["spec"]["script_body_digest"] == expected_digest

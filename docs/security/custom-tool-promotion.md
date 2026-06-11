@@ -14,6 +14,9 @@ Track: `todos/todo.hub-direct-execution-dynamic-tools.json`
    Token-Templates mit typisierten Argumenten oder Scripts aus dem
    genehmigten Store; das final gerenderte Kommando durchläuft den
    `ShellCommandAnalyzer`; `subprocess` läuft mit `shell=False`.
+   Script-Tools sind zusätzlich an `script_body_digest` gebunden; jede
+   Änderung am Script-Inhalt nach Proposal/Validation/Approval blockt
+   die Ausführung.
 3. **Der Hub führt nicht aus.** Custom Tools laufen über den
    `WorkerRuntimeExecutionAdapter` im `CustomToolExecutor`
    (execution_plane `worker_runtime`/`sandbox_runtime`), nie im
@@ -55,6 +58,9 @@ pending --validate--> validated ----request_approval----> approval_required
   Pfade ändern; alles andere blockt das Ergebnis. Die kanonischen
   Audit-Events bleiben `workspace_baseline_created`,
   `workspace_mutation_evaluated`, `workspace_mutation_blocked`.
+  Wenn die Baseline wegen File-Limit oder Lesefehlern unvollständig ist,
+  blockt der Executor fail-closed mit `workspace_baseline_incomplete`;
+  unvollständige Snapshots dürfen keine read-only Ergebnisse erlauben.
 - Argumente: nur deklarierte Properties, Typprüfung, keine
   Shell-Metazeichen in Werten, Pfad-Argumente nur innerhalb des
   Workspace.
@@ -69,3 +75,6 @@ pending --validate--> validated ----request_approval----> approval_required
 - Promotion-Aktionen (validate/approve/activate/disable/rollback) sind
   Admin-only (`admin_required`); Proposal-Erstellung steht
   authentifizierten Nutzern/LLM-Surfaces offen, bleibt aber inert.
+- Proposal- und Registry-JSON-Dateien werden atomar geschrieben
+  (temp-file + rename); Disable/Rollback/Usage-Updates behalten Version
+  History und Status konsistent.

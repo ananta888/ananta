@@ -53,7 +53,10 @@ Tool-Execution-Plane für Hub-Direct; sein Default-Backend
 der heute auch der Worker-Tool-Loop ausführt. Docker-/Remote-Targets aus
 `worker_runtime_target_service`/`worker_runtime_selection_service`
 können als weitere Backends eingehängt werden, ohne die Control Plane
-zu ändern.
+zu ändern. Wenn ein nicht-lokales Runtime-Target konfiguriert ist, aber
+kein Transport-Backend verfügbar ist, blockt der Dispatch fail-closed
+mit `worker_runtime_backend_unavailable`; es gibt keinen stillen
+Fallback auf den Hub-Arbeitsordner oder lokale Shell-Ausführung.
 
 ## Dynamic-Tool-Lifecycle
 
@@ -96,3 +99,15 @@ als sicherer Default. Felder: `direct_before_worker`,
 `avoided_llm_call_count`, `custom_tool_reuse_count` — in-process,
 abrufbar über die Diagnostik-API; nur Tool-Namen und Reason-Codes,
 keine Prompts/Outputs.
+
+## Rollout
+
+1. `hub_direct_execution.enabled=false` bleibt der sichere Default.
+2. Read-only Direct Tools (`repo.*`, `git.status`, `test.discover`)
+   zuerst pro Profil aktivieren und Metriken/Audit prüfen.
+3. Dynamic Tool Promotion nur mit Admin-Approval einschalten; Script
+   Tools müssen `script_body_digest` tragen und Validation bestehen.
+4. Für schreibende oder scriptbasierte Tools eine WorkerRuntime mit
+   explizitem `workspace_ref` und passender `execution_plane` erzwingen.
+5. Nicht-lokale Runtime-Targets erst produktiv aktivieren, wenn das
+   konkrete Docker-/Remote-Backend verfügbar ist; bis dahin fail-closed.

@@ -94,6 +94,35 @@ class LocalProcessWorkerRuntime:
         )
 
 
+class ConfiguredWorkerRuntimeUnavailable:
+    """Fail-closed placeholder for configured non-local runtime targets.
+
+    Docker/remote transports are selected through the existing runtime
+    target contracts, but this adapter must not silently fall back to
+    local hub-process execution when that transport is not implemented
+    or unavailable.
+    """
+
+    def __init__(self, runtime_kind: str, runtime_target_id: str) -> None:
+        self.runtime_kind = runtime_kind
+        self._runtime_target_id = runtime_target_id
+
+    def execute_tool(
+        self,
+        *,
+        tool_name: str,
+        arguments: dict[str, Any],
+        workspace_dir: str,
+        tool_call_id: str,
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return _error_result(
+            tool_name=tool_name,
+            tool_call_id=tool_call_id,
+            error=f"worker_runtime_backend_unavailable:{self.runtime_kind}:{self._runtime_target_id}",
+        )
+
+
 def _error_result(*, tool_name: str, tool_call_id: str, error: str) -> dict[str, Any]:
     return build_tool_result(tool_name=tool_name, tool_call_id=tool_call_id, status="error", error=error)
 
@@ -112,7 +141,7 @@ class WorkerRuntimeExecutionAdapter:
     """
 
     def __init__(self, runtime: WorkerRuntime | None = None) -> None:
-        self._runtime = runtime or LocalProcessWorkerRuntime()
+        self._runtime = runtime
 
     def dispatch(
         self,
@@ -144,6 +173,8 @@ class WorkerRuntimeExecutionAdapter:
         runtime_config["mutation_mode"] = str(mutation_mode or "read_only")
         max_chars = int(runtime_config.get("max_result_chars") or _DEFAULT_MAX_RESULT_CHARS)
 
+        runtime = self._runtime or self._runtime_from_config(runtime_config)
+
         if audit_enabled:
             audit_hub_direct_event(
                 AUDIT_WORKER_RUNTIME_DISPATCH,
@@ -152,13 +183,13 @@ class WorkerRuntimeExecutionAdapter:
                 risk_class=str(decision.get("risk_class") or "unknown"),
                 task_id=task_id,
                 goal_id=goal_id,
-                runtime_kind=getattr(self._runtime, "runtime_kind", "unknown"),
+                runtime_kind=getattr(runtime, "runtime_kind", "unknown"),
                 workspace_ref=str(workspace_dir),
                 tool_call_id=call_id,
             )
 
         try:
-            result = self._runtime.execute_tool(
+            result = runtime.execute_tool(
                 tool_name=name,
                 arguments=dict(arguments or {}),
                 workspace_dir=str(workspace_dir),
@@ -199,6 +230,25 @@ class WorkerRuntimeExecutionAdapter:
         sanitized["env_allowlist"] = allowlist
         sanitized["env"] = {name: os.environ[name] for name in allowlist if name in os.environ}
         return sanitized
+
+    @staticmethod
+    def _runtime_from_config(config: dict[str, Any]) -> WorkerRuntime:
+        target_payload = config.get("worker_runtime_target")
+        worker_runtime_cfg = config.get("worker_runtime") if isinstance(config.get("worker_runtime"), dict) else {}
+        if not target_payload and isinstance(worker_runtime_cfg, dict):
+            target_payload = worker_runtime_cfg.get("hub_direct_execution_target") or worker_runtime_cfg.get("runtime_target")
+        if not isinstance(target_payload, dict):
+            return LocalProcessWorkerRuntime()
+        try:
+            from agent.services.worker_runtime_target_service import WorkerRuntimeKind, WorkerRuntimeTargetService
+
+            target = WorkerRuntimeTargetService().from_config(target_payload)
+            kind = getattr(target.runtime_kind, "value", str(target.runtime_kind))
+            if target.runtime_kind == WorkerRuntimeKind.local_process:
+                return LocalProcessWorkerRuntime()
+            return ConfiguredWorkerRuntimeUnavailable(kind, target.runtime_target_id)
+        except Exception as exc:
+            return ConfiguredWorkerRuntimeUnavailable("misconfigured", str(exc)[:120])
 
     @staticmethod
     def _bound_result(result: dict[str, Any], max_chars: int) -> dict[str, Any]:

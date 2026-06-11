@@ -29,10 +29,6 @@ from __future__ import annotations
 from flask import Blueprint
 
 from agent.routes import _auth_helpers as _helpers
-from agent.routes._auth_mfa_routes import register_routes as _register_mfa
-from agent.routes._auth_session_routes import register_routes as _register_session
-from agent.routes._auth_test_routes import register_routes as _register_test
-from agent.routes._auth_users_routes import register_routes as _register_users
 
 # Public shim symbols (the original auth.py kept these at module
 # scope; tests and other modules import them from this path). The
@@ -42,6 +38,11 @@ _log = _helpers._log
 _is_local_test_request = _helpers._is_local_test_request
 _ensure_test_endpoint_enabled = _helpers._ensure_test_endpoint_enabled
 MFA_WARN_LAST = _helpers.MFA_WARN_LAST
+
+from agent.routes._auth_mfa_routes import register_routes as _register_mfa
+from agent.routes._auth_session_routes import register_routes as _register_session
+from agent.routes._auth_test_routes import register_routes as _register_test
+from agent.routes._auth_users_routes import register_routes as _register_users
 
 auth_bp = Blueprint("auth", __name__)
 

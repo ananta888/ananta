@@ -15,7 +15,10 @@ validated and approved (HDE-019).
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -23,6 +26,7 @@ from typing import Any
 DYNAMIC_TOOL_RECORD_SCHEMA = "dynamic_tool_record.v1"
 
 _NAME_SAFE_RE = re.compile(r"^[a-z][a-z0-9_.]*$")
+_REGISTRY_WRITE_LOCK = threading.RLock()
 
 
 def _default_data_root() -> Path:
@@ -33,6 +37,22 @@ def _default_data_root() -> Path:
 
 def _normalize_alias(value: str) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=str(path.parent), delete=False) as tmp:
+        tmp.write(data)
+        tmp.write("\n")
+        tmp_name = tmp.name
+    try:
+        os.replace(tmp_name, path)
+    finally:
+        try:
+            Path(tmp_name).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 class DynamicToolRegistryService:
@@ -176,37 +196,37 @@ class DynamicToolRegistryService:
         if path is None:
             raise ValueError(f"invalid_dynamic_tool_name:{name}")
 
-        existing = self.get_record(name) or {}
-        versions = list(existing.get("versions") or [])
-        if existing.get("version"):
-            versions.append(
-                {
-                    "version": existing.get("version"),
-                    "proposal_digest": existing.get("proposal_digest"),
-                    "validated_digest": existing.get("validated_digest"),
-                    "validation_report_ref": existing.get("validation_report_ref"),
-                    "approval_status": existing.get("approval_status"),
-                    "spec": dict(existing.get("spec") or {}),
-                    "archived_at": time.time(),
-                }
-            )
-        record = {
-            "schema": DYNAMIC_TOOL_RECORD_SCHEMA,
-            "name": name,
-            "version": int(existing.get("version") or 0) + 1,
-            "status": "active",
-            "approval_status": approval_status,
-            "proposal_digest": proposal_digest,
-            "validated_digest": validated_digest,
-            "validation_report_ref": validation_report_ref,
-            "spec": dict(spec),
-            "usage": dict(existing.get("usage") or {"last_used": None, "success_count": 0, "fail_count": 0, "last_failure_reason": None}),
-            "versions": versions,
-            "updated_at": time.time(),
-        }
-        self.tools_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(record, indent=2, sort_keys=True, ensure_ascii=True), encoding="utf-8")
-        return record
+        with _REGISTRY_WRITE_LOCK:
+            existing = self.get_record(name) or {}
+            versions = list(existing.get("versions") or [])
+            if existing.get("version"):
+                versions.append(
+                    {
+                        "version": existing.get("version"),
+                        "proposal_digest": existing.get("proposal_digest"),
+                        "validated_digest": existing.get("validated_digest"),
+                        "validation_report_ref": existing.get("validation_report_ref"),
+                        "approval_status": existing.get("approval_status"),
+                        "spec": dict(existing.get("spec") or {}),
+                        "archived_at": time.time(),
+                    }
+                )
+            record = {
+                "schema": DYNAMIC_TOOL_RECORD_SCHEMA,
+                "name": name,
+                "version": int(existing.get("version") or 0) + 1,
+                "status": "active",
+                "approval_status": approval_status,
+                "proposal_digest": proposal_digest,
+                "validated_digest": validated_digest,
+                "validation_report_ref": validation_report_ref,
+                "spec": dict(spec),
+                "usage": dict(existing.get("usage") or {"last_used": None, "success_count": 0, "fail_count": 0, "last_failure_reason": None}),
+                "versions": versions,
+                "updated_at": time.time(),
+            }
+            _atomic_write_json(path, record)
+            return record
 
     def set_status(self, name: str, status: str) -> dict[str, Any] | None:
         """Disable/re-activate without deleting (HDE-019).
@@ -216,19 +236,21 @@ class DynamicToolRegistryService:
         """
         if status not in {"active", "disabled"}:
             raise ValueError(f"invalid_dynamic_tool_status:{status}")
-        record = self.get_record(name)
-        if record is None:
-            return None
-        if status == "active":
-            if str(record.get("approval_status")) != "granted":
-                raise ValueError("activation_requires_granted_approval")
-            if not record.get("validated_digest") or record.get("validated_digest") != record.get("proposal_digest"):
-                raise ValueError("activation_requires_matching_validated_digest")
-        record["status"] = status
-        record["updated_at"] = time.time()
-        path = self._record_path(name)
-        path.write_text(json.dumps(record, indent=2, sort_keys=True, ensure_ascii=True), encoding="utf-8")
-        return record
+        with _REGISTRY_WRITE_LOCK:
+            record = self.get_record(name)
+            if record is None:
+                return None
+            if status == "active":
+                if str(record.get("approval_status")) != "granted":
+                    raise ValueError("activation_requires_granted_approval")
+                if not record.get("validated_digest") or record.get("validated_digest") != record.get("proposal_digest"):
+                    raise ValueError("activation_requires_matching_validated_digest")
+            record["status"] = status
+            record["updated_at"] = time.time()
+            path = self._record_path(name)
+            if path is not None:
+                _atomic_write_json(path, record)
+            return record
 
     def rollback(self, name: str, version: int) -> dict[str, Any]:
         """Roll back to an archived version — only if it was granted and
@@ -253,20 +275,21 @@ class DynamicToolRegistryService:
         )
 
     def record_usage(self, name: str, *, success: bool, failure_reason: str | None = None) -> None:
-        record = self.get_record(name)
-        if record is None:
-            return
-        usage = dict(record.get("usage") or {})
-        usage["last_used"] = time.time()
-        if success:
-            usage["success_count"] = int(usage.get("success_count") or 0) + 1
-        else:
-            usage["fail_count"] = int(usage.get("fail_count") or 0) + 1
-            usage["last_failure_reason"] = str(failure_reason or "")[:300] or None
-        record["usage"] = usage
-        path = self._record_path(name)
-        if path is not None:
-            path.write_text(json.dumps(record, indent=2, sort_keys=True, ensure_ascii=True), encoding="utf-8")
+        with _REGISTRY_WRITE_LOCK:
+            record = self.get_record(name)
+            if record is None:
+                return
+            usage = dict(record.get("usage") or {})
+            usage["last_used"] = time.time()
+            if success:
+                usage["success_count"] = int(usage.get("success_count") or 0) + 1
+            else:
+                usage["fail_count"] = int(usage.get("fail_count") or 0) + 1
+                usage["last_failure_reason"] = str(failure_reason or "")[:300] or None
+            record["usage"] = usage
+            path = self._record_path(name)
+            if path is not None:
+                _atomic_write_json(path, record)
 
 
 dynamic_tool_registry_service: DynamicToolRegistryService | None = None

@@ -22,6 +22,7 @@ import hashlib
 import shlex
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,7 @@ from agent.common.audit import (
     AUDIT_WORKSPACE_MUTATION_EVALUATED,
     audit_workspace_mutation_event,
 )
-from agent.services.custom_tool_proposal_service import _PLACEHOLDER_RE
+from agent.services.custom_tool_proposal_service import SCRIPT_BODY_DIGEST_FIELD, _PLACEHOLDER_RE
 from agent.services.shell_command_policy import ShellCommandAnalyzer
 from agent.services.tools._evidence import EVIDENCE_KIND_TEST_OUTPUT, build_evidence_entry, build_tool_result
 
@@ -41,33 +42,47 @@ _SCRIPT_INTERPRETERS = {"bash": ["bash"], "python3": ["python3"]}
 _BASE_ENV_KEYS = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
 
 
+@dataclass(frozen=True)
+class WorkspaceBaseline:
+    files: dict[str, str]
+    complete: bool
+    scanned_file_count: int
+    reason_code: str | None = None
+
+
 def _blocked(*, tool_name: str, tool_call_id: str, error: str, risk_class: str = "execution", status: str = "rejected") -> dict[str, Any]:
     return build_tool_result(
         tool_name=tool_name, tool_call_id=tool_call_id, status=status, risk_class=risk_class, error=error
     )
 
 
-def _workspace_baseline(workspace: Path) -> dict[str, str]:
+def _workspace_baseline(workspace: Path) -> WorkspaceBaseline:
     """Bounded content-hash snapshot for mutation detection (HDE-018)."""
     snapshot: dict[str, str] = {}
     count = 0
+    complete = True
+    reason_code = None
     for path in sorted(workspace.rglob("*")):
         if not path.is_file() or ".git" in path.parts:
             continue
         count += 1
         if count > _BASELINE_MAX_FILES:
+            complete = False
+            reason_code = "baseline_file_limit_exceeded"
             break
         try:
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
         except OSError:
+            complete = False
+            reason_code = "baseline_read_error"
             continue
         snapshot[str(path.relative_to(workspace))] = digest
-    return snapshot
+    return WorkspaceBaseline(files=snapshot, complete=complete, scanned_file_count=min(count, _BASELINE_MAX_FILES), reason_code=reason_code)
 
 
-def _changed_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
-    changed = {path for path, digest in after.items() if before.get(path) != digest}
-    changed |= {path for path in before if path not in after}
+def _changed_paths(before: WorkspaceBaseline, after: WorkspaceBaseline) -> list[str]:
+    changed = {path for path, digest in after.files.items() if before.files.get(path) != digest}
+    changed |= {path for path in before.files if path not in after.files}
     return sorted(changed)
 
 
@@ -135,9 +150,20 @@ class CustomToolExecutor:
             AUDIT_WORKSPACE_BASELINE_CREATED,
             task_id=task_id,
             mutation_mode=mutation_declaration,
-            baseline_hash=hashlib.sha256(repr(sorted(baseline.items())).encode("utf-8")).hexdigest(),
+            baseline_hash=hashlib.sha256(repr(sorted(baseline.files.items())).encode("utf-8")).hexdigest(),
             tool_name=tool_name,
+            baseline_complete=baseline.complete,
+            scanned_file_count=baseline.scanned_file_count,
+            reason_code=baseline.reason_code,
         )
+        if not baseline.complete:
+            self._audit_incomplete_baseline(
+                task_id=task_id,
+                mutation_declaration=mutation_declaration,
+                baseline=baseline,
+                tool_name=tool_name,
+            )
+            return _blocked(tool_name=tool_name, tool_call_id=tool_call_id, error="workspace_baseline_incomplete", risk_class=risk_class)
 
         timeout = int(spec.get("timeout_seconds") or 30)
         output_max = int(spec.get("output_max_chars") or 4000)
@@ -163,7 +189,16 @@ class CustomToolExecutor:
                 error=f"custom_tool_execution_failed:{exc}",
             )
 
-        changed = _changed_paths(baseline, _workspace_baseline(workspace))
+        after_baseline = _workspace_baseline(workspace)
+        if not after_baseline.complete:
+            self._audit_incomplete_baseline(
+                task_id=task_id,
+                mutation_declaration=mutation_declaration,
+                baseline=after_baseline,
+                tool_name=tool_name,
+            )
+            return _blocked(tool_name=tool_name, tool_call_id=tool_call_id, error="workspace_baseline_incomplete", risk_class=risk_class)
+        changed = _changed_paths(baseline, after_baseline)
         mutation_error = self._evaluate_mutations(
             spec, mutation_declaration=mutation_declaration, changed=changed, task_id=task_id, tool_name=tool_name
         )
@@ -246,6 +281,15 @@ class CustomToolExecutor:
             store = (self._data_root / "tool-scripts").resolve()
             if not str(script_path).startswith(str(store) + "/") or not script_path.is_file():
                 return [], "script_body_ref_not_in_approved_store"
+            expected_digest = str(spec.get(SCRIPT_BODY_DIGEST_FIELD) or "").strip()
+            if not expected_digest:
+                return [], "script_body_digest_missing"
+            try:
+                actual_digest = hashlib.sha256(script_path.read_bytes()).hexdigest()
+            except OSError:
+                return [], "script_body_ref_not_readable"
+            if actual_digest != expected_digest:
+                return [], "script_body_digest_mismatch"
             interpreter = _SCRIPT_INTERPRETERS.get(str(spec.get("interpreter") or "bash"))
             if interpreter is None:
                 return [], "unsupported_script_interpreter"
@@ -270,6 +314,27 @@ class CustomToolExecutor:
             elif name in os.environ:
                 env[name] = os.environ[name]
         return env
+
+    @staticmethod
+    def _audit_incomplete_baseline(
+        *,
+        task_id: str | None,
+        mutation_declaration: str,
+        baseline: WorkspaceBaseline,
+        tool_name: str,
+    ) -> None:
+        audit_workspace_mutation_event(
+            AUDIT_WORKSPACE_MUTATION_BLOCKED,
+            task_id=task_id,
+            mutation_mode=mutation_declaration,
+            changed_paths=[],
+            policy_decision="blocked",
+            blocked_reason="workspace_baseline_incomplete",
+            tool_name=tool_name,
+            baseline_complete=baseline.complete,
+            scanned_file_count=baseline.scanned_file_count,
+            reason_code=baseline.reason_code,
+        )
 
     @staticmethod
     def _evaluate_mutations(

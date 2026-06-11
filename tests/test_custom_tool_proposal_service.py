@@ -59,6 +59,23 @@ def test_duplicate_digest_is_not_recreated(tmp_path):
     assert len(list((tmp_path / "tool-proposals").glob("*.json"))) == 1
 
 
+def test_proposal_writes_use_atomic_writer(tmp_path, monkeypatch):
+    import agent.services.custom_tool_proposal_service as proposal_module
+
+    writes = []
+    original = proposal_module._atomic_write_json
+
+    def _recording_write(path, payload):
+        writes.append((path, payload.get("status")))
+        original(path, payload)
+
+    monkeypatch.setattr(proposal_module, "_atomic_write_json", _recording_write)
+    service = CustomToolProposalService(tmp_path)
+    stored = service.create_proposal(_proposal())
+    service.update_proposal(stored["proposal_digest"], {"status": "validated", "validated_digest": stored["proposal_digest"]})
+    assert [status for _, status in writes] == ["pending", "validated"]
+
+
 def test_content_change_yields_new_digest(tmp_path):
     service = CustomToolProposalService(tmp_path)
     first = service.create_proposal(_proposal())

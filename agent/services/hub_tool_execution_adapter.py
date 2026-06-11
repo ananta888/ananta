@@ -289,7 +289,7 @@ class HubToolExecutionAdapter:
         runtime_config: dict[str, Any] = {
             "max_result_chars": int(direct_cfg.get("max_result_chars") or 8000),
         }
-        for block in ("ananta_worker_workspace_mutation", "shell_command_policy", "ananta_worker_tool_loop"):
+        for block in ("ananta_worker_workspace_mutation", "shell_command_policy", "ananta_worker_tool_loop", "worker_runtime"):
             if isinstance(cfg.get(block), dict):
                 runtime_config[block] = dict(cfg[block])
         if direct_cfg.get("env_allowlist"):

@@ -28,6 +28,7 @@ siehe `docs/security/custom-tool-promotion.md`).
 | `execution_kind` | enum | `command_template` \| `script` |
 | `command_template` | string[] | nur bei `command_template`; Token-Liste, Platzhalter `{arg}` müssen in `argument_schema` existieren; statische Token ohne Shell-Metazeichen |
 | `script_body_ref` | string | nur bei `script`; muss in `tool-scripts/` liegen (genehmigter Speicherort), kein `..` |
+| `script_body_digest` | string | service-owned bei `script`; SHA-256 des freigegebenen Script-Inhalts, Teil des `proposal_digest` |
 | `allowed_paths` / `denied_paths` | string[] | Globs relativ zum Workspace |
 | `timeout_seconds` | int | 1–600 |
 | `output_max_chars` | int | 1–100000 |
@@ -81,8 +82,15 @@ referenziert.
 
 - `proposal_digest` = SHA-256 über das kanonische Proposal ohne
   Lifecycle-Felder (`status`, `approval_status`, Refs, Timestamps).
+- Bei `execution_kind=script` berechnet der Proposal-Service
+  `script_body_digest` aus dem aktuellen Script-Inhalt im genehmigten
+  Store. Validation, Approval, Registry und Executor binden diesen
+  Digest; ein später verändertes Script führt zu
+  `script_body_digest_mismatch` und wird nicht ausgeführt.
 - Persistenz: `<data_root>/tool-proposals/<digest>.json`
   (Default-`data_root`: `<DATA_DIR>/custom-tools`).
 - Duplikate (gleicher Digest) werden erkannt und nicht erneut angelegt.
 - Jede inhaltliche Änderung erzeugt einen neuen Digest und invalidiert
   damit alte Validation-Reports und Approval-Grants (HDE-015).
+- JSON-Persistenz erfolgt atomar über temp-file plus rename, damit
+  Teilwrites keine korrupten Proposal-Artefakte hinterlassen.

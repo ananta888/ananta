@@ -104,3 +104,22 @@ def test_invalid_names_are_refused(tmp_path):
             validation_report_ref=None,
             approval_status="granted",
         )
+
+
+def test_registry_writes_use_atomic_writer(tmp_path, monkeypatch):
+    import agent.services.dynamic_tool_registry_service as registry_module
+
+    writes = []
+    original = registry_module._atomic_write_json
+
+    def _recording_write(path, payload):
+        writes.append((path, payload.get("name"), payload.get("version")))
+        original(path, payload)
+
+    monkeypatch.setattr(registry_module, "_atomic_write_json", _recording_write)
+    registry = DynamicToolRegistryService(tmp_path)
+    _store(registry, name="custom.atomic")
+    registry.record_usage("custom.atomic", success=True)
+    registry.set_status("custom.atomic", "disabled")
+    assert [row[1] for row in writes] == ["custom.atomic", "custom.atomic", "custom.atomic"]
+    assert registry.get_record("custom.atomic")["status"] == "disabled"

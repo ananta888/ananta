@@ -134,10 +134,14 @@ def test_script_outside_store_is_blocked(tmp_path):
 def test_script_from_approved_store_runs(tmp_path):
     store = tmp_path / "data" / "tool-scripts"
     store.mkdir(parents=True)
-    (store / "hello.sh").write_text("#!/bin/bash\necho hallo-aus-script\n", encoding="utf-8")
+    script = store / "hello.sh"
+    script.write_text("#!/bin/bash\necho hallo-aus-script\n", encoding="utf-8")
+    import hashlib
+
     spec = _spec(
         execution_kind="script",
         script_body_ref="tool-scripts/hello.sh",
+        script_body_digest=hashlib.sha256(script.read_bytes()).hexdigest(),
         command_template=None,
         argument_schema={"type": "object", "properties": {}},
         path_arguments=[],
@@ -145,3 +149,25 @@ def test_script_from_approved_store_runs(tmp_path):
     result = _run(tmp_path, spec=spec)
     assert result["status"] == "ok"
     assert "hallo-aus-script" in result["evidence"][0]["excerpt"]
+
+
+def test_script_digest_mismatch_is_blocked(tmp_path):
+    store = tmp_path / "data" / "tool-scripts"
+    store.mkdir(parents=True)
+    script = store / "hello.sh"
+    script.write_text("#!/bin/bash\necho first\n", encoding="utf-8")
+    import hashlib
+
+    digest = hashlib.sha256(script.read_bytes()).hexdigest()
+    script.write_text("#!/bin/bash\necho tampered\n", encoding="utf-8")
+    spec = _spec(
+        execution_kind="script",
+        script_body_ref="tool-scripts/hello.sh",
+        script_body_digest=digest,
+        command_template=None,
+        argument_schema={"type": "object", "properties": {}},
+        path_arguments=[],
+    )
+    result = _run(tmp_path, spec=spec)
+    assert result["status"] == "rejected"
+    assert result["error"] == "script_body_digest_mismatch"

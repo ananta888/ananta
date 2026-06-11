@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "hub-direct-execution-dynamic-tools",
   "created": "2026-06-11",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "Ananta soll einfache, deterministische Aufgaben direkt im Hub ohne Worker-LLM ausfuehren koennen und wiederkehrende Loesungen langfristig als sichere, gepruefte, wiederverwendbare Tools materialisieren.",
   "goal": "Vor dem Start eines Worker-LLM prueft der Hub, ob ein Auftrag sicher und deterministisch durch vorhandene Tools beantwortbar ist. Fuer neue wiederkehrende Loesungen entsteht ein kontrollierter Tool-Proposal-, Test-, Approval- und Promotion-Lifecycle, ohne dass LLMs jemals direkt Code registrieren oder Shell frei ausfuehren duerfen.",
   "source_review": {
@@ -136,7 +136,7 @@
     {
       "id": "HDE-M5",
       "title": "Reuse vor LLM, Metriken, Diagnostik, Doku und E2E absichern",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HDE-020",
         "HDE-021",
@@ -148,7 +148,7 @@
     {
       "id": "HDE-M6",
       "title": "Follow-up-Hardening fuer Dynamic Tools abschliessen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "HDE-025",
         "HDE-026",
@@ -611,7 +611,7 @@
       "id": "HDE-023",
       "title": "End-to-End Tests fuer Direct Execution, Approval und Dynamic Tool Promotion schreiben",
       "type": "e2e-tests",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -631,7 +631,7 @@
       "id": "HDE-024",
       "title": "Doku und Rollout-Plan fuer Hub-Direct und Dynamic Tools abschliessen",
       "type": "documentation-rollout",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "target_files": [
@@ -653,7 +653,7 @@
       "id": "HDE-025",
       "title": "Script-Content-Digest fuer Custom Tools erzwingen",
       "type": "security-hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -676,7 +676,7 @@
       "id": "HDE-026",
       "title": "Workspace-Mutation-Baseline fail-closed hardenen",
       "type": "security-hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -696,7 +696,7 @@
       "id": "HDE-027",
       "title": "Dynamic-Registry-Persistenz atomar machen",
       "type": "reliability-hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": [
@@ -716,31 +716,40 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 3,
-      "in_progress": 2,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 22
+      "done": 27
     },
-    "progress_percent_done": 81.5,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 20,
       "P1": 7
     },
     "by_risk": {
-      "low": 6,
-      "high": 21
+      "high": 21,
+      "low": 6
     },
     "critical_path": {
       "total": 20,
-      "done": 17,
-      "remaining": 3
+      "done": 20,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 6
     }
+  },
+  "completion_review": {
+    "completed_ref": "working-tree",
+    "completed_at": "2026-06-11",
+    "summary": "Track finalisiert: Status an die Implementierung angepasst, offene Hardening-/E2E-/Doku-Punkte umgesetzt und verifiziert.",
+    "verification": [
+      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/test_worker_runtime_execution_adapter.py tests/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
+      "pytest tests/test_hub_direct_diagnostics_api.py -q"
+    ]
   }
 }

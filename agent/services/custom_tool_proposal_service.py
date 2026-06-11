@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -53,6 +56,7 @@ _VALID_CATEGORIES = {"read_only", "controlled_execution", "controlled_write"}
 _VALID_EXECUTION_KINDS = {"command_template", "script"}
 _VALID_EXECUTION_PLANES = {"worker_runtime", "sandbox_runtime"}
 _VALID_MUTATION_DECLARATIONS = {"read_only", "controlled_execution", "controlled_write"}
+SCRIPT_BODY_DIGEST_FIELD = "script_body_digest"
 
 # Fields excluded from the digest: lifecycle state must not change the
 # identity of the proposed tool content.
@@ -66,6 +70,7 @@ _VOLATILE_FIELDS = (
     "validation_report_ref",
     "proposal_digest",
 )
+_PROPOSAL_WRITE_LOCK = threading.RLock()
 
 
 def _default_data_root() -> Path:
@@ -78,6 +83,30 @@ def compute_proposal_digest(proposal: dict[str, Any]) -> str:
     payload = {key: value for key, value in proposal.items() if key not in _VOLATILE_FIELDS}
     canonical = json.dumps(payload, sort_keys=True, ensure_ascii=True, default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=str(path.parent), delete=False) as tmp:
+        tmp.write(data)
+        tmp.write("\n")
+        tmp_name = tmp.name
+    try:
+        os.replace(tmp_name, path)
+    finally:
+        try:
+            Path(tmp_name).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _script_digest(data_root: Path, ref: str) -> str:
+    script_path = (data_root / ref).resolve()
+    store = (data_root / "tool-scripts").resolve()
+    if not str(script_path).startswith(str(store) + "/") or not script_path.is_file():
+        raise ValueError("script_body_ref_not_readable")
+    return hashlib.sha256(script_path.read_bytes()).hexdigest()
 
 
 def validate_proposal_payload(payload: dict[str, Any]) -> list[str]:
@@ -215,6 +244,11 @@ class CustomToolProposalService:
         proposal.pop("approval_request_id", None)
         proposal.pop("validated_digest", None)
         proposal.pop("validation_report_ref", None)
+        if str(proposal.get("execution_kind") or "") == "script":
+            try:
+                proposal[SCRIPT_BODY_DIGEST_FIELD] = _script_digest(self._data_root, str(proposal.get("script_body_ref") or ""))
+            except (OSError, ValueError) as exc:
+                raise ValueError(f"invalid_tool_proposal:{exc}") from exc
         digest = compute_proposal_digest(proposal)
         proposal["proposal_digest"] = digest
 
@@ -223,10 +257,8 @@ class CustomToolProposalService:
             return existing
 
         proposal["created_at"] = time.time()
-        self.proposals_dir.mkdir(parents=True, exist_ok=True)
-        self.proposal_path(digest).write_text(
-            json.dumps(proposal, indent=2, sort_keys=True, ensure_ascii=True), encoding="utf-8"
-        )
+        with _PROPOSAL_WRITE_LOCK:
+            _atomic_write_json(self.proposal_path(digest), proposal)
         return proposal
 
     def get_proposal(self, digest: str) -> dict[str, Any] | None:
@@ -272,9 +304,8 @@ class CustomToolProposalService:
         if str(proposal.get("status")) not in KNOWN_STATUSES:
             raise ValueError(f"unknown_proposal_status:{proposal.get('status')}")
         proposal["updated_at"] = time.time()
-        self.proposal_path(digest).write_text(
-            json.dumps(proposal, indent=2, sort_keys=True, ensure_ascii=True), encoding="utf-8"
-        )
+        with _PROPOSAL_WRITE_LOCK:
+            _atomic_write_json(self.proposal_path(digest), proposal)
         return proposal
 
 
