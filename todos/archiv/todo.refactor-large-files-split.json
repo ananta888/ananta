@@ -1,7 +1,7 @@
 {
   "id": "todo.refactor-large-files-split",
   "title": "Große Quelldateien aufteilen (>1000 Zeilen)",
-  "status": "done",
+  "status": "partial",
   "priority": "high",
   "created": "2026-06-09",
   "context": {
@@ -11,7 +11,12 @@
       ".venv/, venv/, site-packages/ (Drittanbieter)",
       "client_surfaces/vscode_extension/out/extension.js (kompiliertes Artefakt)",
       ".claude/worktrees/ (temporäre Worktrees)"
-    ]
+    ],
+    "follow_up": {
+      "track": "todos/todo.refactor-remaining-source-files-over-1000.json",
+      "report": "reports/source-files-over-1000.json",
+      "reason": "Archived track was marked done while several legacy source/test files remain over 1000 lines."
+    }
   },
   "milestones": [
     {
@@ -38,7 +43,7 @@
         "SPLIT-009",
         "SPLIT-010"
       ],
-      "status": "done",
+      "status": "partial",
       "priority": "P1",
       "notes": "SPLIT-006 done. SPLIT-007 done (sgpt_route.py 326 lines). SPLIT-009 done (sgpt.py 347 lines, 5 sub-modules). SPLIT-010 done (autopilot_tick_engine.py 611 lines, 3 sub-modules). SPLIT-008 blocked (pre-existing TS errors in frontend-angular, needs Angular compile before split). 4/5 done; only blocked task remains. M2 fully done (1 blocked)."
     },
@@ -59,7 +64,7 @@
         "SPLIT-021",
         "SPLIT-022"
       ],
-      "status": "done",
+      "status": "partial",
       "priority": "P1",
       "notes": "SPLIT-011 done (prompt_inspect.py 2032→801). SPLIT-012 done (teams.py 1744→503). SPLIT-013 done (cli_goals.py 1609→605). SPLIT-014 done (goals.py 1579→415). SPLIT-015 done (planning_service.py 1573→1342 + 2 sub-modules). SPLIT-016 done (task_execution_service.py 1697→1070 + 2 sub-modules). SPLIT-017 done (llm_integration.py 1557→859 + 3 sub-modules). SPLIT-018 done (record_tui_demo.py 1542→119 + 2 sub-modules). SPLIT-021 done (snakes.py 1492→126 + 2 sub-modules). SPLIT-022 done (evolution_service.py 1404→393 + 2 sub-modules). SPLIT-019/020 pending (Angular TS, needs ng build verify). 10/12 done."
     },
@@ -102,7 +107,7 @@
         "SPLIT-046",
         "SPLIT-047"
       ],
-      "status": "todo",
+      "status": "partial",
       "priority": "P3",
       "notes": "10 Testdatei-Splits noch nicht gestartet (P3, niedrige Priorität)."
     }
@@ -1700,6 +1705,7 @@
     "research_backend.py (1052 Zeilen) ist durch die Camofox-Integration leicht über 1000 Zeilen gewachsen — wird in SPLIT-009 Kontext mitbetrachtet",
     "M1 (5 kritisch): ALLE DONE. M2 (5 hoch): 4/5 DONE, 1 blocked (Angular). M3 (12 hoch): 10/12 DONE, 2 blocked (Angular TS). M4 (15 mittel): 15/15 DONE. M5 (10 niedrig): noch todo — Testdatei-Splits.",
     "SPLIT-019/020 blocked: pre-existing Angular TS errors (selbe Root-Cause wie SPLIT-008).",
-    "Alle 47 Tasks: 37 done, 3 blocked (Angular), 10 todo (M5 P3-Test-Splits), 0 in_progress."
+    "Alle 47 Tasks: 37 done, 3 blocked (Angular), 10 todo (M5 P3-Test-Splits), 0 in_progress.",
+    "Status corrected to partial; remaining work is tracked by refactor-remaining-source-files-over-1000."
   ]
 }

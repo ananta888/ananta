@@ -1,0 +1,209 @@
+{
+  "schema": "source_file_line_count_allowlist.v1",
+  "generated_from": "reports/source-files-over-1000.json",
+  "allowlist": [
+    {
+      "path": "agent/config_defaults.py",
+      "line_count": 1089,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/research_backend.py",
+      "line_count": 1052,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/tools.py",
+      "line_count": 1433,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/routes/snakes_execution_routes.py",
+      "line_count": 1199,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/routes/tasks/autopilot_task_dispatcher.py",
+      "line_count": 1439,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/eclipse_plugin_protocol.py",
+      "line_count": 1117,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/editor_tui_surface_state.py",
+      "line_count": 1048,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/instruction_layer_compiler.py",
+      "line_count": 1028,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/planning_service.py",
+      "line_count": 1342,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/rag_helper_index_service.py",
+      "line_count": 1147,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/task_execution_service.py",
+      "line_count": 1244,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/task_execution_tracking_service.py",
+      "line_count": 1124,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/task_scoped_execution_service.py",
+      "line_count": 1361,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/worker_workspace_service.py",
+      "line_count": 1150,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "client_surfaces/operator_tui/_renderer_content.py",
+      "line_count": 1888,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "client_surfaces/operator_tui/ai_snake_config_view.py",
+      "line_count": 1113,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "client_surfaces/operator_tui/interactive.py",
+      "line_count": 1753,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "client_surfaces/operator_tui/snake_ops_mixin.py",
+      "line_count": 1285,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "client_surfaces/operator_tui/snake_tick_mixin.py",
+      "line_count": 1179,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java",
+      "line_count": 1158,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/android/app/src/main/java/com/ananta/mobile/python/PythonRuntimePlugin.java",
+      "line_count": 2274,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/android/app/src/main/java/com/ananta/mobile/voxtral/VoxtralOfflinePlugin.java",
+      "line_count": 2885,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/components/ai-assistant.component.ts",
+      "line_count": 1164,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/components/artifacts.component.ts",
+      "line_count": 1494,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/components/dashboard.component.ts",
+      "line_count": 1422,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/components/settings.component.ts",
+      "line_count": 2501,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/components/task-detail.component.ts",
+      "line_count": 1534,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/components/teams.component.ts",
+      "line_count": 1454,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "scripts/firefox_automation/_benchmark.py",
+      "line_count": 1477,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    }
+  ]
+}

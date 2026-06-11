@@ -22,6 +22,7 @@ from agent.services.evolution.models import (
     PersistedEvolutionAnalysis,
     ValidationResult,
 )
+from agent.services.evolution.payload_redaction import bounded_payload as _bounded_payload
 from agent.services.evolution.registry import EvolutionProviderRegistry, get_evolution_provider_registry
 from agent.services.evolution_proposal_service import (
     EvolutionProposalService,
@@ -63,6 +64,8 @@ class EvolutionService:
             repositories=repositories,
             audit_fn=self._audit_fn,
         )
+    def _bounded_payload(self, payload: Any, *, policy: EvolutionPolicy) -> Any:
+        return _bounded_payload(payload, policy=policy)
     def list_providers(self) -> list[dict[str, Any]]:
         policy = self.resolve_policy(None)
         return [

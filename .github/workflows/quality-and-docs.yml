@@ -29,6 +29,14 @@ jobs:
       - name: Run unified check pipeline (standard backend gate)
         run: python scripts/check_pipeline.py --mode standard --skip-style --skip-types
 
+      - name: Source file line limit gate
+        run: >
+          python scripts/audit/source_file_line_count.py
+          --threshold 1000
+          --allowlist reports/source-files-over-1000-allowlist.json
+          --fail-on-source-over-threshold
+          --over-threshold-only
+
       - name: WFG-028 workflow-gates quality gate
         run: python scripts/check_workflow_gates.py
 
