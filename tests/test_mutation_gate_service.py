@@ -245,3 +245,109 @@ def test_mutation_target_normalization_handles_evolver_target_refs() -> None:
     assert normalized_a["path"].endswith("/agent/routes/evolution.py")
     assert normalized_a["target_refs_digest"]
     assert normalized_a["target_fingerprint"] == normalized_b["target_fingerprint"]
+
+
+# ALWA-006: arguments_digest-based scoped-approval binding. A scoped
+# approval may pin the exact call via arguments_digest; a mismatch must
+# not silently allow.
+def test_mutation_scope_arguments_digest_mismatch_blocks() -> None:
+    svc = get_mutation_gate_service()
+    target = svc.normalize_target(
+        command="chmod +x scripts/run.sh",
+        tool_calls=None,
+        task={"id": "task-d1", "goal_id": "goal-d1"},
+    )
+    task = {
+        "id": "task-d1",
+        "goal_id": "goal-d1",
+        "mutation_approval": {
+            "task_id": "task-d1",
+            "trace_id": "trace-d1",
+            "actor": "operator",
+            "mutation_classes": ["shell"],
+            "expires_at": time.time() + 600,
+            "target_fingerprint": target["target_fingerprint"],
+            "arguments_digest": "deadbeef" * 8,
+        },
+    }
+    result = svc._validate_scoped_approval(
+        task=task,
+        mutation_class="shell",
+        normalized_target=target,
+        trace_id="trace-d1",
+        actor="operator",
+        arguments_digest="cafebabe" * 8,
+    )
+    assert result["ok"] is False
+    assert result["reason_code"] == "mutation_scope_mismatch:arguments_digest"
+
+
+def test_mutation_scope_arguments_digest_match_allows() -> None:
+    svc = get_mutation_gate_service()
+    target = svc.normalize_target(
+        command="chmod +x scripts/run.sh",
+        tool_calls=None,
+        task={"id": "task-d2", "goal_id": "goal-d2"},
+    )
+    arguments_digest = svc._compute_call_digest(
+        call_arguments={"command": "chmod +x scripts/run.sh"},
+        target_fingerprint=target["target_fingerprint"],
+    )
+    task = {
+        "id": "task-d2",
+        "goal_id": "goal-d2",
+        "mutation_approval": {
+            "task_id": "task-d2",
+            "trace_id": "trace-d2",
+            "actor": "operator",
+            "mutation_classes": ["shell"],
+            "expires_at": time.time() + 600,
+            "target_fingerprint": target["target_fingerprint"],
+            "arguments_digest": arguments_digest,
+        },
+    }
+    result = svc._validate_scoped_approval(
+        task=task,
+        mutation_class="shell",
+        normalized_target=target,
+        trace_id="trace-d2",
+        actor="operator",
+        arguments_digest=arguments_digest,
+    )
+    assert result["ok"] is True
+    assert result["reason_code"] == "mutation_scope_ok"
+
+
+def test_mutation_scope_arguments_digest_omitted_skips_check() -> None:
+    """ALWA-006: an empty digest in the scope must not block; it just
+    skips the digest check (legacy scope without pinning is still
+    honored for the other dimensions)."""
+    svc = get_mutation_gate_service()
+    target = svc.normalize_target(
+        command="chmod +x scripts/run.sh",
+        tool_calls=None,
+        task={"id": "task-d3", "goal_id": "goal-d3"},
+    )
+    task = {
+        "id": "task-d3",
+        "goal_id": "goal-d3",
+        "mutation_approval": {
+            "task_id": "task-d3",
+            "trace_id": "trace-d3",
+            "actor": "operator",
+            "mutation_classes": ["shell"],
+            "expires_at": time.time() + 600,
+            "target_fingerprint": target["target_fingerprint"],
+            # arguments_digest intentionally absent
+        },
+    }
+    result = svc._validate_scoped_approval(
+        task=task,
+        mutation_class="shell",
+        normalized_target=target,
+        trace_id="trace-d3",
+        actor="operator",
+        arguments_digest="anything",
+    )
+    assert result["ok"] is True
+    assert result["reason_code"] == "mutation_scope_ok"
