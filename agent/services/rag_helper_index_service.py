@@ -16,6 +16,15 @@ from agent.repository import artifact_repo, artifact_version_repo, knowledge_ind
 from agent.services.rag_index_chunker import chunk_wiki_records, index_wiki_records_with_codecompass
 
 
+from agent.services._rag_helper_profile_catalog import (
+    ALLOWED_OVERRIDE_KEYS,
+    BOOL_OVERRIDE_KEYS,
+    INTERNAL_PROFILE_CATALOG,
+    PROFILE_KEY_ALIASES,
+    PROFILE_SECTION_KEYS,
+)
+
+
 class RagHelperIndexService:
     """Owns controlled rag-helper execution and persistence for artifact-backed indices."""
 
@@ -25,196 +34,11 @@ class RagHelperIndexService:
         "py", "js", "ts", "tsx", "jsx", "java", "go", "rs", "c", "cpp", "h", "hpp",
         "cs", "rb", "php", "md", "rst", "txt", "yaml", "yml", "json", "toml",
     }
-    INTERNAL_PROFILE_CATALOG = {
-        "default": {
-            "label": "Default",
-            "description": "Ausgewogen fuer allgemeine Artefakte und Retrieval.",
-            "limits": {
-                "max_workers": 1,
-                "embedding_text_mode": "compact",
-                "retrieval_output_mode": "both",
-                "graph_export_mode": "off",
-                "benchmark_mode": "basic",
-                "duplicate_detection_mode": "basic",
-                "specialized_chunker_mode": "basic",
-                "output_bundle_mode": "off",
-            },
-            "options": {
-                "include_code_snippets": False,
-                "exclude_trivial_methods": False,
-                "include_xml_node_details": False,
-            },
-        },
-        "fast_docs": {
-            "label": "Fast Docs",
-            "description": "Schneller, dokumentzentrierter Lauf mit wenig Zusatzmaterial.",
-            "limits": {
-                "max_workers": 1,
-                "embedding_text_mode": "compact",
-                "retrieval_output_mode": "split",
-                "graph_export_mode": "off",
-                "benchmark_mode": "off",
-                "duplicate_detection_mode": "off",
-                "specialized_chunker_mode": "off",
-                "output_bundle_mode": "off",
-            },
-            "options": {
-                "include_code_snippets": False,
-                "exclude_trivial_methods": True,
-                "include_xml_node_details": False,
-            },
-        },
-        "deep_code": {
-            "label": "Deep Code",
-            "description": "Reichhaltigere Code- und Struktur-Extraktion fuer technische Artefakte.",
-            "limits": {
-                "max_workers": 1,
-                "embedding_text_mode": "compact",
-                "retrieval_output_mode": "both",
-                "graph_export_mode": "jsonl",
-                "benchmark_mode": "basic",
-                "duplicate_detection_mode": "basic",
-                "specialized_chunker_mode": "basic",
-                "output_bundle_mode": "zip",
-            },
-            "options": {
-                "include_code_snippets": True,
-                "exclude_trivial_methods": False,
-                "include_xml_node_details": True,
-            },
-        },
-        "subtask_bugfix_local": {
-            "label": "Subtask Bugfix Local",
-            "description": "Fokussiert auf lokale Fehleranalyse, relevante Nachbarschaft und moeglichst kompakte Debug-Kontexte.",
-            "task_kinds": ["bugfix", "testing", "test"],
-            "retrieval_intents": ["localize_failure_and_fix", "localize bug", "execution_focused_context"],
-            "limits": {
-                "max_workers": 1,
-                "embedding_text_mode": "compact",
-                "retrieval_output_mode": "both",
-                "graph_export_mode": "off",
-                "benchmark_mode": "off",
-                "duplicate_detection_mode": "basic",
-                "specialized_chunker_mode": "basic",
-                "output_bundle_mode": "off",
-            },
-            "options": {
-                "include_code_snippets": True,
-                "exclude_trivial_methods": True,
-                "include_xml_node_details": False,
-            },
-        },
-        "subtask_refactor_navigation": {
-            "label": "Subtask Refactor Navigation",
-            "description": "Balanciert Struktur, Symbol-Nachbarschaft und fokussierte Member-Chunks fuer Refactorings.",
-            "task_kinds": ["refactor", "implement", "coding"],
-            "retrieval_intents": ["symbol_and_dependency_neighborhood", "execution_focused_context"],
-            "limits": {
-                "max_workers": 1,
-                "embedding_text_mode": "compact",
-                "retrieval_output_mode": "both",
-                "graph_export_mode": "jsonl",
-                "benchmark_mode": "off",
-                "duplicate_detection_mode": "basic",
-                "specialized_chunker_mode": "basic",
-                "output_bundle_mode": "off",
-            },
-            "options": {
-                "include_code_snippets": True,
-                "exclude_trivial_methods": False,
-                "include_xml_node_details": False,
-            },
-        },
-        "subtask_architecture_review": {
-            "label": "Subtask Architecture Review",
-            "description": "Bevorzugt Architektur-, Vertrags- und Uebersichtskontext fuer Analyse und Designentscheidungen.",
-            "task_kinds": ["architecture", "analysis", "doc", "research"],
-            "retrieval_intents": ["architecture_and_decision_context"],
-            "limits": {
-                "max_workers": 1,
-                "embedding_text_mode": "compact",
-                "retrieval_output_mode": "split",
-                "graph_export_mode": "jsonl",
-                "benchmark_mode": "off",
-                "duplicate_detection_mode": "basic",
-                "specialized_chunker_mode": "basic",
-                "output_bundle_mode": "off",
-            },
-            "options": {
-                "include_code_snippets": False,
-                "exclude_trivial_methods": True,
-                "include_xml_node_details": False,
-            },
-        },
-        "subtask_config_integration": {
-            "label": "Subtask Config Integration",
-            "description": "Zielt auf XML-, Konfigurations- und Integrationskanten fuer runtime-nahe Subtasks.",
-            "task_kinds": ["config", "xml", "ops"],
-            "retrieval_intents": ["configuration_contracts_and_runtime_edges"],
-            "limits": {
-                "max_workers": 1,
-                "embedding_text_mode": "compact",
-                "retrieval_output_mode": "both",
-                "graph_export_mode": "off",
-                "benchmark_mode": "off",
-                "duplicate_detection_mode": "basic",
-                "specialized_chunker_mode": "basic",
-                "output_bundle_mode": "off",
-            },
-            "options": {
-                "include_code_snippets": False,
-                "exclude_trivial_methods": True,
-                "include_xml_node_details": True,
-            },
-        },
-    }
-    PROFILE_SECTION_KEYS = {"filters", "limits", "modes", "resolution", "cache", "output", "flags"}
-    PROFILE_KEY_ALIASES = {
-        "include_globs": "include_glob",
-        "exclude_globs": "exclude_glob",
-        "generated_comment_markers": "generated_comment_marker",
-    }
-    ALLOWED_OVERRIDE_KEYS = {
-        "max_workers",
-        "max_xml_nodes",
-        "max_records_per_file",
-        "max_relation_records_per_file",
-        "max_methods_per_class",
-        "xml_mode",
-        "xml_index_mode",
-        "xml_relation_mode",
-        "embedding_text_mode",
-        "java_detail_mode",
-        "java_relation_mode",
-        "retrieval_output_mode",
-        "context_output_mode",
-        "output_compaction_mode",
-        "gem_partition_mode",
-        "xml_overview_mode",
-        "manifest_output_mode",
-        "relation_output_mode",
-        "output_partition_mode",
-        "importance_scoring_mode",
-        "graph_export_mode",
-        "benchmark_mode",
-        "duplicate_detection_mode",
-        "specialized_chunker_mode",
-        "output_bundle_mode",
-        "include_code_snippets",
-        "exclude_trivial_methods",
-        "include_xml_node_details",
-        "incremental",
-        "resume",
-        "progress",
-    }
-    BOOL_OVERRIDE_KEYS = {
-        "include_code_snippets",
-        "exclude_trivial_methods",
-        "include_xml_node_details",
-        "incremental",
-        "resume",
-        "progress",
-    }
+    INTERNAL_PROFILE_CATALOG = INTERNAL_PROFILE_CATALOG
+    PROFILE_SECTION_KEYS = PROFILE_SECTION_KEYS
+    PROFILE_KEY_ALIASES = PROFILE_KEY_ALIASES
+    ALLOWED_OVERRIDE_KEYS = ALLOWED_OVERRIDE_KEYS
+    BOOL_OVERRIDE_KEYS = BOOL_OVERRIDE_KEYS
 
     def _repo_root(self) -> Path:
         return Path(__file__).resolve().parents[2]

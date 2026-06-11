@@ -1,3 +1,5 @@
+import os
+
 from agent.config import settings
 from agent.config_defaults_env import (
     apply_env_config_overrides,

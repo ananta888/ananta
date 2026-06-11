@@ -12,7 +12,7 @@
     {
       "id": "V2-M1",
       "title": "Python agent/ & routes/ (14 Dateien)",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "SPLIT-101", "SPLIT-102", "SPLIT-103", "SPLIT-104", "SPLIT-105",
         "SPLIT-106", "SPLIT-107", "SPLIT-108", "SPLIT-109", "SPLIT-110",
@@ -134,8 +134,8 @@
       "id": "SPLIT-106",
       "title": "agent/services/eclipse_plugin_protocol.py aufteilen (1117 -> <1000 Zeilen)",
       "file": "agent/services/eclipse_plugin_protocol.py",
-      "line_count": 1117,
-      "status": "todo",
+      "line_count": 680,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -149,8 +149,8 @@
       "id": "SPLIT-107",
       "title": "agent/services/editor_tui_surface_state.py aufteilen (1048 -> <1000 Zeilen)",
       "file": "agent/services/editor_tui_surface_state.py",
-      "line_count": 1048,
-      "status": "todo",
+      "line_count": 685,
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -164,8 +164,8 @@
       "id": "SPLIT-108",
       "title": "agent/services/instruction_layer_compiler.py aufteilen (1028 -> <1000 Zeilen)",
       "file": "agent/services/instruction_layer_compiler.py",
-      "line_count": 1028,
-      "status": "todo",
+      "line_count": 938,
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -193,8 +193,8 @@
       "id": "SPLIT-110",
       "title": "agent/services/rag_helper_index_service.py weiter reduzieren (1147 -> <1000 Zeilen)",
       "file": "agent/services/rag_helper_index_service.py",
-      "line_count": 1147,
-      "status": "todo",
+      "line_count": 971,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -223,8 +223,8 @@
       "id": "SPLIT-112",
       "title": "agent/services/task_execution_tracking_service.py aufteilen (1124 -> <1000 Zeilen)",
       "file": "agent/services/task_execution_tracking_service.py",
-      "line_count": 1124,
-      "status": "todo",
+      "line_count": 690,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -252,8 +252,8 @@
       "id": "SPLIT-114",
       "title": "agent/services/worker_workspace_service.py aufteilen (1150 -> <1000 Zeilen)",
       "file": "agent/services/worker_workspace_service.py",
-      "line_count": 1150,
-      "status": "todo",
+      "line_count": 834,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -644,13 +644,13 @@
     "tasks_status_summary": {
       "total": 41,
       "by_status": {
-        "todo": 33,
+        "todo": 27,
         "in_progress": 0,
         "partial": 0,
         "blocked": 0,
-        "done": 8
+        "done": 14
       },
-      "progress_percent_done": 19.5,
+      "progress_percent_done": 34.1,
     "by_priority": {
       "P0": 8,
       "P1": 17,
@@ -664,8 +664,8 @@
     },
     "critical_path": {
         "total": 25,
-        "done": 8,
-        "remaining": 17
+        "done": 14,
+        "remaining": 11
       }
   }
 }
