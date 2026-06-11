@@ -65,6 +65,21 @@ ToolResults verweisen.
 Beendet den Loop; der Hub meldet das Approval-Bedürfnis strukturiert nach
 oben. Es findet keine Ausführung statt.
 
+**ALWA-007 + ALWA-009**: `needs_approval` (ebenso wie `KIND_NEEDS_APPROVAL`
+im sgpt_workspace_mutation-Pfad und `approval_required` im
+Tool-Policy-Gate) registriert hub-seitig einen
+`ApprovalRequestDB(status=pending)` mit `tool_name`,
+`arguments_digest` (sha256 über kanonisierte Argumente +
+`target_fingerprint`) und `scope` (keine rohen Prompts). Der Task geht
+auf `pending_approval` / `blocked_pending_approval`, der Loop endet
+**kontrolliert** — kein Busy-Wait. Nach `granted`-Decision via
+`POST /api/approvals/<id>/decision` re-dispatcht der Hub den Task
+(status=todo, reason=approval_granted_redispatch, audit
+`approval_request_redispatch`). **Grants sind digest-gebunden**: ein
+Grant für `repo.write_file path=foo.txt content=hash-A` deckt nicht
+denselben Call mit `content=hash-B` ab — `arguments_digest` muss
+exakt passen.
+
 ### `cannot_continue_without_context`
 
 ```json
@@ -140,3 +155,9 @@ weiter (AWTCL-011).
   (`ananta_worker_tool_requested|completed|blocked|approval_required`,
   siehe `agent/common/audit.py`); Secrets und lange Outputs werden vor dem
   Audit redigiert/gekürzt (AWTCL-008).
+- **ALWA-009 + ALWA-019**: Approval-Lifecycle-Events
+  (`approval_request_created|decided|consumed|expired|superseded|redispatch`
+  + `approval_legacy_bypass_used`) sind in `agent/common/audit.py` und
+  `agent/services/approval_request_service.py` definiert. Die
+  Approval-UI zeigt nur **Digest-Prefix** und **scope_summary**, niemals
+  rohe Argumente. Vollständige Quelle: `docs/security/approval-lifecycle.md`.

@@ -38,7 +38,7 @@ Automatisch, wenn
   .github, docker-compose) — dann setzt der PolicyResult
   `escalate_to_strict: true` und der Lauf gilt nicht als regulärer Erfolg.
 
-## Baseline- und Artefakt-Pflichten (AWWPI-DD-003)
+## Baseline- und Artefakt-Pflichten (AWWPI-DD-003 / ALWA-013)
 
 - Vor jeder mutierenden Ausführung wird eine **Baseline** erstellt
   (`refresh_mutation_baseline`); `read_only` braucht keine.
@@ -50,9 +50,34 @@ Automatisch, wenn
   Sync-Pfad liest `.ananta/mutation-report.json` und unterdrückt
   workspace_file-/workspace_diff-Artefakte vollständig; einzelne geblockte
   Pfade werden gefiltert.
+- **ALWA-013 Pflicht-Audit**: das Erzeugen oder Aktualisieren der Baseline
+  emittiert `workspace_baseline_created` via
+  `audit_workspace_mutation_event` mit
+  `task_id` / `goal_id` / `trace_id`, `mutation_mode`,
+  `baseline_id` (Pfad), `baseline_hash` (sha256 des
+  `manifest.json` der Snapshot-Kopie),
+  `workspace_root_hash_or_id`, `materialized_paths_count`.
+  `read_only` emittiert **kein** `workspace_baseline_created` (per Spec).
 
 ## Audit
 
-`ananta_worker_mutation_evaluated` / `ananta_worker_mutation_blocked` mit
-task_id/session_id, Policy-Status und Changed-Files-Excerpt — ohne
-Roh-Prompts und ohne Dateiinhalte.
+`workspace_mutation_evaluated` (pro Iteration) und
+`workspace_mutation_blocked` (Policy-Verletzungen + final-answer-Block)
+über `audit_workspace_mutation_event` mit
+`task_id` / `goal_id` / `trace_id` / `iteration_number`,
+`mutation_mode`, `changed_paths` (sortiert, max 50 mit Count + Truncated-Flag),
+`diff_hash` (sha256 über den gekürzten Diff-Text pro Iteration,
+`diff_artifact_id` im finalen Sync-Event),
+`policy_decision` (allowed / violation / unknown),
+`violation_ids` / `violation_summary` (kurze Pfad:Reason-Summaries),
+`blocked_reason` bei Block-Events.
+
+Die früheren Event-Namen `ananta_worker_mutation_evaluated` /
+`ananta_worker_mutation_blocked` sind deprecated Aliase auf die kanonischen
+`workspace_*`-Werte — keine zwei Event-Reihen für dasselbe Ereignis.
+
+**ALWA-DD-006 Redaction**: kein `prompt` / `raw_messages` / `raw_response` /
+`file_content` / `unified_diff` / `full_diff` / `before` / `after` im
+Audit. Der Helper droppt diese Felder explizit, auch wenn sie via
+`**extras` reinkommen. `changed_paths` werden sortiert + auf 50 begrenzt
+mit `changed_paths_count` + `changed_paths_truncated=true`.
