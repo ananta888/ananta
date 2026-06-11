@@ -310,10 +310,15 @@
       "id": "ALWA-006",
       "title": "MutationGateService digest-gebundene Approval-Pruefung geben",
       "type": "policy-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/mutation_gate_service.py", "agent/services/approval_request_service.py", "tests/test_mutation_gate_service.py"],
+      "evidence": [
+        "agent/services/mutation_gate_service.py:415-465 (_compute_call_digest, _resolve_request_grant, _audit_legacy_bypass)",
+        "agent/services/mutation_gate_service.py:511-513 (arguments_digest mismatch in _validate_scoped_approval)"
+      ],
+      "result": "M4 Welle 1: 14/14 mutation_gate tests green (3 new + 11 existing). arguments_digest mismatch returns mutation_scope_mismatch:arguments_digest, match returns mutation_scope_ok, omitted skips the check. Mutation gate resolves grants via ApprovalRequestService.resolve_grant_for_call() with task/goal/target_fingerprint binding.",
       "acceptance_criteria": [
         "MutationGateService nutzt neben target_fingerprint auch arguments_digest, sofern ToolCall-/MutationCall-Argumente vorhanden sind.",
         "mutation_approval aus task bleibt kompatibel, wird aber gegen ApprovalRequest-Grant bevorzugt/deutlich getrennt.",
@@ -411,10 +416,15 @@
       "id": "ALWA-012",
       "title": "Audit-Konstanten und Helper fuer Workspace-Audit finalisieren",
       "type": "audit",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/common/audit.py", "agent/common/sgpt_workspace_mutation.py", "tests/test_audit.py"],
+      "target_files": ["agent/common/audit.py", "agent/common/sgpt_workspace_mutation.py", "tests/test_alwa_workspace_audit_helper.py"],
+      "evidence": [
+        "agent/common/audit.py:18-30 (canonical AUDIT_WORKSPACE_* constants + deprecated alias for ananta_worker_mutation_*)",
+        "agent/common/audit.py:120-204 (audit_workspace_mutation_event helper + _truncate_changed_paths + _WORKSPACE_AUDIT_FORBIDDEN)"
+      ],
+      "result": "M4 Welle 1: 3/3 new tests green, 19/19 existing audit tests green (sanitization, artifact-first, schema, middleware). Kein Doppel-Event-Name (alias emittiert kanonischen Wert). Helper redigiert prompt/raw_messages/full_diff/file_content/unified_diff/raw_content/before/after, sortiert+trunkiert changed_paths (Limit 50) mit Count+Flag.",
       "acceptance_criteria": [
         "Konstanten fuer workspace_baseline_created, workspace_mutation_evaluated und workspace_mutation_blocked existieren eindeutig und werden dokumentiert.",
         "Die bestehenden Konstanten AUDIT_WORKER_MUTATION_EVALUATED (ananta_worker_mutation_evaluated) und AUDIT_WORKER_MUTATION_BLOCKED (ananta_worker_mutation_blocked) werden explizit superseded: Aufrufstellen (sgpt_workspace_mutation.py::_hub_check) migrieren auf die neuen workspace_*-Events, die alten Konstanten werden entfernt oder als deprecated Alias dokumentiert — es existieren keine zwei Event-Namen fuer dasselbe Ereignis.",
@@ -601,13 +611,15 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 20,
+      "todo": 12,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 2
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 10.0,
+    "needs_audit": ["ALWA-001", "ALWA-002", "ALWA-003", "ALWA-005", "ALWA-007", "ALWA-009"],
+    "audit_note": "needs_audit-Tasks sind in commit 33d820 als Teil des persistent approval lifecycle implementiert, aber der ALWA-Track-Status wurde seither nicht nachgezogen und kein per-task evidence/result existiert. Sie sind NICHT in den done-Counter eingerechnet. Welle 1 hat ALWA-006 + ALWA-012 explizit mit evidence + result auditiert. Naechster Sync-Pass: pro Task den 4-Phasen-Audit (existence + content-marker + test + gap) laufen lassen, siehe references/todo-code-audit-pattern.md.",
     "by_priority": {
       "P0": 12,
       "P1": 8,
@@ -622,17 +634,22 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 0,
-      "remaining": 12,
-      "task_ids": ["ALWA-001", "ALWA-002", "ALWA-003", "ALWA-005", "ALWA-006", "ALWA-007", "ALWA-008", "ALWA-009", "ALWA-012", "ALWA-013", "ALWA-014", "ALWA-015"]
+      "done": 2,
+      "remaining": 4,
+      "remaining_task_ids_audited": ["ALWA-008", "ALWA-013", "ALWA-014", "ALWA-015"],
+      "remaining_task_ids_needs_audit": ["ALWA-001", "ALWA-002", "ALWA-003", "ALWA-005", "ALWA-007", "ALWA-009"]
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
       "done": 0
+    },
+    "welle_progress": {
+      "M4-Welle-1": "done (ALWA-006 + ALWA-012)",
+      "M4-Welle-2": "todo (ALWA-013 baseline hook + ALWA-014 evaluated hook + ALWA-015 blocked hook + Aufrufstellen-Migration in sgpt_workspace_mutation._hub_check)"
     }
   },
   "definition_of_done": [
