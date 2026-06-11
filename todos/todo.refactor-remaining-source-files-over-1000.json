@@ -1,0 +1,478 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "refactor-remaining-source-files-over-1000",
+  "created": "2026-06-11",
+  "status": "todo",
+  "purpose": "Follow-up zu todo.refactor-large-files-split.json: Der alte Track steht formal auf done, aber im aktuellen Code gibt es weiterhin mehrere Quelldateien mit mehr als 1000 Zeilen sowie interne Inkonsistenzen im Track-Status.",
+  "goal": "Alle verbleibenden Source-Dateien >1000 Zeilen vollstaendig und reproduzierbar identifizieren, priorisiert weiter aufteilen und den alten Split-Track entweder korrigieren oder sauber als historischen Track mit Follow-up-Verweis abschliessen.",
+  "source_review": {
+    "reviewed_ref": "1e72b21391668f6b9903b4c20e62073332fbb44f",
+    "reviewed_parent_refactor_commit": "a41c63f1c2ea551f5e59e883b18aa390088d0357",
+    "original_track": "todos/todo.refactor-large-files-split.json",
+    "summary": "Der originale Track ist formal status=done, enthaelt aber noch M5 Testdateien als todo, SPLIT-008 blocked und SPLIT-019/020 pending. Zusaetzlich sind im aktuellen sichtbaren Source-Stand mehrere Nicht-Test-Quelldateien weiterhin >1000 Zeilen. Der GitHub-Connector erlaubte keine vollstaendige rekursive Tree-Zaehlung; daher muss dieser Follow-up-Track mit einem lokalen audit-script starten, das alle Dateien reproduzierbar zaehlt.",
+    "connector_limitation": "GitHub contents/tree recursive listing konnte im Connector nicht genutzt werden. Die unten gelisteten Dateien sind gepruefte Kandidaten aus fetch_file/known split state/aktueller Refactor-Diff, aber Task RFS-001 muss die vollstaendige Repo-weite Liste lokal validieren.",
+    "known_remaining_source_candidates_over_1000_lines": [
+      {
+        "path": "agent/services/task_scoped_execution_service.py",
+        "observed_lines": 1363,
+        "source": "fetch_file current output"
+      },
+      {
+        "path": "agent/services/planning_service.py",
+        "observed_lines": 1302,
+        "source": "fetch_file current output"
+      },
+      {
+        "path": "agent/routes/snakes_execution_routes.py",
+        "observed_lines": 1201,
+        "source": "fetch_file current output / a41c63f1 refactor-added file"
+      },
+      {
+        "path": "agent/services/eclipse_plugin_protocol.py",
+        "observed_lines": 1119,
+        "source": "fetch_file current output / a41c63f1 refactor-added file"
+      },
+      {
+        "path": "agent/services/rag_helper_index_service.py",
+        "observed_lines": 1149,
+        "source": "fetch_file current output"
+      },
+      {
+        "path": "agent/services/task_execution_service.py",
+        "observed_lines": 1072,
+        "source": "fetch_file current output"
+      },
+      {
+        "path": "agent/services/evolution_proposal_service.py",
+        "observed_lines": 1003,
+        "source": "fetch_file current output / a41c63f1 refactor-added file"
+      }
+    ],
+    "known_original_track_inconsistencies": [
+      "top-level status is done while M5 remains todo for test files",
+      "M2 notes still mention SPLIT-008 blocked due pre-existing Angular TS errors",
+      "M3 notes still mention SPLIT-019/020 pending due Angular TS verification",
+      "several done tasks did not actually meet their own stricter target under 1000 lines, only the looser milestone direction"
+    ],
+    "excluded_by_default_for_source_audit": [
+      ".git/",
+      ".venv/",
+      "venv/",
+      "node_modules/",
+      "site-packages/",
+      "frontend-angular/dist/",
+      "client_surfaces/vscode_extension/out/",
+      ".claude/worktrees/",
+      "artifacts/",
+      "*.min.js",
+      "generated build artifacts"
+    ],
+    "file_extensions_for_source_audit": [
+      ".py",
+      ".ts",
+      ".tsx",
+      ".js",
+      ".jsx",
+      ".java",
+      ".kt",
+      ".go",
+      ".rs",
+      ".sh"
+    ]
+  },
+  "design_decisions": [
+    {
+      "id": "RFS-DD-001",
+      "decision": "Die erste Aufgabe ist ein reproduzierbares Audit-Script, nicht direkt ein weiterer Split.",
+      "rationale": "Ohne lokale Repo-weite Zaehlung waere 'alle Dateien' nur geraten."
+    },
+    {
+      "id": "RFS-DD-002",
+      "decision": "Nicht-Test-Source-Dateien >1000 Zeilen sind P0/P1, Testdateien >1000 bleiben P2/P3 sofern sie keine Produktivkontexte aufblasen.",
+      "rationale": "Produktivdateien beeinflussen Architektur, Reviews und Worker-Kontext staerker als Test-Suites."
+    },
+    {
+      "id": "RFS-DD-003",
+      "decision": "Facade-Dateien duerfen knapp ueber 1000 nur temporaer bleiben, muessen aber eine klare Split-Folgeaufgabe haben.",
+      "rationale": "Ein Facade-Wrapper ist akzeptabler als ein Monolith, aber >1000 bleibt fuer AI-Kontext und Wartbarkeit schlecht."
+    },
+    {
+      "id": "RFS-DD-004",
+      "decision": "Jeder Split muss mechanisch und rueckwaertskompatibel erfolgen: Imports, Monkeypatch-Ziele und Public API duerfen nicht unkontrolliert brechen.",
+      "rationale": "Der alte Track zeigt bereits, dass aggressive Splits leicht Tests/Angular-Compile brechen."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "RFS-M1",
+      "title": "Vollstaendige Repo-weite Zeilenzahl-Auditierung",
+      "status": "todo",
+      "task_ids": ["RFS-001", "RFS-002", "RFS-003"]
+    },
+    {
+      "id": "RFS-M2",
+      "title": "P0/P1 Python-Produktivdateien unter 1000 Zeilen bringen",
+      "status": "todo",
+      "task_ids": ["RFS-004", "RFS-005", "RFS-006", "RFS-007", "RFS-008", "RFS-009", "RFS-010"]
+    },
+    {
+      "id": "RFS-M3",
+      "title": "Angular/Frontend-blockierte Source-Splits sauber verifizieren",
+      "status": "todo",
+      "task_ids": ["RFS-011", "RFS-012"]
+    },
+    {
+      "id": "RFS-M4",
+      "title": "Alten Track korrigieren und CI-Regel gegen neue >1000 Source-Dateien einfuehren",
+      "status": "todo",
+      "task_ids": ["RFS-013", "RFS-014", "RFS-015", "RFS-016"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "RFS-001",
+      "title": "Repo-weites Source-Line-Audit-Script schreiben",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "scripts/audit/source_file_line_count.py",
+        "tests/test_source_file_line_count_audit.py"
+      ],
+      "acceptance_criteria": [
+        "Script zaehlt alle Source-Dateien mit konfigurierbaren Extensions: .py, .ts, .tsx, .js, .jsx, .java, .kt, .go, .rs, .sh.",
+        "Script ignoriert .git, .venv, venv, node_modules, site-packages, dist/build/out, .claude/worktrees, artifacts und minified/generated Dateien.",
+        "Script gibt JSON mit path, line_count, extension, category=source|test|generated|excluded und reason aus.",
+        "Script kann mit --threshold 1000 alle Dateien ueber 1000 Zeilen listen und mit --fail-on-source-over-threshold non-zero exit liefern.",
+        "Tests erzeugen temporaere Repo-Struktur mit Source-, Test-, Generated- und Excluded-Dateien und pruefen korrekte Klassifikation."
+      ]
+    },
+    {
+      "id": "RFS-002",
+      "title": "Aktuelle vollstaendige >1000-Liste aus Audit-Script ins Repo schreiben",
+      "type": "audit-result",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "reports/source-files-over-1000.json",
+        "todos/todo.refactor-remaining-source-files-over-1000.json"
+      ],
+      "acceptance_criteria": [
+        "Audit-Script wird lokal gegen den aktuellen Repo-Stand ausgefuehrt.",
+        "reports/source-files-over-1000.json enthaelt die vollstaendige maschinell erzeugte Liste.",
+        "Diese Todo wird danach mit verified_source_files_over_1000 aktualisiert oder um einen Verweis auf den Report ergaenzt.",
+        "Wenn die maschinelle Liste von known_remaining_source_candidates_over_1000_lines abweicht, wird die Abweichung in notes dokumentiert.",
+        "Akzeptanz ist erst erreicht, wenn die vollstaendige Liste nicht mehr nur aus manuell bekannten Kandidaten besteht."
+      ]
+    },
+    {
+      "id": "RFS-003",
+      "title": "Source/Test/Generated-Grenzen fuer Line-Limit-Policy definieren",
+      "type": "policy-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": [
+        "docs/development/source-line-limit-policy.md",
+        "scripts/audit/source_file_line_count.py"
+      ],
+      "acceptance_criteria": [
+        "Doku definiert harte Grenze fuer Produktiv-Source-Dateien: Ziel <=1000 Zeilen.",
+        "Doku definiert weichere Behandlung fuer Testdateien >1000 Zeilen und generated/build artifacts.",
+        "Doku erklaert, wann Facade-Dateien temporaer >1000 toleriert werden und wann nicht.",
+        "Audit-Script nutzt dieselben Kategorien wie die Doku."
+      ]
+    },
+    {
+      "id": "RFS-004",
+      "title": "agent/services/task_scoped_execution_service.py weiter reduzieren (1363 -> <1000)",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/_task_scoped_*.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "task_scoped_execution_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script.",
+        "Weitere Logik wird in vorhandene _task_scoped_* Module verschoben, nicht in neue unklare Sammeldateien.",
+        "Public imports und Monkeypatch-Kompatibilitaet bleiben erhalten oder werden mit Deprecation-Shims abgesichert.",
+        "Bestehende TaskScopedExecutionService API bleibt nutzbar.",
+        "Relevante Tests fuer task scoped execution, CLI backend routing, workspace runtime und repair bleiben gruen."
+      ]
+    },
+    {
+      "id": "RFS-005",
+      "title": "agent/services/planning_service.py weiter reduzieren (1302 -> <1000)",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/planning_service.py",
+        "agent/services/planning_*.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "planning_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script.",
+        "Geeignete Extraktionskandidaten sind Strategy-Orchestration, Repair-Prompt-Building, Plan-Limit-Handling oder Post-Run-Learning-Updates.",
+        "PlanningService bleibt als Orchestrator/Fassade erhalten, enthaelt aber keine grossen Hilfscluster mehr.",
+        "Planungs-Tests bleiben gruen.",
+        "Keine Veraenderung am JSON-Vertrag fuer Plan/Subtasks ohne explizite Testanpassung."
+      ]
+    },
+    {
+      "id": "RFS-006",
+      "title": "agent/routes/snakes_execution_routes.py aufteilen (1201 -> <1000)",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/routes/snakes_execution_routes.py",
+        "agent/routes/snakes_chat_routes.py",
+        "agent/routes/snakes_worker_context_routes.py",
+        "agent/services/snake_retrieval_context_service.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "snakes_execution_routes.py hat nach Split weniger als 1000 Zeilen laut Audit-Script.",
+        "Chat-/Ask-Routen, Retrieval-Kontext und Worker-Context-Endpunkte werden in klar benannte Module/Services getrennt.",
+        "snakes_bp bleibt korrekt registriert; Route-Pfade bleiben kompatibel.",
+        "Lokaler Repo-Fallback-Kontext wird in Service ausgelagert und getestet.",
+        "AI-Snake relevante Tests bleiben gruen."
+      ]
+    },
+    {
+      "id": "RFS-007",
+      "title": "agent/services/eclipse_plugin_protocol.py aufteilen (1119 -> <1000)",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/services/eclipse_plugin_protocol.py",
+        "agent/services/eclipse_protocol_models.py",
+        "agent/services/eclipse_protocol_builders.py",
+        "agent/services/eclipse_protocol_review.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "eclipse_plugin_protocol.py hat nach Split weniger als 1000 Zeilen laut Audit-Script.",
+        "Statische Zielmodelle/Command-Sets werden von Builder-Funktionen getrennt.",
+        "Review-/Diff-/Approval-spezifische Builder werden in eigenes Modul verschoben.",
+        "Alle bisherigen Imports aus eclipse_plugin_protocol bleiben ueber Re-Export kompatibel.",
+        "Eclipse-Adapter-Tests bleiben gruen."
+      ]
+    },
+    {
+      "id": "RFS-008",
+      "title": "agent/services/rag_helper_index_service.py weiter reduzieren (1149 -> <1000)",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/services/rag_helper_index_service.py",
+        "agent/services/rag_index_profile_catalog.py",
+        "agent/services/rag_index_runtime_paths.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "rag_helper_index_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script.",
+        "Profilkatalog/Profilnormalisierung wird in eigenes Modul ausgelagert.",
+        "Runtime-Pfad-/Output-Root-Logik wird getrennt, sofern sinnvoll.",
+        "Bestehende RagHelperIndexService API bleibt kompatibel.",
+        "RAG/Knowledge-Index Tests bleiben gruen."
+      ]
+    },
+    {
+      "id": "RFS-009",
+      "title": "agent/services/task_execution_service.py weiter reduzieren (1072 -> <1000)",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/task_execution_service.py",
+        "agent/services/task_execution_preflight.py",
+        "agent/services/task_execution_tool_runner.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "task_execution_service.py hat nach Split weniger als 1000 Zeilen laut Audit-Script.",
+        "Preflight-Checks fuer Shell, Approval, Risk und MutationGate werden in fokussiertes Modul verschoben oder klarer gekapselt.",
+        "ToolCall-Ausfuehrungsloop wird in eigenes Modul/Helper verschoben, ohne Policy-Reihenfolge zu veraendern.",
+        "execute_direct_step und execute_local_step bleiben kompatibel.",
+        "Tests fuer approval/risk/mutation/tool guardrails bleiben gruen."
+      ]
+    },
+    {
+      "id": "RFS-010",
+      "title": "agent/services/evolution_proposal_service.py knapp unter 1000 bringen (1003 -> <1000)",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": [
+        "agent/services/evolution_proposal_service.py",
+        "agent/services/evolution/",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "evolution_proposal_service.py hat weniger als 1000 Zeilen laut Audit-Script.",
+        "Minimaler mechanischer Split bevorzugt: z.B. Persisted-Payload-Redaction oder Capability-Matrix in eigenes Modul.",
+        "Keine fachliche Umstrukturierung, wenn ein kleiner Extract reicht.",
+        "Evolution-Tests bleiben gruen.",
+        "API/DB-Verhalten bleibt unveraendert."
+      ]
+    },
+    {
+      "id": "RFS-011",
+      "title": "Angular-blockierten SPLIT-008 neu bewerten und abschliessen",
+      "type": "frontend-verification",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "frontend-angular/src/app/components/settings.component.ts",
+        "todos/todo.refactor-large-files-split.json"
+      ],
+      "acceptance_criteria": [
+        "Aktueller Zustand von settings.component.ts wird per Audit-Script gezaehlt.",
+        "Wenn Datei <=1000 Zeilen ist, wird SPLIT-008 im alten Track korrigiert oder als erledigt/obsolete markiert.",
+        "Wenn Datei >1000 Zeilen ist, wird ein konkreter Sub-Split mit Angular-Build-Verifikation ergaenzt.",
+        "Pre-existing Angular TS Errors werden separat dokumentiert und nicht als Source-Line-Split-Erfolg verkauft.",
+        "ng build oder definierter Ersatzcheck wird im Ergebnis genannt."
+      ]
+    },
+    {
+      "id": "RFS-012",
+      "title": "Angular-pending SPLIT-019/020 neu bewerten und abschliessen",
+      "type": "frontend-verification",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "frontend-angular/",
+        "todos/todo.refactor-large-files-split.json"
+      ],
+      "acceptance_criteria": [
+        "Audit-Script identifiziert alle aktuellen Angular/TypeScript Source-Dateien >1000 Zeilen.",
+        "SPLIT-019 und SPLIT-020 werden mit aktuellen Dateipfaden, Zeilenzahlen und Status aktualisiert.",
+        "Wenn keine Angular-Source-Datei >1000 existiert, werden die alten pending-Eintraege als obsolete/closed dokumentiert.",
+        "Wenn Angular-Source-Dateien >1000 existieren, bekommen sie eigene konkrete Split-Tasks mit Zielmodulen und Build-Check.",
+        "Angular-Compile-Probleme werden getrennt als Blocker oder Follow-up erfasst."
+      ]
+    },
+    {
+      "id": "RFS-013",
+      "title": "Originalen Split-Track Status korrigieren",
+      "type": "todo-maintenance",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "target_files": [
+        "todos/todo.refactor-large-files-split.json"
+      ],
+      "acceptance_criteria": [
+        "todos/todo.refactor-large-files-split.json steht nicht mehr irrefuehrend komplett auf done, wenn M5/SPLIT-008/SPLIT-019/SPLIT-020 offen oder blocked sind.",
+        "Alter Track verweist auf diesen Follow-up-Track fuer verbleibende Source-Dateien >1000.",
+        "tasks_status_summary wird konsistent aktualisiert oder als legacy/archived markiert.",
+        "Notizen erklaeren Unterschied zwischen 'groesste Dateien gesplittet' und 'alle Source-Dateien <=1000'."
+      ]
+    },
+    {
+      "id": "RFS-014",
+      "title": "CI-/Test-Gate fuer neue Source-Dateien >1000 Zeilen einfuehren",
+      "type": "ci-quality-gate",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        ".github/workflows/",
+        "scripts/audit/source_file_line_count.py",
+        "tests/test_source_file_line_count_audit.py"
+      ],
+      "acceptance_criteria": [
+        "CI kann source_file_line_count.py --threshold 1000 --fail-on-source-over-threshold ausfuehren.",
+        "Gate kann temporaer allowlist-Dateien aus reports/source-files-over-1000.json akzeptieren, damit bestehende Restdateien nicht jeden Build blockieren.",
+        "Neue nicht-allowlist Source-Dateien >1000 schlagen fehl.",
+        "Allowlist muss pro Datei Begruendung und Ablaufdatum oder Follow-up-Task enthalten.",
+        "Tests pruefen Allowlist und Fail-Fall."
+      ]
+    },
+    {
+      "id": "RFS-015",
+      "title": "Alle verbleibenden >1000 Source-Dateien aus maschinellem Audit in diesen Track synchronisieren",
+      "type": "todo-sync",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "reports/source-files-over-1000.json",
+        "todos/todo.refactor-remaining-source-files-over-1000.json"
+      ],
+      "acceptance_criteria": [
+        "Jede Datei aus reports/source-files-over-1000.json mit category=source und line_count>1000 hat entweder einen eigenen RFS-Task oder eine dokumentierte Ausnahme.",
+        "Keine manuell bekannte Kandidatenliste bleibt ohne Abgleich mit dem maschinellen Report stehen.",
+        "Wenn neue Dateien wie client_surfaces/* oder frontend-angular/* auftauchen, werden passende Tasks ergaenzt.",
+        "tasks_status_summary wird nach Synchronisierung aktualisiert."
+      ]
+    },
+    {
+      "id": "RFS-016",
+      "title": "Finale Verifikation: keine nicht-ausgenommenen Source-Dateien >1000 Zeilen",
+      "type": "final-verification",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "reports/source-files-over-1000.json",
+        "scripts/audit/source_file_line_count.py"
+      ],
+      "acceptance_criteria": [
+        "source_file_line_count.py --threshold 1000 liefert fuer category=source keine nicht-ausgenommenen Dateien >1000 Zeilen.",
+        "Falls Testdateien >1000 verbleiben, sind sie separat als category=test ausgewiesen und nicht mit Produktiv-Source vermischt.",
+        "CI-Gate laeuft gruen oder blockt nur bewusst allowlistete Legacy-Dateien.",
+        "Dieser Track wird erst auf done gesetzt, wenn RFS-001 bis RFS-015 erledigt und die maschinelle Verifikation dokumentiert ist."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": {
+      "todo": 16,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 10,
+      "P1": 6
+    },
+    "by_risk": {
+      "low": 4,
+      "high": 12
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 0,
+      "remaining": 10
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  }
+}
