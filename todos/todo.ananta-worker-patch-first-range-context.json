@@ -1,0 +1,454 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-worker-patch-first-range-context",
+  "created": "2026-06-11",
+  "status": "todo",
+  "purpose": "Der ananta-worker soll konsequent patch-, diff-, grep- und range-basiert arbeiten, damit LLMs nicht unnoetig ganze Dateien lesen oder komplette Dateien neu schreiben muessen.",
+  "goal": "Fuer Brownfield-Codeaenderungen soll der Worker standardmaessig kleine Ausschnitte suchen/lesen, gezielte Patches erzeugen, Diffs gegen Baseline pruefen und nur in eng begrenzten Ausnahmefaellen ganze Dateien lesen oder ersetzen. strict_patch_request wird zum bevorzugten Modus fuer Coding/Refactor/Bugfix; controlled_workspace bleibt nur fuer kleine, explizit erlaubte Faelle.",
+  "source_review": {
+    "reviewed_commit": "a41c63f1c2ea551f5e59e883b18aa390088d0357",
+    "summary": "Der aktuelle Stand hat bereits repo.grep, repo.read_file_range, git.diff_readonly, repo.apply_patch, repo.write_file, workspace.diff und den workspace mutation loop. Suchen liefert begrenzte Treffer-Evidence; read_file_range gibt nur Line-Ranges ans LLM, laedt intern aber noch die ganze Datei; apply_patch arbeitet unified-diff-basiert mit expected_old_hash/Hunk-Kontext; workspace.diff liefert bounded Diff gegen Baseline. Offene Luecke: controlled_workspace erlaubt noch komplette Datei-Inhalte per workspace_write, und strict_patch_request ist noch nicht konsequent Default fuer Coding/Refactor.",
+    "observed_existing_files": [
+      "agent/services/tools/repo_tools.py",
+      "agent/services/tools/workspace_mutation_tools.py",
+      "agent/common/sgpt_workspace_mutation.py",
+      "agent/common/sgpt_tool_loop.py",
+      "agent/services/ananta_tool_registry_service.py",
+      "agent/services/ananta_tool_policy_service.py",
+      "agent/config_defaults.py",
+      "tests/test_ananta_worker_tool_loop.py"
+    ],
+    "current_capabilities": [
+      "repo.grep liefert Trefferzeilen als begrenzte Evidence statt ganze Dateien ins LLM zu geben.",
+      "repo.read_file_range liefert Line-Ranges als Evidence mit max. 400 Zeilen und begrenztem Excerpt.",
+      "git.diff_readonly liefert bounded git diff, optional fuer einzelne Datei.",
+      "repo.apply_patch validiert unified diff gegen expected_old_hash oder Hunk-Kontext und schreibt erst nach In-Memory-Anwendung.",
+      "workspace.diff erzeugt DiffResult plus PolicyResult gegen Baseline.",
+      "strict_patch_request existiert als Modus, in dem direkte workspace_write-Aktionen verboten sind."
+    ],
+    "current_gaps": [
+      "repo.read_file_range laedt intern aktuell noch die ganze Datei per read_text, obwohl nur ein Range gebraucht wird.",
+      "controlled_workspace erlaubt komplette neue Dateiinhalte per workspace_write und kann dadurch token- und diff-unsauber werden.",
+      "Default-Konfiguration setzt Coding/Bugfix/Refactor/Test/Doc aktuell auf controlled_workspace statt strict_patch_request.",
+      "Es fehlen harte Tests, die verhindern, dass grosse Dateien komplett in Prompts/Evidence landen.",
+      "Es fehlt ein Patch-first Prompt-/Policy-Vertrag mit klarer Eskalation: grep -> range -> patch -> diff -> test.",
+      "replace_existing via repo.write_file bleibt als Vollersatz vorhanden und braucht schaerfere Grenzen/Approval."
+    ]
+  },
+  "design_decisions": [
+    {
+      "id": "APR-DD-001",
+      "decision": "strict_patch_request wird bevorzugter Modus fuer Coding, Bugfix und Refactor.",
+      "rationale": "Gezielte Patches sind reproduzierbarer, billiger und besser auditierbar als komplette Datei-Rewrites."
+    },
+    {
+      "id": "APR-DD-002",
+      "decision": "controlled_workspace bleibt nur fuer kleine, explizit erlaubte Workspaces/Dateien aktivierbar.",
+      "rationale": "workspace_write mit kompletten Inhalten kann bei grossen Dateien Token verschwenden und unbeabsichtigte Aenderungen verdecken."
+    },
+    {
+      "id": "APR-DD-003",
+      "decision": "Context-Aufbau folgt grep/range-first statt full-file-first.",
+      "rationale": "Brownfield-Agenten brauchen die relevante Umgebung, nicht pauschal komplette Dateien."
+    },
+    {
+      "id": "APR-DD-004",
+      "decision": "DiffResult und PolicyResult bleiben der zentrale Feedback-Kanal nach jeder Aenderung.",
+      "rationale": "Der Worker darf keine Aenderung behaupten, die nicht durch Diff/Evidence bestaetigt wurde."
+    },
+    {
+      "id": "APR-DD-005",
+      "decision": "Vollstaendige Datei-Ersetzungen bleiben moeglich, aber nur mit Hash, Groessenlimit und Approval-/Risk-Gate.",
+      "rationale": "Neue kleine Dateien und generierte Artefakte brauchen create/write, aber bestehende grosse Dateien sollen patch-first bleiben."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "APR-M1",
+      "title": "Range-/Search-Tools speicherschonend und evidence-begrenzt machen",
+      "status": "todo",
+      "task_ids": ["APR-001", "APR-002", "APR-003", "APR-004"]
+    },
+    {
+      "id": "APR-M2",
+      "title": "Patch-first Mutation Mode als Default und Policy absichern",
+      "status": "todo",
+      "task_ids": ["APR-005", "APR-006", "APR-007", "APR-008", "APR-009"]
+    },
+    {
+      "id": "APR-M3",
+      "title": "Worker-Prompts, Feedback und Tests auf grep/range/patch/diff ausrichten",
+      "status": "todo",
+      "task_ids": ["APR-010", "APR-011", "APR-012", "APR-013", "APR-014"]
+    },
+    {
+      "id": "APR-M4",
+      "title": "Diagnostik, Metriken und E2E gegen Full-File-Regressions",
+      "status": "todo",
+      "task_ids": ["APR-015", "APR-016", "APR-017", "APR-018"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "APR-001",
+      "title": "repo.read_file_range intern streaming-/range-basiert umbauen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tools/repo_tools.py",
+        "tests/test_repo_tools_range_read.py"
+      ],
+      "acceptance_criteria": [
+        "repo_read_file_range liest fuer normale Textdateien nicht mehr pauschal die komplette Datei per path.read_text(), sondern iteriert zeilenweise bis line_end erreicht ist.",
+        "Die bestehende Begrenzung _MAX_READ_LINES bleibt wirksam und wird getestet.",
+        "Die bestehende _MAX_FILE_BYTES-Sicherheitsgrenze bleibt erhalten oder wird durch eine gleichwertige Text/Binary-Guard ersetzt.",
+        "Rueckgabe enthaelt weiterhin evidence kind=file_excerpt, path, line_start, line_end und data.total_lines oder eine klar dokumentierte Alternative wie total_lines_known=false bei sehr grossen Dateien.",
+        "Test erzeugt eine grosse Datei und beweist, dass nur der angeforderte Ausschnitt als Evidence zurueckgeht und kein Full-File-Excerpt entsteht."
+      ]
+    },
+    {
+      "id": "APR-002",
+      "title": "repo.grep um Kontextfenster optional erweitern statt Datei voll zu lesen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": [
+        "agent/services/tools/repo_tools.py",
+        "tests/test_repo_tools_grep_context.py"
+      ],
+      "acceptance_criteria": [
+        "repo.grep akzeptiert optional context_before und context_after mit engen Limits, z.B. 0..10.",
+        "Evidence bleibt pro Treffer begrenzt und enthaelt line_start/line_end passend zum Kontextfenster.",
+        "Ohne context_* bleibt bisheriges Verhalten kompatibel.",
+        "Binary-Dateien und zu grosse Dateien werden weiterhin uebersprungen.",
+        "Tests pruefen Treffer ohne Kontext, Treffer mit Kontext und Truncation bei Limit."
+      ]
+    },
+    {
+      "id": "APR-003",
+      "title": "Evidence-Output fuer Datei- und Diff-Tools zentral begrenzen und auditierbar machen",
+      "type": "hardening",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tools/_evidence.py",
+        "agent/services/tools/repo_tools.py",
+        "agent/services/tools/workspace_mutation_tools.py",
+        "tests/test_tool_evidence_bounds.py"
+      ],
+      "acceptance_criteria": [
+        "build_evidence_entry setzt konsequent truncated=true oder warnings, wenn Excerpts gekuerzt werden.",
+        "repo.read_file_range, repo.grep, git.diff_readonly und workspace.diff geben niemals unbounded Excerpts zurueck.",
+        "Diff- und File-Excerpt-Limits sind konfigurierbar, aber haben harte Obergrenzen.",
+        "Tests pruefen, dass sehr grosse Diff-/File-Outputs begrenzt und als truncated markiert werden.",
+        "Audit-/ToolResult-Payloads enthalten keine kompletten grossen Datei-Inhalte."
+      ]
+    },
+    {
+      "id": "APR-004",
+      "title": "ToolResult-Daten fuer grosse Dateien um Hash-/Range-Metadaten erweitern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": [
+        "agent/services/tools/repo_tools.py",
+        "agent/services/tools/_evidence.py",
+        "tests/test_repo_tools_metadata.py"
+      ],
+      "acceptance_criteria": [
+        "repo.read_file_range liefert optional file_size_bytes, excerpt_sha256 und range_sha256 in data.",
+        "Hashes werden ueber den gelieferten Ausschnitt oder ueber bekannte Datei-Metadaten berechnet, ohne das LLM mit mehr Text zu belasten.",
+        "Diese Metadaten koennen spaeter fuer expected_old_hash/Patch-Validierung verwendet werden.",
+        "Tests pruefen stabile Hashes fuer denselben Range und unterschiedliche Hashes bei geaendertem Range."
+      ]
+    },
+    {
+      "id": "APR-005",
+      "title": "Default mutation_mode fuer Coding/Bugfix/Refactor auf strict_patch_request umstellen",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/config_defaults.py",
+        "tests/test_workspace_mutation_config.py"
+      ],
+      "acceptance_criteria": [
+        "agent/config_defaults.py setzt ananta_worker_workspace_mutation.mode_by_task_kind fuer coding, bugfix und refactor auf strict_patch_request oder fuehrt eine neue Default-Policy ein, die fuer diese Task-Klassen strict_patch_request bevorzugt.",
+        "test und doc werden bewusst entschieden: entweder strict_patch_request oder begruendet controlled_workspace mit Groessenlimit.",
+        "analysis, review, research und plan_only bleiben read_only.",
+        "Explizite mutation_mode aus research_context darf weiterhin gewinnen, aber wird durch Risk/Policy eskaliert, nicht abgesenkt.",
+        "Tests pruefen die erwartete Mode-Aufloesung fuer coding, bugfix, refactor, analysis und explizite Overrides."
+      ]
+    },
+    {
+      "id": "APR-006",
+      "title": "controlled_workspace auf kleine Dateien und explizite Allowlist begrenzen",
+      "type": "security-policy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/common/sgpt_workspace_mutation.py",
+        "agent/config_defaults.py",
+        "agent/services/ananta_workspace_mutation_policy.py",
+        "tests/test_controlled_workspace_limits.py"
+      ],
+      "acceptance_criteria": [
+        "controlled_workspace erlaubt workspace_write nur fuer Dateien unter konfigurierbarem max_workspace_write_file_bytes mit harter Obergrenze.",
+        "Bestehende grosse Dateien duerfen im controlled_workspace nicht komplett ersetzt werden, sondern muessen patch_request verwenden.",
+        "Neue kleine Dateien koennen weiterhin erstellt werden, wenn allowed_new_file_globs/materialization_manifest es erlaubt.",
+        "Bei Ueberschreitung liefert der Loop policy_blocked/needs_patch_request Evidence statt Datei zu schreiben.",
+        "Tests pruefen kleine erlaubte Datei, grosse blockierte Datei und fehlende Allowlist."
+      ]
+    },
+    {
+      "id": "APR-007",
+      "title": "repo.write_file replace_existing schaerfer gegen Full-File-Rewrite absichern",
+      "type": "security-hardening",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tools/workspace_mutation_tools.py",
+        "agent/services/ananta_tool_policy_service.py",
+        "tests/test_write_file_replace_policy.py"
+      ],
+      "acceptance_criteria": [
+        "repo.write_file mode=replace_existing bleibt nur erlaubt, wenn expected_old_hash passt und Datei-/Content-Groesse unter konfigurierter Grenze liegt oder explizites digest-bound Approval vorliegt.",
+        "Fuer grosse bestehende Dateien wird replace_existing ohne spezielle Approval/Policy abgelehnt mit rejected_reason=replace_large_file_requires_patch.",
+        "create_only bleibt fuer neue kleine Dateien moeglich.",
+        "Policy unterscheidet create_only, replace_existing small und replace_existing large.",
+        "Tests pruefen Hash-Mismatch, grosse Datei blockiert, kleine Datei erlaubt und Approval-Pfad."
+      ]
+    },
+    {
+      "id": "APR-008",
+      "title": "PatchRequest-Varianten vereinheitlichen und replace_range sauber definieren",
+      "type": "contract-implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "docs/contracts/ananta-worker-mutation-mode.md",
+        "agent/common/sgpt_workspace_mutation.py",
+        "agent/services/tools/workspace_mutation_tools.py",
+        "tests/test_patch_request_variants.py"
+      ],
+      "acceptance_criteria": [
+        "Contract definiert eindeutig unified_diff, write_file_create_only und replace_range oder entfernt replace_range aus dem Prompt, falls nicht implementiert.",
+        "Wenn replace_range bleibt, gibt es eine echte Implementierung mit path, line_start, line_end, replacement_text, expected_old_hash/range_hash.",
+        "replace_range arbeitet ohne komplette Datei an das LLM zu geben und validiert alte Range-Inhalte.",
+        "Tests pruefen replace_range happy path, Range-Mismatch, Out-of-bounds und grosse Datei."
+      ]
+    },
+    {
+      "id": "APR-009",
+      "title": "Patch-Anwendung robuster gegen Kontextdrift und Mehrfachhunks testen",
+      "type": "testing-hardening",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tools/workspace_mutation_tools.py",
+        "tests/test_apply_patch_hunks.py"
+      ],
+      "acceptance_criteria": [
+        "Tests decken mehrere Hunks in einer Datei ab.",
+        "Tests decken Hunk-Kontextdrift innerhalb des tolerierten Fensters ab.",
+        "Tests decken Hunk-Kontext-Mismatch als rejected ohne Datei-Aenderung ab.",
+        "Tests pruefen, dass bei Fehlern keine teilweise geschriebenen Dateien entstehen.",
+        "apply_patch liefert changed_files, content_hashes und diff_excerpt konsistent."
+      ]
+    },
+    {
+      "id": "APR-010",
+      "title": "Mutation-Prompt auf grep -> range -> patch -> diff -> test Ablauf haerten",
+      "type": "prompt-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/common/sgpt_workspace_mutation.py",
+        "docs/contracts/ananta-worker-mutation-mode.md",
+        "tests/test_workspace_mutation_prompt_contract.py"
+      ],
+      "acceptance_criteria": [
+        "_build_mode_instructions fordert fuer strict_patch_request explizit: erst repo.grep/codecompass.search, dann repo.read_file_range fuer relevante Ausschnitte, dann patch_request, danach workspace.diff/test.run.",
+        "Prompt verbietet, komplette bestehende grosse Dateien neu zu schreiben, wenn ein Patch reicht.",
+        "Prompt fordert expected_old_hash oder Range-/Kontext-Validierung bei bestehenden Dateien.",
+        "Tests pruefen, dass die Prompt-Instructions die Begriffe repo.grep, repo.read_file_range, patch_request, workspace.diff und expected_old_hash enthalten.",
+        "controlled_workspace-Instructions enthalten Warnung, dass workspace_write nur fuer kleine erlaubte Dateien gedacht ist."
+      ]
+    },
+    {
+      "id": "APR-011",
+      "title": "Feedback-Evidence deduplizieren und klein halten",
+      "type": "optimization",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": [
+        "agent/common/sgpt_workspace_mutation.py",
+        "tests/test_workspace_mutation_evidence_compaction.py"
+      ],
+      "acceptance_criteria": [
+        "Bestehende Evidence-Deduplizierung via _evidence_signature bleibt erhalten und wird mit Tests abgesichert.",
+        "Nur die letzten _MAX_EVIDENCE_BLOCKS werden in den Prompt eingebaut; das Limit ist getestet.",
+        "Grosse DiffResult- oder TestResult-Blöcke werden gekuerzt und als truncated markiert.",
+        "Tests pruefen, dass wiederholte gleiche Diffs nicht mehrfach in den naechsten Prompt gelangen."
+      ]
+    },
+    {
+      "id": "APR-012",
+      "title": "Tool-Loop allowed_tools fuer patch-first Workflow erweitern",
+      "type": "configuration-integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/config_defaults.py",
+        "agent/services/ananta_tool_registry_service.py",
+        "tests/test_patch_first_allowed_tools.py"
+      ],
+      "acceptance_criteria": [
+        "ananta_worker_tool_loop.allowed_tools kann fuer patch-first Coding optional repo.apply_patch, repo.write_file, workspace.diff und test.run enthalten, bleibt aber per Default sicher/read-only falls Tool-Loop ohne MutationMode laeuft.",
+        "Write-Tools werden nur in passendem mutation_mode erlaubt; read_only blockt sie weiter.",
+        "test.run bleibt allowlisted und timeout-/output-begrenzt.",
+        "Tests pruefen allowed_tools-Scope fuer read_only, strict_patch_request und controlled_workspace."
+      ]
+    },
+    {
+      "id": "APR-013",
+      "title": "CodeCompass/RAG Kontext bevorzugt als Dateipfad+Range statt Volltext einspeisen",
+      "type": "rag-integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tools/codecompass_tools.py",
+        "agent/services/retrieval_service.py",
+        "agent/services/retrieval_query_builder.py",
+        "tests/test_codecompass_range_context.py"
+      ],
+      "acceptance_criteria": [
+        "CodeCompass-ToolResults enthalten nach Moeglichkeit path, line_start, line_end und Score, nicht unbounded Volltext.",
+        "Wenn RAG Treffer grosse Chunks liefern, werden diese auf kleine Ausschnitte reduziert oder mit repo.read_file_range nachgeladen.",
+        "Worker-Prompt bekommt fuer Coding bevorzugt konkrete Datei-/Range-Hinweise statt grosse RAG-Blobs.",
+        "Tests pruefen, dass ein grosser Treffer nicht als kompletter Dateiinhalt in Evidence landet."
+      ]
+    },
+    {
+      "id": "APR-014",
+      "title": "Tests fuer 'keine Full-File-Prompts' im Worker schreiben",
+      "type": "regression-tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "tests/test_ananta_worker_no_full_file_prompt.py",
+        "agent/common/sgpt_workspace_mutation.py",
+        "agent/common/sgpt_tool_loop.py"
+      ],
+      "acceptance_criteria": [
+        "Fake-LLM zeichnet Iterationsprompts auf und Test beweist, dass grosse Datei-Inhalte nicht komplett im Prompt stehen.",
+        "Testfall nutzt grosse Datei mit eindeutigem Marker am Ende; read_file_range fuer Anfang darf Marker nicht in Prompt bringen.",
+        "Nach grep/range/patch/diff Ablauf enthaelt Prompt nur relevante Excerpts und Diffs unter Limits.",
+        "Regressionstest schlaegt fehl, wenn komplette Datei-Inhalte in Evidence/Prompt serialisiert werden."
+      ]
+    },
+    {
+      "id": "APR-015",
+      "title": "Metriken fuer Patch-first und Context-Sparsamkeit einfuehren",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": [
+        "agent/services/task_execution_metrics.py",
+        "agent/common/sgpt_workspace_mutation.py",
+        "agent/services/tools/_evidence.py",
+        "tests/test_patch_first_metrics.py"
+      ],
+      "acceptance_criteria": [
+        "Metriken erfassen read_range_calls, grep_calls, apply_patch_calls, write_file_replace_calls, workspace_write_calls, diff_feedback_count.",
+        "Metriken erfassen estimated_context_chars_sent und evidence_truncated_count pro Mutation-Run.",
+        "workspace_write auf bestehende Datei wird separat gezaehlt, damit Full-File-Rewrites sichtbar werden.",
+        "Tests pruefen Metriken fuer grep->range->patch->diff Ablauf."
+      ]
+    },
+    {
+      "id": "APR-016",
+      "title": "Mutation-Report um Patch-first Diagnose erweitern",
+      "type": "diagnostics",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": [
+        "agent/common/sgpt_workspace_mutation.py",
+        "tests/test_mutation_report_patch_first.py"
+      ],
+      "acceptance_criteria": [
+        ".ananta/mutation-report.json enthaelt pro Iteration action_kind, tool_name, target_path, diff_truncated, evidence_chars und full_file_write_detected.",
+        "Report enthaelt summary.patch_first_compliance mit Werten wie ok, warned, violated.",
+        "Bei controlled_workspace auf bestehende grosse Datei wird compliance=violated oder warned gesetzt.",
+        "Tests lesen mutation-report.json und pruefen die neuen Felder."
+      ]
+    },
+    {
+      "id": "APR-017",
+      "title": "E2E fuer grossen Refactor mit grep/range/patch/diff schreiben",
+      "type": "e2e-tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "tests/test_ananta_worker_patch_first_e2e.py"
+      ],
+      "acceptance_criteria": [
+        "E2E nutzt Fake-LLM mit Ablauf: repo.grep -> repo.read_file_range -> patch_request -> workspace.diff -> final_answer.",
+        "Test prueft, dass repo.apply_patch aufgerufen wird und keine workspace_write-Aktion fuer bestehende grosse Datei erfolgt.",
+        "Test prueft, dass DiffResult als Evidence in naechster Iteration sichtbar ist.",
+        "Test prueft, dass final_answer erst nach PolicyResult status ok akzeptiert wird.",
+        "Test laeuft ohne echtes Cloud-LLM."
+      ]
+    },
+    {
+      "id": "APR-018",
+      "title": "Doku fuer patch-first Arbeitsweise des ananta-worker aktualisieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "target_files": [
+        "docs/contracts/ananta-worker-mutation-mode.md",
+        "docs/contracts/ananta-worker-tool-loop.md",
+        "docs/security/ananta-worker-workspace-mutation-policy.md",
+        "README.md"
+      ],
+      "acceptance_criteria": [
+        "Doku beschreibt den empfohlenen Ablauf: search/grep -> read range -> patch -> workspace.diff -> test -> final.",
+        "Doku grenzt strict_patch_request gegen controlled_workspace klar ab.",
+        "Doku nennt, wann full-file create/write erlaubt ist und wann nicht.",
+        "Security-Doku erklaert, warum komplette Datei-Rewrites riskanter sind als Patches.",
+        "README nennt patch-first als Worker-Qualitaetsmerkmal, ohne zu behaupten, dass schon jede interne Operation streaming ist, solange APR-001 offen ist."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 18,
+    "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 10, "P1": 8},
+    "by_risk": {"low": 7, "high": 11},
+    "critical_path": {"total": 10, "done": 0, "remaining": 10},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+  }
+}
