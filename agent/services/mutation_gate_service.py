@@ -73,6 +73,37 @@ class MutationGateService:
         ).strip().lower()
         operation_class = str(approval_payload.get("operation_class") or "read_only").strip().lower()
 
+        # ALWA-015: every Block-Decision flows through this single
+        # helper so the workspace_mutation_blocked audit row is
+        # guaranteed. Audit failures never break the gate decision.
+        def _block(*, reason_code: str, details: dict[str, Any]) -> MutationGateDecision:
+            try:
+                from agent.common.audit import (
+                    AUDIT_WORKSPACE_MUTATION_BLOCKED,
+                    audit_workspace_mutation_event,
+                )
+                audit_workspace_mutation_event(
+                    AUDIT_WORKSPACE_MUTATION_BLOCKED,
+                    task_id=str((task or {}).get("id") or "") or None,
+                    goal_id=str((task or {}).get("goal_id") or "") or None,
+                    trace_id=trace_id,
+                    mutation_mode=mutation_class,
+                    changed_paths=[],
+                    policy_decision="blocked",
+                    blocked_reason=reason_code,
+                    **details,
+                )
+            except Exception:
+                pass
+            return MutationGateDecision(
+                classification="blocked",
+                reason_code=reason_code,
+                mutation_class=mutation_class,
+                normalized_target=normalized_target,
+                approval_scope=scope,
+                details=details,
+            )
+
         if not is_mutation:
             return MutationGateDecision(
                 classification="allow",
@@ -83,41 +114,25 @@ class MutationGateService:
                 details={"enabled": True, "policy": normalized_policy},
             )
         if bool(normalized_policy.get("global_deny_mutations", False)):
-            return MutationGateDecision(
-                classification="blocked",
+            return _block(
                 reason_code="mutation_gate_global_deny",
-                mutation_class=mutation_class,
-                normalized_target=normalized_target,
-                approval_scope=scope,
                 details={"blocked_by": "global_deny_switch", "policy": normalized_policy},
             )
         if governance_mode in {"safe", "strict"} and operation_class == "read_only":
-            return MutationGateDecision(
-                classification="blocked",
+            return _block(
                 reason_code="mutation_gate_unknown_high_risk_classification",
-                mutation_class=mutation_class,
-                normalized_target=normalized_target,
-                approval_scope=scope,
                 details={"blocked_by": "mutation_gate_hardening", "governance_mode": governance_mode},
             )
 
         if approval_payload.get("classification") == "blocked" and bool(approval_payload.get("enforced", False)):
-            return MutationGateDecision(
-                classification="blocked",
+            return _block(
                 reason_code=str(approval_payload.get("reason_code") or "approval_blocked"),
-                mutation_class=mutation_class,
-                normalized_target=normalized_target,
-                approval_scope=scope,
                 details={"blocked_by": "approval_policy"},
             )
         if not bool(risk_payload.get("allowed", True)):
             reasons = list(risk_payload.get("reasons") or [])
-            return MutationGateDecision(
-                classification="blocked",
+            return _block(
                 reason_code=str(reasons[0] if reasons else "execution_risk_denied"),
-                mutation_class=mutation_class,
-                normalized_target=normalized_target,
-                approval_scope=scope,
                 details={"blocked_by": "execution_risk_policy", "risk_level": risk_payload.get("risk_level")},
             )
 
@@ -139,12 +154,8 @@ class MutationGateService:
             arguments_digest=arguments_digest,
         )
         if not scoped["ok"] and scoped["present"]:
-            return MutationGateDecision(
-                classification="blocked",
+            return _block(
                 reason_code=str(scoped["reason_code"]),
-                mutation_class=mutation_class,
-                normalized_target=normalized_target,
-                approval_scope=scope,
                 details={"blocked_by": "scoped_approval", "scope_check": scoped},
             )
 
