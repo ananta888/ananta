@@ -349,3 +349,56 @@ The following rule overrides all others:
 Workers execute delegated work only.
 
 Source-grounded answer rule: Agents and workers must never invent source identifiers. Only provided `SRC_*` and `RUN_*` IDs are valid for grounded claims; missing or unknown IDs must be treated as unverified/failed.**
+
+## Session Context (refactor-source-files-over-1000-v2)
+
+### Goal
+- Refactor all Python source files over 1000 lines to stay under the source-line-limit policy
+- V2-M2: 5 files in `client_surfaces/operator_tui/`; V2-M1: 14 agent/routes files completed
+
+### Constraints & Preferences
+- No `git add .` — stage files by name only
+- Preserve public API compatibility (import chains, class methods, module-level re-exports)
+- Run tests before committing each batch
+- Avoid circular imports at module level — prefer copying pure static helpers as module-level functions in extracted submodule
+- When splitting a file, keep shared helpers first in the main module so submodules can import them without circular dependency
+- Re-export extracted names in the main module
+- Commits: single commit per SPLIT logical grouping; scope prefix per subsystem
+- New submodule naming convention: `_interactive_*` for `interactive.py` extractions
+
+### Progress
+#### Done
+- **V2-M1 complete** (Commit `72ee18c56`): split 14 large agent/routes files — all under 1000 lines
+- **SPLIT-115**: extracted 5 artifact sub-mode renderers (~500 lines) from `_renderer_content.py` (1888→1388) into `_renderer_content_artifact.py`; 660 TUI tests pass
+- **SPLIT-116**: extracted config helpers (~250 lines) from `ai_snake_config_view.py` (1113→864) into `_ai_snake_config_helpers.py`; 660 TUI tests pass
+- **SPLIT-117**: extracted browser/window controller (7 methods) into `_interactive_window.py` and all chat/snapshot/long_message methods (~45 methods) into `_interactive_chat.py` from `interactive.py` (1753→870 lines); 215 TUI tests pass
+- **`config_defaults.py` fix**: added missing `import os`
+
+#### In Progress
+- **SPLIT-118**: `snake_ops_mixin.py` (1285 lines) — next target
+
+### Key Decisions
+- **Module-level extraction first**: safest with lowest risk of circular imports
+- **Thin-wrappers pattern**: extracted functions keep a 2-line delegating wrapper in the main module so public import chains work unchanged
+- **Helper-first pattern**: shared helpers/constants defined first in main module, submodules imported after them
+- **Copy-static-helpers pattern**: when method extraction would create a circular import, copy the static helper as a module-level function in the submodule
+- **Same-commit policy**: closely related SPLITs may be committed together
+
+### Next Steps
+1. SPLIT-118: split `snake_ops_mixin.py` (1285 lines)
+2. SPLIT-119: split `snake_tick_mixin.py` (1179 lines)
+3. Run full TUI test suite before each commit
+4. Update `todo.refactor-source-files-over-1000-v2.json` with V2-M2 completions
+5. Commit V2-M2 completion
+
+### Files
+- `client_surfaces/operator_tui/interactive.py`: 870 lines — under 1000 ✓
+- `client_surfaces/operator_tui/_interactive_window.py`: 275 lines (extracted)
+- `client_surfaces/operator_tui/_interactive_chat.py`: 843 lines (extracted)
+- `client_surfaces/operator_tui/_renderer_content.py`: 1388 lines (still needs further splits)
+- `client_surfaces/operator_tui/_renderer_content_artifact.py`: 530 lines (extracted)
+- `client_surfaces/operator_tui/ai_snake_config_view.py`: 864 lines — under 1000 ✓
+- `client_surfaces/operator_tui/_ai_snake_config_helpers.py`: 248 lines (extracted)
+- `client_surfaces/operator_tui/snake_ops_mixin.py`: 1285 lines (SPLIT-118 target)
+- `client_surfaces/operator_tui/snake_tick_mixin.py`: 1179 lines (SPLIT-119 target)
+- `todos/todo.refactor-source-files-over-1000-v2.json`: active track

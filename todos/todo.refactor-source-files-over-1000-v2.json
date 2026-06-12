@@ -22,7 +22,7 @@
     {
       "id": "V2-M2",
       "title": "client_surfaces/operator_tui/ (5 Dateien)",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "SPLIT-115", "SPLIT-116", "SPLIT-117", "SPLIT-118", "SPLIT-119"
       ]
@@ -266,8 +266,8 @@
       "id": "SPLIT-115",
       "title": "client_surfaces/operator_tui/_renderer_content.py aufteilen (1888 -> <1000 Zeilen)",
       "file": "client_surfaces/operator_tui/_renderer_content.py",
-      "line_count": 1888,
-      "status": "todo",
+      "line_count": 1388,
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -281,8 +281,8 @@
       "id": "SPLIT-116",
       "title": "client_surfaces/operator_tui/ai_snake_config_view.py aufteilen (1113 -> <1000 Zeilen)",
       "file": "client_surfaces/operator_tui/ai_snake_config_view.py",
-      "line_count": 1113,
-      "status": "todo",
+      "line_count": 864,
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -295,8 +295,8 @@
       "id": "SPLIT-117",
       "title": "client_surfaces/operator_tui/interactive.py weiter reduzieren (1753 -> <1000 Zeilen)",
       "file": "client_surfaces/operator_tui/interactive.py",
-      "line_count": 1753,
-      "status": "todo",
+      "line_count": 870,
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -641,16 +641,16 @@
       ]
     }
   ],
-    "tasks_status_summary": {
+      "tasks_status_summary": {
       "total": 41,
       "by_status": {
-        "todo": 27,
-        "in_progress": 0,
+        "todo": 24,
+        "in_progress": 1,
         "partial": 0,
         "blocked": 0,
-        "done": 14
+        "done": 16
       },
-      "progress_percent_done": 34.1,
+      "progress_percent_done": 39.0,
     "by_priority": {
       "P0": 8,
       "P1": 17,

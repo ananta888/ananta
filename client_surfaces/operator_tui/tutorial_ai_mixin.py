@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from concurrent.futures import Future
 
 
-class TutorialAIMixin(TutorialAiEngineMixin):
+class TutorialAiMixin(TutorialAiEngineMixin):
     """Mixin providing tutorial AI snake movement and state management."""
 
     def _update_tutorial_ai_snake(

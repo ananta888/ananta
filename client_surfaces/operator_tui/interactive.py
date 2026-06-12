@@ -127,6 +127,8 @@ from client_surfaces.operator_tui import _interactive_template as _it
 from client_surfaces.operator_tui import _interactive_command as _ic
 from client_surfaces.operator_tui import _interactive_ai_config as _iconfig
 from client_surfaces.operator_tui import _interactive_visual as _iv
+from client_surfaces.operator_tui import _interactive_window as _iw
+from client_surfaces.operator_tui import _interactive_chat as _ichat
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
@@ -303,265 +305,25 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             await asyncio.sleep(delay)
 
     def _ensure_external_window_controller(self) -> ExternalWindowController:
-        if self._external_window_controller is None:
-            self._external_window_controller = ExternalWindowController(
-                surface=WslgWebviewBackend(),
-                bridge=ExternalWindowBridgeServer(),
-            )
-        return self._external_window_controller
+        return _iw.ensure_external_window_controller(self)
 
     def _tick_center_browser(self) -> None:
-        """Drive the BrowserModeController each frame when browser mode is active."""
-        game = dict(self.state.header_logo_game or {})
-        if not bool(game.get("center_browser_active")):
-            # Browser deactivated — stop controller if running
-            if self._browser_controller is not None:
-                try:
-                    self._browser_controller.exit_browser_mode()  # type: ignore[union-attr]
-                except Exception:
-                    pass
-                self._browser_controller = None
-            return
-
-        url = str(game.get("center_browser_url") or "")
-        status = str(game.get("center_browser_status") or "")
-
-        # First activation: start the controller
-        if self._browser_controller is None and status == "requested":
-            try:
-                from client_surfaces.operator_tui.visual.browser.browser_mode_controller import BrowserModeController
-                import shutil as _sh
-                size = _sh.get_terminal_size((120, 32))
-                wide_browser_layout = bool(game.get("center_browser_wide_layout")) or (
-                    str(os.environ.get("ANANTA_TUI_BROWSER_WIDE_LAYOUT") or "").strip().lower()
-                    in {"1", "true", "yes", "on"}
-                )
-                if wide_browser_layout:
-                    left_w, detail_w = ((12, 18) if size.columns >= 100 else (10, 14))
-                else:
-                    left_w, detail_w = (22, 34)
-                center_w = max(20, size.columns - left_w - detail_w - 6)
-                body_h = max(8, size.lines - 8)
-                ctrl = BrowserModeController()
-                if url:
-                    ctrl.enter_url(url, cols=center_w, rows=body_h, allow_remote=True)
-                else:
-                    from client_surfaces.operator_tui.visual.browser.center_content_snapshot import CenterContentSnapshot
-                    snap = CenterContentSnapshot(
-                        content_type="plain_text", title="Browser",
-                        source_text="(kein Inhalt)", html_text="", metadata={},
-                        scroll_position=0, unsupported_reason="",
-                    )
-                    ctrl.enter_browser_mode(snap, cols=center_w, rows=body_h)
-                self._browser_controller = ctrl
-                game["center_browser_status"] = "active"
-                game["center_browser_error"] = str(ctrl.error_message) if hasattr(ctrl, "error_message") else ""
-                self._set_state(self.state.with_updates(header_logo_game=game))
-            except Exception as exc:
-                game["center_browser_active"] = False
-                game["center_browser_status"] = "error"
-                game["center_browser_error"] = str(exc)
-                game["_cmd_feedback"] = f"browser error: {exc}"
-                import time as _t
-                game["_cmd_feedback_at"] = _t.monotonic()
-                self._browser_controller = None
-                self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-
-        # Running: read output and store in game for content renderer
-        if self._browser_controller is not None:
-            try:
-                chunk = self._browser_controller.tick()  # type: ignore[union-attr]
-                if chunk:
-                    existing = bytes(game.get("_browser_frame_bytes") or b"")
-                    # Keep last 64 KB of output for rendering
-                    combined = (existing + chunk)[-65536:]
-                    game["_browser_frame_bytes"] = combined
-                    self._set_state(self.state.with_updates(header_logo_game=game))
-                # Check if controller exited unexpectedly
-                if not self._browser_controller.is_running():  # type: ignore[union-attr]
-                    game["center_browser_active"] = False
-                    game["center_browser_status"] = "stopped"
-                    game["_cmd_feedback"] = "browser: beendet"
-                    import time as _t
-                    game["_cmd_feedback_at"] = _t.monotonic()
-                    self._browser_controller = None
-                    self._set_state(self.state.with_updates(header_logo_game=game))
-            except Exception as exc:
-                game["center_browser_active"] = False
-                game["center_browser_status"] = "error"
-                game["_cmd_feedback"] = f"browser error: {exc}"
-                import time as _t
-                game["_cmd_feedback_at"] = _t.monotonic()
-                self._browser_controller = None
-                self._set_state(self.state.with_updates(header_logo_game=game))
+        _iw.tick_center_browser(self)
 
     def _tick_external_window(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        command = str(game.pop("center_window_command", "")).strip().lower()
-        requested_view_mode = str(game.pop("center_window_view_mode_request", "")).strip().lower()
-        if command:
-            ctrl = self._ensure_external_window_controller()
-            if command == "center.window.open":
-                st = ctrl.open(auth_context=self._build_auth_context_for_window())
-                game["center_window_url"] = ctrl.view_url()
-            elif command == "center.window.close":
-                st = ctrl.close()
-            elif command == "center.window.restart":
-                st = ctrl.restart()
-                game["center_window_url"] = ctrl.view_url()
-            else:
-                st = ctrl.status()
-            game["center_window_state"] = st.state.value
-            game["center_window_backend"] = st.backend
-            game["center_window_bridge_port"] = st.bridge_port
-            game["center_window_reason"] = st.reason
-            game["center_window_active"] = st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING}
-            game["center_window_view_mode"] = str(game.get("center_window_view_mode") or "simple")
-            game["center_window_reason_code"] = (
-                "window_ok" if st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING} else (
-                    "window_degraded" if st.state == ExternalWindowState.DEGRADED else (
-                        "window_failed" if st.state == ExternalWindowState.FAILED else "window_inactive"
-                    )
-                )
-            )
-            msg = (
-                f"center window: {st.state.value} backend={st.backend} bridge={st.bridge_host}:{st.bridge_port}"
-                f" dropped={st.dropped_events} rejected={st.rejected_actions} accepted={st.accepted_actions}"
-                f" reason_code={game.get('center_window_reason_code')}"
-                + (f" reason={st.reason}" if st.reason else "")
-            )
-            import time as _t
-            game["_cmd_feedback"] = msg
-            game["_cmd_feedback_at"] = _t.monotonic()
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message=msg))
-
-        if requested_view_mode in {"simple", "doc", "snake"}:
-            self._apply_external_window_action(f"view.{requested_view_mode}")
-
-        ctrl = self._external_window_controller
-        if ctrl is None:
-            return
-        st_now = ctrl.status()
-        game = dict(self.state.header_logo_game or {})
-        game["center_window_state"] = st_now.state.value
-        game["center_window_backend"] = st_now.backend
-        game["center_window_bridge_port"] = st_now.bridge_port
-        game["center_window_bridge_connected"] = bool(st_now.bridge_running)
-        game["center_window_dropped_events"] = int(st_now.dropped_events)
-        game["center_window_rejected_actions"] = int(st_now.rejected_actions)
-        game["center_window_accepted_actions"] = int(st_now.accepted_actions)
-        game["center_window_reason"] = st_now.reason
-        game["center_window_active"] = st_now.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING}
-        self.state = self.state.with_updates(header_logo_game=game)
-        ctrl.publish_state(self._build_external_window_state_payload())
-        for event in ctrl.drain_events():
-            self._apply_external_window_action(
-                str(getattr(event, "action_id", "")),
-                dict(getattr(event, "args", {}) or {}),
-            )
+        _iw.tick_external_window(self)
 
     def _build_external_window_state_payload(self) -> dict[str, Any]:
-        game = dict(self.state.header_logo_game or {})
-        center_model = build_center_window_model(state=self.state, game=game)
-        snake_model = build_ai_snake_window_model(game)
-        return {
-            "state_version": str(int(time.monotonic() * 1000)),
-            "mode": center_model["mode"],
-            "section": center_model["section"],
-            "focus": center_model["focus"],
-            "status_message": center_model["status_message"],
-            "visual_view": center_model["visual_view"],
-            "center_browser_active": center_model["center_browser_active"],
-            "center_window_active": bool(game.get("center_window_active")),
-            "snake": snake_model,
-        }
+        return _iw.build_external_window_state_payload(self)
 
     def _apply_external_window_action(self, action_id: str, args: dict[str, Any] | None = None) -> None:
-        aid = str(action_id or "").strip()
-        if not aid:
-            return
-        if aid == "view.simple":
-            game = dict(self.state.header_logo_game or {})
-            game["center_window_view_mode"] = "simple"
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="window action: view simple"))
-            return
-        if aid == "view.doc":
-            game = dict(self.state.header_logo_game or {})
-            game["center_window_view_mode"] = "doc"
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="window action: view doc"))
-            self._run_command(":doc switch")
-            return
-        if aid == "view.snake":
-            game = dict(self.state.header_logo_game or {})
-            game["center_window_view_mode"] = "snake"
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="window action: view snake"))
-            if not bool(game.get("snake_mode")):
-                self._toggle_snake_mode()
-            return
-        if aid == "view.next":
-            self._next_visual_view()
-            return
-        if aid == "view.previous":
-            self._previous_visual_view()
-            return
-        if aid == "focus.center":
-            self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, status_message="window action: focus center"))
-            return
-        if aid == "focus.nav":
-            self._set_state(self.state.with_updates(focus=FocusPane.NAVIGATION, status_message="window action: focus nav"))
-            return
-        game = dict(self.state.header_logo_game or {})
-        if aid == "snake.pause":
-            if bool(game.get("snake_mode")) and not bool(game.get("paused")):
-                self._toggle_snake_pause()
-            return
-        if aid == "snake.resume":
-            if bool(game.get("snake_mode")) and bool(game.get("paused")):
-                self._toggle_snake_pause()
-            return
-        if aid == "settings.reload":
-            self._apply_settings_from_browser()
-            return
+        _iw.apply_external_window_action(self, action_id, args)
 
     def _apply_settings_from_browser(self) -> None:
-        from client_surfaces.operator_tui.config.user_config_manager import load_user_config
-        _SKIP = frozenset({"chat_input_history", "command_input_history"})
-        try:
-            fresh = load_user_config()
-        except Exception:
-            return
-        game = dict(self.state.header_logo_game or {})
-        for key, value in fresh.items():
-            if key not in _SKIP:
-                game[key] = value
-        self._set_state(self.state.with_updates(
-            header_logo_game=game,
-            status_message="Browser: Einstellungen übernommen",
-        ))
+        _iw.apply_settings_from_browser(self)
 
     def _build_auth_context_for_window(self) -> dict[str, str]:
-        game = dict(self.state.header_logo_game or {})
-        oidc_token = str(game.get("oidc_token") or "")
-        hub_url = str(self.state.endpoint or "").rstrip("/")
-        hub_token = ""
-        if hub_url:
-            try:
-                hub_raw = (
-                    os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or ""
-                ).strip()
-                if not hub_raw:
-                    from client_surfaces.operator_tui.app import _load_env_file
-                    _env = _load_env_file()
-                    hub_raw = (
-                        _env.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_PASSWORD") or ""
-                    ).strip()
-                if hub_raw:
-                    from client_surfaces.operator_tui.hub_loader import resolve_token
-                    hub_token = resolve_token(hub_url, hub_raw)
-            except Exception:
-                pass
-        return {"hub_url": hub_url, "hub_token": hub_token, "oidc_token": oidc_token}
+        return _iw._build_auth_context_for_window(self)
 
     async def _splash_loop(self) -> None:
         while self._splash is not None:
@@ -580,48 +342,19 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
     # ── Chat focus helpers (E01.04) ───────────────────────────────────────────
 
     def _chat_focus_active(self) -> bool:
-        game = self.state.header_logo_game or {}
-        chat_raw = game.get("chat_state")
-        return isinstance(chat_raw, dict) and bool(chat_raw.get("chat_focus")) and (
-            self._snake_mode_active() or bool(game.get("chat_panel_open"))
-        )
+        return _ichat.chat_focus_active(self)
 
     def _chat_panel_available(self) -> bool:
-        game = self.state.header_logo_game or {}
-        artifact_chat = game.get("artifact_chat_state")
-        return bool(game.get("chat_panel_open")) or (
-            isinstance(artifact_chat, dict) and isinstance(artifact_chat.get("active_target"), dict)
-        )
+        return _ichat.chat_panel_available(self)
 
     def _artifact_chat_focus_active(self) -> bool:
-        game = self.state.header_logo_game or {}
-        return bool(game.get("artifact_chat_focus")) and not self._snake_mode_active()
+        return _ichat.artifact_chat_focus_active(self)
 
     def _get_scroll_manager(self):
-        from client_surfaces.operator_tui.scroll.scroll_manager import ScrollManager
-        from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
-        if not hasattr(self, "_scroll_manager_instance"):
-            self._scroll_manager_instance = ScrollManager()
-            self._scroll_manager_instance.register(
-                ScrollContext(id="chat_panel", label="Chat", content_height=100, viewport_height=20)
-            )
-            self._scroll_manager_instance.register(
-                ScrollContext(id="main_content", label="Content", content_height=100, viewport_height=20)
-            )
-            self._scroll_manager_instance.register(
-                ScrollContext(id="center_viewport", label="Visual Viewport", content_height=1, viewport_height=1)
-            )
-        return self._scroll_manager_instance
+        return _ichat.get_scroll_manager(self)
 
     def _get_focus_manager(self):
-        from client_surfaces.operator_tui.focus.focus_manager import FocusManager
-        if not hasattr(self, "_focus_manager_instance"):
-            self._focus_manager_instance = FocusManager()
-            self._focus_manager_instance.register_scroll_context("chat_panel", "chat_panel")
-            self._focus_manager_instance.register_scroll_context("main_content", "main_content")
-            self._focus_manager_instance.register_scroll_context("artifact_panel", "artifact_panel")
-            self._focus_manager_instance.register_scroll_context("center_viewport", "center_viewport")
-        return self._focus_manager_instance
+        return _ichat.get_focus_manager(self)
 
     def _sync_scroll_focus_and_mouse_regions(
         self,
@@ -632,731 +365,115 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         body_start: int,
         body_height: int,
     ) -> None:
-        """Keep keyboard and mouse scroll routing aligned with the visible panes."""
-        sm = self._get_scroll_manager()
-        fm = self._get_focus_manager()
-        game = self.state.header_logo_game if isinstance(self.state.header_logo_game, dict) else {}
-
-        active_focus = {
-            FocusPane.NAVIGATION: "nav_panel",
-            FocusPane.CONTENT: "center_viewport" if bool(game.get("visual_viewport_enabled")) else "main_content",
-            FocusPane.DETAIL: "detail_panel",
-            FocusPane.HEADER: "main_content",
-        }.get(self.state.focus, "main_content")
-        if self._chat_focus_active():
-            active_focus = "chat_panel"
-        fm.set_active(active_focus)
-
-        meta = dict(game.get("visual_viewport_scene_meta") or {})
-        content_lines = max(1, int(meta.get("content_lines") or body_height))
-        sm.update("center_viewport", content_height=content_lines, viewport_height=max(1, body_height))
-
-        try:
-            from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
-            mr = getattr(self, "_mouse_router_instance", None)
-            if mr is None:
-                self._mouse_router_instance = MouseRouter()
-                mr = self._mouse_router_instance
-            mr.clear_panels()
-            left_width = 22
-            detail_width = 34
-            content_x1 = left_width + 2
-            content_x2 = min(max(0, int(width) - detail_width - 5), content_x1 + max(1, content_width) - 1)
-            detail_x1 = content_x2 + 3
-            detail_x2 = min(max(0, int(width) - 1), detail_x1 + detail_width - 1)
-            body_y1 = max(0, int(body_start))
-            body_y2 = min(max(0, int(height) - 4), body_y1 + max(1, body_height) - 1)
-            mr.register_panel(PanelRect(0, body_y1, left_width - 1, body_y2, "nav_panel", "main_content"))
-            mr.register_panel(PanelRect(content_x1, body_y1, content_x2, body_y2, "center_viewport", "center_viewport"))
-            mr.register_panel(PanelRect(detail_x1, body_y1, detail_x2, body_y2, "detail_panel", "chat_panel"))
-        except Exception:
-            pass
+        _ichat.sync_scroll_focus_and_mouse_regions(
+            self, width=width, height=height, content_width=content_width,
+            body_start=body_start, body_height=body_height,
+        )
 
     def _scroll_active_panel(self, direction: str) -> None:
-        if self._chat_focus_active():
-            delta_map = {"page_up": -10, "page_down": 10, "line_up": -1, "line_down": 1, "home": -9999, "end": 9999}
-            self._chat_scroll(delta_map.get(direction, 0))
-            return
-        # :ask-Modus: lange AI-Antwort im mittleren Pane scrollen
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        if (
-            str(game.get("tutor_ask_question") or "").strip()
-            and self.state.focus is FocusPane.CONTENT
-        ):
-            delta_map = {"page_up": -10, "page_down": 10, "line_up": -1, "line_down": 1, "home": -9999, "end": 9999}
-            delta = delta_map.get(direction, 0)
-            if delta:
-                raw_offset = game.get("chat_long_message_scroll_offset") or 0
-                try:
-                    cur = int(str(raw_offset))
-                except (TypeError, ValueError):
-                    cur = 0
-                # Obergrenze wird im Renderer geclampt; hier großzügig lassen.
-                new_offset = max(0, cur + delta)
-                game["chat_long_message_scroll_offset"] = new_offset
-                self._set_state(self.state.with_updates(header_logo_game=game))
-                return
-        sm = self._get_scroll_manager()
-        fm = self._get_focus_manager()
-        ctx_id = fm.active_scroll_context_id()
-        if ctx_id is None:
-            self._set_state(self.state.with_updates(status_message="kein scrollbarer Bereich fokussiert"))
-            return
-        ctx = sm.get(ctx_id)
-        if ctx is None:
-            return
-        moved = False
-        if direction == "page_up":
-            moved = ctx.scroll_page_up()
-        elif direction == "page_down":
-            moved = ctx.scroll_page_down()
-        elif direction == "line_up":
-            moved = ctx.scroll_line_up()
-        elif direction == "line_down":
-            moved = ctx.scroll_line_down()
-        elif direction == "home":
-            moved = ctx.scroll_home()
-        elif direction == "end":
-            moved = ctx.scroll_end()
-        if moved:
-            game = dict(self.state.header_logo_game or self._default_header_snake())
-            game[f"scroll_offset_{ctx_id}"] = ctx.offset
-            if ctx_id == "center_viewport":
-                game["visual_viewport_force_render"] = True
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"scroll: {ctx.label} {ctx.offset}/{ctx.max_scroll}"))
+        _ichat.scroll_active_panel(self, direction)
 
     def _h_scroll_center(self, delta: int) -> None:
-        """Horizontal scroll for the center viewport (Markdown/Mermaid view)."""
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        meta = dict(game.get("visual_viewport_scene_meta") or {})
-        max_line_width = int(meta.get("max_line_width") or 0)
-        viewport_width = int(meta.get("viewport_width") or 0)
-        if viewport_width <= 0:
-            viewport_width = max(1, shutil.get_terminal_size((120, 32)).columns - 22 - 34 - 6)
-        max_offset = max(0, max_line_width - viewport_width)
-        current = int(game.get("center_h_scroll_offset") or 0)
-        new_offset = max(0, min(max_offset, current + int(delta)))
-        game["center_h_scroll_offset"] = new_offset
-        game["visual_viewport_force_render"] = True
-        # Propagate to view instance if available
-        try:
-            runtime = self._ensure_visual_runtime()
-            view = runtime.get_view_instance("markdown_mermaid_document")
-            if view is not None and hasattr(view, "apply_h_scroll_offset"):
-                view.apply_h_scroll_offset(new_offset)
-        except Exception:
-            pass
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"h-scroll: {new_offset}/{max_offset}"))
+        _ichat.h_scroll_center(self, delta)
 
     def _toggle_visual_view_switcher_overlay(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        current = bool(game.get("visual_view_switcher_overlay_visible", False))
-        game["visual_view_switcher_overlay_visible"] = not current
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message="View-Leiste: an" if game["visual_view_switcher_overlay_visible"] else "View-Leiste: aus",
-            )
-        )
+        _ichat.toggle_visual_view_switcher_overlay(self)
 
     def _next_visual_view(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        game["visual_viewport_cycle_next"] = True
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="view: nächste"))
+        _ichat.next_visual_view(self)
 
     def _previous_visual_view(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        game["visual_viewport_cycle_previous"] = True
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="view: vorherige"))
+        _ichat.previous_visual_view(self)
 
     def _toggle_chat_panel_open(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        game["chat_panel_open"] = not bool(game.get("chat_panel_open"))
-        self._append_ai_monitor_log(
-            game,
-            event="chat_panel_toggled",
-            label="AI-Chat aktiviert" if bool(game["chat_panel_open"]) else "AI-Chat deaktiviert",
-        )
-        if not game["chat_panel_open"]:
-            game["artifact_chat_focus"] = False
-        try:
-            from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
-
-            save_tui_chat_settings({"chat_panel_open": bool(game.get("chat_panel_open"))})
-        except Exception:
-            pass
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message="chat panel: an" if game["chat_panel_open"] else "chat panel: aus",
-            )
-        )
+        _ichat.toggle_chat_panel_open(self)
 
     def _toggle_context_help(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        game["shortcut_help_open"] = not bool(game.get("shortcut_help_open"))
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message="shortcuts: an" if game["shortcut_help_open"] else "shortcuts: aus",
-            )
-        )
+        _ichat.toggle_context_help(self)
 
     def _send_terminal_context_to_ai(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(self._rendered_text or ""))
-        snapshot = "\n".join(plain.splitlines()[-120:])[:8000]
-        if not snapshot.strip():
-            self._set_state(self.state.with_updates(status_message="AI-Kontext: kein Terminalinhalt"))
-            return
-        game["ai_terminal_context"] = snapshot
-        artifact_chat = dict(game.get("artifact_chat_state") or {})
-        artifact_chat["active_target"] = {
-            "kind": "terminal_snapshot",
-            "label": "Terminal Snapshot",
-            "path": "",
-            "id": "terminal-current",
-            "section_id": str(self.state.section_id or ""),
-        }
-        messages = [dict(m) for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
-        messages.append({"at": time.time(), "source": "system", "text": "Terminalinhalt als AI-Kontext übernommen."})
-        artifact_chat["messages"] = messages[-12:]
-        game["artifact_chat_state"] = artifact_chat
-        game["chat_panel_open"] = True
-        game["artifact_chat_focus"] = False
-
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
-        chat = get_chat_state(game)
-        switch_channel(chat, "ai:tutor", preserve_input=True)
-        chat["chat_focus"] = True
-        chat["chat_input_cursor"] = len(str(chat.get("chat_input_buffer") or ""))
-        chat["chat_input_history_index"] = None
-        set_chat_state(game, chat)
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message="AI-Kontext: Terminalinhalt bereit; Frage im AI-Chat eingeben",
-            )
-        )
+        _ichat.send_terminal_context_to_ai(self)
 
     def _chat_cycle_channel(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        from client_surfaces.operator_tui.chat_state import (
-            get_chat_state, set_chat_state, switch_channel, get_sessions,
-        )
-        chat = get_chat_state(game)
-        channels_dict = chat.get("channels") or {}
-        # Build the cycle order: the non-session channels first (room,
-        # notes, system) and then the session channels in the order the
-        # user has them in their session list. This makes the cycle
-        # predictable — pressing the cycle key moves through the user's
-        # sessions in order, with the non-session channels available as
-        # waypoints.
-        session_ids = [str(s.get("id") or "") for s in get_sessions(chat) if isinstance(s, dict)]
-        preferred = [ch for ch in ["room:main", "notes:self", "system"] if ch in channels_dict]
-        session_channels = [f"ai:{sid}" for sid in session_ids if f"ai:{sid}" in channels_dict]
-        ordered = preferred + session_channels
-        if not ordered:
-            return
-        current = str(chat.get("active_channel") or ordered[0])
-        try:
-            idx = ordered.index(current)
-        except ValueError:
-            # Current channel not in the ordered list — start from the
-            # first session channel so the user can cycle forward
-            # predictably.
-            idx = -1
-        next_id = ordered[(idx + 1) % len(ordered)]
-        switch_channel(chat, next_id, preserve_input=True)
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"kanal: {next_id}"))
+        _ichat.chat_cycle_channel(self)
 
     def _chat_switch_channel(self, channel_id: str) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
-        chat = get_chat_state(game)
-        if switch_channel(chat, channel_id, preserve_input=True):
-            set_chat_state(game, chat)
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"kanal: {channel_id}"))
+        _ichat.chat_switch_channel(self, channel_id)
 
     def _chat_focus_enter(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        chat["chat_focus"] = True
-        chat["chat_input_buffer"] = ""
-        chat["chat_input_cursor"] = 0
-        chat["chat_input_history_index"] = None
-        chat["chat_input_saved_draft"] = ""
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: focus"))
+        _ichat.chat_focus_enter(self)
 
     def _chat_focus_leave(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        chat["chat_focus"] = False
-        chat["chat_input_buffer"] = ""
-        chat["chat_input_cursor"] = 0
-        chat["chat_input_history_index"] = None
-        chat["chat_input_saved_draft"] = ""
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: game focus"))
+        _ichat.chat_focus_leave(self)
 
     def _toggle_chat_focus(self) -> None:
-        if self._chat_focus_active():
-            self._chat_focus_leave()
-            return
-        if self._artifact_chat_focus_active():
-            self._artifact_chat_focus_leave(clear=False)
-            return
-        if self._snake_mode_active() or bool((self.state.header_logo_game or {}).get("chat_panel_open")):
-            self._chat_focus_enter()
-            return
-        self._artifact_chat_focus_enter()
+        _ichat.toggle_chat_focus(self)
 
     def _chat_append(self, ch: str) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        buf = str(chat.get("chat_input_buffer") or "")
-        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
-        if len(buf) >= 200:
-            set_chat_state(game, chat)
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        new_buf = (buf[:cursor] + ch + buf[cursor:])[:200]
-        new_cursor = min(len(new_buf), cursor + len(ch))
-        chat["chat_input_buffer"] = new_buf
-        chat["chat_input_cursor"] = new_cursor
-        chat["chat_input_history_index"] = None
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.chat_append(self, ch)
 
     def _chat_backspace(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        buf = str(chat.get("chat_input_buffer") or "")
-        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
-        if cursor <= 0:
-            set_chat_state(game, chat)
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        chat["chat_input_buffer"] = buf[:cursor - 1] + buf[cursor:]
-        chat["chat_input_cursor"] = cursor - 1
-        chat["chat_input_history_index"] = None
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.chat_backspace(self)
 
     def _chat_delete(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        buf = str(chat.get("chat_input_buffer") or "")
-        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
-        if cursor >= len(buf):
-            set_chat_state(game, chat)
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        chat["chat_input_buffer"] = buf[:cursor] + buf[cursor + 1:]
-        chat["chat_input_cursor"] = cursor
-        chat["chat_input_history_index"] = None
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.chat_delete(self)
 
     def _chat_move_cursor(self, delta: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        buf = str(chat.get("chat_input_buffer") or "")
-        cursor = max(0, min(len(buf), int(chat.get("chat_input_cursor") or len(buf))))
-        chat["chat_input_cursor"] = max(0, min(len(buf), cursor + int(delta)))
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.chat_move_cursor(self, delta)
 
     def _chat_history_move(self, step: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        history = [str(item) for item in (chat.get("chat_input_history") or []) if str(item).strip()]
-        if not history:
-            return
-        buf = str(chat.get("chat_input_buffer") or "")
-        idx_raw = chat.get("chat_input_history_index")
-        idx = int(idx_raw) if isinstance(idx_raw, int) else None
-
-        if int(step) < 0:
-            if idx is None:
-                chat["chat_input_saved_draft"] = buf
-                idx = len(history) - 1
-            else:
-                idx = max(0, idx - 1)
-            selected = history[idx]
-            chat["chat_input_buffer"] = selected
-            chat["chat_input_cursor"] = len(selected)
-            chat["chat_input_history_index"] = idx
-        else:
-            if idx is None:
-                set_chat_state(game, chat)
-                self._set_state(self.state.with_updates(header_logo_game=game))
-                return
-            if idx < len(history) - 1:
-                idx += 1
-                selected = history[idx]
-                chat["chat_input_buffer"] = selected
-                chat["chat_input_cursor"] = len(selected)
-                chat["chat_input_history_index"] = idx
-            else:
-                draft = str(chat.get("chat_input_saved_draft") or "")
-                chat["chat_input_buffer"] = draft
-                chat["chat_input_cursor"] = len(draft)
-                chat["chat_input_history_index"] = None
-
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.chat_history_move(self, step)
 
     def _chat_clear_input(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        chat["chat_input_buffer"] = ""
-        chat["chat_input_cursor"] = 0
-        chat["chat_input_history_index"] = None
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="chat: input cleared"))
+        _ichat.chat_clear_input(self)
 
     def _artifact_chat_focus_enter(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        if not self._chat_panel_available():
-            game["chat_panel_open"] = True
-        game["artifact_chat_focus"] = True
-        game.setdefault("artifact_chat_input", "")
-        game["artifact_chat_cursor"] = max(0, min(len(str(game.get("artifact_chat_input") or "")), int(game.get("artifact_chat_cursor") or len(str(game.get("artifact_chat_input") or "")))))
-        game["artifact_chat_history_index"] = None
-        game.setdefault("artifact_chat_history", [])
-        game.setdefault("artifact_chat_saved_draft", "")
-        game["chat_panel_open"] = True
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: focus"))
+        _ichat.artifact_chat_focus_enter(self)
 
     def _artifact_chat_focus_leave(self, *, clear: bool = False) -> None:
-        game = dict(self.state.header_logo_game or {})
-        game["artifact_chat_focus"] = False
-        if clear:
-            game["artifact_chat_input"] = ""
-            game["artifact_chat_cursor"] = 0
-            game["artifact_chat_history_index"] = None
-            game["artifact_chat_saved_draft"] = ""
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: closed"))
+        _ichat.artifact_chat_focus_leave(self, clear=clear)
 
     def _artifact_chat_append(self, ch: str) -> None:
-        game = dict(self.state.header_logo_game or {})
-        buf = str(game.get("artifact_chat_input") or "")
-        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
-        if len(buf) >= 500:
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        new_buf = (buf[:cursor] + ch + buf[cursor:])[:500]
-        game["artifact_chat_input"] = new_buf
-        game["artifact_chat_cursor"] = min(len(new_buf), cursor + len(ch))
-        game["artifact_chat_history_index"] = None
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.artifact_chat_append(self, ch)
 
     def _artifact_chat_backspace(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        buf = str(game.get("artifact_chat_input") or "")
-        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
-        if cursor <= 0:
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        game["artifact_chat_input"] = buf[:cursor - 1] + buf[cursor:]
-        game["artifact_chat_cursor"] = cursor - 1
-        game["artifact_chat_history_index"] = None
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.artifact_chat_backspace(self)
 
     def _artifact_chat_delete(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        buf = str(game.get("artifact_chat_input") or "")
-        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
-        if cursor >= len(buf):
-            self._set_state(self.state.with_updates(header_logo_game=game))
-            return
-        game["artifact_chat_input"] = buf[:cursor] + buf[cursor + 1:]
-        game["artifact_chat_cursor"] = cursor
-        game["artifact_chat_history_index"] = None
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.artifact_chat_delete(self)
 
     def _artifact_chat_move_cursor(self, delta: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        buf = str(game.get("artifact_chat_input") or "")
-        cursor = max(0, min(len(buf), int(game.get("artifact_chat_cursor") or len(buf))))
-        game["artifact_chat_cursor"] = max(0, min(len(buf), cursor + int(delta)))
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.artifact_chat_move_cursor(self, delta)
 
     def _artifact_chat_history_move(self, step: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        history = [str(item) for item in (game.get("artifact_chat_history") or []) if str(item).strip()]
-        if not history:
-            return
-        buf = str(game.get("artifact_chat_input") or "")
-        idx_raw = game.get("artifact_chat_history_index")
-        idx = int(idx_raw) if isinstance(idx_raw, int) else None
-        if int(step) < 0:
-            if idx is None:
-                game["artifact_chat_saved_draft"] = buf
-                idx = len(history) - 1
-            else:
-                idx = max(0, idx - 1)
-            selected = history[idx]
-            game["artifact_chat_input"] = selected
-            game["artifact_chat_cursor"] = len(selected)
-            game["artifact_chat_history_index"] = idx
-        else:
-            if idx is None:
-                self._set_state(self.state.with_updates(header_logo_game=game))
-                return
-            if idx < len(history) - 1:
-                idx += 1
-                selected = history[idx]
-                game["artifact_chat_input"] = selected
-                game["artifact_chat_cursor"] = len(selected)
-                game["artifact_chat_history_index"] = idx
-            else:
-                draft = str(game.get("artifact_chat_saved_draft") or "")
-                game["artifact_chat_input"] = draft
-                game["artifact_chat_cursor"] = len(draft)
-                game["artifact_chat_history_index"] = None
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.artifact_chat_history_move(self, step)
 
     def _artifact_chat_clear_input(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        game["artifact_chat_input"] = ""
-        game["artifact_chat_cursor"] = 0
-        game["artifact_chat_history_index"] = None
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="artifact chat: input cleared"))
+        _ichat.artifact_chat_clear_input(self)
 
     def _artifact_chat_send_message(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        text = str(game.get("artifact_chat_input") or "").strip()
-        if not text:
-            return
-        game["artifact_chat_input"] = ""
-        game["artifact_chat_cursor"] = 0
-        history = [str(item) for item in (game.get("artifact_chat_history") or []) if str(item).strip()]
-        if not history or history[-1] != text:
-            history.append(text)
-        game["artifact_chat_history"] = history[-50:]
-        game["artifact_chat_history_index"] = None
-        game["artifact_chat_saved_draft"] = ""
-        artifact_chat = dict(game.get("artifact_chat_state") or {})
-        messages = [dict(m) for m in (artifact_chat.get("messages") or []) if isinstance(m, dict)]
-        messages.append({"at": time.time(), "source": "user", "text": text})
-        artifact_chat["messages"] = messages[-12:]
-        game["artifact_chat_state"] = artifact_chat
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel, append_message, make_message
-        chat = get_chat_state(game)
-        switch_channel(chat, "ai:tutor", preserve_input=True)
-        msg = make_message(
-            channel_id="ai:tutor",
-            channel_type="ai",
-            sender_id=str(game.get("local_snake_id") or "s1"),
-            sender_kind="user",
-            text=text,
-            visibility="ai_context",
-            delivery_state="sent",
-        )
-        append_message(chat, msg)
-        set_chat_state(game, chat)
-        game["tutor_ask_question"] = text
-        game["tutor_ask_at"] = time.monotonic()
-        game["tutor_ask_section_id"] = self.state.section_id
-        timeout_s = self._chat_ask_timeout_seconds()
-        game["tutor_ask_timeout_s"] = timeout_s
-        game["tutor_ask_deadline_at"] = float(game["tutor_ask_at"]) + timeout_s
-        game["tutor_ask_answered"] = False
-        game["_ask_submitted"] = False
-        game["active"] = True
-        game["alive"] = True
-        game["ui_steering"] = False
-        game["free_mode"] = False
-        chat["ai_typing"] = True
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"ask: {text[:40]}"))
+        _ichat.artifact_chat_send_message(self)
 
     def _chat_scroll(self, delta: int) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state
-        chat = get_chat_state(game)
-        current = int(chat.get("scroll_offset") or 0)
-        chat["scroll_offset"] = max(0, current + delta)
-        set_chat_state(game, chat)
-        self._set_state(self.state.with_updates(header_logo_game=game))
+        _ichat.chat_scroll(self, delta)
 
     def _copy_chat_panel_snapshot(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import get_chat_state, sanitize_text
-        chat = get_chat_state(game)
-        active_ch_id = str(chat.get("active_channel") or "room:main")
-        channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
-        ch = channels.get(active_ch_id) if isinstance(channels, dict) else {}
-        if not isinstance(ch, dict):
-            ch = {}
-        display_name = str(ch.get("display_name") or active_ch_id)
-        lines = [f"CHAT {display_name} ({active_ch_id})"]
-        msgs = [m for m in (ch.get("messages") or []) if isinstance(m, dict)]
-        for msg in msgs[-80:]:
-            sender_kind = str(msg.get("sender_kind") or "user")
-            sender_id = str(msg.get("sender_id") or "?")
-            if sender_kind == "ai" or sender_id == "s-ai":
-                sender = "AI-snake"
-            elif sender_kind == "system":
-                sender = "system"
-            else:
-                sender = "user"
-            created_at = msg.get("created_at")
-            if isinstance(created_at, (int, float)):
-                ts = time.strftime("%H:%M", time.localtime(float(created_at)))
-            else:
-                ts = "--:--"
-            text = sanitize_text(str(msg.get("text") or ""), max_len=6000)
-            if text:
-                lines.append(f"[{ts}] {sender}: {text}")
-        copied = "\n".join(lines).strip()
-        game["clipboard"] = copied
-        ok = self._copy_to_system_clipboard(copied) if copied else False
-        status = "chat copy: intern + System-Zwischenablage" if ok else "chat copy: intern"
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+        _ichat.copy_chat_panel_snapshot(self)
 
     def _copy_ai_status_snapshot(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        lines = ["AI-SNAKE STATUS"]
-        lines.append(f"tutorial_mode={bool(game.get('tutorial_mode'))}")
-        lines.append(f"chat_panel_open={bool(game.get('chat_panel_open'))}")
-        lines.append(f"ai_snake_mode={str(game.get('ai_snake_mode') or 'lurking_follow')}")
-        lines.append(f"runtime_status={str(game.get('ai_snake_runtime_status') or 'idle')}")
-        lines.append(f"provider={str(game.get('ai_snake_provider_preference') or 'lmstudio')}")
-        lines.append(f"model={str(game.get('ai_snake_provider_model') or 'ananta-smoke')}")
-        monitor = game.get("ai_snake_monitor_log")
-        rows = [dict(item) for item in monitor if isinstance(item, dict)] if isinstance(monitor, list) else []
-        if rows:
-            lines.append("events:")
-            for item in rows[-20:]:
-                created_at = item.get("created_at")
-                ts = time.strftime("%H:%M", time.localtime(float(created_at))) if isinstance(created_at, (int, float)) else "--:--"
-                label = str(item.get("label") or item.get("event") or "event")
-                lines.append(f"- {ts} {label}")
-        copied = "\n".join(lines).strip()
-        game["clipboard"] = copied
-        ok = self._copy_to_system_clipboard(copied) if copied else False
-        status = "ai status copy: intern + System-Zwischenablage" if ok else "ai status copy: intern"
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+        _ichat.copy_ai_status_snapshot(self)
 
     def _current_rendered_text(self) -> str:
-        rendered = str(self._rendered_text or "")
-        if rendered.strip():
-            return rendered
-        return self._render()
+        return _ichat.current_rendered_text(self)
 
     def _copy_tui_snapshot(self) -> None:
-        game = dict(self.state.header_logo_game or {})
-        copied = rendered_tui_snapshot_text(self._current_rendered_text())
-        game["clipboard"] = copied
-        ok = self._copy_to_system_clipboard(copied) if copied.strip() else False
-        status = "tui snapshot: intern + System-Zwischenablage" if ok else "tui snapshot: intern"
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+        _ichat.copy_tui_snapshot(self)
 
     def _save_tui_snapshot(self) -> None:
-        try:
-            target = write_tui_snapshot(self._current_rendered_text())
-        except OSError as exc:
-            self._set_state(self.state.with_updates(status_message=f"tui snapshot speichern fehlgeschlagen: {exc}"))
-            return
-        game = dict(self.state.header_logo_game or {})
-        game["last_tui_snapshot_path"] = str(target)
-        self._set_state(
-            self.state.with_updates(
-                header_logo_game=game,
-                status_message=f"tui snapshot gespeichert: {target}",
-            )
-        )
+        _ichat.save_tui_snapshot(self)
 
     def _open_latest_long_chat_message(self) -> None:
-        game = dict(self.state.header_logo_game or self._default_header_snake())
-        active_view = str(game.get("visual_viewport_active_view") or game.get("visual_runtime_status", {}).get("active_view") or "")
-
-        # If center view is already showing a long chat message, toggle render mode
-        if is_showing_chat_long_message(game):
-            new_mode = toggle_render_mode(game)
-            mode_label = "Plain-Text" if new_mode == "plain" else "Markdown/Mermaid gerendert"
-            self._set_state(
-                self.state.with_updates(
-                    header_logo_game=game,
-                    status_message=f"Chat-Ansicht: {mode_label}",
-                )
-            )
-            return
-
-        # Generic document toggle: simple -> rendered -> mermaid -> simple
-        if bool(game.get("visual_viewport_enabled")) and active_view == "markdown_mermaid_document":
-            plain = bool(game.get("markdown_stream_plain"))
-            mermaid_on = bool(game.get("markdown_mermaid_render_requested"))
-            if plain:
-                game["markdown_stream_plain"] = False
-                game["markdown_mermaid_render_requested"] = False
-                mode_label = "Markdown gerendert"
-            elif not mermaid_on:
-                game["markdown_stream_plain"] = False
-                game["markdown_mermaid_render_requested"] = True
-                mode_label = "Markdown+Mermaid"
-            else:
-                game["markdown_stream_plain"] = True
-                game["markdown_mermaid_render_requested"] = False
-                mode_label = "Simple"
-            game["visual_viewport_force_render"] = True
-            self._set_state(
-                self.state.with_updates(
-                    header_logo_game=game,
-                    status_message=f"Doc-Ansicht: {mode_label}",
-                )
-            )
-            return
-
-        from client_surfaces.operator_tui.chat_state import get_chat_state
-        chat = get_chat_state(game)
-        channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
-        active_ch_id = str(chat.get("active_channel") or "room:main")
-        channel = channels.get(active_ch_id) if isinstance(channels, dict) else {}
-        if not isinstance(channel, dict):
-            channel = {}
-        message = latest_long_message_for_channel(channel)
-        if message is None:
-            self._set_state(self.state.with_updates(status_message="keine lange Chatnachricht im aktiven Kanal"))
-            return
-
-        configure_middle_view_for_message(
-            game,
-            message,
-            channel_id=active_ch_id,
-            streaming=False,
-            plain_text=True,
-        )
-        from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_chat_preview
-        preview = str(message.get("text") or message.get("preview") or "Chat")
-        label = tab_label_for_chat_preview(preview)
-        vp_state = {"scroll_offset": 0, "preview": preview[:80]}
-        next_state = open_or_activate_tab(
-            self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT),
-            section_id=self.state.section_id,
-            kind="chat_viewport",
-            label=label,
-            viewport_state=vp_state,
-        )
-        game_out = dict(next_state.header_logo_game or game)
-        game_out["visual_viewport_enabled"] = True
-        self._set_state(next_state.with_updates(
-            header_logo_game=game_out,
-            status_message="lange Chatnachricht: Originalausgabe",
-        ))
+        _ichat.open_latest_long_chat_message(self)
 
     def _normal_or_text(self, text: str, normal_action) -> None:
         _ic.normal_or_text(self, text, normal_action)

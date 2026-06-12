@@ -55,7 +55,7 @@
   },
   "saved_at": 1779953350.3160381,
   "expires_at": 1781162950.3160381,
-  "status": "pending_simulation",
+  "status": "quarantined",
   "fingerprint": "5432d3b8d4a3e473372051bae0427d213d4149b58ff76037fec36336deff9498",
   "metrics": {
     "trace_count": 200,
@@ -89,5 +89,7 @@
       "823a4778-813e-47d0-9337-5a44dccd76d7",
       "02461af5-44c9-44f1-8cce-104210c9072a"
     ]
-  }
+  },
+  "quarantine_reason": "ttl_expired",
+  "quarantined_at": 1781206817.9833996
 }
