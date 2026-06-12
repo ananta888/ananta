@@ -1,5 +1,5 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "../../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-runtime-domain-scope",
@@ -762,9 +762,9 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 3,
+      "partial": 0,
       "blocked": 0,
-      "done": 17
+      "done": 20
     },
     "progress_percent_done": 85.0,
     "by_priority": {
