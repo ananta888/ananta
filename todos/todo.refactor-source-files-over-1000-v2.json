@@ -310,8 +310,8 @@
       "id": "SPLIT-118",
       "title": "client_surfaces/operator_tui/snake_ops_mixin.py aufteilen (1285 -> <1000 Zeilen)",
       "file": "client_surfaces/operator_tui/snake_ops_mixin.py",
-      "line_count": 1285,
-      "status": "todo",
+      "line_count": 935,
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -644,13 +644,13 @@
       "tasks_status_summary": {
       "total": 41,
       "by_status": {
-        "todo": 24,
+        "todo": 23,
         "in_progress": 1,
         "partial": 0,
         "blocked": 0,
-        "done": 16
+        "done": 17
       },
-      "progress_percent_done": 39.0,
+      "progress_percent_done": 41.5,
     "by_priority": {
       "P0": 8,
       "P1": 17,
@@ -664,8 +664,8 @@
     },
     "critical_path": {
         "total": 25,
-        "done": 14,
-        "remaining": 11
+        "done": 15,
+        "remaining": 10
       }
   }
 }
