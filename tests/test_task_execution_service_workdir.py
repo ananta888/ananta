@@ -28,7 +28,7 @@ def _policy() -> TaskExecutionPolicyContract:
 def test_execute_shell_command_with_workdir_avoids_chain_operator() -> None:
     service = TaskExecutionService()
     shell = _StubShell()
-    with patch("agent.services.task_execution_service.get_shell", return_value=shell):
+    with patch("agent.services.task_execution_result_handler.get_shell", return_value=shell):
         service._execute_shell_command_with_policy(
             tid="T-1",
             command="pwd",
@@ -44,7 +44,7 @@ def test_execute_shell_command_with_workdir_avoids_chain_operator() -> None:
 def test_execute_shell_command_without_workdir_keeps_command_unchanged() -> None:
     service = TaskExecutionService()
     shell = _StubShell()
-    with patch("agent.services.task_execution_service.get_shell", return_value=shell):
+    with patch("agent.services.task_execution_result_handler.get_shell", return_value=shell):
         service._execute_shell_command_with_policy(
             tid="T-2",
             command="python -V",
@@ -59,7 +59,7 @@ def test_execute_shell_command_without_workdir_keeps_command_unchanged() -> None
 def test_execute_shell_command_splits_and_chain_into_multiple_safe_steps() -> None:
     service = TaskExecutionService()
     shell = _StubShell()
-    with patch("agent.services.task_execution_service.get_shell", return_value=shell):
+    with patch("agent.services.task_execution_result_handler.get_shell", return_value=shell):
         output, exit_code, retries_used, failure_type, retry_history = service._execute_shell_command_with_policy(
             tid="T-3",
             command="mkdir -p app && touch README.md",
@@ -81,7 +81,7 @@ def test_execute_shell_command_splits_and_chain_into_multiple_safe_steps() -> No
 def test_execute_shell_command_repairs_fragmented_prompt_artifacts() -> None:
     service = TaskExecutionService()
     shell = _StubShell()
-    with patch("agent.services.task_execution_service.get_shell", return_value=shell):
+    with patch("agent.services.task_execution_result_handler.get_shell", return_value=shell):
         service._execute_shell_command_with_policy(
             tid="T-4",
             command="touch README.m> d",
@@ -96,7 +96,7 @@ def test_execute_shell_command_repairs_fragmented_prompt_artifacts() -> None:
 def test_execute_shell_command_allows_output_redirect() -> None:
     service = TaskExecutionService()
     shell = _StubShell()
-    with patch("agent.services.task_execution_service.get_shell", return_value=shell):
+    with patch("agent.services.task_execution_result_handler.get_shell", return_value=shell):
         output, exit_code, retries_used, failure_type, retry_history = service._execute_shell_command_with_policy(
             tid="T-5",
             command="echo x > out.txt",

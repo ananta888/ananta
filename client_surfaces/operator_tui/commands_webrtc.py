@@ -5,7 +5,10 @@ Extracted from client_surfaces/operator_tui/commands.py (SPLIT-002).
 from __future__ import annotations
 
 import html as _html
+import urllib.parse
+from pathlib import Path
 
+from client_surfaces.operator_tui.keybindings_config import display_for_action
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
 
 

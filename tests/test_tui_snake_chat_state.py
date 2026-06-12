@@ -63,7 +63,9 @@ def test_make_channel_ai_defaults():
 
 def test_default_chat_state_has_correct_active_channel():
     cs = default_chat_state("s1")
-    assert cs["active_channel"] == "room:main"
+    # Seit den benannten Chat-Sessions ist der aktive Kanal die erste Session.
+    assert cs["active_channel"] == f"ai:{cs['active_session_id']}"
+    assert cs["active_channel"] in cs["channels"]
     assert cs["local_snake_id"] == "s1"
     assert not cs["chat_focus"]
 
@@ -84,16 +86,17 @@ def test_switch_channel_resets_unread():
 
 def test_switch_channel_unknown_returns_false():
     cs = default_chat_state("s1")
+    before = cs["active_channel"]
     result = switch_channel(cs, "nonexistent:channel")
     assert result is False
-    assert cs["active_channel"] == "room:main"
+    assert cs["active_channel"] == before
 
 
 def test_get_active_channel_returns_correct():
     cs = default_chat_state("s1")
     ch = get_active_channel(cs)
     assert ch is not None
-    assert ch["id"] == "room:main"
+    assert ch["id"] == cs["active_channel"]
 
 
 def test_add_direct_channel_creates_new():
@@ -179,9 +182,10 @@ def test_append_message_increments_unread_for_inactive_channel():
 
 def test_append_message_no_unread_for_active_channel():
     cs = default_chat_state("s1")
-    msg = make_message(channel_id="room:main", channel_type="room", sender_id="s1", text="hi")
+    active = cs["active_channel"]
+    msg = make_message(channel_id=active, channel_type="ai", sender_id="s1", text="hi")
     append_message(cs, msg)
-    assert cs["channels"]["room:main"]["unread"] == 0
+    assert cs["channels"][active]["unread"] == 0
 
 
 def test_append_message_unknown_channel_does_nothing():

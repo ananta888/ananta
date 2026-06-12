@@ -4,9 +4,12 @@ Extracted from client_surfaces/operator_tui/commands.py (SPLIT-002).
 """
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
+from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
 from agent.services.imap_account_service import (
     create_imap_account,
     delete_imap_account,
@@ -24,6 +27,10 @@ from agent.services.imap_search_service import search_mail_metadata
 from agent.services.imap_snake_assist_service import explain_mail_for_snake_assist
 from agent.services.imap_threading_service import annotate_messages_with_thread_counts
 from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState, PanelState
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _mail_repo_root() -> Path:

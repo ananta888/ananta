@@ -229,7 +229,7 @@ def test_seed_template_catalog_loads_all_templates() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
     cat = get_seed_template_catalog()
     tpls = cat.get_all_templates()
-    assert len(tpls) == 27
+    assert len(tpls) == 31
     names = {t["name"] for t in tpls}
     assert "Scrum - Product Owner" in names
     assert "TDD - Refactor Verifier" in names
@@ -281,6 +281,7 @@ def test_seed_template_catalog_all_team_types_covered() -> None:
         "Security-Review",
         "Release-Prep",
         "Research-Evolution",
+        "Story-Domain-Implementation",
     }
     assert expected == types
 

@@ -139,11 +139,12 @@ def test_configure_middle_view_for_history_entry_shows_plain_original() -> None:
 
 def test_chat_renderer_shows_hint_after_100_chars() -> None:
     chat = default_chat_state()
+    active_channel = str(chat["active_channel"])
     append_message(
         chat,
         make_message(
-            channel_id="room:main",
-            channel_type="room",
+            channel_id=active_channel,
+            channel_type="ai",
             sender_id="s-ai",
             sender_kind="ai",
             text="Antwort " + ("lang " * 40),

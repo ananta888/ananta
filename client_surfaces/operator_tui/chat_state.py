@@ -597,7 +597,7 @@ def ensure_session_channels(chat: dict[str, Any]) -> None:
 def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:
     sessions = default_sessions()
     first_id = str(sessions[0].get("id") or "code-help")
-    return {
+    chat = {
         "local_snake_id": local_snake_id,
         "active_channel": f"ai:{first_id}",
         "active_session_id": first_id,
@@ -614,6 +614,10 @@ def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:
         "created_at": time.time(),
         "updated_at": time.time(),
     }
+    # The active channel is ai:<first session>; without this the default
+    # state points at a channel that does not exist yet.
+    ensure_session_channels(chat)
+    return chat
 
 
 def get_chat_state(game: dict[str, Any]) -> dict[str, Any]:

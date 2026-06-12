@@ -37,6 +37,39 @@ if TYPE_CHECKING:
 class TutorialAiMixin(TutorialAiEngineMixin):
     """Mixin providing tutorial AI snake movement and state management."""
 
+    def _tutorial_ai_target_cell(
+        self,
+        *,
+        board_w: int,
+        board_h: int,
+        context_tokens: list[str],
+        local_head: tuple[int, int] | None,
+    ) -> tuple[int, int]:
+        # Thin delegating wrapper: the implementation moved to tutorial_steps,
+        # but the instance-method contract is public API (tests/callers).
+        return _tutorial_ai_target_cell(
+            board_w=board_w,
+            board_h=board_h,
+            context_tokens=context_tokens,
+            local_head=local_head,
+        )
+
+    def _step_toward_cell(
+        self,
+        *,
+        current: tuple[int, int],
+        target: tuple[int, int],
+        board_w: int,
+        board_h: int,
+    ) -> tuple[int, int]:
+        # Thin delegating wrapper, same contract note as _tutorial_ai_target_cell.
+        return _step_toward_cell(
+            current=current,
+            target=target,
+            board_w=board_w,
+            board_h=board_h,
+        )
+
     def _update_tutorial_ai_snake(
         self,
         game: dict[str, object],

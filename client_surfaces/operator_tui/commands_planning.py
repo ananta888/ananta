@@ -4,11 +4,16 @@ Extracted from client_surfaces/operator_tui/commands.py (SPLIT-002).
 """
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
+from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
 from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
 from agent.repository import goal_repo, task_repo
+from agent.services.planning_summary_doctor_service import doctor_file, fix_file
+from agent.services.planning_summary_engine import PlanningSummaryEngine
 from agent.services.planning_track_pipeline_service import persist_planning_track_result
 from agent.services.planning_track_planner_service import build_planner_context_envelope, render_track_planning_prompt
 from agent.services.planning_track_task_integration_service import PlanningTrackTaskIntegrationService
@@ -23,6 +28,10 @@ from client_surfaces.operator_tui.diff.three_way_diff_state import (
     validate_three_way_diff_session,
 )
 from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState, PanelState
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _get_diff3_state(state: OperatorState) -> dict:

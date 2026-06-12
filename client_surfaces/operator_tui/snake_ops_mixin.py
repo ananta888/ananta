@@ -520,6 +520,7 @@ class SnakeOpsMixin:
         game["clipboard"] = copied
         if copied:
             self._copy_to_clipboard_bg(copied)
+            game["message"] = copied
         game["_copy_status_message"] = "snake copy: Zwischenablage"
         self._clear_selection_state(game)
 

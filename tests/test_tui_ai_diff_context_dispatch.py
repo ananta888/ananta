@@ -157,7 +157,7 @@ def test_diff3_ai_run_command_handles_degraded_response(tmp_path: Path, monkeypa
     def _bad(*, goal_id: str | None, diff3_state: dict, mode: str) -> dict:
         return {"status": "degraded", "reason_code": "invalid_ai_diff_response", "response": {}, "context_envelope": {}}
 
-    monkeypatch.setattr("client_surfaces.operator_tui.commands.dispatch_ai_diff_request", _bad)
+    monkeypatch.setattr("client_surfaces.operator_tui.commands_planning.dispatch_ai_diff_request", _bad)
     state = OperatorState(endpoint="http://localhost:5000", section_id="artifacts", header_logo_game={})
     opened = execute_command(":diff3", state)
     ran = execute_command(":diff3 ai run review", opened.state)
@@ -171,7 +171,7 @@ def test_diff3_ai_run_timeout_sets_degraded_state(monkeypatch) -> None:
     from client_surfaces.operator_tui.commands import execute_command
     from client_surfaces.operator_tui.models import OperatorState
 
-    monkeypatch.setattr("client_surfaces.operator_tui.commands.dispatch_ai_diff_request", lambda **kwargs: (_ for _ in ()).throw(TimeoutError()))
+    monkeypatch.setattr("client_surfaces.operator_tui.commands_planning.dispatch_ai_diff_request", lambda **kwargs: (_ for _ in ()).throw(TimeoutError()))
     state = OperatorState(endpoint="http://localhost:5000", section_id="artifacts", header_logo_game={})
     opened = execute_command(":diff3", state)
     ran = execute_command(":diff3 ai run review", opened.state)
@@ -205,7 +205,7 @@ def test_diff3_ai_run_success_stores_structured_findings(monkeypatch) -> None:
             "output_artifact_id": "out-1",
         }
 
-    monkeypatch.setattr("client_surfaces.operator_tui.commands.dispatch_ai_diff_request", _ok)
+    monkeypatch.setattr("client_surfaces.operator_tui.commands_planning.dispatch_ai_diff_request", _ok)
     state = OperatorState(endpoint="http://localhost:5000", section_id="artifacts", header_logo_game={})
     opened = execute_command(":diff3", state)
     ran = execute_command(":diff3 ai run review", opened.state)

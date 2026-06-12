@@ -369,7 +369,7 @@ def test_mouse_click_on_second_template_nav_item_switches_editor(monkeypatch) ->
             return RegionTarget(kind="pane", section_id="templates", pane="nav", label="NAV", payload={"focus": "navigation"})
 
     monkeypatch.setattr(
-        "client_surfaces.operator_tui.mouse_artifact_mixin.build_region_index",
+        "client_surfaces.operator_tui.mouse_event_handler.build_region_index",
         lambda state, width, height: _FakeRegionIndex(),
     )
 
@@ -419,7 +419,7 @@ def test_mouse_click_on_audit_nav_item_opens_viewer(monkeypatch) -> None:
             return RegionTarget(kind="pane", section_id="audit", pane="nav", label="NAV", payload={"focus": "navigation"})
 
     monkeypatch.setattr(
-        "client_surfaces.operator_tui.mouse_artifact_mixin.build_region_index",
+        "client_surfaces.operator_tui.mouse_event_handler.build_region_index",
         lambda state, width, height: _FakeRegionIndex(),
     )
 

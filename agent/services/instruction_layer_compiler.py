@@ -115,6 +115,12 @@ from agent.services._instruction_layer_compiler_helpers import (
     contains_runtime_override_attempt,
 )
 
+# Backwards-compatible aliases: the underscore-prefixed names are part of this
+# module's public import contract (tests and callers import them directly).
+_codecompass_runtime_active = codecompass_runtime_active
+_codecompass_runtime_trigger = codecompass_runtime_trigger
+_contains_runtime_override_attempt = contains_runtime_override_attempt
+
 
 class InstructionLayerService:
     """Resolves policy-safe instruction layers and renders a deterministic stack artifact."""
