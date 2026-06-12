@@ -2,39 +2,26 @@
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import os
 import sys
 from pathlib import Path
 from typing import Any
 
+from agent.services.generated_source_line_policy_service import (
+    CATEGORY_EXCLUDED,
+    CATEGORY_FACADE_OR_ROUTES,
+    CATEGORY_GENERATED,
+    CATEGORY_PRODUCTION_SOURCE,
+    CATEGORY_TESTS,
+    EXCLUDED_DIR_PARTS,
+    EXCLUDED_PREFIXES,
+    GENERATED_PATTERNS,
+    SOURCE_EXTENSIONS,
+    GeneratedSourceLinePolicyService,
+)
 
-SOURCE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".jsx", ".java", ".kt", ".go", ".rs", ".sh"}
-EXCLUDED_DIR_PARTS = {
-    ".git",
-    ".venv",
-    "venv",
-    "node_modules",
-    "site-packages",
-    "dist",
-    "build",
-    "out",
-    "artifacts",
-}
-EXCLUDED_PREFIXES = (
-    ".claude/worktrees/",
-    "frontend-angular/dist/",
-    "client_surfaces/vscode_extension/out/",
-)
-GENERATED_PATTERNS = (
-    "*.min.js",
-    "*.generated.*",
-    "*_pb2.py",
-    "*_pb2_grpc.py",
-)
-TEST_PATH_MARKERS = ("/tests/", "tests/", "/test/", "test/")
-TEST_NAME_PATTERNS = ("test_*.py", "*_test.py", "*.spec.ts", "*.test.ts", "*.spec.tsx", "*.test.tsx")
+_CLASSIFIER = GeneratedSourceLinePolicyService()
 
 
 def _normalize_path(path: Path) -> str:
@@ -51,44 +38,9 @@ def _is_excluded(rel: str) -> tuple[bool, str | None]:
     return False, None
 
 
-def _is_generated(rel: str) -> tuple[bool, str | None]:
-    name = Path(rel).name
-    for pattern in GENERATED_PATTERNS:
-        if fnmatch.fnmatch(name, pattern):
-            return True, f"generated_pattern:{pattern}"
-    return False, None
-
-
-def _is_test(rel: str) -> bool:
-    normalized = f"/{rel}"
-    if any(marker in normalized for marker in TEST_PATH_MARKERS):
-        return True
-    name = Path(rel).name
-    return any(fnmatch.fnmatch(name, pattern) for pattern in TEST_NAME_PATTERNS)
-
-
 def classify_path(path: Path, *, root: Path, extensions: set[str] | None = None) -> dict[str, Any]:
-    ext_set = extensions or SOURCE_EXTENSIONS
     rel = _normalize_path(path.relative_to(root))
-    extension = path.suffix.lower()
-    excluded, reason = _is_excluded(rel)
-    if excluded:
-        category = "excluded"
-    elif extension not in ext_set:
-        category = "excluded"
-        reason = "extension_not_counted"
-    else:
-        generated, generated_reason = _is_generated(rel)
-        if generated:
-            category = "generated"
-            reason = generated_reason
-        elif _is_test(rel):
-            category = "test"
-            reason = "test_path_or_name"
-        else:
-            category = "source"
-            reason = "source_extension"
-    return {"path": rel, "extension": extension, "category": category, "reason": reason or category}
+    return _CLASSIFIER.classify_path(rel, extensions=extensions or SOURCE_EXTENSIONS)
 
 
 def count_lines(path: Path) -> int:
@@ -157,7 +109,7 @@ def audit(
             path = current / filename
             rel = _normalize_path(path.relative_to(root))
             classification = classify_path(path, root=root, extensions=extensions)
-            if classification["category"] == "excluded" and classification["reason"] == "extension_not_counted":
+            if classification["category"] == CATEGORY_EXCLUDED and classification["reason"] == "extension_not_counted":
                 continue
             line_count = count_lines(path)
             allowed = allow.get(rel)
@@ -175,7 +127,7 @@ def audit(
     failing_source = [
         row
         for row in over_threshold
-        if row["category"] == "source" and not row.get("allowlisted")
+        if row["category"] in {CATEGORY_PRODUCTION_SOURCE, CATEGORY_FACADE_OR_ROUTES} and not row.get("allowlisted")
     ]
     return {
         "schema": "source_file_line_count_audit.v1",
@@ -187,9 +139,11 @@ def audit(
         "summary": {
             "total_files": len(rows),
             "over_threshold": len(over_threshold),
-            "source_over_threshold": sum(1 for row in over_threshold if row["category"] == "source"),
-            "test_over_threshold": sum(1 for row in over_threshold if row["category"] == "test"),
-            "generated_over_threshold": sum(1 for row in over_threshold if row["category"] == "generated"),
+            "source_over_threshold": sum(
+                1 for row in over_threshold if row["category"] in {CATEGORY_PRODUCTION_SOURCE, CATEGORY_FACADE_OR_ROUTES}
+            ),
+            "test_over_threshold": sum(1 for row in over_threshold if row["category"] == CATEGORY_TESTS),
+            "generated_over_threshold": sum(1 for row in over_threshold if row["category"] == CATEGORY_GENERATED),
             "failing_source_over_threshold": len(failing_source),
         },
     }

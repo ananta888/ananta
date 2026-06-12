@@ -30,6 +30,17 @@ _hub_direct_by_tool: dict[str, int] = {}
 _hub_direct_by_reason: dict[str, int] = {}
 _HUB_DIRECT_BREAKDOWN_LIMIT = 200
 
+_SOURCE_LINE_POLICY_METRIC_NAMES = (
+    "source_line_policy_evaluations_total",
+    "source_line_policy_blocked_total",
+    "source_line_policy_followup_required_total",
+    "source_line_policy_warning_total",
+)
+_source_line_policy_lock = threading.Lock()
+_source_line_policy_counters: dict[str, int] = {name: 0 for name in _SOURCE_LINE_POLICY_METRIC_NAMES}
+_source_line_policy_by_category: dict[str, int] = {}
+_source_line_policy_by_reason: dict[str, int] = {}
+
 
 def record_hub_direct_metric(
     metric: str,
@@ -96,6 +107,48 @@ def reset_hub_direct_metrics() -> None:
         _hub_direct_by_tool.clear()
         _hub_direct_by_reason.clear()
         _hub_direct_recent_decisions.clear()
+
+
+def record_source_line_policy_metric(
+    decision: str,
+    *,
+    category: str | None = None,
+    reason_code: str | None = None,
+) -> None:
+    normalized = str(decision or "").strip().lower()
+    with _source_line_policy_lock:
+        _source_line_policy_counters["source_line_policy_evaluations_total"] += 1
+        if normalized == "blocked":
+            _source_line_policy_counters["source_line_policy_blocked_total"] += 1
+        elif normalized == "followup_required":
+            _source_line_policy_counters["source_line_policy_followup_required_total"] += 1
+        elif normalized == "warning":
+            _source_line_policy_counters["source_line_policy_warning_total"] += 1
+        cat = str(category or "").strip()
+        if cat and len(_source_line_policy_by_category) < _HUB_DIRECT_BREAKDOWN_LIMIT:
+            _source_line_policy_by_category[cat] = int(_source_line_policy_by_category.get(cat) or 0) + 1
+        reason = str(reason_code or "").strip()
+        if reason and len(_source_line_policy_by_reason) < _HUB_DIRECT_BREAKDOWN_LIMIT:
+            _source_line_policy_by_reason[reason] = int(_source_line_policy_by_reason.get(reason) or 0) + 1
+
+
+def source_line_policy_metrics_snapshot() -> dict:
+    with _source_line_policy_lock:
+        return {
+            "version": "source-line-policy-metrics-v1",
+            **dict(_source_line_policy_counters),
+            "by_category": dict(sorted(_source_line_policy_by_category.items(), key=lambda item: (-item[1], item[0]))),
+            "by_reason": dict(sorted(_source_line_policy_by_reason.items(), key=lambda item: (-item[1], item[0]))),
+            "updated_at": time.time(),
+        }
+
+
+def reset_source_line_policy_metrics() -> None:
+    with _source_line_policy_lock:
+        for name in _SOURCE_LINE_POLICY_METRIC_NAMES:
+            _source_line_policy_counters[name] = 0
+        _source_line_policy_by_category.clear()
+        _source_line_policy_by_reason.clear()
 
 
 def build_execution_cost_summary(

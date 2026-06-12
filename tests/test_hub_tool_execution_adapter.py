@@ -101,3 +101,24 @@ def test_derive_mutation_mode_uses_task_kind():
     assert derive_mutation_mode({"task_kind": "analysis"}, agent_cfg) == "read_only"
     assert derive_mutation_mode(None, agent_cfg) == "read_only"
     assert derive_mutation_mode(None, {}) == "read_only"
+
+
+def test_worker_runtime_bound_result_preserves_source_line_policy_data():
+    result = {
+        "schema": "ananta_tool_result.v1",
+        "status": "ok",
+        "evidence": [{"kind": "policy_result", "excerpt": "x" * 200}],
+        "warnings": [],
+        "data": {
+            "source_line_policy_result": {
+                "schema": "generated_source_line_policy_result.v1",
+                "status": "blocked",
+                "summary": {"blocked": 1},
+            }
+        },
+    }
+
+    bounded = WorkerRuntimeExecutionAdapter._bound_result(result, max_chars=20)
+
+    assert bounded["data"]["source_line_policy_result"]["summary"]["blocked"] == 1
+    assert bounded["warnings"] == ["evidence_truncated"]

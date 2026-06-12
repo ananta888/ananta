@@ -24,6 +24,8 @@ AUDIT_WORKER_TOOL_APPROVAL_REQUIRED = "ananta_worker_tool_approval_required"
 AUDIT_WORKSPACE_MUTATION_EVALUATED = "workspace_mutation_evaluated"
 AUDIT_WORKSPACE_MUTATION_BLOCKED = "workspace_mutation_blocked"
 AUDIT_WORKSPACE_BASELINE_CREATED = "workspace_baseline_created"
+AUDIT_GENERATED_SOURCE_LINE_POLICY_EVALUATED = "generated_source_line_policy_evaluated"
+AUDIT_GENERATED_SOURCE_LINE_POLICY_VIOLATION = "generated_source_line_policy_violation"
 
 # Deprecated aliases — emit the canonical value, kept for back-compat
 # with dashboards / log queries that still filter on the old names.

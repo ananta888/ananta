@@ -22,6 +22,11 @@ from agent.services.tools._evidence import (
     build_tool_result,
 )
 from agent.services.tools.repo_tools import WorkspacePathError, resolve_workspace_path
+from agent.services.generated_source_line_policy_service import (
+    DECISION_BLOCKED,
+    extract_policy_config,
+    get_generated_source_line_policy_service,
+)
 
 _DEFAULT_MAX_WRITE_BYTES = 262144
 _DEFAULT_MAX_REPLACE_EXISTING_BYTES = 65536
@@ -30,6 +35,25 @@ _DEFAULT_MAX_REPLACE_RANGE_LINES = 120
 
 def _sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _source_line_warning(result: dict[str, Any]) -> str | None:
+    status = str(result.get("status") or "")
+    if status and status != "ok":
+        return f"source_line_policy_{status}"
+    return None
+
+
+def _build_source_line_evidence(result: dict[str, Any]) -> dict[str, Any]:
+    summary = result.get("summary") if isinstance(result.get("summary"), dict) else {}
+    blocked = [
+        str(row.get("path") or "")
+        for row in list(result.get("file_results") or [])
+        if isinstance(row, dict) and str(row.get("decision") or "") == DECISION_BLOCKED
+    ]
+    excerpt = f"status={result.get('status')}; summary={summary}; blocked={blocked}"
+    entry, _ = build_evidence_entry(kind=EVIDENCE_KIND_POLICY, path=".", excerpt=excerpt, max_excerpt_chars=2000)
+    return entry
 
 
 def _parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:
@@ -180,15 +204,44 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
             error=str(exc),
             data={"applied": False, "rejected_reason": str(exc)},
         )
-    path.write_text(patched_text, encoding="utf-8")
     rel = str(path.relative_to(Path(workspace_dir).resolve())).replace("\\", "/")
+    baseline = {rel: len(original_text.splitlines())}
+    path.write_text(patched_text, encoding="utf-8")
+    source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
+        workspace_dir=workspace_dir,
+        changed_rel_paths=[rel],
+        cfg=extract_policy_config(cfg),
+        baseline=baseline,
+    ).as_dict()
+    source_line_warning = _source_line_warning(source_line_result)
+    if source_line_result.get("status") == DECISION_BLOCKED:
+        path.write_text(original_text, encoding="utf-8")
+        return build_tool_result(
+            tool_name="repo.apply_patch",
+            tool_call_id=tool_call_id,
+            status="policy_blocked",
+            risk_class="write",
+            evidence=[_build_source_line_evidence(source_line_result)],
+            error="source_line_policy_blocked",
+            data={
+                "applied": False,
+                "changed_files": [rel],
+                "rejected_reason": "source_line_policy_blocked",
+                "source_line_policy_result": source_line_result,
+                "variant": variant,
+            },
+            warnings=[source_line_warning] if source_line_warning else None,
+        )
     entry, _ = build_evidence_entry(kind=EVIDENCE_KIND_DIFF, path=rel, excerpt=diff_excerpt, max_excerpt_chars=4000)
+    evidence = [entry]
+    if source_line_result.get("enabled"):
+        evidence.append(_build_source_line_evidence(source_line_result))
     return build_tool_result(
         tool_name="repo.apply_patch",
         tool_call_id=tool_call_id,
         status="ok",
         risk_class="write",
-        evidence=[entry],
+        evidence=evidence,
         data={
             "applied": True,
             "changed_files": [rel],
@@ -196,7 +249,9 @@ def repo_apply_patch(*, workspace_dir: str, arguments: dict[str, Any], tool_call
             "content_hashes": {rel: _sha256_text(patched_text)},
             "variant": variant,
             "reason": str(args.get("reason") or ""),
+            "source_line_policy_result": source_line_result,
         },
+        warnings=[source_line_warning] if source_line_warning else None,
     )
 
 
@@ -240,6 +295,8 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
             tool_name="repo.write_file", tool_call_id=tool_call_id, status="rejected", risk_class="write",
             error="file_already_exists", data={"applied": False, "rejected_reason": "file_already_exists"},
         )
+    original_text: str | None = None
+    existed_before = path.exists()
     if mode == "replace_existing":
         if not path.is_file():
             return build_tool_result(
@@ -272,9 +329,42 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
                 error="expected_old_hash_mismatch",
                 data={"applied": False, "rejected_reason": "expected_old_hash_mismatch"},
             )
+        original_text = payload.decode("utf-8", errors="replace")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
     rel = str(path.relative_to(Path(workspace_dir).resolve())).replace("\\", "/")
+    baseline = {rel: len(original_text.splitlines()) if original_text is not None else None}
+    path.write_text(content, encoding="utf-8")
+    source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
+        workspace_dir=workspace_dir,
+        changed_rel_paths=[rel],
+        cfg=extract_policy_config(cfg),
+        baseline=baseline,
+    ).as_dict()
+    source_line_warning = _source_line_warning(source_line_result)
+    if source_line_result.get("status") == DECISION_BLOCKED:
+        if existed_before and original_text is not None:
+            path.write_text(original_text, encoding="utf-8")
+        else:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+        return build_tool_result(
+            tool_name="repo.write_file",
+            tool_call_id=tool_call_id,
+            status="policy_blocked",
+            risk_class="write",
+            evidence=[_build_source_line_evidence(source_line_result)],
+            error="source_line_policy_blocked",
+            data={
+                "applied": False,
+                "mode": mode,
+                "changed_files": [rel],
+                "rejected_reason": "source_line_policy_blocked",
+                "source_line_policy_result": source_line_result,
+            },
+            warnings=[source_line_warning] if source_line_warning else None,
+        )
     return build_tool_result(
         tool_name="repo.write_file",
         tool_call_id=tool_call_id,
@@ -285,7 +375,10 @@ def repo_write_file(*, workspace_dir: str, arguments: dict[str, Any], tool_call_
             "mode": mode,
             "changed_files": [rel],
             "content_hashes": {rel: _sha256_text(content)},
+            "source_line_policy_result": source_line_result,
         },
+        evidence=[_build_source_line_evidence(source_line_result)] if source_line_result.get("enabled") else None,
+        warnings=[source_line_warning] if source_line_warning else None,
     )
 
 
@@ -312,6 +405,12 @@ def workspace_diff(*, workspace_dir: str, arguments: dict[str, Any], tool_call_i
         allowed_new_file_globs=list(cfg.get("allowed_new_file_globs") or []),
         require_materialized_scope=bool(cfg.get("require_materialized_scope", True)),
     )
+    source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
+        workspace_dir=workspace,
+        changed_rel_paths=meaningful,
+        cfg=extract_policy_config(cfg),
+        baseline=None,
+    ).as_dict()
     diff_entry, _ = build_evidence_entry(
         kind=EVIDENCE_KIND_DIFF, path=".", excerpt=diff_text or "(no meaningful diff)", max_excerpt_chars=max_diff_chars
     )
@@ -326,6 +425,9 @@ def workspace_diff(*, workspace_dir: str, arguments: dict[str, Any], tool_call_i
         max_excerpt_chars=2000,
     )
     warnings = list(policy_result.warnings)
+    source_line_warning = _source_line_warning(source_line_result)
+    if source_line_warning:
+        warnings.append(source_line_warning)
     if diff_truncated:
         warnings.append("diff_truncated_see_artifact")
     return build_tool_result(
@@ -336,6 +438,7 @@ def workspace_diff(*, workspace_dir: str, arguments: dict[str, Any], tool_call_i
         data={
             "changed_files": meaningful,
             "policy_result": policy_result.as_dict(),
+            "source_line_policy_result": source_line_result,
             "diff_truncated": diff_truncated,
         },
         warnings=warnings,

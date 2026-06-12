@@ -19,8 +19,8 @@ def test_source_file_line_count_classifies_source_test_generated_and_excluded(tm
     result = audit(root=tmp_path, threshold=3)
     by_path = {row["path"]: row for row in result["files"]}
 
-    assert by_path["agent/service.py"]["category"] == "source"
-    assert by_path["tests/test_service.py"]["category"] == "test"
+    assert by_path["agent/service.py"]["category"] == "production_source"
+    assert by_path["tests/test_service.py"]["category"] == "tests"
     assert by_path["frontend/bundle.min.js"]["category"] == "generated"
     assert by_path["node_modules/dep.js"]["category"] == "excluded"
     assert result["summary"]["source_over_threshold"] == 1
@@ -50,7 +50,8 @@ def test_fail_on_source_over_threshold_respects_allowlist(tmp_path, capsys):
         ]
     ) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["files"][0]["allowlisted"] is True
+    by_path = {row["path"]: row for row in payload["files"]}
+    assert by_path["agent/big.py"]["allowlisted"] is True
 
 
 def test_over_threshold_only_outputs_only_large_files(tmp_path, capsys):

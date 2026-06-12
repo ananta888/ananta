@@ -40,6 +40,11 @@ from agent.common.sgpt_tool_loop import (
     KIND_TOOL_REQUEST,
     _extract_json_candidate,
 )
+from agent.services.generated_source_line_policy_service import (
+    DECISION_BLOCKED,
+    extract_policy_config,
+    get_generated_source_line_policy_service,
+)
 
 log = logging.getLogger(__name__)
 
@@ -65,7 +70,10 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
     hub) wins, then the configured mode, then the task_kind mapping. Risk
     rules escalate controlled_workspace to strict_patch_request.
     """
-    cfg = dict(_get_agent_config().get("ananta_worker_workspace_mutation") or {})
+    agent_cfg = _get_agent_config()
+    cfg = dict(agent_cfg.get("ananta_worker_workspace_mutation") or {})
+    if "generated_source_line_policy" not in cfg and isinstance(agent_cfg.get("generated_source_line_policy"), dict):
+        cfg["generated_source_line_policy"] = dict(agent_cfg.get("generated_source_line_policy") or {})
     task_kind = None
     risk = None
     explicit_mode = None
@@ -237,6 +245,7 @@ def run_ananta_worker_workspace_mutation(
     invalid_count = 0
     tool_call_count = 0
     last_policy_result: dict[str, Any] | None = None
+    last_source_line_policy_result: dict[str, Any] | None = None
     last_change_signature: str | None = None
     repeated_signature_count = 0
     last_rc, last_out, last_err = 0, "", ""
@@ -260,7 +269,7 @@ def run_ananta_worker_workspace_mutation(
         picks the action name based on the policy outcome and emits
         ``workspace_mutation_blocked`` for non-ok final policies.
         """
-        nonlocal last_policy_result
+        nonlocal last_policy_result, last_source_line_policy_result
         changed = ws_svc.detect_changed_files_against_interactive_baseline(workspace_dir=workspace)
         meaningful = ws_svc.filter_meaningful_changed_files(changed)
         diff_text, diff_truncated = ws_svc.build_workspace_diff_text(
@@ -274,11 +283,20 @@ def run_ananta_worker_workspace_mutation(
             require_materialized_scope=bool(cfg.get("require_materialized_scope", True)),
             strict_path_markers=list(cfg.get("strict_path_markers") or []) or None,
         )
+        source_line_policy_result = get_generated_source_line_policy_service().evaluate_changed_files(
+            workspace_dir=workspace,
+            changed_rel_paths=meaningful,
+            cfg=extract_policy_config(cfg),
+            baseline=None,
+            context={"task_id": task_id},
+        )
         last_policy_result = policy_result.as_dict()
+        last_source_line_policy_result = source_line_policy_result.as_dict()
         check: dict[str, Any] = {
             "schema": "ananta_workspace_feedback.v1",
             "diff_result": {"changed_files": meaningful, "diff_excerpt": diff_text, "truncated": diff_truncated},
             "policy_result": last_policy_result,
+            "source_line_policy_result": last_source_line_policy_result,
         }
         if ran_tests_result is not None:
             check["test_result"] = ran_tests_result
@@ -319,7 +337,37 @@ def run_ananta_worker_workspace_mutation(
                 policy_decision=str(policy_result.status or "unknown"),
                 violation_ids=violation_ids,
                 violation_summary=violation_summary,
+                source_line_policy_status=str(last_source_line_policy_result.get("status") or "ok"),
+                source_line_policy_summary=dict(last_source_line_policy_result.get("summary") or {}),
             )
+            from agent.common.audit import AUDIT_GENERATED_SOURCE_LINE_POLICY_EVALUATED
+
+            audit_workspace_mutation_event(
+                AUDIT_GENERATED_SOURCE_LINE_POLICY_EVALUATED,
+                task_id=task_id,
+                iteration_number=iteration_number,
+                mutation_mode=mode,
+                changed_paths=meaningful,
+                policy_decision=str(last_source_line_policy_result.get("status") or "ok"),
+                source_line_policy_summary=dict(last_source_line_policy_result.get("summary") or {}),
+            )
+            if str(last_source_line_policy_result.get("status") or "ok") in {"blocked", "followup_required"}:
+                from agent.common.audit import AUDIT_GENERATED_SOURCE_LINE_POLICY_VIOLATION
+
+                audit_workspace_mutation_event(
+                    AUDIT_GENERATED_SOURCE_LINE_POLICY_VIOLATION,
+                    task_id=task_id,
+                    iteration_number=iteration_number,
+                    mutation_mode=mode,
+                    changed_paths=meaningful,
+                    policy_decision=str(last_source_line_policy_result.get("status") or "unknown"),
+                    violation_ids=[
+                        f"{row.get('path','')}:{row.get('reason_code','')}"
+                        for row in list(last_source_line_policy_result.get("file_results") or [])
+                        if isinstance(row, dict) and str(row.get("decision") or "") in {"blocked", "followup_required"}
+                    ],
+                    source_line_policy_summary=dict(last_source_line_policy_result.get("summary") or {}),
+                )
         except Exception:
             pass
         return check
@@ -338,6 +386,12 @@ def run_ananta_worker_workspace_mutation(
                         "outcome": outcome,
                         "baseline": baseline_meta,
                         "final_policy_result": last_policy_result,
+                        "source_line_policy_summary": (
+                            dict((last_source_line_policy_result or {}).get("summary") or {})
+                            if last_source_line_policy_result
+                            else None
+                        ),
+                        "final_source_line_policy_result": last_source_line_policy_result,
                         "invalid_output_count": invalid_count,
                         "tool_call_count": tool_call_count,
                         "created_at": time.time(),
@@ -393,8 +447,9 @@ def run_ananta_worker_workspace_mutation(
         if kind == KIND_FINAL_ANSWER:
             final_check = _hub_check(iteration_number=iteration)
             policy_status = str((final_check.get("policy_result") or {}).get("status") or "ok")
+            source_line_status = str((final_check.get("source_line_policy_result") or {}).get("status") or "ok")
             answer = str(message.get("answer") or out)
-            if policy_status != "ok":
+            if policy_status != "ok" or source_line_status == "blocked":
                 # ALWA-015: a final answer that violates the workspace
                 # policy emits workspace_mutation_blocked. The
                 # workspace_mutation_evaluated event already fired
@@ -406,12 +461,18 @@ def run_ananta_worker_workspace_mutation(
                         audit_workspace_mutation_event,
                     )
                     policy_dict = dict(final_check.get("policy_result") or {})
+                    source_line_dict = dict(final_check.get("source_line_policy_result") or {})
                     blocked_changes = list(policy_dict.get("blocked_changes") or [])
                     violation_ids = [
                         f"{row.get('path','')}:{row.get('reason','')}"
                         for row in blocked_changes
                         if isinstance(row, dict)
                     ]
+                    violation_ids.extend(
+                        f"{row.get('path','')}:{row.get('reason_code','')}"
+                        for row in list(source_line_dict.get("file_results") or [])
+                        if isinstance(row, dict) and str(row.get("decision") or "") == "blocked"
+                    )
                     violation_summary = (
                         "; ".join(
                             f"{row.get('path','')}:{row.get('reason','')}"
@@ -428,10 +489,12 @@ def run_ananta_worker_workspace_mutation(
                         changed_paths=list(
                             (final_check.get("diff_result") or {}).get("changed_files") or []
                         ),
-                        policy_decision=str(policy_status),
+                        policy_decision=str(source_line_status if source_line_status == "blocked" else policy_status),
                         violation_ids=violation_ids,
                         violation_summary=violation_summary,
-                        blocked_reason=str(policy_status),
+                        blocked_reason=str(source_line_status if source_line_status == "blocked" else policy_status),
+                        source_line_policy_status=source_line_status,
+                        source_line_policy_summary=dict(source_line_dict.get("summary") or {}),
                     )
                 except Exception:
                     pass
@@ -440,6 +503,7 @@ def run_ananta_worker_workspace_mutation(
                     "status": "policy_blocked",
                     "answer": answer,
                     "policy_result": final_check.get("policy_result"),
+                    "source_line_policy_result": final_check.get("source_line_policy_result"),
                 }
                 return _finish("policy_blocked", 0, json.dumps(summary, ensure_ascii=False), err)
             return _finish("final_answer", 0, answer, err)
@@ -475,6 +539,7 @@ def run_ananta_worker_workspace_mutation(
                 continue
             applied: list[str] = []
             rejected: list[dict[str, str]] = []
+            source_line_write_results: list[dict[str, Any]] = []
             for row in list(message.get("files") or []):
                 rel = str((row or {}).get("path") or "").strip()
                 content = (row or {}).get("content")
@@ -496,7 +561,28 @@ def run_ananta_worker_workspace_mutation(
                     rejected.append({"path": rel, "reason": str(exc)})
                     continue
                 target.parent.mkdir(parents=True, exist_ok=True)
+                existed_before = target.exists()
+                original_text = target.read_text(encoding="utf-8", errors="replace") if existed_before and target.is_file() else None
+                baseline = {rel: len(original_text.splitlines()) if original_text is not None else None}
                 target.write_text(content, encoding="utf-8")
+                source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
+                    workspace_dir=workspace,
+                    changed_rel_paths=[rel],
+                    cfg=extract_policy_config(cfg),
+                    baseline=baseline,
+                    context={"task_id": task_id},
+                ).as_dict()
+                source_line_write_results.append(source_line_result)
+                if source_line_result.get("status") == DECISION_BLOCKED:
+                    if existed_before and original_text is not None:
+                        target.write_text(original_text, encoding="utf-8")
+                    else:
+                        try:
+                            target.unlink()
+                        except FileNotFoundError:
+                            pass
+                    rejected.append({"path": rel, "reason": "source_line_policy_blocked"})
+                    continue
                 applied.append(rel)
             if any(row["reason"] == "max_patch_attempts_per_file_exceeded" for row in rejected) and not applied:
                 iteration_row["result"] = "max_patch_attempts_per_file"
@@ -504,8 +590,13 @@ def run_ananta_worker_workspace_mutation(
                 return _finish("max_patch_attempts_per_file", 0, json.dumps(summary, ensure_ascii=False), err)
             check = _hub_check(iteration_number=iteration)
             check["write_result"] = {"applied": applied, "rejected": rejected}
+            if source_line_write_results:
+                check["write_source_line_policy_results"] = source_line_write_results
             iteration_row["applied"] = applied
             iteration_row["rejected"] = rejected
+            iteration_row["source_line_policy_statuses"] = [
+                str(row.get("status") or "") for row in source_line_write_results
+            ]
             _add_evidence(check)
             signature = _changes_signature(workspace, list((check.get("diff_result") or {}).get("changed_files") or []))
             if signature == last_change_signature:

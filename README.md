@@ -71,6 +71,8 @@ Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-fl
 
 **CodeCompass-Handoff:** Wie CodeCompass Snippets, Line-Ranges und ganze Dateien priorisiert an den ananta-worker weitergibt: `docs/codecompass-relevant-snippet-handoff.md`.
 
+**Generated Source Line Policy:** Optionaler Worker-Qualitaetsguardrail gegen neu erzeugte Source-Monolithen. Die Policy ist standardmaessig deaktiviert und kann unter `generated_source_line_policy` ausgerollt werden. Contract und Defaults: `docs/contracts/generated-source-line-policy.md` und `docs/development/source-line-limit-policy.md`.
+
 ## Schnellstart in 5 Minuten
 
 ### A) CLI-first ohne Docker (lokal)
