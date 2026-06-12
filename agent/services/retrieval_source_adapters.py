@@ -18,8 +18,8 @@ class RepoRetrievalSourceAdapter(RetrievalSourceAdapter):
         self._orchestrator_provider = orchestrator_provider
         self._chunk_deserializer = chunk_deserializer
 
-    def load_context(self, query: str) -> dict[str, object]:
-        return self._orchestrator_provider().get_relevant_context(query)
+    def load_context(self, query: str, *, domain_scope: object | None = None) -> dict[str, object]:
+        return self._orchestrator_provider().get_relevant_context(query, domain_scope=domain_scope)
 
     def search(
         self,

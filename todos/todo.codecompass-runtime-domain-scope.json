@@ -250,7 +250,7 @@
     {
       "id": "CCRDS-M4",
       "title": "Worker-Schreibgrenzen und Approval vorbereiten",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "CCRDS-011",
         "CCRDS-012",
@@ -260,7 +260,7 @@
     {
       "id": "CCRDS-M5",
       "title": "ai-snake/UI sichtbar und bedienbar machen",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "CCRDS-014",
         "CCRDS-015",
@@ -577,7 +577,7 @@
     {
       "id": "CCRDS-013",
       "title": "Cross-domain Write Approval Hook einfuehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "paths": [

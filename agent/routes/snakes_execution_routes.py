@@ -149,15 +149,64 @@ def _build_local_repo_fallback_context(prompt: str) -> str:
     return ""
 
 
+def _domain_scope_response(domain_scope: object | None, bundle_domain_scope: dict | None) -> dict[str, Any]:
+    """Build a serialisable domain_scope response fragment for snake ask."""
+    if domain_scope is None:
+        return {}
+    from agent.codecompass.domain_scope import ResolvedDomainScope
+    if isinstance(domain_scope, ResolvedDomainScope) and domain_scope.active:
+        info = domain_scope.as_dict()
+        if bundle_domain_scope and isinstance(bundle_domain_scope, dict):
+            info.update({
+                k: bundle_domain_scope[k]
+                for k in ("active_domain_ids", "filter_stats", "guidance")
+                if k in bundle_domain_scope
+            })
+        return {"domain_scope": info}
+    return {}
+
+
+def _resolve_domain_scope_for_chat(domain_hint: str | None) -> object | None:
+    """CCRDS-014: resolve a ``domain:``-prefixed hint to a DomainScope or None.
+
+    Returns None when the feature is disabled, the hint is unprefixed, or
+    the hint is empty — the caller then proceeds without hard scoping.
+    """
+    if not domain_hint:
+        return None
+    if not str(getattr(settings, "codecompass_domain_scope_enabled", False)).strip().lower() in {"1", "true", "yes"}:
+        return None
+    try:
+        from agent.codecompass.domain_scope_resolver import (
+            DomainScopeResolver,
+            scope_from_domain_hint,
+        )
+        scope = scope_from_domain_hint(
+            domain_hint,
+            enabled=True,
+            strict=bool(getattr(settings, "codecompass_scope_strict_mode", True)),
+        )
+        if scope is None:
+            return None
+        resolver = DomainScopeResolver(
+            repo_root=Path(__file__).resolve().parents[2],
+            artifact_path=str(getattr(settings, "codecompass_domain_artifact_path", "") or "") or None,
+            descriptor_root=str(getattr(settings, "codecompass_domain_descriptor_root", "") or "") or None,
+        )
+        return resolver.resolve(scope)
+    except Exception:
+        return None
+
+
 def _build_grounded_snake_prompt(
     user_text: str,
     *,
     limits: SnakeAskLimits | None = None,
     retrieval_config_overrides: dict[str, Any] | None = None,
-) -> tuple[str, bool, str]:
+) -> tuple[str, bool, str, dict[str, Any]]:
     prompt = str(user_text or "").strip()
     if not prompt:
-        return prompt
+        return prompt, False, "", {}
     effective_limits = limits or SnakeAskLimits()
     try:
         from agent.routes.ai_snake_config import _current_config
@@ -173,6 +222,9 @@ def _build_grounded_snake_prompt(
 
         profile = resolve_profile(prompt, cfg, domain_hint=domain_hint, feature_flag=feature_flag)
 
+        # CCRDS-014: resolve runtime domain scope from domain_hint
+        domain_scope = _resolve_domain_scope_for_chat(domain_hint)
+
         bundle, grounded = get_rag_service().build_execution_context(
             prompt,
             task_kind="research",
@@ -180,8 +232,10 @@ def _build_grounded_snake_prompt(
             source_types=profile.source_types or None,
             max_chunks=effective_limits.rag_top_k,
             retrieval_profile=profile.as_dict(),
+            domain_scope=domain_scope,
         )
         chunks = list(bundle.get("chunks") or [])
+        domain_scope_info = _domain_scope_response(domain_scope, bundle.get("domain_scope"))
         if chunks:
             src_type_counts: dict[str, int] = {}
             for chunk in chunks:
@@ -199,7 +253,7 @@ def _build_grounded_snake_prompt(
             )
             summary_parts = [f"{k}:{v}" for k, v in sorted(src_type_counts.items())]
             summary = f"Kontext: {len(chunks)} Treffer ({', '.join(summary_parts)}) [{profile.profile_id}]"
-            return grounded, True, summary
+            return grounded, True, summary, domain_scope_info
     except Exception as exc:
         logging.getLogger(__name__).debug("ai_snake_retrieval_profile_failed: %s", exc)
         pass
@@ -210,8 +264,8 @@ def _build_grounded_snake_prompt(
             "Lokaler Projektkontext (Fallback, wenn RAG leer ist):\n"
             f"{local_fallback}"
         )
-        return grounded, True, "Kontext: 1 Treffer (repo_fallback:1)"
-    return prompt, False, "Kontext: 0 Treffer"
+        return prompt, True, "Kontext: 1 Treffer (repo_fallback:1)", {}
+    return prompt, False, "Kontext: 0 Treffer", {}
 
 
 def _resolve_snake_retrieval_profile_trace(
@@ -431,7 +485,7 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
             except Exception as exc:
                 logging.getLogger(__name__).debug("full_scan check failed, falling back: %s", exc)
 
-            grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(prompt)
+            grounded_prompt, has_context, context_summary, _domain_info = _build_grounded_snake_prompt(prompt)
             q = prompt.lower()
             asks_for_concrete_local_facts = any(
                 token in q for token in (
@@ -833,6 +887,8 @@ def snake_ask():
         return jsonify({"trace_only": True, "rag_why": dry}), 200
 
     rag_trace: dict[str, Any] = {}
+    domain_scope_info: dict[str, Any] = {}
+    domain_hint = str(dict(retrieval_config_overrides or {}).get("chat_retrieval_domain_hint") or "") or None
     context = str(body.get("context") or "").strip()[:limits.context_chars]
     if context:
         grounded_prompt = f"{question}\n\nKontext:\n{context}"
@@ -844,7 +900,7 @@ def snake_ask():
                 retrieval_config_overrides=retrieval_config_overrides,
             )
     else:
-        grounded_prompt, has_context, context_summary = _build_grounded_snake_prompt(
+        grounded_prompt, has_context, context_summary, domain_scope_info = _build_grounded_snake_prompt(
             question,
             limits=limits,
             retrieval_config_overrides=retrieval_config_overrides,
@@ -881,7 +937,7 @@ def snake_ask():
                 summary = f"full_scan: {batches_done} Batches, {files_found} Quelldateien"
                 if len(answer) > limits.answer_chars:
                     answer = answer[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
-                resp: dict[str, Any] = {"answer": answer, "path": "full_scan", "context_summary": summary}
+                resp: dict[str, Any] = {"answer": answer, "path": "full_scan", "context_summary": summary, **domain_scope_info}
                 if debug:
                     resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
                 elif retrieval_config_overrides and isinstance(rag_trace.get("retrieval_profile"), dict):
@@ -897,7 +953,7 @@ def snake_ask():
         retrieval_profile_trace=rag_trace.get("retrieval_profile") if isinstance(rag_trace.get("retrieval_profile"), dict) else None,
     )
     if answer:
-        resp = {"answer": answer, "path": "worker"}
+        resp = {"answer": answer, "path": "worker", **domain_scope_info}
         if debug:
             resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
         elif retrieval_config_overrides and isinstance(rag_trace.get("retrieval_profile"), dict):
@@ -920,7 +976,7 @@ def snake_ask():
             text = text[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
         if not text:
             return jsonify({"error": "Keine Antwort generiert"}), 503
-        resp = {"answer": text, "path": "hub_direct"}
+        resp = {"answer": text, "path": "hub_direct", **domain_scope_info}
         if debug:
             resp["trace"] = {
                 "rag": rag_trace,

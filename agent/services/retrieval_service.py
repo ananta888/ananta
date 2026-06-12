@@ -214,6 +214,7 @@ class RetrievalService:
         neighbor_task_ids: list[str] | None = None,
         source_types: list[str] | None = None,
         retrieval_profile: dict | None = None,
+        domain_scope: object | None = None,
     ) -> dict[str, object]:
         # CRPS-008: extract profile source_types if not explicitly provided
         effective_source_types_override: list[str] | None = source_types
@@ -283,9 +284,10 @@ class RetrievalService:
         KNOWLEDGE_RETRIEVAL_CHUNKS.observe(len(knowledge_chunks))
 
         orchestrator_chunks: list[ContextChunk] = []
+        context_payload: dict[str, object] = {}
         repo_adapter = self._source_adapters.get("repo")
         if "repo" in effective_source_types and isinstance(repo_adapter, RepoRetrievalSourceAdapter):
-            context_payload = repo_adapter.load_context(query)
+            context_payload = repo_adapter.load_context(query, domain_scope=domain_scope)
             orchestrator_chunks = repo_adapter.search(
                 query,
                 top_k=max(settings.rag_max_chunks * 2, 8),
@@ -408,12 +410,16 @@ class RetrievalService:
         metric_bundle_mode = "standard_32k"
         outcome = "with_knowledge" if knowledge_chunks else "without_knowledge"
         RAG_RETRIEVAL_TASK_KIND_TOTAL.labels(metric_task_kind, metric_bundle_mode, outcome).inc()
-        return serialize_context(
+        result = serialize_context(
             orchestrator=orchestrator,
             query=query,
             strategy=strategy,
             chunks=merged,
         )
+        # CCRDS-014: preserve domain_scope from orchestrator through the chain
+        if isinstance(context_payload, dict) and "domain_scope" in context_payload:
+            result["domain_scope"] = dict(context_payload["domain_scope"])
+        return result
 
 
 retrieval_service = RetrievalService()

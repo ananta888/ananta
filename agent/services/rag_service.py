@@ -45,6 +45,7 @@ class RagService:
         neighbor_task_ids: list[str] | None = None,
         source_types: list[str] | None = None,
         retrieval_profile: dict | None = None,
+        domain_scope: object | None = None,
     ) -> dict[str, object]:
         context_payload = self._retrieval_service.retrieve_context(
             query,
@@ -55,6 +56,7 @@ class RagService:
             neighbor_task_ids=neighbor_task_ids,
             source_types=source_types,
             retrieval_profile=retrieval_profile,
+            domain_scope=domain_scope,
         )
         bundle = self._context_bundle_service.build_bundle(
             query=query,
@@ -73,6 +75,9 @@ class RagService:
             llm_scope=llm_scope or "local_only",
             retrieval_profile=retrieval_profile,
         )
+        # CCRDS-014: preserve domain_scope from context_payload through bundle
+        if isinstance(context_payload, dict) and "domain_scope" in context_payload:
+            bundle["domain_scope"] = dict(context_payload["domain_scope"])
         if not list(bundle.get("chunks") or []):
             fallback_chunks = list(context_payload.get("chunks") or [])
             if max_chunks is not None:
@@ -155,6 +160,7 @@ class RagService:
         source_types: list[str] | None = None,
         max_chunks: int | None = None,
         retrieval_profile: dict | None = None,
+        domain_scope: object | None = None,
     ) -> tuple[dict[str, object], str]:
         # CRPS-006: if retrieval_profile provided, derive source_types and retrieval_intent from it
         effective_source_types = source_types
@@ -175,6 +181,7 @@ class RagService:
             retrieval_intent=effective_intent,
             source_types=effective_source_types,
             retrieval_profile=retrieval_profile,
+            domain_scope=domain_scope,
         )
         grounded_prompt = self._context_bundle_service.build_grounded_prompt(
             prompt=prompt,
