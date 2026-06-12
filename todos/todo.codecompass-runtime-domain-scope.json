@@ -84,6 +84,36 @@
           "Sagt explizit, dass Domain-Kandidaten Vorschlaege mit Begruendung sind und keine automatische Runtime-Freigabe.",
           "Signalmodell priorisiert descriptor_signal, path_signal, package_signal und graph_signal."
         ]
+      },
+      {
+        "path": "agent/services/ananta_workspace_mutation_policy.py",
+        "observations": [
+          "Es gibt bereits eine Workspace-Mutation-Policy fuer den ananta-worker (AWWPI-004/008/013).",
+          "Sie validiert geaenderte Dateien gegen explizit materialisierte bzw. policy-erlaubte Pfade und blockiert `.git`, `.ananta`, `rag_helper`, Secrets, absolute Pfade und Path Traversal immer.",
+          "CCRDS-011 (Write-Scope Validator) darf das nicht parallel neu bauen, sondern muss hier andocken oder die Abgrenzung explizit begruenden."
+        ]
+      },
+      {
+        "path": "agent/services/retrieval_policy_filter_service.py",
+        "observations": [
+          "Es existiert bereits ein Chunk-Filter nach Scope/Sensitivity-Klassen auf Basis von `rag_policy_service.is_chunk_allowed_for_scope` und einer Source-Class-Segregation-Matrix.",
+          "CCRDS-008 (DomainScopeFilter) muss vor Neubau pruefen, ob Pfad-Scoping als zusaetzliche Dimension hier integriert werden kann, statt eine zweite parallele Filterlogik einzufuehren."
+        ]
+      },
+      {
+        "path": "agent/services/domain_policy_service.py",
+        "observations": [
+          "Es gibt bereits DomainPolicyService/DomainPolicyLoader fuer Capability-Domain-Policy-Packs (Schema `schemas/domain/policy_pack.v1.json`).",
+          "Diese 'Domains' sind Capability-/Tool-Domains, nicht fachliche Code-Domains aus Domain Discovery."
+        ]
+      },
+      {
+        "path": "domains/",
+        "observations": [
+          "Das Verzeichnis `domains/<id>/` enthaelt heute Capability-Domains wie `ananta_worker`, `blender`, `freecad`, `kicad`, `example` mit `domain.json` und `capabilities.json`.",
+          "`domain.json` enthaelt u.a. `source_paths`, `rag_profiles`, `policy_packs` — der von CCRDS-005 vorausgesetzte Descriptor-Vertrag existiert also.",
+          "Damit gibt es drei Domain-Namespaces: interne Retrieval-Domains, Capability-Domains in `domains/`, fachliche Code-Domains aus `domains.detected.json`. Die Aufloesung von `chat_retrieval_domain_hint` muss alle drei eindeutig unterscheiden."
+        ]
       }
     ]
   },
@@ -136,6 +166,16 @@
       "id": "CCRDS-DD-005",
       "decision": "Jeder Scope-Entscheid muss erklaerbar sein.",
       "rationale": "ai-snake-chat soll anzeigen koennen, welche Domain gesetzt ist, welche Pfade erlaubt sind, welche Chunks verworfen wurden und warum."
+    },
+    {
+      "id": "CCRDS-DD-006",
+      "decision": "Fachliche Domain-IDs werden mit Prefix `domain:` referenziert (z.B. `domain:bestellmodul`).",
+      "rationale": "Es gibt drei Domain-Namespaces: interne Retrieval-Domains (codecompass, worker, ...), Capability-Domains in `domains/<id>/` (blender, freecad, kicad, ananta_worker) und fachliche Code-Domains aus `domains.detected.json`. Ohne Prefix waere z.B. `chat_retrieval_domain_hint='blender'` mehrdeutig. Unprefixte Werte behalten ihre bisherige Bedeutung als Profil-Hint; nur prefixte Werte aktivieren Runtime-Domain-Scope."
+    },
+    {
+      "id": "CCRDS-DD-007",
+      "decision": "Reuse vor Neubau bei Policy-/Filter-Logik.",
+      "rationale": "`ananta_workspace_mutation_policy.py` validiert bereits Worker-Schreibpfade inkl. Path-Traversal-Blockierung; `retrieval_policy_filter_service.py`/`rag_policy_service.py` filtern bereits Chunks nach Scope. Write-Enforcement (CCRDS-011) und Chunk-Filter (CCRDS-008) muessen an diese Services andocken oder die Abgrenzung explizit dokumentieren, statt parallele zweite Mechanismen einzufuehren."
     }
   ],
   "target_outputs": {
@@ -280,14 +320,14 @@
         "`chat_retrieval_domain_hint` nicht entfernen oder umbenennen.",
         "Ergaenzende globale Scope-Settings in `agent/config.py` einfuehren, aber den ai-snake Hint als konkrete Auswahl verwenden.",
         "Kompatibilitaet erhalten: bekannte alte Werte wie `codecompass`, `ai_snake`, `worker` muessen weiter als RetrievalProfile-Domain funktionieren.",
-        "Neue fachliche Domain-IDs wie `bestellmodul` duerfen nicht mehr einfach nur als unknown ignoriert werden, wenn Domain-Scope aktiviert ist."
+        "Fachliche Domain-IDs werden gemaess CCRDS-DD-006 mit Prefix angegeben (`domain:bestellmodul`); unprefixte unbekannte Werte bleiben wie bisher weiche/ignorierte Profil-Hints."
       ],
       "acceptance_criteria": [
         "`chat_retrieval_domain_hint` bleibt in `_SCHEMA_KEYS`, `_DEFAULTS` und TUI-Persistenz erhalten.",
         "Bestehende Tests fuer bekannte Domain-Hints bleiben gruen.",
-        "Bei `CODECOMPASS_DOMAIN_SCOPE_ENABLED=false` bleibt unbekannter Hint wie bisher ein weicher/ignorierter Profil-Hinweis.",
-        "Bei `CODECOMPASS_DOMAIN_SCOPE_ENABLED=true` wird ein unbekannter Profil-Hint als moegliche fachliche Domain gegen Domain-Artefakte/Descriptoren aufgeloest.",
-        "Es gibt Tests fuer alte interne Hints und neue fachliche Domain-Hints."
+        "Bei `CODECOMPASS_DOMAIN_SCOPE_ENABLED=false` bleibt ein `domain:`-Hint ein weicher/ignorierter Profil-Hinweis (mit Warning im Trace).",
+        "Bei `CODECOMPASS_DOMAIN_SCOPE_ENABLED=true` wird ein `domain:`-Hint gegen Domain-Artefakte/Descriptoren aufgeloest.",
+        "Es gibt Tests fuer alte interne Hints und neue prefixte fachliche Domain-Hints."
       ]
     },
     {
@@ -323,14 +363,14 @@
       ],
       "description": "Der Resolver soll den bestehenden ai-snake Hint als Input nehmen und daraus optional einen harten Domain-Scope erzeugen.",
       "implementation_notes": [
-        "`chat_retrieval_domain_hint` ist der wichtigste Input fuer selected_domain_ids, sofern kein expliziter API-Scope uebergeben wurde.",
+        "`chat_retrieval_domain_hint` ist der wichtigste Input fuer selected_domain_ids, sofern kein expliziter API-Scope uebergeben wurde; fachliche Domains gemaess CCRDS-DD-006 nur mit `domain:`-Prefix.",
         "`domains.detected.json` mit Schema `codecompass_domain_analysis.v1` laden.",
         "Domain anhand `domain_id` und optional `display_name` matchen.",
         "`root_paths` als allowed_read_paths/allowed_write_paths verwenden, sofern kein Descriptor strengere Regeln liefert.",
         "Fehlende Datei, falsches Schema, leere Domainliste und doppelte IDs sauber als warnings/violations abbilden."
       ],
       "acceptance_criteria": [
-        "Resolver kann `chat_retrieval_domain_hint='bestellmodul'` gegen `domains.detected.json` aufloesen.",
+        "Resolver kann `chat_retrieval_domain_hint='domain:bestellmodul'` gegen `domains.detected.json` aufloesen.",
         "Resolver findet eine Domain aus einem realistischen `domains.detected.json` Fixture.",
         "Resolver erzeugt allowed_read_paths aus `root_paths`.",
         "Unbekannte Domain fuehrt in strict mode zu Fehler/Violation.",
@@ -352,6 +392,7 @@
       "description": "Manuell gepflegte Domain-Descriptoren sollen Domain Discovery ueberstimmen oder verfeinern koennen.",
       "implementation_notes": [
         "Vorhandene `domains/<domain_id>/domain.json` laden, wenn vorhanden.",
+        "Achtung: `domains/` enthaelt heute Capability-Domains (blender, freecad, kicad, ananta_worker), keine fachlichen Code-Domains. Fuer fachliche Domains wie `bestellmodul` existiert dort i.d.R. noch kein Descriptor; der Resolver darf einen Capability-Descriptor nicht versehentlich als fachlichen Descriptor interpretieren (Unterscheidung z.B. ueber `schema`-Feld oder eigenes Unterverzeichnis).",
         "`source_paths`, `rag_profiles.allowed_paths`, `include_globs`, `exclude_globs` auswerten, soweit im Descriptor-Vertrag vorhanden.",
         "Descriptoren duerfen Runtime nicht automatisch aktivieren, sondern nur eine explizite Auswahl genauer aufloesen.",
         "Bei Konflikt zwischen detected root_paths und Descriptor source_paths: Descriptor gewinnt, aber Warning ausgeben."
@@ -373,17 +414,18 @@
       "paths": [
         "agent/codecompass/domain_scope_resolver.py"
       ],
-      "description": "Der bestehende Hint meint aktuell interne Retrieval-Domains; neu kommen fachliche CodeCompass-Domains dazu.",
+      "description": "Es gibt drei Domain-Namespaces: interne Retrieval-Domains, Capability-Domains in `domains/` und fachliche CodeCompass-Domains aus Domain Discovery. Der Hint muss alle drei eindeutig unterscheiden.",
       "implementation_notes": [
-        "Bekannte interne Werte (`codecompass`, `ai_snake`, `worker`, `ananta_game`, `operator_tui`, `ops`, `generic`) bleiben Profil-Hints.",
-        "Fachliche Domain-IDs aus `domains.detected.json`/Descriptoren werden als Runtime-Scope behandelt, wenn Scope enabled ist.",
-        "Bei Namenskollision muss Vorrang klar geregelt werden: interne Domain zuerst, fachliche Domain nur mit Prefix oder explizitem Scope-Feld; oder Warning/ambiguous.",
-        "Optional Prefix-Konvention pruefen: `domain:bestellmodul` fuer fachliche Domains."
+        "Bekannte interne Werte (`codecompass`, `ai_snake`, `worker`, `ananta_game`, `operator_tui`, `ops`, `generic`) bleiben unprefixte Profil-Hints.",
+        "Fachliche Domain-IDs aus `domains.detected.json`/Descriptoren werden gemaess CCRDS-DD-006 nur mit Prefix `domain:` als Runtime-Scope behandelt, wenn Scope enabled ist.",
+        "Capability-Domain-IDs aus `domains/` (z.B. `blender`, `ananta_worker`) sind weder Profil-Hint noch fachlicher Scope; unprefixt bleiben sie unknown/ignored wie bisher.",
+        "Kollisionen sind durch den Prefix per Konstruktion ausgeschlossen; ein `domain:`-Wert, der keiner erkannten fachlichen Domain entspricht, ist unknown (strict: Fehler, non-strict: Warning)."
       ],
       "acceptance_criteria": [
         "`chat_retrieval_domain_hint='worker'` funktioniert weiter als bisheriger RetrievalProfile-Hint.",
-        "`chat_retrieval_domain_hint='bestellmodul'` kann bei Scope-enabled als fachliche Domain aufgeloest werden.",
-        "Kollisionen zwischen interner und fachlicher Domain werden nicht geraten.",
+        "`chat_retrieval_domain_hint='domain:bestellmodul'` wird bei Scope-enabled als fachliche Domain aufgeloest.",
+        "`chat_retrieval_domain_hint='blender'` (Capability-Domain-ID, unprefixt) bleibt unknown/ignored und aktiviert keinen Scope.",
+        "Kollisionen zwischen interner, Capability- und fachlicher Domain werden nicht geraten.",
         "Trace/Why zeigt getrennt `retrieval_profile_domain` und `runtime_domain_scope`."
       ]
     },
@@ -422,6 +464,7 @@
       ],
       "description": "Alle Chunks muessen vor Rerank/Serialize oder spaetestens vor Promptbau gegen allowed_read_paths geprueft werden.",
       "implementation_notes": [
+        "Vor Neubau pruefen (CCRDS-DD-007): `agent/services/retrieval_policy_filter_service.py` und `rag_policy_service.py` filtern bereits Chunks nach Scope/Sensitivity. Pfad-Scoping moeglichst als zusaetzliche Dimension dort integrieren oder die Abgrenzung im Code/Doc begruenden.",
         "ContextChunk.source ist aktuell z.B. ein repo-relativer Pfad oder ein AgenticSearch-Kommando.",
         "Pfadquellen sauber erkennen: normale Dateien erlauben, `rg`-Ausgaben zeilenweise filtern oder im strict mode komplett entfernen.",
         "SemanticSearchEngine-Quellen koennen absolute Pfade sein; auf repo-relativ normalisieren.",
@@ -488,11 +531,12 @@
       "risk": "critical",
       "paths": [
         "agent/codecompass/domain_scope.py",
-        "agent/services/*policy*",
+        "agent/services/ananta_workspace_mutation_policy.py",
         "worker/*"
       ],
       "description": "Lesekontext reicht nicht: Worker-Schreibaktionen muessen gegen Domain-Grenzen pruefbar werden.",
       "implementation_notes": [
+        "Kein Neubau (CCRDS-DD-007): `agent/services/ananta_workspace_mutation_policy.py` validiert bereits Worker-Schreibpfade inkl. Path-Traversal- und Blocklist-Pruefung. Domain-Write-Scope als zusaetzliche Allowed-Paths-Quelle dort andocken oder den zentralen Validator explizit darauf aufbauen.",
         "ResolvedDomainScope soll `allowed_write_paths` separat enthalten.",
         "Wenn Descriptor keine write paths nennt, default auf root/source paths der Domain.",
         "Cross-domain writes muessen als DomainScopeViolation darstellbar sein.",
@@ -502,7 +546,8 @@
         "Validator akzeptiert Schreibpfad innerhalb allowed_write_paths.",
         "Validator blockiert Schreibpfad ausserhalb allowed_write_paths.",
         "Path traversal (`../`) wird normalisiert und blockiert.",
-        "Violation enthaelt requested_path, matched_domain, allowed_paths und severity."
+        "Violation enthaelt requested_path, matched_domain, allowed_paths und severity.",
+        "Es entsteht keine zweite Write-Validierung parallel zur Workspace-Mutation-Policy ohne dokumentierte Abgrenzung."
       ]
     },
     {
@@ -513,11 +558,12 @@
       "risk": "high",
       "paths": [
         "worker",
-        "agent",
-        "services"
+        "agent/services/ananta_workspace_mutation_policy.py",
+        "agent/services/worker_policy_service.py"
       ],
       "description": "Konkrete Stellen finden, an denen Worker Dateiaenderungen ausfuehren oder externe Agenten starten.",
       "implementation_notes": [
+        "Bekannter Startpunkt: `ananta_workspace_mutation_policy.py` ist bereits ein zentraler Enforcement-Punkt fuer Worker-Dateiaenderungen und gehoert als erster Eintrag auf die Liste.",
         "Code nach file write, patch apply, command execution, OpenCode/Codex/Aider-Worker durchsuchen.",
         "Liste der Enforcement-Punkte als Doku/Kommentar oder Testfixture festhalten.",
         "Nicht alles sofort umbauen; zuerst belastbare Hook-Punkte identifizieren."
@@ -674,7 +720,7 @@
       "paths": [
         "tests/fixtures/codecompass_domain_scope_order_billing"
       ],
-      "description": "Ein kleines Beispielprojekt soll Sergejs Frage praktisch abdecken.",
+      "description": "Ein kleines Beispielprojekt soll den motivierenden Beispielfall aus `purpose` (Auswahl `Bestellmodul`, Prompt `Rechnungserzeugung`) praktisch abdecken.",
       "implementation_notes": [
         "Fixture mit `orders/`, `catalog/`, `billing/` oder vergleichbaren Mini-Dateien.",
         "Domain `orders`/`bestellmodul` aus domains.detected.json oder Descriptor.",
@@ -711,9 +757,45 @@
       ]
     }
   ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 20,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 9,
+      "P1": 9,
+      "P2": 2
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 10,
+      "high": 5,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
   "global_acceptance_criteria": [
     "Der bestehende ai-snake Key `chat_retrieval_domain_hint` wird wiederverwendet und nicht durch einen parallelen UI-Key ersetzt.",
     "Bestehende interne Domain-Hints wie `codecompass`, `ai_snake`, `worker` bleiben rueckwaertskompatibel.",
+    "Fachliche Domains werden nur ueber die Prefix-Konvention `domain:<id>` (CCRDS-DD-006) als Runtime-Scope aktiviert; Kollisionen mit internen oder Capability-Domains sind ausgeschlossen.",
+    "Chunk-Filterung und Write-Enforcement docken an die bestehenden Services (`retrieval_policy_filter_service`, `ananta_workspace_mutation_policy`) an oder dokumentieren die Abgrenzung (CCRDS-DD-007).",
     "Ein explizit gesetzter Domain-Scope begrenzt Retrieval reproduzierbar auf erlaubte Domain-Pfade.",
     "Ohne expliziten Scope bleibt das bestehende Query-/Token-/Heuristik-RAG-Verhalten erhalten.",
     "Strict Mode faellt bei unbekannter oder leerer Domain fail-closed aus.",
@@ -735,6 +817,7 @@
     "CCRDS-002",
     "CCRDS-004",
     "CCRDS-005",
+    "CCRDS-006",
     "CCRDS-008",
     "CCRDS-007",
     "CCRDS-017",
