@@ -1,0 +1,617 @@
+    <div class="teams-shell">
+      <div class="teams-hero">
+        <div>
+          <div class="teams-kicker">Blueprint-first Teams</div>
+          <h2 class="teams-title">Starte mit einem Blueprint und instanziiere daraus ein Team.</h2>
+          <p class="teams-copy">
+            Der Standardweg bleibt kompakt: Blueprint waehlen, Team starten, dann bei Bedarf im Advanced-Modus vertiefen.
+          </p>
+        </div>
+      <div class="teams-hero-actions">
+        <button class="btn-primary" (click)="currentTab = 'blueprints'">Blueprints</button>
+        <button class="btn-secondary" (click)="currentTab = 'teams'">Team erstellen</button>
+        @if (isAdmin) {
+          <button
+            class="btn-secondary"
+            [class.btn-primary]="viewMode === 'standard'"
+            (click)="setViewMode('standard')"
+          >
+            Standard-Modus
+          </button>
+          <button
+            class="btn-secondary"
+            [class.btn-primary]="viewMode === 'admin'"
+            (click)="setViewMode('admin')"
+          >
+            Admin-/Studio-Modus
+          </button>
+        }
+        <button class="btn-secondary" (click)="refresh()">Aktualisieren</button>
+      </div>
+      </div>
+
+      <div class="tabs teams-tabs">
+        <button type="button" class="tab" [class.active]="currentTab === 'blueprints'" (click)="currentTab = 'blueprints'">Blueprints</button>
+        <button type="button" class="tab" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams aus Blueprint</button>
+        @if (isAdmin && viewMode === 'admin') {
+          <button type="button" class="tab" [class.active]="currentTab === 'advanced'" (click)="currentTab = 'advanced'">Advanced</button>
+        }
+      </div>
+
+      @if (loading) {
+        <div class="card">
+          <app-ui-skeleton [count]="2" [columns]="2" [lineCount]="5"></app-ui-skeleton>
+        </div>
+      }
+
+      @if (currentTab === 'blueprints') {
+        <div class="grid cols-2 teams-blueprint-grid">
+          <div class="card card-primary teams-list-panel">
+            <div class="row flex-between">
+              <h3 class="no-margin">Standard-Blueprint-Katalog</h3>
+              @if (isAdmin && viewMode === 'admin') {
+                <button class="btn-secondary btn-small" (click)="startNewBlueprint()" [disabled]="!isAdmin">Neu</button>
+              }
+            </div>
+            <p class="muted no-margin">
+              {{ blueprintCatalogModel?.default_entry_path || 'Standardweg: Blueprint waehlen und Team instanziieren.' }}
+            </p>
+
+            <div class="teams-blueprint-list">
+              @for (blueprint of catalogBlueprintCards(); track blueprint.id) {
+                <button type="button" class="teams-blueprint-card" [class.selected]="selectedBlueprintId === blueprint.id" (click)="selectBlueprintFromCatalog(blueprint)">
+                  <div class="row flex-between">
+                    <strong>{{ blueprint.name }}</strong>
+                    @if (blueprint.is_standard_blueprint || blueprint.is_seed) {
+                      <span class="teams-pill teams-pill-seed">Standard</span>
+                    }
+                  </div>
+                  <p class="muted teams-blueprint-desc">{{ blueprint.short_description || blueprint.description || 'Keine Beschreibung' }}</p>
+                  <div class="muted teams-blueprint-meta">
+                    Einsatzzweck: {{ blueprint.intended_use || 'Wiederverwendbare Team-Initialisierung' }}
+                  </div>
+                  <div class="muted teams-blueprint-meta">Wann nutzen: {{ blueprint.when_to_use || 'Bei wiederholbaren Team-Starts' }}</div>
+                  <div class="muted teams-blueprint-meta">Status: {{ blueprintLifecycleLabel(blueprint) }}</div>
+                  <div class="muted teams-blueprint-meta">{{ blueprintLifecycleHint(blueprint) }}</div>
+                  <div class="muted teams-blueprint-meta">Erwartete Outputs: {{ formatExpectedOutputs(blueprint.expected_outputs) }}</div>
+                  <div class="muted teams-blueprint-meta">Sicherheits-/Review-Stance: {{ blueprint.safety_review_stance || 'balanced security, standard verification' }}</div>
+                </button>
+              }
+            </div>
+          </div>
+
+          @if (isAdmin && viewMode === 'admin') {
+          <div class="card teams-editor-panel">
+            <div class="row flex-between">
+              <div>
+                <h3 class="no-margin">{{ blueprintForm.id ? 'Blueprint bearbeiten' : 'Neuen Blueprint anlegen' }}</h3>
+                <div class="muted">Advanced-Editor fuer Rollen, Rollen-Templates und Starter-Artefakte.</div>
+                <div class="muted">Hinweis: Hier wird Team-Struktur bearbeitet. Rollenverhalten bearbeitest du separat unter <code>Templates (Hub)</code>.</div>
+                <div class="mt-sm">
+                  <a href="/templates" class="btn-secondary btn-small">Zu Rollen-Templates</a>
+                </div>
+              </div>
+              @if (isSelectedSeedBlueprint()) {
+                <span class="teams-pill teams-pill-seed">Seed</span>
+              }
+            </div>
+
+            @if (!isAdmin) {
+              <div class="state-banner warning">Blueprints koennen nur von Admins geaendert werden.</div>
+            }
+
+            <div class="grid cols-2">
+              <label>Name <input [(ngModel)]="blueprintForm.name" [disabled]="!isAdmin || isSelectedSeedBlueprint()"></label>
+              <label>Basis-Team-Typ
+                <select [(ngModel)]="blueprintForm.base_team_type_name" [disabled]="!isAdmin">
+                  <option value="">-- Kein Basis-Typ --</option>
+                  @for (type of teamTypesList; track type.id) {
+                    <option [value]="type.name">{{ type.name }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+            <label>Beschreibung <textarea [(ngModel)]="blueprintForm.description" rows="3" [disabled]="!isAdmin"></textarea></label>
+
+            <div class="teams-section">
+              <div class="row flex-between">
+                <h4 class="no-margin">Rollen</h4>
+                <button class="btn-secondary btn-small" (click)="addBlueprintRole()" [disabled]="!isAdmin">Rolle hinzufuegen</button>
+              </div>
+              @for (role of blueprintForm.roles; track role; let i = $index) {
+                <div class="teams-inline-card">
+                  <div class="grid cols-2">
+                    <label>Rollenname <input [(ngModel)]="role.name" [disabled]="!isAdmin"></label>
+                    <label>Rollen-Template
+                      <select [(ngModel)]="role.template_id" [disabled]="!isAdmin">
+                        <option value="">-- Kein Rollen-Template --</option>
+                        @for (template of templates; track template.id) {
+                          <option [value]="template.id">{{ template.name }}</option>
+                        }
+                      </select>
+                    </label>
+                    <label>Beschreibung <input [(ngModel)]="role.description" [disabled]="!isAdmin"></label>
+                    <label>Sortierung <input type="number" [(ngModel)]="role.sort_order" [disabled]="!isAdmin"></label>
+                  </div>
+                  <div class="row flex-between">
+                    <label class="teams-checkbox"><input type="checkbox" [(ngModel)]="role.is_required" [disabled]="!isAdmin"> Pflichtrolle</label>
+                    <button class="danger btn-sm-action" (click)="removeBlueprintRole(i)" [disabled]="!isAdmin">Entfernen</button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="teams-section">
+              <div class="row flex-between">
+                <h4 class="no-margin">Artefakte</h4>
+                <button class="btn-secondary btn-small" (click)="addBlueprintArtifact()" [disabled]="!isAdmin">Artefakt hinzufuegen</button>
+              </div>
+              @for (artifact of blueprintForm.artifacts; track artifact; let i = $index) {
+                <div class="teams-inline-card">
+                  <div class="grid cols-2">
+                    <label>Typ
+                      <select [(ngModel)]="artifact.kind" [disabled]="!isAdmin">
+                        <option value="task">task</option>
+                      </select>
+                    </label>
+                    <label>Sortierung <input type="number" [(ngModel)]="artifact.sort_order" [disabled]="!isAdmin"></label>
+                    <label>Titel <input [(ngModel)]="artifact.title" [disabled]="!isAdmin"></label>
+                    <label>Status
+                      <select [(ngModel)]="artifact.payload.status" [disabled]="!isAdmin">
+                        <option value="backlog">backlog</option>
+                        <option value="todo">todo</option>
+                        <option value="in_progress">in_progress</option>
+                      </select>
+                    </label>
+                    <label class="col-span-full">Beschreibung <textarea [(ngModel)]="artifact.description" rows="2" [disabled]="!isAdmin"></textarea></label>
+                    <label>Prioritaet
+                      <select [(ngModel)]="artifact.payload.priority" [disabled]="!isAdmin">
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="row flex-end">
+                    <button class="danger btn-sm-action" (click)="removeBlueprintArtifact(i)" [disabled]="!isAdmin">Entfernen</button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="row">
+              <button class="btn-primary" (click)="saveBlueprint()" [disabled]="busy || !isAdmin || !blueprintForm.name.trim()">{{ blueprintForm.id ? 'Speichern' : 'Erstellen' }}</button>
+              <button class="btn-secondary" (click)="startNewBlueprint()">Zuruecksetzen</button>
+              <button class="btn-secondary" (click)="prepareInstantiateFromEditor()" [disabled]="!blueprintForm.id">Fuer Team-Erstellung uebernehmen</button>
+              @if (blueprintForm.id && !isSelectedSeedBlueprint()) {
+                <button class="danger" (click)="deleteBlueprint(blueprintForm.id)" [disabled]="busy || !isAdmin">Loeschen</button>
+              }
+            </div>
+          </div>
+          } @else {
+          <div class="card teams-summary-card">
+            <h3 class="no-margin">Standard-Modus: Blueprint verstehen und starten</h3>
+            <p class="muted">
+              Der Standard-Modus zeigt nur die entscheidenden Produktinfos fuer den Start. Detailpflege bleibt im Admin-/Studio-Modus.
+            </p>
+            <div class="muted">Kompakte Produktsicht aus dem Blueprint-Read-Model: Zweck, Nutzungsempfehlung, Governance und erwartete Outputs.</div>
+            <div class="teams-inline-card">
+              <h4 class="no-margin">Gefuehrte Blueprint-Auswahl</h4>
+              <div class="muted">
+                Fuer den Start reichen vier Angaben: Zieltyp, Striktheit, Domaene und Ausfuehrungsstil.
+              </div>
+              <div class="grid cols-2 mt-md">
+                <label>Zieltyp
+                  <select [(ngModel)]="guidedSetup.goal_type">
+                    @for (option of guidedGoalTypeOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label>Striktheit
+                  <select [(ngModel)]="guidedSetup.strictness">
+                    @for (option of guidedStrictnessOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label>Domaene
+                  <select [(ngModel)]="guidedSetup.domain">
+                    @for (option of guidedDomainOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label>Ausfuehrungsstil
+                  <select [(ngModel)]="guidedSetup.execution_style">
+                    @for (option of guidedExecutionStyleOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+              @if (guidedSetupRecommendation(); as recommendation) {
+                <div class="teams-inline-card mt-md">
+                  <div class="row flex-between">
+                    <strong>Empfehlter Blueprint: {{ recommendation.card.name }}</strong>
+                    <span class="teams-pill teams-pill-seed">Empfehlung</span>
+                  </div>
+                  <div class="muted teams-blueprint-desc">
+                    {{ recommendation.card.short_description || recommendation.card.intended_use || 'Produktnaher Standard-Blueprint.' }}
+                  </div>
+                  <div class="teams-summary-meta">Warum: {{ recommendation.reasons.join(' ') }}</div>
+                  <div class="teams-summary-meta">
+                    Work-Profile: {{ formatPreviewList(recommendation.card.work_profile_summary?.recommended_goal_modes, 'Standard-Modi') }}
+                  </div>
+                  <div class="teams-summary-meta">{{ recommendation.reviewNote }}</div>
+                  <div class="row mt-sm">
+                    <button class="btn-primary" (click)="applyGuidedSetupRecommendation()">Empfehlung fuer Team-Start uebernehmen</button>
+                  </div>
+                </div>
+              }
+            </div>
+            @if (selectedCatalogBlueprintCard()) {
+              <div class="teams-inline-card">
+                <div class="row flex-between">
+                  <strong>{{ selectedCatalogBlueprintCard()?.name }}</strong>
+                  @if (selectedCatalogBlueprintCard()?.is_standard_blueprint) {
+                    <span class="teams-pill teams-pill-seed">Standard</span>
+                  }
+                </div>
+                <p class="muted teams-blueprint-desc">
+                  {{ selectedCatalogBlueprintCard()?.short_description || selectedCatalogBlueprintCard()?.intended_use || 'Keine Beschreibung' }}
+                </p>
+                <div class="teams-summary-meta">
+                  Goal-Modi: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.recommended_goal_modes, 'Standard-Modi') }}
+                </div>
+                <div class="teams-summary-meta">
+                  Playbooks: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.playbook_hints, 'Keine speziellen Playbooks') }}
+                </div>
+                <div class="teams-summary-meta">
+                  Capabilities: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.capability_hints, 'Standard-Capabilities') }}
+                </div>
+                <div class="teams-summary-meta">
+                  Governance: {{ selectedCatalogBlueprintCard()?.work_profile_summary?.governance_profile?.label || 'Balanced default profile' }}
+                </div>
+                <div class="teams-summary-meta">
+                  {{ selectedCatalogBlueprintCard()?.work_profile_summary?.governance_profile?.hint || 'Standardprofil fuer kontrollierte Ausfuehrung.' }}
+                </div>
+              </div>
+              <div class="row">
+                <button class="btn-primary" (click)="prepareInstantiateFromEditor()">Als Team starten</button>
+              </div>
+            } @else {
+              <div class="state-banner info">Waehle links einen Blueprint, um den Team-Start vorzubereiten.</div>
+            }
+          </div>
+          }
+        </div>
+      }
+
+      @if (currentTab === 'teams') {
+        <div class="grid cols-2 teams-blueprint-grid">
+          <div class="card card-success">
+            <h3 class="no-margin">Team aus Blueprint erstellen</h3>
+            <p class="muted">
+              Blueprint = wiederverwendbare Basis. Team = laufende Instanz fuer die konkrete Ausfuehrung.
+            </p>
+
+            <div class="grid cols-2">
+              <label>Blueprint
+                <select [(ngModel)]="teamFromBlueprint.blueprint_id" (ngModelChange)="onInstantiateBlueprintChange($event)" [disabled]="!isAdmin">
+                  <option value="">-- Blueprint waehlen --</option>
+                  @for (blueprint of catalogBlueprintCards(); track blueprint.id) {
+                    <option [value]="blueprint.id">{{ blueprint.name }}</option>
+                  }
+                </select>
+              </label>
+              <label>Teamname <input [(ngModel)]="teamFromBlueprint.name" [disabled]="!isAdmin"></label>
+              <label class="col-span-full">Beschreibung (optional) <textarea [(ngModel)]="teamFromBlueprint.description" rows="2" [disabled]="!isAdmin"></textarea></label>
+            </div>
+            <label class="teams-checkbox"><input type="checkbox" [(ngModel)]="teamFromBlueprint.activate" [disabled]="!isAdmin"> Team direkt aktivieren</label>
+
+            @if (selectedInstantiateBlueprint) {
+              <div class="teams-summary-card">
+                <div class="row flex-between">
+                  <strong>{{ selectedInstantiateBlueprint.name }}</strong>
+                  @if (selectedInstantiateBlueprint.is_seed) {
+                    <span class="teams-pill teams-pill-seed">Seed</span>
+                  }
+                </div>
+                <div class="muted">{{ selectedInstantiateBlueprint.description || 'Keine Beschreibung' }}</div>
+                <div class="teams-summary-meta">{{ selectedInstantiateBlueprint.base_team_type_name || 'Kein Basis-Typ' }} · {{ selectedInstantiateBlueprint.roles?.length || 0 }} Rollen · {{ selectedInstantiateBlueprint.artifacts?.length || 0 }} Starter-Elemente</div>
+                <div class="teams-summary-meta">
+                  Start-Rollen: {{ previewBlueprintRoles(selectedInstantiateBlueprint) }}
+                </div>
+                <div class="teams-summary-meta">
+                  Start-Aufgaben: {{ previewBlueprintStartTasks(selectedInstantiateBlueprint) }}
+                </div>
+                @if (selectedCatalogBlueprintCard()) {
+                  <div class="teams-summary-meta">
+                    Empfohlene Goal-Modi: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.recommended_goal_modes, 'Standard-Modi') }}
+                  </div>
+                  <div class="teams-summary-meta">
+                    Playbook-Hinweise: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.playbook_hints, 'Keine speziellen Playbooks') }}
+                  </div>
+                  <div class="teams-summary-meta">
+                    Capability-Hinweise: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.capability_hints, 'Standard-Capabilities') }}
+                  </div>
+                  <div class="teams-summary-meta">
+                    Governance-Profil: {{ selectedCatalogBlueprintCard()?.work_profile_summary?.governance_profile?.label || 'Balanced default profile' }}
+                  </div>
+                }
+              </div>
+
+              <div class="teams-section">
+                <div class="row flex-between">
+                  <h4 class="no-margin">Mitglieder und Overrides</h4>
+                  <button class="btn-secondary btn-small" (click)="addInstantiateMember()" [disabled]="!isAdmin">Mitglied hinzufuegen</button>
+                </div>
+                @for (member of teamFromBlueprint.members; track member; let i = $index) {
+                  <div class="teams-inline-card">
+                    <div class="grid cols-3">
+                      <label>Blueprint-Rolle
+                        <select [(ngModel)]="member.blueprint_role_id" [disabled]="!isAdmin">
+                          <option value="">-- Work Role waehlen --</option>
+                          @for (role of selectedInstantiateBlueprint.roles; track role.id) {
+                            <option [value]="role.id">{{ role.name }}</option>
+                          }
+                        </select>
+                      </label>
+                      <label>Agent
+                        <select [(ngModel)]="member.agent_url" [disabled]="!isAdmin">
+                          <option value="">-- Agent waehlen --</option>
+                          @for (agent of availableBlueprintAgents(); track agent.url) {
+                            <option [value]="agent.url">{{ agent.name }} ({{ agent.url }})</option>
+                          }
+                        </select>
+                      </label>
+                      <label>Rollen-Template (optional)
+                        <select [(ngModel)]="member.custom_template_id" [disabled]="!isAdmin">
+                          <option value="">-- Standard Rollen-Template --</option>
+                          @for (template of templates; track template.id) {
+                            <option [value]="template.id">{{ template.name }}</option>
+                          }
+                        </select>
+                      </label>
+                    </div>
+                    <div class="row flex-end">
+                      <button class="danger btn-sm-action" (click)="removeInstantiateMember(i)" [disabled]="!isAdmin">Entfernen</button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
+            <div class="row">
+              <button class="btn-primary" (click)="instantiateBlueprint()" [disabled]="busy || !isAdmin || !teamFromBlueprint.blueprint_id || !teamFromBlueprint.name.trim()">Team erstellen</button>
+              <button class="btn-secondary" (click)="useSeedBlueprint('Scrum')">Scrum Seed</button>
+              <button class="btn-secondary" (click)="useSeedBlueprint('Kanban')">Kanban Seed</button>
+            </div>
+          </div>
+
+          <div class="card teams-list-panel">
+            <div class="row flex-between">
+              <h3 class="no-margin">Laufende Teams</h3>
+              <span class="muted">{{ teams.length }} Teams</span>
+            </div>
+            <div class="grid">
+              @for (team of teams; track team.id) {
+                <div class="teams-team-card" [class.active-team]="team.is_active">
+                  <div class="row flex-between">
+                    <div>
+                      <strong>{{ team.name }}</strong>
+                      @if (team.is_active) {
+                        <span class="teams-pill teams-pill-active">Aktiv</span>
+                      }
+                      <span class="badge badge-gray">{{ teamLifecycleLabel(team) }}</span>
+                    </div>
+                    <div class="row">
+                      <button class="btn-secondary btn-sm-action" (click)="prepareTeamEdit(team)" [disabled]="!isAdmin">Bearbeiten</button>
+                      @if (!team.is_active) {
+                        <button class="btn-secondary btn-sm-action" (click)="activate(team.id)" [disabled]="!isAdmin">Aktivieren</button>
+                      }
+                      <button class="danger btn-sm-action" (click)="deleteTeam(team.id)" [disabled]="!isAdmin">Loeschen</button>
+                    </div>
+                  </div>
+                  <div class="muted teams-team-meta">{{ team.blueprint_snapshot?.name || getBlueprintName(team.blueprint_id) || 'Manuell' }} · {{ getTeamTypeName(team.team_type_id) }}</div>
+                  <div class="muted teams-team-meta">{{ teamLifecycleHint(team) }}</div>
+                  <p class="muted teams-blueprint-desc">{{ team.description || 'Keine Beschreibung' }}</p>
+                  <div class="teams-member-list">
+                    @for (member of team.members || []; track member.id || member.agent_url) {
+                      <div class="agent-chip agent-chip-col">
+                        <strong>{{ getAgentNameByUrl(member.agent_url) }}</strong>
+                        <div class="agent-chip-info">
+                          <span class="badge badge-blue">{{ getRoleName(member.role_id) }}</span>
+                          @if (member.blueprint_role_id) {
+                            <span class="badge badge-gray">{{ getBlueprintRoleName(team, member.blueprint_role_id) }}</span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (currentTab === 'advanced' && isAdmin && viewMode === 'admin') {
+        <div class="card teams-advanced-panel">
+          <div class="row flex-between">
+            <div>
+              <h3 class="no-margin">Advanced-Modus</h3>
+              <div class="muted">Low-level Pflege fuer Teams, Team-Typen und Rollen. Blueprint-first bleibt der Standard.</div>
+            </div>
+          </div>
+          <div class="tabs teams-subtabs">
+            <button type="button" class="tab" [class.active]="advancedTab === 'teams'" (click)="advancedTab = 'teams'">Teams</button>
+            <button type="button" class="tab" [class.active]="advancedTab === 'types'" (click)="advancedTab = 'types'">Team-Typen</button>
+            <button type="button" class="tab" [class.active]="advancedTab === 'roles'" (click)="advancedTab = 'roles'">Rollen</button>
+          </div>
+
+          @if (advancedTab === 'teams') {
+            <div class="grid cols-2">
+              <div class="card">
+                <h4 class="no-margin">Manuelles Team</h4>
+                <div class="muted mb-md">Nur verwenden, wenn der Blueprint-Flow bewusst umgangen werden soll.</div>
+                <div class="grid cols-2">
+                  <label>Name <input [(ngModel)]="newTeam.name" [disabled]="!isAdmin"></label>
+                  <label>Typ
+                    <select [(ngModel)]="newTeam.team_type_id" [disabled]="!isAdmin">
+                      <option value="">-- Typ waehlen --</option>
+                      @for (type of teamTypesList; track type.id) {
+                        <option [value]="type.id">{{ type.name }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label class="col-span-full">Beschreibung <textarea [(ngModel)]="newTeam.description" rows="2" [disabled]="!isAdmin"></textarea></label>
+                </div>
+                <div class="teams-section">
+                  <div class="row flex-between">
+                    <h4 class="no-margin">Mitglieder</h4>
+                    <button class="btn-secondary btn-small" (click)="addManualMember()" [disabled]="!isAdmin">Mitglied hinzufuegen</button>
+                  </div>
+                  @for (member of newTeam.members; track member; let i = $index) {
+                    <div class="teams-inline-card">
+                      <div class="grid cols-3">
+                        <label>Agent
+                          <select [(ngModel)]="member.agent_url" [disabled]="!isAdmin">
+                            <option value="">-- Agent waehlen --</option>
+                            @for (agent of availableAgents(newTeam); track agent.url) {
+                              <option [value]="agent.url">{{ agent.name }}</option>
+                            }
+                          </select>
+                        </label>
+                        <label>Rolle
+                          <select [(ngModel)]="member.role_id" [disabled]="!isAdmin">
+                            <option value="">-- Rolle waehlen --</option>
+                            @for (role of getRolesForType(newTeam.team_type_id); track role.id) {
+                              <option [value]="role.id">{{ role.name }}</option>
+                            }
+                          </select>
+                        </label>
+                        <label>Rollen-Template Override
+                          <select [(ngModel)]="member.custom_template_id" [disabled]="!isAdmin">
+                            <option value="">-- Standard Rollen-Template --</option>
+                            @for (template of templates; track template.id) {
+                              <option [value]="template.id">{{ template.name }}</option>
+                            }
+                          </select>
+                        </label>
+                      </div>
+                      <div class="row flex-end">
+                        <button class="danger btn-sm-action" (click)="removeMemberFromForm(i)" [disabled]="!isAdmin">Entfernen</button>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="row">
+                  <button class="btn-primary" (click)="createTeam()" [disabled]="busy || !isAdmin || !newTeam.name.trim()">Speichern</button>
+                  <button class="btn-secondary" (click)="resetForm()">Zuruecksetzen</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <h4 class="no-margin">Vorhandene Teams</h4>
+                <div class="grid mt-md">
+                  @for (team of teams; track team.id) {
+                    <div class="teams-inline-card">
+                      <div class="row flex-between">
+                        <div>
+                          <strong>{{ team.name }}</strong>
+                          <div class="muted">{{ team.blueprint_snapshot?.name || 'Manuell' }} · {{ getTeamTypeName(team.team_type_id) }}</div>
+                        </div>
+                        <button class="btn-secondary btn-sm-action" (click)="prepareTeamEdit(team)" [disabled]="!isAdmin">Ins Formular</button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (advancedTab === 'types') {
+            <div class="grid cols-2">
+              <div class="card">
+                <h4 class="no-margin">Team-Typ erstellen</h4>
+                <div class="grid cols-2 mt-md">
+                  <label>Name <input [(ngModel)]="newType.name" [disabled]="!isAdmin"></label>
+                  <label>Beschreibung <input [(ngModel)]="newType.description" [disabled]="!isAdmin"></label>
+                </div>
+                <div class="row mt-md">
+                  <button class="btn-primary" (click)="createTeamType()" [disabled]="busy || !isAdmin || !newType.name.trim()">Typ erstellen</button>
+                </div>
+              </div>
+
+              <div class="grid">
+                @for (type of teamTypesList; track type.id) {
+                  <div class="card">
+                    <div class="row flex-between">
+                      <strong>{{ type.name }}</strong>
+                      <button class="danger btn-sm-action" (click)="deleteTeamType(type.id)" [disabled]="!isAdmin">Loeschen</button>
+                    </div>
+                    <div class="muted mb-md">{{ type.description }}</div>
+                    <div class="row wrap">
+                      @for (role of allRoles; track role.id) {
+                        <label class="teams-role-toggle">
+                          <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [disabled]="!isAdmin">
+                          <span>{{ role.name }}</span>
+                        </label>
+                        @if (isRoleLinked(type, role.id)) {
+                          <select class="select-sm" [ngModel]="getRoleTemplateMapping(type.id, role.id)" (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" [disabled]="!isAdmin">
+                            <option value="">-- Rollen-Template --</option>
+                            @for (template of templates; track template.id) {
+                              <option [value]="template.id">{{ template.name }}</option>
+                            }
+                          </select>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (advancedTab === 'roles') {
+            <div class="grid cols-2">
+              <div class="card">
+                <h4 class="no-margin">Rolle erstellen</h4>
+                <div class="grid cols-3 mt-md">
+                  <label>Name <input [(ngModel)]="newRole.name" [disabled]="!isAdmin"></label>
+                  <label>Beschreibung <input [(ngModel)]="newRole.description" [disabled]="!isAdmin"></label>
+                  <label>Standard Rollen-Template
+                    <select [(ngModel)]="newRole.default_template_id" [disabled]="!isAdmin">
+                      <option value="">-- Kein Rollen-Template --</option>
+                      @for (template of templates; track template.id) {
+                        <option [value]="template.id">{{ template.name }}</option>
+                      }
+                    </select>
+                  </label>
+                </div>
+                <div class="row mt-md">
+                  <button class="btn-primary" (click)="createRole()" [disabled]="busy || !isAdmin || !newRole.name.trim()">Rolle erstellen</button>
+                </div>
+              </div>
+
+              <div class="grid">
+                @for (role of allRoles; track role.id) {
+                  <div class="card">
+                    <div class="row flex-between">
+                      <div>
+                        <strong>{{ role.name }}</strong>
+                        <div class="muted">{{ role.description }}</div>
+                      </div>
+                      <button class="danger btn-sm-action" (click)="deleteRole(role.id)" [disabled]="!isAdmin">Loeschen</button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  

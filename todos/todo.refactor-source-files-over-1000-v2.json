@@ -4,7 +4,7 @@
   "owner": "Krusty / Ananta",
   "track": "refactor-source-files-over-1000-v2",
   "created": "2026-06-11",
-  "status": "todo",
+  "status": "done",
   "purpose": "Jede Source-Datei >1000 Zeilen bekommt einen eigenen Task mit Acceptance Criteria. Der Vorgaenger-Track (todo.refactor-remaining-source-files-over-1000.json) hatte nur grobe Tasks fuer eine Teilmenge; dieser Track erfasst alle 41 Dateien aus dem maschinellen Audit granular.",
   "source_audit_ref": "reports/source-files-over-1000.json",
   "policy_ref": "docs/development/source-line-limit-policy.md",
@@ -14,43 +14,75 @@
       "title": "Python agent/ & routes/ (14 Dateien)",
       "status": "done",
       "task_ids": [
-        "SPLIT-101", "SPLIT-102", "SPLIT-103", "SPLIT-104", "SPLIT-105",
-        "SPLIT-106", "SPLIT-107", "SPLIT-108", "SPLIT-109", "SPLIT-110",
-        "SPLIT-111", "SPLIT-112", "SPLIT-113", "SPLIT-114"
+        "SPLIT-101",
+        "SPLIT-102",
+        "SPLIT-103",
+        "SPLIT-104",
+        "SPLIT-105",
+        "SPLIT-106",
+        "SPLIT-107",
+        "SPLIT-108",
+        "SPLIT-109",
+        "SPLIT-110",
+        "SPLIT-111",
+        "SPLIT-112",
+        "SPLIT-113",
+        "SPLIT-114"
       ]
     },
     {
       "id": "V2-M2",
       "title": "client_surfaces/operator_tui/ (5 Dateien)",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
-        "SPLIT-115", "SPLIT-116", "SPLIT-117", "SPLIT-118", "SPLIT-119"
+        "SPLIT-115",
+        "SPLIT-116",
+        "SPLIT-117",
+        "SPLIT-118",
+        "SPLIT-119"
       ]
     },
     {
       "id": "V2-M3",
       "title": "Frontend Angular TypeScript (6 Dateien)",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
-        "SPLIT-120", "SPLIT-121", "SPLIT-122", "SPLIT-123", "SPLIT-124", "SPLIT-125"
+        "SPLIT-120",
+        "SPLIT-121",
+        "SPLIT-122",
+        "SPLIT-123",
+        "SPLIT-124",
+        "SPLIT-125"
       ]
     },
     {
       "id": "V2-M4",
       "title": "Java Android / Scripts (4 Dateien)",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
-        "SPLIT-126", "SPLIT-127", "SPLIT-128", "SPLIT-129"
+        "SPLIT-126",
+        "SPLIT-127",
+        "SPLIT-128",
+        "SPLIT-129"
       ]
     },
     {
       "id": "V2-M5",
       "title": "Test-Dateien >1000 Zeilen (12 Dateien)",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
-        "SPLIT-130", "SPLIT-131", "SPLIT-132", "SPLIT-133", "SPLIT-134",
-        "SPLIT-135", "SPLIT-136", "SPLIT-137", "SPLIT-138", "SPLIT-139",
-        "SPLIT-140", "SPLIT-141"
+        "SPLIT-130",
+        "SPLIT-131",
+        "SPLIT-132",
+        "SPLIT-133",
+        "SPLIT-134",
+        "SPLIT-135",
+        "SPLIT-136",
+        "SPLIT-137",
+        "SPLIT-138",
+        "SPLIT-139",
+        "SPLIT-140",
+        "SPLIT-141"
       ]
     }
   ],
@@ -59,7 +91,7 @@
       "id": "SPLIT-101",
       "title": "agent/config_defaults.py aufteilen (1089 -> <1000 Zeilen)",
       "file": "agent/config_defaults.py",
-      "line_count": 1089,
+      "line_count": 863,
       "status": "done",
       "priority": "P0",
       "risk": "high",
@@ -74,7 +106,7 @@
       "id": "SPLIT-102",
       "title": "agent/research_backend.py aufteilen (1052 -> <1000 Zeilen)",
       "file": "agent/research_backend.py",
-      "line_count": 1052,
+      "line_count": 938,
       "status": "done",
       "priority": "P0",
       "risk": "high",
@@ -89,7 +121,7 @@
       "id": "SPLIT-103",
       "title": "agent/tools.py aufteilen (1433 -> <1000 Zeilen)",
       "file": "agent/tools.py",
-      "line_count": 1433,
+      "line_count": 874,
       "status": "done",
       "priority": "P0",
       "risk": "high",
@@ -104,7 +136,7 @@
       "id": "SPLIT-104",
       "title": "agent/routes/snakes_execution_routes.py aufteilen (1199 -> <1000 Zeilen)",
       "file": "agent/routes/snakes_execution_routes.py",
-      "line_count": 1199,
+      "line_count": 915,
       "status": "done",
       "priority": "P0",
       "risk": "high",
@@ -119,7 +151,7 @@
       "id": "SPLIT-105",
       "title": "agent/routes/tasks/autopilot_task_dispatcher.py aufteilen (1439 -> <1000 Zeilen)",
       "file": "agent/routes/tasks/autopilot_task_dispatcher.py",
-      "line_count": 1439,
+      "line_count": 872,
       "status": "done",
       "priority": "P0",
       "risk": "high",
@@ -164,7 +196,7 @@
       "id": "SPLIT-108",
       "title": "agent/services/instruction_layer_compiler.py aufteilen (1028 -> <1000 Zeilen)",
       "file": "agent/services/instruction_layer_compiler.py",
-      "line_count": 938,
+      "line_count": 944,
       "status": "done",
       "priority": "P1",
       "risk": "medium",
@@ -178,7 +210,7 @@
       "id": "SPLIT-109",
       "title": "agent/services/planning_service.py weiter reduzieren (1342 -> <1000 Zeilen)",
       "file": "agent/services/planning_service.py",
-      "line_count": 1342,
+      "line_count": 985,
       "status": "done",
       "priority": "P0",
       "risk": "high",
@@ -266,8 +298,8 @@
       "id": "SPLIT-115",
       "title": "client_surfaces/operator_tui/_renderer_content.py aufteilen (1888 -> <1000 Zeilen)",
       "file": "client_surfaces/operator_tui/_renderer_content.py",
-      "line_count": 1388,
-      "status": "in_progress",
+      "line_count": 872,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -310,7 +342,7 @@
       "id": "SPLIT-118",
       "title": "client_surfaces/operator_tui/snake_ops_mixin.py aufteilen (1285 -> <1000 Zeilen)",
       "file": "client_surfaces/operator_tui/snake_ops_mixin.py",
-      "line_count": 935,
+      "line_count": 936,
       "status": "done",
       "priority": "P1",
       "risk": "medium",
@@ -324,8 +356,8 @@
       "id": "SPLIT-119",
       "title": "client_surfaces/operator_tui/snake_tick_mixin.py aufteilen (1179 -> <1000 Zeilen)",
       "file": "client_surfaces/operator_tui/snake_tick_mixin.py",
-      "line_count": 1179,
-      "status": "todo",
+      "line_count": 814,
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -338,8 +370,8 @@
       "id": "SPLIT-120",
       "title": "frontend-angular/src/app/components/ai-assistant.component.ts aufteilen (1164 -> <1000 Zeilen)",
       "file": "frontend-angular/src/app/components/ai-assistant.component.ts",
-      "line_count": 1164,
-      "status": "todo",
+      "line_count": 923,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -353,8 +385,8 @@
       "id": "SPLIT-121",
       "title": "frontend-angular/src/app/components/artifacts.component.ts aufteilen (1494 -> <1000 Zeilen)",
       "file": "frontend-angular/src/app/components/artifacts.component.ts",
-      "line_count": 1494,
-      "status": "todo",
+      "line_count": 859,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -368,8 +400,8 @@
       "id": "SPLIT-122",
       "title": "frontend-angular/src/app/components/dashboard.component.ts aufteilen (1422 -> <1000 Zeilen)",
       "file": "frontend-angular/src/app/components/dashboard.component.ts",
-      "line_count": 1422,
-      "status": "todo",
+      "line_count": 995,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -383,8 +415,8 @@
       "id": "SPLIT-123",
       "title": "frontend-angular/src/app/components/settings.component.ts aufteilen (2501 -> <1000 Zeilen)",
       "file": "frontend-angular/src/app/components/settings.component.ts",
-      "line_count": 2501,
-      "status": "todo",
+      "line_count": 991,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -398,8 +430,8 @@
       "id": "SPLIT-124",
       "title": "frontend-angular/src/app/components/task-detail.component.ts aufteilen (1534 -> <1000 Zeilen)",
       "file": "frontend-angular/src/app/components/task-detail.component.ts",
-      "line_count": 1534,
-      "status": "todo",
+      "line_count": 823,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -413,8 +445,8 @@
       "id": "SPLIT-125",
       "title": "frontend-angular/src/app/components/teams.component.ts aufteilen (1454 -> <1000 Zeilen)",
       "file": "frontend-angular/src/app/components/teams.component.ts",
-      "line_count": 1454,
-      "status": "todo",
+      "line_count": 837,
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -428,8 +460,8 @@
       "id": "SPLIT-126",
       "title": "frontend-angular/android/.../LiveTerminalAndroidE2ETest.java aufteilen (1158 -> <1000 Zeilen)",
       "file": "frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java",
-      "line_count": 1158,
-      "status": "todo",
+      "line_count": 785,
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -442,8 +474,8 @@
       "id": "SPLIT-127",
       "title": "frontend-angular/android/.../PythonRuntimePlugin.java aufteilen (2274 -> <1000 Zeilen)",
       "file": "frontend-angular/android/app/src/main/java/com/ananta/mobile/python/PythonRuntimePlugin.java",
-      "line_count": 2274,
-      "status": "todo",
+      "line_count": 994,
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "acceptance_criteria": [
@@ -457,8 +489,8 @@
       "id": "SPLIT-128",
       "title": "frontend-angular/android/.../VoxtralOfflinePlugin.java aufteilen (2885 -> <1000 Zeilen)",
       "file": "frontend-angular/android/app/src/main/java/com/ananta/mobile/voxtral/VoxtralOfflinePlugin.java",
-      "line_count": 2885,
-      "status": "todo",
+      "line_count": 945,
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "acceptance_criteria": [
@@ -472,8 +504,8 @@
       "id": "SPLIT-129",
       "title": "scripts/firefox_automation/_benchmark.py aufteilen (1477 -> <1000 Zeilen)",
       "file": "scripts/firefox_automation/_benchmark.py",
-      "line_count": 1477,
-      "status": "todo",
+      "line_count": 791,
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -486,8 +518,8 @@
       "id": "SPLIT-130",
       "title": "frontend-angular/tests/utils.ts aufteilen (1315 -> <1000 Zeilen)",
       "file": "frontend-angular/tests/utils.ts",
-      "line_count": 1315,
-      "status": "todo",
+      "line_count": 956,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -500,8 +532,8 @@
       "id": "SPLIT-131",
       "title": "rag-helper/tests/test_processing_limits.py aufteilen (1391 -> <1000 Zeilen)",
       "file": "rag-helper/tests/test_processing_limits.py",
-      "line_count": 1391,
-      "status": "todo",
+      "line_count": 794,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -514,8 +546,8 @@
       "id": "SPLIT-132",
       "title": "tests/test_codecompass_candidate_resolver_caps.py aufteilen (1020 -> <1000 Zeilen)",
       "file": "tests/test_codecompass_candidate_resolver_caps.py",
-      "line_count": 1020,
-      "status": "todo",
+      "line_count": 772,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -527,8 +559,8 @@
       "id": "SPLIT-133",
       "title": "tests/test_codex_cli_backend.py aufteilen (1171 -> <1000 Zeilen)",
       "file": "tests/test_codex_cli_backend.py",
-      "line_count": 1171,
-      "status": "todo",
+      "line_count": 946,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -540,8 +572,8 @@
       "id": "SPLIT-134",
       "title": "tests/test_config_api.py aufteilen (1510 -> <1000 Zeilen)",
       "file": "tests/test_config_api.py",
-      "line_count": 1510,
-      "status": "todo",
+      "line_count": 804,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -553,8 +585,8 @@
       "id": "SPLIT-135",
       "title": "tests/test_goals.py aufteilen (1315 -> <1000 Zeilen)",
       "file": "tests/test_goals.py",
-      "line_count": 1315,
-      "status": "todo",
+      "line_count": 768,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -566,8 +598,8 @@
       "id": "SPLIT-136",
       "title": "tests/test_llm_usage.py aufteilen (1002 -> <1000 Zeilen)",
       "file": "tests/test_llm_usage.py",
-      "line_count": 1002,
-      "status": "todo",
+      "line_count": 924,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -579,8 +611,8 @@
       "id": "SPLIT-137",
       "title": "tests/test_sgpt_route.py aufteilen (1198 -> <1000 Zeilen)",
       "file": "tests/test_sgpt_route.py",
-      "line_count": 1198,
-      "status": "todo",
+      "line_count": 638,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -592,8 +624,8 @@
       "id": "SPLIT-138",
       "title": "tests/test_task_endpoints.py aufteilen (1752 -> <1000 Zeilen)",
       "file": "tests/test_task_endpoints.py",
-      "line_count": 1752,
-      "status": "todo",
+      "line_count": 980,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -605,8 +637,8 @@
       "id": "SPLIT-139",
       "title": "tests/test_tasks_autopilot.py aufteilen (1065 -> <1000 Zeilen)",
       "file": "tests/test_tasks_autopilot.py",
-      "line_count": 1065,
-      "status": "todo",
+      "line_count": 801,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -618,8 +650,8 @@
       "id": "SPLIT-140",
       "title": "tests/test_team_blueprints.py aufteilen (1186 -> <1000 Zeilen)",
       "file": "tests/test_team_blueprints.py",
-      "line_count": 1186,
-      "status": "todo",
+      "line_count": 799,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -631,8 +663,8 @@
       "id": "SPLIT-141",
       "title": "tests/test_operator_tui_shell_pkg/test_tui_command_modes.py aufteilen (1040 -> <1000 Zeilen)",
       "file": "tests/test_operator_tui_shell_pkg/test_tui_command_modes.py",
-      "line_count": 1040,
-      "status": "todo",
+      "line_count": 770,
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -641,31 +673,31 @@
       ]
     }
   ],
-      "tasks_status_summary": {
-      "total": 41,
-      "by_status": {
-        "todo": 23,
-        "in_progress": 1,
-        "partial": 0,
-        "blocked": 0,
-        "done": 17
-      },
-      "progress_percent_done": 41.5,
+  "tasks_status_summary": {
+    "total": 41,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 41
+    },
+    "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 8,
-      "P1": 17,
+      "P0": 9,
+      "P1": 16,
       "P2": 4,
       "P3": 12
     },
     "by_risk": {
-      "high": 24,
-      "medium": 5,
+      "high": 22,
+      "medium": 7,
       "low": 12
     },
     "critical_path": {
-        "total": 25,
-        "done": 15,
-        "remaining": 10
-      }
+      "total": 25,
+      "done": 25,
+      "remaining": 0
+    }
   }
 }

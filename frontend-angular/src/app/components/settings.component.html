@@ -1,0 +1,1037 @@
+    <div class="row flex-between">
+      <h2>System-Einstellungen</h2>
+      <div class="row gap-sm">
+        <button (click)="toggleDarkMode()" class="button-outline">
+          {{ isDarkMode ? 'Heller Modus' : 'Dunkler Modus' }}
+        </button>
+        <button (click)="load()" class="button-outline">Aktualisieren</button>
+      </div>
+    </div>
+    <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
+
+    <div class="row gap-sm flex-wrap mb-md">
+      <button class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM und KI</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
+    </div>
+    
+    @if (selectedSection === 'account') {
+      <div class="grid cols-2">
+        <app-change-password class="block mb-lg"></app-change-password>
+        <app-mfa-setup class="block mb-lg"></app-mfa-setup>
+      </div>
+
+      @if (isAdmin) {
+        <app-user-management class="block mb-lg"></app-user-management>
+      }
+    }
+    
+    @if (!hub) {
+      <div class="card danger">
+        <p>Kein Hub-Agent konfiguriert. Bitte legen Sie einen Agenten mit der Rolle "hub" fest.</p>
+      </div>
+    }
+    
+    @if (hub) {
+      <div class="grid">
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Runtime Routing</h3>
+          <p class="muted">Lokale Modell-Runtimes, Cloud-Provider und CLI-Backends werden getrennt angezeigt, damit der effektive Laufzeitpfad nachvollziehbar bleibt.</p>
+          <div class="grid cols-3">
+            <div>
+              <div class="muted">Lokale Runtimes</div>
+              <div class="font-sm">{{ getRuntimeGroupSummary('local') }}</div>
+            </div>
+            <div>
+              <div class="muted">Cloud / Hosted</div>
+              <div class="font-sm">{{ getRuntimeGroupSummary('cloud') }}</div>
+            </div>
+            <div>
+              <div class="muted">CLI-Backends</div>
+              <div class="font-sm">{{ getRuntimeGroupSummary('cli') }}</div>
+            </div>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Aktiver Default-Pfad</div>
+              <div>{{ getEffectiveProvider() }} -> {{ getProviderRuntimeKind(getEffectiveProvider()) }}</div>
+            </div>
+            <div>
+              <div class="muted">Provider-Ziel</div>
+              <div>{{ getProviderEndpointSummary(getEffectiveProvider()) }}</div>
+            </div>
+          </div>
+          @if (getLlmConfigurationWarnings().length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getLlmConfigurationWarnings(); track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          } @else {
+            <div class="muted font-sm mt-md">Keine offensichtlichen Runtime-Konflikte erkannt.</div>
+          }
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card card-info">
+          <h3>Hinweis LLM-Konfiguration</h3>
+          <p class="muted mt-sm">Diese Werte werden standardmaessig fuer KI-Funktionen verwendet.</p>
+          <div class="grid cols-2">
+            <div>
+              <div class="muted">Provider</div>
+              <div>{{ getEffectiveProvider() }}</div>
+            </div>
+            <div>
+              <div class="muted">Model</div>
+              <div>{{ getEffectiveModel() }}</div>
+            </div>
+            <div>
+              <div class="muted">Base URL</div>
+              <div>{{ getEffectiveBaseUrl() }}</div>
+            </div>
+            <div>
+              <div class="muted">Runtime</div>
+              <div>{{ getProviderRuntimeKind(getEffectiveProvider()) }}</div>
+            </div>
+            <div>
+              <div class="muted">Execution Backend</div>
+              <div>{{ (config?.sgpt_execution_backend || 'sgpt') }}</div>
+            </div>
+            <div>
+              <div class="muted">Codex Target</div>
+              <div>{{ (config?.codex_cli?.target_provider || 'default') }} / {{ (config?.codex_cli?.base_url || getEffectiveBaseUrl()) }}</div>
+            </div>
+            <div>
+              <div class="muted">API Key</div>
+              <div>{{ requiresApiKey(getEffectiveProvider()) ? (hasApiKey(getEffectiveProvider()) ? 'ok' : 'missing') : 'not required' }}</div>
+            </div>
+            <div>
+              <div class="muted">CLI Session Mode</div>
+              <div>{{ config?.cli_session_mode?.enabled ? 'enabled' : 'disabled' }}</div>
+            </div>
+            <div>
+              <div class="muted">Stateful Backends</div>
+              <div>{{ (config?.cli_session_mode?.stateful_backends || []).join(', ') || 'n/a' }}</div>
+            </div>
+            <div>
+              <div class="muted">OpenCode Tool-Modus</div>
+              <div>{{ config?.opencode_runtime?.tool_mode || 'full' }}</div>
+            </div>
+            <div>
+              <div class="muted">OpenCode Ausfuehrung</div>
+              <div>{{ config?.opencode_runtime?.execution_mode || 'live_terminal' }}</div>
+            </div>
+            <div>
+              <div class="muted">Worker Workspace Root</div>
+              <div>{{ config?.worker_runtime?.workspace_root || '(default)' }}</div>
+            </div>
+            <div>
+              <div class="muted">Workspace Reuse</div>
+              <div>{{ config?.worker_runtime?.workspace_reuse_mode || 'goal_worker' }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>KI-Unterstützung</h3>
+          <p class="muted">Wählen Sie aus, welche Agenten für die KI-Unterstützung im Frontend verwendet werden sollen.</p>
+          <div class="grid cols-2">
+            <label>Agent für Templates
+              <select [(ngModel)]="config.template_agent_name">
+                <option [ngValue]="undefined">Hub (Standard)</option>
+                @for (a of allAgents; track a) {
+                  <option [value]="a.name">{{a.name}} ({{a.role}})</option>
+                }
+              </select>
+            </label>
+            <label>Agent für Team-Beratung
+              <select [(ngModel)]="config.team_agent_name">
+                <option [ngValue]="undefined">Hub (Standard)</option>
+                @for (a of allAgents; track a) {
+                  <option [value]="a.name">{{a.name}} ({{a.role}})</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card card-info">
+          <h3>Strategischer Hub-Copilot</h3>
+          <p class="muted">Optionaler Copilot fuer Planung, Routing und Governance im Hub. Er ist nicht fuer die eigentliche Arbeitsausfuehrung gedacht; diese bleibt bei den Workern.</p>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.hub_copilot.enabled" />
+            Strategischen Copilot im Hub aktivieren
+          </label>
+          <div class="grid cols-2 mt-lg">
+            <label>Strategie-Modus
+              <select [(ngModel)]="config.hub_copilot.strategy_mode">
+                <option value="planning_only">planning_only</option>
+                <option value="planning_and_routing">planning_and_routing</option>
+              </select>
+            </label>
+            <label>Provider Override
+              <select [(ngModel)]="config.hub_copilot.provider" (ngModelChange)="ensureHubCopilotModelConsistency()">
+                <option value="">Default / Fallback</option>
+                @for (group of getProviderSelectGroups(); track group.label) {
+                  <optgroup [label]="group.label">
+                    @for (p of group.providers; track p.id) {
+                      <option [value]="p.id">
+                        {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
+                      </option>
+                    }
+                  </optgroup>
+                }
+              </select>
+            </label>
+            <label>Model Override
+              <select [(ngModel)]="config.hub_copilot.model">
+                <option value="">Default / Fallback</option>
+                @for (m of getCatalogModels(getHubCopilotProvider()); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
+                }
+                @if ((config?.hub_copilot?.model || '').trim() && !isHubCopilotCurrentModelInCatalog()) {
+                  <option [value]="config.hub_copilot.model">{{ config.hub_copilot.model }} (custom)</option>
+                }
+              </select>
+            </label>
+            <label>Base URL Override
+              <input [(ngModel)]="config.hub_copilot.base_url" placeholder="optional, z.B. http://127.0.0.1:1234/v1" />
+            </label>
+            <label>Temperature
+              <input type="number" step="0.1" min="0" max="2" [(ngModel)]="config.hub_copilot.temperature" />
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Effektiver Provider</div>
+              <div>{{ getHubCopilotProvider() }} <span class="muted font-sm">({{ getHubCopilotProviderSource() }})</span></div>
+            </div>
+            <div>
+              <div class="muted">Effektives Model</div>
+              <div>{{ getHubCopilotModel() }} <span class="muted font-sm">({{ getHubCopilotModelSource() }})</span></div>
+            </div>
+            <div>
+              <div class="muted">Effektive Base URL</div>
+              <div>{{ getHubCopilotBaseUrl() || '(default)' }}</div>
+            </div>
+            <div>
+              <div class="muted">Aktiver Status</div>
+              <div>{{ isHubCopilotActive() ? 'aktiv' : 'deaktiviert / unvollstaendig konfiguriert' }}</div>
+            </div>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Delegations-Context-Policy</h3>
+          <p class="muted">Steuert zentral, wie viel Retrieval-Kontext neue Worker-Delegationen erhalten. Die Policy wirkt additiv auf den bestehenden Bundle-Pfad und erzeugt keinen zweiten Kontext-Workflow.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>Policy-Modus
+              <select [(ngModel)]="config.context_bundle_policy.mode">
+                <option value="compact">compact</option>
+                <option value="standard">standard</option>
+                <option value="full">full</option>
+              </select>
+            </label>
+            <label>Window-Profil
+              <select [(ngModel)]="config.context_bundle_policy.window_profile">
+                <option value="compact_12k">compact_12k</option>
+                <option value="standard_32k">standard_32k</option>
+                <option value="full_64k">full_64k</option>
+              </select>
+            </label>
+            <label>Compact max. Chunks
+              <input type="number" min="1" max="50" [(ngModel)]="config.context_bundle_policy.compact_max_chunks" />
+            </label>
+            <label>Standard max. Chunks
+              <input type="number" min="1" max="50" [(ngModel)]="config.context_bundle_policy.standard_max_chunks" />
+            </label>
+            <label>Compact Budget Tokens
+              <input type="number" min="4096" max="131072" step="256" [(ngModel)]="config.context_bundle_policy.compact_budget_tokens" />
+            </label>
+            <label>Standard Budget Tokens
+              <input type="number" min="4096" max="131072" step="256" [(ngModel)]="config.context_bundle_policy.standard_budget_tokens" />
+            </label>
+            <label>Full Budget Tokens
+              <input type="number" min="4096" max="131072" step="256" [(ngModel)]="config.context_bundle_policy.full_budget_tokens" />
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Effektiver Kontext-Text</div>
+              <div>{{ getEffectiveContextBundlePolicy().include_context_text ? 'enthalten' : 'ausgeblendet' }}</div>
+            </div>
+            <div>
+              <div class="muted">Effektive Chunk-Grenze</div>
+              <div>{{ getEffectiveContextBundlePolicy().max_chunks ?? 'unbegrenzt / Vollkontext' }}</div>
+            </div>
+            <div>
+              <div class="muted">Effektives Budget</div>
+              <div>{{ getEffectiveContextBundlePolicy().total_budget_tokens }} Tokens</div>
+            </div>
+            <div>
+              <div class="muted">Effektive Strategie</div>
+              <div>{{ getEffectiveContextBundlePolicy().bundle_strategy }} / {{ getEffectiveContextBundlePolicy().explainability_level }}</div>
+            </div>
+            <div>
+              <div class="muted">Chunk-Text-Stil</div>
+              <div>{{ getEffectiveContextBundlePolicy().chunk_text_style }}</div>
+            </div>
+            <div>
+              <div class="muted">Window-Profil</div>
+              <div>{{ getEffectiveContextBundlePolicy().window_profile }}</div>
+            </div>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Artifact Flow & RAG</h3>
+          <p class="muted">Konfiguriert Nachvollziehbarkeit und optionale RAG-Anreicherung fuer den Artefakt-Fluss im Orchestrierungs-Read-Model.</p>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.artifact_flow.enabled" />
+            Artifact-Flow Read-Model aktivieren
+          </label>
+          <label class="row gap-sm mt-sm">
+            <input type="checkbox" [(ngModel)]="config.artifact_flow.rag_enabled" [disabled]="!config.artifact_flow.enabled" />
+            Direkte RAG-Anreicherung aktivieren
+          </label>
+          <label class="row gap-sm mt-sm">
+            <input type="checkbox" [(ngModel)]="config.artifact_flow.rag_include_content" [disabled]="!config.artifact_flow.enabled || !config.artifact_flow.rag_enabled" />
+            RAG-Content im Read-Model anzeigen
+          </label>
+          <div class="grid cols-2 mt-lg">
+            <label>RAG Top-K
+              <input type="number" min="1" max="20" [(ngModel)]="config.artifact_flow.rag_top_k" [disabled]="!config.artifact_flow.enabled || !config.artifact_flow.rag_enabled" />
+            </label>
+            <label>Max Tasks im Flow
+              <input type="number" min="1" max="200" [(ngModel)]="config.artifact_flow.max_tasks" [disabled]="!config.artifact_flow.enabled" />
+            </label>
+            <label>Max Worker-Jobs je Task
+              <input type="number" min="1" max="20" [(ngModel)]="config.artifact_flow.max_worker_jobs_per_task" [disabled]="!config.artifact_flow.enabled" />
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Effektiv: {{ config.artifact_flow.enabled ? 'enabled' : 'disabled' }}
+            · RAG: {{ config.artifact_flow.rag_enabled ? 'on' : 'off' }}
+            · Top-K: {{ config.artifact_flow.rag_top_k }}
+            · Max Tasks: {{ config.artifact_flow.max_tasks }}
+            · Max Jobs/Task: {{ config.artifact_flow.max_worker_jobs_per_task }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Worker Workspace & OpenCode</h3>
+          <p class="muted">Steuert den OpenCode-Toolmodus, den Ausfuehrungsmodus und den Root-Pfad fuer scope-basierte Worker-Workspaces mit den Unterordnern artifacts und rag_helper.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>OpenCode Tool-Modus
+              <select [(ngModel)]="config.opencode_runtime.tool_mode">
+                <option value="full">full</option>
+                <option value="readonly">readonly</option>
+                <option value="toolless">toolless</option>
+              </select>
+            </label>
+            <label>OpenCode Ausfuehrungsmodus
+              <select [(ngModel)]="config.opencode_runtime.execution_mode">
+                <option value="backend">backend</option>
+                <option value="live_terminal">live_terminal</option>
+                <option value="interactive_terminal">interactive_terminal</option>
+              </select>
+            </label>
+            <label>Interactive Launch-Modus
+              <select [(ngModel)]="config.opencode_runtime.interactive_launch_mode">
+                <option value="run">run (stabil)</option>
+                <option value="tui">tui (experimentell)</option>
+              </select>
+            </label>
+            <label>Workspace Root (optional)
+              <input [(ngModel)]="config.worker_runtime.workspace_root" placeholder="z.B. /data/worker-runtime" />
+            </label>
+            <label>Workspace Reuse Scope
+              <select [(ngModel)]="config.worker_runtime.workspace_reuse_mode">
+                <option value="goal_worker">goal_worker (Session/Files fortsetzen)</option>
+                <option value="task">task (isoliert pro Task)</option>
+              </select>
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Ausfuehrung {{ config.opencode_runtime.execution_mode }} · Launch {{ config.opencode_runtime.interactive_launch_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }} · Reuse {{ config.worker_runtime.workspace_reuse_mode || 'goal_worker' }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Ollama Strategie fuer Hub, Scrum-Rollen und OpenCode</h3>
+          <p class="muted">Leitet aus den aktuell im Ollama-Katalog sichtbaren Modellen eine projektgeeignete Zuordnung fuer Hub-Planung, Scrum-/Worker-Rollen, Task-Kinds und template-nahe Flows ab.</p>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Empfohlener Hub-Planer</div>
+              <div>{{ getProjectModelRoutingRecommendation().hub_copilot_model || '-' }}</div>
+            </div>
+            <div>
+              <div class="muted">Empfohlener Coding-Worker</div>
+              <div>{{ getProjectModelRoutingRecommendation().task_kind_model_overrides.coding || '-' }}</div>
+            </div>
+            <div>
+              <div class="muted">Empfohlener Review-/Analyse-Pfad</div>
+              <div>{{ getProjectModelRoutingRecommendation().task_kind_model_overrides.review || '-' }}</div>
+            </div>
+            <div>
+              <div class="muted">Empfohlener Doku-/Template-Pfad</div>
+              <div>{{ getProjectModelRoutingRecommendation().task_kind_model_overrides.documentation || '-' }}</div>
+            </div>
+          </div>
+          @if (getProjectModelRoutingRecommendation().warnings.length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getProjectModelRoutingRecommendation().warnings; track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          }
+          <div class="row mt-md gap-sm">
+            <button class="button-outline" (click)="applyProjectModelRoutingRecommendation()">Empfohlene Zuordnung uebernehmen</button>
+          </div>
+          @if (getOllamaModelStrategyRows().length) {
+            <table class="standard-table mt-lg">
+              <thead>
+                <tr>
+                  <th>Ollama-Modell</th>
+                  <th>Klasse</th>
+                  <th>Empfohlene Nutzung</th>
+                  <th>OpenCode-Worker</th>
+                  <th>Hinweis</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of getOllamaModelStrategyRows(); track row.id) {
+                  <tr>
+                    <td class="font-mono font-sm">{{ row.id }}</td>
+                    <td>{{ row.category }}</td>
+                    <td>{{ row.recommended_use }}</td>
+                    <td>{{ row.opencode_worker }}</td>
+                    <td>{{ row.note }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <div class="muted font-sm mt-md">Noch keine Ollama-Modelle im Provider-Katalog erkannt.</div>
+          }
+        </div>
+        <div class="card mt-lg">
+          <h3>Routing Overrides fuer Rollen, Templates und Task-Kinds</h3>
+          <p class="muted">Task-Kind-Overrides greifen global. Role- und Template-Overrides matchen case-insensitiv auf exakte Namen und ergaenzen die bestehende Hub/Worker-Orchestrierung ohne neue Nebenpfade.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>Task-Kind planning
+              <select [ngModel]="getTaskKindModelOverride('planning')" (ngModelChange)="setTaskKindModelOverride('planning', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind analysis
+              <select [ngModel]="getTaskKindModelOverride('analysis')" (ngModelChange)="setTaskKindModelOverride('analysis', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind research
+              <select [ngModel]="getTaskKindModelOverride('research')" (ngModelChange)="setTaskKindModelOverride('research', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind coding
+              <select [ngModel]="getTaskKindModelOverride('coding')" (ngModelChange)="setTaskKindModelOverride('coding', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind testing
+              <select [ngModel]="getTaskKindModelOverride('testing')" (ngModelChange)="setTaskKindModelOverride('testing', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind review
+              <select [ngModel]="getTaskKindModelOverride('review')" (ngModelChange)="setTaskKindModelOverride('review', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind documentation
+              <select [ngModel]="getTaskKindModelOverride('documentation')" (ngModelChange)="setTaskKindModelOverride('documentation', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <label class="col-span-full">Role Overrides (JSON)
+              <textarea [(ngModel)]="roleModelOverridesRaw" rows="8" class="font-mono w-full" [class.input-error]="roleModelOverridesError"></textarea>
+              @if (roleModelOverridesError) {
+                <span class="error-text">{{ roleModelOverridesError }}</span>
+              }
+            </label>
+            <label class="col-span-full">Template Overrides (JSON)
+              <textarea [(ngModel)]="templateModelOverridesRaw" rows="8" class="font-mono w-full" [class.input-error]="templateModelOverridesError"></textarea>
+              @if (templateModelOverridesError) {
+                <span class="error-text">{{ templateModelOverridesError }}</span>
+              }
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Beispiel Rolle: <span class="font-mono">&#123;"backend developer": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest"&#125;</span><br />
+            Beispiel Template: <span class="font-mono">&#123;"documentation": "lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-instruct-2512-q4_k_m:latest"&#125;</span>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Research Backends</h3>
+          <p class="muted">Optionaler Research-Pfad fuer tiefergehende Recherchen. Die Hub-Orchestrierung bleibt unveraendert; hier wird nur das ausfuehrende Backend konfiguriert und transparent gemacht.</p>
+          <div class="grid cols-2">
+            <label>Aktiver Provider
+              <select [(ngModel)]="config.research_backend.provider">
+                @for (provider of getSupportedResearchProviders(); track provider) {
+                  <option [value]="provider">{{ provider }}</option>
+                }
+              </select>
+            </label>
+            <label>Mode
+              <input [(ngModel)]="config.research_backend.mode" placeholder="cli" />
+            </label>
+            <label class="col-span-full">Command
+              <input [(ngModel)]="config.research_backend.command" placeholder="z.B. python main.py &#123;prompt&#125;" />
+            </label>
+            <label>Working Dir
+              <input [(ngModel)]="config.research_backend.working_dir" placeholder="optional, z.B. /opt/deer-flow" />
+            </label>
+            <label>Timeout (s)
+              <input type="number" min="30" max="7200" [(ngModel)]="config.research_backend.timeout_seconds" />
+            </label>
+          </div>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.research_backend.enabled" />
+            Research-Backend aktivieren
+          </label>
+          <div class="muted font-sm mt-sm">
+            Ergebnisformat: {{ config?.research_backend?.result_format || 'markdown' }}
+          </div>
+          @if (getResearchBackendWarnings().length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getResearchBackendWarnings(); track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          }
+          <div class="grid cols-2 mt-md">
+            @for (entry of getResearchBackendPreflightEntries(); track entry.provider) {
+              <div class="card card-info">
+                <div class="row flex-between gap-sm">
+                  <strong>{{ entry.display_name || entry.provider }}</strong>
+                  <span>{{ entry.selected ? 'aktiv' : 'optional' }}</span>
+                </div>
+                <div class="muted font-sm mt-sm">
+                  Enabled: <strong>{{ entry.enabled ? 'yes' : 'no' }}</strong> · Configured: <strong>{{ entry.configured ? 'yes' : 'no' }}</strong>
+                </div>
+                <div class="muted font-sm mt-sm">
+                  Binary: <strong>{{ entry.binary_available ? 'ok' : 'missing' }}</strong> · Working Dir: <strong>{{ entry.working_dir_exists ? 'ok' : (entry.working_dir ? 'missing' : 'not set') }}</strong>
+                </div>
+                <div class="muted status-text-sm mt-sm">
+                  {{ entry.command || entry.install_hint || '-' }}
+                </div>
+              </div>
+            }
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Evolution Provider Status</h3>
+          <p class="muted">Zeigt den aktuellen Evolution-Modus, Provider-Gesundheit und Governance-Gates fuer Analyze, Validate und Apply. Die Hub-Orchestrierung bleibt unangetastet; hier wird nur Transparenz ueber den delegierten Evolutionspfad geschaffen.</p>
+          <div class="grid cols-2">
+            <div class="card card-info">
+              <strong>Mode</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionModeSummary() }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Health</strong>
+              <div class="muted font-sm mt-sm">{{ evolutionProviderStatus?.health?.status || 'unbekannt' }}</div>
+            </div>
+          </div>
+          <div class="grid cols-2 mt-md">
+            <div class="card card-info">
+              <strong>Analyze only</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().analyze_only ? 'yes' : 'no' }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Review vor Apply</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().require_review_before_apply ? 'required' : 'not enforced' }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Validate</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().validate_allowed ? 'allowed' : 'blocked' }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Apply</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().apply_allowed ? 'staged' : 'disabled' }}</div>
+            </div>
+          </div>
+          @if (getEvolutionWarnings().length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getEvolutionWarnings(); track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          }
+          @if (getEvolutionProviders().length) {
+            <div class="grid cols-2 mt-md">
+              @for (provider of getEvolutionProviders(); track provider.provider_name) {
+                <div class="card card-info">
+                  <div class="row flex-between gap-sm">
+                    <strong>{{ provider.provider_name }}</strong>
+                    <span>{{ provider.default ? 'default' : 'optional' }}</span>
+                  </div>
+                  <div class="muted font-sm mt-sm">
+                    Analyze: <strong>{{ provider?.capability_matrix?.analyze?.available ? 'ok' : 'blocked' }}</strong>
+                    · Validate: <strong>{{ provider?.capability_matrix?.validate?.available ? 'ok' : 'blocked' }}</strong>
+                    · Apply: <strong>{{ provider?.capability_matrix?.apply?.available ? 'ok' : 'blocked' }}</strong>
+                  </div>
+                  <div class="muted font-sm mt-sm">
+                    Review hints: <strong>{{ provider?.capability_matrix?.review_hints?.supported ? 'yes' : 'no' }}</strong>
+                    · Risk scoring: <strong>{{ provider?.capability_matrix?.risk_scoring?.supported ? 'yes' : 'no' }}</strong>
+                  </div>
+                  @if (provider?.capability_matrix?.apply?.fail_closed_reason || provider?.capability_matrix?.validate?.fail_closed_reason) {
+                    <div class="muted status-text-sm mt-sm">
+                      {{ provider?.capability_matrix?.apply?.fail_closed_reason || provider?.capability_matrix?.validate?.fail_closed_reason }}
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="muted font-sm mt-md">Noch keine Evolution-Provider erkannt.</div>
+          }
+          <div class="row mt-lg gap-sm">
+            <button class="button-outline" (click)="loadEvolutionProviderStatus()">Status aktualisieren</button>
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Hub LLM Defaults</h3>
+          <div class="grid cols-2">
+            <label>Default Provider
+              <select [(ngModel)]="config.default_provider" (ngModelChange)="ensureProviderModelConsistency()">
+                @for (group of getProviderSelectGroups(); track group.label) {
+                  <optgroup [label]="group.label">
+                    @for (p of group.providers; track p.id) {
+                      <option [value]="p.id">
+                        {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
+                      </option>
+                    }
+                  </optgroup>
+                }
+              </select>
+            </label>
+            <label>Default Model
+              <select [(ngModel)]="config.default_model">
+                @for (m of getCatalogModels(getEffectiveProvider()); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
+                }
+                @if ((config?.default_model || '').trim() && !isCurrentModelInCatalog()) {
+                  <option [value]="config.default_model">{{ config.default_model }} (custom)</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <label>LM Studio URL
+              <input [(ngModel)]="config.lmstudio_url" placeholder="z.B. http://127.0.0.1:1234/v1">
+            </label>
+            <label>OpenAI URL
+              <input [(ngModel)]="config.openai_url">
+            </label>
+            <label>Anthropic URL
+              <input [(ngModel)]="config.anthropic_url">
+            </label>
+          </div>
+          <div class="muted font-sm mt-sm">
+            Provider-Ziel: {{ getProviderEndpointSummary(getEffectiveProvider()) }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Codex CLI Runtime</h3>
+          <p class="muted">Explizite Runtime fuer das Codex-CLI-Backend. Fuer lokale Modelle mit LM Studio kann hier ein OpenAI-kompatibler Endpoint gesetzt werden, auch wenn der globale Default-Provider anders ist.</p>
+          <div class="grid cols-2">
+            <label>Ziel-Provider
+              <select [(ngModel)]="config.codex_cli.target_provider">
+                <option value="">Automatisch / Fallback</option>
+                <option value="lmstudio">lmstudio</option>
+                @for (backend of getConfiguredLocalBackends(); track backend.provider) {
+                  <option [value]="backend.provider">{{ backend.provider }}{{ backend.name ? ' (' + backend.name + ')' : '' }}</option>
+                }
+              </select>
+            </label>
+            <label>Base URL
+              <input [(ngModel)]="config.codex_cli.base_url" placeholder="z.B. http://127.0.0.1:1234/v1" />
+            </label>
+            <label>API Key Profil
+              <input [(ngModel)]="config.codex_cli.api_key_profile" placeholder="z.B. codex-local" />
+            </label>
+          </div>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.codex_cli.prefer_lmstudio" />
+            LM Studio bevorzugen, wenn keine Base URL gesetzt ist
+          </label>
+          <div class="muted font-sm mt-sm">
+            Effektives Ziel: {{ getCodexCliTargetSummary() }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Lokale OpenAI-kompatible Backends</h3>
+          <p class="muted">Zusatz-Runtimes wie vLLM, LiteLLM oder ein lokales Gateway koennen hier fuer Routing, Codex CLI und Provider-Auswahl gepflegt werden.</p>
+          @if (!getConfiguredLocalBackends().length) {
+            <div class="muted font-sm">Noch keine zusaetzlichen lokalen Backends konfiguriert.</div>
+          }
+          <div class="grid gap-md">
+            @for (backend of getConfiguredLocalBackends(); track backend.provider; let index = $index) {
+              <div class="card card-info">
+                <div class="row flex-between gap-sm">
+                  <strong>{{ backend.provider || 'local-backend' }}</strong>
+                  <button class="button-outline" (click)="removeLocalOpenAiBackend(index)">Entfernen</button>
+                </div>
+                <div class="grid cols-2 mt-md">
+                  <label>ID / Provider
+                    <input [(ngModel)]="backend.provider" placeholder="z.B. vllm_local" />
+                  </label>
+                  <label>Anzeigename
+                    <input [(ngModel)]="backend.name" placeholder="z.B. vLLM Local" />
+                  </label>
+                  <label>Base URL
+                    <input [(ngModel)]="backend.base_url" placeholder="z.B. http://127.0.0.1:8010/v1" />
+                  </label>
+                  <label>API-Key Profil
+                    <input [(ngModel)]="backend.api_key_profile" placeholder="optional" />
+                  </label>
+                  <label class="col-span-full">Modelle (Komma-getrennt)
+                    <input [(ngModel)]="backend.models_text" placeholder="qwen2.5-coder, deepseek-coder" />
+                  </label>
+                </div>
+                <label class="row gap-sm mt-md">
+                  <input type="checkbox" [(ngModel)]="backend.supports_tool_calls" />
+                  Tool Calls / Function Calling verfuegbar
+                </label>
+                <div class="muted font-sm mt-sm">
+                  Effektive URL: {{ backend.base_url || '(nicht gesetzt)' }}
+                </div>
+              </div>
+            }
+          </div>
+          <div class="row mt-md gap-sm">
+            <button class="button-outline" (click)="addLocalOpenAiBackend()">Backend hinzufuegen</button>
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Pro-Agent LLM Defaults</h3>
+          <p class="muted">Schnellansicht und Bearbeitung der LLM-Konfiguration je Agent.</p>
+          <div class="row gap-sm mb-md">
+            <button class="button-outline" (click)="loadAgentLlmConfigs()">Liste aktualisieren</button>
+          </div>
+          <table class="standard-table">
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Temp</th>
+                <th>Ctx</th>
+                <th>API-Profil</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of allAgents; track a.name) {
+                <tr>
+                  <td>{{ a.name }} <span class="muted">({{ a.role }})</span></td>
+                  <td>
+                    <select [(ngModel)]="getAgentLlmDraft(a.name).provider">
+                      <option value="ollama">ollama</option>
+                      <option value="lmstudio">lmstudio</option>
+                      <option value="openai">openai</option>
+                      <option value="codex">codex</option>
+                      <option value="anthropic">anthropic</option>
+                    </select>
+                  </td>
+                  <td><input [(ngModel)]="getAgentLlmDraft(a.name).model" /></td>
+                  <td>
+                    <input type="number" min="0" max="2" step="0.1" [(ngModel)]="getAgentLlmDraft(a.name).temperature" />
+                  </td>
+                  <td>
+                    <input type="number" min="256" step="1" [(ngModel)]="getAgentLlmDraft(a.name).context_limit" />
+                  </td>
+                  <td><input [(ngModel)]="getAgentLlmDraft(a.name).api_key_profile" placeholder="optional" /></td>
+                  <td>
+                    <button (click)="saveAgentLlmConfig(a.name)">Speichern</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>API-Key Profile</h3>
+          <p class="muted">Wiederverwendbare API-Key Profile fuer Agenten (z.B. openai/codex).</p>
+          <textarea [(ngModel)]="llmApiKeyProfilesRaw" rows="8" class="font-mono w-full" [class.input-error]="llmApiKeyProfilesError"></textarea>
+          @if (llmApiKeyProfilesError) {
+            <span class="error-text">{{ llmApiKeyProfilesError }}</span>
+          }
+          <div class="row mt-sm">
+            <button (click)="saveApiKeyProfiles()" [disabled]="llmApiKeyProfilesError">Profile speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Benchmark Konfiguration <span class="help-icon" [appTooltip]="'Einstellungen fuer LLM-Performance-Benchmarks und Modell-Auswahl.'" tabindex="0">?</span></h3>
+          <p class="muted">Aktive Retention- und Fallback-Regeln fuer Modell-Benchmarkdaten.</p>
+          <div class="grid cols-2">
+            <label>
+              Retention max_days <span class="help-icon" [appTooltip]="'Maximale Aufbewahrungszeit fuer Benchmark-Daten in Tagen.'" tabindex="0">?</span>
+              <input type="number" min="1" max="3650" [(ngModel)]="benchmarkRetentionDays" [class.input-error]="benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650" />
+              @if (benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650) {
+                <span class="error-text">Wert muss zwischen 1 und 3650 liegen</span>
+              }
+            </label>
+            <label>
+              Retention max_samples
+              <input type="number" min="50" max="50000" [(ngModel)]="benchmarkRetentionSamples" [class.input-error]="benchmarkRetentionSamples < 50 || benchmarkRetentionSamples > 50000" />
+              @if (benchmarkRetentionSamples < 50 || benchmarkRetentionSamples > 50000) {
+                <span class="error-text">Wert muss zwischen 50 und 50000 liegen</span>
+              }
+            </label>
+            <label class="col-span-full">
+              Provider precedence (Komma-getrennt)
+              <input [(ngModel)]="benchmarkProviderOrderTextValue" placeholder="proposal_backend, routing_effective_backend, llm_config_provider, default_provider, provider" />
+            </label>
+            <label class="col-span-full">
+              Model precedence (Komma-getrennt)
+              <input [(ngModel)]="benchmarkModelOrderTextValue" placeholder="proposal_model, llm_config_model, default_model, model" />
+            </label>
+          </div>
+          @if (benchmarkValidationError) {
+            <div class="danger font-sm mt-sm">{{ benchmarkValidationError }}</div>
+          }
+          @if (benchmarkConfig) {
+            <details class="mt-md">
+              <summary>Aktive Defaults anzeigen</summary>
+              <pre class="preformatted">{{ benchmarkConfig?.defaults | json }}</pre>
+            </details>
+          } @else {
+            <div class="muted mt-sm">Keine Benchmark-Config verfuegbar.</div>
+          }
+          <div class="muted font-sm mt-sm">
+            Vorschau Provider: <span class="font-mono">{{ benchmarkProviderOrderText() }}</span><br />
+            Vorschau Model: <span class="font-mono">{{ benchmarkModelOrderText() }}</span>
+          </div>
+          <div class="row mt-md gap-sm">
+            <button (click)="saveBenchmarkConfig()" [disabled]="benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650 || benchmarkRetentionSamples < 50 || benchmarkRetentionSamples > 50000">Speichern</button>
+            <button class="button-outline" (click)="loadBenchmarkConfig()">Aktualisieren</button>
+          </div>
+          @if (benchmarkConfig) {
+            <details class="mt-md">
+              <summary>Rohdaten anzeigen</summary>
+              <pre class="preformatted">{{ benchmarkConfig | json }}</pre>
+            </details>
+          }
+        </div>
+        }
+        @if (selectedSection === 'system') {
+        <div class="card">
+          <h3>System Parameter</h3>
+          <div class="grid cols-2">
+            <label>Log Level
+              <select [(ngModel)]="config.log_level">
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+              </select>
+            </label>
+            <label>Agent Offline Timeout (s)
+              <input type="number" [(ngModel)]="config.agent_offline_timeout" min="10" [class.input-error]="config.agent_offline_timeout < 10">
+              @if (config.agent_offline_timeout < 10) {
+                <span class="error-text">Mindestens 10 Sekunden</span>
+              }
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <label>HTTP Timeout (s)
+              <input type="number" [(ngModel)]="config.http_timeout" min="1" [class.input-error]="config.http_timeout < 1">
+              @if (config.http_timeout < 1) {
+                <span class="error-text">Mindestens 1 Sekunde</span>
+              }
+            </label>
+            <label>Command Timeout (s)
+              <input type="number" [(ngModel)]="config.command_timeout" min="1" [class.input-error]="config.command_timeout < 1">
+              @if (config.command_timeout < 1) {
+                <span class="error-text">Mindestens 1 Sekunde</span>
+              }
+            </label>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()" [disabled]="config.agent_offline_timeout < 10 || config.http_timeout < 1 || config.command_timeout < 1">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'system') {
+        <div class="card card-info mt-lg">
+          <h3>Profile & Governance</h3>
+          <p class="muted">Benannte Profile und Governance-Modi machen Kontrollniveau und Defaults explizit sichtbar. Das aendert nicht die Hub-Worker-Architektur, sondern setzt klare Standardentscheidungen.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>Runtime Profile
+              <select [(ngModel)]="config.runtime_profile">
+                @for (p of getRuntimeProfileOptions(); track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </label>
+            <label>Governance Mode
+              <select [(ngModel)]="config.governance_mode">
+                @for (m of getGovernanceModeOptions(); track m) {
+                  <option [value]="m">{{ m }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Effektiv: runtime_profile={{ config.runtime_profile_effective?.effective || config.runtime_profile || '-' }}
+            · governance_mode={{ config.governance_mode_effective?.effective || config.governance_mode || '-' }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'quality') {
+        <div class="card">
+          <h3>Qualitaetsregeln <span class="help-icon" [appTooltip]="'Qualitaetspruefungen fuer Task-Ausgaben. Prueft Mindestlaenge und optionale Marker.'" tabindex="0">?</span></h3>
+          <p class="muted">Qualitaetsregeln fuer Task-Ausgaben und Autopilot-Durchsetzung.</p>
+          <div class="grid cols-2">
+            <label class="row gap-sm">
+              <input type="checkbox" [(ngModel)]="qgEnabled" />
+              Gates aktiviert <span class="help-icon" [appTooltip]="'Aktiviert oder deaktiviert alle Quality-Gate-Pruefungen global.'" tabindex="0">?</span>
+            </label>
+            <label class="row gap-sm">
+              <input type="checkbox" [(ngModel)]="qgAutopilotEnforce" />
+              Im Autopilot erzwingen <span class="help-icon" [appTooltip]="'Wenn aktiviert, schlaegt ein Task im Autopilot fehl, wenn er die Qualitaetsregeln nicht besteht.'" tabindex="0">?</span>
+            </label>
+            <label>
+              Min. Output Zeichen
+              <input type="number" min="1" [(ngModel)]="qgMinOutputChars" [class.input-error]="qgMinOutputChars < 1" />
+              @if (qgMinOutputChars < 1) {
+                <span class="error-text">Mindestens 1 Zeichen</span>
+              }
+            </label>
+            <label>
+              Coding Keywords (Komma)
+              <input [(ngModel)]="qgCodingKeywordsText" placeholder="code, implement, test" />
+            </label>
+            <label class="col-span-full">
+              Erforderliche Marker bei Coding (Komma)
+              <input [(ngModel)]="qgMarkersText" placeholder="pytest, passed, success" />
+            </label>
+          </div>
+          <div class="row mt-md gap-sm">
+            <button class="secondary" (click)="loadQualityGates()">Reload</button>
+            <button (click)="saveQualityGates()" [disabled]="qgMinOutputChars < 1">Qualitaetsregeln speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'system') {
+        <div class="card">
+          <h3>Roh-Konfiguration (Hub)</h3>
+          <p class="muted font-sm">Vorsicht: Direkte Bearbeitung der config.json des Hubs.</p>
+          <textarea [(ngModel)]="configRaw" rows="10" class="font-mono w-full" [class.input-error]="configRawError"></textarea>
+          @if (configRawError) {
+            <span class="error-text">{{ configRawError }}</span>
+          }
+          <div class="row mt-sm">
+            <button (click)="saveRaw()" class="button-outline" [disabled]="configRawError">Roh-Daten Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm' && llmHistory && llmHistory.length > 0) {
+          <div class="card">
+            <h3>LMStudio Modell-Historie</h3>
+            <p class="muted">Zuletzt verwendete oder verfügbare Modelle von LMStudio.</p>
+            <table class="standard-table">
+              <thead>
+                <tr>
+                  <th>Modell ID</th>
+                  <th>Zuletzt gesehen</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of llmHistory; track h) {
+                  <tr>
+                    <td class="font-mono font-sm">{{ h.model || h.id }}</td>
+                    <td class="font-sm">{{ h.last_seen || '-' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <div class="row mt-lg">
+              <button (click)="loadHistory()" class="button-outline">Aktualisieren</button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+    

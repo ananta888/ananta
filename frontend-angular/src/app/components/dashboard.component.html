@@ -1,0 +1,401 @@
+    <app-page-intro
+      title="Ananta starten"
+      subtitle="Starte ein neues Projekt, entwickle ein bestehendes weiter oder pruefe Aufgaben und Ergebnisse."
+    >
+      <div intro-actions class="row gap-sm">
+        <button class="primary" (click)="focusQuickGoal()">Ziel eingeben</button>
+        <button class="secondary" (click)="loadDemoPreview()">Demo ansehen</button>
+      </div>
+    </app-page-intro>
+
+    @if (showFirstStartWizard) {
+      <section class="card first-start mb-md" aria-label="Erststart">
+        <div class="row space-between">
+          <div>
+            <h3 class="no-margin">Erster Lauf in drei Schritten</h3>
+            <p class="muted mt-sm no-margin">Starte mit einem neuen Projekt, lasse den Hub Aufgaben planen und pruefe danach Blueprint, Tasks oder Ergebnisse.</p>
+          </div>
+          <button class="secondary btn-small" (click)="completeFirstStartWizard()">Ausblenden</button>
+        </div>
+        <div class="first-start-steps mt-sm" aria-label="Erststart-Schritte">
+          <span><strong>1</strong> Neues Projekt waehlen</span>
+          <span><strong>2</strong> Hub plant Aufgaben</span>
+          <span><strong>3</strong> Pruefen und fortfahren</span>
+        </div>
+        <app-explanation-notice class="block mt-sm inline-help" title="Kontrollierter Start" message="Der Hub bleibt die Steuerungsebene. Ausfuehrung, Review-Bedarf und Sicherheitsgrenzen werden sichtbar, bevor daraus Arbeit entsteht."></app-explanation-notice>
+        <app-mode-card-picker
+          class="block mt-sm"
+          [options]="firstStartOptions"
+          [columns]="3"
+          ariaLabel="Erststart-Auswahl"
+          (selectOption)="chooseFirstStart($event.id)"
+        ></app-mode-card-picker>
+      </section>
+    }
+
+    @if (viewState.loading) {
+      <app-loading-state label="Dashboard wird geladen" [count]="1" [lineCount]="1" lineClass="skeleton block"></app-loading-state>
+    }
+    @if (viewState.error) {
+      <app-error-state
+        title="Dashboard konnte nicht geladen werden"
+        [message]="viewState.error"
+        retryLabel="Erneut versuchen"
+        (retry)="refresh()"
+      ></app-error-state>
+    }
+    @if (!viewState.loading && viewState.empty) {
+      <app-empty-state
+        title="Noch keine Arbeit sichtbar"
+        description="Starte mit einem Ziel oder oeffne die Demo-Beispiele, um typische Ablaeufe kennenzulernen."
+        primaryLabel="Ziel eingeben"
+        secondaryLabel="Demo ansehen"
+        (primary)="focusQuickGoal()"
+        (secondary)="loadDemoPreview()"
+      ></app-empty-state>
+    }
+
+    @if (hub) {
+      <app-dashboard-personal-workspace
+        [activeGoalCount]="activeGoalCount()"
+        [nextTaskCount]="nextTaskCount()"
+        [starterDone]="starterProgress().done"
+        [starterTotal]="starterProgress().total"
+        [starterLabel]="starterProgress().label"
+        [recentGoals]="recentGoals()"
+        [presets]="goalPresets().slice(0, 3)"
+        (newGoal)="focusQuickGoal()"
+        (openGoal)="goToGoal($event)"
+        (applyPreset)="applyGoalPreset($event)"
+      ></app-dashboard-personal-workspace>
+
+      @if (isHintVisible('dashboard-start')) {
+        <app-explanation-notice class="block mb-md inline-help" title="Kurzer Tipp" message="Beginne mit einem Ziel. Details wie Team, Worker oder Policies kannst du spaeter verfeinern.">
+          <button class="secondary btn-small" type="button" (click)="dismissHint('dashboard-start')">Ausblenden</button>
+        </app-explanation-notice>
+      }
+
+      <div class="start-actions mb-md">
+        <app-action-card title="Planen" description="Aus einem Ziel konkrete Aufgaben machen." href="#quick-goal"></app-action-card>
+        <app-action-card title="Diagnostizieren" description="Fehler, Logs oder Startprobleme pruefen." (action)="applyShortcutPreset('diagnose')"></app-action-card>
+        <app-action-card title="Reviewen" description="Aenderungen, Risiken und Tests bewerten." (action)="applyShortcutPreset('review')"></app-action-card>
+        <app-action-card title="Ergebnisse ansehen" description="Resultate und Dateien pruefen." [routerLink]="['/artifacts']"></app-action-card>
+      </div>
+      <app-decision-explanation class="block mb-md" kind="routing" title="Warum Zuweisung sichtbar bleibt"></app-decision-explanation>
+
+      @if (demoPreview || demoLoading || demoError) {
+        <app-dashboard-demo-preview
+          [examples]="demoPreview?.examples || []"
+          [loading]="demoLoading"
+          [error]="demoError"
+          [busy]="quickGoalBusy"
+          (close)="closeDemoPreview()"
+          (retry)="loadDemoPreview()"
+          (startExample)="startDemoExample($event)"
+        ></app-dashboard-demo-preview>
+      }
+
+      <section class="card card-primary mb-md" id="quick-goal">
+        @if (isHintVisible('instruction-layers-start')) {
+          <app-explanation-notice class="block mb-md inline-help" title="Profile vs Overlay" message="Profile wirken dauerhaft fuer deinen Arbeitsstil. Overlays sind bewusst task-, goal- oder session-spezifisch und bleiben explizit sichtbar.">
+            <button class="secondary btn-small" type="button" (click)="dismissHint('instruction-layers-start')">Ausblenden</button>
+          </app-explanation-notice>
+        }
+        <div class="card card-light mb-md">
+          <div class="row space-between">
+            <strong>Instruction-Layer Auswahl (optional)</strong>
+            <a [routerLink]="['/instruction-layers']" class="button-outline">Verwalten</a>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <label>Profil
+              <select [(ngModel)]="selectedInstructionProfileId">
+                <option value="">- kein Profil -</option>
+                @for (profile of instructionProfiles; track profile.id) {
+                  <option [value]="profile.id">{{ profile.name }}</option>
+                }
+              </select>
+            </label>
+            <label>Overlay
+              <select [(ngModel)]="selectedInstructionOverlayId">
+                <option value="">- kein Overlay -</option>
+                @for (overlay of instructionOverlays; track overlay.id) {
+                  <option [value]="overlay.id">{{ overlay.name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        </div>
+        <app-dashboard-quick-goal-panel
+          [text]="quickGoalText"
+          [busy]="quickGoalBusy"
+          [result]="quickGoalResult"
+          [error]="quickGoalError"
+          [presets]="goalPresetOptions()"
+          [nextSteps]="quickGoalNextSteps()"
+          [showHint]="isHintVisible('quick-goal')"
+          [expectation]="currentQuickGoalExpectation()"
+          (textChange)="updateQuickGoalText($event)"
+          (dismissHint)="dismissHint('quick-goal')"
+          (selectPreset)="applyGoalPresetById($event)"
+          (submit)="submitQuickGoal()"
+          (openGoal)="goToGoal($event)"
+          (openBoard)="goToBoard()"
+          (selectNextStep)="handleQuickGoalNextStep($event)"
+        ></app-dashboard-quick-goal-panel>
+
+        <div style="margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
+        <app-dashboard-guided-goal-wizard
+          [goalModes]="goalModes"
+          [busy]="quickGoalBusy"
+          [resetKey]="guidedGoalResetKey"
+          (submitGoal)="submitGuidedGoal($event)"
+        ></app-dashboard-guided-goal-wizard>
+      </section>
+    }
+
+    @if (stats) {
+      <app-onboarding-checklist />
+      <div class="grid cols-3">
+        <app-section-card title="Agenten">
+          <app-key-value-grid [items]="agentSummaryItems()" [columns]="2"></app-key-value-grid>
+        </app-section-card>
+        <app-section-card title="Tasks">
+          <app-key-value-grid [items]="taskSummaryItems()" [columns]="2"></app-key-value-grid>
+        </app-section-card>
+        <app-system-status-summary
+          [systemStatus]="systemStatusLabel()"
+          [systemTone]="systemStatusTone()"
+          [liveConnected]="liveState.systemStreamConnected()"
+          [tasksLoading]="tasksLoading()"
+          [taskCollectionError]="taskCollectionError()"
+          [tasksLastLoadedAt]="tasksLastLoadedAt()"
+          [lastSystemEventType]="liveState.lastSystemEvent()?.type || ''"
+          [queueDepth]="systemHealth?.checks?.queue ? (systemHealth?.checks?.queue?.depth || 0) : null"
+          [registrationEnabled]="!!systemHealth?.checks?.registration?.enabled"
+          [registrationStatus]="systemHealth?.checks?.registration?.status || ''"
+          [registrationAttempts]="systemHealth?.checks?.registration?.attempts || 0"
+          [schedulerKnown]="!!systemHealth?.checks?.scheduler"
+          [schedulerRunning]="!!systemHealth?.checks?.scheduler?.running"
+          [schedulerJobCount]="systemHealth?.checks?.scheduler?.scheduled_count || 0"
+          [contractsVersion]="contracts?.version || ''"
+          [contractsSchemaCount]="contracts?.schema_count || 0"
+          [taskStates]="contracts?.task_statuses?.canonical_values || []"
+          [activeTeamName]="activeTeam?.name || ''"
+          [teamMembers]="activeTeamMembers()"
+          [hubName]="stats.agent_name"
+          [timestamp]="stats.timestamp"
+        ></app-system-status-summary>
+      </div>
+      <div class="row mt-sm">
+        <button class="secondary btn-small" (click)="toggleAdvancedDashboard()">
+          {{ showAdvancedDashboard ? 'Technische Details ausblenden' : 'Technische Details anzeigen' }}
+        </button>
+      </div>
+    }
+
+    @if (hub && showAdvancedDashboard) {
+      <div class="grid cols-2 mb-md">
+        <div class="card">
+          <h3>Shell Pool</h3>
+          <div class="row space-between">
+            <span>Gesamt:</span>
+            <strong>{{stats?.shell_pool?.total || 0}}</strong>
+          </div>
+          <div class="row space-between">
+            <span>Frei:</span>
+            <strong class="success">{{stats?.shell_pool?.free || 0}}</strong>
+          </div>
+          <div class="row space-between">
+            <span>Belegt:</span>
+            <strong [class.danger]="(stats?.shell_pool?.busy || 0) > 0">{{stats?.shell_pool?.busy || 0}}</strong>
+          </div>
+        </div>
+        @if (stats?.resources) {
+          <div class="card">
+            <h3>Ressourcen</h3>
+            <div class="row space-between">
+              <span>CPU:</span>
+              <strong>{{stats.resources?.cpu_percent | number:'1.1-1'}}%</strong>
+            </div>
+            <div class="row space-between">
+              <span>RAM:</span>
+              <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
+            </div>
+            <div class="progress-bar mt-sm" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
+              <div class="progress-bar-fill" [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80"></div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <app-dashboard-benchmark-panel
+        [data]="benchmarkData"
+        [updatedAt]="benchmarkUpdatedAt"
+        [recommendation]="benchmarkRecommendation"
+        [llmDefaults]="llmDefaults"
+        [llmExplicitOverride]="llmExplicitOverride"
+        [llmEffectiveRuntime]="llmEffectiveRuntime"
+        [hubCopilotStatus]="hubCopilotStatus"
+        [contextPolicyStatus]="contextPolicyStatus"
+        [artifactFlowStatus]="artifactFlowStatus"
+        [researchBackendStatus]="researchBackendStatus"
+        [runtimeTelemetry]="runtimeTelemetry"
+        [(taskKind)]="benchmarkTaskKind"
+        (refresh)="refreshBenchmarks()"
+      ></app-dashboard-benchmark-panel>
+
+      @if (modelRouting) {
+        <div class="card mb-md">
+          <div class="row space-between">
+            <div>
+              <h3>Modellrouting-Matrix</h3>
+              <p class="muted no-margin">Profile read-only, Secrets redacted, Entscheidungen nachvollziehbar.</p>
+            </div>
+            <span class="badge">{{ modelRouting.status || 'unknown' }}</span>
+          </div>
+          @if ((modelRouting.matrix || []).length) {
+            <div class="table-scroll mt-sm">
+              <table class="compact-table">
+                <thead>
+                  <tr>
+                    <th>Task</th>
+                    <th>Rolle</th>
+                    <th>Primary</th>
+                    <th>Fallbacks</th>
+                    <th>Cloud</th>
+                    <th>Secret</th>
+                    <th>Tools</th>
+                    <th>JSON</th>
+                    <th>Policy</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of modelRouting.matrix || []; track row.model_role + ':' + row.task_kind) {
+                    <tr>
+                      <td>{{ row.task_kind || '-' }}</td>
+                      <td>{{ row.model_role || '-' }}</td>
+                      <td>{{ row.primary || '-' }}</td>
+                      <td>{{ (row.fallbacks || []).join(', ') || '-' }}</td>
+                      <td>{{ row.cloud_allowed ? 'ja' : 'nein' }}</td>
+                      <td>{{ row.secret_allowed ? 'ja' : 'nein' }}</td>
+                      <td>{{ row.supports_tools ? 'ja' : 'nein' }}</td>
+                      <td>{{ row.supports_json ? 'ja' : 'nein' }}</td>
+                      <td>
+                        <span>{{ row.final_source || '-' }}</span>
+                        @if ((row.blocked_candidates || []).length) {
+                          <span class="danger"> blockiert: {{ (row.blocked_candidates || []).length }}</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="muted mt-sm">Keine Profilmatrix geladen. Legacy-Default: {{ modelRouting.legacy?.default_provider || '-' }}/{{ modelRouting.legacy?.default_model || '-' }}</p>
+          }
+          @if ((modelRouting.profiles || []).length) {
+            <div class="grid cols-2 mt-sm">
+              @for (profile of modelRouting.profiles || []; track profile.profile_id) {
+                <div class="card card-light">
+                  <strong>{{ profile.profile_id }}</strong>
+                  <p class="muted no-margin">{{ profile.provider_id }}/{{ profile.model }}</p>
+                  <app-key-value-grid [items]="modelRoutingProfileItems(profile)" [columns]="2"></app-key-value-grid>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <app-dashboard-goal-governance-summary-card
+        [goals]="goalsList"
+        [selectedGoalId]="selectedGoalId"
+        [loading]="goalReportingLoading"
+        [goalDetail]="goalDetail"
+        [goalGovernance]="goalGovernance"
+        [costTasks]="goalCostTasks()"
+        (selectGoal)="refreshGoalReporting($event)"
+        (refresh)="refreshGoalReporting($event)"
+      ></app-dashboard-goal-governance-summary-card>
+
+      <app-dashboard-autopilot-panel
+        [status]="autopilotStatus"
+        [teams]="teamsList"
+        [busy]="autopilotBusy"
+        [(goal)]="autopilotGoal"
+        [(teamId)]="autopilotTeamId"
+        [(intervalSeconds)]="autopilotIntervalSeconds"
+        [(maxConcurrency)]="autopilotMaxConcurrency"
+        [(budgetLabel)]="autopilotBudgetLabel"
+        [(securityLevel)]="autopilotSecurityLevel"
+        (start)="startAutopilot()"
+        (stop)="stopAutopilot()"
+        (tick)="tickAutopilot()"
+        (refresh)="refreshAutopilot()"
+      ></app-dashboard-autopilot-panel>
+
+      <app-dashboard-timeline-panel
+        [items]="taskTimeline"
+        [teams]="teamsList"
+        [agents]="agentsList"
+        [(teamId)]="timelineTeamId"
+        [(agent)]="timelineAgent"
+        [(status)]="timelineStatus"
+        [(errorOnly)]="timelineErrorOnly"
+        (refresh)="refreshTaskTimeline()"
+      ></app-dashboard-timeline-panel>
+    }
+
+    @if (history.length > 1 && showAdvancedDashboard) {
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Task-Erfolgsrate</h3>
+          <div class="chart-container mt-sm">
+            <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Task-Erfolgsrate ueber Zeit">
+              <polyline fill="none" stroke="#28a745" stroke-width="3" [attr.points]="getPoints('completed')" />
+              <polyline fill="none" stroke="#dc3545" stroke-width="3" [attr.points]="getPoints('failed')" />
+            </svg>
+          </div>
+          <div class="chart-legend">
+            <span class="chart-legend-color success">- Abgeschlossen</span>
+            <span class="chart-legend-color danger">- Fehlgeschlagen</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Ressourcen-Auslastung (Hub)</h3>
+          <div class="chart-container mt-sm">
+            <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Ressourcen-Auslastung ueber Zeit">
+              <polyline fill="none" stroke="#007bff" stroke-width="3" [attr.points]="getPoints('cpu')" />
+              <polyline fill="none" stroke="#ffc107" stroke-width="3" [attr.points]="getPoints('ram')" />
+            </svg>
+          </div>
+          <div class="chart-legend">
+            <span class="chart-legend-color info">- CPU (%)</span>
+            <span class="chart-legend-color warning">- RAM</span>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (agentsList.length > 0 && showAdvancedDashboard) {
+      <app-dashboard-agent-status-panel [agents]="agentsList"></app-dashboard-agent-status-panel>
+    }
+
+    @if (!stats && hub && viewState.loading) {
+      <div class="card">
+        <p>Lade Statistiken von Hub ({{hub.url}})...</p>
+      </div>
+    }
+
+    @if (!hub) {
+      <div class="state-banner error">
+        <strong>Kein Hub-Agent konfiguriert.</strong>
+        <p class="muted mt-sm">
+          Ananta braucht einen Hub als zentrale Steuerung. Fuege einen Agenten mit Rolle "hub" hinzu oder pruefe den lokalen Start.
+        </p>
+        <button [routerLink]="['/agents']">Agenten verwalten</button>
+      </div>
+    }
+  

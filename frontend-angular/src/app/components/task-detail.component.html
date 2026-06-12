@@ -1,0 +1,680 @@
+    <div class="row title-row">
+      <h2>Task #{{tid}}</h2>
+      <span class="badge" [class.success]="isDone(task?.status)" [class.warning]="isInProgress(task?.status)">{{task?.status | taskStatusDisplay}}</span>
+    </div>
+    <p class="muted title-muted">{{task?.title}}</p>
+    @if (taskSafetyNotice(); as notice) {
+      <div class="state-banner warning mb-md">
+        <strong>{{ notice.title }}</strong>
+        <p class="muted no-margin mt-sm">{{ notice.body }}</p>
+      </div>
+    }
+    @if (task && taskNextSteps().length) {
+      <app-next-steps class="block mb-md" [steps]="taskNextSteps()"></app-next-steps>
+    }
+
+    <div class="row tab-row">
+      <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
+      <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
+      <button class="tab-btn" [class.active]="activeTab === 'context'" (click)="setTab('context')">Kontext & Review</button>
+      <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
+    </div>
+
+    @if (activeTab === 'details' && task) {
+      <div class="card grid">
+        <div class="grid cols-2">
+          <label>Status
+            <select [ngModel]="task?.status" (ngModelChange)="saveStatus($event)">
+              <option value="todo">todo</option>
+              <option value="in_progress">in_progress</option>
+              <option value="blocked">blocked</option>
+              <option value="completed">completed</option>
+              <option value="failed">failed</option>
+            </select>
+            <small class="muted">{{ statusExplanation(task?.status) }}</small>
+          </label>
+          <label>Zugewiesener Agent
+            <select [(ngModel)]="assignUrl" (ngModelChange)="saveAssign()">
+              <option [ngValue]="undefined">– Nicht zugewiesen –</option>
+              @for (a of allAgents; track a) {
+                <option [ngValue]="a.url">{{a.name}} ({{a.role||'worker'}})</option>
+              }
+            </select>
+            <small class="muted">{{ decisionExplanation('routing') }}</small>
+          </label>
+        </div>
+        @if (task?.parent_task_id) {
+          <div class="mt-10">
+            <strong>Parent Task:</strong>
+            <a [routerLink]="['/task', task.parent_task_id]" class="ml-10">{{task.parent_task_id}}</a>
+          </div>
+        }
+        @if (subtasks.length) {
+          <div class="mt-10">
+            <strong>Subtasks / Follow-ups:</strong>
+            <div class="grid mt-5 gap-5">
+              @for (st of subtasks; track st) {
+                <div class="row board-item no-margin p-5-10">
+                  <a [routerLink]="['/task', st.id]">{{st.title}}</a>
+                  @if (isFollowup(st.id)) {
+                    <span class="badge badge-purple">Auto-Followup</span>
+                  }
+                  <span class="badge" [class.success]="isDone(st.status)">{{st.status | taskStatusDisplay}}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+        <div class="mt-10">
+          <strong>Beschreibung:</strong>
+          <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
+        </div>
+        @if (task?.last_proposal?.routing?.propose_strategy_meta?.effective_strategy_mode) {
+          <div class="mt-10">
+            <strong>Strategy Mode:</strong>
+            <span class="badge ml-10">{{ task?.last_proposal?.routing?.propose_strategy_meta?.effective_strategy_mode }}</span>
+          </div>
+        }
+        @if (latestExecutionCostSummary()) {
+          <div class="card card-light mt-10">
+            <h3 class="no-margin">Execution Cost Summary</h3>
+            <div class="grid cols-2 mt-sm">
+              <div>
+                <div class="muted">Kosten</div>
+                <strong>{{ latestExecutionCostSummary()?.cost_units || 0 | number:'1.2-4' }}</strong>
+              </div>
+              <div>
+                <div class="muted">Tokens</div>
+                <strong>{{ latestExecutionCostSummary()?.tokens_total || 0 }}</strong>
+              </div>
+              <div>
+                <div class="muted">Latenz</div>
+                <strong>{{ latestExecutionCostSummary()?.latency_ms || 0 }} ms</strong>
+              </div>
+              <div>
+                <div class="muted">Provider / Model</div>
+                <strong>{{ latestExecutionCostSummary()?.provider || '—' }} / {{ latestExecutionCostSummary()?.model || '—' }}</strong>
+              </div>
+              <div>
+                <div class="muted">Inference Routing</div>
+                <strong>{{ effectiveExecutionRoutingSummary()?.inference_provider || '—' }} / {{ effectiveExecutionRoutingSummary()?.inference_model || '—' }}</strong>
+              </div>
+              <div>
+                <div class="muted">Execution Backend</div>
+                <strong>{{ effectiveExecutionRoutingSummary()?.execution_backend || '—' }}</strong>
+              </div>
+            </div>
+          </div>
+        }
+        @if (reviewState()?.required) {
+          <div class="card card-light mt-10">
+            <div class="row space-between">
+              <div>
+                <strong>Review-Status:</strong>
+                <span class="badge ml-10">{{ reviewState()?.status }}</span>
+              </div>
+              <div class="row gap-sm">
+                @if (perm.can('write_approvals')) {
+                  <button class="success" (click)="reviewProposal('approve')" [disabled]="busy || reviewState()?.status === 'approved'">Freigeben</button>
+                  <button class="secondary" (click)="reviewProposal('reject')" [disabled]="busy || reviewState()?.status === 'rejected'">Ablehnen</button>
+                } @else {
+                  <span class="muted font-sm">Freigabe erfordert Admin-Rechte</span>
+                }
+              </div>
+            </div>
+            @if (reviewState()?.reason) {
+              <div class="muted font-sm mt-sm">{{ reviewState()?.reason }}</div>
+            }
+            <app-decision-explanation class="block mt-sm" kind="tool-approval" title="Warum ist Review erforderlich?"></app-decision-explanation>
+            <div class="muted font-sm mt-sm">{{ safetyBoundaryExplanation('pending_review') }}</div>
+          </div>
+        }
+        @if (qualityGateReason()) {
+          <div class="quality-gate-banner">
+            <strong>Quality Gate:</strong> {{ qualityGateReason() }}
+          </div>
+        }
+      </div>
+    }
+    @if (activeTab === 'details' && loadingTask) {
+      <div class="card grid">
+        <app-ui-skeleton [count]="2" [columns]="2" [lineCount]="1" [card]="false" lineClass="skeleton line skeleton-32"></app-ui-skeleton>
+        <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mt-10" lineClass="skeleton block"></app-ui-skeleton>
+      </div>
+    }
+
+    @if (activeTab === 'interact') {
+      <div class="card grid">
+        @if (busy) {
+          <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
+          <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
+          <div class="row gap-sm">
+            <div class="spinner"></div>
+            <span class="muted">Arbeite...</span>
+          </div>
+        }
+        @if (!busy) {
+          <div class="grid">
+            <label>Spezifischer Prompt (optional)
+              <textarea [(ngModel)]="prompt" rows="5" placeholder="Überschreibt den Standard-Prompt für diesen Schritt..."></textarea>
+            </label>
+            <label>Vorgeschlagener Befehl
+              <input [(ngModel)]="proposed" (ngModelChange)="onProposedChange($event)" placeholder="Noch kein Befehl vorgeschlagen" />
+            </label>
+          @if (comparisons) {
+            <div class="mt-10">
+              <strong>LLM Vergleich (Multi-Response):</strong>
+              <div class="grid mt-5">
+                @for (entry of comparisons | keyvalue; track entry) {
+                  <div class="card comparison-card"
+                    [style.border-color]="entry.value.error ? '#ff4444' : '#eee'">
+                    <div class="row comparison-header">
+                      <strong>{{entry.key}}</strong>
+                      @if (!entry.value.error) {
+                        <button class="button-outline comparison-btn" (click)="useComparison(entry.value)">Übernehmen</button>
+                      }
+                      @if (entry.value.error) {
+                        <span class="badge danger">Error</span>
+                      }
+                    </div>
+                    @if (!entry.value.error) {
+                      <div class="muted comparison-reason">{{entry.value.reason}}</div>
+                    }
+                    @if (entry.value.command) {
+                      <code class="code-block">{{entry.value.command}}</code>
+                    }
+                    @if (entry.value.error) {
+                      <div class="danger comparison-reason">
+                        <i class="fas fa-exclamation-triangle"></i> {{entry.value.error}}
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (toolCalls.length) {
+            <div class="mt-10">
+              <strong>Geplante Tool-Aufrufe:</strong>
+              @for (tc of toolCalls; track tc) {
+                <div class="agent-chip agent-chip-block">
+                  <code>{{tc.name}}({{tc.args | json}})</code>
+                </div>
+              }
+            </div>
+          }
+          <div class="row mt-lg flex-wrap-gap">
+            @for (p of availableProviders; track p) {
+              <div class="provider-row">
+                <input type="checkbox" [id]="'p-' + p.id" [(ngModel)]="p.selected">
+                <label [for]="'p-' + p.id" class="provider-label">{{p.name}}</label>
+              </div>
+            }
+          </div>
+            <div class="row mt-lg">
+              <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
+              <button (click)="propose(true)" [disabled]="busy" class="secondary action-btn">Multi-LLM Vergleich</button>
+              <button (click)="execute()" [disabled]="!canExecute()" class="success action-btn">Ausführen</button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (activeTab === 'context' && task) {
+      <div class="grid">
+        @if (isHintVisible('task-review')) {
+          <div class="state-banner inline-help">
+            <p class="muted no-margin">Dieser Bereich erklaert, warum ein Worker, Tool oder Review-Schritt genutzt wurde. Technische Details bleiben fuer Admins einklappbar.</p>
+            <button class="secondary btn-small" type="button" (click)="dismissHint('task-review')">Ausblenden</button>
+          </div>
+        }
+        <div class="card">
+          <div class="row space-between">
+            <div>
+              <h3 class="no-margin">Worker-Kontext</h3>
+              <p class="muted font-sm mt-5 no-margin">{{ term('routing').label }}: {{ term('routing').hint }}</p>
+            </div>
+            <div class="row gap-sm">
+              @if (task?.context_bundle_id) {
+                <span class="badge">{{ task.context_bundle_id }}</span>
+              }
+              @if (isAdmin) {
+                <button class="secondary btn-small" type="button" (click)="showAdminDrilldown = !showAdminDrilldown">
+                  {{ showAdminDrilldown ? 'Admin-Drilldown ausblenden' : 'Admin-Drilldown zeigen' }}
+                </button>
+              }
+            </div>
+          </div>
+          @if (!isAdmin) {
+            <p class="muted font-sm mt-10">Admin-Drilldown ist ausgeblendet. Sichtbar bleiben nur Summary-Informationen.</p>
+          }
+          @if (isAdmin && !showAdminDrilldown) {
+            <p class="muted font-sm mt-10">Drilldown aktivieren, um Routing-, Policy- und detaillierte Provenance-Daten einzusehen.</p>
+          }
+          @if (workerContextText()) {
+            <pre class="log-output">{{ workerContextText() }}</pre>
+          } @else {
+            <p class="muted">Kein expliziter Worker-Kontext vorhanden.</p>
+          }
+          @if (allowedTools().length) {
+            <div class="mt-10">
+              <strong>{{ term('tool-approval').label }}</strong>
+              <app-decision-explanation class="block mt-sm" kind="tool-approval"></app-decision-explanation>
+              <div class="row mt-5 flex-wrap-gap">
+                @for (tool of allowedTools(); track tool) {
+                  <span class="agent-chip">{{ tool }}</span>
+                }
+              </div>
+            </div>
+          }
+          @if (expectedSchema()) {
+            <div class="mt-10">
+              <strong>Erwartetes Output-Schema</strong>
+              <div class="muted font-sm mt-5">Das Schema begrenzt die erwartete Antwortform, damit Ergebnisse leichter geprueft werden koennen.</div>
+              <pre class="log-output">{{ expectedSchema() | json }}</pre>
+            </div>
+          }
+          @if (isAdmin && showAdminDrilldown && routingDecision()) {
+            <div class="mt-10">
+              <strong>Routing-Entscheidung</strong>
+              <p class="muted font-sm mt-5">{{ decisionExplanation('routing') }}</p>
+              <div class="grid cols-2 mt-5">
+                <div>
+                  <div class="muted">Strategie</div>
+                  <strong>{{ routingDecision()?.strategy || '—' }}</strong>
+                </div>
+                <div>
+                  <div class="muted">Task Kind</div>
+                  <strong>{{ routingDecision()?.task_kind || '—' }}</strong>
+                </div>
+              </div>
+              @if (routingRequiredCapabilities().length) {
+                <div class="mt-10">
+                  <div class="muted">Required Capabilities</div>
+                  <div class="row mt-5 flex-wrap-gap">
+                    @for (capability of routingRequiredCapabilities(); track capability) {
+                      <span class="agent-chip">{{ capability }}</span>
+                    }
+                  </div>
+                </div>
+              }
+              @if (routingMatchedCapabilities().length) {
+                <div class="mt-10">
+                  <div class="muted">Matched Capabilities</div>
+                  <div class="row mt-5 flex-wrap-gap">
+                    @for (capability of routingMatchedCapabilities(); track capability) {
+                      <span class="agent-chip">{{ capability }}</span>
+                    }
+                  </div>
+                </div>
+              }
+          </div>
+          }
+        </div>
+
+        <div class="card">
+          <div class="row space-between">
+            <div>
+              <h3 class="no-margin">Instruction Layers</h3>
+              <p class="muted font-sm mt-5 no-margin">Profil = persistenter Stil, Overlay = task/session-spezifische Zusatzanweisung.</p>
+            </div>
+            <a class="button-outline" [routerLink]="['/instruction-layers']">Workbench</a>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <div>
+              <div class="muted">Aktives Profil</div>
+              <strong>{{ task?.instruction_layers?.selected_profile?.name || '-' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Aktives Overlay</div>
+              <strong>{{ task?.instruction_layers?.selected_overlay?.name || '-' }}</strong>
+            </div>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <label>Profil fuer diese Task
+              <select [(ngModel)]="instructionProfileSelectionId">
+                <option value="">-</option>
+                @for (profile of instructionProfiles; track profile.id) {
+                  <option [value]="profile.id">{{ profile.name }}</option>
+                }
+              </select>
+            </label>
+            <label>Overlay fuer diese Task
+              <select [(ngModel)]="instructionOverlaySelectionId">
+                <option value="">-</option>
+                @for (overlay of instructionOverlays; track overlay.id) {
+                  <option [value]="overlay.id">{{ overlay.name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="row gap-sm mt-sm">
+            <button type="button" (click)="saveInstructionSelection()" [disabled]="instructionSelectionBusy">Auswahl speichern</button>
+            <button class="secondary" type="button" (click)="refreshInstructionCompatibility()">Compatibility aktualisieren</button>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <label>Session reuse: Overlay
+              <select [(ngModel)]="instructionSessionOverlayId">
+                <option value="">-</option>
+                @for (overlay of instructionOverlays; track overlay.id) {
+                  <option [value]="overlay.id">{{ overlay.name }}</option>
+                }
+              </select>
+            </label>
+            <label>Session ID
+              <input [(ngModel)]="instructionSessionId" placeholder="session-id" />
+            </label>
+          </div>
+          <div class="row gap-sm mt-sm">
+            <button class="secondary" type="button" (click)="attachOverlayToSession()" [disabled]="instructionSelectionBusy || !instructionSessionOverlayId || !instructionSessionId">Overlay an Session binden</button>
+          </div>
+          @if (instructionCompatibility) {
+            <div class="card card-light mt-sm">
+              <div class="row space-between">
+                <strong>Template Compatibility</strong>
+                <span class="badge" [class.success]="instructionCompatibility.status === 'ok'" [class.warning]="instructionCompatibility.status === 'warn'" [class.danger]="instructionCompatibility.status === 'block'">
+                  {{ instructionCompatibility.status }}
+                </span>
+              </div>
+              <div class="muted font-sm mt-5">
+                Role: {{ instructionCompatibility.role_template_context?.role_name || '-' }}
+                | Template: {{ instructionCompatibility.role_template_context?.template_name || '-' }}
+              </div>
+              @if (instructionCompatibility.issues?.length) {
+                <ul class="mt-sm">
+                  @for (issue of instructionCompatibility.issues; track issue.code + issue.layer_id) {
+                    <li>{{ issue.severity }}: {{ issue.message }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="card">
+          <h3 class="no-margin">Worker-Run & Provenance</h3>
+          <div class="grid cols-2 mt-sm">
+            <div>
+              <div class="muted">Current Worker Job</div>
+              <strong>{{ task?.current_worker_job_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Memory Entry</div>
+              <strong>{{ task?.verification_status?.memory_entry_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Verification Record</div>
+              <strong>{{ task?.verification_status?.record_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Goal Trace</div>
+              <strong>{{ task?.goal_trace_id || task?.last_proposal?.trace?.trace_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">CLI Session</div>
+              <strong>{{ task?.last_proposal?.routing?.session_id || task?.verification_status?.cli_session?.session_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Session Mode</div>
+              <strong>{{ task?.last_proposal?.routing?.session_mode || 'stateless' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Session Reused</div>
+              <strong>{{ taskSessionReuseLabel() }}</strong>
+            </div>
+          </div>
+          @if (taskLiveTerminalLink()) {
+            <div class="mt-10">
+              <a
+                class="button-outline"
+                [routerLink]="['/panel', taskLiveTerminalLink()?.agentName]"
+                [queryParams]="taskLiveTerminalLink()?.queryParams"
+              >
+                Open Worker Live Terminal
+              </a>
+            </div>
+          }
+          @if (isAdmin && showAdminDrilldown && (task?.last_proposal?.trace || task?.history?.length)) {
+            <div class="mt-10">
+              <strong>Provenance Events</strong>
+              <div class="grid mt-5 gap-5">
+                @for (ev of provenanceEvents(); track ev.timestamp + '-' + ev.event_type) {
+                  <div class="card card-light">
+                    <div class="row space-between">
+                      <strong>{{ ev.event_type }}</strong>
+                      <span class="muted font-sm">{{ ev.timestamp * 1000 | date:'HH:mm:ss' }}</span>
+                    </div>
+                    @if (ev.reason) {
+                      <div class="muted mt-5">{{ ev.reason }}</div>
+                    }
+                    @if (ev.backend) {
+                      <div class="muted font-sm mt-5">Backend: {{ ev.backend }}</div>
+                    }
+                    @if (ev.artifact_ref?.artifact_id) {
+                      <div class="muted font-sm mt-5">Artifact: {{ ev.artifact_ref.artifact_id }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="card">
+          <h3 class="no-margin">Review & Resultate</h3>
+          @if (reviewState()) {
+            <div class="state-banner mt-sm">
+              <strong>Warum Review?</strong>
+              <p class="muted no-margin mt-sm">{{ safetyBoundaryExplanation(reviewState()?.status) }}</p>
+            </div>
+            <app-decision-explanation class="block mt-sm" kind="tool-approval" title="Warum Review sichtbar bleibt"></app-decision-explanation>
+            <app-next-steps class="block mt-sm" [steps]="reviewNextSteps()"></app-next-steps>
+            <div class="grid cols-2 mt-sm">
+              <div>
+                <div class="muted">Review Status</div>
+                <strong>{{ reviewState()?.status }}</strong>
+              </div>
+              <div>
+                <div class="muted">Reviewed By</div>
+                <strong>{{ reviewState()?.reviewed_by || '—' }}</strong>
+              </div>
+            </div>
+            @if (reviewState()?.comment) {
+              <div class="mt-10">
+                <strong>Kommentar</strong>
+                <p>{{ reviewState()?.comment }}</p>
+              </div>
+            }
+          } @else {
+            <p class="muted">Kein Review erforderlich oder noch kein Forschungsvorschlag vorhanden.</p>
+          }
+          @if (taskAnswerVerificationPayload) {
+            <div class="mt-10">
+              <strong>Citation Verification</strong>
+              <div class="row mt-5 gap-sm">
+                <span class="badge" [class.success]="sourceCatalogStatusClass() === 'success'" [class.warning]="sourceCatalogStatusClass() === 'warning'" [class.danger]="sourceCatalogStatusClass() === 'danger'">
+                  {{ taskAnswerVerificationPayload?.status || 'unknown' }}
+                </span>
+              </div>
+              <div class="grid cols-2 mt-sm">
+                <div>
+                  <div class="muted">Verified Claims</div>
+                  <strong>{{ taskAnswerVerificationPayload?.verified_claim_count ?? 0 }}</strong>
+                </div>
+                <div>
+                  <div class="muted">Unverified Claims</div>
+                  <strong>{{ taskAnswerVerificationPayload?.unverified_claim_count ?? 0 }}</strong>
+                </div>
+              </div>
+              @if (taskAnswerVerificationPayload?.failed_claims?.length) {
+                <div class="mt-10">
+                  <div class="muted">Failed Claims</div>
+                  <div class="grid mt-5 gap-5">
+                    @for (claim of taskAnswerVerificationPayload.failed_claims; track claim.claim_id + '-' + claim.reason) {
+                      <div class="card card-light border-danger">
+                        <strong>{{ claim.claim_id || 'claim' }}</strong>
+                        <div class="muted font-sm mt-5">Reason: {{ claim.reason || 'verification_failed' }}</div>
+                        @if (claim.citation_refs?.length) {
+                          <div class="muted font-sm mt-5">Refs: {{ claim.citation_refs.join(', ') }}</div>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+          @if (sourceCatalogEntries().length) {
+            <div class="mt-10">
+              <strong>Source Catalog (SRC_*/RUN_*)</strong>
+              <div class="muted font-sm mt-5">Kompakte Quellreferenzen fuer verifizierbare Claims.</div>
+              <div class="grid mt-5 gap-5">
+                @for (source of sourceCatalogEntries(); track source.source_id) {
+                  <div class="card card-light" [class.border-danger]="sourceCatalogFailedCitationRefs().includes(source.source_id)">
+                    <div class="row space-between">
+                      <strong>{{ source.source_id }}</strong>
+                      <span class="badge">{{ source.source_type || 'unknown' }}</span>
+                    </div>
+                    <div class="muted font-sm mt-5">Path: {{ source.path || '—' }} · Record: {{ source.record_id || '—' }}</div>
+                    <div class="muted font-sm mt-5">Allowed: {{ source.allowed_for_llm_scope === false ? 'nein' : 'ja' }}</div>
+                    @if (source.allowed_for_llm_scope === false) {
+                      <div class="muted font-sm mt-5">Blocked: {{ source.redaction_reason || 'blocked_by_policy_scope' }}</div>
+                    }
+                    @if (sourceCatalogFailedCitationRefs().includes(source.source_id)) {
+                      <div class="danger font-sm mt-5">Failed verification: {{ sourceCatalogFailedReasonFor(source.source_id) }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (isAdmin && showAdminDrilldown && researchSources().length) {
+            <div class="mt-10">
+              <strong>Research Sources</strong>
+              <div class="grid mt-5 gap-5">
+                @for (source of researchSources(); track source.url) {
+                  <div class="card card-light">
+                    <div><strong>{{ source.title || source.url }}</strong></div>
+                    <div class="muted font-sm">{{ source.kind || 'web' }} · {{ source.confidence ?? 'n/a' }}</div>
+                    <a [href]="source.url" target="_blank" rel="noreferrer">{{ source.url }}</a>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (isAdmin && showAdminDrilldown && researchCitations().length) {
+            <div class="mt-10">
+              <strong>Research Citations</strong>
+              <div class="grid mt-5 gap-5">
+                @for (citation of researchCitations(); track citation.url + '-' + citation.label) {
+                  <div class="card card-light">
+                    <div><strong>{{ citation.label || citation.url }}</strong></div>
+                    @if (citation.excerpt) {
+                      <div class="muted font-sm mt-5">{{ citation.excerpt }}</div>
+                    }
+                    @if (citation.url) {
+                      <a [href]="citation.url" target="_blank" rel="noreferrer">{{ citation.url }}</a>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (isAdmin && showAdminDrilldown && researchVerification()) {
+            <div class="mt-10">
+              <strong>Research {{ term('verification').label }}</strong>
+              <div class="muted font-sm mt-5">{{ term('verification').hint }}</div>
+              <pre class="log-output">{{ researchVerification() | json }}</pre>
+            </div>
+          }
+          @if (isAdmin && showAdminDrilldown && researchBackendMetadata()) {
+            <div class="mt-10">
+              <strong>Research Backend Metadata</strong>
+              <pre class="log-output">{{ researchBackendMetadata() | json }}</pre>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (activeTab === 'logs') {
+      <div class="card">
+        <div class="row flex-between">
+          <h3>Task Logs (Live)</h3>
+        @if (taskLiveTerminalLink()) {
+          <a
+              class="button-outline"
+              [routerLink]="['/panel', taskLiveTerminalLink()?.agentName]"
+              [queryParams]="taskLiveTerminalLink()?.queryParams"
+            >
+              Im Worker-Panel oeffnen
+            </a>
+          }
+        </div>
+        @if (selectedTaskTerminalConnection(); as liveTerminal) {
+          <div class="card card-light task-live-terminal-card" data-testid="task-live-terminal">
+            <strong>Worker Live Terminal</strong>
+            <div class="task-terminal-mode-row">
+              @if (taskLiveTerminalConnection()) {
+                <button class="button-outline" [class.active]="taskTerminalMode === 'task'" (click)="taskTerminalMode = 'task'">Task-Terminal</button>
+              }
+              @if (taskDiagnosticTerminalConnection()) {
+                <button class="button-outline" [class.active]="taskTerminalMode === 'diagnostic'" (click)="taskTerminalMode = 'diagnostic'">Diagnose-Terminal</button>
+              }
+            </div>
+            <div class="muted task-live-terminal-meta">
+              @if (liveTerminal.kind === 'task') {
+                Verbunden mit <strong>{{ liveTerminal.displayName }}</strong> ueber {{ liveTerminal.forwardParam }}.
+                Eingaben werden direkt an die laufende OpenCode-Session des Workers weitergeleitet.
+              } @else {
+                Verbunden mit <strong>{{ liveTerminal.displayName }}</strong> im Diagnosemodus.
+                Eingaben gehen in ein separates Shell-Terminal des Workers und nicht in die laufende Task-Session.
+              }
+            </div>
+            <app-terminal
+              [baseUrl]="liveTerminal.agentUrl"
+              [token]="liveTerminal.token"
+              [mode]="'interactive'"
+              [forwardParam]="liveTerminal.forwardParam"
+            ></app-terminal>
+          </div>
+        } @else {
+          <p class="muted">Dieser Tab zeigt den Log-Stream. Ein interaktives Worker-Terminal erscheint automatisch, sobald die Task-Laufzeit einen Live-Terminal-Forward-Parameter bereitstellt.</p>
+        }
+        @if (loadingLogs) {
+          <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
+          <app-ui-skeleton [count]="1" [lineCount]="2" [card]="false" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
+        }
+        @if (logs.length) {
+          <div class="grid">
+            @for (l of logs; track l) {
+              <div class="log-entry">
+                <div class="row flex-between">
+                  <code class="log-entry-code">{{l.command || l.event_type || 'history_event'}}</code>
+                  @if (l.exit_code !== undefined && l.exit_code !== null) {
+                    <span class="badge" [class.success]="l.exit_code===0" [class.danger]="l.exit_code!==0">RC: {{l.exit_code}}</span>
+                  } @else if (l.event_type) {
+                    <span class="badge">{{l.event_type}}</span>
+                  }
+                </div>
+                @if (l.output) {
+                  <pre class="log-output">{{l.output}}</pre>
+                }
+                @if (l.reason) {
+                  <div class="muted log-reason">Grund: {{l.reason}}</div>
+                }
+                @if (l.cost_summary) {
+                  <div class="muted log-reason">
+                    Cost: {{ l.cost_summary.cost_units || 0 | number:'1.2-4' }} · Tokens: {{ l.cost_summary.tokens_total || 0 }} · Latency: {{ l.cost_summary.latency_ms || 0 }} ms
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="muted">Bisher wurden keine Aktionen für diesen Task geloggt.</p>
+        }
+      </div>
+    }
+    

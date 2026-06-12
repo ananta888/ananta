@@ -1,0 +1,241 @@
+    @if (hidden) {
+      <button
+        type="button"
+        class="assistant-launcher"
+        data-testid="assistant-dock-launcher"
+        (click)="showDock()">
+        AI Snake
+      </button>
+    } @else {
+      <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
+        <div class="header" data-testid="assistant-dock-header" (click)="toggleMinimize()">
+          <span class="header-title">
+            <span class="bridge-dot" [class.online]="snakeBridgeActive" title="{{ snakeBridgeActive ? 'Bridge verbunden' : 'Bridge offline' }}">●</span>
+            AI Snake
+          </span>
+          <div class="controls">
+            <button
+              type="button"
+              (click)="toggleMinimize(); $event.stopPropagation()"
+              class="control-btn"
+              [attr.aria-label]="minimized ? 'Assistant oeffnen' : 'Assistant minimieren'">
+              {{ minimized ? '^' : 'v' }}
+            </button>
+            <button
+              type="button"
+              (click)="hideDock(); $event.stopPropagation()"
+              class="control-btn"
+              aria-label="Assistant ausblenden">
+              x
+            </button>
+          </div>
+        </div>
+      
+        @if (!minimized) {
+          @if (configPanelOpen) {
+            <div class="overlay-panel">
+              <app-ai-snake-config-panel />
+            </div>
+          }
+          @if (sharePanelOpen) {
+            <div class="overlay-panel">
+              <app-ai-snake-share-panel />
+            </div>
+          }
+          @if (snakeChatPanelOpen) {
+            <div class="overlay-panel">
+              <app-ai-snake-chat-panel [tab]="snakeChatPanelTab" (tabChange)="snakeChatPanelTab = $event" />
+            </div>
+          }
+          <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen || snakeChatPanelOpen">
+            @if (snakeVisible) {
+              <div class="snake-panel">
+                <canvas #snakeCanvas class="snake-canvas"></canvas>
+                <div class="snake-status-bar">
+                  <span class="snake-status-dot" [class.active]="snakeBridgeActive">■</span>
+                  {{ snakeStatusText }}
+                </div>
+              </div>
+            }
+            <app-ai-assistant-message-list
+              [chatHistory]="chatHistory"
+              [busy]="busy"
+              (previewSource)="previewSource($event)"
+              (copySourcePath)="copySourcePath($event)"
+              (executeSgpt)="executeSgpt($event)"
+              (confirmAction)="confirmAction($event)"
+              (cancelAction)="cancelAction($event)">
+            </app-ai-assistant-message-list>
+            <app-ai-assistant-controls
+              [busy]="busy"
+              [chatInput]="chatInput"
+              [useHybridContext]="useHybridContext"
+              [cliBackend]="cliBackend"
+              [availableCliBackends]="availableCliBackends"
+              [selectedCliRuntime]="selectedCliRuntime()"
+              [lastFailedRequest]="lastFailedRequest"
+              [runtimeContext]="runtimeContext"
+              [quickActions]="quickActions()"
+              (chatInputChange)="chatInput = $event"
+              (useHybridContextChange)="useHybridContext = $event"
+              (send)="sendChat()"
+              (retryLast)="retryLastFailed()"
+              (refreshContext)="refreshRuntimeContext()"
+              (quickAction)="runQuickAction($event)"
+              (cliBackendChange)="setCliBackend($event)">
+            </app-ai-assistant-controls>
+          </div>
+          <div class="dock-footer" data-testid="assistant-dock-footer">
+            <div class="dock-footer-actions">
+              <button type="button" class="mini-footer-btn" (click)="toggleThreadSwitcher()">
+                Chats {{ threadSwitcherOpen ? 'schliessen' : 'anzeigen' }}
+              </button>
+              <button type="button" class="mini-footer-btn primary" (click)="createThread()">
+                + Neuer Chat
+              </button>
+              <button type="button" class="mini-footer-btn snake-btn" (click)="toggleSnakeCanvas()" [class.active]="snakeVisible" title="{{ snakeVisible ? 'Snake ausblenden' : 'Snake anzeigen' }}">
+                ◈ Snake
+              </button>
+              <button type="button" class="mini-footer-btn share-btn" (click)="toggleSharePanel()" [class.active]="sharePanelOpen" title="Session Sharing">
+                ⇄ Share
+              </button>
+              <button type="button" class="mini-footer-btn snake-chat-btn" (click)="toggleSnakeChatPanel()" [class.active]="snakeChatPanelOpen" title="AI-Snake Chat">
+                💬 Snake Chat
+              </button>
+              <div class="snake-chat-tabs" aria-label="AI-Snake Chat Tabs">
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'chat'" (click)="openSnakeChatPanelTab('chat')">Chat</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'login'" (click)="openSnakeChatPanelTab('login')">AI-Snake</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'pair'" (click)="openSnakeChatPanelTab('pair')">Pair Dev</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'mode'" (click)="openSnakeChatPanelTab('mode')">Modus</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'settings'" (click)="openSnakeChatPanelTab('settings')">Einstellungen</button>
+              </div>
+              <button type="button" class="mini-footer-btn config-btn" (click)="toggleConfigPanel()" [class.active]="configPanelOpen" title="AI-Snake Konfiguration">
+                ⚙
+              </button>
+            </div>
+            @if (threadSwitcherOpen) {
+              <div class="thread-switcher">
+                @for (thread of chatThreads; track thread.id) {
+                  <button
+                    type="button"
+                    class="thread-chip"
+                    [class.active]="thread.id === activeThreadId"
+                    (click)="switchThread(thread.id)">
+                    {{ thread.title }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <style>
+      :host { font-family: ui-monospace, Menlo, Consolas, monospace; }
+      .assistant-launcher {
+        position: fixed; right: 16px; bottom: 20px; z-index: 1000;
+        border: 1px solid #2a4070; border-radius: 4px;
+        padding: 6px 14px; background: #0d1a30; color: #7fffd4;
+        font-weight: 600; cursor: pointer; font-size: 13px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        letter-spacing: 0.03em;
+      }
+      .assistant-launcher:hover { background: #122040; border-color: #7fffd4; }
+      .ai-assistant-container {
+        position: fixed; bottom: 0; right: 20px; width: min(760px, 94vw);
+        background: #0b1220; border: 1px solid #1a2d4a; border-bottom: none;
+        border-radius: 6px 6px 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+        z-index: 1000; display: flex; flex-direction: column;
+        color: #c8d8f8; font-family: ui-monospace, Menlo, Consolas, monospace;
+        height: 580px; max-height: 82dvh;
+      }
+      .ai-assistant-container.minimized { height: 38px; }
+      .header {
+        background: #0d1828; color: #c8d8f8; padding: 7px 12px;
+        border-radius: 6px 6px 0 0; border-bottom: 1px solid #1a2d4a;
+        cursor: pointer; display: flex; justify-content: space-between;
+        align-items: center; font-size: 13px; font-weight: 600; flex-shrink: 0;
+      }
+      .header-title { display: flex; align-items: center; gap: 7px; letter-spacing: 0.04em; }
+      .bridge-dot { font-size: 10px; color: #2a4070; transition: color 0.3s; }
+      .bridge-dot.online { color: #7fffd4; }
+      .controls { display: flex; gap: 4px; }
+      .control-btn {
+        background: none; border: 1px solid transparent; color: #6b8ab8;
+        cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 3px;
+        font-family: inherit;
+      }
+      .control-btn:hover { border-color: #2a4070; color: #c8d8f8; }
+      .content {
+        flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+        padding: 8px 10px 6px;
+      }
+      .snake-panel {
+        flex-shrink: 0; margin-bottom: 8px;
+        border: 1px solid #1a2d4a; border-radius: 4px; overflow: hidden;
+        background: #0b1220;
+      }
+      .snake-canvas { display: block; width: 100%; height: 90px; }
+      .snake-status-bar {
+        display: flex; align-items: center; gap: 6px;
+        padding: 3px 8px; background: #0d1828; border-top: 1px solid #1a2d4a;
+        font-size: 11px; color: #6b8ab8;
+      }
+      .snake-status-dot { font-size: 9px; color: #2a4070; }
+      .snake-status-dot.active { color: #7fffd4; }
+      .dock-footer {
+        border-top: 1px solid #1a2d4a; padding: 6px 10px 8px;
+        display: flex; flex-direction: column; gap: 6px;
+        background: #0d1828; flex-shrink: 0;
+      }
+      .dock-footer-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .mini-footer-btn {
+        border: 1px solid #1a2d4a; border-radius: 3px; padding: 3px 9px;
+        background: transparent; color: #6b8ab8; cursor: pointer;
+        font-size: 11px; font-family: inherit;
+      }
+      .mini-footer-btn:hover { border-color: #2a4070; color: #c8d8f8; }
+      .mini-footer-btn.primary {
+        background: #162444; border-color: #2a4070; color: #a8c7ff; font-weight: 600;
+      }
+      .mini-footer-btn.primary:hover { background: #1e3058; border-color: #7fffd4; color: #7fffd4; }
+      .snake-btn { margin-left: auto; color: #4a6a9a; border-color: #1a2d4a; }
+      .snake-btn:hover, .snake-btn.active { color: #7fffd4; border-color: #7fffd4; background: #0f1e34; }
+      .share-btn { color: #4a6a9a; border-color: #1a2d4a; }
+      .share-btn:hover, .share-btn.active { color: #a8c7ff; border-color: #2a4070; background: #0f1e34; }
+      .snake-chat-btn { color: #4a6a9a; border-color: #1a2d4a; }
+      .snake-chat-btn:hover, .snake-chat-btn.active { color: #7fffd4; border-color: #2a4070; background: #0f1e34; }
+      .snake-chat-tabs { display: inline-flex; border: 1px solid #1a2d4a; border-radius: 3px; overflow: hidden; }
+      .snake-chat-tab {
+        border: 0; border-right: 1px solid #1a2d4a;
+        background: #0f1e34; color: #6b8ab8; cursor: pointer;
+        font-size: 11px; font-family: inherit; padding: 3px 8px;
+      }
+      .snake-chat-tab:last-child { border-right: 0; }
+      .snake-chat-tab:hover { color: #c8d8f8; background: #162848; }
+      .snake-chat-tab.active { color: #7fffd4; background: #173055; }
+      .config-btn { color: #4a6a9a; border-color: #1a2d4a; }
+      .config-btn:hover, .config-btn.active { color: #fbbf24; border-color: #7a5a10; background: #0f1e34; }
+      .overlay-panel {
+        position: absolute; inset: 38px 0 0 0; z-index: 10;
+        display: flex; flex-direction: column; overflow: hidden;
+      }
+      .content.hidden { display: none; }
+      .thread-switcher {
+        display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-start;
+        max-height: 88px; overflow-y: auto;
+      }
+      .thread-chip {
+        border: 1px solid #1a2d4a; border-radius: 3px; padding: 2px 9px;
+        background: transparent; color: #6b8ab8; cursor: pointer; font-size: 11px; font-family: inherit;
+      }
+      .thread-chip.active { border-color: #7fffd4; color: #7fffd4; background: #0f1e34; }
+      .thread-chip:hover { border-color: #2a4070; color: #c8d8f8; }
+      @media (max-width: 900px) {
+        .assistant-launcher { right: 10px; bottom: 10px; z-index: 1090; }
+        .ai-assistant-container { right: 0; left: 0; bottom: 0; width: auto; border-radius: 6px 6px 0 0; }
+        .ai-assistant-container:not(.minimized) { height: min(82dvh, 680px); }
+      }
+    </style>
+    

@@ -1,16 +1,13 @@
 package com.ananta.mobile.python;
-
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.util.Log;
-
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -40,43 +37,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
-
 import org.tukaani.xz.XZInputStream;
-
 @CapacitorPlugin(name = "PythonRuntime")
-public class PythonRuntimePlugin extends Plugin {
-    private static final int DEFAULT_SHELL_TIMEOUT_SECONDS = 20;
-    private static final int MAX_SHELL_TIMEOUT_SECONDS = 1800;
-    private static final int MAX_SHELL_OUTPUT_CHARS = 120_000;
-    private static final int MAX_SESSION_OUTPUT_CHARS = 200_000;
-    private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
-    private static final String PROOT_BIN_FILE = "proot-rs";
-    private static final String PROOT_CLASSIC_FILE = "proot-classic";
-    private static final String PROOT_WRAPPER_FILE = "proot";
-    private static final String PROOT_CLASSIC_EMBEDDED_LIB_FILE = "libprootclassic.so";
-    private static final String PROOT_EMBEDDED_LIB_FILE = "libprootrs.so";
-    private static final String PROOT_RS_RELEASE_URL = "https://github.com/proot-me/proot-rs/releases/download/v0.1.0/proot-rs-v0.1.0-aarch64-linux-android.tar.gz";
-    private static final String PROOT_CLASSIC_RELEASE_URL = "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-aarch64-static";
-    private static final String PROOT_DISTRO_RELEASE_API = "https://api.github.com/repos/termux/proot-distro/releases/latest";
-    private static final String PROOT_DISTRO_PLUGIN_BASE = "https://raw.githubusercontent.com/termux/proot-distro/master/distro-plugins/";
-    private static final String ANANTA_REPO_URL = "https://github.com/ananta888/ananta/archive/refs/heads/main.tar.gz";
-    private static final String OPENCODE_VERSION = "v0.0.55";
-    private static final String OPENCODE_URL = "https://github.com/opencode-ai/opencode/releases/download/" + OPENCODE_VERSION + "/opencode-linux-arm64.tar.gz";
-    private static final String UBUNTU_ROOTFS_PRESEED_ASSET = "proot-seed/ubuntu-rootfs.tar.xz";
-    private static final String UBUNTU_ROOTFS_PRESEED_VERSION_ASSET = "proot-seed/ubuntu-rootfs.version";
-    private static final String ANANTA_WORKSPACE_PRESEED_ASSET = "proot-seed/ananta-workspace.tar.xz";
-    private static final String ANANTA_WORKSPACE_PRESEED_VERSION_ASSET = "proot-seed/ananta-workspace.version";
-    private static final String ROOTFS_PRESEED_MARKER_FILE = ".ananta-preseed-version";
-
-    private static final int PROXY_PORT = 18080;
-
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final Map<String, ShellSession> shellSessions = new ConcurrentHashMap<>();
-    private final HttpConnectProxy httpProxy = new HttpConnectProxy(PROXY_PORT);
-    private volatile boolean hubRunning;
-    private volatile boolean workerRunning;
-    private volatile String lastError;
-
+public class PythonRuntimePlugin extends PythonRuntimeArchiveSupport {
     @PluginMethod
     public void getRuntimeStatus(PluginCall call) {
         JSObject result = new JSObject();
@@ -88,7 +51,6 @@ public class PythonRuntimePlugin extends Plugin {
         result.put("proxyPort", PROXY_PORT);
         call.resolve(result);
     }
-
     @PluginMethod
     public void getMobilePolicySignals(PluginCall call) {
         JSObject result = new JSObject();
@@ -107,7 +69,6 @@ public class PythonRuntimePlugin extends Plugin {
             call.reject("Mobile policy signal check failed: " + error.getMessage());
         }
     }
-
     @PluginMethod
     public void startHub(PluginCall call) {
         worker.execute(() -> {
@@ -123,7 +84,6 @@ public class PythonRuntimePlugin extends Plugin {
             }
         });
     }
-
     @PluginMethod
     public void stopHub(PluginCall call) {
         worker.execute(() -> {
@@ -139,7 +99,6 @@ public class PythonRuntimePlugin extends Plugin {
             }
         });
     }
-
     @PluginMethod
     public void startWorker(PluginCall call) {
         worker.execute(() -> {
@@ -155,7 +114,6 @@ public class PythonRuntimePlugin extends Plugin {
             }
         });
     }
-
     @PluginMethod
     public void stopWorker(PluginCall call) {
         worker.execute(() -> {
@@ -171,7 +129,6 @@ public class PythonRuntimePlugin extends Plugin {
             }
         });
     }
-
     @PluginMethod
     public void runHealthCheck(PluginCall call) {
         worker.execute(() -> {
@@ -187,7 +144,6 @@ public class PythonRuntimePlugin extends Plugin {
             }
         });
     }
-
     @PluginMethod
     public void runShellCommand(PluginCall call) {
         String command = String.valueOf(call.getString("command", "")).trim();
@@ -195,13 +151,11 @@ public class PythonRuntimePlugin extends Plugin {
             call.reject("command is required");
             return;
         }
-
         int timeoutSeconds = call.getInt("timeoutSeconds", DEFAULT_SHELL_TIMEOUT_SECONDS);
         if (timeoutSeconds < 1 || timeoutSeconds > MAX_SHELL_TIMEOUT_SECONDS) {
             call.reject("timeoutSeconds must be between 1 and " + MAX_SHELL_TIMEOUT_SECONDS);
             return;
         }
-
         worker.execute(() -> {
             try {
                 ShellExecutionResult exec = executeShellCommand(command, timeoutSeconds);
@@ -216,17 +170,14 @@ public class PythonRuntimePlugin extends Plugin {
             }
         });
     }
-
     @PluginMethod
     public void openShellSession(PluginCall call) {
         String cwd = String.valueOf(call.getString("cwd", "")).trim();
         String initialCommand = String.valueOf(call.getString("initialCommand", "")).trim();
         String shell = String.valueOf(call.getString("shell", "sh")).trim();
         if (shell.isEmpty()) shell = "sh";
-
         // Auto-start HTTP proxy for proot network access
         ensureProxyRunning();
-
         final String selectedShell = shell;
         final String selectedCwd = cwd;
         final String selectedInitialCommand = initialCommand;
@@ -248,7 +199,6 @@ public class PythonRuntimePlugin extends Plugin {
                 String sessionId = UUID.randomUUID().toString();
                 shellSessions.put(sessionId, session);
                 session.startReaderThread();
-
                 JSObject result = new JSObject();
                 result.put("sessionId", sessionId);
                 result.put("running", session.isRunning());
@@ -259,8 +209,7 @@ public class PythonRuntimePlugin extends Plugin {
             }
         });
     }
-
-    private void ensureProxyRunning() {
+    protected void ensureProxyRunning() {
         if (httpProxy.isRunning()) return;
         try {
             httpProxy.start();
@@ -269,7 +218,6 @@ public class PythonRuntimePlugin extends Plugin {
             lastError = "HTTP proxy start failed: " + e.getMessage();
         }
     }
-
     @PluginMethod
     public void writeShellSession(PluginCall call) {
         String sessionId = String.valueOf(call.getString("sessionId", "")).trim();
@@ -855,7 +803,7 @@ public class PythonRuntimePlugin extends Plugin {
         });
     }
 
-    private void ensureWorkspaceWorkerDependenciesIfPossible(File runtimeRoot, File workspaceRoot) throws Exception {
+    protected void ensureWorkspaceWorkerDependenciesIfPossible(File runtimeRoot, File workspaceRoot) throws Exception {
         if (runtimeRoot == null || workspaceRoot == null) return;
         if (!new File(workspaceRoot, "agent/ai_agent.py").isFile()) return;
         File ubuntuRootfs = resolveInstalledRootfs(new File(new File(runtimeRoot, "distros/ubuntu"), "rootfs"));
@@ -877,7 +825,7 @@ public class PythonRuntimePlugin extends Plugin {
         }
     }
 
-    private boolean probeWorkerDependenciesReady(File runtimeRoot, File ubuntuRootfs, File workspaceRoot) throws Exception {
+    protected boolean probeWorkerDependenciesReady(File runtimeRoot, File ubuntuRootfs, File workspaceRoot) throws Exception {
         if (runtimeRoot == null || ubuntuRootfs == null || workspaceRoot == null) return false;
         if (!new File(workspaceRoot, "agent/ai_agent.py").isFile()) return false;
         File dataRoot = new File(getContext().getFilesDir(), "ananta-data");
@@ -899,7 +847,7 @@ public class PythonRuntimePlugin extends Plugin {
         return !probe.timedOut && probe.exitCode == 0 && output.contains("ANANTA_WORKER_DEPS_READY") && output.contains("ANANTA_WORKER_IMPORT_OK");
     }
 
-    private String buildWorkerDependencyInstallCommand(File workspaceRoot, File dataRoot) {
+    protected String buildWorkerDependencyInstallCommand(File workspaceRoot, File dataRoot) {
         String workspacePath = workspaceRoot.getAbsolutePath();
         String dataPath = dataRoot.getAbsolutePath();
         return ""
@@ -1042,1233 +990,5 @@ public class PythonRuntimePlugin extends Plugin {
         shellSessions.clear();
         worker.shutdownNow();
         super.handleOnDestroy();
-    }
-
-    private boolean isPythonAvailable() {
-        try {
-            Class.forName("com.chaquo.python.Python");
-            return true;
-        } catch (ClassNotFoundException error) {
-            return false;
-        }
-    }
-
-    private String invokePython(String functionName) throws Exception {
-        if (!isPythonAvailable()) {
-            throw new IllegalStateException("Embedded Python is disabled. Enable anantaEnablePythonRuntime=true.");
-        }
-
-        ensurePythonStarted();
-        Class<?> pythonClass = Class.forName("com.chaquo.python.Python");
-        Method getInstance = pythonClass.getMethod("getInstance");
-        Object python = getInstance.invoke(null);
-        Method getModule = pythonClass.getMethod("getModule", String.class);
-        Object module = getModule.invoke(python, "ananta_runtime");
-
-        Class<?> pyObjectClass = Class.forName("com.chaquo.python.PyObject");
-        Method callAttr = pyObjectClass.getMethod("callAttr", String.class, Object[].class);
-        Object value = callAttr.invoke(module, functionName, new Object[]{});
-        return value == null ? "" : String.valueOf(value);
-    }
-
-    private void ensurePythonStarted() throws Exception {
-        Class<?> pythonClass = Class.forName("com.chaquo.python.Python");
-        Method isStarted = pythonClass.getMethod("isStarted");
-        boolean started = (boolean) isStarted.invoke(null);
-        if (started) return;
-
-        Context context = getContext();
-        if (context == null) {
-            throw new IllegalStateException("Android context unavailable for Python startup.");
-        }
-
-        Class<?> androidPlatformClass = Class.forName("com.chaquo.python.android.AndroidPlatform");
-        Object androidPlatform = androidPlatformClass.getConstructor(Context.class).newInstance(context);
-
-        Method startMethod = null;
-        for (Method candidate : pythonClass.getMethods()) {
-            if (!"start".equals(candidate.getName()) || candidate.getParameterCount() != 1) continue;
-            Class<?> parameterType = candidate.getParameterTypes()[0];
-            if (parameterType.isAssignableFrom(androidPlatformClass)) {
-                startMethod = candidate;
-                break;
-            }
-        }
-        if (startMethod == null) {
-            throw new NoSuchMethodException("Python.start(...) compatible with AndroidPlatform not found.");
-        }
-        startMethod.invoke(null, androidPlatform);
-    }
-
-    private ShellExecutionResult executeShellCommand(String command, int timeoutSeconds) throws Exception {
-        File workingDir = resolveShellWorkingDirectory("");
-        ProcessBuilder builder = new ProcessBuilder("/system/bin/sh", "-lc", command);
-        builder.directory(workingDir);
-        applyShellEnvironment(builder, workingDir);
-        Process process = builder
-            .redirectErrorStream(true)
-            .start();
-
-        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
-        if (!finished) {
-            process.destroy();
-            if (!process.waitFor(1, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                process.waitFor(1, TimeUnit.SECONDS);
-            }
-        }
-
-        String output = readProcessOutput(process.getInputStream(), MAX_SHELL_OUTPUT_CHARS);
-        if (!finished) {
-            output = (output + "\n[ananta-mobile-shell] Timeout after " + timeoutSeconds + "s").trim();
-            return new ShellExecutionResult(output, -1, true);
-        }
-
-        return new ShellExecutionResult(output, process.exitValue(), false);
-    }
-
-    private File resolveShellWorkingDirectory(String requestedCwd) {
-        String cwd = String.valueOf(requestedCwd == null ? "" : requestedCwd).trim();
-        if (!cwd.isEmpty()) {
-            File requested = new File(cwd);
-            if (requested.isDirectory() && requested.canRead()) {
-                return requested;
-            }
-        }
-
-        Context context = getContext();
-        if (context != null) {
-            File filesDir = context.getFilesDir();
-            if (filesDir != null && filesDir.isDirectory() && filesDir.canRead()) {
-                return filesDir;
-            }
-        }
-
-        File termuxHome = new File("/data/data/com.termux/files/home");
-        if (termuxHome.isDirectory() && termuxHome.canRead()) {
-            return termuxHome;
-        }
-
-        return new File("/");
-    }
-
-    private void applyShellEnvironment(ProcessBuilder builder, File workingDir) {
-        Map<String, String> env = builder.environment();
-        // Prevent Chaquopy's Python 3.11 env from leaking into proot sessions running Python 3.13
-        env.remove("PYTHONPATH");
-        env.remove("PYTHONHOME");
-        env.remove("PYTHONDONTWRITEBYTECODE");
-        env.remove("PYTHONSTARTUP");
-        String path = workingDir.getAbsolutePath();
-        env.put("HOME", path);
-        env.put("PWD", path);
-        env.put("ANANTA_MOBILE_FILES", path);
-        File runtimeRoot = runtimeRootDir();
-        File prootBin = new File(runtimeRoot, "bin");
-        String existingPath = String.valueOf(env.getOrDefault("PATH", ""));
-        env.put("PATH", prootBin.getAbsolutePath() + (existingPath.isEmpty() ? "" : ":" + existingPath));
-        env.putIfAbsent("TERM", "xterm-256color");
-        env.put("PROOT_FORCE_KOMPAT", "1");
-        env.put("GLIBC_TUNABLES", "glibc.pthread.rseq=0");
-        File prootTmp = new File(runtimeRoot, "tmp");
-        if (!prootTmp.exists()) prootTmp.mkdirs();
-        env.put("PROOT_TMP_DIR", prootTmp.getAbsolutePath());
-        // Resolve proot-loader from APK native libs — required for execve under untrusted_app SELinux domain
-        String prootLoaderPath = resolveNativeLibPath("libproot-loader.so");
-        if (prootLoaderPath != null) {
-            env.put("PROOT_LOADER", prootLoaderPath);
-        }
-        ensureProotLoaderSymlink();
-        // libtalloc.so is needed by Termux-forked proot; ensure it's findable
-        String nativeLibDir = resolveNativeLibPath("libprootclassic.so");
-        if (nativeLibDir != null) {
-            String nativeDir = new File(nativeLibDir).getParent();
-            String ldPath = env.getOrDefault("LD_LIBRARY_PATH", "");
-            if (ldPath.isEmpty()) {
-                env.put("LD_LIBRARY_PATH", nativeDir);
-            } else if (!ldPath.contains(nativeDir)) {
-                env.put("LD_LIBRARY_PATH", nativeDir + ":" + ldPath);
-            }
-        }
-        // HTTP proxy for proot external network access
-        if (httpProxy.isRunning()) {
-            String proxyUrl = "http://127.0.0.1:" + PROXY_PORT;
-            env.put("http_proxy", proxyUrl);
-            env.put("https_proxy", proxyUrl);
-            env.put("HTTP_PROXY", proxyUrl);
-            env.put("HTTPS_PROXY", proxyUrl);
-        }
-    }
-
-    private File runtimeRootDir() {
-        return new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR);
-    }
-
-    private String resolveNativeLibPath(String libName) {
-        Context context = getContext();
-        if (context == null) return null;
-        ApplicationInfo appInfo = context.getApplicationInfo();
-        if (appInfo == null || appInfo.nativeLibraryDir == null) return null;
-        File lib = new File(appInfo.nativeLibraryDir, libName);
-        return lib.isFile() ? lib.getAbsolutePath() : null;
-    }
-
-    /**
-     * Ensures a symlink at /data/data/com.ananta.mobile/ldr/<libName> pointing
-     * to the actual native lib in the APK directory. Required because proot
-     * has a hardcoded loader path that must resolve at runtime.
-     */
-    private void ensureProotLoaderSymlink() {
-        Context context = getContext();
-        if (context == null) return;
-        try {
-            String loaderSrc = resolveNativeLibPath("libproot-loader.so");
-            if (loaderSrc == null) return;
-            File ldrDir = new File(context.getDataDir(), "ldr");
-            if (!ldrDir.exists()) ldrDir.mkdirs();
-            File symlinkFile = new File(ldrDir, "libproot-loader.so");
-            Path symlinkPath = symlinkFile.toPath();
-            if (Files.isSymbolicLink(symlinkPath)) {
-                String existing = Files.readSymbolicLink(symlinkPath).toString();
-                if (existing.equals(loaderSrc)) return;
-                Files.delete(symlinkPath);
-            } else if (symlinkFile.exists()) {
-                symlinkFile.delete();
-            }
-            Files.createSymbolicLink(symlinkPath, Paths.get(loaderSrc));
-        } catch (Exception e) {
-            // Loader symlink creation failed — proot will fall back to embedded loader
-        }
-    }
-
-    private File ensureDir(File parent, String child) throws IOException {
-        File dir = new File(parent, child);
-        if (dir.exists()) {
-            if (dir.isDirectory()) return dir;
-            throw new IOException("Path is not a directory: " + dir.getAbsolutePath());
-        }
-        if (dir.mkdirs()) return dir;
-        throw new IOException("Could not create directory: " + dir.getAbsolutePath());
-    }
-
-    private void ensureProotInstalled() throws IOException {
-        File binDir = new File(runtimeRootDir(), "bin");
-        File wrapper = new File(binDir, PROOT_WRAPPER_FILE);
-        File runtimeBinary = new File(binDir, PROOT_BIN_FILE);
-        File classicBinary = new File(binDir, PROOT_CLASSIC_FILE);
-        File selectedBinary = resolveProotBinaryCandidate(
-            embeddedNativeClassicProotBinary(),
-            embeddedNativeProotBinary(),
-            classicBinary,
-            runtimeBinary
-        );
-        if (!wrapper.exists() || !wrapper.canExecute() || selectedBinary == null || !selectedBinary.exists()) {
-            throw new IOException("Proot runtime is not installed. Install runtime first.");
-        }
-        selectedBinary.setReadable(true, false);
-        selectedBinary.setExecutable(true, false);
-        createProotWrapper(binDir, selectedBinary);
-    }
-
-    private void createProotWrapper(File binDir, File targetBinary) throws IOException {
-        File wrapper = new File(binDir, PROOT_WRAPPER_FILE);
-        String script = "#!/system/bin/sh\nexec \"" + targetBinary.getAbsolutePath() + "\" \"$@\"\n";
-        try (FileOutputStream output = new FileOutputStream(wrapper, false)) {
-            output.write(script.getBytes(StandardCharsets.UTF_8));
-            output.flush();
-        }
-        if (!wrapper.setExecutable(true, false)) {
-            throw new IOException("Could not mark proot wrapper executable.");
-        }
-    }
-
-    private File embeddedNativeProotBinary() {
-        Context context = getContext();
-        if (context == null || context.getApplicationInfo() == null) return null;
-        String nativeDir = String.valueOf(context.getApplicationInfo().nativeLibraryDir == null ? "" : context.getApplicationInfo().nativeLibraryDir).trim();
-        if (nativeDir.isEmpty()) return null;
-        File candidate = new File(nativeDir, PROOT_EMBEDDED_LIB_FILE);
-        return candidate.exists() ? candidate : null;
-    }
-
-    private File embeddedNativeClassicProotBinary() {
-        Context context = getContext();
-        if (context == null || context.getApplicationInfo() == null) return null;
-        String nativeDir = String.valueOf(context.getApplicationInfo().nativeLibraryDir == null ? "" : context.getApplicationInfo().nativeLibraryDir).trim();
-        if (nativeDir.isEmpty()) return null;
-        File candidate = new File(nativeDir, PROOT_CLASSIC_EMBEDDED_LIB_FILE);
-        return candidate.exists() ? candidate : null;
-    }
-
-    private File resolveProotBinaryCandidate(File embeddedClassicBinary, File embeddedBinary, File classicBinary, File runtimeBinary) {
-        if (isUsableBinary(embeddedClassicBinary)) return embeddedClassicBinary;
-        if (isUsableBinary(embeddedBinary)) return embeddedBinary;
-        if (isUsableBinary(classicBinary)) return classicBinary;
-        if (isUsableBinary(runtimeBinary)) return runtimeBinary;
-        return null;
-    }
-
-    private String resolveProotBinarySource(File selected, File embeddedClassic, File embeddedRs, File classicRuntime) {
-        if (isEmbeddedBinary(selected, embeddedClassic)) return "embedded-classic-native-lib";
-        if (isEmbeddedBinary(selected, embeddedRs)) return "embedded-native-lib";
-        if (selected != null && classicRuntime != null) {
-            try {
-                if (selected.getCanonicalPath().equals(classicRuntime.getCanonicalPath())) {
-                    return "classic-runtime-files";
-                }
-            } catch (IOException ignored) {
-                if (selected.getAbsolutePath().equals(classicRuntime.getAbsolutePath())) return "classic-runtime-files";
-            }
-        }
-        return "runtime-files";
-    }
-
-    private boolean isUsableBinary(File file) {
-        return file != null && file.exists() && file.isFile();
-    }
-
-    private boolean isEmbeddedBinary(File selected, File embedded) {
-        if (selected == null || embedded == null) return false;
-        try {
-            return selected.getCanonicalPath().equals(embedded.getCanonicalPath());
-        } catch (IOException ignored) {
-            return selected.getAbsolutePath().equals(embedded.getAbsolutePath());
-        }
-    }
-
-    private ProotProbeResult probeProotWrapper(File wrapper) {
-        Process process = null;
-        try {
-            process = new ProcessBuilder("/system/bin/sh", wrapper.getAbsolutePath(), "--version")
-                .redirectErrorStream(true)
-                .start();
-            boolean finished = process.waitFor(8, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                return new ProotProbeResult(false, "Runtime-Check Timeout.");
-            }
-            String output = readProcessOutput(process.getInputStream(), 4000);
-            int exitCode = process.exitValue();
-            if (exitCode == 0) {
-                return new ProotProbeResult(true, output.isBlank() ? "Runtime startbar." : output);
-            }
-            String details = output.isBlank() ? "Exit " + exitCode : output;
-            return new ProotProbeResult(false, "Runtime nicht startbar: " + details);
-        } catch (Exception error) {
-            String message = String.valueOf(error.getMessage() == null ? "" : error.getMessage()).trim();
-            if (message.isEmpty()) message = error.getClass().getSimpleName();
-            return new ProotProbeResult(false, "Runtime-Check fehlgeschlagen: " + message);
-        } finally {
-            if (process != null) {
-                process.destroy();
-            }
-        }
-    }
-
-    private void downloadToFile(String rawUrl, File targetFile, String operation) throws IOException {
-        downloadToFile(rawUrl, targetFile, operation, null);
-    }
-
-    private void downloadToFile(String rawUrl, File targetFile, String operation, String distro) throws IOException {
-        HttpURLConnection connection = null;
-        try {
-            URL url = new URL(rawUrl);
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(180000);
-            connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("User-Agent", "ananta-mobile");
-            int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) {
-                throw new IOException("Download failed with HTTP " + status + " from " + rawUrl);
-            }
-            long totalBytes = connection.getContentLengthLong();
-            notifyProotProgress(operation, "downloading", "Download gestartet.", 0, totalBytes, distro);
-            try (InputStream input = new BufferedInputStream(connection.getInputStream());
-                 FileOutputStream output = new FileOutputStream(targetFile, false)) {
-                byte[] buffer = new byte[8192];
-                int read;
-                long downloaded = 0L;
-                long nextReport = 256 * 1024;
-                while ((read = input.read(buffer)) != -1) {
-                    output.write(buffer, 0, read);
-                    downloaded += read;
-                    if (downloaded >= nextReport) {
-                        notifyProotProgress(operation, "downloading", "Download laeuft...", downloaded, totalBytes, distro);
-                        nextReport = downloaded + (256 * 1024);
-                    }
-                }
-                output.flush();
-                notifyProotProgress(operation, "downloading", "Download abgeschlossen.", downloaded, totalBytes, distro);
-            }
-            if (!targetFile.exists() || targetFile.length() == 0) {
-                throw new IOException("Downloaded file is empty: " + targetFile.getAbsolutePath());
-            }
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
-    }
-
-    private void notifyProotProgress(String operation, String stage, String message, long downloaded, long total, String distro) {
-        JSObject event = new JSObject();
-        event.put("operation", operation);
-        event.put("stage", stage);
-        event.put("message", message);
-        event.put("downloadedBytes", downloaded);
-        event.put("totalBytes", total);
-        if (total > 0 && downloaded >= 0) {
-            event.put("progress", Math.min(1.0, (double) downloaded / (double) total));
-        } else {
-            event.put("progress", -1);
-        }
-        if (distro != null && !distro.isBlank()) {
-            event.put("distro", distro);
-        }
-        notifyListeners("prootInstallProgress", event);
-    }
-
-    private DistroDownloadMeta resolveDistroDownloadMeta(String distro) throws IOException {
-        DistroDownloadMeta fromPlugin = resolveDistroFromPluginScript(distro);
-        if (fromPlugin != null && fromPlugin.url != null && !fromPlugin.url.isBlank()) {
-            return fromPlugin;
-        }
-        String fromRelease = resolveDistroAssetUrlFromRelease(distro);
-        if (fromRelease == null || fromRelease.isBlank()) {
-            return new DistroDownloadMeta(null, null);
-        }
-        return new DistroDownloadMeta(fromRelease, null);
-    }
-
-    private DistroDownloadMeta resolveDistroFromPluginScript(String distro) throws IOException {
-        HttpURLConnection connection = null;
-        try {
-            URL url = new URL(PROOT_DISTRO_PLUGIN_BASE + distro + ".sh");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(30000);
-            connection.setRequestProperty("User-Agent", "ananta-mobile");
-            int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) {
-                return null;
-            }
-            String body = readProcessOutput(connection.getInputStream(), 200_000);
-            String urlMarker = "TARBALL_URL['aarch64']=\"";
-            int urlStart = body.indexOf(urlMarker);
-            if (urlStart < 0) return null;
-            int urlValueStart = urlStart + urlMarker.length();
-            int urlValueEnd = body.indexOf('"', urlValueStart);
-            if (urlValueEnd <= urlValueStart) return null;
-            String archiveUrl = body.substring(urlValueStart, urlValueEnd).trim();
-
-            String shaMarker = "TARBALL_SHA256['aarch64']=\"";
-            int shaStart = body.indexOf(shaMarker);
-            String sha = null;
-            if (shaStart >= 0) {
-                int shaValueStart = shaStart + shaMarker.length();
-                int shaValueEnd = body.indexOf('"', shaValueStart);
-                if (shaValueEnd > shaValueStart) {
-                    sha = body.substring(shaValueStart, shaValueEnd).trim();
-                }
-            }
-            return new DistroDownloadMeta(archiveUrl, sha);
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
-    }
-
-    private String resolveDistroAssetUrlFromRelease(String distro) throws IOException {
-        HttpURLConnection connection = null;
-        try {
-            URL url = new URL(PROOT_DISTRO_RELEASE_API);
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(30000);
-            connection.setRequestProperty("User-Agent", "ananta-mobile");
-            int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) {
-                throw new IOException("Could not query distro release API. HTTP " + status);
-            }
-            String body = readProcessOutput(connection.getInputStream(), 200_000);
-            String marker = "\"" + distro + "-aarch64-pd-";
-            int markerIndex = body.indexOf(marker);
-            if (markerIndex < 0) return null;
-            int urlKeyIndex = body.indexOf("\"browser_download_url\":\"", markerIndex);
-            if (urlKeyIndex < 0) return null;
-            int start = urlKeyIndex + "\"browser_download_url\":\"".length();
-            int end = body.indexOf('"', start);
-            if (end <= start) return null;
-            String escaped = body.substring(start, end);
-            return escaped.replace("\\/", "/");
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
-    }
-
-    private File extractFirstExecutableFromTarGz(File archive, File tempDir, String preferredName) throws IOException {
-        try (InputStream fis = new FileInputStream(archive);
-             InputStream gis = new GZIPInputStream(fis);
-             BufferedInputStream input = new BufferedInputStream(gis)) {
-            byte[] header = new byte[512];
-            while (readFully(input, header, 0, header.length)) {
-                if (isZeroBlock(header)) break;
-                String entryName = tarEntryName(header);
-                long size = parseTarOctal(header, 124, 12);
-                char type = (char) (header[156] & 0xff);
-                boolean regular = type == 0 || type == '0';
-                String baseName = baseName(entryName);
-                boolean candidate = regular && size > 0 && (baseName.equals(preferredName) || baseName.startsWith(preferredName));
-
-                File extracted = null;
-                FileOutputStream output = null;
-                if (candidate) {
-                    extracted = new File(tempDir, baseName);
-                    output = new FileOutputStream(extracted, false);
-                }
-
-                long remaining = size;
-                byte[] buffer = new byte[8192];
-                while (remaining > 0) {
-                    int read = input.read(buffer, 0, (int) Math.min(buffer.length, remaining));
-                    if (read == -1) throw new IOException("Unexpected EOF while reading tar entry.");
-                    if (output != null) output.write(buffer, 0, read);
-                    remaining -= read;
-                }
-                if (output != null) {
-                    output.flush();
-                    output.close();
-                    extracted.setExecutable(true, false);
-                    return extracted;
-                }
-                skipFully(input, (512 - (size % 512)) % 512);
-            }
-        }
-        return null;
-    }
-
-    private void extractTarGzToDirectory(File archive, File targetDir) throws IOException {
-        Process process = null;
-        try {
-            process = new ProcessBuilder(
-                "/system/bin/tar",
-                "xzf",
-                archive.getAbsolutePath(),
-                "-C",
-                targetDir.getAbsolutePath(),
-                "--strip-components=1"
-            )
-                .redirectErrorStream(true)
-                .start();
-            boolean finished = process.waitFor(240, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                throw new IOException("tar extraction timeout");
-            }
-            String output = readProcessOutput(process.getInputStream(), 8_000);
-            if (process.exitValue() != 0) {
-                throw new IOException(output.isBlank() ? "tar extraction failed with exit " + process.exitValue() : output);
-            }
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw new IOException("tar extraction interrupted", interrupted);
-        } finally {
-            if (process != null) process.destroy();
-        }
-    }
-
-    private void extractTarXzToDirectory(File archive, File targetDir) throws IOException {
-        try (InputStream fis = new FileInputStream(archive);
-             InputStream xis = new XZInputStream(fis)) {
-            String systemTarError = extractTarStreamWithSystemTar(xis, targetDir);
-            if (systemTarError == null) {
-                return;
-            }
-            try (InputStream fallbackFis = new FileInputStream(archive);
-                 InputStream fallbackXis = new XZInputStream(fallbackFis);
-                 BufferedInputStream input = new BufferedInputStream(fallbackXis)) {
-                extractTarStreamToDirectory(input, targetDir);
-            } catch (IOException parseError) {
-                throw new IOException(parseError.getMessage() + " | system tar: " + systemTarError, parseError);
-            }
-        } catch (IOException parseError) {
-            throw parseError;
-        }
-    }
-
-    private String installBundledDistroIfAvailable(String distro, File rootfsDir) throws IOException {
-        if (!"ubuntu".equals(distro) || !assetExists(UBUNTU_ROOTFS_PRESEED_ASSET)) {
-            return null;
-        }
-
-        notifyProotProgress("distro", "extracting", "Gebuendelte Ubuntu-Distro wird entpackt.", -1, -1, distro);
-        clearDirectory(rootfsDir);
-        try {
-            extractTarXzAssetToDirectory(UBUNTU_ROOTFS_PRESEED_ASSET, rootfsDir);
-        } catch (IOException error) {
-            clearDirectory(rootfsDir);
-            throw error;
-        }
-
-        String version = readAssetTextIfExists(UBUNTU_ROOTFS_PRESEED_VERSION_ASSET);
-        if (version == null || version.isBlank()) {
-            version = "bundled-ubuntu-rootfs";
-        }
-        return version.trim();
-    }
-
-    private String installBundledWorkspaceIfAvailable(File workspaceRoot) throws IOException {
-        if (!assetExists(ANANTA_WORKSPACE_PRESEED_ASSET)) {
-            return null;
-        }
-
-        notifyProotProgress("workspace", "extracting", "Gebuendelter Workspace wird entpackt.", -1, -1, "ubuntu");
-        if (workspaceRoot.exists()) {
-            clearDirectory(workspaceRoot);
-        } else if (!workspaceRoot.mkdirs()) {
-            throw new IOException("Could not create workspace directory: " + workspaceRoot.getAbsolutePath());
-        }
-
-        try {
-            extractTarXzAssetToDirectory(ANANTA_WORKSPACE_PRESEED_ASSET, workspaceRoot);
-        } catch (IOException error) {
-            clearDirectory(workspaceRoot);
-            throw error;
-        }
-
-        String version = readAssetTextIfExists(ANANTA_WORKSPACE_PRESEED_VERSION_ASSET);
-        if (version == null || version.isBlank()) {
-            version = "bundled-ananta-workspace";
-        }
-        return version.trim();
-    }
-
-    private void extractTarXzAssetToDirectory(String assetPath, File targetDir) throws IOException {
-        String systemTarError;
-        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
-             InputStream xzInput = new XZInputStream(assetInput)) {
-            systemTarError = extractTarStreamWithSystemTar(xzInput, targetDir, 900);
-            if (systemTarError == null) {
-                return;
-            }
-        }
-
-        clearDirectory(targetDir);
-        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
-             InputStream xzInput = new XZInputStream(assetInput);
-             BufferedInputStream input = new BufferedInputStream(xzInput)) {
-            extractTarStreamToDirectory(input, targetDir);
-        } catch (IOException parseError) {
-            throw new IOException(parseError.getMessage() + " | system tar: " + systemTarError, parseError);
-        }
-    }
-
-    private void extractTarGzAssetToDirectory(String assetPath, File targetDir) throws IOException {
-        String systemTarError;
-        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
-             InputStream gzipInput = new GZIPInputStream(assetInput)) {
-            systemTarError = extractTarStreamWithSystemTar(gzipInput, targetDir, 300);
-            if (systemTarError == null) {
-                return;
-            }
-        }
-
-        clearDirectory(targetDir);
-        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
-             InputStream gzipInput = new GZIPInputStream(assetInput);
-             BufferedInputStream input = new BufferedInputStream(gzipInput)) {
-            extractTarStreamToDirectory(input, targetDir);
-        } catch (IOException parseError) {
-            throw new IOException(parseError.getMessage() + " | system tar: " + systemTarError, parseError);
-        }
-    }
-
-    private boolean assetExists(String assetPath) {
-        Context context = getContext();
-        if (context == null) return false;
-        try (InputStream ignored = context.getAssets().open(assetPath)) {
-            return true;
-        } catch (IOException ignored) {
-            return false;
-        }
-    }
-
-    private String readAssetTextIfExists(String assetPath) throws IOException {
-        Context context = getContext();
-        if (context == null || !assetExists(assetPath)) return null;
-        try (InputStream input = context.getAssets().open(assetPath)) {
-            return readProcessOutput(input, 4_000).trim();
-        }
-    }
-
-    private void writeTextFile(File file, String content) throws IOException {
-        ensureParent(file);
-        try (FileOutputStream output = new FileOutputStream(file, false)) {
-            output.write(String.valueOf(content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
-            output.flush();
-        }
-    }
-
-    private String extractTarStreamWithSystemTar(InputStream tarStream, File targetDir) {
-        return extractTarStreamWithSystemTar(tarStream, targetDir, 240);
-    }
-
-    private String extractTarStreamWithSystemTar(InputStream tarStream, File targetDir, int timeoutSeconds) {
-        Process process = null;
-        try {
-            process = new ProcessBuilder(
-                "/system/bin/tar",
-                "-xf",
-                "-",
-                "-C",
-                targetDir.getAbsolutePath()
-            )
-                .redirectErrorStream(true)
-                .start();
-            try (OutputStream processInput = process.getOutputStream()) {
-                copyStream(tarStream, processInput);
-            }
-            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                return "timeout";
-            }
-            String output = readProcessOutput(process.getInputStream(), 8_000);
-            if (process.exitValue() == 0) return null;
-            return output.isBlank() ? "exit " + process.exitValue() : output;
-        } catch (Exception error) {
-            String message = String.valueOf(error.getMessage() == null ? "" : error.getMessage()).trim();
-            if (message.isEmpty()) message = error.getClass().getSimpleName();
-            return message;
-        } finally {
-            if (process != null) process.destroy();
-        }
-    }
-
-    private File resolveInstalledRootfs(File rootfsDir) {
-        if (rootfsDir == null || !rootfsDir.isDirectory()) return null;
-        if (resolveLoginShellPath(rootfsDir) != null) return rootfsDir;
-        File[] children = rootfsDir.listFiles();
-        if (children == null) return null;
-        for (File child : children) {
-            if (!child.isDirectory()) continue;
-            if (resolveLoginShellPath(child) != null) return child;
-        }
-        return null;
-    }
-
-    private void ensureDistroBootstrap(String distro, File runtimeRoot, File rootfsDir) throws Exception {
-        if (!requiresPythonBootstrap(distro)) return;
-        if (distroHasPython(runtimeRoot, rootfsDir)) return;
-        notifyProotProgress("distro", "extracting", "Installiere Python in Distro.", -1, -1, distro);
-        ShellExecutionResult install = runInProot(
-            runtimeRoot,
-            rootfsDir,
-            "set -e; "
-                + "if [ ! -s /etc/resolv.conf ] || ! grep -Eq '^nameserver[[:space:]]+' /etc/resolv.conf 2>/dev/null; then "
-                + "printf 'nameserver 1.1.1.1\\nnameserver 8.8.8.8\\n' > /etc/resolv.conf 2>/dev/null || true; "
-                + "fi; "
-                + "if command -v apt-get >/dev/null 2>&1; then export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y python3; else echo ANANTA_APT_MISSING; exit 2; fi; "
-                + "if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; exit 3; fi",
-            600
-        );
-        String output = String.valueOf(install.output == null ? "" : install.output);
-        if (install.timedOut || install.exitCode != 0 || !output.contains("ANANTA_PY_OK")) {
-            throw new IOException("Python bootstrap failed: " + output.trim());
-        }
-    }
-
-    private boolean requiresPythonBootstrap(String distro) {
-        String normalized = String.valueOf(distro == null ? "" : distro).trim().toLowerCase();
-        return "ubuntu".equals(normalized) || "debian".equals(normalized);
-    }
-
-    private boolean distroHasPython(File runtimeRoot, File rootfsDir) throws Exception {
-        ShellExecutionResult probe = runInProot(
-            runtimeRoot,
-            rootfsDir,
-            "if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; fi",
-            120
-        );
-        String output = String.valueOf(probe.output == null ? "" : probe.output);
-        return !probe.timedOut && probe.exitCode == 0 && output.contains("ANANTA_PY_OK");
-    }
-
-    private boolean probeInProot(File runtimeRoot, File rootfsDir, String command) {
-        try {
-            ShellExecutionResult probe = runInProot(runtimeRoot, rootfsDir, command, 180);
-            String output = String.valueOf(probe.output == null ? "" : probe.output);
-            return !probe.timedOut && probe.exitCode == 0 && output.contains("ANANTA_OK");
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private ShellExecutionResult runInProot(File runtimeRoot, File rootfsDir, String innerCommand, int timeoutSeconds) throws Exception {
-        String runtimePath = runtimeRoot.getAbsolutePath();
-        String rootfsPath = rootfsDir.getAbsolutePath();
-        String wrappedInnerCommand =
-            "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
-                + "export HOME=/root; "
-                + "export TERM=xterm-256color; "
-                + String.valueOf(innerCommand == null ? "" : innerCommand).trim();
-        String command = ""
-            + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
-            + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
-            + "ANANTA_PROOT_WRAPPER=\"$ANANTA_PROOT_RUNTIME/bin/proot\"; "
-            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
-            + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-            + "chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-            + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
-            + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
-            + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
-            + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
-            + "-w / /bin/sh -c " + shQuote(wrappedInnerCommand);
-        return executeShellCommand(command, timeoutSeconds);
-    }
-
-    private String shQuote(String value) {
-        String text = String.valueOf(value == null ? "" : value);
-        return "'" + text.replace("'", "'\"'\"'") + "'";
-    }
-
-    private String resolveLoginShellPath(File rootfsDir) {
-        if (rootfsDir == null || !rootfsDir.isDirectory()) return null;
-        String[] candidates = {
-            "/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh",
-            "/bin/bash", "/bin/sh", "/bin/dash", "/bin/ash"
-        };
-        for (String candidate : candidates) {
-            File file = new File(rootfsDir, candidate.startsWith("/") ? candidate.substring(1) : candidate);
-            if (file.isFile()) return candidate;
-        }
-        return null;
-    }
-
-    private void extractTarStreamToDirectory(InputStream input, File targetDir) throws IOException {
-        byte[] header = new byte[512];
-        while (readFully(input, header, 0, header.length)) {
-            if (isZeroBlock(header)) break;
-            String entryName = tarEntryName(header);
-            long size = parseTarOctal(header, 124, 12);
-            int mode = (int) parseTarOctal(header, 100, 8);
-            char type = (char) (header[156] & 0xff);
-            String linkName = readTarString(header, 157, 100);
-
-            // Skip root marker entries and metadata-only tar records (pax/gnu extensions).
-            if (isRootMarkerEntry(entryName) || isMetadataOnlyEntry(type)) {
-                skipFully(input, size);
-                skipFully(input, (512 - (size % 512)) % 512);
-                continue;
-            }
-
-            if (isDirectoryEntry(type, entryName)) {
-                File outFile = secureTarTarget(targetDir, entryName);
-                if (!outFile.exists() && !outFile.mkdirs()) {
-                    throw new IOException("Could not create directory: " + outFile.getAbsolutePath());
-                }
-            } else if (type == '2') {
-                File outFile = secureTarTarget(targetDir, entryName);
-                ensureParent(outFile);
-                createSymlink(outFile, linkName);
-            } else if (type == 0 || type == '0') {
-                File outFile = secureTarTarget(targetDir, entryName);
-                if (outFile.isDirectory()) {
-                    skipFully(input, size);
-                    skipFully(input, (512 - (size % 512)) % 512);
-                    continue;
-                }
-                ensureParent(outFile);
-                try (FileOutputStream output = new FileOutputStream(outFile, false)) {
-                    copyFixedBytes(input, output, size);
-                }
-                applyMode(outFile, mode);
-            } else {
-                skipFully(input, size);
-            }
-            skipFully(input, (512 - (size % 512)) % 512);
-        }
-    }
-
-    private boolean isMetadataOnlyEntry(char type) {
-        return type == 'x' || type == 'g' || type == 'L' || type == 'K';
-    }
-
-    private boolean isRootMarkerEntry(String entryName) {
-        String normalized = String.valueOf(entryName == null ? "" : entryName).replace('\\', '/').trim();
-        while (normalized.startsWith("/")) normalized = normalized.substring(1);
-        return normalized.isEmpty() || ".".equals(normalized) || "./".equals(normalized);
-    }
-
-    private boolean isDirectoryEntry(char type, String entryName) {
-        if (type == '5') return true;
-        String name = String.valueOf(entryName == null ? "" : entryName).trim();
-        return !name.isEmpty() && name.endsWith("/");
-    }
-
-    private File secureTarTarget(File targetDir, String entryName) throws IOException {
-        String normalized = String.valueOf(entryName == null ? "" : entryName).replace('\\', '/');
-        while (normalized.startsWith("/")) normalized = normalized.substring(1);
-        if (normalized.isEmpty()) {
-            throw new IOException("Invalid tar entry name.");
-        }
-        File out = new File(targetDir, normalized);
-        Path targetPath = out.getCanonicalFile().toPath();
-        Path rootPath = targetDir.getCanonicalFile().toPath();
-        if (!targetPath.startsWith(rootPath)) {
-            throw new IOException("Blocked path traversal in tar entry: " + entryName);
-        }
-        return out;
-    }
-
-    private void ensureParent(File file) throws IOException {
-        File parent = file.getParentFile();
-        if (parent == null) return;
-        if (parent.exists()) return;
-        if (!parent.mkdirs()) {
-            throw new IOException("Could not create parent directory: " + parent.getAbsolutePath());
-        }
-    }
-
-    private void copyFixedBytes(InputStream input, FileOutputStream output, long bytes) throws IOException {
-        long remaining = bytes;
-        byte[] buffer = new byte[8192];
-        while (remaining > 0) {
-            int read = input.read(buffer, 0, (int) Math.min(buffer.length, remaining));
-            if (read == -1) throw new IOException("Unexpected EOF while reading tar payload.");
-            output.write(buffer, 0, read);
-            remaining -= read;
-        }
-        output.flush();
-    }
-
-    private void copyStream(InputStream input, OutputStream output) throws IOException {
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = input.read(buffer)) != -1) {
-            output.write(buffer, 0, read);
-        }
-        output.flush();
-    }
-
-    private void applyMode(File file, int mode) {
-        if ((mode & 0400) != 0) file.setReadable(true, true);
-        if ((mode & 0004) != 0) file.setReadable(true, false);
-        if ((mode & 0200) != 0) file.setWritable(true, true);
-        if ((mode & 0002) != 0) file.setWritable(true, false);
-        if ((mode & 0100) != 0 || (mode & 0010) != 0 || (mode & 0001) != 0) {
-            file.setExecutable(true, false);
-        }
-    }
-
-    private void createSymlink(File linkFile, String linkTarget) throws IOException {
-        if (linkTarget == null || linkTarget.isBlank()) return;
-        Path linkPath = linkFile.toPath();
-        try {
-            Files.deleteIfExists(linkPath);
-            Files.createSymbolicLink(linkPath, Paths.get(linkTarget));
-        } catch (UnsupportedOperationException ignored) {
-            // Some Android filesystems may not support symbolic links for app users.
-        }
-    }
-
-    private void clearDirectory(File directory) throws IOException {
-        File[] entries = directory.listFiles();
-        if (entries == null) return;
-        for (File entry : entries) {
-            if (entry.isDirectory()) clearDirectory(entry);
-            if (!entry.delete()) {
-                throw new IOException("Could not delete " + entry.getAbsolutePath());
-            }
-        }
-    }
-
-    private boolean readFully(InputStream input, byte[] buffer, int offset, int len) throws IOException {
-        int total = 0;
-        while (total < len) {
-            int read = input.read(buffer, offset + total, len - total);
-            if (read == -1) {
-                return total != 0 && total == len;
-            }
-            total += read;
-        }
-        return true;
-    }
-
-    private boolean isZeroBlock(byte[] block) {
-        for (byte b : block) {
-            if (b != 0) return false;
-        }
-        return true;
-    }
-
-    private String tarEntryName(byte[] header) {
-        String name = readTarString(header, 0, 100);
-        String prefix = readTarString(header, 345, 155);
-        if (prefix.isEmpty()) return name;
-        if (name.isEmpty()) return prefix;
-        return prefix + "/" + name;
-    }
-
-    private String readTarString(byte[] buffer, int offset, int len) {
-        int end = offset;
-        while (end < offset + len && buffer[end] != 0) end += 1;
-        return new String(buffer, offset, end - offset, StandardCharsets.UTF_8).trim();
-    }
-
-    private long parseTarOctal(byte[] buffer, int offset, int len) {
-        // GNU tar may encode numeric fields in base-256 when values exceed octal field width.
-        if ((buffer[offset] & 0x80) != 0) {
-            long value = buffer[offset] & 0x7fL;
-            for (int i = 1; i < len; i++) {
-                value = (value << 8) | (buffer[offset + i] & 0xffL);
-            }
-            return value;
-        }
-        String raw = readTarString(buffer, offset, len);
-        if (raw.isEmpty()) return 0L;
-        try {
-            return Long.parseLong(raw.trim(), 8);
-        } catch (NumberFormatException ignored) {
-            return 0L;
-        }
-    }
-
-    private String baseName(String path) {
-        if (path == null || path.isBlank()) return "";
-        String normalized = path.replace('\\', '/');
-        int idx = normalized.lastIndexOf('/');
-        if (idx < 0) return normalized;
-        return normalized.substring(idx + 1);
-    }
-
-    private void skipFully(InputStream input, long bytes) throws IOException {
-        long remaining = bytes;
-        while (remaining > 0) {
-            long skipped = input.skip(remaining);
-            if (skipped <= 0) {
-                if (input.read() == -1) throw new IOException("Unexpected EOF while skipping.");
-                skipped = 1;
-            }
-            remaining -= skipped;
-        }
-    }
-
-    private void copyFile(File source, File target) throws IOException {
-        try (FileInputStream input = new FileInputStream(source);
-             FileOutputStream output = new FileOutputStream(target, false)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                output.write(buffer, 0, read);
-            }
-            output.flush();
-        }
-    }
-
-    private String computeSha256(File file) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (FileInputStream input = new FileInputStream(file)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                digest.update(buffer, 0, read);
-            }
-        }
-        byte[] hash = digest.digest();
-        StringBuilder hex = new StringBuilder(hash.length * 2);
-        for (byte value : hash) {
-            String part = Integer.toHexString(0xff & value);
-            if (part.length() == 1) hex.append('0');
-            hex.append(part);
-        }
-        return hex.toString();
-    }
-
-    private String readProcessOutput(InputStream stream, int maxChars) throws IOException {
-        StringBuilder out = new StringBuilder();
-        boolean truncated = false;
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            char[] buffer = new char[4096];
-            int read;
-            while ((read = reader.read(buffer)) != -1) {
-                int remaining = maxChars - out.length();
-                if (remaining > 0) {
-                    int toAppend = Math.min(remaining, read);
-                    out.append(buffer, 0, toAppend);
-                }
-                if (out.length() >= maxChars) {
-                    truncated = true;
-                }
-            }
-        }
-        if (truncated) {
-            out.append("\n[ananta-mobile-shell] Output truncated");
-        }
-        return out.toString().trim();
-    }
-
-    private static final class ShellExecutionResult {
-        final String output;
-        final int exitCode;
-        final boolean timedOut;
-
-        ShellExecutionResult(String output, int exitCode, boolean timedOut) {
-            this.output = output;
-            this.exitCode = exitCode;
-            this.timedOut = timedOut;
-        }
-    }
-
-    private static final class DistroDownloadMeta {
-        final String url;
-        final String sha256;
-
-        DistroDownloadMeta(String url, String sha256) {
-            this.url = url;
-            this.sha256 = sha256;
-        }
-    }
-
-    private static final class ProotProbeResult {
-        final boolean runnable;
-        final String message;
-
-        ProotProbeResult(boolean runnable, String message) {
-            this.runnable = runnable;
-            this.message = String.valueOf(message == null ? "" : message).trim();
-        }
-    }
-
-    private static final class ShellSessionRead {
-        final String output;
-        final boolean hasMore;
-
-        ShellSessionRead(String output, boolean hasMore) {
-            this.output = output;
-            this.hasMore = hasMore;
-        }
-    }
-
-    private static final class ShellSession {
-        private final Process process;
-        private final BufferedWriter stdin;
-        private final StringBuilder output = new StringBuilder();
-        private final Object outputLock = new Object();
-        private volatile int readOffset = 0;
-
-        ShellSession(Process process) {
-            this.process = process;
-            this.stdin = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
-        }
-
-        void startReaderThread() {
-            Thread reader = new Thread(() -> {
-                try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                    char[] buffer = new char[2048];
-                    int read;
-                    while ((read = br.read(buffer)) != -1) {
-                        appendOutput(new String(buffer, 0, read));
-                    }
-                } catch (IOException ignored) {
-                    // stream closed by process termination
-                }
-            }, "ananta-shell-session-reader");
-            reader.setDaemon(true);
-            reader.start();
-        }
-
-        void write(String input) throws IOException {
-            // Translate CR to LF (no TTY driver to perform ICRNL)
-            stdin.write(input.replace("\r\n", "\n").replace("\r", "\n"));
-            stdin.flush();
-        }
-
-        void interrupt() throws IOException {
-            long pid = resolveProcessPid(process);
-            Process signal = null;
-            try {
-                if (pid <= 0) {
-                    process.destroy();
-                    return;
-                }
-                String pidText = Long.toString(pid);
-                signal = new ProcessBuilder(
-                    "/system/bin/sh",
-                    "-c",
-                    "kill -INT -" + pidText + " >/dev/null 2>&1 || kill -INT " + pidText + " >/dev/null 2>&1"
-                ).redirectErrorStream(true).start();
-                signal.waitFor(2, TimeUnit.SECONDS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (signal != null) signal.destroy();
-            }
-        }
-
-        private long resolveProcessPid(Process target) {
-            try {
-                Field pidField = target.getClass().getDeclaredField("pid");
-                pidField.setAccessible(true);
-                Object value = pidField.get(target);
-                if (value instanceof Number) return ((Number) value).longValue();
-            } catch (Exception ignored) {
-                // Fallback below.
-            }
-            return -1L;
-        }
-
-        ShellSessionRead readDelta(int maxChars) {
-            synchronized (outputLock) {
-                // If no data yet but process is alive, briefly wait for output
-                if (readOffset >= output.length() && process.isAlive()) {
-                    try {
-                        outputLock.wait(15);
-                    } catch (InterruptedException ignored) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-                if (readOffset >= output.length()) {
-                    return new ShellSessionRead("", false);
-                }
-                int available = output.length() - readOffset;
-                int toRead = Math.min(available, maxChars);
-                String chunk = output.substring(readOffset, readOffset + toRead);
-                readOffset += toRead;
-                boolean hasMore = readOffset < output.length();
-                return new ShellSessionRead(chunk, hasMore);
-            }
-        }
-
-        boolean isRunning() {
-            return process.isAlive();
-        }
-
-        int exitCode() {
-            return process.isAlive() ? -1 : process.exitValue();
-        }
-
-        void close() {
-            try {
-                stdin.write("exit\n");
-                stdin.flush();
-            } catch (IOException ignored) {
-            }
-            process.destroy();
-            if (process.isAlive()) {
-                process.destroyForcibly();
-            }
-        }
-
-        private void appendOutput(String text) {
-            if (text == null || text.isEmpty()) return;
-            synchronized (outputLock) {
-                output.append(text);
-                int overflow = output.length() - MAX_SESSION_OUTPUT_CHARS;
-                if (overflow > 0) {
-                    output.delete(0, overflow);
-                    readOffset = Math.max(0, readOffset - overflow);
-                }
-                outputLock.notifyAll();
-            }
-        }
     }
 }

@@ -1,0 +1,31 @@
+    .tab-btn {
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+    }
+    .tab-btn.active {
+      border-bottom: 2px solid var(--primary-color, #007bff);
+      color: var(--primary-color, #007bff);
+    }
+    .tab-btn:hover:not(.active) {
+      background: #f0f0f0;
+    }
+    .task-live-terminal-card {
+      margin-top: 10px;
+    }
+    .task-live-terminal-meta {
+      margin: 4px 0 10px;
+    }
+    .task-terminal-mode-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .border-danger {
+      border: 1px solid #d9534f;
+    }
+  

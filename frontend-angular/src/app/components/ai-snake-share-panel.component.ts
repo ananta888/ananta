@@ -417,7 +417,7 @@ export class AiSnakeSharePanelComponent {
     this.core.post<{ ok: boolean; group: PairGroup }>(`${url}/pair-groups`, {
       name: this.newGroupName.trim(),
       description: this.newGroupDesc.trim(),
-      default_permissions: { chat: this.gperm_chat, view_tui: this.gperm_view, remote_cursor: this.gperm_cursor },
+      default_permissions: { chat: this.gperm_chat, view_tui: this.gperm_view, cursor: this.gperm_cursor },
     }, url).subscribe({
       next: (r) => {
         if (r?.group) this.groups = [...this.groups, r.group];
@@ -499,7 +499,7 @@ export class AiSnakeSharePanelComponent {
     this.createError = '';
     try {
       await this.svc.createSession(this.createTitle.trim(), {
-        chat: this.perm_chat, view_tui: this.perm_view, remote_cursor: this.perm_cursor,
+        chat: this.perm_chat, view_tui: this.perm_view, cursor: this.perm_cursor,
       }, Number(this.expiresIn) || null);
       this.activeTab = 'chat';
     } catch (e: any) {
