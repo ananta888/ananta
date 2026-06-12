@@ -297,6 +297,28 @@ class Settings(BaseSettings):
         default=3,
         validation_alias="CODECOMPASS_QUERY_MAX_PATHS_PER_RESULT",
     )
+    # CCRDS: runtime domain scope (hard path boundaries from domain discovery
+    # artifacts / descriptors). Disabled by default — `domain:`-prefixed
+    # chat_retrieval_domain_hint values stay soft hints until enabled.
+    codecompass_domain_scope_enabled: bool = Field(
+        default=False, validation_alias="CODECOMPASS_DOMAIN_SCOPE_ENABLED"
+    )
+    codecompass_domain_artifact_path: str = Field(
+        default="artifacts/codecompass/domains.detected.json",
+        validation_alias="CODECOMPASS_DOMAIN_ARTIFACT_PATH",
+    )
+    codecompass_domain_descriptor_root: str = Field(
+        default="domains", validation_alias="CODECOMPASS_DOMAIN_DESCRIPTOR_ROOT"
+    )
+    codecompass_scope_strict_mode: bool = Field(
+        default=True, validation_alias="CODECOMPASS_SCOPE_STRICT_MODE"
+    )
+    codecompass_scope_allow_relation_expansion: bool = Field(
+        default=False, validation_alias="CODECOMPASS_SCOPE_ALLOW_RELATION_EXPANSION"
+    )
+    codecompass_scope_max_external_reference_chunks: int = Field(
+        default=2, validation_alias="CODECOMPASS_SCOPE_MAX_EXTERNAL_REFERENCE_CHUNKS"
+    )
 
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")

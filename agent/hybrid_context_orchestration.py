@@ -10,14 +10,21 @@ def collect_context_chunks(
     repository_engine: Any,
     semantic_engine: Any,
     agentic_engine: Any,
+    allowed_paths: list[str] | None = None,
 ) -> list[Any]:
+    # CCRDS: allowed_paths narrows repository/agentic search at the source;
+    # semantic results are filtered downstream by the DomainScopeFilter.
     chunks: list[Any] = []
     if quotas.get("repository_map", 0) > 0:
-        chunks.extend(repository_engine.search(query, top_k=quotas["repository_map"]))
+        chunks.extend(
+            repository_engine.search(query, top_k=quotas["repository_map"], allowed_paths=allowed_paths)
+        )
     if quotas.get("semantic_search", 0) > 0:
         chunks.extend(semantic_engine.search(query, top_k=quotas["semantic_search"]))
     if quotas.get("agentic_search", 0) > 0:
-        chunks.extend(agentic_engine.search(query, top_k=quotas["agentic_search"]))
+        chunks.extend(
+            agentic_engine.search(query, top_k=quotas["agentic_search"], allowed_paths=allowed_paths)
+        )
     return chunks
 
 

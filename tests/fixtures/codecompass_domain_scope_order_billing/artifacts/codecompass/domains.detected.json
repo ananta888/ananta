@@ -1,0 +1,34 @@
+{
+  "schema": "codecompass_domain_analysis.v1",
+  "project_root": ".",
+  "generated_at": "2026-06-12T00:00:00Z",
+  "domains": [
+    {
+      "domain_id": "bestellmodul",
+      "display_name": "Bestellmodul",
+      "confidence": 0.86,
+      "root_paths": ["orders"],
+      "package_prefixes": ["orders"],
+      "technical_layers": [],
+      "boundary_warnings": []
+    },
+    {
+      "domain_id": "artikelkatalog",
+      "display_name": "Artikelkatalog",
+      "confidence": 0.81,
+      "root_paths": ["catalog"],
+      "package_prefixes": ["catalog"],
+      "technical_layers": [],
+      "boundary_warnings": []
+    },
+    {
+      "domain_id": "billing",
+      "display_name": "Billing",
+      "confidence": 0.78,
+      "root_paths": ["billing"],
+      "package_prefixes": ["billing"],
+      "technical_layers": [],
+      "boundary_warnings": []
+    }
+  ]
+}

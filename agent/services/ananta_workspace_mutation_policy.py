@@ -122,6 +122,7 @@ class AnantaWorkspaceMutationPolicyService:
         allowed_new_file_globs: list[str] | None = None,
         require_materialized_scope: bool = True,
         strict_path_markers: list[str] | None = None,
+        domain_allowed_write_paths: list[str] | None = None,
     ) -> WorkspaceMutationPolicyResult:
         """AWWPI-008: validate every meaningful changed file against scope.
 
@@ -129,6 +130,11 @@ class AnantaWorkspaceMutationPolicyService:
         operation in the manifest, or matches ``allowed_new_file_globs``.
         Without a manifest and with ``require_materialized_scope`` off, the
         change is flagged questionable but not blocked.
+
+        CCRDS-011: ``domain_allowed_write_paths`` is the runtime-domain-scope
+        hook — when set (active scope), every change must additionally lie
+        under one of these repo-relative path prefixes; everything else is
+        blocked as ``outside_domain_write_scope``.
         """
         workspace = Path(workspace_dir).resolve()
         allowed: list[str] = []
@@ -169,6 +175,11 @@ class AnantaWorkspaceMutationPolicyService:
             if deleted:
                 blocked.append({"path": rel, "reason": "delete_or_rename_requires_separate_approval"})
                 continue
+            if domain_allowed_write_paths is not None:
+                from agent.codecompass.domain_scope import is_path_within
+                if not is_path_within(rel, domain_allowed_write_paths):
+                    blocked.append({"path": rel, "reason": "outside_domain_write_scope"})
+                    continue
             if self.is_strict_required_path(rel, markers=strict_path_markers):
                 escalate = True
             if rel in writable_paths or any(fnmatch.fnmatch(rel, glob) for glob in new_globs):

@@ -230,8 +230,36 @@ def _resolve_snake_retrieval_profile_trace(
             feature_flag = "repo_first"
         domain_hint = str(cfg.get("chat_retrieval_domain_hint") or "").strip() or None
         profile = resolve_profile(str(user_text or ""), cfg, domain_hint=domain_hint, feature_flag=feature_flag)
+
+        # CCRDS-006/014: show the soft profile domain and the hard runtime
+        # scope as separate trace fields. The scope is only resolved when
+        # the feature flag is on and the hint uses the `domain:` prefix.
+        runtime_domain_scope: dict[str, Any] = {"active": False}
+        try:
+            from agent.codecompass.domain_scope_resolver import (
+                DomainScopeResolver,
+                scope_from_domain_hint,
+            )
+
+            scope = scope_from_domain_hint(
+                domain_hint,
+                enabled=bool(getattr(settings, "codecompass_domain_scope_enabled", False)),
+                strict=bool(getattr(settings, "codecompass_scope_strict_mode", True)),
+            )
+            if scope is not None:
+                resolver = DomainScopeResolver(
+                    repo_root=Path(__file__).resolve().parents[2],
+                    artifact_path=str(getattr(settings, "codecompass_domain_artifact_path", "") or "") or None,
+                    descriptor_root=str(getattr(settings, "codecompass_domain_descriptor_root", "") or "") or None,
+                )
+                runtime_domain_scope = resolver.resolve(scope).as_dict()
+        except Exception as scope_exc:
+            runtime_domain_scope = {"active": False, "error": str(scope_exc)[:120]}
+
         return {
             "profile_id": profile.profile_id,
+            "retrieval_profile_domain": profile.domain,
+            "runtime_domain_scope": runtime_domain_scope,
             "domain": profile.domain,
             "intent": profile.intent,
             "analysis_mode": profile.analysis_mode or "standard",

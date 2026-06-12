@@ -4,6 +4,7 @@ from flask import Flask
 
 from agent.bootstrap.route_aliases import register_route_aliases
 from agent.routes.artifacts import artifacts_bp
+from agent.routes.codecompass_domain_scope import codecompass_domain_scope_bp
 from agent.routes.codecompass_graph import codecompass_graph_bp
 from agent.routes.codecompass_reload import codecompass_reload_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
@@ -69,6 +70,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(tasks_bp)
     register_tasks_blueprints(app)
     app.register_blueprint(artifacts_bp)
+    app.register_blueprint(codecompass_domain_scope_bp)
     app.register_blueprint(codecompass_graph_bp)
     app.register_blueprint(codecompass_reload_bp)
     app.register_blueprint(worker_tool_loop_diagnostics_bp)

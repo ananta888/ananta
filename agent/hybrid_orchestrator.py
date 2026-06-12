@@ -295,10 +295,26 @@ class RepositoryMapEngine:
         "operator_tui", "tui_runtime", "common",
     })
 
-    def search(self, query: str, top_k: int = 5) -> list[ContextChunk]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        allowed_paths: list[str] | None = None,
+    ) -> list[ContextChunk]:
         self.build()
         if not self._symbol_graph:
             return []
+        # CCRDS-009: with an active domain scope only candidates inside the
+        # allowed paths are scored at all; without scope nothing changes.
+        symbol_items = self._symbol_graph.items()
+        if allowed_paths is not None:
+            from agent.codecompass.domain_scope import is_path_within
+            symbol_items = [
+                (rel, syms) for rel, syms in symbol_items
+                if is_path_within(rel, allowed_paths)
+            ]
+            if not symbol_items:
+                return []
         tokens = {
             t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query)
             if len(t) >= 3 and t.lower() not in self._REPO_STOP_TOKENS
@@ -317,7 +333,7 @@ class RepositoryMapEngine:
             t for t in tokens if len(t) >= 4
         }
         candidates: list[ContextChunk] = []
-        for rel_path, symbols in self._symbol_graph.items():
+        for rel_path, symbols in symbol_items:
             score = 0.0
             path_lower = rel_path.lower()
             sym_lower = [s.lower() for s in symbols]
@@ -545,13 +561,50 @@ class AgenticSearchEngine:
         matches.sort(key=lambda skill: skill.priority)
         return matches[: self.max_commands]
 
-    def search(self, query: str, top_k: int = 3) -> list[ContextChunk]:
+    def _apply_scope(self, args: list[str], allowed_paths: list[str]) -> list[str] | None:
+        """CCRDS-010: rewrite a planned command to search only allowed paths.
+
+        ``rg`` gets the scoped paths as explicit positional targets (an
+        existing trailing ``.`` is replaced); ``cat``/``ls`` targets must
+        already lie inside the scope, otherwise the command is dropped.
+        Query content can never widen the scope: the query is a single
+        sanitized pattern argument, the paths are appended afterwards.
+        """
+        from agent.codecompass.domain_scope import is_path_within, normalize_repo_relative_path
+
+        if not args:
+            return None
+        if args[0] == "rg":
+            scoped = args[:-1] if args[-1] == "." else list(args)
+            return scoped + sorted(allowed_paths)
+        # cat/ls: every path argument must be inside the scope.
+        for arg in args[1:]:
+            if arg.startswith("-"):
+                continue
+            normalized = normalize_repo_relative_path(arg, repo_root=self.repo_root)
+            if normalized is None or not is_path_within(normalized, allowed_paths):
+                return None
+        return list(args)
+
+    def search(
+        self,
+        query: str,
+        top_k: int = 3,
+        allowed_paths: list[str] | None = None,
+    ) -> list[ContextChunk]:
+        if allowed_paths is not None and not allowed_paths:
+            # Active scope without any allowed path: never search globally.
+            return []
         planned = self._plan(query)
         max_steps = min(len(planned), self.max_commands, max(top_k, 1))
         chunks: list[ContextChunk] = []
         used_output = 0
         for skill in planned[:max_steps]:
             args = skill.build_command(query)
+            if allowed_paths is not None:
+                args = self._apply_scope(args, allowed_paths)
+                if args is None:
+                    continue
             out = self._run(args)
             if not out:
                 continue
@@ -879,7 +932,42 @@ class HybridOrchestrator:
             return text
         return redact_sensitive_text(text, self.SECRET_PATTERNS)
 
-    def get_relevant_context(self, query: str) -> dict[str, object]:
+    def _resolve_domain_scope(self, domain_scope: object) -> object | None:
+        """CCRDS-007: accept a DomainScope or pre-resolved scope, or None."""
+        if domain_scope is None:
+            return None
+        from agent.codecompass.domain_scope import DomainScope, ResolvedDomainScope
+        if isinstance(domain_scope, ResolvedDomainScope):
+            return domain_scope
+        if isinstance(domain_scope, DomainScope):
+            from agent.codecompass.domain_scope_resolver import DomainScopeResolver
+            resolver = DomainScopeResolver(
+                repo_root=self.repo_root,
+                artifact_path=str(getattr(settings, "codecompass_domain_artifact_path", "") or "") or None,
+                descriptor_root=str(getattr(settings, "codecompass_domain_descriptor_root", "") or "") or None,
+            )
+            return resolver.resolve(domain_scope)
+        raise TypeError(f"unsupported domain_scope type: {type(domain_scope)!r}")
+
+    def get_relevant_context(self, query: str, domain_scope: object | None = None) -> dict[str, object]:
+        resolved_scope = self._resolve_domain_scope(domain_scope)
+        scope_active = resolved_scope is not None and resolved_scope.active
+
+        if scope_active and not resolved_scope.ok:
+            # CCRDS-DD-003: strict resolution failure fails closed — no
+            # global fallback, no context, explicit error for the caller.
+            return {
+                "query": query,
+                "error": "domain_scope_violation",
+                "strategy": {},
+                "policy_version": self.context_manager.policy_version,
+                "chunks": [],
+                "context_text": "",
+                "token_estimate": 0,
+                "domain_scope": resolved_scope.as_dict(),
+            }
+
+        allowed_paths = list(resolved_scope.allowed_read_paths) if scope_active else None
         query_variants = normalize_query_from_settings(query)
         quotas = self.context_manager.route(query)
 
@@ -894,12 +982,20 @@ class HybridOrchestrator:
                 repository_engine=self.repository_engine,
                 semantic_engine=self.semantic_engine,
                 agentic_engine=self.agentic_engine,
+                allowed_paths=allowed_paths,
             )
             for chunk in variant_chunks:
                 key = (chunk.engine, chunk.source, chunk.content[:120])
                 if key not in seen_keys:
                     seen_keys.add(key)
                     all_chunks.append(chunk)
+
+        filter_stats = None
+        if scope_active:
+            from agent.codecompass.domain_scope_filter import filter_chunks
+            all_chunks, filter_stats = filter_chunks(
+                all_chunks, resolved_scope, repo_root=self.repo_root
+            )
 
         best = self.context_manager.rerank(
             chunks=all_chunks,
@@ -909,7 +1005,7 @@ class HybridOrchestrator:
             max_tokens=self.max_context_tokens,
         )
 
-        return serialize_context_result(
+        result = serialize_context_result(
             query=query,
             quotas=quotas,
             policy_version=self.context_manager.policy_version,
@@ -917,9 +1013,35 @@ class HybridOrchestrator:
             redact=self._redact,
             estimate_tokens=self.context_manager.estimate_tokens,
         )
+        if scope_active:
+            from agent.codecompass.domain_scope_filter import build_scope_banner
+            result["domain_scope"] = {
+                **resolved_scope.as_dict(),
+                "active_domain_ids": list(resolved_scope.selected_domain_ids),
+                "filter_stats": filter_stats.as_dict() if filter_stats else None,
+            }
+            banner = build_scope_banner(resolved_scope, filter_stats)
+            result["context_text"] = (
+                f"{banner}\n\n{result['context_text']}" if result["context_text"] else banner
+            )
+        return result
 
-    def run_with_sgpt(self, query: str, options: list[str] | None = None) -> dict[str, object]:
-        context = self.get_relevant_context(query)
+    def run_with_sgpt(
+        self,
+        query: str,
+        options: list[str] | None = None,
+        domain_scope: object | None = None,
+    ) -> dict[str, object]:
+        context = self.get_relevant_context(query, domain_scope=domain_scope)
+        if context.get("error"):
+            # Strict scope failure: no prompt is built, no LLM is called.
+            return {
+                "returncode": 1,
+                "output": "",
+                "errors": str(context["error"]),
+                "backend": None,
+                "context": context,
+            }
         prompt = (
             "Nutze den folgenden selektiven Kontext und beantworte die Frage praezise.\n\n"
             f"Frage:\n{query}\n\n"

@@ -665,6 +665,12 @@ def resolve_profile(
         if _hint in _known_domains:
             domain = _hint
             reasons.append(f"domain_hint:{domain}")
+        elif _hint.lower().startswith("domain:"):
+            # CCRDS-006: `domain:<id>` is a runtime-domain-scope selection,
+            # not a profile domain. The hard scope is resolved separately by
+            # agent.codecompass.domain_scope_resolver; the profile keeps the
+            # classified domain.
+            reasons.append(f"domain_hint_runtime_scope:{_hint[len('domain:'):].strip().lower()}")
         else:
             reasons.append(f"domain_hint_unknown:{_hint}:ignored")
     if intent_override and str(intent_override).strip():

@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-runtime-domain-scope",
   "created": "2026-06-12",
-  "status": "todo",
+  "status": "partial",
   "purpose": "Den bereits vorhandenen ai-snake/CodeCompass `chat_retrieval_domain_hint` von einem weichen Retrieval-Profil-Hinweis zu einem optional harten Runtime-Domain-Scope erweitern. Wenn ein User z.B. `Bestellmodul` auswählt, soll dieser bestehende Hint nicht nur das Profil beeinflussen, sondern gegen `domains.detected.json`/Domain-Descriptoren aufgeloest werden und Retrieval/Worker-Scope deterministisch begrenzen.",
   "goal": "Eine Runtime-Domain-Scope-Schicht implementieren, die `domains.detected.json` und vorhandene `domains/<domain_id>/domain.json` Descriptoren lesen kann, eine explizite Domain-Auswahl annimmt (`selected_domain_ids`/`allowed_domain_ids`), Retrieval-Ergebnisse hart auf erlaubte Pfade filtert, Prompt-Kontext entsprechend kennzeichnet und Schreiboperationen ausserhalb dieser Domain blockiert oder Approval verlangt.",
   "source_review": {
@@ -219,7 +219,7 @@
     {
       "id": "CCRDS-M1",
       "title": "Runtime-Domain-Scope-Vertrag definieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCRDS-001",
         "CCRDS-002",
@@ -229,7 +229,7 @@
     {
       "id": "CCRDS-M2",
       "title": "Domain-Artefakte laden und validieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCRDS-004",
         "CCRDS-005",
@@ -239,7 +239,7 @@
     {
       "id": "CCRDS-M3",
       "title": "Retrieval hart nach Domain filtern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCRDS-007",
         "CCRDS-008",
@@ -250,7 +250,7 @@
     {
       "id": "CCRDS-M4",
       "title": "Worker-Schreibgrenzen und Approval vorbereiten",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "CCRDS-011",
         "CCRDS-012",
@@ -260,7 +260,7 @@
     {
       "id": "CCRDS-M5",
       "title": "ai-snake/UI sichtbar und bedienbar machen",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "CCRDS-014",
         "CCRDS-015",
@@ -270,7 +270,7 @@
     {
       "id": "CCRDS-M6",
       "title": "Tests, Docs und Regression absichern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CCRDS-017",
         "CCRDS-018",
@@ -283,7 +283,7 @@
     {
       "id": "CCRDS-001",
       "title": "DomainScope-Datenmodell einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "paths": [
@@ -305,7 +305,7 @@
     {
       "id": "CCRDS-002",
       "title": "Bestehenden ai-snake Domain-Hint als Scope-Einstieg nutzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "paths": [
@@ -333,7 +333,7 @@
     {
       "id": "CCRDS-003",
       "title": "Runtime-Scope-Verhalten dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "paths": [
@@ -354,7 +354,7 @@
     {
       "id": "CCRDS-004",
       "title": "DomainScopeResolver an `chat_retrieval_domain_hint` anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "paths": [
@@ -381,7 +381,7 @@
     {
       "id": "CCRDS-005",
       "title": "Domain-Descriptoren als manuelle Korrekturquelle einbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "paths": [
@@ -408,7 +408,7 @@
     {
       "id": "CCRDS-006",
       "title": "Interne Retrieval-Domains und fachliche Domains sauber trennen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "paths": [
@@ -432,7 +432,7 @@
     {
       "id": "CCRDS-007",
       "title": "HybridOrchestrator um optionalen DomainScope erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "paths": [
@@ -455,7 +455,7 @@
     {
       "id": "CCRDS-008",
       "title": "DomainScopeFilter fuer ContextChunks implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "paths": [
@@ -481,7 +481,7 @@
     {
       "id": "CCRDS-009",
       "title": "RepositoryMapEngine optional scope-aware machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "paths": [
@@ -503,7 +503,7 @@
     {
       "id": "CCRDS-010",
       "title": "AgenticSearchEngine scope-aware absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "paths": [
@@ -526,7 +526,7 @@
     {
       "id": "CCRDS-011",
       "title": "Write-Scope Policy-Modell vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "paths": [
@@ -553,7 +553,7 @@
     {
       "id": "CCRDS-012",
       "title": "Tool-/Worker-Integration fuer Schreibpfade identifizieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "paths": [
@@ -577,7 +577,7 @@
     {
       "id": "CCRDS-013",
       "title": "Cross-domain Write Approval Hook einfuehren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "paths": [
@@ -600,7 +600,7 @@
     {
       "id": "CCRDS-014",
       "title": "ai-snake-chat soll Domain-Scope anzeigen und erklaeren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "paths": [
@@ -624,7 +624,7 @@
     {
       "id": "CCRDS-015",
       "title": "UI/Frontend Domain-Auswahl vorbereiten",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
       "paths": [
@@ -647,7 +647,7 @@
     {
       "id": "CCRDS-016",
       "title": "Backend-Endpoint fuer Domain-Liste und Scope-Preview",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "paths": [
@@ -669,7 +669,7 @@
     {
       "id": "CCRDS-017",
       "title": "Unit-Tests fuer Resolver und Filter schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "paths": [
@@ -692,7 +692,7 @@
     {
       "id": "CCRDS-018",
       "title": "Regression-Tests fuer bestehendes RAG-Verhalten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "paths": [
@@ -714,7 +714,7 @@
     {
       "id": "CCRDS-019",
       "title": "End-to-End-Minifixture fuer Bestellmodul/Rechnung bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "paths": [
@@ -737,7 +737,7 @@
     {
       "id": "CCRDS-020",
       "title": "Docs und Todo-Status nach Implementierung aktualisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "paths": [
@@ -760,13 +760,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 20,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 3,
       "blocked": 0,
-      "done": 0
+      "done": 17
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 85.0,
     "by_priority": {
       "P0": 9,
       "P1": 9,
@@ -780,15 +780,16 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 0,
-      "remaining": 9
+      "done": 9,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
+      "partial": 2,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "global_acceptance_criteria": [
@@ -833,5 +834,21 @@
     "CCRDS-019",
     "CCRDS-003",
     "CCRDS-020"
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "ccrds-impl-2026-06-12",
+      "title": "Implementierung Runtime Domain Scope (2026-06-12)",
+      "items": [
+        "Neu: agent/codecompass/{domain_scope,domain_scope_resolver,domain_scope_filter}.py mit DomainScope/ResolvedDomainScope/DomainScopeDecision/DomainScopeViolation.",
+        "chat_retrieval_domain_hint wiederverwendet; fachliche Domains via Prefix `domain:<id>` (CCRDS-DD-006); interne Hints unveraendert rueckwaertskompatibel.",
+        "HybridOrchestrator.get_relevant_context/run_with_sgpt akzeptieren domain_scope; RepositoryMap+AgenticSearch suchen scoped; DomainScopeFilter mit kept/dropped/dropped_reasons; Scope-Banner im Prompt; strict fail-closed ohne LLM-Aufruf.",
+        "Write-Scope: evaluate_changed_files(domain_allowed_write_paths=...) Hook in ananta_workspace_mutation_policy (Reason outside_domain_write_scope); decide_cross_domain_write + digest-gebundenes build_approval_requirement.",
+        "API: GET /api/codecompass/domains + POST /api/codecompass/domain-scope/preview (preview_only, keine Host-Pfade); Angular DomainScopeService + DomainScopePanelComponent (noch nicht in Layout eingebettet).",
+        "Tests: tests/test_codecompass_domain_scope_{resolver,filter,order_billing}.py + 7 neue Regression-Tests in test_hybrid_orchestrator.py; Fixture tests/fixtures/codecompass_domain_scope_order_billing.",
+        "Doku: docs/codecompass-runtime-domain-scope.md inkl. Enforcement-Punkte-Liste (CCRDS-012) und Grenzen.",
+        "Offen (partial): CCRDS-013 ApprovalRequestService-Lifecycle-Verdrahtung; CCRDS-014 Vorschlags-UX im ai-snake-chat; CCRDS-015 Einbettung des Panels in die Oberflaeche."
+      ]
+    }
   ]
 }

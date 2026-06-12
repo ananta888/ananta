@@ -140,6 +140,132 @@ def test_context_manager_route_uses_fs_quota_settings(monkeypatch) -> None:
     assert quotas["repository_map"] == 4
 
 
+def test_get_relevant_context_without_scope_unchanged(tmp_path: Path) -> None:
+    """CCRDS-018: ohne Scope identisches Verhalten, kein domain_scope-Block."""
+    (tmp_path / "module.py").write_text("def process_order(): pass\n", encoding="utf-8")
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=2000)
+    baseline = orchestrator.get_relevant_context("process order module")
+    again = orchestrator.get_relevant_context("process order module", domain_scope=None)
+    assert "domain_scope" not in baseline
+    assert "error" not in baseline
+    assert [c["source"] for c in baseline["chunks"]] == [c["source"] for c in again["chunks"]]
+
+
+def test_get_relevant_context_with_scope_filters_and_banners(tmp_path: Path) -> None:
+    from agent.codecompass.domain_scope import ResolvedDomainScope
+
+    (tmp_path / "orders").mkdir()
+    (tmp_path / "catalog").mkdir()
+    (tmp_path / "orders" / "service.py").write_text(
+        "class OrderInvoiceService:\n    def create_invoice(self):\n        return True\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "catalog" / "service.py").write_text(
+        "class CatalogInvoiceService:\n    def create_invoice(self):\n        return True\n",
+        encoding="utf-8",
+    )
+    scope = ResolvedDomainScope(
+        active=True,
+        strict=True,
+        selected_domain_ids=["orders"],
+        allowed_read_paths=["orders"],
+        allowed_write_paths=["orders"],
+    )
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=4000)
+    result = orchestrator.get_relevant_context("invoice service class", domain_scope=scope)
+    sources = [c["source"] for c in result["chunks"]]
+    assert all("catalog" not in s for s in sources)
+    assert result["domain_scope"]["active_domain_ids"] == ["orders"]
+    assert "DOMAIN-SCOPE AKTIV" in result["context_text"]
+
+
+def test_get_relevant_context_strict_violation_fails_closed(tmp_path: Path) -> None:
+    from agent.codecompass.domain_scope import (
+        DomainScopeViolation,
+        ResolvedDomainScope,
+        VIOLATION_UNKNOWN_DOMAIN,
+    )
+
+    (tmp_path / "module.py").write_text("def f(): pass\n", encoding="utf-8")
+    scope = ResolvedDomainScope(
+        active=True,
+        strict=True,
+        selected_domain_ids=["nope"],
+        violations=[DomainScopeViolation(kind=VIOLATION_UNKNOWN_DOMAIN, message="unknown")],
+    )
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=2000)
+    result = orchestrator.get_relevant_context("anything", domain_scope=scope)
+    assert result["error"] == "domain_scope_violation"
+    assert result["chunks"] == []
+    assert result["context_text"] == ""
+
+
+def test_run_with_sgpt_strict_violation_skips_llm(tmp_path: Path, monkeypatch) -> None:
+    from agent.codecompass.domain_scope import (
+        DomainScopeViolation,
+        ResolvedDomainScope,
+        VIOLATION_UNKNOWN_DOMAIN,
+    )
+
+    def _no_llm(**_kwargs):
+        raise AssertionError("LLM must not be called on strict scope violation")
+
+    monkeypatch.setattr(hybrid_orchestrator, "run_llm_cli_command", _no_llm)
+    scope = ResolvedDomainScope(
+        active=True,
+        strict=True,
+        selected_domain_ids=["nope"],
+        violations=[DomainScopeViolation(kind=VIOLATION_UNKNOWN_DOMAIN, message="unknown")],
+    )
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=2000)
+    result = orchestrator.run_with_sgpt("anything", domain_scope=scope)
+    assert result["returncode"] == 1
+    assert result["errors"] == "domain_scope_violation"
+
+
+def test_repository_map_engine_scope_limits_candidates(tmp_path: Path) -> None:
+    (tmp_path / "orders").mkdir()
+    (tmp_path / "catalog").mkdir()
+    (tmp_path / "orders" / "invoice.py").write_text("def invoice(): pass\n", encoding="utf-8")
+    (tmp_path / "catalog" / "invoice.py").write_text("def invoice(): pass\n", encoding="utf-8")
+    engine = RepositoryMapEngine(repo_root=tmp_path)
+    scoped = engine.search("invoice", allowed_paths=["orders"])
+    assert scoped and all(c.source.startswith("orders/") for c in scoped)
+    unscoped = engine.search("invoice")
+    assert {c.source for c in unscoped} >= {c.source for c in scoped}
+
+
+def test_agentic_engine_scope_rewrites_rg_and_blocks_empty(tmp_path: Path) -> None:
+    from agent.hybrid_orchestrator import AgenticSearchEngine
+
+    engine = AgenticSearchEngine(repo_root=tmp_path)
+    # text_grep: trailing "." is replaced by the scoped paths.
+    args = engine.skills[-1].build_command("find invoice")
+    scoped = engine._apply_scope(args, ["orders", "billing"])
+    assert scoped is not None
+    assert scoped[-2:] == ["billing", "orders"]
+    assert "." not in scoped
+    # cat outside scope is dropped entirely.
+    assert engine._apply_scope(["cat", "catalog/x.py"], ["orders"]) is None
+    assert engine._apply_scope(["cat", "orders/x.py"], ["orders"]) == ["cat", "orders/x.py"]
+    # Active scope without allowed paths: no agentic search at all.
+    assert engine.search("find invoice", allowed_paths=[]) == []
+
+
+def test_agentic_engine_query_path_injection_ineffective(tmp_path: Path) -> None:
+    from agent.hybrid_orchestrator import AgenticSearchEngine
+
+    (tmp_path / "orders").mkdir()
+    (tmp_path / "orders" / "a.py").write_text("invoice_marker = 1\n", encoding="utf-8")
+    (tmp_path / "secret").mkdir()
+    (tmp_path / "secret" / "b.py").write_text("invoice_marker = 2\n", encoding="utf-8")
+    engine = AgenticSearchEngine(repo_root=tmp_path)
+    # The query tries to smuggle a path; it stays a single rg pattern arg.
+    chunks = engine.search("invoice_marker ../secret secret/b.py", allowed_paths=["orders"])
+    for chunk in chunks:
+        assert "secret/b.py" not in chunk.content
+
+
 def test_get_relevant_context_uses_normalizer(tmp_path: Path, monkeypatch) -> None:
     """Query normalization is called and original query is always in the retrieval set."""
     from agent import rag_query_normalizer
