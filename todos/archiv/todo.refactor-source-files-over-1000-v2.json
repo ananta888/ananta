@@ -1,5 +1,5 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "../../todo.track.schema.json",
   "version": "2.0",
   "owner": "Krusty / Ananta",
   "track": "refactor-source-files-over-1000-v2",
