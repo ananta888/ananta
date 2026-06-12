@@ -1,0 +1,754 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-runtime-domain-scope",
+  "created": "2026-06-12",
+  "status": "todo",
+  "purpose": "Den bereits vorhandenen ai-snake/CodeCompass `chat_retrieval_domain_hint` von einem weichen Retrieval-Profil-Hinweis zu einem optional harten Runtime-Domain-Scope erweitern. Wenn ein User z.B. `Bestellmodul` auswählt, soll dieser bestehende Hint nicht nur das Profil beeinflussen, sondern gegen `domains.detected.json`/Domain-Descriptoren aufgeloest werden und Retrieval/Worker-Scope deterministisch begrenzen.",
+  "goal": "Eine Runtime-Domain-Scope-Schicht implementieren, die `domains.detected.json` und vorhandene `domains/<domain_id>/domain.json` Descriptoren lesen kann, eine explizite Domain-Auswahl annimmt (`selected_domain_ids`/`allowed_domain_ids`), Retrieval-Ergebnisse hart auf erlaubte Pfade filtert, Prompt-Kontext entsprechend kennzeichnet und Schreiboperationen ausserhalb dieser Domain blockiert oder Approval verlangt.",
+  "source_review": {
+    "summary": "Korrektur: Es gibt bereits `chat_retrieval_domain_hint` in der ai-snake-Konfiguration. Der Hint wird gespeichert, ueber Config/API/TUI gefuehrt und in `snakes_execution_routes._build_grounded_snake_prompt()` an `retrieval_profile_service.resolve_profile(..., domain_hint=...)` uebergeben. Aktuell ist er aber nur ein Profil-/Domain-Hinweis fuer bekannte interne Domains wie `codecompass`, `ai_snake`, `worker`, `operator_tui`, `ops`, nicht ein harter fachlicher Domain-Scope auf `domains.detected.json`/`domains/<id>/domain.json` mit allowed paths.",
+    "observed_source_files": [
+      {
+        "path": "agent/routes/ai_snake_config.py",
+        "observations": [
+          "`chat_retrieval_domain_hint` ist bereits Teil von `_SCHEMA_KEYS`.",
+          "`chat_retrieval_domain_hint` hat in `_DEFAULTS` den Default `\"\"`.",
+          "Der Config-Endpoint `/ai-snake/config` kann diesen Key lesen und per PATCH speichern.",
+          "Dieser vorhandene Key ist der richtige Anknuepfungspunkt fuer Runtime-Domain-Scope, statt einen komplett parallelen Setting-Namen zu erfinden."
+        ]
+      },
+      {
+        "path": "agent/routes/snakes_execution_routes.py",
+        "observations": [
+          "`_SNAKE_RETRIEVAL_CONFIG_KEYS` enthaelt `chat_retrieval_domain_hint`.",
+          "`_build_grounded_snake_prompt()` liest `chat_retrieval_domain_hint` aus der ai-snake Config und uebergibt ihn an `resolve_profile(..., domain_hint=domain_hint, feature_flag=feature_flag)`.",
+          "`_resolve_snake_retrieval_profile_trace()` gibt die resultierende `profile.domain` fuer Debug/Why aus.",
+          "Aktuell wird daraus aber noch kein allowed_read_paths/allowed_write_paths Scope erzeugt."
+        ]
+      },
+      {
+        "path": "agent/services/retrieval_profile_service.py",
+        "observations": [
+          "`resolve_profile(..., domain_hint=...)` akzeptiert bereits einen Domain-Hint.",
+          "Der Hint wird nur akzeptiert, wenn er in den bekannten DOMAIN-Konstanten liegt: codecompass, ai_snake, worker, ananta_game, operator_tui, ops, generic.",
+          "Unbekannte Werte werden nicht hart abgelehnt, sondern als `domain_hint_unknown:<hint>:ignored` in reasons notiert.",
+          "Damit ist der aktuelle Hint bewusst weich und nicht geeignet, direkt fachliche Domains wie `bestellmodul` als harte Pfadgrenze zu erzwingen."
+        ]
+      },
+      {
+        "path": "agent/hybrid_orchestrator.py",
+        "observations": [
+          "HybridOrchestrator.get_relevant_context(query) normalisiert die Query, routet ueber ContextManager.route(query), sammelt Chunks und rerankt sie.",
+          "RepositoryMapEngine.search(query) extrahiert Tokens aus der Query und scored Pfad-/Symbol-Treffer deterministisch.",
+          "AgenticSearchEngine nutzt erlaubte Kommandos `rg`, `ls`, `cat` fuer simple Suchskills.",
+          "run_with_sgpt(query) baut erst nach der Kontextsammlung den LLM-Prompt. Das LLM bekommt also selektiven Kontext, waehlt aber aktuell nicht den Kontext selbst.",
+          "Es fehlt ein DomainScope-Parameter am Runtime-Einstieg und ein harter Filter vor serialize_context_result()."
+        ]
+      },
+      {
+        "path": "agent/config.py",
+        "observations": [
+          "Es gibt RAG-Konfiguration fuer Quotas, Datenquellen, Query-Normalisierung und CodeCompass-Featureflags.",
+          "Es gibt noch keine Settings fuer Domain-Scope wie `CODECOMPASS_DOMAIN_SCOPE_ENABLED`, `CODECOMPASS_ALLOWED_DOMAIN_IDS`, `CODECOMPASS_SCOPE_STRICT_MODE` oder `CODECOMPASS_DOMAIN_ARTIFACT_PATH`."
+        ]
+      },
+      {
+        "path": "rag-helper/rag_helper/domain_discovery/writer.py",
+        "observations": [
+          "run_domain_discovery(...) erzeugt DomainDiscoveryResult aus AnalysisInputs, DomainGraph, cluster_domains(), boundary metrics und descriptors.",
+          "write_domain_artifacts(...) schreibt `domains.detected.json`, `domain_boundaries.jsonl` und `domain_coupling.json`.",
+          "Die Artefakte sind aktuell Analyse-Ausgaben; Runtime-Verbrauch im HybridOrchestrator ist noch nicht verdrahtet."
+        ]
+      },
+      {
+        "path": "rag-helper/rag_helper/domain_discovery/clustering.py",
+        "observations": [
+          "cluster_domains(...) arbeitet deterministisch mit path_signal, package_signal und graph_signal.",
+          "Layer-only Cluster werden verworfen; technische Layer sind kein Domain-Kriterium.",
+          "Kandidaten enthalten root_paths, package_prefixes, technical_layers, core_records, metrics und evidence."
+        ]
+      },
+      {
+        "path": "rag-helper/rag_helper/cli.py",
+        "observations": [
+          "CLI kennt `--domain-discovery-mode` und `--domain-descriptor-suggestions`.",
+          "Es fehlt ein Runtime-/Query-Kommando bzw. Hub-API, um eine Domain-Auswahl gegen diese Artefakte aufloesen zu koennen."
+        ]
+      },
+      {
+        "path": "docs/codecompass-domain-discovery.md",
+        "observations": [
+          "Dokumentiert Domain Discovery als deterministische Analyse-Stufe.",
+          "Sagt explizit, dass Domain-Kandidaten Vorschlaege mit Begruendung sind und keine automatische Runtime-Freigabe.",
+          "Signalmodell priorisiert descriptor_signal, path_signal, package_signal und graph_signal."
+        ]
+      }
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "design_decisions": [
+    {
+      "id": "CCRDS-DD-000",
+      "decision": "Bestehenden `chat_retrieval_domain_hint` weiterverwenden, aber semantisch erweitern.",
+      "rationale": "Der Code hat bereits UI/API/TUI-Persistenz und Übergabe an den RetrievalProfileResolver. Die neue Arbeit soll daran andocken und nicht einen zweiten konkurrierenden Domain-Hint einführen."
+    },
+    {
+      "id": "CCRDS-DD-001",
+      "decision": "Domain Discovery bleibt Analyse; Runtime-Scope ist eine eigene Hub-owned Policy-Schicht.",
+      "rationale": "Die bestehende Doku sagt, dass erkannte Domains keine automatische Runtime-Freigabe sind. Deshalb darf Runtime-Scope nur explizit und validiert aktiviert werden."
+    },
+    {
+      "id": "CCRDS-DD-002",
+      "decision": "Expliziter User-/Hub-Scope gewinnt gegen Prompt-Heuristik.",
+      "rationale": "Wenn `Bestellmodul` gesetzt ist, darf ein Prompt wie `mach Rechnungserzeugung` nicht unkontrolliert in Artikelkatalog, Shared oder fremde Integrationen expandieren."
+    },
+    {
+      "id": "CCRDS-DD-003",
+      "decision": "Strict Mode muss fail-closed sein.",
+      "rationale": "Wenn eine angeforderte Domain unbekannt, leer oder widerspruechlich ist, darf nicht still auf globales Repo-RAG zurueckgefallen werden."
+    },
+    {
+      "id": "CCRDS-DD-004",
+      "decision": "Read-Scope und Write-Scope werden getrennt modelliert.",
+      "rationale": "Lesen darf ggf. kontrolliert Relation-/Reference-Kontext aus Nachbardomains enthalten; Schreiben muss deutlich haerter begrenzt werden."
+    },
+    {
+      "id": "CCRDS-DD-005",
+      "decision": "Jeder Scope-Entscheid muss erklaerbar sein.",
+      "rationale": "ai-snake-chat soll anzeigen koennen, welche Domain gesetzt ist, welche Pfade erlaubt sind, welche Chunks verworfen wurden und warum."
+    }
+  ],
+  "target_outputs": {
+    "new_runtime_contracts": [
+      "DomainScope",
+      "ResolvedDomainScope",
+      "DomainScopeDecision",
+      "DomainScopeViolation"
+    ],
+    "new_config_keys": [
+      "chat_retrieval_domain_hint (bestehend; erweitern, nicht ersetzen)",
+      "CODECOMPASS_DOMAIN_SCOPE_ENABLED",
+      "CODECOMPASS_DOMAIN_ARTIFACT_PATH",
+      "CODECOMPASS_DOMAIN_DESCRIPTOR_ROOT",
+      "CODECOMPASS_SCOPE_STRICT_MODE",
+      "CODECOMPASS_SCOPE_ALLOW_RELATION_EXPANSION",
+      "CODECOMPASS_SCOPE_MAX_EXTERNAL_REFERENCE_CHUNKS"
+    ],
+    "new_or_changed_files_expected": [
+      "agent/codecompass/domain_scope.py",
+      "agent/codecompass/domain_scope_resolver.py",
+      "agent/codecompass/domain_scope_filter.py",
+      "agent/hybrid_orchestrator.py",
+      "agent/config.py",
+      "agent/routes/*codecompass* oder bestehende Chat-/Snake-Routen",
+      "frontend-angular/src/app/features/codecompass-graph/*",
+      "tests/test_codecompass_domain_scope*.py",
+      "docs/codecompass-runtime-domain-scope.md"
+    ],
+    "runtime_flow": [
+      "User/Hub setzt selected_domain_ids",
+      "DomainScopeResolver laedt domains.detected.json und/oder domains/<id>/domain.json",
+      "Resolver erzeugt allowed_read_paths, allowed_write_paths, warnings und provenance",
+      "HybridOrchestrator sammelt normale Kandidaten",
+      "DomainScopeFilter entfernt Chunks ausserhalb allowed_read_paths",
+      "Prompt-Kontext enthaelt Scope-Banner und nur erlaubte Chunks",
+      "Worker-/Tool-Schreibpfade werden gegen allowed_write_paths validiert"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "CCRDS-M1",
+      "title": "Runtime-Domain-Scope-Vertrag definieren",
+      "status": "todo",
+      "task_ids": [
+        "CCRDS-001",
+        "CCRDS-002",
+        "CCRDS-003"
+      ]
+    },
+    {
+      "id": "CCRDS-M2",
+      "title": "Domain-Artefakte laden und validieren",
+      "status": "todo",
+      "task_ids": [
+        "CCRDS-004",
+        "CCRDS-005",
+        "CCRDS-006"
+      ]
+    },
+    {
+      "id": "CCRDS-M3",
+      "title": "Retrieval hart nach Domain filtern",
+      "status": "todo",
+      "task_ids": [
+        "CCRDS-007",
+        "CCRDS-008",
+        "CCRDS-009",
+        "CCRDS-010"
+      ]
+    },
+    {
+      "id": "CCRDS-M4",
+      "title": "Worker-Schreibgrenzen und Approval vorbereiten",
+      "status": "todo",
+      "task_ids": [
+        "CCRDS-011",
+        "CCRDS-012",
+        "CCRDS-013"
+      ]
+    },
+    {
+      "id": "CCRDS-M5",
+      "title": "ai-snake/UI sichtbar und bedienbar machen",
+      "status": "todo",
+      "task_ids": [
+        "CCRDS-014",
+        "CCRDS-015",
+        "CCRDS-016"
+      ]
+    },
+    {
+      "id": "CCRDS-M6",
+      "title": "Tests, Docs und Regression absichern",
+      "status": "todo",
+      "task_ids": [
+        "CCRDS-017",
+        "CCRDS-018",
+        "CCRDS-019",
+        "CCRDS-020"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCRDS-001",
+      "title": "DomainScope-Datenmodell einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "agent/codecompass/domain_scope.py"
+      ],
+      "description": "Neues kleines Datenmodell fuer explizite Runtime-Domain-Auswahl anlegen.",
+      "implementation_notes": [
+        "Dataclasses oder Pydantic-Modelle fuer DomainScope, ResolvedDomainScope, DomainScopeDecision und DomainScopeViolation anlegen.",
+        "DomainScope soll mindestens `selected_domain_ids`, `strict`, `allow_external_references`, `max_external_reference_chunks` und optional `requested_by` enthalten.",
+        "ResolvedDomainScope soll `allowed_read_paths`, `allowed_write_paths`, `source_domains`, `warnings`, `provenance` enthalten."
+      ],
+      "acceptance_criteria": [
+        "Ein leerer DomainScope ist gueltig und bedeutet: kein expliziter Domain-Scope gesetzt.",
+        "Ein DomainScope mit `strict=true` und unbekannter Domain kann als Fehlerzustand abgebildet werden.",
+        "Allowed-Pfade werden normalisiert als repo-relative POSIX-Pfade gespeichert.",
+        "Es gibt Unit-Tests fuer leeren Scope, eine Domain, mehrere Domains und Strict-Fehler."
+      ]
+    },
+    {
+      "id": "CCRDS-002",
+      "title": "Bestehenden ai-snake Domain-Hint als Scope-Einstieg nutzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "paths": [
+        "agent/routes/ai_snake_config.py",
+        "agent/routes/snakes_execution_routes.py",
+        "agent/services/retrieval_profile_service.py",
+        "agent/config.py",
+        ".env.example"
+      ],
+      "description": "Nicht bei null anfangen: `chat_retrieval_domain_hint` existiert bereits und soll der primäre UI/API-Einstieg fuer Domain-Scope werden.",
+      "implementation_notes": [
+        "`chat_retrieval_domain_hint` nicht entfernen oder umbenennen.",
+        "Ergaenzende globale Scope-Settings in `agent/config.py` einfuehren, aber den ai-snake Hint als konkrete Auswahl verwenden.",
+        "Kompatibilitaet erhalten: bekannte alte Werte wie `codecompass`, `ai_snake`, `worker` muessen weiter als RetrievalProfile-Domain funktionieren.",
+        "Neue fachliche Domain-IDs wie `bestellmodul` duerfen nicht mehr einfach nur als unknown ignoriert werden, wenn Domain-Scope aktiviert ist."
+      ],
+      "acceptance_criteria": [
+        "`chat_retrieval_domain_hint` bleibt in `_SCHEMA_KEYS`, `_DEFAULTS` und TUI-Persistenz erhalten.",
+        "Bestehende Tests fuer bekannte Domain-Hints bleiben gruen.",
+        "Bei `CODECOMPASS_DOMAIN_SCOPE_ENABLED=false` bleibt unbekannter Hint wie bisher ein weicher/ignorierter Profil-Hinweis.",
+        "Bei `CODECOMPASS_DOMAIN_SCOPE_ENABLED=true` wird ein unbekannter Profil-Hint als moegliche fachliche Domain gegen Domain-Artefakte/Descriptoren aufgeloest.",
+        "Es gibt Tests fuer alte interne Hints und neue fachliche Domain-Hints."
+      ]
+    },
+    {
+      "id": "CCRDS-003",
+      "title": "Runtime-Scope-Verhalten dokumentieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "paths": [
+        "docs/codecompass-runtime-domain-scope.md"
+      ],
+      "description": "Kurz und klar dokumentieren, was Domain Discovery vs. Runtime Scope ist.",
+      "implementation_notes": [
+        "Explizit festhalten: Domain Discovery erkennt Kandidaten; Runtime Scope muss explizit gesetzt oder vom Hub bestaetigt werden.",
+        "Beispiel `Bestellmodul -> Rechnungserzeugung` aufnehmen.",
+        "Strict Mode, fallback mode, read/write split und relation expansion erklaeren."
+      ],
+      "acceptance_criteria": [
+        "Doku widerspricht nicht `docs/codecompass-domain-discovery.md`.",
+        "Doku nennt klar, dass LLM nicht frei den Projektbereich bestimmt.",
+        "Doku nennt die neuen Config-Keys und einen Minimalablauf."
+      ]
+    },
+    {
+      "id": "CCRDS-004",
+      "title": "DomainScopeResolver an `chat_retrieval_domain_hint` anbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "agent/codecompass/domain_scope_resolver.py",
+        "rag-helper/rag_helper/domain_discovery/writer.py"
+      ],
+      "description": "Der Resolver soll den bestehenden ai-snake Hint als Input nehmen und daraus optional einen harten Domain-Scope erzeugen.",
+      "implementation_notes": [
+        "`chat_retrieval_domain_hint` ist der wichtigste Input fuer selected_domain_ids, sofern kein expliziter API-Scope uebergeben wurde.",
+        "`domains.detected.json` mit Schema `codecompass_domain_analysis.v1` laden.",
+        "Domain anhand `domain_id` und optional `display_name` matchen.",
+        "`root_paths` als allowed_read_paths/allowed_write_paths verwenden, sofern kein Descriptor strengere Regeln liefert.",
+        "Fehlende Datei, falsches Schema, leere Domainliste und doppelte IDs sauber als warnings/violations abbilden."
+      ],
+      "acceptance_criteria": [
+        "Resolver kann `chat_retrieval_domain_hint='bestellmodul'` gegen `domains.detected.json` aufloesen.",
+        "Resolver findet eine Domain aus einem realistischen `domains.detected.json` Fixture.",
+        "Resolver erzeugt allowed_read_paths aus `root_paths`.",
+        "Unbekannte Domain fuehrt in strict mode zu Fehler/Violation.",
+        "Unbekannte Domain fuehrt in non-strict mode zu Warnung und neutralem Scope oder leerem Scope, aber nicht zu erfundenen Pfaden.",
+        "Tests pruefen kaputte JSON-Datei und fehlendes Artefakt."
+      ]
+    },
+    {
+      "id": "CCRDS-005",
+      "title": "Domain-Descriptoren als manuelle Korrekturquelle einbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "agent/codecompass/domain_scope_resolver.py",
+        "domains/*/domain.json",
+        "docs/architecture/domain_descriptor_reference.md"
+      ],
+      "description": "Manuell gepflegte Domain-Descriptoren sollen Domain Discovery ueberstimmen oder verfeinern koennen.",
+      "implementation_notes": [
+        "Vorhandene `domains/<domain_id>/domain.json` laden, wenn vorhanden.",
+        "`source_paths`, `rag_profiles.allowed_paths`, `include_globs`, `exclude_globs` auswerten, soweit im Descriptor-Vertrag vorhanden.",
+        "Descriptoren duerfen Runtime nicht automatisch aktivieren, sondern nur eine explizite Auswahl genauer aufloesen.",
+        "Bei Konflikt zwischen detected root_paths und Descriptor source_paths: Descriptor gewinnt, aber Warning ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Ein Descriptor mit `source_paths` liefert diese Pfade als allowed paths.",
+        "Descriptor-Pfade werden repo-relativ normalisiert.",
+        "Descriptor gewinnt gegen detected root_paths, wenn beide vorhanden sind.",
+        "Ein Konflikt erzeugt eine nachvollziehbare warning/provenance.",
+        "Keine dynamische Plugin-/Codeausfuehrung aus Descriptoren."
+      ]
+    },
+    {
+      "id": "CCRDS-006",
+      "title": "Interne Retrieval-Domains und fachliche Domains sauber trennen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "paths": [
+        "agent/codecompass/domain_scope_resolver.py"
+      ],
+      "description": "Der bestehende Hint meint aktuell interne Retrieval-Domains; neu kommen fachliche CodeCompass-Domains dazu.",
+      "implementation_notes": [
+        "Bekannte interne Werte (`codecompass`, `ai_snake`, `worker`, `ananta_game`, `operator_tui`, `ops`, `generic`) bleiben Profil-Hints.",
+        "Fachliche Domain-IDs aus `domains.detected.json`/Descriptoren werden als Runtime-Scope behandelt, wenn Scope enabled ist.",
+        "Bei Namenskollision muss Vorrang klar geregelt werden: interne Domain zuerst, fachliche Domain nur mit Prefix oder explizitem Scope-Feld; oder Warning/ambiguous.",
+        "Optional Prefix-Konvention pruefen: `domain:bestellmodul` fuer fachliche Domains."
+      ],
+      "acceptance_criteria": [
+        "`chat_retrieval_domain_hint='worker'` funktioniert weiter als bisheriger RetrievalProfile-Hint.",
+        "`chat_retrieval_domain_hint='bestellmodul'` kann bei Scope-enabled als fachliche Domain aufgeloest werden.",
+        "Kollisionen zwischen interner und fachlicher Domain werden nicht geraten.",
+        "Trace/Why zeigt getrennt `retrieval_profile_domain` und `runtime_domain_scope`."
+      ]
+    },
+    {
+      "id": "CCRDS-007",
+      "title": "HybridOrchestrator um optionalen DomainScope erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "paths": [
+        "agent/hybrid_orchestrator.py"
+      ],
+      "description": "Runtime-Einstieg muss expliziten Scope entgegennehmen koennen.",
+      "implementation_notes": [
+        "`get_relevant_context(query, domain_scope=None)` oder kompatible Alternative einfuehren.",
+        "`run_with_sgpt(query, ..., domain_scope=None)` weiterreichen.",
+        "Ohne Scope muss Verhalten unveraendert bleiben.",
+        "Bei aktivem Scope Resolver aus Config/Artefakten nutzen."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Tests fuer HybridOrchestrator laufen ohne Anpassung oder nur mit minimalen Snapshot-Anpassungen weiter.",
+        "Ein gesetzter DomainScope wird im Ergebnis unter `scope`/`domain_scope` sichtbar.",
+        "Ohne gesetzten Scope gibt es keine Filterung.",
+        "Strict-Fehler verhindert Promptbau oder liefert klaren no-context Fehler."
+      ]
+    },
+    {
+      "id": "CCRDS-008",
+      "title": "DomainScopeFilter fuer ContextChunks implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "paths": [
+        "agent/codecompass/domain_scope_filter.py",
+        "agent/hybrid_orchestrator.py"
+      ],
+      "description": "Alle Chunks muessen vor Rerank/Serialize oder spaetestens vor Promptbau gegen allowed_read_paths geprueft werden.",
+      "implementation_notes": [
+        "ContextChunk.source ist aktuell z.B. ein repo-relativer Pfad oder ein AgenticSearch-Kommando.",
+        "Pfadquellen sauber erkennen: normale Dateien erlauben, `rg`-Ausgaben zeilenweise filtern oder im strict mode komplett entfernen.",
+        "SemanticSearchEngine-Quellen koennen absolute Pfade sein; auf repo-relativ normalisieren.",
+        "Chunks ohne sicher erkennbaren Pfad in strict mode entfernen."
+      ],
+      "acceptance_criteria": [
+        "Chunk aus `rag-helper/...` bleibt bei Domain `rag-helper` erhalten.",
+        "Chunk aus `agent/...` wird bei Domain `rag-helper` entfernt.",
+        "Absolute Pfade unter repo_root werden korrekt relativiert.",
+        "Unklare Quellen werden in strict mode entfernt und in non-strict mode mit warning markiert oder entfernt gemaess Config.",
+        "Filter liefert Statistik: kept, dropped, dropped_reasons."
+      ]
+    },
+    {
+      "id": "CCRDS-009",
+      "title": "RepositoryMapEngine optional scope-aware machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "paths": [
+        "agent/hybrid_orchestrator.py"
+      ],
+      "description": "Nicht erst nachtraeglich filtern, sondern wenn moeglich schon im RepositoryMapEngine-Suchraum begrenzen.",
+      "implementation_notes": [
+        "RepositoryMapEngine.search(query, top_k, allowed_paths=None) oder internen Candidate-Filter einfuehren.",
+        "tracked_files/build sollte nicht pro Query neu scannen muessen.",
+        "Filter im Candidate-Loop vor Scoring anwenden."
+      ],
+      "acceptance_criteria": [
+        "Bei allowed_paths werden nur passende rel_path-Kandidaten scored.",
+        "Ohne allowed_paths bleibt Ranking unveraendert.",
+        "Tests decken Source-first-Boost innerhalb Scope ab.",
+        "Performance verschlechtert sich nicht relevant fuer ungescopte Queries."
+      ]
+    },
+    {
+      "id": "CCRDS-010",
+      "title": "AgenticSearchEngine scope-aware absichern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "paths": [
+        "agent/hybrid_orchestrator.py"
+      ],
+      "description": "Deterministische `rg`/`ls`/`cat`-Suche darf bei aktivem Scope nicht global suchen.",
+      "implementation_notes": [
+        "`rg`-Kommandos sollen bei allowed_paths nur diese Pfade durchsuchen.",
+        "`rg --files` fuer file_discovery ebenfalls auf allowed paths begrenzen.",
+        "`cat` nur erlauben, wenn Zielpfad im Scope liegt.",
+        "Keine Shell, weiterhin allowlisted commands."
+      ],
+      "acceptance_criteria": [
+        "Bei Scope `rag-helper/rag_helper` erzeugt text_grep kein globales `rg ... .`, sondern scoped Pfade.",
+        "Pfad-Injection ueber Query bleibt wirkungslos.",
+        "Wenn allowed_paths leer und strict=true, wird kein AgenticSearch ausgefuehrt.",
+        "Tests pruefen Command-Args direkt, ohne echte Shell-Abhaengigkeit soweit moeglich."
+      ]
+    },
+    {
+      "id": "CCRDS-011",
+      "title": "Write-Scope Policy-Modell vorbereiten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "paths": [
+        "agent/codecompass/domain_scope.py",
+        "agent/services/*policy*",
+        "worker/*"
+      ],
+      "description": "Lesekontext reicht nicht: Worker-Schreibaktionen muessen gegen Domain-Grenzen pruefbar werden.",
+      "implementation_notes": [
+        "ResolvedDomainScope soll `allowed_write_paths` separat enthalten.",
+        "Wenn Descriptor keine write paths nennt, default auf root/source paths der Domain.",
+        "Cross-domain writes muessen als DomainScopeViolation darstellbar sein.",
+        "Noch keine breite Worker-Umbaupflicht, aber klarer zentraler Validator."
+      ],
+      "acceptance_criteria": [
+        "Validator akzeptiert Schreibpfad innerhalb allowed_write_paths.",
+        "Validator blockiert Schreibpfad ausserhalb allowed_write_paths.",
+        "Path traversal (`../`) wird normalisiert und blockiert.",
+        "Violation enthaelt requested_path, matched_domain, allowed_paths und severity."
+      ]
+    },
+    {
+      "id": "CCRDS-012",
+      "title": "Tool-/Worker-Integration fuer Schreibpfade identifizieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "paths": [
+        "worker",
+        "agent",
+        "services"
+      ],
+      "description": "Konkrete Stellen finden, an denen Worker Dateiaenderungen ausfuehren oder externe Agenten starten.",
+      "implementation_notes": [
+        "Code nach file write, patch apply, command execution, OpenCode/Codex/Aider-Worker durchsuchen.",
+        "Liste der Enforcement-Punkte als Doku/Kommentar oder Testfixture festhalten.",
+        "Nicht alles sofort umbauen; zuerst belastbare Hook-Punkte identifizieren."
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine dokumentierte Liste der Write-Enforcement-Punkte.",
+        "Fuer jeden Punkt ist markiert: direkt blockierbar, braucht Adapter, braucht Approval, nicht relevant.",
+        "Keine pauschale Aussage ohne Codepfad."
+      ]
+    },
+    {
+      "id": "CCRDS-013",
+      "title": "Cross-domain Write Approval Hook einfuehren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "paths": [
+        "agent/services/approval_policy_service.py",
+        "agent/codecompass/domain_scope.py"
+      ],
+      "description": "Wenn ein Worker ausserhalb der Domain schreiben will, soll das nicht still passieren.",
+      "implementation_notes": [
+        "DomainScopeViolation kann in approval_required gemappt werden.",
+        "Approval muss an konkreten Pfad/Argument-Digest gebunden werden, nicht pauschal an Tool.",
+        "Wenn Approval-Service noch nicht voll verdrahtet ist, mindestens Vertrags-/Testbasis schaffen."
+      ],
+      "acceptance_criteria": [
+        "Cross-domain write in strict mode wird blockiert.",
+        "Cross-domain write in approval mode erzeugt approval_required mit DomainScopeViolation-Details.",
+        "Grant gilt nur fuer konkreten requested_path/arguments_digest.",
+        "Tests decken deny, pending und granted ab, sofern Approval-Service schon testbar ist."
+      ]
+    },
+    {
+      "id": "CCRDS-014",
+      "title": "ai-snake-chat soll Domain-Scope anzeigen und erklaeren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "paths": [
+        "agent/heuristics/strategies/chat_codecompass",
+        "client_surfaces/operator_tui",
+        "frontend-angular"
+      ],
+      "description": "User muss sehen koennen, welche Domain gerade aktiv ist und warum Kontext gefiltert wurde.",
+      "implementation_notes": [
+        "Antwort-/Context-Result um Scope-Zusammenfassung erweitern.",
+        "No-good-match soll bei aktivem Scope sagen koennen: keine Treffer innerhalb Domain, statt global zu halluzinieren.",
+        "`/rag why` oder aequivalente Debug-Ausgabe soll kept/dropped Chunks zeigen."
+      ],
+      "acceptance_criteria": [
+        "Bei aktiver Domain enthaelt Result `active_domain_ids` und allowed paths.",
+        "Dropped-Statistik ist fuer UI lesbar.",
+        "Wenn innerhalb Scope nichts gefunden wird, wird nicht automatisch global gesucht.",
+        "ai-snake kann dem User vorschlagen: Domain wechseln/erweitern oder Scope deaktivieren."
+      ]
+    },
+    {
+      "id": "CCRDS-015",
+      "title": "UI/Frontend Domain-Auswahl vorbereiten",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph",
+        "frontend-angular/src/app/components/ai-snake-config-panel.component.ts"
+      ],
+      "description": "Erkannte Domains sollen sichtbar und als Scope auswählbar werden.",
+      "implementation_notes": [
+        "Domains aus `domains.detected.json` oder Backend-Endpoint anzeigen.",
+        "Mehrfachauswahl erlauben, aber Strict-Warnung anzeigen.",
+        "Boundary-Warnungen und root_paths sichtbar machen."
+      ],
+      "acceptance_criteria": [
+        "UI zeigt domain_id, display_name, confidence und root_paths.",
+        "User kann eine Domain als aktuellen Scope setzen.",
+        "UI zeigt Warnung bei niedriger confidence oder boundary_warnings.",
+        "Auswahl wird an Chat/RAG-Anfrage uebergeben."
+      ]
+    },
+    {
+      "id": "CCRDS-016",
+      "title": "Backend-Endpoint fuer Domain-Liste und Scope-Preview",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "paths": [
+        "agent/routes"
+      ],
+      "description": "Frontend/ai-snake brauchen eine API, um Domains und erlaubte Pfade zu sehen.",
+      "implementation_notes": [
+        "Endpoint fuer Domain-Liste aus Artefakten/Descriptoren.",
+        "Endpoint fuer Scope-Preview: selected_domain_ids -> resolved paths/warnings.",
+        "Keine Schreibfreigabe nur durch Preview."
+      ],
+      "acceptance_criteria": [
+        "GET liefert vorhandene Domains stabil sortiert.",
+        "Preview fuer bekannte Domain liefert allowed_read_paths/allowed_write_paths.",
+        "Preview fuer unbekannte Domain liefert 4xx oder structured warning, je nach strict flag.",
+        "Keine Secrets oder absolute Host-Pfade in API-Antworten."
+      ]
+    },
+    {
+      "id": "CCRDS-017",
+      "title": "Unit-Tests fuer Resolver und Filter schreiben",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "tests/test_codecompass_domain_scope_resolver.py",
+        "tests/test_codecompass_domain_scope_filter.py"
+      ],
+      "description": "Die neue Logik muss ohne echte grosse Projekte testbar sein.",
+      "implementation_notes": [
+        "Kleine Fixtures fuer domains.detected.json und domain.json bauen.",
+        "ContextChunk-Fixtures mit repo-relativen, absoluten und unklaren Quellen.",
+        "Strict und non-strict Varianten testen."
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen bekannte/unbekannte/mehrdeutige Domain.",
+        "Tests pruefen Pfadnormalisierung und Path Traversal.",
+        "Tests pruefen Filtering von RepositoryMap-, Semantic- und Agentic-Chunks.",
+        "Tests laufen ohne LlamaIndex/Embedding-Abhaengigkeit."
+      ]
+    },
+    {
+      "id": "CCRDS-018",
+      "title": "Regression-Tests fuer bestehendes RAG-Verhalten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "tests/test_hybrid_orchestrator.py"
+      ],
+      "description": "Domain-Scope darf den bestehenden Query-basierten RAG-Pfad nicht kaputt machen.",
+      "implementation_notes": [
+        "Bestehende Tests erweitern: ohne Scope identisches Verhalten.",
+        "Mit Scope nur erlaubte Chunks.",
+        "Feature disabled ignoriert Scope oder behandelt ihn neutral gemaess Designentscheidung."
+      ],
+      "acceptance_criteria": [
+        "Alle bestehenden HybridOrchestrator-Tests laufen.",
+        "Snapshot/Ranking ohne Scope bleibt stabil.",
+        "Aktiver Scope veraendert nur erwartete gefilterte Ergebnisse.",
+        "Kein LLM-Aufruf in Unit-Tests notwendig."
+      ]
+    },
+    {
+      "id": "CCRDS-019",
+      "title": "End-to-End-Minifixture fuer Bestellmodul/Rechnung bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "paths": [
+        "tests/fixtures/codecompass_domain_scope_order_billing"
+      ],
+      "description": "Ein kleines Beispielprojekt soll Sergejs Frage praktisch abdecken.",
+      "implementation_notes": [
+        "Fixture mit `orders/`, `catalog/`, `billing/` oder vergleichbaren Mini-Dateien.",
+        "Domain `orders`/`bestellmodul` aus domains.detected.json oder Descriptor.",
+        "Query: `Rechnungserzeugung soll ins Bestellmodul`.",
+        "Erwartung: Orders-Kontext ja, Catalog-Kontext nein; Billing ggf. nur als externe Referenz, wenn erlaubt."
+      ],
+      "acceptance_criteria": [
+        "Strict orders scope liefert keine catalog-Dateien.",
+        "Relation expansion kann optional billing-reference liefern, aber als external_reference markiert.",
+        "Ohne Scope kann normales Ranking weiterhin mehrere Bereiche finden.",
+        "Test beschreibt klar den Unterschied zwischen Prompt-Hinweis und explizitem Domain-Scope."
+      ]
+    },
+    {
+      "id": "CCRDS-020",
+      "title": "Docs und Todo-Status nach Implementierung aktualisieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "paths": [
+        "docs/codecompass-runtime-domain-scope.md",
+        "todos/todo.codecompass-runtime-domain-scope.json"
+      ],
+      "description": "Nach Umsetzung muss klar sein, was fertig ist und wie es genutzt wird.",
+      "implementation_notes": [
+        "Status der Tasks aktualisieren.",
+        "Beispiele fuer CLI/API/UI Nutzung eintragen.",
+        "Bekannte Grenzen dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Todo-Datei spiegelt den echten Stand wider.",
+        "Doku enthaelt ein kurzes Beispiel fuer `selected_domain_ids`.",
+        "Doku sagt klar, ob Write-Scope Enforcement voll aktiv oder nur vorbereitet ist."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Der bestehende ai-snake Key `chat_retrieval_domain_hint` wird wiederverwendet und nicht durch einen parallelen UI-Key ersetzt.",
+    "Bestehende interne Domain-Hints wie `codecompass`, `ai_snake`, `worker` bleiben rueckwaertskompatibel.",
+    "Ein explizit gesetzter Domain-Scope begrenzt Retrieval reproduzierbar auf erlaubte Domain-Pfade.",
+    "Ohne expliziten Scope bleibt das bestehende Query-/Token-/Heuristik-RAG-Verhalten erhalten.",
+    "Strict Mode faellt bei unbekannter oder leerer Domain fail-closed aus.",
+    "Das LLM bekommt im Prompt-Kontext sichtbar markiert, dass ein Domain-Scope aktiv ist.",
+    "Dropped Chunks werden zaehlbar und begruendbar gemacht.",
+    "Schreibpfade ausserhalb der erlaubten Domain koennen mindestens zentral als Violation erkannt werden.",
+    "Domain Discovery Artefakte werden gelesen, aber nicht automatisch als Runtime-Freigabe interpretiert.",
+    "Tests decken Resolver, Filter, HybridOrchestrator-Regressionsverhalten und ein Bestellmodul/Rechnung-Minibeispiel ab."
+  ],
+  "non_goals": [
+    "Kein LLM-basiertes Erraten von Domain-Grenzen als alleinige Runtime-Quelle.",
+    "Keine automatische Schreibfreigabe nur weil `domains.detected.json` eine Domain erkannt hat.",
+    "Kein globaler Fallback im Strict Mode.",
+    "Keine dynamische Plugin-Ausfuehrung aus Domain-Descriptoren.",
+    "Keine komplette Worker-Architektur-Neuschreibung in diesem Track; Enforcement-Hooks reichen zunaechst."
+  ],
+  "recommended_implementation_order": [
+    "CCRDS-001",
+    "CCRDS-002",
+    "CCRDS-004",
+    "CCRDS-005",
+    "CCRDS-008",
+    "CCRDS-007",
+    "CCRDS-017",
+    "CCRDS-018",
+    "CCRDS-009",
+    "CCRDS-010",
+    "CCRDS-011",
+    "CCRDS-012",
+    "CCRDS-013",
+    "CCRDS-014",
+    "CCRDS-016",
+    "CCRDS-015",
+    "CCRDS-019",
+    "CCRDS-003",
+    "CCRDS-020"
+  ]
+}
