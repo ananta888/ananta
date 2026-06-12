@@ -223,6 +223,51 @@ def test_run_with_sgpt_strict_violation_skips_llm(tmp_path: Path, monkeypatch) -
     assert result["errors"] == "domain_scope_violation"
 
 
+def test_scope_without_matches_offers_guidance_not_global_search(tmp_path: Path) -> None:
+    """CCRDS-014: leeres In-Scope-Ergebnis liefert Vorschlaege statt global zu suchen."""
+    from agent.codecompass.domain_scope import ResolvedDomainScope
+
+    (tmp_path / "orders").mkdir()
+    (tmp_path / "catalog").mkdir()
+    (tmp_path / "catalog" / "service.py").write_text(
+        "class FancyUniqueThing:\n    def fancy_unique_method(self):\n        return 1\n",
+        encoding="utf-8",
+    )
+    scope = ResolvedDomainScope(
+        active=True,
+        strict=True,
+        selected_domain_ids=["orders"],
+        allowed_read_paths=["orders"],
+        allowed_write_paths=["orders"],
+    )
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=2000)
+    result = orchestrator.get_relevant_context("fancy unique method", domain_scope=scope)
+    assert result["chunks"] == []
+    guidance = result["domain_scope"]["guidance"]
+    assert guidance["no_match_in_scope"] is True
+    actions = {s["action"] for s in guidance["suggestions"]}
+    assert {"switch_domain", "broaden_scope", "disable_scope"} <= actions
+
+
+def test_strict_violation_result_contains_guidance(tmp_path: Path) -> None:
+    from agent.codecompass.domain_scope import (
+        DomainScopeViolation,
+        ResolvedDomainScope,
+        VIOLATION_UNKNOWN_DOMAIN,
+    )
+
+    scope = ResolvedDomainScope(
+        active=True,
+        strict=True,
+        selected_domain_ids=["nope"],
+        violations=[DomainScopeViolation(kind=VIOLATION_UNKNOWN_DOMAIN, message="unknown")],
+    )
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=2000)
+    result = orchestrator.get_relevant_context("anything", domain_scope=scope)
+    assert result["error"] == "domain_scope_violation"
+    assert result["domain_scope"]["guidance"]["suggestions"]
+
+
 def test_repository_map_engine_scope_limits_candidates(tmp_path: Path) -> None:
     (tmp_path / "orders").mkdir()
     (tmp_path / "catalog").mkdir()

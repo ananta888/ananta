@@ -956,6 +956,7 @@ class HybridOrchestrator:
         if scope_active and not resolved_scope.ok:
             # CCRDS-DD-003: strict resolution failure fails closed — no
             # global fallback, no context, explicit error for the caller.
+            from agent.codecompass.domain_scope_filter import build_no_match_guidance
             return {
                 "query": query,
                 "error": "domain_scope_violation",
@@ -964,7 +965,10 @@ class HybridOrchestrator:
                 "chunks": [],
                 "context_text": "",
                 "token_estimate": 0,
-                "domain_scope": resolved_scope.as_dict(),
+                "domain_scope": {
+                    **resolved_scope.as_dict(),
+                    "guidance": build_no_match_guidance(resolved_scope),
+                },
             }
 
         allowed_paths = list(resolved_scope.allowed_read_paths) if scope_active else None
@@ -1014,12 +1018,21 @@ class HybridOrchestrator:
             estimate_tokens=self.context_manager.estimate_tokens,
         )
         if scope_active:
-            from agent.codecompass.domain_scope_filter import build_scope_banner
+            from agent.codecompass.domain_scope_filter import (
+                build_no_match_guidance,
+                build_scope_banner,
+            )
             result["domain_scope"] = {
                 **resolved_scope.as_dict(),
                 "active_domain_ids": list(resolved_scope.selected_domain_ids),
                 "filter_stats": filter_stats.as_dict() if filter_stats else None,
             }
+            if not best:
+                # CCRDS-014: empty in-scope result — explain instead of
+                # silently widening the search.
+                result["domain_scope"]["guidance"] = build_no_match_guidance(
+                    resolved_scope, filter_stats
+                )
             banner = build_scope_banner(resolved_scope, filter_stats)
             result["context_text"] = (
                 f"{banner}\n\n{result['context_text']}" if result["context_text"] else banner

@@ -80,8 +80,16 @@ class TestBuildGroundedSnakePromptProfileIntegration:
         fake_bundle = self._make_fake_bundle(chunks)
         fake_grounded = "Frage:\ntest\n\nKontext:\n..."
 
+        # snakes_execution_routes is only importable through the snakes
+        # entry module (circular import); load it before patch() resolves
+        # the target.
+        from agent.routes.snakes import SnakeAskLimits, _build_grounded_snake_prompt
+
         with (
-            patch("agent.routes.snakes.get_rag_service") as mock_rag,
+            # _build_grounded_snake_prompt lives in snakes_execution_routes
+            # (snakes.py only re-exports it) — patch the module that holds
+            # the actual get_rag_service reference.
+            patch("agent.routes.snakes_execution_routes.get_rag_service") as mock_rag,
             patch("agent.routes.ai_snake_config._current_config") as mock_cfg,
             patch("agent.services.retrieval_profile_service.resolve_profile") as mock_resolve,
         ):
@@ -112,8 +120,6 @@ class TestBuildGroundedSnakePromptProfileIntegration:
             mock_rag_service.build_execution_context.return_value = (fake_bundle, fake_grounded)
             mock_rag.return_value = mock_rag_service
 
-            from agent.routes.snakes import _build_grounded_snake_prompt, SnakeAskLimits
-
             with self._capture_profile_log() as profile_logs:
                 grounded, has_context, summary = _build_grounded_snake_prompt(
                     "den codecompass der schon implementiert ist erklären",
@@ -135,7 +141,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
                 self.records = []
                 self.handler = logging.Handler()
                 self.handler.emit = self.records.append
-                self.logger = logging.getLogger("agent.routes.snakes")
+                self.logger = logging.getLogger("agent.routes.snakes_execution_routes")
                 self.old_level = self.logger.level
                 self.old_disabled = self.logger.disabled
                 self.logger.disabled = False
@@ -155,8 +161,10 @@ class TestBuildGroundedSnakePromptProfileIntegration:
         fake_bundle = {"chunks": [], "context_text": ""}
         fake_grounded = "Frage:\ntest"
 
+        from agent.routes.snakes import SnakeAskLimits, _build_grounded_snake_prompt
+
         with (
-            patch("agent.routes.snakes.get_rag_service") as mock_rag,
+            patch("agent.routes.snakes_execution_routes.get_rag_service") as mock_rag,
             patch("agent.routes.ai_snake_config._current_config") as mock_cfg,
         ):
             mock_cfg.return_value = {
@@ -170,8 +178,6 @@ class TestBuildGroundedSnakePromptProfileIntegration:
             mock_rag_service = MagicMock()
             mock_rag_service.build_execution_context.return_value = (fake_bundle, fake_grounded)
             mock_rag.return_value = mock_rag_service
-
-            from agent.routes.snakes import _build_grounded_snake_prompt, SnakeAskLimits
 
             _build_grounded_snake_prompt(
                 "wie funktioniert codecompass",

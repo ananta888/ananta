@@ -169,6 +169,47 @@ def filter_chunks(
     return kept, stats
 
 
+def build_no_match_guidance(
+    scope: ResolvedDomainScope,
+    stats: DomainScopeFilterStats | None = None,
+) -> dict[str, Any]:
+    """CCRDS-014: user-facing guidance when a scoped search finds nothing.
+
+    Instead of silently falling back to global retrieval (forbidden in
+    strict mode), the result tells the user what happened and offers
+    concrete next steps the UI/ai-snake can render as suggestions.
+    """
+    domains = ", ".join(scope.selected_domain_ids) or "-"
+    dropped = stats.dropped if stats else 0
+    suggestions = [
+        {
+            "action": "switch_domain",
+            "label": f"Andere Domain waehlen (aktiv: {domains})",
+        },
+        {
+            "action": "broaden_scope",
+            "label": "Scope um weitere Domains erweitern (selected_domain_ids)",
+        },
+        {
+            "action": "disable_scope",
+            "label": "Domain-Scope deaktivieren (chat_retrieval_domain_hint leeren)",
+        },
+    ]
+    if dropped:
+        suggestions.insert(0, {
+            "action": "review_dropped",
+            "label": f"{dropped} Treffer lagen ausserhalb der Domain — Scope pruefen",
+        })
+    return {
+        "no_match_in_scope": True,
+        "message": (
+            f"Keine Treffer innerhalb der Domain(s) {domains}. "
+            "Es wurde nicht global gesucht, weil ein Domain-Scope aktiv ist."
+        ),
+        "suggestions": suggestions,
+    }
+
+
 def build_scope_banner(scope: ResolvedDomainScope, stats: DomainScopeFilterStats | None = None) -> str:
     """Prompt banner so the LLM sees that a hard domain scope is active."""
     lines = [

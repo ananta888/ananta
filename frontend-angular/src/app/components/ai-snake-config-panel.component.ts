@@ -2,6 +2,8 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
+import { DomainScopeService } from '../features/codecompass-graph/services/domain-scope.service';
+import { DomainScopePanelComponent } from '../features/codecompass-graph/components/domain-scope-panel/domain-scope-panel.component';
 
 interface ConfigField {
   key: string;
@@ -90,7 +92,7 @@ const FIELDS: ConfigField[] = [
 @Component({
   selector: 'app-ai-snake-config-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DomainScopePanelComponent],
   template: `
     <div class="cfg-panel">
       <div class="cfg-header">
@@ -136,6 +138,19 @@ const FIELDS: ConfigField[] = [
             }
           </div>
         }
+        <!-- CCRDS-015: runtime domain scope selection (CodeCompass) -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">Domain-Scope (CodeCompass)</div>
+          <div class="cfg-row">
+            <span class="cfg-label">Erkannte Domains anzeigen</span>
+            <button class="cfg-scope-toggle" (click)="toggleDomainScope()">
+              {{ showDomainScope ? 'Ausblenden' : 'Anzeigen' }}
+            </button>
+          </div>
+          @if (showDomainScope) {
+            <app-domain-scope-panel />
+          }
+        </div>
       </div>
     </div>
   `,
@@ -177,16 +192,28 @@ const FIELDS: ConfigField[] = [
       width: 10px; height: 10px; background: #6b8ab8; border-radius: 50%; transition: left 0.2s;
     }
     .cfg-toggle input:checked ~ .cfg-toggle-track::after { left: 16px; background: #0b1220; }
+    .cfg-scope-toggle {
+      background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8;
+      font-size: 11px; font-family: inherit; padding: 2px 8px; border-radius: 2px; cursor: pointer;
+    }
+    .cfg-scope-toggle:hover { border-color: #2a4d7a; }
   `],
 })
 export class AiSnakeConfigPanelComponent implements OnInit {
   private svc = inject(AiSnakeConfigService);
+  private domainScope = inject(DomainScopeService);
 
   search = '';
+  showDomainScope = false;
   private _filtered: ConfigField[] = [...FIELDS];
 
   ngOnInit(): void {
     this.svc.load();
+  }
+
+  toggleDomainScope(): void {
+    this.showDomainScope = !this.showDomainScope;
+    if (this.showDomainScope) this.domainScope.loadDomains();
   }
 
   updateFiltered(): void {
