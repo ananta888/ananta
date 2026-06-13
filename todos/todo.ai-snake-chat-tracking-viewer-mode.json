@@ -1,0 +1,320 @@
+{
+  "id": "todo.ai-snake-chat-tracking-viewer-mode",
+  "title": "AI-Snake Chat Tracking Viewer Mode fuer Angular App",
+  "status": "planned",
+  "priority": "high",
+  "component": [
+    "frontend-angular",
+    "ai-snake-chat",
+    "agent/routes/snakes_execution_routes.py",
+    "tool-calling",
+    "codecompass-retrieval"
+  ],
+  "goal": {
+    "summary": "In der Angular App soll ein Tracking-/Trace-Viewer fuer ai-snake-chat entstehen, der live und nachtraeglich sichtbar macht, wie eine Antwort entsteht.",
+    "user_value": "Der Nutzer sieht nicht nur die finale Antwort, sondern jeden relevanten Zwischenschritt: Retrieval, Kontextauswahl, Modellaufruf, Tool-Calling, Tool-Argumente, Tool-Ergebnisse, Fehler, gekuerzte Daten und finalen Antwortaufbau."
+  },
+  "current_state": {
+    "frontend": {
+      "finding": "ai-snake-chat-panel besitzt bereits eine Tab-Struktur, aber keinen Trace-/Tracking-Tab.",
+      "existing_tabs": [
+        "Chat",
+        "Sessions",
+        "AI-Snake",
+        "Pair Dev",
+        "Modus",
+        "Einstellungen"
+      ]
+    },
+    "frontend_service": {
+      "finding": "AiSnakeChatService pollt aktuell Chat-Messages und Participants, aber keine dedizierten Generation-/Trace-Events.",
+      "limitation": "Zwischenschritte koennen aktuell hoechstens als normale Chatnachricht erscheinen, nicht strukturiert auswaehlbar."
+    },
+    "backend": {
+      "finding": "Die Antwortgenerierung laeuft im Background-Thread und ruft Retrieval/Full-Scan/LLM auf.",
+      "limitation": "Es gibt keinen persistenten, strukturierten Trace pro Antwortlauf."
+    }
+  },
+  "target_behavior": {
+    "menu_entry": {
+      "name": "Trace",
+      "placement": "ai-snake-chat-panel bottom-tabs",
+      "behavior": "Wenn ein Antwortlauf aktiv ist, zeigt der Trace-Tab automatisch den aktuellen Schritt. Wenn kein Lauf aktiv ist, zeigt er den letzten Lauf der aktiven Chat-Session."
+    },
+    "live_mode": {
+      "default": true,
+      "description": "Viewer springt automatisch zum neuesten laufenden Schritt, solange der Nutzer keinen alten Schritt manuell ausgewaehlt hat."
+    },
+    "history_mode": {
+      "description": "Alle bisherigen Schritte eines Antwortlaufs bleiben auswaehlbar. Klick auf einen alten Schritt stoppt Auto-Follow temporaer.",
+      "resume_auto_follow": "Button 'Live folgen' aktiviert wieder automatische Anzeige des aktuellen Schritts."
+    },
+    "tool_call_visibility": {
+      "description": "Tool Calls muessen klar sichtbar sein: Tool-Name, Zweck, Argumente, Zeitpunkt, Dauer, Status, Ergebnis-Zusammenfassung und Fehler.",
+      "security": "Secrets, Tokens, Authorization Header und sensible Pfade duerfen nie roh angezeigt werden."
+    }
+  },
+  "trace_event_model": {
+    "entity": "AiSnakeTraceEvent",
+    "fields": {
+      "trace_id": "string - stabil pro Antwortlauf",
+      "event_id": "string - eindeutig pro Event",
+      "session_id": "string | null",
+      "snake_id": "string | null",
+      "parent_event_id": "string | null",
+      "seq": "number - monotone Reihenfolge",
+      "phase": "string enum",
+      "title": "string - kurze UI-Beschreibung",
+      "status": "pending | running | completed | failed | skipped | cancelled",
+      "started_at": "unix timestamp",
+      "finished_at": "unix timestamp | null",
+      "duration_ms": "number | null",
+      "summary": "string",
+      "details": "object",
+      "input_preview": "object | string | null",
+      "output_preview": "object | string | null",
+      "raw_available": "boolean",
+      "redaction_applied": "boolean",
+      "error": "string | null"
+    },
+    "phase_enum": [
+      "request_received",
+      "session_resolved",
+      "config_loaded",
+      "retrieval_profile_selected",
+      "domain_scope_resolved",
+      "codecompass_retrieval_started",
+      "codecompass_retrieval_completed",
+      "full_scan_detected",
+      "full_scan_batch_started",
+      "full_scan_batch_completed",
+      "prompt_built",
+      "llm_call_started",
+      "llm_token_delta",
+      "llm_call_completed",
+      "tool_call_requested",
+      "tool_call_started",
+      "tool_call_completed",
+      "tool_call_failed",
+      "answer_postprocessed",
+      "chat_message_written",
+      "cancel_requested",
+      "failed"
+    ]
+  },
+  "backend_tasks": [
+    {
+      "id": "backend.trace-store",
+      "title": "In-memory Trace Store fuer ai-snake-chat einbauen",
+      "description": "Ein kleiner serverseitiger TraceStore speichert Events pro trace_id und optional pro session_id/snake_id.",
+      "acceptance_criteria": [
+        "Jeder Antwortlauf bekommt eine trace_id.",
+        "Events werden sequenziell mit seq gespeichert.",
+        "TraceStore begrenzt Speicher: max_traces, max_events_per_trace, ttl_seconds konfigurierbar.",
+        "Alte Traces werden deterministisch entfernt.",
+        "Tests pruefen Reihenfolge, TTL und Max-Limit."
+      ]
+    },
+    {
+      "id": "backend.trace-recorder",
+      "title": "TraceRecorder Wrapper fuer Antwortgenerierung",
+      "description": "Die bestehende _spawn_ai_chat_reply Pipeline wird mit Trace Events instrumentiert.",
+      "acceptance_criteria": [
+        "request_received wird beim Start geschrieben.",
+        "retrieval_profile_selected wird geschrieben, wenn Profil/Intent/Domain erkannt wurde.",
+        "codecompass_retrieval_started/completed wird um build_execution_context herum geschrieben.",
+        "full_scan_* Events werden bei Full-Scan erzeugt.",
+        "llm_call_started/completed wird um generate_text herum geschrieben.",
+        "answer_postprocessed und chat_message_written werden erzeugt.",
+        "Fehler erzeugen failed Event mit gekuerzter Fehlermeldung."
+      ]
+    },
+    {
+      "id": "backend.tool-call-trace",
+      "title": "Generischen Tool-Call Trace vorbereiten",
+      "description": "Alle internen Tool-/Worker-Aufrufe sollen ueber einen gemeinsamen Trace-Kontrakt laufen.",
+      "acceptance_criteria": [
+        "Tool-Name wird angezeigt.",
+        "Tool-Argumente werden als JSON angezeigt, aber redacted.",
+        "Tool-Ergebnis wird gekuerzt angezeigt.",
+        "Dauer und Status werden angezeigt.",
+        "Fehler werden sichtbar, ohne Stacktrace/Secrets komplett offenzulegen."
+      ]
+    },
+    {
+      "id": "backend.trace-api",
+      "title": "HTTP API fuer Trace Viewer bereitstellen",
+      "endpoints": [
+        "GET /snakes/{snake_id}/chat/traces",
+        "GET /snakes/{snake_id}/chat/traces/{trace_id}",
+        "GET /snakes/{snake_id}/chat/traces/{trace_id}/events?since_seq=0"
+      ],
+      "acceptance_criteria": [
+        "API nutzt bestehende Snake-Token-Pruefung.",
+        "Events koennen inkrementell per since_seq geladen werden.",
+        "Antwort enthaelt trace_id, current_status, latest_seq und events.",
+        "404/403 Verhalten entspricht bestehenden Snake-Endpunkten.",
+        "Tests decken Auth, leere Traces, laufende Traces und abgeschlossene Traces ab."
+      ]
+    },
+    {
+      "id": "backend.optional-sse",
+      "title": "Optional SSE fuer echtes Live-Streaming",
+      "description": "Polling reicht fuer MVP, aber SSE soll optional konfigurierbar sein.",
+      "acceptance_criteria": [
+        "Feature Flag ai_snake_trace_stream_mode = polling | sse.",
+        "Polling bleibt Default, damit Tests und einfache Deployments stabil bleiben.",
+        "SSE darf keine Background-Thread-Probleme in Tests erzeugen."
+      ]
+    }
+  ],
+  "frontend_tasks": [
+    {
+      "id": "frontend.trace-tab",
+      "title": "Trace Tab in ai-snake-chat-panel hinzufuegen",
+      "description": "Neuer Bottom-Tab 'Trace' neben Chat/Sessions/Modus.",
+      "acceptance_criteria": [
+        "Tab ist sichtbar.",
+        "Aktiver Tab wird wie bestehende Tabs markiert.",
+        "Wenn kein Trace existiert, erscheint ein kurzer Hinweis.",
+        "Wenn ein Antwortlauf aktiv ist, wird automatisch der aktuelle Trace angezeigt."
+      ]
+    },
+    {
+      "id": "frontend.trace-service",
+      "title": "AiSnakeTraceService bauen",
+      "description": "Angular Service fuer Laden/Pollen von Trace Events.",
+      "acceptance_criteria": [
+        "Service kennt activeTraceId$.",
+        "Service kennt traceEvents$.",
+        "Service pollt waehrend awaitingReply$ aktiv ist.",
+        "Service kann abgeschlossene Traces nachladen.",
+        "Service dedupliziert Events anhand event_id oder seq.",
+        "Service setzt Fehler nicht als Chatfehler, sondern als Trace-Fehlerstatus."
+      ]
+    },
+    {
+      "id": "frontend.trace-viewer-component",
+      "title": "Trace Viewer Komponente bauen",
+      "description": "Uebersichtliche UI mit Timeline links und Detailansicht rechts/unterhalb.",
+      "acceptance_criteria": [
+        "Timeline zeigt Phase, Titel, Status, Dauer.",
+        "Aktueller laufender Schritt ist hervorgehoben.",
+        "Klick auf Event zeigt Details.",
+        "Auto-Follow pausiert bei manueller Auswahl alter Events.",
+        "Button 'Live folgen' aktiviert Auto-Follow wieder.",
+        "Tool Calls werden als eigene Event-Karten angezeigt."
+      ]
+    },
+    {
+      "id": "frontend.trace-event-detail",
+      "title": "Detailansicht fuer einzelne Trace Events",
+      "description": "Ein Event muss lesbar, aber nicht ueberladen angezeigt werden.",
+      "acceptance_criteria": [
+        "Summary immer sichtbar.",
+        "Input Preview einklappbar.",
+        "Output Preview einklappbar.",
+        "Details als formatiertes JSON einklappbar.",
+        "Redaction-Hinweis sichtbar, wenn redaction_applied=true.",
+        "Sehr lange Inhalte werden gekuerzt und mit Laengeninfo angezeigt."
+      ]
+    },
+    {
+      "id": "frontend.tool-call-card",
+      "title": "Spezielle Darstellung fuer Tool Calls",
+      "acceptance_criteria": [
+        "Tool-Name klar sichtbar.",
+        "Argumente klar sichtbar.",
+        "Status running/completed/failed sichtbar.",
+        "Dauer sichtbar.",
+        "Result Preview sichtbar.",
+        "Fehler sichtbar.",
+        "Keine Secrets sichtbar."
+      ]
+    }
+  ],
+  "security_and_privacy": {
+    "redaction_rules": [
+      "Authorization Header entfernen",
+      "Bearer Tokens entfernen",
+      "API Keys entfernen",
+      "Cookies entfernen",
+      "Passwoerter entfernen",
+      "Private Keys entfernen",
+      "Sehr lange Prompts/Outputs kuerzen",
+      "Optional absolute lokale Pfade relativieren"
+    ],
+    "acceptance_criteria": [
+      "Unit-Test mit Authorization Header beweist Redaction.",
+      "Unit-Test mit API-Key-artigem String beweist Redaction.",
+      "Raw Tool Arguments werden nie ungefiltert an Frontend gegeben."
+    ]
+  },
+  "configuration": {
+    "settings": {
+      "ai_snake_trace_enabled": true,
+      "ai_snake_trace_max_traces": 50,
+      "ai_snake_trace_max_events_per_trace": 500,
+      "ai_snake_trace_ttl_seconds": 86400,
+      "ai_snake_trace_stream_mode": "polling",
+      "ai_snake_trace_redact_secrets": true,
+      "ai_snake_trace_max_preview_chars": 4000
+    },
+    "acceptance_criteria": [
+      "Feature kann komplett deaktiviert werden.",
+      "Limits sind zentral konfigurierbar.",
+      "Default ist sicher und speicherbegrenzt."
+    ]
+  },
+  "tests": [
+    {
+      "type": "backend_unit",
+      "cases": [
+        "TraceStore speichert Events in richtiger Reihenfolge",
+        "TraceStore begrenzt Events",
+        "Redaction entfernt Token/Secrets",
+        "failed Event entsteht bei Exception",
+        "Tool Call Event serialisiert Argumente redacted"
+      ]
+    },
+    {
+      "type": "backend_route",
+      "cases": [
+        "GET traces ohne Auth liefert 401/403",
+        "GET traces mit gueltigem Snake Token liefert Liste",
+        "GET trace events mit since_seq liefert nur neue Events",
+        "Unbekannte trace_id liefert 404"
+      ]
+    },
+    {
+      "type": "frontend_unit",
+      "cases": [
+        "Trace Tab wird angezeigt",
+        "Event-Klick pausiert Auto-Follow",
+        "Live folgen aktiviert Auto-Follow",
+        "Tool Call Card zeigt Name/Args/Status",
+        "Redaction-Hinweis wird angezeigt"
+      ]
+    },
+    {
+      "type": "e2e",
+      "cases": [
+        "Nutzer sendet Chatfrage",
+        "Trace Tab zeigt laufenden Antwortprozess",
+        "Nach Antwort bleiben alte Schritte auswaehlbar",
+        "Tool-/Retrieval-Schritte sind sichtbar",
+        "Finale Chatantwort ist weiterhin normal im Chat sichtbar"
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Angular App hat einen Trace/Tracking Tab.",
+    "Antwortgenerierung erzeugt strukturierte Events.",
+    "Aktueller Schritt wird automatisch angezeigt.",
+    "Vorherige Schritte bleiben auswaehlbar.",
+    "Tool Calls sind einfach sichtbar.",
+    "Secrets werden redacted.",
+    "Feature ist konfigurierbar und abschaltbar.",
+    "Backend- und Frontend-Tests decken Kernverhalten ab."
+  ]
+}
