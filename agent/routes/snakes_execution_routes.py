@@ -452,9 +452,31 @@ def _snake_retrieval_dry_run(
     return result
 
 
+def _chat_answer_chars_limit(default: int = 12000) -> int:
+    try:
+        from agent.routes.ai_snake_config import _current_config
+
+        return max(600, min(50000, int(_current_config().get("chat_answer_chars") or default)))
+    except Exception:
+        return default
+
+
+def _room_ai_message_chars_limit() -> int:
+    return min(50000, _chat_answer_chars_limit() + 2000)
+
+
+def _truncate_room_ai_text(text: str) -> str:
+    limit = _room_ai_message_chars_limit()
+    if len(text) <= limit:
+        return text
+    marker = "\n\n[gekuerzt]"
+    return text[: max(0, limit - len(marker))].rstrip() + marker
+
+
 def _append_room_ai_message(*, text: str) -> None:
     if not text:
         return
+    stored_text = _truncate_room_ai_text(text)
     msg: dict[str, Any] = {
         "id": str(uuid.uuid4()),
         "created_at": time.time(),
@@ -463,7 +485,7 @@ def _append_room_ai_message(*, text: str) -> None:
         "sender_id": "ai-snake",
         "sender_kind": "assistant",
         "target_ids": [],
-        "text": text[:6000],
+        "text": stored_text,
         "visibility": "room",
         "delivery_state": "received",
         "policy_decision_ref": None,
@@ -552,12 +574,12 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
                           details={"provider": provider, "model": model, "conversation_history_messages": len(conversation_history)})
 
-            _answer_chars_limit = 6000
+            _answer_chars_limit = _chat_answer_chars_limit()
             try:
                 from agent.routes.ai_snake_config import _current_config
                 from agent.services.retrieval_profile_service import _is_full_scan_intent, _is_rag_iterative_intent
                 _cfg = _current_config()
-                _answer_chars_limit = int(_cfg.get("chat_answer_chars", 6000))
+                _answer_chars_limit = _chat_answer_chars_limit()
                 if _is_rag_iterative_intent(_cfg):
                     if rec:
                         rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",

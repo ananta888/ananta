@@ -120,6 +120,33 @@ def test_room_conversation_history_excludes_current_turn(client):
     ]
 
 
+def test_append_room_ai_message_does_not_silently_cut_at_6000(client, monkeypatch):
+    import agent.routes.snakes_execution_routes as ser
+    from agent.routes.snakes import _room_messages
+
+    del client
+    monkeypatch.setattr(ser, "_chat_answer_chars_limit", lambda: 6000)
+    text = "A" * 7000
+
+    ser._append_room_ai_message(text=text)
+
+    assert _room_messages[-1]["text"] == text
+
+
+def test_append_room_ai_message_marks_truncation(client, monkeypatch):
+    import agent.routes.snakes_execution_routes as ser
+    from agent.routes.snakes import _room_messages
+
+    del client
+    monkeypatch.setattr(ser, "_room_ai_message_chars_limit", lambda: 1000)
+
+    ser._append_room_ai_message(text="B" * 1500)
+
+    stored = _room_messages[-1]["text"]
+    assert len(stored) <= 1000
+    assert stored.endswith("[gekuerzt]")
+
+
 # ── Chat: local_only rejected ─────────────────────────────────────────────────
 
 
