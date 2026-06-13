@@ -410,7 +410,7 @@ def _snake_retrieval_dry_run(
                 task_kind="research",
                 retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
                 source_types=profile.source_types or None,
-                max_chunks=max(8, min(top_k, 40)),
+                max_chunks=max(8, min(top_k if top_k is not None else 40, 40)),
                 retrieval_profile=profile.as_dict(),
             )
             chunks = list(bundle.get("chunks") or [])
