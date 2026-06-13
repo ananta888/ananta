@@ -192,3 +192,47 @@ def test_test_file_with_domain_in_stem_keeps_natural_score():
         f"test_codecompass_fts_engine.py ({fts_idx}) should rank above "
         f"test_memory_tree_store_service.py ({memory_idx}): {paths}"
     )
+
+
+def test_query_named_directory_focus_keeps_real_subdirectory_in_top_results():
+    engine = _make_engine_with_symbols({
+        "agent/services/alpha_tools_index_service.py": [
+            "AlphaToolsIndexService",
+            "index_repo_path",
+            "get_alpha_tools_index_service",
+        ],
+        "agent/services/tools/search_tools.py": [
+            "search",
+            "alpha_tools_context",
+        ],
+        "tests/test_alpha_tools_index_service.py": [
+            "test_alpha_tools_index_service_runs",
+            "test_index_repo_path_indexes_a_directory",
+        ],
+        "alpha-tools/runner.py": [
+            "Runner",
+            "TextExtractor",
+            "DEFAULT_EXCLUDES",
+        ],
+        "alpha-tools/alpha_tools/application/project_processor.py": [
+            "process_project",
+            "write_outputs",
+            "build_manifest",
+        ],
+        "alpha-tools/alpha_tools/cli.py": [
+            "main",
+            "parse_args",
+            "run_alpha_tools",
+        ],
+        "docs/system-komponenten.md": [
+            "AlphaTools",
+            "Indexer",
+        ],
+    })
+
+    results = engine.search("bitte erkläre alpha tools", top_k=5)
+    paths = [r.source for r in results]
+
+    assert "alpha-tools/runner.py" in paths
+    assert "alpha-tools/alpha_tools/application/project_processor.py" in paths
+    assert "alpha-tools/alpha_tools/cli.py" in paths

@@ -121,7 +121,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
             mock_rag.return_value = mock_rag_service
 
             with self._capture_profile_log() as profile_logs:
-                grounded, has_context, summary, _domain_info = _build_grounded_snake_prompt(
+                grounded, has_context, summary, _domain_info, _chunk_meta = _build_grounded_snake_prompt(
                     "den codecompass der schon implementiert ist erklären",
                     limits=SnakeAskLimits(),
                 )
@@ -203,9 +203,9 @@ class TestBuildGroundedSnakePromptProfileIntegration:
                 "test prompt",
                 limits=SnakeAskLimits(),
             )
-        # Should return a 4-tuple (prompt, bool, summary, domain_scope_info)
+        # Should return a 5-tuple (prompt, bool, summary, domain_scope_info, chunk_meta)
         assert isinstance(result, tuple)
-        assert len(result) == 4
+        assert len(result) == 5
 
 
 class TestCRPS014WorkerHandoffRegressionTest:
