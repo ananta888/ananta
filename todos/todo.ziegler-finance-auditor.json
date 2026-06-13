@@ -1,0 +1,428 @@
+{
+  "id": "todo.ziegler-finance-auditor",
+  "title": "Ziegler Finance Auditor: Finanzmärkte als Casino-, Macht- und Ausbeutungssystem offenlegen",
+  "status": "open",
+  "priority": "high",
+  "dedication": {
+    "name": "Jean Ziegler",
+    "note": "In memory of Jean Ziegler and his criticism of hunger, financial power, speculation, tax havens and the violence of global capitalism."
+  },
+  "goal": "Ein Ananta-Modul entwickeln, das Finanzmärkte, Börsen, Spekulation, Geldsystem, Schuldenlogik, Rohstoff- und Nahrungsmittelspekulation, Steuerflucht, Vermögenskonzentration und Externalisierung als Macht-, Ausbeutungs- und Verteilungssystem analysiert und offenlegt. Das Modul soll nicht Investment-Optimierung betreiben, sondern Finanzabstraktion zurück auf reale menschliche Folgen, Grundbedürfnisse, strukturelle Gewalt und Profiteure übersetzen.",
+  "non_goals": [
+    "Kein Trading-Bot",
+    "Keine automatische Orderausführung",
+    "Keine Broker-API-Integration",
+    "Keine Kauf-, Verkaufs-, Short- oder Hebel-Empfehlungen",
+    "Keine Marktmanipulation",
+    "Keine Anleitung zu illegalen Handlungen",
+    "Keine unbelegten Straftatbehauptungen gegen konkrete Personen oder Firmen",
+    "Keine romantisierte Gewalt- oder Umsturzrhetorik",
+    "Keine Optimierung auf kurzfristige Profitmaximierung"
+  ],
+  "architecture_principles": [
+    "Human rights first",
+    "Food, housing, water, health and survival are not casino chips",
+    "Legal is not automatically legitimate",
+    "Profit must be checked against social harm",
+    "Financial abstraction must be translated back into real human consequences",
+    "Claims about actual crimes require evidence",
+    "Structural violence may be named clearly even when individual criminal liability is not proven",
+    "Deterministic checks run before LLM analysis",
+    "LLM usage is optional and must not bypass guardrails",
+    "Read-only by default",
+    "Evidence-first output with explicit uncertainty"
+  ],
+  "suggested_paths": [
+    "agent/modules/ziegler_auditor/",
+    "agent/modules/ziegler_auditor/__init__.py",
+    "agent/modules/ziegler_auditor/models.py",
+    "agent/modules/ziegler_auditor/service.py",
+    "agent/modules/ziegler_auditor/rules.py",
+    "agent/modules/ziegler_auditor/scoring.py",
+    "agent/modules/ziegler_auditor/structural_violence.py",
+    "agent/modules/ziegler_auditor/speculation_auditor.py",
+    "agent/modules/ziegler_auditor/debt_auditor.py",
+    "agent/modules/ziegler_auditor/externalization.py",
+    "agent/modules/ziegler_auditor/source_quality.py",
+    "agent/modules/ziegler_auditor/prompts.py",
+    "agent/modules/ziegler_auditor/tests/",
+    "prompts/ziegler_finance_auditor.j2",
+    "docs/ziegler_auditor.md",
+    "tests/fixtures/ziegler_finance_claims.json"
+  ],
+  "tasks": [
+    {
+      "id": "ZF-001",
+      "title": "Dedication und ethischen Rahmen dokumentieren",
+      "description": "Lege eine kurze Dokumentation an, die erklärt, warum das Modul Jean Ziegler gewidmet ist und welche analytische Haltung es einnimmt.",
+      "files": [
+        "docs/ziegler_auditor.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument nennt Jean Ziegler als Inspiration.",
+        "Dokument erklärt den Fokus auf Recht auf Nahrung, strukturelle Gewalt, Finanzmacht und globale Ungleichheit.",
+        "Dokument unterscheidet zwischen moralischer Anklage, struktureller Analyse und juristischer Straftatbehauptung.",
+        "Dokument enthält klare Safety-Grenze: keine Gewaltaufrufe, keine illegalen Aktionen, keine unbelegten Einzelvorwürfe.",
+        "Dokument beschreibt, dass das Modul keine Investmentberatung liefert."
+      ]
+    },
+    {
+      "id": "ZF-002",
+      "title": "Klassifikationsmodell für Finanzsystemkritik erstellen",
+      "description": "Erweitere die Analyseausgabe um Kategorien für strukturelle Finanzgewalt.",
+      "files": [
+        "agent/modules/ziegler_auditor/models.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt Kategorien wie legal_but_harmful, structural_violence, extractive_finance, speculation_on_necessities, debt_dependency, rentier_extraction, regulatory_capture und tax_haven_risk.",
+        "actual_crime_allegation ist nur mit expliziter Evidenz erlaubt.",
+        "Jede Kategorie enthält explanation, evidence_required und typical_indicators.",
+        "Modelle sind JSON-serialisierbar.",
+        "Pflichtfelder fehlen nie in der Analyseausgabe."
+      ]
+    },
+    {
+      "id": "ZF-003",
+      "title": "Input-/Output-Modelle definieren",
+      "description": "Erstelle strukturierte Modelle für Claims, Finanzmechanismen und Analyseausgaben.",
+      "files": [
+        "agent/modules/ziegler_auditor/models.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt ZieglerAuditInput mit claim, context, asset_type, optional_sources und requested_tone.",
+        "Es gibt ZieglerAuditResult mit classification, scores, profiteers, affected_groups, human_consequences, evidence_notes und legitimacy_verdict.",
+        "asset_type unterstützt mindestens stock, crypto, etf, commodity, forex, derivative, debt, housing, food, unknown.",
+        "requested_tone unterstützt neutral, direct und accusatory_grounded.",
+        "accusatory_grounded darf scharf formulieren, muss aber Begründungen enthalten."
+      ]
+    },
+    {
+      "id": "ZF-004",
+      "title": "Strukturelle-Gewalt-Analyse implementieren",
+      "description": "Analysiere Finanzmechanismen nach realen Folgen für Menschen statt nur nach Rendite.",
+      "files": [
+        "agent/modules/ziegler_auditor/structural_violence.py",
+        "agent/modules/ziegler_auditor/tests/test_structural_violence.py"
+      ],
+      "acceptance_criteria": [
+        "Analyse berücksichtigt Hunger, Wohnraum, Gesundheit, Löhne, Schulden, öffentliche Haushalte und Grundversorgung.",
+        "Output enthält human_consequence_notes.",
+        "Output unterscheidet direkte Schäden, indirekte Schäden und externalisierte Kosten.",
+        "Tests enthalten Beispiele zu Nahrungsmittelspekulation, Mieten, Schulden und Privatisierung.",
+        "Jeder erkannte Schaden wird mit einer kurzen Begründung ausgegeben."
+      ]
+    },
+    {
+      "id": "ZF-005",
+      "title": "Casino-Kapitalismus-Detector ergänzen",
+      "description": "Erkenne Finanzprodukte und Narrative, bei denen realwirtschaftlicher Nutzen schwach, aber spekulative Abschöpfung hoch ist.",
+      "files": [
+        "agent/modules/ziegler_auditor/speculation_auditor.py",
+        "agent/modules/ziegler_auditor/tests/test_speculation_auditor.py"
+      ],
+      "acceptance_criteria": [
+        "Detector erkennt casino_like_markets, leverage_dependency, volatility_extraction, greater_fool_dependency und liquidity_trap.",
+        "Output enthält casino_score von 0 bis 100.",
+        "Score wird aus nachvollziehbaren Flags gebildet.",
+        "Daytrading, Meme-Stocks, Derivate, Krypto-Hype und Rohstoffspekulation werden als Beispiele getestet.",
+        "Der Detector erzeugt keine Gewinnstrategie und keine konkreten Trading-Signale."
+      ]
+    },
+    {
+      "id": "ZF-006",
+      "title": "Spekulation auf Grundbedürfnisse besonders markieren",
+      "description": "Finanzwetten auf Nahrung, Wasser, Wohnen, Energie und Gesundheit besonders hart bewerten.",
+      "files": [
+        "agent/modules/ziegler_auditor/speculation_auditor.py",
+        "agent/modules/ziegler_auditor/scoring.py"
+      ],
+      "acceptance_criteria": [
+        "basic_needs_affected wird als eigenes Feld ausgegeben.",
+        "Betroffene Grundbedürfnisse werden einzeln gelistet.",
+        "Nahrungsmittel- und Wohnraumspekulation erhöhen structural_harm_score.",
+        "Ausgabe erklärt, warum Spekulation auf Grundbedürfnisse moralisch anders wiegt als Spekulation auf Luxusgüter.",
+        "Tests prüfen mindestens food, housing, energy und healthcare."
+      ]
+    },
+    {
+      "id": "ZF-007",
+      "title": "Schulden- und Abhängigkeitsanalyse bauen",
+      "description": "Analysiere Kredit-, Zins-, Staatsverschuldungs- und Abhängigkeitsmechanismen.",
+      "files": [
+        "agent/modules/ziegler_auditor/debt_auditor.py",
+        "agent/modules/ziegler_auditor/tests/test_debt_auditor.py"
+      ],
+      "acceptance_criteria": [
+        "Analyse erkennt debt_dependency, interest_extraction, austerity_pressure und dependency_cycle.",
+        "Output erklärt, wer durch Schulden dauerhaft Macht erhält.",
+        "Analyse kann zwischen produktivem Kredit und ausbeuterischer Verschuldungsstruktur unterscheiden.",
+        "Tests enthalten private Überschuldung, Staatsverschuldung und Kreditkarten-/Konsumkredit-Beispiele.",
+        "Analyse bewertet Verschuldung nicht pauschal, sondern nach Machtasymmetrie, Zweck und Folgen."
+      ]
+    },
+    {
+      "id": "ZF-008",
+      "title": "Externalisierungsanalyse implementieren",
+      "description": "Zeige, welche Kosten eines Finanz- oder Geschäftsmodells auf andere abgewälzt werden.",
+      "files": [
+        "agent/modules/ziegler_auditor/externalization.py",
+        "agent/modules/ziegler_auditor/tests/test_externalization.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält externalized_costs.",
+        "Kategorien enthalten Umwelt, Arbeitsbedingungen, öffentliche Infrastruktur, Gesundheit, Hunger, Wohnverdrängung und Steuerbasis.",
+        "Analyse benennt Profiteure und Betroffene getrennt.",
+        "Output enthält moral_balance_summary.",
+        "Tests prüfen mindestens 10 Externalisierungsbeispiele."
+      ]
+    },
+    {
+      "id": "ZF-009",
+      "title": "Legalität-vs-Legitimität-Prüfung ergänzen",
+      "description": "Zeige explizit, dass legale Finanzpraktiken trotzdem gesellschaftlich zerstörerisch sein können.",
+      "files": [
+        "agent/modules/ziegler_auditor/service.py",
+        "agent/modules/ziegler_auditor/scoring.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält legality_vs_legitimacy_note.",
+        "Modul vermeidet unbelegte Straftatbehauptungen.",
+        "Modul darf moralisch harte Begriffe wie Ausbeutung, strukturelle Gewalt, Raubtierlogik und Casino-Kapitalismus verwenden, wenn die Analyse es begründet.",
+        "Bei konkreten Firmen/Personen wird ein Evidence-Hinweis erzeugt.",
+        "Wenn Evidenz fehlt, wird evidence_required statt criminal_verdict ausgegeben."
+      ]
+    },
+    {
+      "id": "ZF-010",
+      "title": "Who-profits-Analyse implementieren",
+      "description": "Ermittle, welche Akteure bei einem Finanznarrativ, Marktmechanismus oder Produkt wahrscheinlich profitieren.",
+      "files": [
+        "agent/modules/ziegler_auditor/rules.py",
+        "agent/modules/ziegler_auditor/service.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält profiteers und affected_groups.",
+        "Mögliche Profiteure enthalten Broker, Börsen, Market Maker, Fondsanbieter, Banken, Gläubiger, frühe Käufer, Influencer und Datenanbieter.",
+        "Betroffene Gruppen werden getrennt von Profiteuren ausgegeben.",
+        "Analyse unterscheidet realwirtschaftlichen Nutzen von reiner Abschöpfung.",
+        "Tests enthalten Beispiele zu Krypto, Daytrading, Wohnraumspekulation und Nahrungsmittelfutures."
+      ]
+    },
+    {
+      "id": "ZF-011",
+      "title": "Source-Quality-Checker ergänzen",
+      "description": "Bewerte Quellen zu Finanzclaims nach Qualität, Aktualität und Interessenkonflikt.",
+      "files": [
+        "agent/modules/ziegler_auditor/source_quality.py",
+        "agent/modules/ziegler_auditor/tests/test_source_quality.py"
+      ],
+      "acceptance_criteria": [
+        "Quellen können klassifiziert werden als regulator, official_report, academic, established_media, company_pr, bank_research, influencer, forum, unknown.",
+        "Influencer-, Affiliate- und Produktanbieterquellen werden als Interessenkonflikt markiert.",
+        "Quellenbewertung beeinflusst confidence und evidence_notes.",
+        "Fehlende Quellen werden explizit als Schwäche ausgegeben.",
+        "Konkrete Straftatbehauptungen ohne belastbare Quelle werden blockiert oder umformuliert."
+      ]
+    },
+    {
+      "id": "ZF-012",
+      "title": "Prompt für Ziegler-orientierte Analyse erstellen",
+      "description": "Erstelle einen Prompt, der Finanzabstraktion zurück auf Menschenrechte und reale Lebensfolgen zwingt.",
+      "files": [
+        "prompts/ziegler_finance_auditor.j2",
+        "agent/modules/ziegler_auditor/prompts.py"
+      ],
+      "acceptance_criteria": [
+        "Prompt verlangt Analyse von Profiteuren, Betroffenen, Machtasymmetrie und externalisierten Kosten.",
+        "Prompt verbietet konkrete Anlageberatung.",
+        "Prompt verlangt Trennung zwischen belegter Straftat, struktureller Gewalt und moralischer Kritik.",
+        "Prompt erlaubt klare anklagende Sprache, solange sie argumentativ begründet ist.",
+        "Prompt verlangt JSON-kompatible Antwortstruktur oder klar parsebare Abschnitte."
+      ]
+    },
+    {
+      "id": "ZF-013",
+      "title": "Zentralen ZieglerAuditorService bauen",
+      "description": "Kombiniere Regeln, Scoring, Quellenprüfung und optionale LLM-Analyse in einem Service.",
+      "files": [
+        "agent/modules/ziegler_auditor/service.py",
+        "agent/modules/ziegler_auditor/tests/test_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service bietet audit(input: ZieglerAuditInput) -> ZieglerAuditResult.",
+        "Deterministische Regeln laufen immer vor LLM.",
+        "LLM kann vollständig deaktiviert werden.",
+        "Auch ohne LLM wird eine brauchbare Analyse erzeugt.",
+        "Leere oder fehlerhafte Eingaben werden sauber abgefangen.",
+        "Service erzeugt keine Trading-Signale und keine Order-Aktionen."
+      ]
+    },
+    {
+      "id": "ZF-014",
+      "title": "Guardrails gegen Trading und Manipulation einbauen",
+      "description": "Sicherstellen, dass das Modul nicht zu Trading-Ausführung, Marktmanipulation oder illegalem Verhalten benutzt wird.",
+      "files": [
+        "agent/modules/ziegler_auditor/service.py",
+        "agent/policies/tool_policy.py",
+        "agent/modules/ziegler_auditor/tests/test_guardrails.py"
+      ],
+      "acceptance_criteria": [
+        "Requests mit buy, sell, short, leverage, execute_order, pump, dump oder coordinate_market_action werden abgelehnt oder in Risikoanalyse umgewandelt.",
+        "Keine Broker-API darf aus diesem Modul erreichbar sein.",
+        "Tests prüfen, dass konkrete Trading-Anweisungen nicht als Empfehlung zurückgegeben werden.",
+        "Output enthält bei solchen Fällen einen klaren Hinweis auf Sicherheitsgrenze.",
+        "Manipulations- oder Betrugsanfragen werden nicht operationalisiert."
+      ]
+    },
+    {
+      "id": "ZF-015",
+      "title": "Konfiguration ergänzen",
+      "description": "Ziegler-Auditor-Modul in zentrale Ananta-Konfiguration aufnehmen.",
+      "files": [
+        "config.json",
+        "agent/config.py"
+      ],
+      "acceptance_criteria": [
+        "Feature ist per enable_ziegler_auditor aktivierbar.",
+        "LLM-Nutzung ist separat per ziegler_auditor_use_llm steuerbar.",
+        "Ton ist konfigurierbar: neutral, direct, accusatory_grounded.",
+        "Default ist sicher: read-only, keine Trading-Ausführung, keine Broker-Integration, LLM optional.",
+        "Konfiguration ist dokumentiert."
+      ]
+    },
+    {
+      "id": "ZF-016",
+      "title": "CLI- oder API-Einstieg hinzufügen",
+      "description": "Ein einfacher Einstieg zum Prüfen von Finanzclaims soll verfügbar sein.",
+      "files": [
+        "agent/cli.py",
+        "agent/api/routes_ziegler_auditor.py"
+      ],
+      "acceptance_criteria": [
+        "CLI kann einen Claim entgegennehmen und JSON ausgeben.",
+        "API-Route nimmt ZieglerAuditInput entgegen.",
+        "API gibt ZieglerAuditResult zurück.",
+        "Fehlerfälle liefern strukturierte Fehlermeldungen.",
+        "API-Route ist read-only."
+      ]
+    },
+    {
+      "id": "ZF-017",
+      "title": "Beispielclaims und Fixtures anlegen",
+      "description": "Testdaten für typische Börsen-, Geldsystem-, Krypto-, Schulden- und Spekulationsnarrative erstellen.",
+      "files": [
+        "tests/fixtures/ziegler_finance_claims.json"
+      ],
+      "acceptance_criteria": [
+        "Mindestens 40 Beispielclaims vorhanden.",
+        "Enthält Aktien-, ETF-, Krypto-, Daytrading-, Influencer-, Rohstoff-, Nahrungsmittel-, Wohnraum-, Schulden- und Geldsystem-Beispiele.",
+        "Jeder Claim hat erwartete Flags oder erwartete grobe Kategorie.",
+        "Fixtures enthalten keine echten Kaufempfehlungen.",
+        "Mindestens 10 Beispiele betreffen Grundbedürfnisse."
+      ]
+    },
+    {
+      "id": "ZF-018",
+      "title": "Snapshot-Tests für Analyseausgabe ergänzen",
+      "description": "Stabile Tests für Ausgabeformate und kritische Flags erstellen.",
+      "files": [
+        "agent/modules/ziegler_auditor/tests/test_snapshots.py"
+      ],
+      "acceptance_criteria": [
+        "JSON-Struktur bleibt stabil.",
+        "Pflichtfelder sind immer gesetzt.",
+        "Bekannte Hype- und Ausbeutungsclaims erzeugen erwartete Flags.",
+        "Trading-Anfragen erzeugen keine Kauf-/Verkaufsempfehlung.",
+        "Claims zu konkreten Straftaten ohne Quelle erzeugen evidence_required."
+      ]
+    },
+    {
+      "id": "ZF-019",
+      "title": "Ananta-Integration mit Task-Routing vorbereiten",
+      "description": "Ziegler-Auditor als eigene Task-Kategorie in Ananta einhängen.",
+      "files": [
+        "agent/task_classification.py",
+        "agent/task_config.json",
+        "agent/modules/ziegler_auditor/service.py"
+      ],
+      "acceptance_criteria": [
+        "Investment-, Krypto-, Börsen-, Geldsystem-, Schulden- und Spekulationsclaims können zur Kategorie ziegler_auditor geroutet werden.",
+        "Routing startet keine Worker mit Schreibzugriff auf Projektdateien.",
+        "Analyse kann als read-only Task laufen.",
+        "Task-Kategorie ist dokumentiert.",
+        "Fallback auf market_skeptic ist möglich, falls Ziegler-Auditor deaktiviert ist."
+      ]
+    },
+    {
+      "id": "ZF-020",
+      "title": "Dokumentation mit Beispielen schreiben",
+      "description": "Erkläre Zweck, Grenzen, Dedication und Beispielausgaben.",
+      "files": [
+        "docs/ziegler_auditor.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument enthält mindestens 8 Input-/Output-Beispiele.",
+        "Dokument erklärt Unterschied zwischen Analyse, Kritik, struktureller Gewalt und Anlageberatung.",
+        "Dokument beschreibt Safety-Grenzen.",
+        "Dokument enthält Beispiel: Bitcoin als digitales Gold.",
+        "Dokument enthält Beispiel: Lebensmittel-Futures.",
+        "Dokument enthält Beispiel: Wohnraumspekulation.",
+        "Dokument enthält Beispiel: Staatsverschuldung und Austerität.",
+        "Dokument enthält Beispiel: Daytrading als negative-sum Casino-Mechanik."
+      ]
+    }
+  ],
+  "example_input": {
+    "claim": "Lebensmittel-Futures sorgen für effiziente Märkte und sind deshalb gut für alle.",
+    "asset_type": "commodity",
+    "context": "Nahrungsmittelspekulation",
+    "requested_tone": "accusatory_grounded"
+  },
+  "example_output": {
+    "classification": [
+      "speculation_on_necessities",
+      "legal_but_harmful",
+      "structural_violence"
+    ],
+    "basic_needs_affected": [
+      "food"
+    ],
+    "profiteers": [
+      "Finanzakteure",
+      "Händler mit Informations- und Kapitalvorteil",
+      "Börsenplätze",
+      "Intermediäre"
+    ],
+    "affected_groups": [
+      "arme Haushalte",
+      "Menschen mit hohem Anteil von Lebensmitteln am Einkommen",
+      "importabhängige Länder"
+    ],
+    "human_consequence_notes": [
+      "Wenn Grundnahrungsmittel durch Spekulation verteuert werden, trifft das Menschen mit niedrigem Einkommen überproportional.",
+      "Markteffizienz als abstraktes Argument verdeckt reale Verteilungs- und Überlebensfolgen."
+    ],
+    "harm_score": 90,
+    "casino_score": 75,
+    "extraction_score": 85,
+    "legality_vs_legitimacy_note": "Auch wenn solche Spekulation legal sein kann, ist sie menschenrechtlich hochproblematisch, wenn Grundnahrungsmittel zum Renditeobjekt werden.",
+    "legitimacy_verdict": "structurally_violent",
+    "evidence_notes": [
+      "Konkrete Straftatbehauptungen gegen einzelne Akteure benötigen zusätzliche belastbare Quellen.",
+      "Die strukturelle Kritik kann unabhängig davon formuliert werden."
+    ],
+    "ziegler_style_summary": "Wenn Hunger zur Preiswette wird, ist das kein neutraler Marktmechanismus mehr, sondern organisierte Kälte mit Excel-Tabelle."
+  },
+  "definition_of_done": [
+    "Das Modul analysiert Finanzmärkte nicht als neutrales Investmentspiel, sondern als Macht- und Verteilungssystem.",
+    "Grundbedürfnisse werden besonders geschützt bewertet.",
+    "Legalität und Legitimität werden getrennt.",
+    "Strukturelle Gewalt darf klar benannt werden.",
+    "Konkrete Straftatbehauptungen werden nur mit Evidenz erlaubt.",
+    "Keine Trading-, Broker- oder Manipulationsfunktionen vorhanden.",
+    "Deterministische Checks funktionieren ohne LLM.",
+    "LLM-Analyse ist optional und durch Guardrails begrenzt.",
+    "Dokumentation widmet das Modul Jean Ziegler und erklärt die Grenzen sauber.",
+    "Tests decken strukturelle Gewalt, Casino-Kapitalismus, Grundbedürfnisse, Schuldenlogik, Externalisierung, Quellenqualität und Guardrails ab."
+  ]
+}
