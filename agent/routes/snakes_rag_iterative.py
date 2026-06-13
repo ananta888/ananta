@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import pathlib as _pl
+from time import time as _time
 from typing import Any
 
 from agent.config import lookup_model_context_tokens, settings as _cfg_settings
@@ -38,6 +39,7 @@ def worker_chat_rag_iterative(
     provider: str = "lmstudio",
     model: str | None = None,
     limits: Any | None = None,
+    rec: Any | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Iterative RAG: fetch relevant files, read fully, batch → LLM → synthesize."""
     trace: dict[str, Any] = {"mode": "rag_iterative"}
@@ -141,6 +143,21 @@ def worker_chat_rag_iterative(
 
     trace["batches_planned"] = len(batches)
     trace["files_per_batch"] = [len(b) for b in batches]
+    trace["file_list"] = [e["path"] for e in file_entries]
+
+    if rec:
+        rec.event(
+            "rag_iterative_plan",
+            f"RAG-Iterativ: {len(file_entries)} Dateien, {len(batches)} Batch(es) geplant",
+            status="running",
+            details={
+                "files": [e["path"] for e in file_entries],
+                "batches_planned": len(batches),
+                "files_per_batch": [len(b) for b in batches],
+                "model_context_tokens": model_context_tokens,
+                "max_input_tokens": max_input_tokens,
+            },
+        )
 
     # --- Step 4: Process each batch ---
     batch_summaries: list[str] = []
@@ -161,6 +178,24 @@ def worker_chat_rag_iterative(
         est_tokens = _estimate_tokens(batch)
         _log.debug("rag_iterative batch %d/%d: %d files, ~%d tokens", i, len(batches), len(batch), est_tokens)
 
+        file_paths_in_batch = [e["path"] for e in batch]
+        if rec:
+            rec.event(
+                f"rag_iterative_batch_{i}",
+                f"Batch {i}/{len(batches)}: {len(batch)} Datei(en) → LLM",
+                status="running",
+                details={
+                    "batch": i,
+                    "total_batches": len(batches),
+                    "files": file_paths_in_batch,
+                    "estimated_input_tokens": est_tokens,
+                    "model": model,
+                    "provider": provider,
+                },
+                input_preview=batch_prompt[:800],
+            )
+
+        t_batch = _time()
         try:
             raw = generate_text(
                 prompt=batch_prompt,
@@ -174,13 +209,27 @@ def worker_chat_rag_iterative(
             _log.warning("rag_iterative batch %d failed: %s", i, exc)
             text = ""
 
-        file_labels = ", ".join(e["path"] for e in batch)
-        batch_metas.append({
+        batch_ms = (_time() - t_batch) * 1000
+        file_labels = ", ".join(file_paths_in_batch)
+        batch_meta = {
             "batch": i,
             "files": file_labels,
             "estimated_input_tokens": est_tokens,
             "answer_chars": len(text),
-        })
+        }
+        batch_metas.append(batch_meta)
+
+        if rec:
+            rec.event(
+                f"rag_iterative_batch_{i}_done",
+                f"Batch {i}/{len(batches)} abgeschlossen",
+                status="completed" if text else "failed",
+                summary=f"{len(text)} Zeichen Antwort" if text else "Keine Antwort erhalten",
+                duration_ms=batch_ms,
+                details={**batch_meta, "files_list": file_paths_in_batch},
+                output_preview=text[:600] if text else None,
+            )
+
         if text:
             batch_summaries.append(f"**Batch {i}** [{file_labels}]:\n{text}")
 
@@ -206,6 +255,15 @@ def worker_chat_rag_iterative(
         + "\n\nErstelle eine vollständige, strukturierte Antwort auf Basis dieser Analyse."
     )
 
+    if rec:
+        rec.event(
+            "rag_iterative_synthesis",
+            f"Synthese aus {len(batch_summaries)} Batch-Antworten",
+            status="running",
+            input_preview=synthesis_prompt[:600],
+        )
+
+    t_syn = _time()
     try:
         raw = generate_text(
             prompt=synthesis_prompt,
@@ -217,11 +275,19 @@ def worker_chat_rag_iterative(
         final_answer = str(raw or "").strip()
     except Exception as exc:
         _log.warning("rag_iterative synthesis failed: %s", exc)
-        # Fall back to concatenation
         final_answer = "\n\n".join(
             s.split("\n", 2)[-1].strip() for s in batch_summaries
         )
         trace["synthesis_error"] = str(exc)
+
+    if rec:
+        rec.event(
+            "rag_iterative_synthesis_done",
+            "Synthese abgeschlossen",
+            status="completed" if final_answer else "failed",
+            duration_ms=(_time() - t_syn) * 1000,
+            output_preview=final_answer[:600] if final_answer else None,
+        )
 
     trace["synthesis"] = "done"
     return final_answer, trace

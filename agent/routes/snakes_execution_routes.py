@@ -527,10 +527,14 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
                                   summary="Iterative Datei-Analyse wird gestartet")
                     t0 = time.time()
-                    answer, scan_trace = _worker_chat_rag_iterative(prompt, provider=provider, model=model)
+                    answer, scan_trace = _worker_chat_rag_iterative(prompt, provider=provider, model=model, rec=rec)
                     batches_done = scan_trace.get("batches_completed", 0)
                     files_found = scan_trace.get("files_resolved", 0)
-                    scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien"
+                    file_list = scan_trace.get("file_list") or []
+                    file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
+                    if len(file_list) > 6:
+                        file_names += f" +{len(file_list) - 6}"
+                    scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
                     if rec:
                         rec.event("rag_iterative_completed", "RAG-Iterativ abgeschlossen",
                                   status="completed" if answer else "failed",
@@ -1107,7 +1111,11 @@ def snake_ask():
             if answer:
                 batches_done = worker_trace.get("batches_completed", 0)
                 files_found = worker_trace.get("files_resolved", 0)
-                summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien"
+                file_list = worker_trace.get("file_list") or []
+                file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
+                if len(file_list) > 6:
+                    file_names += f" +{len(file_list) - 6}"
+                summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
                 if len(answer) > limits.answer_chars:
                     answer = answer[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
                 resp: dict[str, Any] = {"answer": answer, "path": "rag_iterative", "context_summary": summary, **domain_scope_info}

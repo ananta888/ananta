@@ -59,8 +59,11 @@ class LMStudioStrategy(LLMStrategy):
         request_url = request_base_url + ("/chat/completions" if is_chat else "/completions")
 
         if candidates:
+            # When the caller specified an explicit model, do NOT fall back to other models
+            # on empty response — that causes silent substitution (e.g. phi instead of gemma).
+            explicit_model_requested = bool(requested_model and requested_model != "auto")
             attempted = set()
-            max_attempts = min(3, len(candidates))
+            max_attempts = 1 if explicit_model_requested else min(3, len(candidates))
             current = model_info
             for _ in range(max_attempts):
                 if not current or not current.get("id"):
@@ -123,21 +126,23 @@ class LMStudioStrategy(LLMStrategy):
         """Return the thinking control parameter for the current request context.
 
         Reads LMSTUDIO_THINKING_MODE from the environment:
-          - "disabled" (default): pass thinking={"type":"disabled"} — fast, direct output
-          - "enabled": no thinking param — model reasons freely, needs high max_tokens
+          - "auto" (default): no thinking param — safe for all models, reasoning runs freely
+          - "disabled": pass thinking={"type":"disabled"} — only for thinking-capable models
           - "budget:<n>": pass budget_tokens=n (supported by some LMStudio versions)
         """
         import os
-        mode = os.environ.get("LMSTUDIO_THINKING_MODE", "disabled").strip().lower()
-        if mode == "enabled":
+        mode = os.environ.get("LMSTUDIO_THINKING_MODE", "auto").strip().lower()
+        if mode in ("auto", "enabled", ""):
             return None
+        if mode == "disabled":
+            return {"thinking": {"type": "disabled"}}
         if mode.startswith("budget:"):
             try:
                 n = int(mode.split(":", 1)[1])
                 return {"budget_tokens": n}
             except (ValueError, IndexError):
                 pass
-        return {"thinking": {"type": "disabled"}}
+        return None
 
     def _call_with_model(
         self,
