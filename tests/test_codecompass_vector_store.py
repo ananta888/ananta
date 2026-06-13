@@ -86,4 +86,60 @@ def test_codecompass_vector_store_refresh_rebuilds_when_manifest_changes(tmp_pat
 
     assert unchanged["mode"] == "unchanged"
     assert rebuilt["mode"] == "rebuild"
+    assert rebuilt["reason"] == "retrieval_cache_state_changed"
 
+
+def test_codecompass_vector_store_refresh_rebuilds_when_provider_hash_changes(tmp_path):
+    store = CodeCompassVectorStore(index_path=tmp_path / "cc_vector_index.json")
+    provider = FakeEmbeddingProvider(model_version="fake-v1", dimensions=4)
+    documents = [
+        {
+            "record_id": "r1",
+            "kind": "python_function",
+            "file": "src/search.py",
+            "manifest_hash": "mh-1",
+            "embedding_text": "hybrid vector search",
+        }
+    ]
+    store.rebuild(
+        documents=documents,
+        embedding_provider=provider,
+        retrieval_cache_state="cache-1",
+        manifest_hash="mh-1",
+        embedding_provider_config_hash="provider-a",
+        embedding_text_profile="profile-a",
+    )
+
+    unchanged = store.refresh(
+        documents=documents,
+        embedding_provider=provider,
+        retrieval_cache_state="cache-1",
+        manifest_hash="mh-1",
+        embedding_provider_config_hash="provider-a",
+        embedding_text_profile="profile-a",
+    )
+    provider_changed = store.refresh(
+        documents=documents,
+        embedding_provider=provider,
+        retrieval_cache_state="cache-1",
+        manifest_hash="mh-1",
+        embedding_provider_config_hash="provider-b",
+        embedding_text_profile="profile-a",
+    )
+    profile_changed = store.refresh(
+        documents=documents,
+        embedding_provider=provider,
+        retrieval_cache_state="cache-1",
+        manifest_hash="mh-1",
+        embedding_provider_config_hash="provider-b",
+        embedding_text_profile="profile-b",
+    )
+
+    assert unchanged["mode"] == "unchanged"
+    assert provider_changed["reason"] == "provider_config_changed"
+    assert profile_changed["reason"] == "embedding_text_profile_changed"
+    state = store.load()["state"]
+    assert state["embedding_provider_config_hash"] == "provider-b"
+    assert state["embedding_text_profile"] == "profile-b"
+    assert "api_key" not in state
+    assert "Authorization" not in state

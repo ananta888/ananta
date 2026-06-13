@@ -12,6 +12,7 @@ Defines which CodeCompass JSONL outputs are present for retrieval and includes h
 - `codecompass_version`
 - `profile_name`
 - `source_scope`
+- `manifest_hash`
 - `generated_at`
 - `output_dir`
 - `outputs`
@@ -35,3 +36,16 @@ Each non-null output entry contains:
 - `mtime`
 - `record_count`
 
+## Vector Retrieval Fields
+
+CodeCompass vector retrieval uses the manifest as deterministic index state.
+The following fields are index-relevant:
+
+- `manifest_hash`
+- `profile_name`
+- `source_scope`
+- `retrieval_cache_state` when emitted by the producer
+
+The `embedding` output points to `embedding.json`. That file contains
+model-neutral records with `embedding_text`; numeric vectors are produced later
+by `CodeCompassVectorStore` using the active embedding provider.

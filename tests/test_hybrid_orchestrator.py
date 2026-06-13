@@ -80,6 +80,7 @@ def test_context_manager_route_uses_configured_rag_quotas(monkeypatch) -> None:
     assert manager.route("python service bug")["semantic_search"] == 3
     assert manager.route("plain request") == {
         "repository_map": 2,
+        "codecompass_vector": 4,
         "semantic_search": 7,
         "agentic_search": 1,
     }

@@ -18,6 +18,7 @@ import re
 from typing import Any
 
 # Hard cap per text to keep token budgets predictable
+CODECOMPASS_EMBEDDING_TEXT_PROFILE = "codecompass-symbol-path-summary-v1"
 _MAX_CHARS = 4096
 _WHITESPACE_RE = re.compile(r"\s+")
 

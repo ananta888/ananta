@@ -40,12 +40,23 @@ def test_worker_config_starts_with_all_codecompass_flags_disabled(monkeypatch):
     config = build_default_agent_config()
     diagnostics = evaluate_codecompass_retrieval_flags(settings=settings)
 
-    assert config["worker_runtime"]["codecompass_retrieval"] == {
+    retrieval_config = config["worker_runtime"]["codecompass_retrieval"]
+    assert {
+        key: retrieval_config[key]
+        for key in (
+            "codecompass_fts",
+            "codecompass_vector",
+            "codecompass_graph",
+            "codecompass_relation_expansion",
+        )
+    } == {
         "codecompass_fts": False,
         "codecompass_vector": False,
         "codecompass_graph": False,
         "codecompass_relation_expansion": False,
     }
+    assert retrieval_config["codecompass_vector_retrieval"]["enabled"] is False
+    assert retrieval_config["codecompass_vector_retrieval"]["fail_mode"] == "degraded_empty"
     assert all(item["status"] == "disabled" for item in diagnostics.values())
 
 

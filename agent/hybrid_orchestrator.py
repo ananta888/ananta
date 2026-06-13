@@ -808,20 +808,23 @@ class ContextManager:
         docs_like = any(k in q for k in ("pdf", "doku", "documentation", "log", "readme", "spec"))
         fs_like = any(k in q for k in ("find", "suche", "where", "ls", "grep", "datei", "folder"))
 
-        quotas = {"repository_map": 0, "semantic_search": 0, "agentic_search": 0}
+        quotas = {"repository_map": 0, "codecompass_vector": 0, "semantic_search": 0, "agentic_search": 0}
         if code_like:
             quotas["repository_map"] += self._quota("rag_route_quota_code_repo", 12)
+            quotas["codecompass_vector"] += self._quota("rag_route_quota_codecompass_vector", 6)
             quotas["semantic_search"] += self._quota("rag_route_quota_code_semantic", 2)
             quotas["agentic_search"] += 1
         if docs_like:
             quotas["semantic_search"] += self._quota("rag_route_quota_docs_semantic", 4)
             quotas["repository_map"] += self._quota("rag_route_quota_docs_repo", 2)
+            quotas["codecompass_vector"] += self._quota("rag_route_quota_codecompass_vector_docs", 1)
         if fs_like:
             quotas["agentic_search"] += self._quota("rag_route_quota_fs_agentic", 3)
             quotas["repository_map"] += self._quota("rag_route_quota_fs_repo", 2)
         if all(v == 0 for v in quotas.values()):
             quotas = {
                 "repository_map": self._quota("rag_route_quota_default_repo", 6),
+                "codecompass_vector": self._quota("rag_route_quota_codecompass_vector_default", 4),
                 "semantic_search": self._quota("rag_route_quota_default_semantic", 4),
                 "agentic_search": 1,
             }
@@ -840,11 +843,19 @@ class ContextManager:
         max_tokens: int,
     ) -> list[ContextChunk]:
         tokens = [t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query) if len(t) > 2]
+        engine_weights = {
+            "repository_map": 1.2,
+            "codecompass_vector": 0.65,
+            "semantic_search": 0.85,
+            "agentic_search": 0.75,
+        }
         for chunk in chunks:
             text = f"{chunk.source}\n{chunk.content}".lower()
             lexical = sum(text.count(token) for token in tokens)
-            chunk.score = float(chunk.score) + lexical * 0.25
+            weight = engine_weights.get(str(chunk.engine), 1.0)
+            chunk.score = float(chunk.score) * weight + lexical * 0.25
 
+        chunks = self._merge_same_source_chunks(chunks)
         ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
         engine_heads: dict[str, ContextChunk] = {}
         for chunk in ranked:
@@ -885,6 +896,37 @@ class ContextManager:
             token_budget += c_tokens
         return selected
 
+    @staticmethod
+    def _merge_same_source_chunks(chunks: list[ContextChunk]) -> list[ContextChunk]:
+        by_source: dict[str, ContextChunk] = {}
+        for chunk in chunks:
+            source = str(chunk.source or "")
+            if not source:
+                by_source[f"__empty__:{id(chunk)}"] = chunk
+                continue
+            existing = by_source.get(source)
+            if existing is None:
+                chunk.metadata = {
+                    **dict(chunk.metadata or {}),
+                    "cross_engine_signals": str(chunk.engine),
+                }
+                by_source[source] = chunk
+                continue
+            existing_signals = {
+                item.strip()
+                for item in str((existing.metadata or {}).get("cross_engine_signals") or existing.engine).split(",")
+                if item.strip()
+            }
+            existing_signals.add(str(chunk.engine))
+            existing.metadata = {
+                **dict(existing.metadata or {}),
+                "cross_engine_signals": ",".join(sorted(existing_signals)),
+            }
+            existing.score = max(float(existing.score), float(chunk.score)) + min(float(existing.score), float(chunk.score)) * 0.15
+            if len(str(chunk.content or "")) > len(str(existing.content or "")) and float(chunk.score) >= float(existing.score) * 0.8:
+                existing.content = chunk.content
+        return list(by_source.values())
+
 
 class HybridOrchestrator:
     """Central orchestrator for repository-map, semantic retrieval and agentic search."""
@@ -909,6 +951,8 @@ class HybridOrchestrator:
         agentic_timeout_seconds: int = 8,
         semantic_persist_dir: str | Path | None = None,
         redact_sensitive: bool = True,
+        codecompass_vector_enabled: bool | None = None,
+        codecompass_vector_service: object | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.data_roots = data_roots or [self.repo_root / "docs", self.repo_root / "data"]
@@ -925,6 +969,26 @@ class HybridOrchestrator:
             command_timeout_seconds=agentic_timeout_seconds,
         )
         self.semantic_engine = SemanticSearchEngine(self.data_roots, persist_dir=persist_dir)
+        self.codecompass_vector_service = codecompass_vector_service
+        vector_enabled = (
+            bool(settings.codecompass_vector_enabled)
+            if codecompass_vector_enabled is None
+            else bool(codecompass_vector_enabled)
+        )
+        if self.codecompass_vector_service is None and vector_enabled:
+            from agent.services.codecompass_vector_retrieval_service import (
+                CodeCompassVectorRetrievalService,
+            )
+
+            self.codecompass_vector_service = CodeCompassVectorRetrievalService(
+                repo_root=self.repo_root,
+                embedding_records_path=settings.codecompass_vector_embedding_records_path,
+                manifest_path=settings.codecompass_vector_manifest_path,
+                index_path=settings.codecompass_vector_index_path,
+                provider_config={"provider": "local_hash", "model_version": "hash-v1", "dimensions": 12},
+                embedding_text_profile=settings.codecompass_vector_embedding_text_profile,
+                fail_mode=settings.codecompass_vector_fail_mode,
+            )
         self.context_manager = ContextManager(policy_version="v1")
 
     def _redact(self, text: str) -> str:
@@ -986,6 +1050,7 @@ class HybridOrchestrator:
                 repository_engine=self.repository_engine,
                 semantic_engine=self.semantic_engine,
                 agentic_engine=self.agentic_engine,
+                codecompass_vector_service=self.codecompass_vector_service,
                 allowed_paths=allowed_paths,
             )
             for chunk in variant_chunks:
@@ -1016,6 +1081,7 @@ class HybridOrchestrator:
             chunks=best,
             redact=self._redact,
             estimate_tokens=self.context_manager.estimate_tokens,
+            retrieval_diagnostics=self._retrieval_diagnostics(),
         )
         if scope_active:
             from agent.codecompass.domain_scope_filter import (
@@ -1038,6 +1104,16 @@ class HybridOrchestrator:
                 f"{banner}\n\n{result['context_text']}" if result["context_text"] else banner
             )
         return result
+
+    def _retrieval_diagnostics(self) -> dict[str, object]:
+        diagnostics: dict[str, object] = {}
+        if self.codecompass_vector_service is not None and hasattr(self.codecompass_vector_service, "last_diagnostic"):
+            diagnostics["codecompass_vector"] = self.codecompass_vector_service.last_diagnostic()
+        elif bool(getattr(settings, "codecompass_vector_enabled", False)):
+            diagnostics["codecompass_vector"] = {"status": "degraded", "reason": "not_configured"}
+        else:
+            diagnostics["codecompass_vector"] = {"status": "disabled", "reason": "disabled"}
+        return diagnostics
 
     def run_with_sgpt(
         self,

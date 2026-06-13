@@ -102,9 +102,13 @@ Rebuild or degrade when any of these change:
 - dimensions
 - embedding text profile
 - provider config hash
+- manifest hash and retrieval cache state for CodeCompass vector indexes
 
 The vector store records provider metadata without secrets. Query-time dimension
 mismatch returns a degraded diagnostic instead of mixing incompatible vectors.
+
+For the full CodeCompass flow, see
+[`docs/worker/codecompass-vector-retrieval.md`](codecompass-vector-retrieval.md).
 
 ## Diagnostics
 

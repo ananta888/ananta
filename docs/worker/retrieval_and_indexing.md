@@ -48,3 +48,12 @@ dokumentiert. Kurzfassung:
 - Provider-, Modell- oder Dimensionswechsel invalidieren alte Vektoren oder
   erzeugen einen degraded Status.
 - API-Key-Werte dürfen nicht in Index-State, Diagnostik oder Logs landen.
+
+## CodeCompass Vector Retrieval
+
+CodeCompass vector retrieval is documented in
+[`docs/worker/codecompass-vector-retrieval.md`](codecompass-vector-retrieval.md).
+The important boundary is that `embedding.json` is a model-neutral input with
+`embedding_text`; numeric vectors are built by the active VectorStore/provider
+pair. Rebuild triggers include manifest hash, provider config hash, model
+version, dimensions and `embedding_text_profile`.

@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass_vector_hybrid_integration",
@@ -125,7 +125,7 @@
         "CVHI-003",
         "CVHI-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -135,7 +135,7 @@
         "CVHI-006",
         "CVHI-007"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -146,7 +146,7 @@
         "CVHI-010",
         "CVHI-011"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -157,7 +157,7 @@
         "CVHI-014",
         "CVHI-015"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -169,14 +169,14 @@
         "CVHI-019",
         "CVHI-020"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "CVHI-001",
       "title": "build_embedding_provider_from_config Weitergabe korrigieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "bugfix",
@@ -195,12 +195,12 @@
         "Ein Test zeigt: nicht allowlistete base_url bleibt blockiert.",
         "Kein Test enthält echte API-Keys oder externe Netzwerkcalls."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-002",
       "title": "EmbeddingProviderConfig Hash im Vector Index speichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "indexing",
@@ -218,12 +218,12 @@
         "Tests prüfen geänderten Hash => mode rebuild.",
         "Index-State enthält keine api_key, Authorization Header oder vollständige Config mit Secretwerten."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-003",
       "title": "embedding_text_profile versionieren und indexrelevant machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "indexing",
@@ -243,12 +243,12 @@
         "Tests prüfen: anderes Profil => Rebuild.",
         "Doku erklärt, dass embedding_text_profile und EmbeddingProvider gemeinsam die Vergleichbarkeit der Vektoren bestimmen."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-004",
       "title": "VectorStore Refresh Diagnostics ausbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -264,12 +264,12 @@
         "Diagnostics enthalten entry_count, provider, model, dimensions, manifest_hash und embedding_text_profile.",
         "Diagnostics enthalten keine Secrets und keine vollständigen embedding_text Inhalte."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-005",
       "title": "CodeCompassVectorRetrievalService einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "service",
@@ -291,12 +291,12 @@
         "Fehlerhafte JSON-Datei führt zu degraded_empty Diagnostic und keinem Crash.",
         "Tests mocken EmbeddingProvider und prüfen, dass keine echten Netzwerkcalls passieren."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-006",
       "title": "CodeCompass Vector Engine Fallback sichtbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "hardening",
@@ -312,12 +312,12 @@
         "Tests prüfen, dass eine kaputte openai_compatible Config nicht heimlich mit local_hash weiterläuft.",
         "Tests prüfen, dass expliziter local_hash weiterhin funktioniert."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-007",
       "title": "CodeCompass embedding.json Pfade und Manifest-Contract dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "contract",
@@ -335,12 +335,12 @@
         "Doku enthält Beispiel für einen einzelnen embedding Record.",
         "Loader-Tests bleiben kompatibel mit vorhandenen Records."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-008",
       "title": "collect_context_chunks um codecompass_vector erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -358,12 +358,12 @@
         "Tests prüfen, dass repository_map, codecompass_vector, semantic_search und agentic_search gemeinsam gesammelt werden können.",
         "Tests prüfen, dass quota 0 keine codecompass_vector Suche auslöst."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-009",
       "title": "ContextManager.route Quotas für codecompass_vector ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "routing",
@@ -382,12 +382,12 @@
         "Config-Defaults enthalten die neuen Quota-Namen mit sicheren Werten.",
         "Tests prüfen Quotas für code_like, docs_like, fs_like und default Queries."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-010",
       "title": "HybridOrchestrator Initialisierung für CodeCompass Vector ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -405,12 +405,12 @@
         "Fehlende CodeCompass-Artefakte führen zu degraded Diagnostic, aber nicht zum Abbruch des gesamten Kontextaufbaus.",
         "Tests prüfen aktivierten und deaktivierten Modus."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-011",
       "title": "Prompt-Kontext-Ausgabe um Engine-Diagnostics erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -427,12 +427,12 @@
         "Prompt context_text bleibt lesbar und enthält keine internen Debug-Dumps.",
         "Tests prüfen, dass Diagnostics strukturiert vorhanden sind, aber nicht im Prompt übermäßig aufblasen."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-012",
       "title": "Score-Normalisierung für Hybrid-Retrieval definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "ranking",
@@ -451,12 +451,12 @@
         "Tests prüfen, dass ein exakter Symboltreffer vor einem nur semantisch ähnlichen Vector-Treffer landet.",
         "Tests prüfen, dass ein guter Vector-Treffer aufgenommen wird, wenn RepositoryMap keine passenden Treffer findet."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-013",
       "title": "Domain-Scope für codecompass_vector erzwingen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security_scope",
@@ -475,12 +475,12 @@
         "Tests prüfen: leerer Scope liefert keine globalen Vector-Treffer.",
         "Diagnostics weisen gefilterte codecompass_vector Treffer aus."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-014",
       "title": "Vector Result Deduplication mit RepositoryMap zusammenführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "ranking",
@@ -497,12 +497,12 @@
         "Tests prüfen, dass repository_map + codecompass_vector für dieselbe Datei die Datei stärkt.",
         "Tests prüfen, dass unterschiedliche relevante Dateien nicht versehentlich wegdedupliziert werden."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-015",
       "title": "Source/Test/Doc Gewichtung für Vector-Ergebnisse anwenden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "ranking",
@@ -520,12 +520,12 @@
         "Tests prüfen Source-vs-Test Ranking für gleiche Query.",
         "Tests prüfen Docs-like Query, bei der Doku-Ergebnis erlaubt oben landen darf."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-016",
       "title": "Ollama und LM Studio Embedding Integration mockbasiert testen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "tests",
@@ -544,12 +544,12 @@
         "Test prüft, dass input und model korrekt im Payload stehen.",
         "Test prüft, dass die zurückgegebenen Vektoren in VectorStore.rebuild() landen."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-017",
       "title": "End-to-End Test für CodeCompass embedding.json zu Hybrid-Kontext",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "tests",
@@ -568,12 +568,12 @@
         "Strukturierte chunks enthalten metadata.record_id und metadata.vector_score.",
         "Der Test benötigt keine echten externen Embedding-Modelle."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-018",
       "title": "Doku für Hybrid-CodeCompass-Retrieval schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -591,12 +591,12 @@
         "Doku erklärt Rebuild-Auslöser: manifest_hash, provider_config_hash, model_version, dimensions, embedding_text_profile.",
         "Doku warnt, dass externe Embeddings Code-/Doc-Inhalte übertragen können und deshalb default-deny bleiben."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-019",
       "title": "Config-Defaults und Beispielprofile konsolidieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -616,12 +616,12 @@
         "Settings enthalten keine echten Secrets.",
         "Tests für Config-API oder Defaults prüfen, dass fehlende Config nicht zu externen Calls führt."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     },
     {
       "id": "CVHI-020",
       "title": "Regression Suite und Qualitätsfälle definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "validation",
@@ -647,7 +647,7 @@
         "Mindestens ein Test beweist: exakter RepositoryMap Treffer schlägt nur fuzzy Vector-Treffer.",
         "Mindestens ein Test beweist: Provider-/Dimensions-/Profilwechsel triggert Rebuild."
       ],
-      "progress_percent": 0
+      "progress_percent": 100
     }
   ],
   "critical_path_tasks": [
@@ -666,13 +666,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 20,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 20
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 12,
       "P1": 8,
@@ -681,21 +681,21 @@
     },
     "by_risk": {
       "low": 1,
-      "medium": 10,
-      "high": 8,
+      "medium": 9,
+      "high": 9,
       "critical": 1
     },
     "critical_path": {
       "total": 11,
-      "done": 0,
-      "remaining": 11
+      "done": 11,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -703,216 +703,218 @@
     "by_type": {
       "bugfix": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "indexing": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "observability": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "service": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "hardening": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "contract": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "integration": {
-        "total": 3,
-        "done": 0,
+        "total": 2,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "routing": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "ranking": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "security_scope": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "tests": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "docs": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "config": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "validation": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "new",
-    "todo_remaining": 20,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 20
   },
   "summary_notes": [
     "Der Track soll keine alten lokalen Hash-Embeddings als Qualitätslösung verkaufen. local_hash bleibt Test-/Fallback-Default.",
     "Ollama und LM Studio sollen nur über explizite lokale openai_compatible Configs laufen.",
     "Die zentrale Arbeit ist nicht noch ein EmbeddingProvider, sondern die saubere Verdrahtung von codecompass_vector in den echten HybridOrchestrator.",
     "Vector Search darf deterministische Signale nicht überstimmen, sondern ergänzt sie bei unscharfen Suchanfragen.",
-    "Alle Tests müssen ohne echte lokale Modellserver laufen; Live-Tests können später optional ergänzt werden."
+    "Alle Tests müssen ohne echte lokale Modellserver laufen; Live-Tests können später optional ergänzt werden.",
+    "Implemented provider-policy forwarding, provider-config/profile index invalidation, explicit degraded diagnostics instead of silent hash fallback, CodeCompassVectorRetrievalService, HybridOrchestrator codecompass_vector routing, domain-scope filtering, reranking/deduplication, config defaults, docs, and focused tests.",
+    "Validation passed: python -m pytest tests/test_hybrid_orchestrator.py tests/test_hybrid_orchestrator_load.py tests/test_codecompass_worker_retrieval_flags.py tests/test_worker_codecompass_vector_channel.py tests/test_worker_codecompass_hybrid_merge.py tests/test_codecompass_worker_budgeting.py tests/test_embedding_provider_config_service.py tests/test_codecompass_embedding_loader.py tests/test_codecompass_vector_store.py tests/test_codecompass_vector_provider_policy.py tests/test_codecompass_vector_retrieval_service.py tests/test_hybrid_orchestrator_codecompass_vector.py tests/test_codecompass_vector_domain_scope.py tests/test_codecompass_vector_reranking.py tests/test_epc_integration.py -q"
   ],
   "end_summaries": [
     {

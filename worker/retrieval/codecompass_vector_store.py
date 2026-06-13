@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from worker.retrieval.embedding_provider import EmbeddingProvider
-from worker.retrieval.embedding_text_builder import build_embedding_texts_batch, build_query_embedding_text
+from worker.retrieval.embedding_text_builder import (
+    CODECOMPASS_EMBEDDING_TEXT_PROFILE,
+    build_embedding_texts_batch,
+    build_query_embedding_text,
+)
 
 
 def _cosine_similarity(left: list[float], right: list[float]) -> float:
@@ -52,6 +56,8 @@ class CodeCompassVectorStore:
         embedding_provider: EmbeddingProvider,
         retrieval_cache_state: str,
         manifest_hash: str,
+        embedding_provider_config_hash: str = "",
+        embedding_text_profile: str = CODECOMPASS_EMBEDDING_TEXT_PROFILE,
     ) -> dict[str, Any]:
         texts = build_embedding_texts_batch(list(documents or []))
         vectors = embedding_provider.embed_texts(texts)
@@ -79,10 +85,19 @@ class CodeCompassVectorStore:
             "embedding_provider": str(getattr(embedding_provider, "provider_id", "unknown") or "unknown"),
             "embedding_model_name": str(getattr(embedding_provider, "model_version", "unknown") or "unknown"),
             "embedding_dimensions": int(getattr(embedding_provider, "dimensions", 0) or 0),
+            "embedding_provider_config_hash": str(embedding_provider_config_hash or ""),
+            "embedding_text_profile": str(embedding_text_profile or CODECOMPASS_EMBEDDING_TEXT_PROFILE),
             "entry_count": len(entries),
         }
         self.save(state=state, entries=entries)
-        return {"status": "ok", "mode": "rebuild", "indexed_documents": len(entries), "state": state}
+        return {
+            "status": "ok",
+            "mode": "rebuild",
+            "reason": "rebuild",
+            "indexed_documents": len(entries),
+            "state": state,
+            "diagnostics": self._state_diagnostics(state),
+        }
 
     def refresh(
         self,
@@ -91,23 +106,79 @@ class CodeCompassVectorStore:
         embedding_provider: EmbeddingProvider,
         retrieval_cache_state: str,
         manifest_hash: str,
+        embedding_provider_config_hash: str = "",
+        embedding_text_profile: str = CODECOMPASS_EMBEDDING_TEXT_PROFILE,
     ) -> dict[str, Any]:
         current = self.load()
         state = dict(current.get("state") or {})
-        changed = (
-            str(state.get("retrieval_cache_state") or "") != str(retrieval_cache_state or "")
-            or str(state.get("manifest_hash") or "") != str(manifest_hash or "")
-            or str(state.get("embedding_model_name") or "") != str(getattr(embedding_provider, "model_version", "unknown") or "")
-            or int(state.get("embedding_dimensions") or 0) != int(getattr(embedding_provider, "dimensions", 0) or 0)
+        reason = self._refresh_reason(
+            state=state,
+            retrieval_cache_state=retrieval_cache_state,
+            manifest_hash=manifest_hash,
+            embedding_provider=embedding_provider,
+            embedding_provider_config_hash=embedding_provider_config_hash,
+            embedding_text_profile=embedding_text_profile,
         )
-        if not changed:
-            return {"status": "ok", "mode": "unchanged", "indexed_documents": 0, "state": state}
-        return self.rebuild(
+        if reason == "unchanged":
+            return {
+                "status": "ok",
+                "mode": "unchanged",
+                "reason": "unchanged",
+                "indexed_documents": 0,
+                "state": state,
+                "diagnostics": self._state_diagnostics(state),
+            }
+        result = self.rebuild(
             documents=documents,
             embedding_provider=embedding_provider,
             retrieval_cache_state=retrieval_cache_state,
             manifest_hash=manifest_hash,
+            embedding_provider_config_hash=embedding_provider_config_hash,
+            embedding_text_profile=embedding_text_profile,
         )
+        return {**result, "reason": reason}
+
+    @staticmethod
+    def _refresh_reason(
+        *,
+        state: dict[str, Any],
+        retrieval_cache_state: str,
+        manifest_hash: str,
+        embedding_provider: EmbeddingProvider,
+        embedding_provider_config_hash: str,
+        embedding_text_profile: str,
+    ) -> str:
+        if not state:
+            return "missing_index"
+        if str(state.get("retrieval_cache_state") or "") != str(retrieval_cache_state or ""):
+            return "retrieval_cache_state_changed"
+        if str(state.get("manifest_hash") or "") != str(manifest_hash or ""):
+            return "manifest_changed"
+        if str(state.get("embedding_model_name") or "") != str(
+            getattr(embedding_provider, "model_version", "unknown") or ""
+        ):
+            return "provider_changed"
+        if int(state.get("embedding_dimensions") or 0) != int(getattr(embedding_provider, "dimensions", 0) or 0):
+            return "dimensions_changed"
+        if str(state.get("embedding_provider_config_hash") or "") != str(embedding_provider_config_hash or ""):
+            return "provider_config_changed"
+        if str(state.get("embedding_text_profile") or "") != str(
+            embedding_text_profile or CODECOMPASS_EMBEDDING_TEXT_PROFILE
+        ):
+            return "embedding_text_profile_changed"
+        return "unchanged"
+
+    @staticmethod
+    def _state_diagnostics(state: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "entry_count": int(state.get("entry_count") or 0),
+            "provider": str(state.get("embedding_provider") or ""),
+            "model": str(state.get("embedding_model_name") or ""),
+            "dimensions": int(state.get("embedding_dimensions") or 0),
+            "manifest_hash": str(state.get("manifest_hash") or ""),
+            "embedding_text_profile": str(state.get("embedding_text_profile") or ""),
+            "embedding_provider_config_hash": str(state.get("embedding_provider_config_hash") or ""),
+        }
 
     def search_by_vector(self, *, query_vector: list[float], top_k: int = 10) -> list[dict[str, Any]]:
         loaded = self.load()
@@ -130,4 +201,3 @@ class CodeCompassVectorStore:
         vectors = embedding_provider.embed_texts([build_query_embedding_text(str(query or ""))])
         query_vector = [float(item) for item in list(vectors[0] if vectors else [])]
         return self.search_by_vector(query_vector=query_vector, top_k=top_k)
-

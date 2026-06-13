@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from worker.retrieval.embedding_provider import (
-    EmbeddingProvider,
-    EmbeddingProviderError,
-    HashEmbeddingProvider,
-)
+from worker.retrieval.embedding_provider import EmbeddingProvider, EmbeddingProviderError
 from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
 
 _TASK_KIND_WEIGHT = {
@@ -24,10 +20,20 @@ _INTENT_WEIGHT = {
 
 
 class CodeCompassVectorEngine:
-    def __init__(self, *, store: CodeCompassVectorStore, embedding_provider: EmbeddingProvider):
+    def __init__(
+        self,
+        *,
+        store: CodeCompassVectorStore,
+        embedding_provider: EmbeddingProvider | None,
+        degraded_reason: str | None = None,
+    ):
         self._store = store
         self._embedding_provider = embedding_provider
-        self._last_diagnostic: dict[str, Any] = {"status": "ready", "reason": "ok"}
+        self._last_diagnostic: dict[str, Any] = (
+            {"status": "degraded", "reason": degraded_reason}
+            if degraded_reason
+            else {"status": "ready", "reason": "ok"}
+        )
 
     def last_diagnostic(self) -> dict[str, Any]:
         return dict(self._last_diagnostic)
@@ -40,6 +46,9 @@ class CodeCompassVectorEngine:
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
     ) -> list[dict[str, Any]]:
+        if self._embedding_provider is None:
+            self._last_diagnostic = {"status": "degraded", "reason": "provider_resolution_failed"}
+            return []
         task_weight = float(_TASK_KIND_WEIGHT.get(str(task_kind or "").strip().lower(), 1.0))
         intent_weight = float(_INTENT_WEIGHT.get(str(retrieval_intent or "").strip().lower(), 1.0))
         try:
@@ -90,7 +99,6 @@ class CodeCompassVectorEngine:
         provider_config: dict[str, Any] | None = None,
     ) -> "CodeCompassVectorEngine":
         """EPC-009: Build engine using EmbeddingProviderConfigService."""
-        provider: EmbeddingProvider
         try:
             from agent.services.embedding_provider_config_service import (
                 EmbeddingProviderConfigService,
@@ -100,6 +108,9 @@ class CodeCompassVectorEngine:
             cfg = svc.resolve(scope)
             provider = build_embedding_provider_from_config(cfg)
         except Exception:
-            provider = HashEmbeddingProvider()
+            return cls(
+                store=store,
+                embedding_provider=None,
+                degraded_reason="provider_resolution_failed",
+            )
         return cls(store=store, embedding_provider=provider)
-

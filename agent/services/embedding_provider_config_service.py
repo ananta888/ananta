@@ -79,6 +79,9 @@ class EmbeddingProviderConfig:
             "model_version": self.model_version,
             "dimensions": self.dimensions,
             "base_url": self.base_url,
+            "external_calls_allowed": self.external_calls_allowed,
+            "allowed_base_urls": sorted(self.allowed_base_urls),
+            "index_rebuild_policy": self.index_rebuild_policy,
             "scope": self.scope,
         }, sort_keys=True)
         return hashlib.sha256(identity.encode()).hexdigest()[:16]
@@ -300,5 +303,7 @@ def build_embedding_provider_from_config(
         build_dict["base_url"] = config.base_url
     if config._resolved_api_key:
         build_dict["api_key"] = config._resolved_api_key
+    build_dict["external_calls_allowed"] = config.external_calls_allowed
+    build_dict["allowed_base_urls"] = list(config.allowed_base_urls)
 
     return build_embedding_provider(build_dict)

@@ -264,6 +264,9 @@ class Settings(BaseSettings):
     rag_route_quota_fs_repo: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_FS_REPO")
     rag_route_quota_default_repo: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_REPO")
     rag_route_quota_default_semantic: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_SEMANTIC")
+    rag_route_quota_codecompass_vector: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR")
+    rag_route_quota_codecompass_vector_default: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DEFAULT")
+    rag_route_quota_codecompass_vector_docs: int = Field(default=1, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DOCS")
     rag_scan_exclude_dirs: str = Field(
         default=".git,.venv,venv,myvenv,site-packages,node_modules,__pycache__,.mypy_cache,.claude,project-workspaces,.tox,dist,build,.eggs",
         validation_alias="RAG_SCAN_EXCLUDE_DIRS",
@@ -284,6 +287,26 @@ class Settings(BaseSettings):
     rag_full_budget_tokens: int = Field(default=64000, validation_alias="RAG_FULL_BUDGET_TOKENS")
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
+    codecompass_vector_index_path: str = Field(
+        default=".rag/codecompass/vector_index.json",
+        validation_alias="CODECOMPASS_VECTOR_INDEX_PATH",
+    )
+    codecompass_vector_embedding_records_path: str = Field(
+        default="rag-helper/out/embedding.json",
+        validation_alias="CODECOMPASS_VECTOR_EMBEDDING_RECORDS_PATH",
+    )
+    codecompass_vector_manifest_path: str = Field(
+        default="rag-helper/out/manifest.json",
+        validation_alias="CODECOMPASS_VECTOR_MANIFEST_PATH",
+    )
+    codecompass_vector_embedding_text_profile: str = Field(
+        default="codecompass-symbol-path-summary-v1",
+        validation_alias="CODECOMPASS_VECTOR_EMBEDDING_TEXT_PROFILE",
+    )
+    codecompass_vector_fail_mode: str = Field(
+        default="degraded_empty",
+        validation_alias="CODECOMPASS_VECTOR_FAIL_MODE",
+    )
     codecompass_graph_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_GRAPH_ENABLED")
     codecompass_relation_expansion_enabled: bool = Field(
         default=False,

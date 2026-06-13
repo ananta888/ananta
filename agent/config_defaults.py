@@ -435,6 +435,14 @@ def build_default_agent_config() -> dict:
                 "codecompass_vector": bool(settings.codecompass_vector_enabled),
                 "codecompass_graph": bool(settings.codecompass_graph_enabled),
                 "codecompass_relation_expansion": bool(settings.codecompass_relation_expansion_enabled),
+                "codecompass_vector_retrieval": {
+                    "enabled": bool(settings.codecompass_vector_enabled),
+                    "index_path": settings.codecompass_vector_index_path,
+                    "embedding_records_path": settings.codecompass_vector_embedding_records_path,
+                    "manifest_path": settings.codecompass_vector_manifest_path,
+                    "embedding_text_profile": settings.codecompass_vector_embedding_text_profile,
+                    "fail_mode": settings.codecompass_vector_fail_mode,
+                },
             },
             "native_worker_runtime": {
                 "enabled": True,
