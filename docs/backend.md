@@ -56,6 +56,10 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - Exposure-Policy:
   - `exposure_policy.voice` steuert Aktivierung, Auth-Quelle und Goal-Freigabepflicht.
   - `GET /v1/voice/capabilities` enthaelt zusaetzlich `privacy` (fail-closed Status fuer Roh-Audio-Persistenz).
+- Hybrid-Pipeline:
+  - Details stehen in `docs/voice-runtime-hybrid-transcription.md`.
+  - `POST /v1/audio/transcriptions` liefert additiv `segments`, `pipeline`, `confidence`, `raw_backend`, `rerun_backend` und `stages`.
+  - Optionale Backends `vosk` und `whisper_cpp` sind dependency-light Adapter und koennen ueber Fallback-Order auf `mock` ausweichen.
 
 ## OpenAI-kompatible Exposition (Hub)
 

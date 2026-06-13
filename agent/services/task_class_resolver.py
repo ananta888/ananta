@@ -27,6 +27,11 @@ _KIND_OVERRIDES: dict[str, str] = {
     "schema_validate": "deterministic",
     # hybrid
     "run_tests":       "hybrid",
+    "audio_transcribe": "hybrid",
+    "voice_transcribe": "hybrid",
+    "audio_transcribe_with_postprocess": "hybrid",
+    "audio_command":   "hybrid",
+    "voice_command":   "hybrid",
     # always LLM
     "llm_generate":    "llm_required",
     "code_review":     "llm_required",

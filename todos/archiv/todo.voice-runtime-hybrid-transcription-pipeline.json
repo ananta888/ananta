@@ -1,7 +1,8 @@
 {
   "id": "voice-runtime-hybrid-transcription-pipeline",
   "title": "Flexible Hybrid-Audio-Transcription-Pipeline fuer Voice Runtime",
-  "status": "open",
+  "status": "done",
+  "completed_at": "2026-06-13",
   "priority": "high",
   "created_from_context": {
     "user_goal": "Audio-Transkription nicht monolithisch ueber ein grosses Modell bauen, sondern mehrere flexible Varianten kombinierbar machen: klassische/leichte ASR, Whisper/Transformer, VAD, Confidence-Routing, LLM-Postkorrektur und optionale Diarization.",
@@ -520,6 +521,21 @@
       ]
     }
   ],
+  "completion_summary": {
+    "implemented": [
+      "Additive VoiceRuntimeConfig pipeline fields and env wiring.",
+      "TranscriptionSegment plus additive TranscriptionResult metadata.",
+      "VAD, optional Vosk, optional whisper.cpp, glossary, rule/LLM-style postprocessing, mock diarization and pipeline orchestration modules.",
+      "Runtime routes now expose pipeline, segments, confidence, raw/rerun backend and stage trace fields without removing old response fields.",
+      "Hub voice provider forwards additive fields while keeping policy and adapter responsibilities separate.",
+      "Task engine classifies voice/audio transcription and command tasks as hybrid.",
+      "Documentation, docker compose env passthrough, .env defaults and example glossary."
+    ],
+    "validation": [
+      "python -m pytest tests/test_voice_runtime_mock_backend.py tests/test_voice_runtime_pipeline_config.py tests/test_voice_runtime_pipeline_variants.py tests/test_voice_runtime_postprocessing.py tests/test_voice_runtime_backends_optional.py tests/test_voice_api_contract.py tests/test_task_engine.py -q"
+    ],
+    "result": "115 passed"
+  },
   "non_goals": [
     "Keine automatische Cloud-ASR-Anbindung ohne separate Policy und Secret-Behandlung.",
     "Keine automatische Installation grosser Modellgewichte im Code.",
@@ -547,6 +563,7 @@
     "vht-008",
     "vht-009",
     "vht-010",
+    "vht-011",
     "vht-012",
     "vht-013",
     "vht-014",

@@ -7,7 +7,7 @@ read-only deterministic:
   json_validate, schema_validate
 
 hybrid (deterministic execution, but may need LLM for planning):
-  run_tests
+  run_tests, audio_transcribe, audio_transcribe_with_postprocess, audio_command
 
 llm_required (no deterministic handler exists):
   llm_generate, code_review, llm_unknown
@@ -29,6 +29,9 @@ INTENT_GIT_DIFF        = "git_diff"
 INTENT_JSON_VALIDATE   = "json_validate"
 INTENT_SCHEMA_VALIDATE = "schema_validate"
 INTENT_RUN_TESTS       = "run_tests"
+INTENT_AUDIO_TRANSCRIBE = "audio_transcribe"
+INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS = "audio_transcribe_with_postprocess"
+INTENT_AUDIO_COMMAND   = "audio_command"
 INTENT_LLM_GENERATE    = "llm_generate"
 INTENT_LLM_UNKNOWN     = "llm_unknown"
 
@@ -43,7 +46,12 @@ DETERMINISTIC_INTENTS: frozenset[str] = frozenset({
     INTENT_SCHEMA_VALIDATE,
 })
 
-HYBRID_INTENTS: frozenset[str] = frozenset({INTENT_RUN_TESTS})
+HYBRID_INTENTS: frozenset[str] = frozenset({
+    INTENT_RUN_TESTS,
+    INTENT_AUDIO_TRANSCRIBE,
+    INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS,
+    INTENT_AUDIO_COMMAND,
+})
 
 LLM_INTENTS: frozenset[str] = frozenset({INTENT_LLM_GENERATE, INTENT_LLM_UNKNOWN})
 
@@ -75,6 +83,12 @@ _TOOL_INTENT: dict[str, str] = {
     "run_tests":          INTENT_RUN_TESTS,
     "pytest":             INTENT_RUN_TESTS,
     "run_pytest":         INTENT_RUN_TESTS,
+    # Voice runtime
+    "voice_transcribe":   INTENT_AUDIO_TRANSCRIBE,
+    "audio_transcribe":   INTENT_AUDIO_TRANSCRIBE,
+    "audio_transcribe_with_postprocess": INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS,
+    "voice_command":      INTENT_AUDIO_COMMAND,
+    "audio_command":      INTENT_AUDIO_COMMAND,
 }
 
 # Command prefix patterns → intent
@@ -154,6 +168,11 @@ class TaskIntentRouter:
             "json_validate":   INTENT_JSON_VALIDATE,
             "schema_validate": INTENT_SCHEMA_VALIDATE,
             "run_tests":       INTENT_RUN_TESTS,
+            "audio_transcribe": INTENT_AUDIO_TRANSCRIBE,
+            "voice_transcribe": INTENT_AUDIO_TRANSCRIBE,
+            "audio_transcribe_with_postprocess": INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS,
+            "audio_command":    INTENT_AUDIO_COMMAND,
+            "voice_command":    INTENT_AUDIO_COMMAND,
         }
         return mapping.get(kind)
 

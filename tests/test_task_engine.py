@@ -67,6 +67,16 @@ class TestTaskIntentRouter:
         assert r.intent == "run_tests"
         assert r.task_class == "hybrid"
 
+    def test_task_kind_audio_transcribe_is_hybrid(self):
+        r = self.router.route({"task_kind": "audio_transcribe"})
+        assert r.intent == "audio_transcribe"
+        assert r.task_class == "hybrid"
+
+    def test_task_kind_audio_transcribe_with_postprocess_is_hybrid(self):
+        r = self.router.route({"task_kind": "audio_transcribe_with_postprocess"})
+        assert r.intent == "audio_transcribe_with_postprocess"
+        assert r.task_class == "hybrid"
+
     def test_deterministic_handler_id_set(self):
         r = self.router.route({"tool_calls": [{"name": "git_status"}]})
         assert r.deterministic_handler_id == "git_status"
@@ -92,6 +102,11 @@ class TestTaskClassResolver:
     def test_kind_override_run_tests(self):
         r = self.resolver.resolve({"task_kind": "run_tests"})
         assert r.task_class == "hybrid"
+
+    def test_kind_override_voice_command(self):
+        r = self.resolver.resolve({"task_kind": "voice_command"})
+        assert r.task_class == "hybrid"
+        assert not r.llm_required
 
     def test_kind_override_llm_generate(self):
         r = self.resolver.resolve({"task_kind": "llm_generate"})

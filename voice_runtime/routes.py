@@ -24,6 +24,14 @@ def health() -> tuple[dict, int]:
             "fallback_model": config.fallback_model,
             "device": config.device,
             "backend_fallback_order": list(config.backend_fallback_order),
+            "transcription_pipeline": config.transcription_pipeline,
+            "vad_backend": config.vad_backend,
+            "asr_backend": config.asr_backend,
+            "postprocess_backend": config.postprocess_backend,
+            "confidence_rerun_enabled": config.confidence_rerun_enabled,
+            "diarization_backend": config.diarization_backend,
+            "enable_streaming": config.enable_streaming,
+            "store_audio": config.store_audio,
         },
         HTTPStatus.OK,
     )
@@ -39,6 +47,16 @@ def models() -> tuple[dict, int]:
             "provider": config.provider,
             "backend": backend.name(),
             "models": models_payload,
+            "supported_pipelines": [
+                "simple",
+                "oldschool_light",
+                "whisper_cpp",
+                "realtime_streaming",
+                "meeting",
+                "confidence_rerun",
+                "custom",
+            ],
+            "supported_asr_backends": ["mock", "voxtral", "vosk", "whisper_cpp"],
         },
         HTTPStatus.OK,
     )
@@ -46,14 +64,14 @@ def models() -> tuple[dict, int]:
 
 @voice_runtime_bp.post("/v1/audio/transcriptions")
 def transcriptions() -> tuple[dict, int]:
-    backend = current_app.config["voice_runtime_backend"]
+    pipeline = current_app.config["voice_runtime_pipeline"]
     config = current_app.config["voice_runtime_config"]
     upload, error = _read_audio_upload(config.max_audio_mb)
     if error:
         return error.to_response()
 
     try:
-        result = backend.transcribe(
+        result = pipeline.transcribe(
             filename=upload.filename,
             content=upload.content,
             language=request.form.get("language"),
@@ -81,6 +99,12 @@ def transcriptions() -> tuple[dict, int]:
             "language": result.language,
             "duration_ms": result.duration_ms,
             "warnings": list(result.warnings),
+            "segments": [segment.as_dict() for segment in result.segments],
+            "pipeline": result.pipeline,
+            "confidence": result.confidence,
+            "raw_backend": result.raw_backend,
+            "rerun_backend": result.rerun_backend,
+            "stages": list(result.stages),
         },
         HTTPStatus.OK,
     )

@@ -6,7 +6,7 @@ from typing import Any
 
 from ..audio import normalize_audio_payload
 from ..device import detect_runtime_device
-from .base import ChatResult, TranscriptionResult, VoiceBackend
+from .base import ChatResult, TranscriptionResult, TranscriptionSegment, VoiceBackend
 
 
 class VoxtralBackend(VoiceBackend):
@@ -35,12 +35,24 @@ class VoxtralBackend(VoiceBackend):
             warnings.append("normalization_passthrough")
         if self._model_path:
             warnings.append("model_path_override")
+        duration_ms = max(80, min(180_000, len(content) * 2))
         return TranscriptionResult(
             text=text,
             language=language or "und",
-            duration_ms=max(80, min(180_000, len(content) * 2)),
+            duration_ms=duration_ms,
             model=self._model,
             warnings=tuple(warnings),
+            segments=(
+                TranscriptionSegment(
+                    start_ms=0,
+                    end_ms=duration_ms,
+                    text=text,
+                    confidence=0.86,
+                    backend="voxtral",
+                ),
+            ),
+            confidence=0.86,
+            raw_backend="voxtral",
         )
 
     def audio_chat(self, *, filename: str, content: bytes, context: dict | None = None) -> ChatResult:

@@ -4,6 +4,7 @@ from flask import Flask, jsonify
 
 from .backends.router import build_voice_backend_router
 from .config import VoiceRuntimeConfig
+from .pipeline import TranscriptionPipeline
 from .routes import voice_runtime_bp
 
 
@@ -11,9 +12,11 @@ def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
     app = Flask(__name__)
     runtime_config = config or VoiceRuntimeConfig.from_env()
     backend = build_voice_backend_router(runtime_config)
+    pipeline = TranscriptionPipeline(config=runtime_config, backend=backend)
 
     app.config["voice_runtime_config"] = runtime_config
     app.config["voice_runtime_backend"] = backend
+    app.config["voice_runtime_pipeline"] = pipeline
     app.register_blueprint(voice_runtime_bp)
 
     @app.errorhandler(Exception)

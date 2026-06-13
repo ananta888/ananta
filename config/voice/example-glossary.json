@@ -1,0 +1,11 @@
+{
+  "terms": {
+    "CodeCompass": ["code compass", "codecompass"],
+    "Ananta": ["an anta"]
+  },
+  "aliases": {
+    "vox tral": "Voxtral",
+    "whisper cpp": "whisper.cpp"
+  },
+  "protected_terms": ["Vosk", "Kaldi"]
+}

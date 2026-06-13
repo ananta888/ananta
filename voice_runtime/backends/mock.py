@@ -4,7 +4,7 @@ import hashlib
 import os
 import time
 
-from .base import ChatResult, TranscriptionResult, VoiceBackend
+from .base import ChatResult, TranscriptionResult, TranscriptionSegment, VoiceBackend
 
 
 class MockVoiceBackend(VoiceBackend):
@@ -33,6 +33,17 @@ class MockVoiceBackend(VoiceBackend):
             duration_ms=max(50, min(120_000, len(content) * 2)),
             model=self._model,
             warnings=(),
+            segments=(
+                TranscriptionSegment(
+                    start_ms=0,
+                    end_ms=max(50, min(120_000, len(content) * 2)),
+                    text=text,
+                    confidence=0.91,
+                    backend="mock",
+                ),
+            ),
+            confidence=0.91,
+            raw_backend="mock",
         )
 
     def audio_chat(self, *, filename: str, content: bytes, context: dict | None = None) -> ChatResult:

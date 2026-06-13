@@ -55,7 +55,7 @@ class VoiceProviderService:
             content=content,
             data=data,
         )
-        return {
+        result = {
             "provider": str(payload.get("provider") or config.provider),
             "model": payload.get("model"),
             "text": str(payload.get("text") or ""),
@@ -63,6 +63,10 @@ class VoiceProviderService:
             "duration_ms": payload.get("duration_ms"),
             "warnings": list(payload.get("warnings") or []),
         }
+        for key in ("segments", "pipeline", "confidence", "raw_backend", "rerun_backend", "stages"):
+            if key in payload:
+                result[key] = payload.get(key)
+        return result
 
     def models(self) -> list[dict[str, Any]]:
         config = self._resolve_config()
@@ -86,13 +90,17 @@ class VoiceProviderService:
             content=content,
             data={"context_json": json.dumps(context)} if context else {},
         )
-        return {
+        result = {
             "provider": str(payload.get("provider") or config.provider),
             "model": payload.get("model"),
             "text": str(payload.get("text") or ""),
             "transcript": payload.get("transcript"),
             "tool_intent": payload.get("tool_intent"),
         }
+        for key in ("segments", "pipeline", "confidence", "raw_backend", "rerun_backend", "stages"):
+            if key in payload:
+                result[key] = payload.get(key)
+        return result
 
     def _post_multipart(
         self,

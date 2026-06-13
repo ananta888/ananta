@@ -31,6 +31,8 @@ def _voice_privacy_state() -> dict:
     return {
         "store_audio_requested": bool(_store_audio_enabled()),
         "store_audio_effective": False,
+        "effective_audio_retention": "none",
+        "policy_hint": "raw_audio_persistence_not_wired",
         "raw_audio_persisted": False,
     }
 
@@ -144,6 +146,9 @@ def transcribe():
             "model": result.get("model"),
             "duration_ms": result.get("duration_ms"),
             "audio_size_bytes": len(payload),
+            "pipeline": result.get("pipeline"),
+            "backend": result.get("raw_backend"),
+            "warnings_count": len(result.get("warnings") or []),
             "raw_audio_stored": _voice_privacy_state()["raw_audio_persisted"],
         },
     )

@@ -41,6 +41,7 @@ KNOWN_TOOLS: frozenset[str] = frozenset({
     "json_validate", "validate_json",
     "schema_validate", "validate_schema",
     "run_tests", "pytest", "run_pytest",
+    "voice_transcribe", "audio_transcribe", "audio_transcribe_with_postprocess", "voice_command", "audio_command",
     # LLM tools — always valid, just require LLM
     "llm_generate", "code_review", "goal_plan", "goal_propose",
     "write_file", "shell_exec", "database_write",

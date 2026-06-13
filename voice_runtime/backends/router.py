@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from ..config import VoiceRuntimeConfig
 from .base import ChatResult, TranscriptionResult, VoiceBackend
 from .mock import MockVoiceBackend
+from .vosk_backend import VoskBackend
 from .voxtral import VoxtralBackend
+from .whisper_cpp import WhisperCppBackend
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,12 @@ class RoutedVoiceBackend(VoiceBackend):
                     duration_ms=result.duration_ms,
                     model=result.model,
                     warnings=tuple(warnings),
+                    segments=result.segments,
+                    pipeline=result.pipeline,
+                    confidence=result.confidence,
+                    raw_backend=result.raw_backend or entry.backend_id,
+                    rerun_backend=result.rerun_backend,
+                    stages=result.stages,
                 )
             except Exception as exc:
                 last_exc = exc
@@ -82,6 +90,20 @@ def build_voice_backend_router(config: VoiceRuntimeConfig) -> RoutedVoiceBackend
             )
         elif normalized == "mock":
             entries.append(_BackendEntry(backend_id="mock", backend=MockVoiceBackend(model=f"mock-{config.model}")))
+        elif normalized == "vosk":
+            entries.append(_BackendEntry(backend_id="vosk", backend=VoskBackend(model_path=config.vosk_model_path)))
+        elif normalized == "whisper_cpp":
+            entries.append(
+                _BackendEntry(
+                    backend_id="whisper_cpp",
+                    backend=WhisperCppBackend(
+                        binary=config.whisper_cpp_bin,
+                        model_path=config.whisper_cpp_model_path,
+                        extra_args=config.whisper_cpp_extra_args,
+                        timeout_sec=config.timeout_sec,
+                    ),
+                )
+            )
 
     if not entries:
         raise RuntimeError(f"unsupported VOICE_BACKEND_FALLBACK_ORDER: {config.backend_fallback_order}")

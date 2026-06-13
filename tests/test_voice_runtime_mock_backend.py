@@ -19,6 +19,8 @@ def test_mock_voice_backend_transcribe_is_deterministic():
     assert first.text.startswith("mock transcript (sample.webm)")
     assert first.language == "de"
     assert first.model == "mock-test"
+    assert first.segments
+    assert first.confidence is not None
 
 
 def test_mock_voice_backend_audio_chat_returns_intent_when_context_present():
@@ -83,6 +85,9 @@ def test_voice_runtime_http_health_models_and_transcription():
     )
     assert transcribe.status_code == 200
     assert isinstance(transcribe.json.get("text"), str)
+    assert transcribe.json.get("pipeline") == "simple"
+    assert isinstance(transcribe.json.get("segments"), list)
+    assert transcribe.json.get("stages")
 
 
 def test_voice_runtime_http_rejects_oversized_file():
