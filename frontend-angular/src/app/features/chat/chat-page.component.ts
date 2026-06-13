@@ -1,7 +1,6 @@
 import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, AsyncPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../../services/chat-sessions.service';
 import { ChatHistoryService, ChatHistoryMessage } from '../../services/chat-history.service';
@@ -10,7 +9,7 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
 @Component({
   selector: 'app-chat-page',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, DatePipe, FormsModule, RouterLink],
+  imports: [CommonModule, AsyncPipe, DatePipe, FormsModule],
   template: `
     <div class="chat-page">
 

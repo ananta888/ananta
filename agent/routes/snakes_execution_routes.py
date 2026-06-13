@@ -203,10 +203,14 @@ def _build_grounded_snake_prompt(
     *,
     limits: SnakeAskLimits | None = None,
     retrieval_config_overrides: dict[str, Any] | None = None,
-) -> tuple[str, bool, str, dict[str, Any]]:
+) -> tuple[str, bool, str, dict[str, Any], list[dict[str, Any]]]:
+    """Returns (grounded_prompt, has_context, summary, domain_info, chunk_meta).
+
+    chunk_meta is a list of dicts with keys: path, source_type, score.
+    """
     prompt = str(user_text or "").strip()
     if not prompt:
-        return prompt, False, "", {}
+        return prompt, False, "", {}, []
     effective_limits = limits or SnakeAskLimits()
     try:
         from agent.routes.ai_snake_config import _current_config
@@ -238,10 +242,15 @@ def _build_grounded_snake_prompt(
         domain_scope_info = _domain_scope_response(domain_scope, bundle.get("domain_scope"))
         if chunks:
             src_type_counts: dict[str, int] = {}
+            chunk_meta: list[dict[str, Any]] = []
             for chunk in chunks:
                 metadata = dict((chunk or {}).get("metadata") or {})
                 st = str(metadata.get("source_type") or (chunk or {}).get("engine") or "unknown").strip().lower() or "unknown"
                 src_type_counts[st] = int(src_type_counts.get(st, 0)) + 1
+                path = str(metadata.get("file_path") or metadata.get("path") or (chunk or {}).get("path") or "").strip()
+                score = float((chunk or {}).get("score") or metadata.get("score") or 0.0)
+                if path and len(chunk_meta) < 40:
+                    chunk_meta.append({"path": path, "source_type": st, "score": round(score, 3)})
             logging.getLogger(__name__).info(
                 "ai_snake_retrieval_profile_selected profile_id=%s domain=%s intent=%s feature_flag=%s source_type_counts=%s warnings=%s",
                 profile.profile_id,
@@ -253,7 +262,7 @@ def _build_grounded_snake_prompt(
             )
             summary_parts = [f"{k}:{v}" for k, v in sorted(src_type_counts.items())]
             summary = f"Kontext: {len(chunks)} Treffer ({', '.join(summary_parts)}) [{profile.profile_id}]"
-            return grounded, True, summary, domain_scope_info
+            return grounded, True, summary, domain_scope_info, chunk_meta
     except Exception as exc:
         logging.getLogger(__name__).debug("ai_snake_retrieval_profile_failed: %s", exc)
         pass
@@ -264,8 +273,8 @@ def _build_grounded_snake_prompt(
             "Lokaler Projektkontext (Fallback, wenn RAG leer ist):\n"
             f"{local_fallback}"
         )
-        return prompt, True, "Kontext: 1 Treffer (repo_fallback:1)", {}
-    return prompt, False, "Kontext: 0 Treffer", {}
+        return prompt, True, "Kontext: 1 Treffer (repo_fallback:1)", {}, []
+    return prompt, False, "Kontext: 0 Treffer", {}, []
 
 
 def _resolve_snake_retrieval_profile_trace(
@@ -537,14 +546,15 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 logging.getLogger(__name__).debug("full_scan check failed, falling back: %s", exc)
 
             if rec:
-                rec.event("retrieval_profile_selected", "Retrieval-Profil wird aufgel\u00f6st", status="running")
+                rec.event("retrieval_profile_selected", "Retrieval-Profil wird aufgel\u00f6st", status="running",
+                          input_preview=prompt)
 
             retrieval_start = time.time()
             if rec:
                 rec.event("codecompass_retrieval_started", "CodeCompass Retrieval gestartet", status="running",
-                          input_preview=prompt[:300])
+                          input_preview=prompt)
 
-            grounded_prompt, has_context, context_summary, _domain_info = _build_grounded_snake_prompt(prompt)
+            grounded_prompt, has_context, context_summary, _domain_info, chunk_meta = _build_grounded_snake_prompt(prompt)
 
             retrieval_ms = (time.time() - retrieval_start) * 1000
             if rec:
@@ -553,11 +563,18 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                     status="completed" if has_context else "skipped",
                     summary=context_summary,
                     duration_ms=retrieval_ms,
-                    details={"has_context": has_context, "grounded_chars": len(grounded_prompt)},
+                    details={
+                        "has_context": has_context,
+                        "chunk_count": len(chunk_meta),
+                        "grounded_chars": len(grounded_prompt),
+                        "chunks": chunk_meta,
+                    },
+                    output_preview=chunk_meta if chunk_meta else None,
                 )
-                rec.event("prompt_built", "Prompt aufgebaut", status="completed",
-                          summary=f"{len(grounded_prompt)} Zeichen",
-                          details={"context_summary": context_summary})
+                rec.event("prompt_built", "Prompt an LLM aufgebaut", status="completed",
+                          summary=f"{len(grounded_prompt)} Zeichen Gesamtprompt, {len(chunk_meta)} Dateien eingebettet",
+                          details={"context_summary": context_summary, "prompt_chars": len(grounded_prompt)},
+                          output_preview=grounded_prompt)
 
             q = prompt.lower()
             asks_for_concrete_local_facts = any(
@@ -579,7 +596,14 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
             llm_start = time.time()
             if rec:
                 rec.event("llm_call_started", "LLM-Aufruf gestartet", status="running",
-                          details={"provider": provider, "model": model})
+                          summary=f"{provider} / {model or 'default'} — {len(grounded_prompt)} Zeichen Eingabe",
+                          details={
+                              "provider": provider,
+                              "model": model,
+                              "prompt_chars": len(grounded_prompt),
+                              "system_prompt_chars": len(_SNAKE_CHAT_PROMPT),
+                          },
+                          input_preview=grounded_prompt)
 
             answer = generate_text(
                 prompt=grounded_prompt,
@@ -593,7 +617,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
             if rec:
                 rec.event("llm_call_completed", "LLM-Aufruf abgeschlossen", status="completed",
                           duration_ms=llm_ms,
-                          output_preview=str(answer or "")[:500])
+                          summary=f"{len(str(answer or ''))} Zeichen Antwort in {round(llm_ms / 1000, 1)}s",
+                          output_preview=str(answer or ""))
 
             text = str(answer or "").strip()
             asked_for_link = any(token in prompt.lower() for token in ("link", "url", "quelle", "source"))
@@ -1011,7 +1036,7 @@ def snake_ask():
                 retrieval_config_overrides=retrieval_config_overrides,
             )
     else:
-        grounded_prompt, has_context, context_summary, domain_scope_info = _build_grounded_snake_prompt(
+        grounded_prompt, has_context, context_summary, domain_scope_info, _chunks = _build_grounded_snake_prompt(
             question,
             limits=limits,
             retrieval_config_overrides=retrieval_config_overrides,
