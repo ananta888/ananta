@@ -1,0 +1,257 @@
+{
+  "id": "todo.monetative-money-auditor-extension",
+  "title": "Monetative Money Auditor: Geldschöpfung, Bankgeldprivileg und Vollgeld demokratisch analysieren",
+  "status": "open",
+  "priority": "high",
+  "extends": "todo.ziegler-finance-auditor",
+  "inspirations": [
+    {
+      "name": "Monetative",
+      "role": "Initiative für monetäre Modernisierung und demokratische Geldordnung"
+    },
+    {
+      "name": "Joseph Huber",
+      "role": "Ökonom und Sozialwissenschaftler; wichtiger Vertreter von Vollgeld/Sovereign Money"
+    }
+  ],
+  "goal": "Den Ziegler Finance Auditor um eine geldsystemische Analyse erweitern. Das Modul soll nicht nur Börse, Spekulation und Finanzmärkte kritisieren, sondern die Geldschöpfung selbst offenlegen: Geschäftsbankengeld, Kreditgeldschöpfung, Seigniorage, Zentralbankgeld, Vollgeld/Sovereign Money, demokratische Kontrolle der Geldordnung und die politische Frage, wem das Geldsystem dient.",
+  "core_frame": {
+    "ziegler_layer": "Analyse von Hunger, struktureller Gewalt, Spekulation auf Grundbedürfnisse und globaler Ausbeutung.",
+    "monetative_huber_layer": "Analyse der Geldordnung selbst: Wer darf Geld schöpfen, wer profitiert vom Bankgeldprivileg, welche Macht entsteht durch Kreditgeld und welche demokratische Alternative wäre Vollgeld/Sovereign Money?"
+  },
+  "non_goals": [
+    "Keine unkritische Propaganda für eine einzige Geldreformposition",
+    "Keine falsche Behauptung, Vollgeld löse automatisch alle Kapitalismusprobleme",
+    "Keine Anlageberatung",
+    "Keine Trading- oder Broker-Funktion",
+    "Keine unbelegten Straftatbehauptungen gegen konkrete Banken, Zentralbanken oder Personen",
+    "Keine Verschwörungsrhetorik über geheime koordinierte Steuerung",
+    "Keine Anleitung zu illegalen Handlungen"
+  ],
+  "architecture_principles": [
+    "Money creation must be made explicit",
+    "Bank money is not neutral infrastructure",
+    "Legal monetary privilege must be checked for democratic legitimacy",
+    "Credit creation must be analyzed as power relation, not just accounting mechanic",
+    "Different reform schools must be distinguishable: Vollgeld, Sovereign Money, 100% Money, Narrow Banking, MMT, Post-Keynesian credit theory",
+    "The module must separate descriptive monetary mechanics from normative reform claims",
+    "The module must avoid conspiracy framing and focus on institutional incentives, legal privileges and power asymmetries"
+  ],
+  "suggested_paths": [
+    "agent/modules/ziegler_auditor/monetative_money.py",
+    "agent/modules/ziegler_auditor/money_creation.py",
+    "agent/modules/ziegler_auditor/sovereign_money.py",
+    "agent/modules/ziegler_auditor/tests/test_money_creation.py",
+    "agent/modules/ziegler_auditor/tests/test_monetative_money.py",
+    "prompts/monetative_money_auditor.j2",
+    "docs/monetative_money_auditor.md",
+    "tests/fixtures/monetary_claims.json"
+  ],
+  "tasks": [
+    {
+      "id": "MM-001",
+      "title": "Monetative/Huber-Rahmen dokumentieren",
+      "description": "Dokumentiere Monetative, Joseph Huber, Vollgeld/Sovereign Money und die Rolle dieses Rahmens im Ziegler Finance Auditor.",
+      "files": [
+        "docs/monetative_money_auditor.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument erklärt kurz die Idee von Vollgeld/Sovereign Money.",
+        "Dokument erklärt die Kritik am heutigen Geschäftsbankengeldsystem.",
+        "Dokument beschreibt Geldschöpfung als demokratische und machtpolitische Frage.",
+        "Dokument trennt sachliche Geldsystemanalyse von politischer Bewertung.",
+        "Dokument grenzt sich explizit von verschwörungsideologischen Erklärungen ab."
+      ]
+    },
+    {
+      "id": "MM-002",
+      "title": "MoneyCreationAuditInput und MoneyCreationAuditResult ergänzen",
+      "description": "Erstelle Modelle zur Analyse von Aussagen über Geldschöpfung, Bankgeld, Zentralbankgeld und Vollgeld.",
+      "files": [
+        "agent/modules/ziegler_auditor/models.py",
+        "agent/modules/ziegler_auditor/money_creation.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt MoneyCreationAuditInput mit claim, monetary_topic, optional_sources, context und requested_tone.",
+        "monetary_topic unterstützt commercial_bank_money, central_bank_money, sovereign_money, seigniorage, public_debt, interest, inflation, cbdc, unknown.",
+        "Es gibt MoneyCreationAuditResult mit mechanics_summary, power_analysis, beneficiaries, democratic_legitimacy_note, reform_options und caveats.",
+        "Alle Modelle sind JSON-serialisierbar.",
+        "Fehlende Quellen werden in caveats sichtbar gemacht."
+      ]
+    },
+    {
+      "id": "MM-003",
+      "title": "Geldschöpfungs-Mechanik erklärbar machen",
+      "description": "Implementiere eine deterministische Erklärungsschicht für Giralgeld, Zentralbankgeld, Reserven, Kreditvergabe und Bilanzverlängerung.",
+      "files": [
+        "agent/modules/ziegler_auditor/money_creation.py",
+        "agent/modules/ziegler_auditor/tests/test_money_creation.py"
+      ],
+      "acceptance_criteria": [
+        "Das Modul kann Aussagen wie 'Banken verleihen nur Spareinlagen weiter' als irreführend markieren.",
+        "Das Modul kann erklären, dass Geschäftsbanken bei Kreditvergabe Giralgeld schaffen können.",
+        "Das Modul unterscheidet Zentralbankgeld, Bargeld, Reserven und Giralgeld.",
+        "Das Modul vermeidet die falsche Vereinfachung, Banken könnten völlig grenzenlos Geld schöpfen.",
+        "Tests enthalten mindestens 15 typische falsche oder verkürzte Geldschöpfungsclaims."
+      ]
+    },
+    {
+      "id": "MM-004",
+      "title": "Bankgeldprivileg- und Machtanalyse implementieren",
+      "description": "Analysiere, welche Macht- und Verteilungswirkungen daraus entstehen, dass private Geschäftsbanken einen großen Teil des umlaufenden Geldes über Kredit erzeugen.",
+      "files": [
+        "agent/modules/ziegler_auditor/monetative_money.py",
+        "agent/modules/ziegler_auditor/tests/test_monetative_money.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält bank_money_privilege_note.",
+        "Output enthält beneficiaries und affected_groups.",
+        "Analyse berücksichtigt Zinsströme, Kreditlenkung, Immobilienblasen, Asset-Inflation und Abhängigkeit von privater Kreditvergabe.",
+        "Analyse unterscheidet produktive Kreditvergabe von spekulativer Kreditexpansion.",
+        "Machtanalyse bleibt institutionell und behauptet keine geheime zentrale Verschwörung."
+      ]
+    },
+    {
+      "id": "MM-005",
+      "title": "Vollgeld/Sovereign-Money-Reformoption modellieren",
+      "description": "Ergänze eine sachliche Darstellung von Vollgeld/Sovereign Money als Reformoption inklusive Chancen, Risiken und Kritikpunkten.",
+      "files": [
+        "agent/modules/ziegler_auditor/sovereign_money.py",
+        "agent/modules/ziegler_auditor/tests/test_sovereign_money.py"
+      ],
+      "acceptance_criteria": [
+        "Modul erklärt die Kernidee: Geldschöpfung wird von Geschäftsbanken zur öffentlichen/zentralbanknahen Geldordnung verschoben.",
+        "Output enthält potential_benefits wie demokratische Kontrolle, Seigniorage für Allgemeinheit, geringere Bankgeldinstabilität.",
+        "Output enthält risks_and_critiques wie Übergangsrisiken, Kreditverfügbarkeit, Zentralbankmacht, politische Steuerbarkeit und Asset-Bubble-Frage.",
+        "Modul stellt Vollgeld nicht als Allheilmittel dar.",
+        "Tests prüfen mindestens 10 Vollgeld-Claims pro/contra."
+      ]
+    },
+    {
+      "id": "MM-006",
+      "title": "Demokratische-Legitimitätsprüfung für Geldordnung ergänzen",
+      "description": "Bewerte Geldsystemclaims danach, ob Geld als öffentliche Infrastruktur oder private Renditequelle behandelt wird.",
+      "files": [
+        "agent/modules/ziegler_auditor/monetative_money.py",
+        "agent/modules/ziegler_auditor/scoring.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält monetary_democracy_score von 0 bis 100.",
+        "Score berücksichtigt Transparenz, öffentliche Kontrolle, private Gewinnabschöpfung, Krisenhaftung und Verteilungswirkung.",
+        "Output enthält democratic_legitimacy_note.",
+        "Score ist aus Flags nachvollziehbar zusammengesetzt.",
+        "Analyse trennt technische Funktionsfähigkeit von demokratischer Legitimität."
+      ]
+    },
+    {
+      "id": "MM-007",
+      "title": "Prompt für Monetative-orientierte Geldsystemanalyse erstellen",
+      "description": "Erstelle einen Prompt, der Aussagen über Geldsystem, Banken, Zentralbanken und Vollgeld sauber, kritisch und nicht verschwörungsideologisch analysiert.",
+      "files": [
+        "prompts/monetative_money_auditor.j2",
+        "agent/modules/ziegler_auditor/prompts.py"
+      ],
+      "acceptance_criteria": [
+        "Prompt verlangt Trennung von Ist-Mechanik, Machtwirkung, normativer Kritik und Reformoptionen.",
+        "Prompt verbietet Anlageberatung und Trading-Signale.",
+        "Prompt verlangt explizite Unsicherheiten und Gegenargumente.",
+        "Prompt erlaubt klare Sprache gegen Bankgeldprivileg und private Geldmacht, verlangt aber institutionelle Begründung.",
+        "Prompt fordert JSON-kompatible Antwortstruktur."
+      ]
+    },
+    {
+      "id": "MM-008",
+      "title": "Fixtures für Geldsystemclaims anlegen",
+      "description": "Erstelle Testclaims zu Geldschöpfung, Banken, Staatsschulden, Inflation, Zentralbankgeld, CBDC und Vollgeld.",
+      "files": [
+        "tests/fixtures/monetary_claims.json"
+      ],
+      "acceptance_criteria": [
+        "Mindestens 40 Beispielclaims vorhanden.",
+        "Enthält falsche, teilweise richtige und strittige Claims.",
+        "Claims decken Giralgeld, Reserven, Staatsverschuldung, Inflation, Zins, Immobilienkredit, CBDC und Vollgeld ab.",
+        "Jeder Claim enthält erwartete Flags oder erwartete Kategorie.",
+        "Mindestens 10 Claims prüfen explizit die Grenze zwischen Kritik und Verschwörungsnarrativ."
+      ]
+    },
+    {
+      "id": "MM-009",
+      "title": "Integration in ZieglerAuditorService ergänzen",
+      "description": "Der bestehende ZieglerAuditorService soll Geldsystemclaims an das Monetative-Money-Submodul routen können.",
+      "files": [
+        "agent/modules/ziegler_auditor/service.py",
+        "agent/task_classification.py",
+        "agent/task_config.json"
+      ],
+      "acceptance_criteria": [
+        "Claims zu Geldschöpfung, Vollgeld, Zentralbankgeld, Bankgeld, Staatsschulden oder Zins werden zur Kategorie monetary_system geroutet.",
+        "Bei deaktiviertem Submodul wird eine normale Ziegler-Finance-Analyse erzeugt.",
+        "Submodul ist read-only.",
+        "Keine Broker-, Trading- oder Zahlungsfunktion wird angebunden.",
+        "Routing ist dokumentiert."
+      ]
+    },
+    {
+      "id": "MM-010",
+      "title": "Dokumentation mit Ziegler-plus-Monetative-Gesamtrahmen ergänzen",
+      "description": "Erkläre, wie Ziegler und Monetative/Huber zusammen den Analysehorizont bilden: reale Opfer der Finanzordnung plus technische Geldschöpfungsmacht.",
+      "files": [
+        "docs/ziegler_auditor.md",
+        "docs/monetative_money_auditor.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument enthält Abschnitt 'Ziegler + Monetative'.",
+        "Dokument erklärt: Ziegler zeigt die menschlichen Folgen, Monetative/Huber zeigt die Geldarchitektur dahinter.",
+        "Dokument enthält mindestens 6 Beispielanalysen zu Geldsystemclaims.",
+        "Dokument enthält Beispiele für saubere Formulierungen ohne Verschwörungsrhetorik.",
+        "Dokument enthält klare Abgrenzung: Kritik an Institutionen und Privilegien, keine pauschale Dämonisierung einzelner Menschen."
+      ]
+    }
+  ],
+  "example_input": {
+    "claim": "Banken verleihen einfach nur das Geld ihrer Sparer weiter. Deshalb ist unser Geldsystem neutral.",
+    "monetary_topic": "commercial_bank_money",
+    "requested_tone": "direct"
+  },
+  "example_output": {
+    "classification": [
+      "misleading_money_creation_claim",
+      "bank_money_privilege",
+      "democratic_legitimacy_problem"
+    ],
+    "mechanics_summary": "Die Aussage ist verkürzt. Geschäftsbanken vermitteln nicht nur vorhandene Spareinlagen, sondern können bei Kreditvergabe Giralgeld schaffen, begrenzt durch Regulierung, Eigenkapital, Liquidität, Nachfrage, Risiko und Zentralbankrahmen.",
+    "power_analysis": "Wer Kreditvergabe kontrolliert, beeinflusst, welche Wirtschaftsbereiche wachsen, welche Vermögenspreise steigen und wer in Schuldenabhängigkeit gerät.",
+    "beneficiaries": [
+      "Geschäftsbanken",
+      "Eigentümer von Vermögenswerten",
+      "Akteure mit gutem Kreditzugang"
+    ],
+    "affected_groups": [
+      "Mieter bei kreditgetriebener Immobilienpreissteigerung",
+      "verschuldete Haushalte",
+      "kleine Unternehmen mit schlechtem Kreditzugang",
+      "öffentliche Haushalte bei Bankenrettungen"
+    ],
+    "democratic_legitimacy_note": "Wenn ein zentraler Teil der Geldschöpfung faktisch durch private Kreditentscheidungen entsteht, ist das keine neutrale Technikfrage, sondern eine Frage demokratischer Kontrolle über öffentliche Infrastruktur.",
+    "reform_options": [
+      "Vollgeld/Sovereign Money",
+      "Narrow Banking",
+      "strengere Kreditlenkung",
+      "öffentliche Zahlungsinfrastruktur",
+      "gemeinwohlorientierte Bankenregulierung"
+    ],
+    "caveats": [
+      "Banken können Geld nicht völlig grenzenlos schaffen.",
+      "Vollgeld ist eine Reformoption, aber kein automatisches Allheilmittel.",
+      "Konkrete Missbrauchsvorwürfe gegen einzelne Banken benötigen belastbare Evidenz."
+    ]
+  },
+  "definition_of_done": [
+    "Geldschöpfung wird als eigenständiger Analysebereich im Ziegler Finance Auditor behandelt.",
+    "Geschäftsbankengeld, Zentralbankgeld, Reserven und Vollgeld werden sauber unterschieden.",
+    "Bankgeldprivileg und Kreditmacht werden als institutionelle Machtfragen analysiert.",
+    "Vollgeld/Sovereign Money wird fair dargestellt: Chancen, Risiken und Kritik.",
+    "Analyse bleibt hart kapitalismus- und bankenkritisch, aber nicht verschwörungsideologisch.",
+    "Tests decken Geldschöpfungsmythen, Vollgeldclaims, demokratische Legitimität und Guardrails ab."
+  ]
+}
