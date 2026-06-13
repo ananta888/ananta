@@ -132,7 +132,24 @@ const FIELDS: ConfigField[] = [
                     </select>
                   }
                 } @else {
-                  <input class="cfg-input" type="text" [value]="getStr(field.key)" (change)="setStr(field.key, $any($event.target).value)">
+                  @if (field.key === 'chat_backend_model') {
+                    <div class="cfg-model-row">
+                      <input class="cfg-input cfg-model-input" type="text"
+                        [value]="getStr(field.key)"
+                        list="cfg-model-datalist"
+                        (change)="setStr(field.key, $any($event.target).value)">
+                      <datalist id="cfg-model-datalist">
+                        @for (m of modelsList; track m) {
+                          <option [value]="m">{{ m }}</option>
+                        }
+                      </datalist>
+                      <button class="cfg-reload-btn" (click)="loadModels()" [disabled]="modelsLoading" title="Modelle neu laden">
+                        {{ modelsLoading ? '…' : '↻' }}
+                      </button>
+                    </div>
+                  } @else {
+                    <input class="cfg-input" type="text" [value]="getStr(field.key)" (change)="setStr(field.key, $any($event.target).value)">
+                  }
                 }
               </div>
             }
@@ -192,6 +209,15 @@ const FIELDS: ConfigField[] = [
       width: 10px; height: 10px; background: #6b8ab8; border-radius: 50%; transition: left 0.2s;
     }
     .cfg-toggle input:checked ~ .cfg-toggle-track::after { left: 16px; background: #0b1220; }
+    .cfg-model-row { display: flex; align-items: center; gap: 4px; }
+    .cfg-model-input { width: 130px; }
+    .cfg-reload-btn {
+      background: #0f1c30; border: 1px solid #1a2d4a; color: #7fffd4;
+      font-size: 13px; font-family: inherit; padding: 1px 6px; border-radius: 2px;
+      cursor: pointer; flex-shrink: 0; line-height: 1;
+    }
+    .cfg-reload-btn:hover:not(:disabled) { border-color: #2a4d7a; background: #131e36; }
+    .cfg-reload-btn:disabled { opacity: 0.4; cursor: default; }
     .cfg-scope-toggle {
       background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8;
       font-size: 11px; font-family: inherit; padding: 2px 8px; border-radius: 2px; cursor: pointer;
@@ -205,10 +231,22 @@ export class AiSnakeConfigPanelComponent implements OnInit {
 
   search = '';
   showDomainScope = false;
+  modelsList: string[] = [];
+  modelsLoading = false;
   private _filtered: ConfigField[] = [...FIELDS];
 
   ngOnInit(): void {
     this.svc.load();
+    this.loadModels();
+  }
+
+  loadModels(): void {
+    if (this.modelsLoading) return;
+    this.modelsLoading = true;
+    this.svc.listModels().subscribe({
+      next: models => { this.modelsList = models; this.modelsLoading = false; },
+      error: () => { this.modelsLoading = false; },
+    });
   }
 
   toggleDomainScope(): void {

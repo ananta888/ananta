@@ -1,5 +1,5 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Subject, debounceTime, distinctUntilChanged, filter } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, catchError, debounceTime, distinctUntilChanged, filter, map, of } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { WindowBridgeService } from './window-bridge.service';
@@ -73,6 +73,15 @@ export class AiSnakeConfigService implements OnDestroy {
     this.config$.next(current);
     this.pendingPatch[key] = value;
     this.saveQueue$.next({ ...this.pendingPatch });
+  }
+
+  listModels(): Observable<string[]> {
+    const url = this.hubUrl;
+    if (!url) return of([]);
+    return this.core.get<{ data: Array<{ id: string }> }>(`${url}/v1/models`, url).pipe(
+      map(r => (r?.data ?? []).map((m: { id: string }) => m.id)),
+      catchError(() => of([])),
+    );
   }
 
   private flushPatch(patch: AiSnakeConfig): void {

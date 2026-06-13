@@ -123,7 +123,7 @@ export class TuiToolSettingsComponent implements OnInit {
     }
     this.loading = true;
     this.error = '';
-    this.svc.listTools(hub.base_url, this.auth.token ?? undefined).subscribe({
+    this.svc.listTools(hub.url, this.auth.token ?? undefined).subscribe({
       next: (profiles) => {
         this.toolProfiles = profiles;
         this.loading = false;

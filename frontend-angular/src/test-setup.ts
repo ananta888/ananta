@@ -38,7 +38,7 @@ const createCanvas2dContextStub = () => {
       target[prop as string] = value;
       return true;
     },
-  }) as CanvasRenderingContext2D;
+  }) as unknown as CanvasRenderingContext2D;
 };
 
 const canvasProto = (globalThis as any).HTMLCanvasElement?.prototype;
