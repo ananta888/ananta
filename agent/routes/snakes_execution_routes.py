@@ -247,7 +247,11 @@ def _build_grounded_snake_prompt(
                 metadata = dict((chunk or {}).get("metadata") or {})
                 st = str(metadata.get("source_type") or (chunk or {}).get("engine") or "unknown").strip().lower() or "unknown"
                 src_type_counts[st] = int(src_type_counts.get(st, 0)) + 1
-                path = str(metadata.get("file_path") or metadata.get("path") or (chunk or {}).get("path") or "").strip()
+                path = str(
+                    metadata.get("file_path") or metadata.get("path")
+                    or metadata.get("source_id") or (chunk or {}).get("source")
+                    or (chunk or {}).get("path") or ""
+                ).strip().lstrip("/app/").lstrip("app/")
                 score = float((chunk or {}).get("score") or metadata.get("score") or 0.0)
                 if path and len(chunk_meta) < 40:
                     chunk_meta.append({"path": path, "source_type": st, "score": round(score, 3)})
