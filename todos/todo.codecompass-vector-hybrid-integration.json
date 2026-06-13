@@ -1,0 +1,931 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass_vector_hybrid_integration",
+  "purpose": "CodeCompass-Embedding-Ausgaben, echte lokale Embedding-Provider wie Ollama/LM Studio und den bestehenden HybridOrchestrator sauber verbinden. Ziel ist ein echtes Hybrid-Retrieval aus RepositoryMap, CodeCompassVector, SemanticSearch und AgenticSearch, ohne dass Vector Search deterministische Signale überstimmt.",
+  "goal": "Ananta soll CodeCompass embedding.json als modellneutrale Input-Dokumente verwenden, daraus mit der konfigurierten EmbeddingProviderConfig einen Vector-Index bauen und codecompass_vector als eigenes Retrieval-Signal im HybridOrchestrator nutzen. Exakte Symbol-/Pfad-/Graph-Treffer bleiben stärker als fuzzy Vektorähnlichkeit. Provider-Wechsel, Dimensionswechsel und embedding_text_profile-Wechsel invalidieren den Index deterministisch.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "code_analysis": {
+    "summary": [
+      "worker/retrieval/codecompass_embedding_loader.py lädt CodeCompass-Embedding-Records und erwartet ein embedding_text Feld; echte Vektoren werden dort nicht gelesen.",
+      "worker/retrieval/codecompass_vector_store.py kann Dokumente via embedding_provider.embed_texts(...) in Vektoren umwandeln und als JSON-Vector-Index speichern.",
+      "worker/retrieval/codecompass_vector_engine.py kann Query-Vektoren erzeugen und über CodeCompassVectorStore suchen, ist aber noch nicht sichtbar in agent/hybrid_context_orchestration.py verdrahtet.",
+      "agent/hybrid_orchestrator.py routet aktuell über repository_map, semantic_search und agentic_search. codecompass_vector fehlt in ContextManager.route() und collect_context_chunks().",
+      "agent/services/embedding_provider_config_service.py stellt zentrale Provider-Auflösung bereit, inklusive Default local_hash und OpenAI-kompatiblen Providern.",
+      "build_embedding_provider_from_config() prüft Security-Status, reicht aber external_calls_allowed und allowed_base_urls aktuell nicht an worker.retrieval.embedding_provider.build_embedding_provider(...) weiter; das kann Ollama/LMStudio trotz erlaubter Config blockieren.",
+      "Der VectorStore invalidiert aktuell bei retrieval_cache_state, manifest_hash, embedding_model_name und dimensions, aber noch nicht explizit bei embedding_text_profile oder embedding_provider_config_hash."
+    ],
+    "relevant_files": [
+      "agent/hybrid_orchestrator.py",
+      "agent/hybrid_context_orchestration.py",
+      "agent/config.py",
+      "agent/config_defaults.py",
+      "agent/services/embedding_provider_config_service.py",
+      "worker/retrieval/codecompass_embedding_loader.py",
+      "worker/retrieval/codecompass_vector_store.py",
+      "worker/retrieval/codecompass_vector_engine.py",
+      "worker/retrieval/embedding_provider.py",
+      "worker/retrieval/embedding_text_builder.py",
+      "tests/test_codecompass_embedding_loader.py",
+      "tests/test_codecompass_vector_store.py",
+      "tests/test_worker_codecompass_vector_channel.py",
+      "tests/test_embedding_provider_config_service.py",
+      "config/examples/embedding.ollama-openai-compatible.json",
+      "config/examples/embedding.lmstudio-openai-compatible.json",
+      "config/examples/embedding.localhash.json"
+    ],
+    "main_architecture_gap": "Die CodeCompass Vector Engine existiert als Baustein, wird aber noch nicht als echtes Retrieval-Signal im zentralen HybridOrchestrator genutzt.",
+    "security_gap": "OpenAI-kompatible lokale Provider müssen weiterhin explizit allowlisted und auditierbar bleiben; ein Fallback auf externe Calls darf nie heimlich passieren.",
+    "quality_gap": "Vector Search darf exakte Symbol-, Datei-, Pfad- und Graph-Signale nicht überstimmen. Scores müssen normalisiert und erklärbar zusammengeführt werden."
+  },
+  "architecture_principles": [
+    "CodeCompass embedding.json bleibt modellneutral: Es enthält embedding_text und Metadaten, nicht zwingend fertige Modell-Vektoren.",
+    "Der Vector-Index wird aus embedding_text plus aktuell konfiguriertem EmbeddingProvider gebaut.",
+    "User-Query und Index-Dokumente müssen mit demselben Provider, Modell, Dimensionen und embedding_text_profile verglichen werden.",
+    "local_hash bleibt sicherer Test-/Fallback-Default, ist aber kein Qualitätsersatz für echte semantische Embeddings.",
+    "Ollama und LM Studio werden über openai_compatible nur mit explizitem localhost-allowlisting genutzt.",
+    "Vector Search ist ein Signal, nicht die zentrale Wahrheit. Exakte Symbol-, Pfad-, Graph- und Domain-Treffer bleiben priorisiert.",
+    "Domain-Scope gilt auch für codecompass_vector. Ein aktiver Scope darf nie durch Vector Search global erweitert werden.",
+    "Provider-, Modell-, Dimensions-, Manifest- oder embedding_text_profile-Wechsel invalidieren alte Vektoren deterministisch.",
+    "Diagnostics müssen zeigen, welche Engine warum welchen Treffer geliefert hat.",
+    "Keine Secrets, keine vollständigen Chunk-Inhalte und keine API-Keys in Index-State, Logs oder Diagnostics."
+  ],
+  "proposed_config_shape": {
+    "rag_route_quota_codecompass_vector": 6,
+    "rag_route_quota_codecompass_vector_default": 4,
+    "rag_route_quota_codecompass_vector_docs": 1,
+    "codecompass_vector_retrieval": {
+      "enabled": true,
+      "index_path": ".rag/codecompass/vector_index.json",
+      "embedding_records_path": "rag-helper/out/embedding.json",
+      "manifest_path": "rag-helper/out/manifest.json",
+      "embedding_text_profile": "codecompass-symbol-path-summary-v1",
+      "refresh_policy": "on_manifest_or_provider_change",
+      "top_k_default": 6,
+      "fail_mode": "degraded_empty"
+    },
+    "embedding_provider_overrides": {
+      "codecompass_vector": {
+        "provider": "local_hash",
+        "model_version": "hash-v1",
+        "dimensions": 12,
+        "external_calls_allowed": false
+      }
+    }
+  },
+  "expected_new_files": [
+    "agent/services/codecompass_vector_retrieval_service.py",
+    "docs/worker/codecompass-vector-retrieval.md",
+    "tests/test_hybrid_orchestrator_codecompass_vector.py",
+    "tests/test_codecompass_vector_retrieval_service.py",
+    "tests/test_codecompass_vector_provider_policy.py",
+    "tests/test_codecompass_vector_domain_scope.py",
+    "tests/test_codecompass_vector_reranking.py"
+  ],
+  "expected_modified_files": [
+    "agent/hybrid_orchestrator.py",
+    "agent/hybrid_context_orchestration.py",
+    "agent/config.py",
+    "agent/config_defaults.py",
+    "agent/services/embedding_provider_config_service.py",
+    "worker/retrieval/codecompass_vector_engine.py",
+    "worker/retrieval/codecompass_vector_store.py",
+    "worker/retrieval/codecompass_embedding_loader.py",
+    "worker/retrieval/embedding_text_builder.py",
+    "docs/worker/embedding-provider-config.md",
+    "config/examples/embedding.ollama-openai-compatible.json",
+    "config/examples/embedding.lmstudio-openai-compatible.json"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Provider- und Index-Grundlagen korrigieren",
+      "task_ids": [
+        "CVHI-001",
+        "CVHI-002",
+        "CVHI-003",
+        "CVHI-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "CodeCompass Vector Retrieval Service einführen",
+      "task_ids": [
+        "CVHI-005",
+        "CVHI-006",
+        "CVHI-007"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "HybridOrchestrator mit codecompass_vector verdrahten",
+      "task_ids": [
+        "CVHI-008",
+        "CVHI-009",
+        "CVHI-010",
+        "CVHI-011"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Ranking, Scope und Diagnostics härten",
+      "task_ids": [
+        "CVHI-012",
+        "CVHI-013",
+        "CVHI-014",
+        "CVHI-015"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Tests, Doku und lokale Provider-Beispiele abschließen",
+      "task_ids": [
+        "CVHI-016",
+        "CVHI-017",
+        "CVHI-018",
+        "CVHI-019",
+        "CVHI-020"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CVHI-001",
+      "title": "build_embedding_provider_from_config Weitergabe korrigieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "bugfix",
+      "files": [
+        "agent/services/embedding_provider_config_service.py",
+        "worker/retrieval/embedding_provider.py",
+        "tests/test_embedding_provider_config_service.py",
+        "tests/test_codecompass_vector_provider_policy.py"
+      ],
+      "description": "OpenAI-kompatible Provider werden im Config-Service geprüft, aber external_calls_allowed und allowed_base_urls müssen auch an build_embedding_provider(...) weitergereicht werden, weil dieser Builder erneut prüft.",
+      "acceptance_criteria": [
+        "build_embedding_provider_from_config() reicht external_calls_allowed an build_embedding_provider(...) weiter.",
+        "build_embedding_provider_from_config() reicht allowed_base_urls an build_embedding_provider(...) weiter.",
+        "Ein Test zeigt: provider=openai_compatible, base_url=http://localhost:11434/v1, external_calls_allowed=true und allowed_base_urls=[http://localhost:11434] wird nicht durch den Builder blockiert.",
+        "Ein Test zeigt: derselbe Provider ohne external_calls_allowed bleibt blockiert.",
+        "Ein Test zeigt: nicht allowlistete base_url bleibt blockiert.",
+        "Kein Test enthält echte API-Keys oder externe Netzwerkcalls."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-002",
+      "title": "EmbeddingProviderConfig Hash im Vector Index speichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "indexing",
+      "files": [
+        "worker/retrieval/codecompass_vector_store.py",
+        "agent/services/embedding_provider_config_service.py",
+        "tests/test_codecompass_vector_store.py"
+      ],
+      "description": "Der Vector-Index soll nicht nur model_version und dimensions, sondern auch einen secretfreien Provider-Config-Hash speichern und bei Änderung invalidieren.",
+      "acceptance_criteria": [
+        "CodeCompassVectorStore.rebuild() kann einen embedding_provider_config_hash entgegennehmen oder aus Provider-Metadaten übernehmen.",
+        "Der gespeicherte state enthält embedding_provider_config_hash ohne Secrets.",
+        "CodeCompassVectorStore.refresh() erkennt Änderung von embedding_provider_config_hash als Rebuild-Grund.",
+        "Tests prüfen unveränderten Hash => mode unchanged.",
+        "Tests prüfen geänderten Hash => mode rebuild.",
+        "Index-State enthält keine api_key, Authorization Header oder vollständige Config mit Secretwerten."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-003",
+      "title": "embedding_text_profile versionieren und indexrelevant machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "indexing",
+      "files": [
+        "worker/retrieval/codecompass_vector_store.py",
+        "worker/retrieval/embedding_text_builder.py",
+        "worker/retrieval/codecompass_embedding_loader.py",
+        "tests/test_codecompass_vector_store.py",
+        "tests/test_codecompass_embedding_loader.py"
+      ],
+      "description": "Wenn sich die Logik ändert, wie embedding_text gebaut oder interpretiert wird, müssen alte Vektoren invalidiert werden.",
+      "acceptance_criteria": [
+        "Eine Konstante oder Config für embedding_text_profile existiert, z.B. codecompass-symbol-path-summary-v1.",
+        "CodeCompassVectorStore.rebuild() speichert embedding_text_profile im state.",
+        "CodeCompassVectorStore.refresh() erkennt embedding_text_profile-Wechsel als Rebuild-Grund.",
+        "Tests prüfen: gleiches Profil => kein Rebuild nur wegen Profil.",
+        "Tests prüfen: anderes Profil => Rebuild.",
+        "Doku erklärt, dass embedding_text_profile und EmbeddingProvider gemeinsam die Vergleichbarkeit der Vektoren bestimmen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-004",
+      "title": "VectorStore Refresh Diagnostics ausbauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "files": [
+        "worker/retrieval/codecompass_vector_store.py",
+        "tests/test_codecompass_vector_store.py"
+      ],
+      "description": "Refresh/Rebuild soll erklärbar machen, warum ein Index unverändert, neu gebaut oder degraded ist.",
+      "acceptance_criteria": [
+        "refresh() liefert bei rebuild einen reason wie manifest_changed, provider_changed, dimensions_changed, embedding_text_profile_changed oder retrieval_cache_state_changed.",
+        "refresh() liefert bei unchanged den vorhandenen state und reason unchanged.",
+        "Dimension-Mismatch zwischen Query-Provider und gespeicherter Index-Dimension führt zu degraded Diagnostic statt stiller Nulltreffer ohne Erklärung.",
+        "Diagnostics enthalten entry_count, provider, model, dimensions, manifest_hash und embedding_text_profile.",
+        "Diagnostics enthalten keine Secrets und keine vollständigen embedding_text Inhalte."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-005",
+      "title": "CodeCompassVectorRetrievalService einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "service",
+      "files": [
+        "agent/services/codecompass_vector_retrieval_service.py",
+        "worker/retrieval/codecompass_embedding_loader.py",
+        "worker/retrieval/codecompass_vector_store.py",
+        "worker/retrieval/codecompass_vector_engine.py",
+        "tests/test_codecompass_vector_retrieval_service.py"
+      ],
+      "description": "Ein zentraler Service soll CodeCompass embedding.json laden, Manifest lesen, Provider auflösen, den VectorStore refreshen und Suchanfragen an CodeCompassVectorEngine delegieren.",
+      "acceptance_criteria": [
+        "Service akzeptiert repo_root, embedding_records_path, manifest_path, index_path und provider_config.",
+        "Service lädt embedding.json Records robust als JSON-Array oder als strukturierte Payload mit records-Feld, falls vorhanden.",
+        "Service nutzt load_codecompass_embedding_documents() zur Normalisierung.",
+        "Service nutzt EmbeddingProviderConfigService mit Scope codecompass_vector.",
+        "Service ruft CodeCompassVectorStore.refresh() vor der Suche auf, wenn der Index fehlt oder ungültig ist.",
+        "Fehlende embedding.json führt zu degraded_empty Diagnostic und keinem Crash.",
+        "Fehlerhafte JSON-Datei führt zu degraded_empty Diagnostic und keinem Crash.",
+        "Tests mocken EmbeddingProvider und prüfen, dass keine echten Netzwerkcalls passieren."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-006",
+      "title": "CodeCompass Vector Engine Fallback sichtbar machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "hardening",
+      "files": [
+        "worker/retrieval/codecompass_vector_engine.py",
+        "tests/test_codecompass_vector_retrieval_service.py"
+      ],
+      "description": "CodeCompassVectorEngine.build_from_config() fällt aktuell bei Exceptions still auf HashEmbeddingProvider zurück. Das ist als harter Silent-Fallback für produktive Diagnostik zu intransparent.",
+      "acceptance_criteria": [
+        "Silent-Fallback auf HashEmbeddingProvider wird entfernt oder durch eine explizite degraded Diagnostic ersetzt.",
+        "Wenn Provider-Auflösung fehlschlägt, meldet die Engine provider_resolution_failed.",
+        "Wenn fail_mode=degraded_empty gesetzt ist, liefert search() leere Ergebnisse plus Diagnostic statt Hash-Fallback.",
+        "Tests prüfen, dass eine kaputte openai_compatible Config nicht heimlich mit local_hash weiterläuft.",
+        "Tests prüfen, dass expliziter local_hash weiterhin funktioniert."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-007",
+      "title": "CodeCompass embedding.json Pfade und Manifest-Contract dokumentieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "contract",
+      "files": [
+        "docs/worker/codecompass-vector-retrieval.md",
+        "docs/contracts/codecompass-output-manifest.md",
+        "worker/retrieval/codecompass_embedding_loader.py"
+      ],
+      "description": "Klarer Contract, was embedding.json enthält: embedding_text und Metadaten, nicht zwingend fertige Vektoren. Manifest muss Hash/Profil/Scope lieferbar machen.",
+      "acceptance_criteria": [
+        "Doku erklärt embedding.json als modellneutrale CodeCompass-Ausgabe.",
+        "Doku nennt Mindestfelder: id oder provenance record_id, kind, file/path, embedding_text, _provenance.output_kind=embedding.",
+        "Doku erklärt manifest_hash und source_scope/profile_name.",
+        "Doku erklärt, dass echte numerische Vektoren erst im VectorStore entstehen.",
+        "Doku enthält Beispiel für einen einzelnen embedding Record.",
+        "Loader-Tests bleiben kompatibel mit vorhandenen Records."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-008",
+      "title": "collect_context_chunks um codecompass_vector erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": [
+        "agent/hybrid_context_orchestration.py",
+        "agent/hybrid_orchestrator.py",
+        "tests/test_hybrid_orchestrator_codecompass_vector.py"
+      ],
+      "description": "Der zentrale Sammelpfad muss eine vierte Engine codecompass_vector unterstützen.",
+      "acceptance_criteria": [
+        "collect_context_chunks() akzeptiert optional codecompass_vector_engine oder codecompass_vector_service.",
+        "Wenn quotas['codecompass_vector'] > 0 ist, wird diese Engine mit top_k=Quota abgefragt.",
+        "Wenn keine codecompass_vector Engine konfiguriert ist, bleibt das bisherige Verhalten unverändert.",
+        "Die Engine liefert ContextChunk-kompatible Objekte mit engine='codecompass_vector'.",
+        "Tests prüfen, dass repository_map, codecompass_vector, semantic_search und agentic_search gemeinsam gesammelt werden können.",
+        "Tests prüfen, dass quota 0 keine codecompass_vector Suche auslöst."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-009",
+      "title": "ContextManager.route Quotas für codecompass_vector ergänzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "routing",
+      "files": [
+        "agent/hybrid_orchestrator.py",
+        "agent/config.py",
+        "agent/config_defaults.py",
+        "tests/test_hybrid_orchestrator_codecompass_vector.py"
+      ],
+      "description": "Routing soll codecompass_vector für Code- und Default-Fragen berücksichtigen, aber nicht für jeden Doku-Fall dominieren lassen.",
+      "acceptance_criteria": [
+        "ContextManager.route() initialisiert quotas mit codecompass_vector=0.",
+        "Code-like Queries erhalten eine konfigurierbare codecompass_vector Quote, z.B. rag_route_quota_codecompass_vector.",
+        "Default Queries erhalten eine kleinere codecompass_vector Quote, z.B. rag_route_quota_codecompass_vector_default.",
+        "Docs-like Queries erhalten keine oder nur eine kleine codecompass_vector Quote, damit Doku-Retrieval nicht verwässert wird.",
+        "Config-Defaults enthalten die neuen Quota-Namen mit sicheren Werten.",
+        "Tests prüfen Quotas für code_like, docs_like, fs_like und default Queries."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-010",
+      "title": "HybridOrchestrator Initialisierung für CodeCompass Vector ergänzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": [
+        "agent/hybrid_orchestrator.py",
+        "agent/services/codecompass_vector_retrieval_service.py",
+        "tests/test_hybrid_orchestrator_codecompass_vector.py"
+      ],
+      "description": "HybridOrchestrator soll optional eine CodeCompassVectorRetrievalService Instanz erzeugen und an collect_context_chunks() weiterreichen.",
+      "acceptance_criteria": [
+        "HybridOrchestrator.__init__ akzeptiert optional codecompass_vector_enabled oder liest den Wert aus settings.",
+        "Wenn deaktiviert, ist kein Verhalten geändert und keine embedding.json wird gelesen.",
+        "Wenn aktiviert, erzeugt HybridOrchestrator einen CodeCompassVectorRetrievalService mit Pfaden aus settings/config.",
+        "get_relevant_context() übergibt die Vector Engine an collect_context_chunks().",
+        "Fehlende CodeCompass-Artefakte führen zu degraded Diagnostic, aber nicht zum Abbruch des gesamten Kontextaufbaus.",
+        "Tests prüfen aktivierten und deaktivierten Modus."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-011",
+      "title": "Prompt-Kontext-Ausgabe um Engine-Diagnostics erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "files": [
+        "agent/hybrid_context_orchestration.py",
+        "agent/hybrid_orchestrator.py",
+        "tests/test_hybrid_orchestrator_codecompass_vector.py"
+      ],
+      "description": "Der Kontext soll weiterhin kompakt bleiben, aber in der strukturierten Antwort soll sichtbar sein, welche Engine welche Treffer lieferte und ob codecompass_vector degraded war.",
+      "acceptance_criteria": [
+        "serialize_context_result() behält engine, source, score, metadata je Chunk bei.",
+        "codecompass_vector Chunks enthalten metadata mit record_id, record_kind, vector_score, model_name, source_manifest_hash.",
+        "get_relevant_context() enthält optional retrieval_diagnostics mit codecompass_vector Status.",
+        "Prompt context_text bleibt lesbar und enthält keine internen Debug-Dumps.",
+        "Tests prüfen, dass Diagnostics strukturiert vorhanden sind, aber nicht im Prompt übermäßig aufblasen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-012",
+      "title": "Score-Normalisierung für Hybrid-Retrieval definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "ranking",
+      "files": [
+        "agent/hybrid_orchestrator.py",
+        "agent/hybrid_context_orchestration.py",
+        "tests/test_codecompass_vector_reranking.py"
+      ],
+      "description": "Scores aus repository_map, codecompass_vector, semantic_search und agentic_search haben unterschiedliche Skalen und dürfen nicht blind addiert/sortiert werden.",
+      "acceptance_criteria": [
+        "ContextManager.rerank() normalisiert Scores pro Engine oder nutzt engine-spezifische Gewichtung.",
+        "repository_map Treffer mit exaktem Symbol-/Pfadbezug können codecompass_vector Treffer überholen, auch wenn vector_score hoch ist.",
+        "codecompass_vector Treffer werden als fuzzy_semantic Signal gewertet und nicht pauschal dem RepositoryMap-Score gleichgesetzt.",
+        "semantic_search bleibt primär Doku-Signal.",
+        "agentic_search bleibt Grep/Fallback-Signal.",
+        "Tests prüfen, dass ein exakter Symboltreffer vor einem nur semantisch ähnlichen Vector-Treffer landet.",
+        "Tests prüfen, dass ein guter Vector-Treffer aufgenommen wird, wenn RepositoryMap keine passenden Treffer findet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-013",
+      "title": "Domain-Scope für codecompass_vector erzwingen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security_scope",
+      "files": [
+        "agent/hybrid_orchestrator.py",
+        "agent/hybrid_context_orchestration.py",
+        "agent/codecompass/domain_scope_filter.py",
+        "tests/test_codecompass_vector_domain_scope.py"
+      ],
+      "description": "Aktiver Domain-Scope darf durch Vector Search nicht erweitert werden. Treffer außerhalb allowed_read_paths müssen rausfallen oder gar nicht erst gesucht werden.",
+      "acceptance_criteria": [
+        "Bei aktivem Domain-Scope werden codecompass_vector Ergebnisse gegen allowed_read_paths gefiltert.",
+        "Wenn der VectorStore selbst scoped suchen kann, wird allowed_paths bereits vor der Suche angewendet; sonst spätestens danach über DomainScopeFilter.",
+        "Bei strict scope failure wird codecompass_vector nicht global durchsucht.",
+        "Tests prüfen: Treffer außerhalb allowed_read_paths werden entfernt.",
+        "Tests prüfen: leerer Scope liefert keine globalen Vector-Treffer.",
+        "Diagnostics weisen gefilterte codecompass_vector Treffer aus."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-014",
+      "title": "Vector Result Deduplication mit RepositoryMap zusammenführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "ranking",
+      "files": [
+        "agent/hybrid_orchestrator.py",
+        "agent/hybrid_context_orchestration.py",
+        "tests/test_codecompass_vector_reranking.py"
+      ],
+      "description": "Wenn RepositoryMap und CodeCompassVector dieselbe Datei liefern, soll daraus ein stärkerer, erklärbarer Kandidat entstehen statt doppelter Kontextblöcke.",
+      "acceptance_criteria": [
+        "Reranking erkennt gleiche source-Pfade über Engine-Grenzen hinweg.",
+        "Bei gleicher source werden Signale zusammengeführt oder der stärkste Chunk um metadata.cross_engine_signals ergänzt.",
+        "Prompt-Kontext enthält dieselbe Datei nicht mehrfach mit fast identischem Inhalt, sofern Tokenbudget knapp ist.",
+        "Tests prüfen, dass repository_map + codecompass_vector für dieselbe Datei die Datei stärkt.",
+        "Tests prüfen, dass unterschiedliche relevante Dateien nicht versehentlich wegdedupliziert werden."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-015",
+      "title": "Source/Test/Doc Gewichtung für Vector-Ergebnisse anwenden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "ranking",
+      "files": [
+        "worker/retrieval/codecompass_vector_engine.py",
+        "worker/retrieval/codecompass_candidate_resolver.py",
+        "tests/test_codecompass_vector_reranking.py"
+      ],
+      "description": "Vector-Treffer aus Tests, Docs oder Thirdparty-Flächen dürfen Source-Dateien nicht unbegründet überholen.",
+      "acceptance_criteria": [
+        "codecompass_vector wendet eine Source-first Gewichtung oder Klassifikation analog zum CandidateResolver an.",
+        "Test-Dateien werden als Evidence nutzbar, aber nicht automatisch Top-1 gegen Source-Dateien.",
+        "Docs werden bei Code-Fragen demotet, aber bei Docs-like Queries weiterhin nutzbar.",
+        "Thirdparty-/Client-Surface-Pfade werden abhängig vom Scope demotet oder ausgeschlossen.",
+        "Tests prüfen Source-vs-Test Ranking für gleiche Query.",
+        "Tests prüfen Docs-like Query, bei der Doku-Ergebnis erlaubt oben landen darf."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-016",
+      "title": "Ollama und LM Studio Embedding Integration mockbasiert testen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "tests",
+      "files": [
+        "tests/test_codecompass_vector_provider_policy.py",
+        "config/examples/embedding.ollama-openai-compatible.json",
+        "config/examples/embedding.lmstudio-openai-compatible.json",
+        "worker/retrieval/embedding_provider.py"
+      ],
+      "description": "Keine Live-Abhängigkeit, aber die lokale OpenAI-kompatible Provider-Konfiguration muss gegen einen Mock-HTTP-Server oder monkeypatch getestet werden.",
+      "acceptance_criteria": [
+        "Test nutzt Ollama-Beispielconfig mit base_url http://localhost:11434/v1 und model nomic-embed-text.",
+        "Test nutzt LM-Studio-Beispielconfig mit base_url http://localhost:1234/v1.",
+        "HTTP-Aufruf wird gemockt; CI braucht kein Ollama und kein LM Studio.",
+        "Test prüft, dass Request gegen /embeddings geht.",
+        "Test prüft, dass input und model korrekt im Payload stehen.",
+        "Test prüft, dass die zurückgegebenen Vektoren in VectorStore.rebuild() landen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-017",
+      "title": "End-to-End Test für CodeCompass embedding.json zu Hybrid-Kontext",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "tests",
+      "files": [
+        "tests/test_hybrid_orchestrator_codecompass_vector.py",
+        "tests/fixtures/codecompass/embedding.json",
+        "tests/fixtures/codecompass/manifest.json"
+      ],
+      "description": "Ein kleiner Fixture-Test soll den gesamten Weg von embedding.json über VectorStore bis get_relevant_context() abdecken.",
+      "acceptance_criteria": [
+        "Fixture embedding.json enthält mindestens drei embedding Records mit verschiedenen files und embedding_text.",
+        "Fixture manifest.json enthält manifest_hash, profile_name und source_scope.",
+        "Test aktiviert codecompass_vector Retrieval mit local_hash oder FakeProvider.",
+        "get_relevant_context() enthält mindestens einen Chunk mit engine codecompass_vector.",
+        "context_text enthält den gefundenen source-Pfad und kompakten Inhalt.",
+        "Strukturierte chunks enthalten metadata.record_id und metadata.vector_score.",
+        "Der Test benötigt keine echten externen Embedding-Modelle."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-018",
+      "title": "Doku für Hybrid-CodeCompass-Retrieval schreiben",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "files": [
+        "docs/worker/codecompass-vector-retrieval.md",
+        "docs/worker/embedding-provider-config.md",
+        "docs/worker/retrieval_and_indexing.md"
+      ],
+      "description": "Dokumentation soll den Unterschied zwischen embedding.json, VectorStore, EmbeddingProvider, Query-Embedding und LLM-Prompt klar erklären.",
+      "acceptance_criteria": [
+        "Doku enthält ein Ablaufdiagramm oder eine klare Schrittfolge: CodeCompass -> embedding.json -> VectorStore -> Query Embedding -> Hybrid Rerank -> Prompt Context.",
+        "Doku erklärt, warum embedding.json nicht dasselbe ist wie fertige Modell-Vektoren.",
+        "Doku erklärt local_hash als sicheren Fallback ohne semantische Qualität.",
+        "Doku erklärt Ollama und LM Studio als lokale OpenAI-kompatible Optionen.",
+        "Doku erklärt Rebuild-Auslöser: manifest_hash, provider_config_hash, model_version, dimensions, embedding_text_profile.",
+        "Doku warnt, dass externe Embeddings Code-/Doc-Inhalte übertragen können und deshalb default-deny bleiben."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-019",
+      "title": "Config-Defaults und Beispielprofile konsolidieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "config",
+      "files": [
+        "agent/config.py",
+        "agent/config_defaults.py",
+        "config/examples/embedding.localhash.json",
+        "config/examples/embedding.ollama-openai-compatible.json",
+        "config/examples/embedding.lmstudio-openai-compatible.json"
+      ],
+      "description": "Die neuen codecompass_vector Settings sollen zentral sichtbar und sicher defaulted sein.",
+      "acceptance_criteria": [
+        "Default codecompass_vector_retrieval.enabled ist entweder false oder nutzt nur local_hash ohne externe Calls.",
+        "Alle Pfade haben sichere lokale Defaults und liegen unter .rag oder konfigurierbaren Output-Pfaden.",
+        "Ollama/LM-Studio Beispiele bleiben Beispiele und werden nicht automatisch aktiv.",
+        "Config-Defaults enthalten rag_route_quota_codecompass_vector Werte.",
+        "Settings enthalten keine echten Secrets.",
+        "Tests für Config-API oder Defaults prüfen, dass fehlende Config nicht zu externen Calls führt."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "CVHI-020",
+      "title": "Regression Suite und Qualitätsfälle definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "validation",
+      "files": [
+        "tests/test_hybrid_orchestrator_codecompass_vector.py",
+        "tests/test_codecompass_vector_retrieval_service.py",
+        "tests/test_codecompass_vector_provider_policy.py",
+        "tests/test_codecompass_vector_domain_scope.py",
+        "tests/test_codecompass_vector_reranking.py"
+      ],
+      "commands": [
+        "python -m pytest tests/test_codecompass_embedding_loader.py tests/test_codecompass_vector_store.py tests/test_embedding_provider_config_service.py",
+        "python -m pytest tests/test_hybrid_orchestrator_codecompass_vector.py tests/test_codecompass_vector_retrieval_service.py tests/test_codecompass_vector_provider_policy.py tests/test_codecompass_vector_domain_scope.py tests/test_codecompass_vector_reranking.py",
+        "python -m pytest"
+      ],
+      "description": "Abschlussvalidierung für den gesamten Track.",
+      "acceptance_criteria": [
+        "Alle neuen Tests laufen ohne Ollama, ohne LM Studio und ohne Netzwerkzugriff.",
+        "Bestehende Tests für CodeCompass Loader, VectorStore und EmbeddingProviderConfig bleiben grün.",
+        "Full pytest läuft grün oder unrelated failures werden separat dokumentiert.",
+        "Mindestens ein Test beweist: codecompass_vector erscheint im Hybrid-Kontext.",
+        "Mindestens ein Test beweist: Domain-Scope verhindert globale Vector-Treffer.",
+        "Mindestens ein Test beweist: exakter RepositoryMap Treffer schlägt nur fuzzy Vector-Treffer.",
+        "Mindestens ein Test beweist: Provider-/Dimensions-/Profilwechsel triggert Rebuild."
+      ],
+      "progress_percent": 0
+    }
+  ],
+  "critical_path_tasks": [
+    "CVHI-001",
+    "CVHI-002",
+    "CVHI-003",
+    "CVHI-005",
+    "CVHI-008",
+    "CVHI-009",
+    "CVHI-010",
+    "CVHI-012",
+    "CVHI-013",
+    "CVHI-017",
+    "CVHI-020"
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 20,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 12,
+      "P1": 8,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 10,
+      "high": 8,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {
+      "bugfix": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "indexing": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "observability": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "service": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "hardening": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "contract": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "integration": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "routing": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "ranking": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security_scope": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "tests": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "docs": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "config": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "validation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "new",
+    "todo_remaining": 20,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Der Track soll keine alten lokalen Hash-Embeddings als Qualitätslösung verkaufen. local_hash bleibt Test-/Fallback-Default.",
+    "Ollama und LM Studio sollen nur über explizite lokale openai_compatible Configs laufen.",
+    "Die zentrale Arbeit ist nicht noch ein EmbeddingProvider, sondern die saubere Verdrahtung von codecompass_vector in den echten HybridOrchestrator.",
+    "Vector Search darf deterministische Signale nicht überstimmen, sondern ergänzt sie bei unscharfen Suchanfragen.",
+    "Alle Tests müssen ohne echte lokale Modellserver laufen; Live-Tests können später optional ergänzt werden."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_architecture",
+      "title": "Zielarchitektur",
+      "items": [
+        "CodeCompass erzeugt embedding.json mit embedding_text und Metadaten.",
+        "CodeCompassVectorRetrievalService lädt diese Records und refreshed den VectorStore.",
+        "EmbeddingProviderConfigService bestimmt Provider, Modell, Dimensionen und Allowlist.",
+        "VectorStore speichert Vektoren inklusive provider/model/profile state.",
+        "HybridOrchestrator sammelt repository_map, codecompass_vector, semantic_search und agentic_search.",
+        "ContextManager.rerank normalisiert und gewichtet Signale source-first und scope-aware."
+      ]
+    }
+  ]
+}
