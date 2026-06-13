@@ -194,7 +194,10 @@ def worker_chat_full_scan(
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
                 timeout=timeout_s,
             )
-            text = str(answer or "").strip()
+            if isinstance(answer, dict):
+                text = str(answer.get("text") or "").strip()
+            else:
+                text = str(answer or "").strip()
             batch_meta: dict[str, Any] = {
                 "estimated_input_tokens": _estimate_batch_tokens(batch),
                 "chars_in_prompt": len(batch_prompt),

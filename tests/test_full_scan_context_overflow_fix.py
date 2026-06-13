@@ -87,7 +87,6 @@ def _make_cfg(**overrides):
 def test_full_scan_uses_chars_per_file_config():
     """chars_per_file from config should be passed through to file content slicing."""
     from agent.routes import snakes
-    from agent.common import sgpt
 
     captured_prompts: list[str] = []
 
@@ -106,9 +105,9 @@ def test_full_scan_uses_chars_per_file_config():
         (tmp / "a.py").write_text("x" * 1000, encoding="utf-8")
         (tmp / "b.py").write_text("y" * 1000, encoding="utf-8")
         with (
-            patch("agent.routes.ai_snake_config._current_config", return_value=cfg),
-            patch("agent.routes.snakes.generate_text", side_effect=_fake_generate_text),
-            patch.object(sgpt, "_resolve_repo_root", return_value=tmp),
+            patch("agent.routes.snakes_full_scan._current_config", return_value=cfg),
+            patch("agent.routes.snakes_full_scan.generate_text", side_effect=_fake_generate_text),
+            patch("agent.routes.snakes_full_scan._resolve_repo_root", return_value=tmp),
         ):
             answer, trace = snakes._worker_chat_full_scan(
                 "Was macht die Datei?",
@@ -136,7 +135,6 @@ def test_full_scan_auto_shrinks_oversized_batch():
     """When the configured batch would overflow the model context, the
     function should auto-shrink down to the largest batch that fits."""
     from agent.routes import snakes
-    from agent.common import sgpt
 
     cfg = _make_cfg(
         chat_full_scan_files_per_batch=8,
@@ -149,9 +147,9 @@ def test_full_scan_auto_shrinks_oversized_batch():
         for i in range(10):
             (tmp / f"f{i}.py").write_text("z" * 4000, encoding="utf-8")
         with (
-            patch("agent.routes.ai_snake_config._current_config", return_value=cfg),
-            patch("agent.routes.snakes.generate_text", return_value="x"),
-            patch.object(sgpt, "_resolve_repo_root", return_value=tmp),
+            patch("agent.routes.snakes_full_scan._current_config", return_value=cfg),
+            patch("agent.routes.snakes_full_scan.generate_text", return_value="x"),
+            patch("agent.routes.snakes_full_scan._resolve_repo_root", return_value=tmp),
         ):
             _answer, trace = snakes._worker_chat_full_scan(
                 "Erkläre das Modul",
@@ -174,7 +172,6 @@ def test_full_scan_returns_context_overflow_error_in_trace():
     context_overflow_likely, the trace should report 'context_overflow' with
     a useful hint for the user."""
     from agent.routes import snakes
-    from agent.common import sgpt
 
     def _fake_generate_text(*args, **kwargs):
         return {
@@ -195,9 +192,9 @@ def test_full_scan_returns_context_overflow_error_in_trace():
         for i in range(4):
             (tmp / f"f{i}.py").write_text("z" * 1000, encoding="utf-8")
         with (
-            patch("agent.routes.ai_snake_config._current_config", return_value=cfg),
-            patch("agent.routes.snakes.generate_text", side_effect=_fake_generate_text),
-            patch.object(sgpt, "_resolve_repo_root", return_value=tmp),
+            patch("agent.routes.snakes_full_scan._current_config", return_value=cfg),
+            patch("agent.routes.snakes_full_scan.generate_text", side_effect=_fake_generate_text),
+            patch("agent.routes.snakes_full_scan._resolve_repo_root", return_value=tmp),
         ):
             answer, trace = snakes._worker_chat_full_scan(
                 "Erkläre das Modul",
