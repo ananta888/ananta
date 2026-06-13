@@ -63,7 +63,8 @@ def test_propose_uses_compactor_metadata(app, monkeypatch):
         lambda: SimpleNamespace(task_execution_service=SimpleNamespace(persist_task_proposal_result=lambda **kwargs: None)),
     )
 
-    out = svc.propose_task_step("t1", _Req(), cli_runner=lambda **kwargs: (0, "", "", "sgpt"), forwarder=lambda *a, **k: {}, tool_definitions_resolver=lambda *_: [])
+    with app.app_context():
+        out = svc.propose_task_step("t1", _Req(), cli_runner=lambda **kwargs: (0, "", "", "sgpt"), forwarder=lambda *a, **k: {}, tool_definitions_resolver=lambda *_: [])
     assert out.status == "success"
 
 
@@ -73,7 +74,7 @@ def test_propose_fail_closed_when_compaction_required(app, monkeypatch):
     monkeypatch.setattr(svc, "_require_task", lambda tid: task)
     monkeypatch.setattr(svc, "_forward_task_request_if_remote", lambda **kwargs: None)
     monkeypatch.setattr(
-        "agent.services.task_scoped_execution_service.get_goal_config_runtime_service",
+        "agent.services._task_scoped_propose_orch.get_goal_config_runtime_service",
         lambda: SimpleNamespace(get_effective_config=lambda **kwargs: SimpleNamespace(config={"propose_policy": {}}, source="test")),
     )
     monkeypatch.setattr(
@@ -81,13 +82,18 @@ def test_propose_fail_closed_when_compaction_required(app, monkeypatch):
         lambda: SimpleNamespace(build_context=lambda **kwargs: {"prompt_section": "security policy"}),
     )
     monkeypatch.setattr(
-        "agent.services.task_scoped_execution_service.get_propose_policy_service",
+        "agent.services._task_scoped_propose_orch.get_propose_policy_service",
         lambda: SimpleNamespace(get_effective_policy=lambda **kwargs: ProposePolicy(context_compaction_required=True, context_compactor_fail_open=False)),
     )
     monkeypatch.setattr(
-        "agent.services.task_scoped_execution_service.get_planning_context_compactor_service",
+        "agent.services._task_scoped_propose_orch.get_planning_context_compactor_service",
         lambda: SimpleNamespace(compact=lambda **kwargs: SimpleNamespace(payload={"goal_summary": "x"}, meta={"status": "failed", "error_classification": "x"})),
     )
-    out = svc.propose_task_step("t1", _Req(), cli_runner=lambda **kwargs: (0, "", "", "sgpt"), forwarder=lambda *a, **k: {}, tool_definitions_resolver=lambda *_: [])
+    monkeypatch.setattr(
+        "agent.services._task_scoped_propose_orch.record_product_event",
+        lambda *a, **kw: None,
+    )
+    with app.app_context():
+        out = svc.propose_task_step("t1", _Req(), cli_runner=lambda **kwargs: (0, "", "", "sgpt"), forwarder=lambda *a, **k: {}, tool_definitions_resolver=lambda *_: [])
     assert out.status == "error"
     assert out.message == "planning_context_compaction_failed"

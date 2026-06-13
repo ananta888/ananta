@@ -5,10 +5,19 @@ from unittest.mock import MagicMock, patch
 def test_run_codex_command_injects_lmstudio_openai_compatible_env():
     from agent.common.sgpt import run_codex_command
 
+    from contextlib import contextmanager
+    from types import SimpleNamespace as _NS
+
+    @contextmanager
+    def _fake_permit(*a, **kw):
+        yield _NS(acquired=True)
+
     with (
-        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\codex.cmd"),
-        patch("agent.common.sgpt.settings") as mock_settings,
-        patch("agent.common.sgpt.subprocess.run") as mock_run,
+        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\codex.cmd"),
+        patch("agent.common.sgpt_opencode.settings") as mock_settings,
+        patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
+        patch("agent.common.sgpt_opencode.subprocess.run") as mock_run,
+        patch("agent.common.sgpt_opencode._acquire_backend_permit", _fake_permit),
     ):
         mock_settings.codex_path = "codex"
         mock_settings.codex_default_model = "gpt-5-codex"
@@ -16,6 +25,12 @@ def test_run_codex_command_injects_lmstudio_openai_compatible_env():
         mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
         mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
         mock_settings.openai_api_key = None
+        mock_settings_h.default_provider = "lmstudio"
+        mock_settings_h.ollama_url = ""
+        mock_settings_h.lmstudio_url = "http://127.0.0.1:1234/v1"
+        mock_settings_h.openai_url = "https://api.openai.com/v1/chat/completions"
+        mock_settings_h.anthropic_url = ""
+        mock_settings_h.mock_url = ""
 
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -107,11 +122,19 @@ def test_resolve_codex_runtime_config_exposes_source_metadata_for_local_runtime(
 def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_preferred():
     from agent.common.sgpt import resolve_codex_runtime_config
 
-    with patch("agent.common.sgpt.settings") as mock_settings:
+    with (
+        patch("agent.common.sgpt_opencode.settings") as mock_settings,
+        patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
+    ):
         mock_settings.default_provider = "openai"
         mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
         mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
         mock_settings.openai_api_key = "sk-cloud"
+        mock_settings_h.ollama_url = ""
+        mock_settings_h.lmstudio_url = ""
+        mock_settings_h.openai_url = "https://api.openai.com/v1/chat/completions"
+        mock_settings_h.anthropic_url = ""
+        mock_settings_h.mock_url = ""
 
         resolved = resolve_codex_runtime_config()
 
@@ -344,8 +367,8 @@ def test_resolve_opencode_runtime_config_forces_target_provider_over_lmstudio_pr
         }
         app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat", "lmstudio": "http://127.0.0.1:1234/v1"}
         with (
-            patch("agent.common.sgpt.settings") as mock_settings,
-            patch("agent.common.sgpt.resolve_ollama_model", return_value="ananta-default"),
+            patch("agent.common.sgpt_opencode.settings") as mock_settings,
+            patch("agent.common.sgpt_opencode.resolve_ollama_model", return_value="ananta-default"),
         ):
             mock_settings.default_provider = "lmstudio"
             mock_settings.default_model = "lmstudio/qwen2.5-coder-7b-instruct"
@@ -392,9 +415,9 @@ def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installe
         }
         app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
         with (
-            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt_opencode.settings") as mock_settings,
             patch(
-                "agent.common.sgpt.resolve_ollama_model",
+                "agent.common.sgpt_opencode.resolve_ollama_model",
                 return_value="bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest",
             ),
         ):
@@ -418,9 +441,10 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
         }
         app.config["PROVIDER_URLS"] = {}
         with (
-            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt_opencode.settings") as mock_settings,
+            patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
             patch(
-                "agent.common.sgpt.resolve_ollama_model",
+                "agent.common.sgpt_opencode.resolve_ollama_model",
                 return_value="bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest",
             ),
         ):
@@ -428,6 +452,11 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
             mock_settings.ollama_url = "http://ollama:11434/api/generate"
             mock_settings.opencode_default_model = "qwen2.5-coder:7b"
             mock_settings.http_timeout = 60
+            mock_settings_h.ollama_url = "http://ollama:11434/api/generate"
+            mock_settings_h.lmstudio_url = ""
+            mock_settings_h.openai_url = ""
+            mock_settings_h.anthropic_url = ""
+            mock_settings_h.mock_url = ""
             resolved = resolve_opencode_runtime_config()
 
     assert resolved["base_url"] == "http://ollama:11434/v1"
@@ -446,12 +475,12 @@ def test_resolve_opencode_runtime_config_infers_local_provider_for_bare_opencode
         }
         app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
         with (
-            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt_opencode.settings") as mock_settings,
             patch(
-                "agent.common.sgpt.probe_ollama_runtime",
+                "agent.common.sgpt_opencode.probe_ollama_runtime",
                 return_value={"ok": True, "models": [{"name": "qwen2.5-coder:7b"}]},
             ),
-            patch("agent.common.sgpt.resolve_ollama_model", return_value="qwen2.5-coder:7b"),
+            patch("agent.common.sgpt_opencode.resolve_ollama_model", return_value="qwen2.5-coder:7b"),
         ):
             mock_settings.default_provider = "ollama"
             mock_settings.default_model = "qwen2.5-coder:7b"
@@ -477,9 +506,9 @@ def test_resolve_opencode_runtime_config_builds_lmstudio_provider_for_inferred_l
         }
         app.config["PROVIDER_URLS"] = {"lmstudio": "http://127.0.0.1:1234/v1"}
         with (
-            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt_opencode.settings") as mock_settings,
             patch(
-                "agent.common.sgpt.probe_lmstudio_runtime",
+                "agent.common.sgpt_opencode.probe_lmstudio_runtime",
                 return_value={"ok": True, "candidates": [{"id": "qwen2.5-coder-7b-instruct"}]},
             ),
         ):
@@ -650,8 +679,8 @@ def test_run_opencode_command_uses_interactive_terminal_session(app):
     runtime_service.ensure_session_for_cli.return_value = {"terminal_session_id": "cli-2"}
 
     with (
-        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
-        patch("agent.common.sgpt._run_opencode_subprocess", return_value=(0, '{"command":"echo ok"}', "", "opencode run")),
+        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+        patch("agent.common.sgpt_opencode._run_opencode_subprocess", return_value=(0, '{"command":"echo ok"}', "", "opencode run")),
         patch("agent.services.live_terminal_session_service.get_live_terminal_session_service", return_value=runtime_service),
     ):
         rc, out, err = run_opencode_command("say hi", session=session, workdir="/tmp/interactive")
@@ -794,7 +823,11 @@ def test_get_cli_backend_preflight_reports_not_configured_lmstudio_provider(app)
             "codex_cli": {"prefer_lmstudio": True},
         }
         app.config["PROVIDER_URLS"] = {}
-        with patch("agent.common.sgpt.shutil.which", return_value=None), patch("agent.common.sgpt.settings") as mock_settings:
+        with (
+            patch("agent.common.sgpt_backend_routing.shutil.which", return_value=None),
+            patch("agent.common.sgpt_backend_routing.settings") as mock_settings,
+            patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
+        ):
             mock_settings.codex_path = "codex"
             mock_settings.opencode_path = "opencode"
             mock_settings.aider_path = "aider"
@@ -804,6 +837,11 @@ def test_get_cli_backend_preflight_reports_not_configured_lmstudio_provider(app)
             mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
             mock_settings.openai_api_key = None
             mock_settings.http_timeout = 5.0
+            mock_settings_h.ollama_url = ""
+            mock_settings_h.lmstudio_url = ""
+            mock_settings_h.openai_url = ""
+            mock_settings_h.anthropic_url = ""
+            mock_settings_h.mock_url = ""
 
             preflight = get_cli_backend_preflight()
 
