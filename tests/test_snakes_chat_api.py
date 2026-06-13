@@ -127,13 +127,13 @@ def test_direct_message_between_two_snakes(client):
 
 
 def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
-    import agent.routes.snakes as snakes
+    import agent.routes.snakes_execution_routes as ser
 
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(snakes, "_pick_worker_for_ask", lambda: ("http://worker.test", "tok"))
-    monkeypatch.setattr(snakes, "_resolve_lmstudio_model_for_worker", lambda model: model)
-    monkeypatch.setattr(snakes, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
+    monkeypatch.setattr(ser, "_pick_worker_for_ask", lambda: ("http://worker.test", "tok"))
+    monkeypatch.setattr(ser, "_resolve_lmstudio_model_for_worker", lambda model: model)
+    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
 
     def _fake_forward(worker_url, path, payload, token=None):
         captured["worker_url"] = worker_url
@@ -172,18 +172,18 @@ def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
 
 
 def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
-    import agent.routes.snakes as snakes
+    import agent.routes.snakes_execution_routes as ser
 
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(snakes, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
-    monkeypatch.setattr(snakes, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
+    monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
+    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
 
     def _fake_generate_text(**kwargs):
         captured.update(kwargs)
         return "y" * 900
 
-    monkeypatch.setattr(snakes, "generate_text", _fake_generate_text)
+    monkeypatch.setattr(ser, "generate_text", _fake_generate_text)
 
     resp = client.post(
         "/snake/ask",
