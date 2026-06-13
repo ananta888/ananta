@@ -343,7 +343,7 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
     INTENT_CODE_EXPLANATION: (
         "wie funktioniert", "how does", "explain", "erklär", "erkläre",
-        "was macht", "what does", "zeig mir", "show me", "implementiert",
+        "was macht", "was ist", "what does", "what is", "zeig mir", "show me", "implementiert",
         "implemented", "code", "funktion", "function", "klasse", "class",
         "methode", "method", "modul", "module", "mechanismus", "mechanism",
         "datei", "file",

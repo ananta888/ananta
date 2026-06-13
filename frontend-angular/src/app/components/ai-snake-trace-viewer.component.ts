@@ -17,6 +17,11 @@ const PHASE_LABELS: Record<string, string> = {
   retrieval_profile_selected: 'Retrieval-Profil',
   codecompass_retrieval_started: 'CodeCompass …',
   codecompass_retrieval_completed: 'Dateien abgerufen',
+  rag_iterative_detected: 'RAG-Iterativ',
+  rag_iterative_plan: 'RAG-Plan',
+  rag_iterative_completed: 'RAG fertig',
+  rag_iterative_synthesis: 'Synthese läuft',
+  rag_iterative_synthesis_done: 'Synthese fertig',
   full_scan_detected: 'Full-Scan',
   full_scan_batch_started: 'Batch läuft',
   full_scan_batch_completed: 'Full-Scan fertig',
@@ -152,30 +157,30 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
           </div>
         }
 
-        <!-- ── Prompt-Inhalt (prompt_built / llm_call_started) ── -->
-        @if ((sel.phase === 'prompt_built' || sel.phase === 'llm_call_started') && promptText(sel)) {
+        <!-- ── Input / Prompt ── -->
+        @if (inputPreviewText(sel)) {
           <div class="section">
             <div class="sec-head" (click)="toggle('prompt')">
               <span class="sec-arrow">{{ open.prompt ? '▼' : '▶' }}</span>
-              <span class="sec-name">Prompt an LLM</span>
-              <span class="sec-cnt">{{ promptLen(sel) }} Zeichen</span>
+              <span class="sec-name">{{ inputPreviewTitle(sel) }}</span>
+              <span class="sec-cnt">{{ inputPreviewLen(sel) }} Zeichen</span>
             </div>
             @if (open.prompt) {
-              <pre class="code-block">{{ promptText(sel) }}</pre>
+              <pre class="code-block">{{ inputPreviewText(sel) }}</pre>
             }
           </div>
         }
 
-        <!-- ── LLM-Antwort (llm_call_completed) ── -->
-        @if (sel.phase === 'llm_call_completed' && outputText(sel)) {
+        <!-- ── Output / Antwort ── -->
+        @if (outputPreviewText(sel)) {
           <div class="section">
             <div class="sec-head" (click)="toggle('output')">
               <span class="sec-arrow">{{ open.output ? '▼' : '▶' }}</span>
-              <span class="sec-name">Rohantwort LLM</span>
-              <span class="sec-cnt">{{ outputLen(sel) }} Zeichen</span>
+              <span class="sec-name">{{ outputPreviewTitle(sel) }}</span>
+              <span class="sec-cnt">{{ outputPreviewLen(sel) }} Zeichen</span>
             </div>
             @if (open.output) {
-              <pre class="code-block">{{ outputText(sel) }}</pre>
+              <pre class="code-block">{{ outputPreviewText(sel) }}</pre>
             }
           </div>
         }
@@ -434,22 +439,44 @@ export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
     return raw as ChunkMeta[];
   }
 
-  promptText(ev: AiSnakeTraceEvent): string {
-    const v = ev.phase === 'llm_call_started' ? ev.input_preview : ev.output_preview;
-    return typeof v === 'string' ? v : '';
+  inputPreviewText(ev: AiSnakeTraceEvent): string {
+    return this.previewText(ev.input_preview);
   }
 
-  promptLen(ev: AiSnakeTraceEvent): number {
-    return (ev.details as any)?.['prompt_chars'] ?? this.promptText(ev).length;
+  inputPreviewLen(ev: AiSnakeTraceEvent): number {
+    return this.inputPreviewText(ev).length;
   }
 
-  outputText(ev: AiSnakeTraceEvent): string {
-    const v = ev.output_preview;
-    return typeof v === 'string' ? v : '';
+  inputPreviewTitle(ev: AiSnakeTraceEvent): string {
+    return this.isPromptPhase(ev.phase) ? 'Prompt an LLM' : 'Input Preview';
   }
 
-  outputLen(ev: AiSnakeTraceEvent): number {
-    return this.outputText(ev).length;
+  outputPreviewText(ev: AiSnakeTraceEvent): string {
+    return this.previewText(ev.output_preview);
+  }
+
+  outputPreviewLen(ev: AiSnakeTraceEvent): number {
+    return this.outputPreviewText(ev).length;
+  }
+
+  outputPreviewTitle(ev: AiSnakeTraceEvent): string {
+    if (ev.phase === 'prompt_built') return 'Prompt an LLM';
+    return this.isPromptPhase(ev.phase) ? 'Rohantwort LLM' : 'Output Preview';
+  }
+
+  private previewText(value: unknown): string {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    return this.fmt(value);
+  }
+
+  private isPromptPhase(phase: string): boolean {
+    return phase === 'prompt_built'
+      || phase === 'llm_call_started'
+      || phase === 'llm_call_completed'
+      || phase.startsWith('rag_iterative_batch_')
+      || phase === 'rag_iterative_synthesis'
+      || phase === 'rag_iterative_synthesis_done';
   }
 
   hasDetails(ev: AiSnakeTraceEvent): boolean {

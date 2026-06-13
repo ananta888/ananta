@@ -276,6 +276,10 @@ class KnowledgeIndexRetrievalService:
         if "architecture" in normalized_intent or "overview" in normalized_intent:
             profile["record_kind_weights"]["doc"] = max(1.35, profile["record_kind_weights"]["doc"])
             profile["file_kind_weights"]["doc"] = max(1.3, profile["file_kind_weights"]["doc"])
+        if normalized_intent == "code_explanation_with_codecompass":
+            profile["record_kind_weights"]["doc"] = max(1.45, profile["record_kind_weights"]["doc"])
+            profile["file_kind_weights"]["doc"] = max(1.45, profile["file_kind_weights"]["doc"])
+            profile["record_kind_weights"]["code"] = min(1.1, profile["record_kind_weights"]["code"])
         if "bug" in normalized_intent or "error" in normalized_intent or "fix" in normalized_intent:
             profile["record_kind_weights"]["code"] = max(1.35, profile["record_kind_weights"]["code"])
             profile["record_kind_weights"]["relation"] = max(1.2, profile["record_kind_weights"]["relation"])
