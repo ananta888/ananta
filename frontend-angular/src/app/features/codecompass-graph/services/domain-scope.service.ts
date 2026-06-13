@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, map } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, map, of } from 'rxjs';
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import { AiSnakeConfigService } from '../../../services/ai-snake-config.service';
@@ -54,7 +54,10 @@ export class DomainScopeService {
         { selected_domain_ids: domainIds, strict },
         url,
       )
-      .pipe(map(r => r?.data ?? null));
+      .pipe(
+        map(r => r?.data ?? null),
+        catchError(() => of(null)),
+      );
   }
 
   /** Aktuelle Auswahl aus dem bestehenden Hint lesen (nur domain:-Werte). */

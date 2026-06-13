@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { firstValueFrom, of, throwError } from 'rxjs';
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import { AiSnakeConfigService } from '../../../services/ai-snake-config.service';
@@ -69,7 +69,7 @@ describe('DomainScopeService', () => {
   });
 
   describe('previewScope', () => {
-    it('returns preview for given domain ids', done => {
+    it('returns preview for given domain ids', async () => {
       const preview = {
         data: {
           active: true,
@@ -85,24 +85,22 @@ describe('DomainScopeService', () => {
       };
       core.post.mockReturnValue(of(preview));
 
-      service.previewScope(['orders']).subscribe(result => {
-        expect(core.post).toHaveBeenCalledWith(
-          'http://hub:5000/api/codecompass/domain-scope/preview',
-          { selected_domain_ids: ['orders'], strict: true },
-          'http://hub:5000',
-        );
-        expect(result).toEqual(preview.data);
-        done();
-      });
+      const result = await firstValueFrom(service.previewScope(['orders']));
+
+      expect(core.post).toHaveBeenCalledWith(
+        'http://hub:5000/api/codecompass/domain-scope/preview',
+        { selected_domain_ids: ['orders'], strict: true },
+        'http://hub:5000',
+      );
+      expect(result).toEqual(preview.data);
     });
 
-    it('returns null on API error', done => {
+    it('returns null on API error', async () => {
       core.post.mockReturnValue(throwError(() => new Error('API error')));
 
-      service.previewScope(['orders']).subscribe(result => {
-        expect(result).toBeNull();
-        done();
-      });
+      const result = await firstValueFrom(service.previewScope(['orders']));
+
+      expect(result).toBeNull();
     });
   });
 
