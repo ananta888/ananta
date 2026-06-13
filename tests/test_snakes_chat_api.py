@@ -120,29 +120,26 @@ def test_room_conversation_history_excludes_current_turn(client):
     ]
 
 
-def test_append_room_ai_message_does_not_silently_cut_at_6000(client, monkeypatch):
+def test_append_room_ai_message_does_not_apply_hidden_storage_cut(client):
     import agent.routes.snakes_execution_routes as ser
     from agent.routes.snakes import _room_messages
 
     del client
-    monkeypatch.setattr(ser, "_chat_answer_chars_limit", lambda: 6000)
-    text = "A" * 7000
+    text = "A" * 9000
 
     ser._append_room_ai_message(text=text)
 
     assert _room_messages[-1]["text"] == text
 
 
-def test_append_room_ai_message_marks_truncation(client, monkeypatch):
+def test_fit_answer_to_chars_marks_last_resort_truncation(client, monkeypatch):
     import agent.routes.snakes_execution_routes as ser
-    from agent.routes.snakes import _room_messages
 
     del client
-    monkeypatch.setattr(ser, "_room_ai_message_chars_limit", lambda: 1000)
+    monkeypatch.setattr(ser, "generate_text", lambda **kwargs: "B" * 1500)
 
-    ser._append_room_ai_message(text="B" * 1500)
+    stored = ser._fit_answer_to_chars("B" * 1500, limit=1000, provider="lmstudio", model=None)
 
-    stored = _room_messages[-1]["text"]
     assert len(stored) <= 1000
     assert stored.endswith("[gekuerzt]")
 
@@ -232,6 +229,7 @@ def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
     assert payload["model"] == "request-model"
     assert payload["max_tokens"] == 700
     assert payload["max_context_chars"] == 5000
+    assert payload["answer_chars"] == 800
     assert data["trace"]["rag"]["context_chars"] == 5000
     assert data["trace"]["worker"]["limits"]["rag_top_k"] == 9
 
@@ -240,14 +238,14 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
     import agent.routes.snakes_execution_routes as ser
     import agent.services.retrieval_profile_service as rps
 
-    captured: dict[str, object] = {}
+    captured_calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
     monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
 
     def _fake_generate_text(**kwargs):
-        captured.update(kwargs)
+        captured_calls.append(dict(kwargs))
         return "y" * 900
 
     monkeypatch.setattr(ser, "generate_text", _fake_generate_text)
@@ -268,7 +266,41 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
     assert data["path"] == "hub_direct"
     assert data["answer"].endswith("[gekuerzt]")
     assert len(data["answer"]) < 730
-    assert captured["max_output_tokens"] == 650
+    assert captured_calls[0]["max_output_tokens"] == 650
+    assert "maximal 700 Zeichen" in str(captured_calls[0]["prompt"])
+    assert "Verdichte die folgende Antwort" in str(captured_calls[1]["prompt"])
+
+
+def test_snake_ask_summarizes_overlong_hub_answer_before_truncating(client, monkeypatch):
+    import agent.routes.snakes_execution_routes as ser
+    import agent.services.retrieval_profile_service as rps
+
+    calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
+    monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
+    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
+
+    def _fake_generate_text(**kwargs):
+        calls.append(dict(kwargs))
+        return "z" * 900 if len(calls) == 1 else "kurze zusammenfassung"
+
+    monkeypatch.setattr(ser, "generate_text", _fake_generate_text)
+
+    resp = client.post(
+        "/snake/ask",
+        json={
+            "question": "hi",
+            "context": "context",
+            "answer_chars": 700,
+            "max_tokens": 650,
+        },
+    )
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["answer"] == "kurze zusammenfassung"
+    assert len(calls) == 2
 
 
 def test_direct_message_unknown_target_rejected(client):

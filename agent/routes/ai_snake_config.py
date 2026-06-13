@@ -26,10 +26,12 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "input_history_command_enabled", "input_history_max_entries",
     # CRPS-007: retrieval profile config
     "chat_retrieval_profile", "chat_retrieval_domain_hint", "chat_code_questions_repo_first",
-    "chat_architecture_analysis_mode",
+    "chat_architecture_analysis_mode", "chat_codecompass_trigger_mode",
+    "chat_include_task_memory",
     # Full-scan chat budget
     "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches", "chat_full_scan_timeout_s",
+    "chat_full_scan_chars_per_file", "chat_full_scan_max_input_tokens",
     # Trace/Tracking Viewer
     "ai_snake_trace_enabled", "ai_snake_trace_max_traces", "ai_snake_trace_max_events_per_trace",
     "ai_snake_trace_ttl_seconds", "ai_snake_trace_stream_mode", "ai_snake_trace_redact_secrets",
@@ -69,13 +71,17 @@ _DEFAULTS: dict[str, Any] = {
     # CRPS-007: retrieval profile config
     "chat_retrieval_profile": "auto",
     "chat_retrieval_domain_hint": "",
+    "chat_codecompass_trigger_mode": "auto",
     "chat_code_questions_repo_first": False,
+    "chat_include_task_memory": True,
     "chat_architecture_analysis_mode": "auto",
     "chat_full_scan_source_only": True,
     "chat_full_scan_max_batches": 8,
     "chat_full_scan_files_per_batch": 3,
     "chat_full_scan_parallel_batches": 1,
     "chat_full_scan_timeout_s": 1800,
+    "chat_full_scan_chars_per_file": 600,
+    "chat_full_scan_max_input_tokens": "auto",
     # Trace/Tracking Viewer
     "ai_snake_trace_enabled": True,
     "ai_snake_trace_max_traces": 50,
@@ -107,11 +113,14 @@ _OPTIONS: dict[str, list[str]] = {
     "chat_backend_fallback": ["none", "lmstudio", "local_knowledge"],
     "input_history_max_entries": ["20", "50", "100", "200", "500"],
     "chat_retrieval_profile": ["auto", "repo_first", "docs_first", "legacy"],
+    "chat_codecompass_trigger_mode": ["auto", "force_codecompass", "force_repo_first", "disabled"],
     "chat_architecture_analysis_mode": ["auto", "rag_iterative", "standard", "full_scan", "off"],
     "chat_full_scan_max_batches": ["2", "4", "6", "8", "12", "16"],
     "chat_full_scan_files_per_batch": ["1", "2", "3", "5", "8"],
     "chat_full_scan_parallel_batches": ["1", "2", "3", "4", "6", "8"],
     "chat_full_scan_timeout_s": ["300", "600", "900", "1200", "1800", "3600"],
+    "chat_full_scan_chars_per_file": ["300", "600", "1200", "2000", "3500"],
+    "chat_full_scan_max_input_tokens": ["auto", "1500", "3000", "6000", "12000", "24000"],
 }
 
 _BOOL_KEYS = frozenset(k for k, v in _DEFAULTS.items() if isinstance(v, bool))

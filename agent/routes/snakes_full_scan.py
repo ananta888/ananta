@@ -32,6 +32,23 @@ _STOPWORDS = {"bitte", "mir", "den", "die", "das", "der", "und", "oder", "wie", 
               "a", "an", "and", "or", "how", "what", "is", "please", "explain", "me"}
 
 
+def _answer_budget_instruction(limits: Any | None) -> str:
+    try:
+        limit = int(getattr(limits, "answer_chars", 0) or 0)
+    except (TypeError, ValueError):
+        limit = 0
+    if limit <= 0:
+        try:
+            limit = int(float(_current_config().get("chat_answer_chars") or 12000))
+        except (TypeError, ValueError):
+            limit = 12000
+    limit = max(600, min(50000, limit))
+    return (
+        f"Antwort-Budget: maximal {limit} Zeichen. "
+        "Wenn mehr Details vorhanden sind, priorisiere die wichtigsten Punkte und fasse zusammen."
+    )
+
+
 def worker_chat_full_scan(
     question: str,
     *,
@@ -46,18 +63,19 @@ def worker_chat_full_scan(
         _SCAN_CANCELS[cancel_key] = cancel_event
 
     try:
-        max_batches = max(1, min(16, int(float(_current_config().get("chat_full_scan_max_batches") or 8))))
-        files_per_batch_cfg = max(1, min(10, int(float(_current_config().get("chat_full_scan_files_per_batch") or 3))))
-        parallel_batches = max(1, min(8, int(float(_current_config().get("chat_full_scan_parallel_batches") or 4))))
-        timeout_s = max(60, min(7200, int(float(_current_config().get("chat_full_scan_timeout_s") or 1800))))
-        source_only_val = _current_config().get("chat_full_scan_source_only")
+        cfg = _current_config()
+        max_batches = max(1, min(16, int(float(cfg.get("chat_full_scan_max_batches") or 8))))
+        files_per_batch_cfg = max(1, min(10, int(float(cfg.get("chat_full_scan_files_per_batch") or 3))))
+        parallel_batches = max(1, min(8, int(float(cfg.get("chat_full_scan_parallel_batches") or 4))))
+        timeout_s = max(60, min(7200, int(float(cfg.get("chat_full_scan_timeout_s") or 1800))))
+        source_only_val = cfg.get("chat_full_scan_source_only")
         source_only = source_only_val if isinstance(source_only_val, bool) else True
         try:
-            chars_per_file = max(100, min(20000, int(float(_current_config().get("chat_full_scan_chars_per_file") or 600))))
+            chars_per_file = max(100, min(20000, int(float(cfg.get("chat_full_scan_chars_per_file") or 600))))
         except (TypeError, ValueError):
             chars_per_file = 600
         try:
-            cfg_max_in = _current_config().get("chat_full_scan_max_input_tokens")
+            cfg_max_in = cfg.get("chat_full_scan_max_input_tokens")
             cfg_max_input_tokens = int(float(cfg_max_in)) if cfg_max_in not in (None, "") else None
         except (TypeError, ValueError):
             cfg_max_input_tokens = None
@@ -66,6 +84,7 @@ def worker_chat_full_scan(
         source_only = True
         chars_per_file = 600
         cfg_max_input_tokens = None
+    budget_instruction = _answer_budget_instruction(limits)
 
     model_context_tokens = lookup_model_context_tokens(model) or int(
         _cfg_settings.lmstudio_max_context_tokens
@@ -185,6 +204,7 @@ def worker_chat_full_scan(
         file_labels = ", ".join(str(f.relative_to(repo_root)) for f in batch)
         batch_prompt = (
             f"Frage: {question}\n\n"
+            f"{budget_instruction}\n\n"
             f"Analysiere Quellcode-Batch {step}/{len(batches)} [{file_labels}]:\n\n"
             + "\n\n".join(file_blocks)
             + "\n\nExtrahiere alle relevanten Erkenntnisse zur Frage aus diesem Quellcode-Batch. Kurze, pr\u00e4zise Antwort."
@@ -272,6 +292,7 @@ def worker_chat_full_scan(
     combined = "\n\n---\n\n".join(batch_summaries)
     synthesis_prompt = (
         f"Urspr\u00fcngliche Frage: {question}\n\n"
+        f"{budget_instruction}\n\n"
         f"Quellcode-Analyse aus {len(batch_summaries)} Batches "
         f"({len(selected)} Dateien, nur {exts[0]}-Quellcode):\n\n"
         + combined

@@ -817,7 +817,7 @@ class ChatMessageFormatterMixin:
         game = dict(self.state.header_logo_game or {})
         raw = game.get("chat_answer_chars")
         try:
-            value = int(raw) if raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", "6000"))
+            value = int(raw) if raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", "12000"))
         except (TypeError, ValueError):
-            value = 6000
-        return max(600, min(12000, value))
+            value = 12000
+        return max(600, min(50000, value))

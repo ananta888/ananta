@@ -71,7 +71,7 @@ class SnakeAskLimits:
     def from_payload(cls, payload: dict[str, Any]) -> "SnakeAskLimits":
         return cls(
             context_chars=_bounded_optional_int(payload.get("context_chars"), default=4000, minimum=500, maximum=20000),
-            answer_chars=_bounded_optional_int(payload.get("answer_chars"), default=2200, minimum=600, maximum=12000),
+            answer_chars=_bounded_optional_int(payload.get("answer_chars"), default=2200, minimum=600, maximum=50000),
             max_tokens=_bounded_optional_int(payload.get("max_tokens"), default=None, minimum=100, maximum=8000),
             rag_top_k=_bounded_optional_int(payload.get("rag_top_k"), default=None, minimum=1, maximum=120),
         )
@@ -461,22 +461,58 @@ def _chat_answer_chars_limit(default: int = 12000) -> int:
         return default
 
 
-def _room_ai_message_chars_limit() -> int:
-    return min(50000, _chat_answer_chars_limit() + 2000)
+def _answer_budget_instruction(limit: int) -> str:
+    return (
+        f"Antwort-Budget: maximal {max(600, min(50000, int(limit or 0)))} Zeichen. "
+        "Wenn die vollstaendige Antwort laenger waere, fasse aktiv zusammen statt mitten im Satz abzubrechen."
+    )
 
 
-def _truncate_room_ai_text(text: str) -> str:
-    limit = _room_ai_message_chars_limit()
-    if len(text) <= limit:
-        return text
+def _fit_answer_to_chars(
+    text: str,
+    *,
+    limit: int,
+    provider: str,
+    model: str | None,
+    timeout: int = 60,
+) -> str:
+    value = str(text or "").strip()
+    safe_limit = max(600, min(50000, int(limit or 0)))
+    if len(value) <= safe_limit:
+        return value
+
+    compress_prompt = (
+        "Verdichte die folgende Antwort, ohne neue Fakten zu erfinden.\n"
+        f"Ziel: maximal {safe_limit} Zeichen.\n"
+        "Bewahre die wichtigen konkreten Aussagen, Dateinamen, Begriffe und Entscheidungen.\n"
+        "Antworte auf Deutsch und gib nur die verdichtete Antwort aus.\n\n"
+        "Antwort:\n"
+        f"{value}"
+    )
+    try:
+        max_output_tokens = max(200, min(8000, safe_limit // 3))
+        compressed = generate_text(
+            prompt=compress_prompt,
+            provider=provider,
+            model=model,
+            max_output_tokens=max_output_tokens,
+            timeout=max(10, min(int(timeout or 60), 120)),
+        )
+        compressed_text = str(compressed or "").strip()
+        if compressed_text and len(compressed_text) <= safe_limit:
+            return compressed_text
+        if compressed_text:
+            value = compressed_text
+    except Exception:
+        pass
+
     marker = "\n\n[gekuerzt]"
-    return text[: max(0, limit - len(marker))].rstrip() + marker
+    return value[: max(0, safe_limit - len(marker))].rstrip() + marker
 
 
 def _append_room_ai_message(*, text: str) -> None:
     if not text:
         return
-    stored_text = _truncate_room_ai_text(text)
     msg: dict[str, Any] = {
         "id": str(uuid.uuid4()),
         "created_at": time.time(),
@@ -485,7 +521,7 @@ def _append_room_ai_message(*, text: str) -> None:
         "sender_id": "ai-snake",
         "sender_kind": "assistant",
         "target_ids": [],
-        "text": stored_text,
+        "text": text,
         "visibility": "room",
         "delivery_state": "received",
         "policy_decision_ref": None,
@@ -589,6 +625,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         prompt,
                         provider=provider,
                         model=model,
+                        limits=SnakeAskLimits(answer_chars=_answer_chars_limit),
                         rec=rec,
                         conversation_history=conversation_history,
                     )
@@ -606,8 +643,13 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                                   details=scan_trace)
                     if not answer:
                         answer = "RAG-Iterativ ergab keine Antwort."
-                    if len(answer) > _answer_chars_limit:
-                        answer = answer[:_answer_chars_limit].rstrip() + "\n\n[gekürzt]"
+                    answer = _fit_answer_to_chars(
+                        answer,
+                        limit=_answer_chars_limit,
+                        provider=provider,
+                        model=model,
+                        timeout=int(_cfg.get("chat_ask_timeout_s") or 180),
+                    )
                     _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]")
                     if store and trace_id:
                         store.complete_trace(trace_id)
@@ -621,6 +663,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         prompt,
                         provider=provider,
                         model=model,
+                        limits=SnakeAskLimits(answer_chars=_answer_chars_limit),
                         cancel_key="room",
                         conversation_history=conversation_history,
                     )
@@ -642,8 +685,13 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         )
                     if not answer:
                         answer = "Full-Scan ergab keine Antwort."
-                    if len(answer) > _answer_chars_limit:
-                        answer = answer[:_answer_chars_limit].rstrip() + "\n\n[gekuerzt]"
+                    answer = _fit_answer_to_chars(
+                        answer,
+                        limit=_answer_chars_limit,
+                        provider=provider,
+                        model=model,
+                        timeout=int(_cfg.get("chat_ask_timeout_s") or 180),
+                    )
                     if rec:
                         rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                                   summary=f"{len(answer)} Zeichen")
@@ -718,7 +766,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                           input_preview=grounded_prompt)
 
             answer = generate_text(
-                prompt=grounded_prompt,
+                prompt=f"{grounded_prompt}\n\n{_answer_budget_instruction(_answer_chars_limit)}",
                 provider=provider,
                 model=model,
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}, *conversation_history],
@@ -736,8 +784,13 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
             asked_for_link = any(token in prompt.lower() for token in ("link", "url", "quelle", "source"))
             if text and not asked_for_link:
                 text = text.replace("http://", "").replace("https://", "")
-            if len(text) > _answer_chars_limit:
-                text = text[:_answer_chars_limit].rstrip() + "\n\n[gekuerzt]"
+            text = _fit_answer_to_chars(
+                text,
+                limit=_answer_chars_limit,
+                provider=provider,
+                model=model,
+                timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+            )
             if not text:
                 text = "AI-Snake konnte gerade keine Antwort erzeugen."
             text = f"{text}\n\n[{context_summary}]"
@@ -858,6 +911,7 @@ def _worker_propose(
         "provider": "lmstudio",
         "temperature": 0.3,
         "max_context_chars": effective_limits.context_chars,
+        "answer_chars": effective_limits.answer_chars,
     }
     if resolved_model:
         payload["model"] = resolved_model
@@ -1187,8 +1241,13 @@ def snake_ask():
                 if len(file_list) > 6:
                     file_names += f" +{len(file_list) - 6}"
                 summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
-                if len(answer) > limits.answer_chars:
-                    answer = answer[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
+                answer = _fit_answer_to_chars(
+                    answer,
+                    limit=limits.answer_chars,
+                    provider=provider,
+                    model=model,
+                    timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+                )
                 resp: dict[str, Any] = {"answer": answer, "path": "rag_iterative", "context_summary": summary, **domain_scope_info}
                 if debug:
                     resp["trace"] = {"worker": worker_trace}
@@ -1199,8 +1258,13 @@ def snake_ask():
                 files_found = worker_trace.get("files_found", 0)
                 batches_done = worker_trace.get("batches_completed", 0)
                 summary = f"full_scan: {batches_done} Batches, {files_found} Quelldateien"
-                if len(answer) > limits.answer_chars:
-                    answer = answer[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
+                answer = _fit_answer_to_chars(
+                    answer,
+                    limit=limits.answer_chars,
+                    provider=provider,
+                    model=model,
+                    timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+                )
                 resp: dict[str, Any] = {"answer": answer, "path": "full_scan", "context_summary": summary, **domain_scope_info}
                 if debug:
                     resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
@@ -1228,7 +1292,7 @@ def snake_ask():
         provider, _ = _resolve_ai_snake_chat_provider()
         timeout = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
         raw = generate_text(
-            prompt=grounded_prompt,
+            prompt=f"{grounded_prompt}\n\n{_answer_budget_instruction(limits.answer_chars)}",
             provider=provider,
             model=model,
             history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
@@ -1236,8 +1300,13 @@ def snake_ask():
             timeout=timeout,
         )
         text = str(raw or "").strip()
-        if len(text) > limits.answer_chars:
-            text = text[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
+        text = _fit_answer_to_chars(
+            text,
+            limit=limits.answer_chars,
+            provider=provider,
+            model=model,
+            timeout=timeout,
+        )
         if not text:
             return jsonify({"error": "Keine Antwort generiert"}), 503
         resp = {"answer": text, "path": "hub_direct", **domain_scope_info}

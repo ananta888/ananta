@@ -69,8 +69,8 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
         timeout_value = float(timeout_value_raw) if timeout_value_raw is not None else timeout_default
     except (TypeError, ValueError):
         timeout_value = timeout_default
-    timeout_value = max(3.0, min(180.0, timeout_value))
-    timeout_options = ["20", "30", "45", "60", "90", "120", "180"]
+    timeout_value = max(3.0, min(1800.0, timeout_value))
+    timeout_options = ["20", "30", "45", "60", "90", "120", "180", "300", "600", "1200", "1800"]
     chat_api_base = str(game.get("chat_backend_api_base") or "http://localhost:1234/v1").strip()
     chat_api_base_options = [
         "http://localhost:1234/v1",
@@ -102,10 +102,10 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     chat_rag_top_k = max(8, min(120, chat_rag_top_k))
     answer_chars_raw = game.get("chat_answer_chars")
     try:
-        chat_answer_chars = int(answer_chars_raw) if answer_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", "6000"))
+        chat_answer_chars = int(answer_chars_raw) if answer_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_ANSWER_CHARS", str(_DEFAULTS.get("chat_answer_chars", 12000))))
     except (TypeError, ValueError):
-        chat_answer_chars = 6000
-    chat_answer_chars = max(600, min(12000, chat_answer_chars))
+        chat_answer_chars = int(_DEFAULTS.get("chat_answer_chars", 12000))
+    chat_answer_chars = max(600, min(50000, chat_answer_chars))
     return [
         {"key": "visual_enabled", "label": "Visual AI-Snake", "type": "bool", "value": visual_on},
         {"key": "chat_panel_open", "label": "AI-Chat Panel", "type": "bool", "value": chat_open},
@@ -175,7 +175,7 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "label": "Chat Answer Chars",
             "type": "choice",
             "value": str(chat_answer_chars),
-            "options": ["600", "1200", "2400", "4000", "6000", "8000", "12000"],
+            "options": ["600", "1200", "2400", "4000", "6000", "8000", "12000", "16000", "24000"],
         },
         {
             "key": "chat_retrieval_profile",
@@ -213,7 +213,7 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "label": "Architektur Analyse",
             "type": "choice",
             "value": str(game.get("chat_architecture_analysis_mode") or "auto"),
-            "options": ["auto", "standard", "full_scan", "off"],
+            "options": ["auto", "rag_iterative", "standard", "full_scan", "off"],
             "group": "Kontext / RAG",
         },
         {
@@ -243,7 +243,7 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "key": "chat_full_scan_parallel_batches",
             "label": "Full-Scan: Parallele Batches",
             "type": "choice",
-            "value": str(game.get("chat_full_scan_parallel_batches") or "4"),
+            "value": str(game.get("chat_full_scan_parallel_batches") or "1"),
             "options": ["1", "2", "3", "4", "6", "8"],
             "group": "Kontext / RAG",
         },
@@ -641,7 +641,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             timeout_s = float(raw_value)
         except ValueError:
             return f"ai config: {label} erwartet sekunden"
-        timeout_s = max(3.0, min(180.0, timeout_s))
+        timeout_s = max(3.0, min(1800.0, timeout_s))
         game["chat_ask_timeout_s"] = timeout_s
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {timeout_s:g}s"
@@ -681,7 +681,7 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             value_int = int(raw_value)
         except ValueError:
             return f"ai config: {label} erwartet zahl"
-        value_int = max(600, min(12000, value_int))
+        value_int = max(600, min(50000, value_int))
         game["chat_answer_chars"] = value_int
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"

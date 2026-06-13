@@ -50,7 +50,7 @@ const FIELDS: ConfigField[] = [
   { key: 'chat_codecompass_trigger_mode', label: 'CodeCompass Trigger', group: 'Kontext / RAG', type: 'choice',
     options: ['auto', 'force_codecompass', 'force_repo_first', 'disabled'] },
   { key: 'chat_architecture_analysis_mode', label: 'Architektur Analyse', group: 'Kontext / RAG', type: 'choice',
-    options: ['auto', 'standard', 'full_scan', 'off'] },
+    options: ['auto', 'rag_iterative', 'standard', 'full_scan', 'off'] },
   { key: 'chat_full_scan_source_only', label: 'Full-Scan: Nur Quellcode', group: 'Kontext / RAG', type: 'bool' },
   { key: 'chat_full_scan_max_batches', label: 'Full-Scan: Max. Batches', group: 'Kontext / RAG', type: 'choice',
     options: ['2', '4', '6', '8', '12', '16'] },

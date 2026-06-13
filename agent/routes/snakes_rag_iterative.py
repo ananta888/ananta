@@ -33,6 +33,23 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _answer_budget_instruction(limits: Any | None) -> str:
+    try:
+        limit = int(getattr(limits, "answer_chars", 0) or 0)
+    except (TypeError, ValueError):
+        limit = 0
+    if limit <= 0:
+        try:
+            limit = int(float(_current_config().get("chat_answer_chars") or 12000))
+        except (TypeError, ValueError):
+            limit = 12000
+    limit = max(600, min(50000, limit))
+    return (
+        f"Antwort-Budget: maximal {limit} Zeichen. "
+        "Wenn mehr Details vorhanden sind, priorisiere die wichtigsten Punkte und fasse zusammen."
+    )
+
+
 def worker_chat_rag_iterative(
     question: str,
     *,
@@ -48,6 +65,7 @@ def worker_chat_rag_iterative(
     trace["conversation_history_messages"] = len(conversation_history or [])
 
     cfg = _current_config()
+    budget_instruction = _answer_budget_instruction(limits)
     timeout_s = max(60, min(7200, int(float(cfg.get("chat_ask_timeout_s") or 180))))
     max_chars_per_file = max(1000, min(20000, int(float(cfg.get("chat_full_scan_chars_per_file") or 4000))))
 
@@ -173,6 +191,7 @@ def worker_chat_rag_iterative(
 
         batch_prompt = (
             f"Frage: {question}\n\n"
+            f"{budget_instruction}\n\n"
             f"Analysiere die folgenden Dateien (Batch {i}/{len(batches)}):\n\n"
             + "\n\n".join(file_blocks)
             + "\n\nExtrahiere alle relevanten Informationen zur Frage aus diesen Dateien. Präzise Zusammenfassung."
@@ -253,6 +272,7 @@ def worker_chat_rag_iterative(
     combined = "\n\n---\n\n".join(batch_summaries)
     synthesis_prompt = (
         f"Ursprüngliche Frage: {question}\n\n"
+        f"{budget_instruction}\n\n"
         f"Analyse der relevanten Dateien aus {len(batch_summaries)} Batches:\n\n"
         + combined
         + "\n\nErstelle eine vollständige, strukturierte Antwort auf Basis dieser Analyse."
