@@ -278,6 +278,7 @@ class Settings(BaseSettings):
         validation_alias="RAG_QUERY_TRANSLATION_DIRECTIONS",
     )
     rag_path_focus_aliases: dict = Field(default_factory=dict, validation_alias="RAG_PATH_FOCUS_ALIASES")
+    rag_path_focus_alias_anchor_boost: float = Field(default=0.85, validation_alias="RAG_PATH_FOCUS_ALIAS_ANCHOR_BOOST")
     rag_source_repo_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_REPO_ENABLED")
     rag_source_artifact_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_ARTIFACT_ENABLED")
     rag_source_task_memory_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_TASK_MEMORY_ENABLED")

@@ -226,6 +226,7 @@ class RepositoryMapEngine:
         # Apply configurable alias expansion: if a known alias keyword appears in the
         # query label, treat the mapped path prefixes as if they were named in the query.
         # Configured via settings.rag_path_focus_aliases (dict[str, list[str]]).
+        alias_roots_set: set[str] = set()
         try:
             aliases = dict(getattr(settings, "rag_path_focus_aliases", None) or {})
         except Exception:
@@ -236,15 +237,23 @@ class RepositoryMapEngine:
                     alias_label = self._normalize_path_label(str(alias_root))
                     if alias_root not in candidate_roots:
                         candidate_roots[alias_root] = len(alias_label)
+                    alias_roots_set.add(str(alias_root))
         if not candidate_roots:
             return None
         roots = sorted(candidate_roots, key=lambda item: (-candidate_roots[item], item))
         preferred = [root for root in roots if "/" in root] or roots[:1]
+        all_anchor_paths = self._anchor_paths_for_focus(roots, paths)
+        alias_root_prefixes = tuple(f"{r.rstrip('/')}/" for r in alias_roots_set)
+        alias_anchor_paths = [
+            p for p in all_anchor_paths
+            if any(p.startswith(pfx) for pfx in alias_root_prefixes) or p in alias_roots_set
+        ]
         return {
             "id": "query-path-focus",
             "paths": tuple(f"{root.rstrip('/')}/" for root in roots),
             "preferred_paths": tuple(f"{root.rstrip('/')}/" for root in preferred),
-            "anchor_paths": tuple(self._anchor_paths_for_focus(roots, paths)),
+            "anchor_paths": tuple(all_anchor_paths),
+            "alias_anchor_paths": tuple(alias_anchor_paths),
             "min_results": min(4, max(2, len(preferred) + 1)),
         }
 
@@ -562,11 +571,19 @@ class RepositoryMapEngine:
                 if str(path).strip()
             ]
             symbol_by_path = dict(symbol_items)
-            anchor_score = max([chunk.score for chunk in candidates], default=1.0) * 0.72
+            max_score = max([chunk.score for chunk in candidates], default=1.0)
+            anchor_score = max_score * 0.72
+            alias_anchor_set = set(path_focus.get("alias_anchor_paths") or [])
+            try:
+                alias_boost = float(getattr(settings, "rag_path_focus_alias_anchor_boost", None) or 0.85)
+            except Exception:
+                alias_boost = 0.85
+            alias_anchor_score = max_score * alias_boost
             for anchor_path in anchor_paths:
+                effective_score = alias_anchor_score if anchor_path in alias_anchor_set else anchor_score
                 existing_anchor = candidates_by_source.get(anchor_path)
                 if existing_anchor is not None:
-                    existing_anchor.score = max(float(existing_anchor.score or 0.0), anchor_score)
+                    existing_anchor.score = max(float(existing_anchor.score or 0.0), effective_score)
                     existing_anchor.metadata = {
                         **dict(existing_anchor.metadata or {}),
                         "path_focus_anchor": str(path_focus.get("id") or ""),
@@ -587,7 +604,7 @@ class RepositoryMapEngine:
                         engine="repository_map",
                         source=anchor_path,
                         content=f"{anchor_path}\nSymbols: {preview}",
-                        score=anchor_score,
+                        score=effective_score,
                         metadata={
                             "symbol_count": str(len(symbols)),
                             "path_focus_anchor": str(path_focus.get("id") or ""),
