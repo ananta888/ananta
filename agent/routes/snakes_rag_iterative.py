@@ -192,7 +192,7 @@ def worker_chat_rag_iterative(
                     "model": model,
                     "provider": provider,
                 },
-                input_preview=batch_prompt[:800],
+                input_preview=batch_prompt,
             )
 
         t_batch = _time()
@@ -227,7 +227,7 @@ def worker_chat_rag_iterative(
                 summary=f"{len(text)} Zeichen Antwort" if text else "Keine Antwort erhalten",
                 duration_ms=batch_ms,
                 details={**batch_meta, "files_list": file_paths_in_batch},
-                output_preview=text[:600] if text else None,
+                output_preview=text if text else None,
             )
 
         if text:
@@ -260,7 +260,7 @@ def worker_chat_rag_iterative(
             "rag_iterative_synthesis",
             f"Synthese aus {len(batch_summaries)} Batch-Antworten",
             status="running",
-            input_preview=synthesis_prompt[:600],
+            input_preview=synthesis_prompt,
         )
 
     t_syn = _time()
@@ -286,7 +286,7 @@ def worker_chat_rag_iterative(
             "Synthese abgeschlossen",
             status="completed" if final_answer else "failed",
             duration_ms=(_time() - t_syn) * 1000,
-            output_preview=final_answer[:600] if final_answer else None,
+            output_preview=final_answer if final_answer else None,
         )
 
     trace["synthesis"] = "done"
