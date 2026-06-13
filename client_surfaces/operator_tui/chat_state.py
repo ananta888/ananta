@@ -171,6 +171,8 @@ _DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
     "chat_architecture_analysis_mode": False,
     "chat_max_tokens": 1024,
     "chat_answer_chars": 1800,
+    "chat_answer_overflow_policy": "allow",
+    "chat_never_truncate_answers": True,
     "chat_context_chars": 4000,
     "chat_rag_top_k": 12,
     "chat_history_turns": 6,

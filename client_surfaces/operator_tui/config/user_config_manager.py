@@ -56,6 +56,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_max_tokens",
     "chat_rag_top_k",
     "chat_answer_chars",
+    "chat_answer_overflow_policy",
+    "chat_never_truncate_answers",
     # Memory (CMW track)
     "chat_use_history",
     "chat_history_turns",
@@ -119,6 +121,8 @@ _DEFAULTS: dict[str, Any] = {
     "chat_max_tokens": 8000,
     "chat_rag_top_k": 120,
     "chat_answer_chars": 12000,
+    "chat_answer_overflow_policy": "allow",
+    "chat_never_truncate_answers": True,
     "chat_use_history": True,
     "chat_history_turns": 6,
     "chat_history_chars": 5000,

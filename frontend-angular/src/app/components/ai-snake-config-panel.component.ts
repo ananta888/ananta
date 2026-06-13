@@ -71,6 +71,9 @@ const FIELDS: ConfigField[] = [
     options: ['400', '800', '1200', '2000', '4000', '8000'] },
   { key: 'chat_answer_chars', label: 'Antwort Chars', group: 'Kontext / RAG', type: 'choice',
     options: ['600', '1200', '2400', '4000', '6000', '8000', '12000', '16000', '24000'] },
+  { key: 'chat_answer_overflow_policy', label: 'Antwort Überlänge', group: 'Kontext / RAG', type: 'choice',
+    options: ['allow', 'summarize', 'truncate'] },
+  { key: 'chat_never_truncate_answers', label: 'Nie hart kürzen', group: 'Kontext / RAG', type: 'bool' },
   // Memory
   { key: 'chat_use_history', label: 'Verlauf nutzen', group: 'Chat Memory', type: 'bool' },
   { key: 'chat_history_turns', label: 'History Turns', group: 'Chat Memory', type: 'choice',

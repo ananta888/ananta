@@ -31,6 +31,8 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_max_tokens",
     "chat_rag_top_k",
     "chat_answer_chars",
+    "chat_answer_overflow_policy",
+    "chat_never_truncate_answers",
     # Memory settings (CMW-012)
     "chat_use_history",
     "chat_history_turns",

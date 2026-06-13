@@ -34,6 +34,13 @@ _SYSTEM_PROMPT = (
 
 
 def _answer_budget_instruction(limits: Any | None) -> str:
+    policy = str(getattr(limits, "answer_overflow_policy", "") or "").strip().lower()
+    if not policy:
+        policy = str(_current_config().get("chat_answer_overflow_policy") or "allow").strip().lower()
+    if policy not in {"allow", "summarize", "truncate"}:
+        policy = "allow"
+    if policy == "allow":
+        return ""
     try:
         limit = int(getattr(limits, "answer_chars", 0) or 0)
     except (TypeError, ValueError):
@@ -44,9 +51,10 @@ def _answer_budget_instruction(limits: Any | None) -> str:
         except (TypeError, ValueError):
             limit = 12000
     limit = max(600, min(50000, limit))
+    action = "priorisiere die wichtigsten Punkte und fasse zusammen" if policy == "summarize" else "halte die Antwort strikt kurz"
     return (
         f"Antwort-Budget: maximal {limit} Zeichen. "
-        "Wenn mehr Details vorhanden sind, priorisiere die wichtigsten Punkte und fasse zusammen."
+        f"Wenn mehr Details vorhanden sind, {action}."
     )
 
 
@@ -191,8 +199,8 @@ def worker_chat_rag_iterative(
 
         batch_prompt = (
             f"Frage: {question}\n\n"
-            f"{budget_instruction}\n\n"
-            f"Analysiere die folgenden Dateien (Batch {i}/{len(batches)}):\n\n"
+            + (f"{budget_instruction}\n\n" if budget_instruction else "")
+            + f"Analysiere die folgenden Dateien (Batch {i}/{len(batches)}):\n\n"
             + "\n\n".join(file_blocks)
             + "\n\nExtrahiere alle relevanten Informationen zur Frage aus diesen Dateien. Präzise Zusammenfassung."
         )
@@ -272,8 +280,8 @@ def worker_chat_rag_iterative(
     combined = "\n\n---\n\n".join(batch_summaries)
     synthesis_prompt = (
         f"Ursprüngliche Frage: {question}\n\n"
-        f"{budget_instruction}\n\n"
-        f"Analyse der relevanten Dateien aus {len(batch_summaries)} Batches:\n\n"
+        + (f"{budget_instruction}\n\n" if budget_instruction else "")
+        + f"Analyse der relevanten Dateien aus {len(batch_summaries)} Batches:\n\n"
         + combined
         + "\n\nErstelle eine vollständige, strukturierte Antwort auf Basis dieser Analyse."
     )

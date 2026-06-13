@@ -138,10 +138,27 @@ def test_fit_answer_to_chars_marks_last_resort_truncation(client, monkeypatch):
     del client
     monkeypatch.setattr(ser, "generate_text", lambda **kwargs: "B" * 1500)
 
-    stored = ser._fit_answer_to_chars("B" * 1500, limit=1000, provider="lmstudio", model=None)
+    stored = ser._fit_answer_to_chars(
+        "B" * 1500,
+        limit=1000,
+        provider="lmstudio",
+        model=None,
+        overflow_policy="truncate",
+    )
 
     assert len(stored) <= 1000
     assert stored.endswith("[gekuerzt]")
+
+
+def test_fit_answer_to_chars_allows_overlong_answer_by_default(client, monkeypatch):
+    import agent.routes.snakes_execution_routes as ser
+
+    del client
+    monkeypatch.setattr(ser, "generate_text", lambda **kwargs: "short")
+
+    stored = ser._fit_answer_to_chars("C" * 1500, limit=1000, provider="lmstudio", model=None)
+
+    assert stored == "C" * 1500
 
 
 # ── Chat: local_only rejected ─────────────────────────────────────────────────
@@ -223,13 +240,14 @@ def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["path"] == "worker"
-    assert data["answer"].endswith("[gekuerzt]")
-    assert len(data["answer"]) < 830
+    assert data["answer"] == "x" * 900
     payload = captured["payload"]
     assert payload["model"] == "request-model"
     assert payload["max_tokens"] == 700
     assert payload["max_context_chars"] == 5000
     assert payload["answer_chars"] == 800
+    assert payload["answer_overflow_policy"] == "allow"
+    assert payload["never_truncate_answers"] is True
     assert data["trace"]["rag"]["context_chars"] == 5000
     assert data["trace"]["worker"]["limits"]["rag_top_k"] == 9
 
@@ -256,6 +274,8 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
             "question": "hi",
             "context": "context",
             "answer_chars": 700,
+            "answer_overflow_policy": "truncate",
+            "never_truncate_answers": False,
             "max_tokens": 650,
             "debug": True,
         },
@@ -268,7 +288,7 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
     assert len(data["answer"]) < 730
     assert captured_calls[0]["max_output_tokens"] == 650
     assert "maximal 700 Zeichen" in str(captured_calls[0]["prompt"])
-    assert "Verdichte die folgende Antwort" in str(captured_calls[1]["prompt"])
+    assert len(captured_calls) == 1
 
 
 def test_snake_ask_summarizes_overlong_hub_answer_before_truncating(client, monkeypatch):
@@ -293,6 +313,7 @@ def test_snake_ask_summarizes_overlong_hub_answer_before_truncating(client, monk
             "question": "hi",
             "context": "context",
             "answer_chars": 700,
+            "answer_overflow_policy": "summarize",
             "max_tokens": 650,
         },
     )

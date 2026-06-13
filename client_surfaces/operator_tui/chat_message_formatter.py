@@ -378,6 +378,11 @@ class ChatMessageFormatterMixin:
                                 _v2_dict["answer_chars"] = _ac
                         except (TypeError, ValueError):
                             pass
+                        _overflow_policy = str(game.get("chat_answer_overflow_policy") or "").strip().lower()
+                        if _overflow_policy in {"allow", "summarize", "truncate"}:
+                            _v2_dict["answer_overflow_policy"] = _overflow_policy
+                        if "chat_never_truncate_answers" in game:
+                            _v2_dict["never_truncate_answers"] = bool(game.get("chat_never_truncate_answers"))
                         try:
                             _mt = int(game.get("chat_max_tokens") or 0)
                             if _mt > 0:

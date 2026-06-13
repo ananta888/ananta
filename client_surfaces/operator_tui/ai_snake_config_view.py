@@ -106,6 +106,10 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     except (TypeError, ValueError):
         chat_answer_chars = int(_DEFAULTS.get("chat_answer_chars", 12000))
     chat_answer_chars = max(600, min(50000, chat_answer_chars))
+    answer_overflow_policy = str(game.get("chat_answer_overflow_policy") or _DEFAULTS.get("chat_answer_overflow_policy", "allow")).strip()
+    if answer_overflow_policy not in {"allow", "summarize", "truncate"}:
+        answer_overflow_policy = "allow"
+    chat_never_truncate_answers = _resolve_bool_pref(game, "chat_never_truncate_answers", "", True)
     return [
         {"key": "visual_enabled", "label": "Visual AI-Snake", "type": "bool", "value": visual_on},
         {"key": "chat_panel_open", "label": "AI-Chat Panel", "type": "bool", "value": chat_open},
@@ -176,6 +180,19 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "type": "choice",
             "value": str(chat_answer_chars),
             "options": ["600", "1200", "2400", "4000", "6000", "8000", "12000", "16000", "24000"],
+        },
+        {
+            "key": "chat_answer_overflow_policy",
+            "label": "Chat Antwort Überlänge",
+            "type": "choice",
+            "value": answer_overflow_policy,
+            "options": ["allow", "summarize", "truncate"],
+        },
+        {
+            "key": "chat_never_truncate_answers",
+            "label": "Chat nie hart kürzen",
+            "type": "bool",
+            "value": chat_never_truncate_answers,
         },
         {
             "key": "chat_retrieval_profile",
@@ -594,13 +611,13 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
             game["chat_include_wikipedia"] = parsed
         elif key == "chat_include_task_memory":
             game["chat_include_task_memory"] = parsed
-        elif key in {"chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status", "chat_code_questions_repo_first"}:
+        elif key in {"chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status", "chat_code_questions_repo_first", "chat_never_truncate_answers"}:
             game[key] = parsed
         if key in {
             "visual_enabled", "chat_panel_open", "visual_codecompass", "chat_use_codecompass",
             "chat_include_local_project", "chat_include_wikipedia", "chat_include_task_memory",
             "chat_use_history", "chat_use_summary", "chat_pass_memory_to_worker", "chat_include_runtime_status",
-            "chat_code_questions_repo_first",
+            "chat_code_questions_repo_first", "chat_never_truncate_answers",
         }:
             _persist_tui_chat_settings(game)
         return f"ai config: {label} {'AN' if parsed else 'AUS'}"
@@ -686,6 +703,13 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {value_int}"
 
+    if key == "chat_answer_overflow_policy":
+        if raw_value not in {"allow", "summarize", "truncate"}:
+            return f"ai config: {label} erwartet allow/summarize/truncate"
+        game[key] = raw_value
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {raw_value}"
+
     if key == "chat_retrieval_profile":
         if raw_value not in {"auto", "repo_first", "docs_first", "legacy"}:
             return f"ai config: {label} erwartet auto/repo_first/docs_first/legacy"
@@ -710,8 +734,8 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         return f"ai config: {label} -> {raw_value or 'auto'}"
 
     if key == "chat_architecture_analysis_mode":
-        if raw_value not in {"auto", "standard", "full_scan", "off"}:
-            return f"ai config: {label} erwartet auto/standard/full_scan/off"
+        if raw_value not in {"auto", "rag_iterative", "standard", "full_scan", "off"}:
+            return f"ai config: {label} erwartet auto/rag_iterative/standard/full_scan/off"
         game[key] = raw_value
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"

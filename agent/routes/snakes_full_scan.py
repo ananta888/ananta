@@ -33,6 +33,13 @@ _STOPWORDS = {"bitte", "mir", "den", "die", "das", "der", "und", "oder", "wie", 
 
 
 def _answer_budget_instruction(limits: Any | None) -> str:
+    policy = str(getattr(limits, "answer_overflow_policy", "") or "").strip().lower()
+    if not policy:
+        policy = str(_current_config().get("chat_answer_overflow_policy") or "allow").strip().lower()
+    if policy not in {"allow", "summarize", "truncate"}:
+        policy = "allow"
+    if policy == "allow":
+        return ""
     try:
         limit = int(getattr(limits, "answer_chars", 0) or 0)
     except (TypeError, ValueError):
@@ -43,9 +50,10 @@ def _answer_budget_instruction(limits: Any | None) -> str:
         except (TypeError, ValueError):
             limit = 12000
     limit = max(600, min(50000, limit))
+    action = "priorisiere die wichtigsten Punkte und fasse zusammen" if policy == "summarize" else "halte die Antwort strikt kurz"
     return (
         f"Antwort-Budget: maximal {limit} Zeichen. "
-        "Wenn mehr Details vorhanden sind, priorisiere die wichtigsten Punkte und fasse zusammen."
+        f"Wenn mehr Details vorhanden sind, {action}."
     )
 
 
@@ -204,8 +212,8 @@ def worker_chat_full_scan(
         file_labels = ", ".join(str(f.relative_to(repo_root)) for f in batch)
         batch_prompt = (
             f"Frage: {question}\n\n"
-            f"{budget_instruction}\n\n"
-            f"Analysiere Quellcode-Batch {step}/{len(batches)} [{file_labels}]:\n\n"
+            + (f"{budget_instruction}\n\n" if budget_instruction else "")
+            + f"Analysiere Quellcode-Batch {step}/{len(batches)} [{file_labels}]:\n\n"
             + "\n\n".join(file_blocks)
             + "\n\nExtrahiere alle relevanten Erkenntnisse zur Frage aus diesem Quellcode-Batch. Kurze, pr\u00e4zise Antwort."
         )
@@ -292,8 +300,8 @@ def worker_chat_full_scan(
     combined = "\n\n---\n\n".join(batch_summaries)
     synthesis_prompt = (
         f"Urspr\u00fcngliche Frage: {question}\n\n"
-        f"{budget_instruction}\n\n"
-        f"Quellcode-Analyse aus {len(batch_summaries)} Batches "
+        + (f"{budget_instruction}\n\n" if budget_instruction else "")
+        + f"Quellcode-Analyse aus {len(batch_summaries)} Batches "
         f"({len(selected)} Dateien, nur {exts[0]}-Quellcode):\n\n"
         + combined
         + "\n\nErstelle eine vollst\u00e4ndige, strukturierte Antwort basierend ausschlie\u00dflich auf dem analysierten Quellcode."

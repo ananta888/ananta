@@ -66,6 +66,8 @@ class SnakeAskLimits:
     answer_chars: int = 2200
     max_tokens: int | None = None
     rag_top_k: int | None = None
+    answer_overflow_policy: str = "allow"
+    never_truncate_answers: bool = True
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "SnakeAskLimits":
@@ -74,7 +76,22 @@ class SnakeAskLimits:
             answer_chars=_bounded_optional_int(payload.get("answer_chars"), default=2200, minimum=600, maximum=50000),
             max_tokens=_bounded_optional_int(payload.get("max_tokens"), default=None, minimum=100, maximum=8000),
             rag_top_k=_bounded_optional_int(payload.get("rag_top_k"), default=None, minimum=1, maximum=120),
+            answer_overflow_policy=_answer_overflow_policy(payload.get("answer_overflow_policy")),
+            never_truncate_answers=_optional_bool(payload.get("never_truncate_answers"), default=True),
         )
+
+
+def _optional_bool(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None or value == "":
+        return default
+    token = str(value).strip().lower()
+    if token in {"1", "true", "yes", "on", "an", "ja"}:
+        return True
+    if token in {"0", "false", "no", "off", "aus", "nein"}:
+        return False
+    return default
 
 
 def _bounded_optional_int(value: Any, *, default: int | None, minimum: int, maximum: int) -> int | None:
@@ -85,6 +102,19 @@ def _bounded_optional_int(value: Any, *, default: int | None, minimum: int, maxi
     except (TypeError, ValueError):
         return default
     return max(minimum, min(maximum, parsed))
+
+
+def _answer_overflow_policy(value: Any | None = None) -> str:
+    raw = value
+    if raw is None or raw == "":
+        try:
+            from agent.routes.ai_snake_config import _current_config
+
+            raw = _current_config().get("chat_answer_overflow_policy")
+        except Exception:
+            raw = None
+    policy = str(raw or "allow").strip().lower()
+    return policy if policy in {"allow", "summarize", "truncate"} else "allow"
 
 
 def _background_threads_disabled() -> bool:
@@ -461,11 +491,31 @@ def _chat_answer_chars_limit(default: int = 12000) -> int:
         return default
 
 
-def _answer_budget_instruction(limit: int) -> str:
+def _chat_never_truncate_answers(default: bool = True) -> bool:
+    try:
+        from agent.routes.ai_snake_config import _current_config
+
+        return _optional_bool(_current_config().get("chat_never_truncate_answers"), default=default)
+    except Exception:
+        return default
+
+
+def _answer_budget_instruction(limit: int, *, policy: str | None = None) -> str:
+    resolved_policy = _answer_overflow_policy(policy)
+    if resolved_policy == "allow":
+        return ""
+    action = "fasse aktiv zusammen" if resolved_policy == "summarize" else "halte die Antwort strikt kurz"
     return (
         f"Antwort-Budget: maximal {max(600, min(50000, int(limit or 0)))} Zeichen. "
-        "Wenn die vollstaendige Antwort laenger waere, fasse aktiv zusammen statt mitten im Satz abzubrechen."
+        f"Wenn die vollstaendige Antwort laenger waere, {action} statt mitten im Satz abzubrechen."
     )
+
+
+def _with_answer_budget_instruction(prompt: str, limit: int, *, policy: str | None = None) -> str:
+    instruction = _answer_budget_instruction(limit, policy=policy)
+    if not instruction:
+        return prompt
+    return f"{prompt}\n\n{instruction}"
 
 
 def _fit_answer_to_chars(
@@ -475,11 +525,19 @@ def _fit_answer_to_chars(
     provider: str,
     model: str | None,
     timeout: int = 60,
+    overflow_policy: str | None = None,
+    never_truncate: bool | None = None,
 ) -> str:
     value = str(text or "").strip()
     safe_limit = max(600, min(50000, int(limit or 0)))
     if len(value) <= safe_limit:
         return value
+    policy = _answer_overflow_policy(overflow_policy)
+    if policy == "allow":
+        return value
+    if policy == "truncate":
+        marker = "\n\n[gekuerzt]"
+        return value[: max(0, safe_limit - len(marker))].rstrip() + marker
 
     compress_prompt = (
         "Verdichte die folgende Antwort, ohne neue Fakten zu erfinden.\n"
@@ -505,6 +563,9 @@ def _fit_answer_to_chars(
             value = compressed_text
     except Exception:
         pass
+
+    if (never_truncate if never_truncate is not None else _chat_never_truncate_answers()):
+        return value
 
     marker = "\n\n[gekuerzt]"
     return value[: max(0, safe_limit - len(marker))].rstrip() + marker
@@ -625,7 +686,11 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         prompt,
                         provider=provider,
                         model=model,
-                        limits=SnakeAskLimits(answer_chars=_answer_chars_limit),
+                        limits=SnakeAskLimits(
+                            answer_chars=_answer_chars_limit,
+                            answer_overflow_policy=_answer_overflow_policy(),
+                            never_truncate_answers=_chat_never_truncate_answers(),
+                        ),
                         rec=rec,
                         conversation_history=conversation_history,
                     )
@@ -649,6 +714,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         provider=provider,
                         model=model,
                         timeout=int(_cfg.get("chat_ask_timeout_s") or 180),
+                        overflow_policy=_answer_overflow_policy(),
+                        never_truncate=_chat_never_truncate_answers(),
                     )
                     _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]")
                     if store and trace_id:
@@ -663,7 +730,11 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         prompt,
                         provider=provider,
                         model=model,
-                        limits=SnakeAskLimits(answer_chars=_answer_chars_limit),
+                        limits=SnakeAskLimits(
+                            answer_chars=_answer_chars_limit,
+                            answer_overflow_policy=_answer_overflow_policy(),
+                            never_truncate_answers=_chat_never_truncate_answers(),
+                        ),
                         cancel_key="room",
                         conversation_history=conversation_history,
                     )
@@ -691,6 +762,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         provider=provider,
                         model=model,
                         timeout=int(_cfg.get("chat_ask_timeout_s") or 180),
+                        overflow_policy=_answer_overflow_policy(),
+                        never_truncate=_chat_never_truncate_answers(),
                     )
                     if rec:
                         rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
@@ -766,7 +839,11 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                           input_preview=grounded_prompt)
 
             answer = generate_text(
-                prompt=f"{grounded_prompt}\n\n{_answer_budget_instruction(_answer_chars_limit)}",
+                prompt=_with_answer_budget_instruction(
+                    grounded_prompt,
+                    _answer_chars_limit,
+                    policy=_answer_overflow_policy(),
+                ),
                 provider=provider,
                 model=model,
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}, *conversation_history],
@@ -790,6 +867,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 provider=provider,
                 model=model,
                 timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+                overflow_policy=_answer_overflow_policy(),
+                never_truncate=_chat_never_truncate_answers(),
             )
             if not text:
                 text = "AI-Snake konnte gerade keine Antwort erzeugen."
@@ -912,6 +991,8 @@ def _worker_propose(
         "temperature": 0.3,
         "max_context_chars": effective_limits.context_chars,
         "answer_chars": effective_limits.answer_chars,
+        "answer_overflow_policy": effective_limits.answer_overflow_policy,
+        "never_truncate_answers": effective_limits.never_truncate_answers,
     }
     if resolved_model:
         payload["model"] = resolved_model
@@ -924,6 +1005,8 @@ def _worker_propose(
         "answer_chars": effective_limits.answer_chars,
         "max_tokens": effective_limits.max_tokens,
         "rag_top_k": effective_limits.rag_top_k,
+        "answer_overflow_policy": effective_limits.answer_overflow_policy,
+        "never_truncate_answers": effective_limits.never_truncate_answers,
     }
     if retrieval_profile_trace:
         analysis_mode = str(retrieval_profile_trace.get("analysis_mode") or "standard")
@@ -955,8 +1038,15 @@ def _worker_propose(
         trace["error"] = "no_data_field"
         return "", trace
     text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
-    if len(text) > effective_limits.answer_chars:
-        text = text[:effective_limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
+    text = _fit_answer_to_chars(
+        text,
+        limit=effective_limits.answer_chars,
+        provider="lmstudio",
+        model=resolved_model,
+        timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+        overflow_policy=effective_limits.answer_overflow_policy,
+        never_truncate=effective_limits.never_truncate_answers,
+    )
     trace["answer_chars"] = len(text)
     return text, trace
 
@@ -1220,6 +1310,8 @@ def snake_ask():
         "answer_chars": limits.answer_chars,
         "max_tokens": limits.max_tokens,
         "rag_top_k": limits.rag_top_k,
+        "answer_overflow_policy": limits.answer_overflow_policy,
+        "never_truncate_answers": limits.never_truncate_answers,
     }
 
     provider, hub_model = _resolve_ai_snake_chat_provider()
@@ -1247,6 +1339,8 @@ def snake_ask():
                     provider=provider,
                     model=model,
                     timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+                    overflow_policy=limits.answer_overflow_policy,
+                    never_truncate=limits.never_truncate_answers,
                 )
                 resp: dict[str, Any] = {"answer": answer, "path": "rag_iterative", "context_summary": summary, **domain_scope_info}
                 if debug:
@@ -1264,6 +1358,8 @@ def snake_ask():
                     provider=provider,
                     model=model,
                     timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+                    overflow_policy=limits.answer_overflow_policy,
+                    never_truncate=limits.never_truncate_answers,
                 )
                 resp: dict[str, Any] = {"answer": answer, "path": "full_scan", "context_summary": summary, **domain_scope_info}
                 if debug:
@@ -1292,7 +1388,11 @@ def snake_ask():
         provider, _ = _resolve_ai_snake_chat_provider()
         timeout = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
         raw = generate_text(
-            prompt=f"{grounded_prompt}\n\n{_answer_budget_instruction(limits.answer_chars)}",
+            prompt=_with_answer_budget_instruction(
+                grounded_prompt,
+                limits.answer_chars,
+                policy=limits.answer_overflow_policy,
+            ),
             provider=provider,
             model=model,
             history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
@@ -1306,6 +1406,8 @@ def snake_ask():
             provider=provider,
             model=model,
             timeout=timeout,
+            overflow_policy=limits.answer_overflow_policy,
+            never_truncate=limits.never_truncate_answers,
         )
         if not text:
             return jsonify({"error": "Keine Antwort generiert"}), 503
