@@ -482,10 +482,11 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 store = get_trace_store()
                 trace_id = store.new_trace(snake_id=snake_id)
                 rec = TraceRecorder(store, trace_id)
+                _prompt_preview = prompt[:120] + ("\u2026" if len(prompt) > 120 else "")
                 rec.event(
                     "request_received", "Anfrage empfangen",
                     status="completed",
-                    summary=f"Prompt: {prompt[:120]}{'\u2026' if len(prompt) > 120 else ''}",
+                    summary=f"Prompt: {_prompt_preview}",
                 )
 
             provider, model = _resolve_ai_snake_chat_provider()
