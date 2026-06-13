@@ -501,9 +501,12 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
         try:
             if _trace_feature_enabled():
                 from agent.routes.ai_snake_trace_store import get_trace_store, TraceRecorder
+                from agent.routes.ai_snake_config import _current_config as _trc_cfg
+                _trc_settings = _trc_cfg()
+                _max_preview = int(_trc_settings.get("ai_snake_trace_max_preview_chars") or 12000)
                 store = get_trace_store()
                 trace_id = store.new_trace(snake_id=snake_id)
-                rec = TraceRecorder(store, trace_id)
+                rec = TraceRecorder(store, trace_id, max_preview_chars=_max_preview)
                 _prompt_preview = prompt[:120] + ("\u2026" if len(prompt) > 120 else "")
                 rec.event(
                     "request_received", "Anfrage empfangen",
