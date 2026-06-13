@@ -251,7 +251,9 @@ def _build_grounded_snake_prompt(
                     metadata.get("file_path") or metadata.get("path")
                     or metadata.get("source_id") or (chunk or {}).get("source")
                     or (chunk or {}).get("path") or ""
-                ).strip().lstrip("/app/").lstrip("app/")
+                ).strip()
+                if path.startswith("/app/"):
+                    path = path[5:]
                 score = float((chunk or {}).get("score") or metadata.get("score") or 0.0)
                 if path and len(chunk_meta) < 40:
                     chunk_meta.append({"path": path, "source_type": st, "score": round(score, 3)})
