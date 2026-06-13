@@ -1,0 +1,557 @@
+{
+  "id": "voice-runtime-hybrid-transcription-pipeline",
+  "title": "Flexible Hybrid-Audio-Transcription-Pipeline fuer Voice Runtime",
+  "status": "open",
+  "priority": "high",
+  "created_from_context": {
+    "user_goal": "Audio-Transkription nicht monolithisch ueber ein grosses Modell bauen, sondern mehrere flexible Varianten kombinierbar machen: klassische/leichte ASR, Whisper/Transformer, VAD, Confidence-Routing, LLM-Postkorrektur und optionale Diarization.",
+    "repo_findings": [
+      "Voice Runtime existiert bereits als separater Service mit Flask-Routen in voice_runtime/routes.py.",
+      "Hub-seitiger Adapter existiert in agent/services/voice_provider.py.",
+      "VoiceRuntimeConfig existiert in voice_runtime/config.py mit Backend, Model, Fallback, Streaming, Store-Audio und Backend-Fallback-Order.",
+      "Backend-Router existiert in voice_runtime/backends/router.py, unterstuetzt aktuell voxtral und mock.",
+      "VoiceBackend-Protocol und TranscriptionResult/ChatResult existieren in voice_runtime/backends/base.py.",
+      "VoxtralBackend ist aktuell MVP/deterministisch simuliert und kann ersetzt/erweitert werden.",
+      "Tests fuer Voice Runtime existieren in tests/test_voice_runtime_mock_backend.py.",
+      "Task Engine hat bereits deterministic/hybrid/llm_required, PolicyGate, Trace und Tests in tests/test_task_engine.py.",
+      "Dokumentation nennt Voice Runtime, Endpunkte und Env-Variablen in docs/backend.md und .env.example."
+    ]
+  },
+  "design_principles": [
+    "Keine neue Parallelarchitektur neben der bestehenden Voice Runtime bauen.",
+    "Bestehenden Backend-Router erweitern statt ersetzen.",
+    "LLM nur optional und kontrolliert fuer Postkorrektur/Strukturierung nutzen, nicht fuer zwingende Rohtranskription.",
+    "Audio-Rohdaten standardmaessig nicht speichern; VOICE_STORE_AUDIO bleibt fail-closed.",
+    "Jede Pipeline-Stufe muss maschinenlesbar im Ergebnis/Trace sichtbar sein.",
+    "Varianten muessen ueber Config waehlbar sein, nicht hart verdrahtet.",
+    "Mock-Backend bleibt stabil fuer deterministische Tests.",
+    "Fehlende optionale Libraries duerfen den Runtime-Start nicht kaputt machen, sondern liefern klare unavailable-Warnungen."
+  ],
+  "target_variants": {
+    "variant_a_light_oldschool": {
+      "pipeline": [
+        "vad",
+        "vosk_or_kaldi_style_asr",
+        "glossary_biasing",
+        "optional_llm_postcorrection"
+      ],
+      "use_case": "Diktat, Kommandos, bekannte Fachbegriffe, schwache Hardware, offline/local-first."
+    },
+    "variant_b_whisper_cpp": {
+      "pipeline": [
+        "vad",
+        "whisper_cpp_backend",
+        "confidence_segments",
+        "optional_llm_postcorrection"
+      ],
+      "use_case": "Robuste allgemeine Transkription mit lokaler CPU/GPU-Ausfuehrung."
+    },
+    "variant_c_realtime_streaming": {
+      "pipeline": [
+        "streaming_vad",
+        "partial_transcripts",
+        "final_segment_commit",
+        "optional_text_cleanup"
+      ],
+      "use_case": "Live-Diktat, Voice Commands, niedrige Latenz."
+    },
+    "variant_d_meeting": {
+      "pipeline": [
+        "vad",
+        "asr_backend",
+        "optional_diarization",
+        "speaker_aware_text",
+        "optional_summary"
+      ],
+      "use_case": "Meetings mit Sprecherzuordnung und spaeterer Zusammenfassung."
+    },
+    "variant_e_confidence_rerun": {
+      "pipeline": [
+        "cheap_first_pass",
+        "confidence_filter",
+        "rerun_low_confidence_with_stronger_backend",
+        "merge_segments"
+      ],
+      "use_case": "Ressourcen sparen: teures Modell nur bei unsicheren Stellen."
+    }
+  },
+  "implementation_plan": [
+    {
+      "id": "vht-001",
+      "title": "Ist-Zustand der Voice Runtime dokumentieren",
+      "type": "documentation",
+      "files_to_check": [
+        "voice_runtime/config.py",
+        "voice_runtime/routes.py",
+        "voice_runtime/backends/base.py",
+        "voice_runtime/backends/router.py",
+        "voice_runtime/backends/voxtral.py",
+        "agent/services/voice_provider.py",
+        "docs/backend.md",
+        ".env.example",
+        "docker-compose.voice-runtime.yml",
+        "tests/test_voice_runtime_mock_backend.py"
+      ],
+      "tasks": [
+        "Kurzes Architektur-Dokument docs/voice-runtime-hybrid-transcription.md anlegen.",
+        "Bestehende Endpunkte /health, /v1/models, /v1/audio/transcriptions und /v1/audio/chat beschreiben.",
+        "Klar markieren, dass VoxtralBackend aktuell MVP/deterministischer Adapter ist und echte Modellverdrahtung separater Schritt ist.",
+        "Abgrenzen: Hub bleibt Policy-/Exposure-Grenze, Runtime macht Audioverarbeitung."
+      ],
+      "acceptance_criteria": [
+        "docs/voice-runtime-hybrid-transcription.md referenziert die bestehenden Dateien und Endpunkte korrekt.",
+        "Dokument beschreibt, warum die Umsetzung in voice_runtime/backends/* und nicht direkt in agent/services/voice_provider.py erfolgen soll.",
+        "Dokument nennt explizit, dass agent/services/voice_provider.py nur Hub-Adapter bleibt und keine Audio-Engine-Logik bekommt.",
+        "Dokument nennt die bestehenden Env-Variablen VOICE_RUNTIME_URL, VOICE_MODEL, VOICE_FALLBACK_MODEL, VOICE_BACKEND_FALLBACK_ORDER, VOICE_ENABLE_STREAMING und VOICE_STORE_AUDIO."
+      ]
+    },
+    {
+      "id": "vht-002",
+      "title": "Pipeline-Konfiguration modellieren",
+      "type": "backend",
+      "files_to_change": [
+        "voice_runtime/config.py",
+        ".env.example",
+        "docker-compose.voice-runtime.yml"
+      ],
+      "tasks": [
+        "VoiceRuntimeConfig um explizite Pipeline-Felder erweitern.",
+        "Neue Env-Variablen einfuehren: VOICE_TRANSCRIPTION_PIPELINE, VOICE_VAD_BACKEND, VOICE_ASR_BACKEND, VOICE_POSTPROCESS_BACKEND, VOICE_CONFIDENCE_RERUN_ENABLED, VOICE_DIARIZATION_BACKEND, VOICE_GLOSSARY_PATH.",
+        "VOICE_TRANSCRIPTION_PIPELINE zulaessige Werte: simple, oldschool_light, whisper_cpp, realtime_streaming, meeting, confidence_rerun, custom.",
+        "VOICE_ASR_BACKEND zulaessige Werte initial: mock, voxtral, vosk, whisper_cpp.",
+        "Unbekannte Werte fail-closed mit klarer Fehlermeldung oder fallback auf mock nur im Test/Mock-Profil."
+      ],
+      "acceptance_criteria": [
+        "VoiceRuntimeConfig.from_env() liest alle neuen Werte deterministisch und hat sichere Defaults.",
+        "Default bleibt kompatibel: existierende Tests mit backend_fallback_order=(mock,) laufen unveraendert.",
+        ".env.example enthaelt kommentierte Defaults fuer alle neuen Voice-Pipeline-Variablen.",
+        "docker-compose.voice-runtime.yml reicht die neuen Variablen an voice-runtime durch.",
+        "Ein Unit-Test prueft Default-Werte, bool Parsing und unbekannte Pipeline-Werte."
+      ]
+    },
+    {
+      "id": "vht-003",
+      "title": "TranscriptionPipelineResult und Segment-Modell einfuehren",
+      "type": "backend",
+      "files_to_change": [
+        "voice_runtime/backends/base.py",
+        "voice_runtime/routes.py",
+        "agent/services/voice_provider.py"
+      ],
+      "tasks": [
+        "TranscriptionSegment-Dataclass einfuehren: start_ms, end_ms, text, confidence, speaker, backend, warnings.",
+        "TranscriptionResult additiv um segments, pipeline, confidence, raw_backend, rerun_backend erweitern.",
+        "Routes duerfen bestehende Felder provider/model/text/language/duration_ms/warnings nicht entfernen.",
+        "Hub-Adapter voice_provider.py soll neue Felder additiv weiterreichen, aber alte Clients nicht brechen."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Tests erwarten weiterhin text/model/language/warnings und bleiben gruen.",
+        "Neue Tests pruefen, dass /v1/audio/transcriptions segments und pipeline additiv ausgibt, wenn Backend diese liefert.",
+        "agent/services/voice_provider.py gibt segments/pipeline/confidence nur additiv zurueck und wirft keinen Fehler, wenn Runtime sie nicht liefert.",
+        "Keine bestehende API-Route entfernt oder umbenannt."
+      ]
+    },
+    {
+      "id": "vht-004",
+      "title": "VAD-Stufe als austauschbaren Preprocessor bauen",
+      "type": "backend",
+      "files_to_add": [
+        "voice_runtime/preprocessing/__init__.py",
+        "voice_runtime/preprocessing/vad.py"
+      ],
+      "files_to_change": [
+        "voice_runtime/config.py"
+      ],
+      "tasks": [
+        "VadProcessor-Protocol definieren: split(content, filename) -> list[AudioSegment].",
+        "MockVadProcessor implementieren: liefert ein Segment fuer das gesamte Audio.",
+        "OptionalBackendVadProcessor vorbereiten fuer webrtcvad oder silero, aber Import optional halten.",
+        "VAD-Warnungen in Pipeline-Trace aufnehmen: vad_backend, segment_count, silence_removed_ms falls verfuegbar."
+      ],
+      "acceptance_criteria": [
+        "Ohne installierte VAD-Library startet die Runtime weiterhin mit mock/pass-through VAD.",
+        "Unit-Test prueft: MockVadProcessor liefert exakt ein Segment und veraendert Payload nicht.",
+        "Unit-Test prueft: unbekannter VAD-Backend-Name erzeugt klare Runtime-Konfigurationsmeldung.",
+        "Pipeline-Ausgabe enthaelt stage='vad' mit backend und segment_count."
+      ]
+    },
+    {
+      "id": "vht-005",
+      "title": "Vosk-/Kaldi-artigen Lightweight-ASR-Backend-Adapter vorbereiten",
+      "type": "backend",
+      "files_to_add": [
+        "voice_runtime/backends/vosk_backend.py"
+      ],
+      "files_to_change": [
+        "voice_runtime/backends/router.py",
+        "voice_runtime/config.py",
+        ".env.example"
+      ],
+      "tasks": [
+        "VoskBackend implementieren mit optionalem Import von vosk.",
+        "Wenn vosk nicht installiert oder Modellpfad fehlt: Backend meldet unavailable, Router kann gemaess Fallback-Order weitergehen.",
+        "VOICE_VOSK_MODEL_PATH oder VOICE_RUNTIME_MODEL_PATH unterstuetzen.",
+        "list_models() liefert Modellstatus: available/unavailable, model_path, capabilities transcription/offline/local.",
+        "Keine automatische Installation schwerer Modelle in Runtime-Code."
+      ],
+      "acceptance_criteria": [
+        "Router erkennt backend_id 'vosk'.",
+        "Test mit monkeypatch ohne vosk prueft graceful unavailable + fallback_backend:mock.",
+        "Test mit fake VoskBackend prueft deterministische TranscriptionResult-Struktur.",
+        "VoskBackend speichert kein Audio und schreibt keine temporaeren Dateien ohne explizite Notwendigkeit.",
+        "docs/voice-runtime-hybrid-transcription.md erklaert, dass Vosk optional ist."
+      ]
+    },
+    {
+      "id": "vht-006",
+      "title": "whisper.cpp Backend-Adapter vorbereiten",
+      "type": "backend",
+      "files_to_add": [
+        "voice_runtime/backends/whisper_cpp.py"
+      ],
+      "files_to_change": [
+        "voice_runtime/backends/router.py",
+        "voice_runtime/config.py",
+        ".env.example"
+      ],
+      "tasks": [
+        "WhisperCppBackend als subprocess-/binary-adapter oder library-adapter kapseln.",
+        "Neue Config: VOICE_WHISPER_CPP_BIN, VOICE_WHISPER_CPP_MODEL_PATH, VOICE_WHISPER_CPP_EXTRA_ARGS.",
+        "Command-Ausfuehrung strikt allowlisten: nur konfigurierte Binary, keine Shell-String-Ausfuehrung.",
+        "Timeout aus VoiceRuntimeConfig.timeout_sec verwenden.",
+        "JSON/SRT/TXT-Ausgabe robust parsen; bei unklarem Format klare Warnung liefern."
+      ],
+      "acceptance_criteria": [
+        "Router erkennt backend_id 'whisper_cpp'.",
+        "Unit-Test prueft, dass Command als argv-Liste ohne shell=True gebaut wird.",
+        "Unit-Test prueft Timeout-Mapping auf TimeoutError.",
+        "Unit-Test prueft Parser fuer eine kleine fake whisper.cpp JSON-Ausgabe mit Segmenten.",
+        "Bei fehlender Binary liefert Backend unavailable und Router kann auf mock fallen."
+      ]
+    },
+    {
+      "id": "vht-007",
+      "title": "Konfigurierbaren Pipeline-Orchestrator in Voice Runtime einfuehren",
+      "type": "backend",
+      "files_to_add": [
+        "voice_runtime/pipeline.py"
+      ],
+      "files_to_change": [
+        "voice_runtime/app.py",
+        "voice_runtime/routes.py",
+        "voice_runtime/backends/router.py"
+      ],
+      "tasks": [
+        "TranscriptionPipeline bauen: VAD -> ASR -> optional confidence rerun -> optional postprocess -> result merge.",
+        "Pipeline wird in create_app() verdrahtet oder ueber current_app.config bereitgestellt.",
+        "Routes rufen Pipeline auf, nicht mehr direkt nur backend.transcribe(), sofern Pipeline aktiviert ist.",
+        "simple-Pipeline muss bestehendes Verhalten exakt nachbilden."
+      ],
+      "acceptance_criteria": [
+        "Mit VOICE_TRANSCRIPTION_PIPELINE=simple bleibt /v1/audio/transcriptions kompatibel zu bisherigen Tests.",
+        "Mit oldschool_light wird VAD + vosk/mock + optional postprocess als Pipeline-Stages ausgegeben.",
+        "Mit whisper_cpp wird VAD + whisper_cpp/mock als Pipeline-Stages ausgegeben.",
+        "Mit confidence_rerun werden low-confidence Segmente an zweites Backend weitergereicht.",
+        "Pipeline-Ergebnis enthaelt stages in stabiler Reihenfolge."
+      ]
+    },
+    {
+      "id": "vht-008",
+      "title": "Confidence-Routing und Low-Confidence-Rerun implementieren",
+      "type": "backend",
+      "files_to_change": [
+        "voice_runtime/pipeline.py",
+        "voice_runtime/config.py"
+      ],
+      "tasks": [
+        "Config ergaenzen: VOICE_CONFIDENCE_THRESHOLD, VOICE_RERUN_BACKEND, VOICE_RERUN_MAX_SEGMENTS.",
+        "Segmente unter Threshold werden an staerkeres Backend gereicht.",
+        "Rerun-Merge-Regel dokumentieren: Original bleibt, wenn Rerun leer oder schlechter; Rerun ersetzt nur Segmenttext, nicht willkuerlich Gesamttext.",
+        "Warnings aufnehmen: rerun_triggered, rerun_skipped, rerun_backend_unavailable."
+      ],
+      "acceptance_criteria": [
+        "Unit-Test: Segment confidence 0.4 bei Threshold 0.7 triggert Rerun.",
+        "Unit-Test: confidence 0.95 triggert keinen Rerun.",
+        "Unit-Test: Rerun-Ausfall laesst Originaltext erhalten und fuegt Warnung hinzu.",
+        "Pipeline-Trace zeigt Anzahl der rerun_segments."
+      ]
+    },
+    {
+      "id": "vht-009",
+      "title": "Glossary/Fachbegriffe fuer ASR und Postkorrektur einbauen",
+      "type": "backend",
+      "files_to_add": [
+        "voice_runtime/glossary.py",
+        "config/voice/example-glossary.json"
+      ],
+      "files_to_change": [
+        "voice_runtime/config.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "tasks": [
+        "Glossary-Loader fuer JSON-Datei bauen: terms, aliases, protected_terms.",
+        "Beispielbegriffe fuer Ananta, CodeCompass, Keycloak, OpenID Connect, Vosk, whisper.cpp anlegen.",
+        "Glossary wird als Bias/Hint an Backends gegeben, soweit Backend das kann.",
+        "Postprocessor darf protected_terms nicht falsch normalisieren."
+      ],
+      "acceptance_criteria": [
+        "Unit-Test prueft Laden einer Glossary-Datei.",
+        "Unit-Test prueft, dass Alias 'code compass' zu 'CodeCompass' normalisiert werden kann.",
+        "Fehlerhafte Glossary-Datei blockiert nicht die Runtime, sondern liefert validation warning, wenn optional konfiguriert.",
+        "Docs enthalten Beispiel fuer VOICE_GLOSSARY_PATH."
+      ]
+    },
+    {
+      "id": "vht-010",
+      "title": "LLM-Postkorrektur als streng begrenzte optionale Stufe",
+      "type": "backend/security",
+      "files_to_add": [
+        "voice_runtime/postprocessing/__init__.py",
+        "voice_runtime/postprocessing/llm_corrector.py",
+        "voice_runtime/postprocessing/rules.py"
+      ],
+      "files_to_change": [
+        "voice_runtime/config.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "tasks": [
+        "RuleBasedPostprocessor fuer Satzzeichen/Glossary-Korrektur ohne LLM bauen.",
+        "LLMPostprocessor nur aktivieren, wenn VOICE_POSTPROCESS_BACKEND=llm.",
+        "Prompt strikt formulieren: keine Zusammenfassung, keine Interpretation, Wortlaut erhalten.",
+        "Aenderungsmetrik erzeugen: changed_tokens_estimate, protected_terms_preserved, correction_warnings.",
+        "Bei zu grosser Aenderung optional fail-safe: Originaltext behalten und Warnung ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Default ist kein LLM-Postprocessing.",
+        "Unit-Test prueft RuleBasedPostprocessor ohne LLM.",
+        "Unit-Test mit Fake-LLM prueft, dass Output mit zu hoher Abweichung verworfen wird.",
+        "Pipeline-Trace zeigt postprocess_backend und ob Text geaendert wurde.",
+        "Dokumentation sagt klar: LLM korrigiert nur Transkript, es erzeugt keine semantische Zusammenfassung."
+      ]
+    },
+    {
+      "id": "vht-011",
+      "title": "Realtime-Streaming vorbereiten ohne stabile Batch-API zu brechen",
+      "type": "backend",
+      "files_to_add": [
+        "voice_runtime/streaming.py"
+      ],
+      "files_to_change": [
+        "voice_runtime/routes.py",
+        "docs/backend.md",
+        "docs/voice-runtime-hybrid-transcription.md"
+      ],
+      "tasks": [
+        "Streaming-Konzept dokumentieren: partial transcript, final segment commit, VAD boundary.",
+        "Noch keinen instabilen externen WebSocket erzwingen, falls Frontend/Hub nicht bereit ist.",
+        "Optional internen Generator fuer StreamingPipeline vorbereiten.",
+        "VOICE_ENABLE_STREAMING bleibt Feature-Flag."
+      ],
+      "acceptance_criteria": [
+        "Batch-Endpunkt /v1/audio/transcriptions bleibt unveraendert nutzbar.",
+        "Wenn VOICE_ENABLE_STREAMING=false, keine neuen Streaming-Routen aktivieren.",
+        "Docs nennen geplante Route/Contract nur als optionalen Ausbau.",
+        "Tests pruefen, dass deaktiviertes Streaming keine zusaetzlichen aktiven Endpunkte voraussetzt."
+      ]
+    },
+    {
+      "id": "vht-012",
+      "title": "Meeting-/Diarization-Variante als optionale Stufe modellieren",
+      "type": "backend",
+      "files_to_add": [
+        "voice_runtime/diarization.py"
+      ],
+      "files_to_change": [
+        "voice_runtime/config.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "tasks": [
+        "DiarizationProcessor-Protocol definieren.",
+        "MockDiarizationProcessor liefert speaker='unknown' oder speaker_1.",
+        "Optionaler Adapter fuer pyannote/whisper-diarization spaeter anschliessbar, aber nicht hart verpflichtend.",
+        "Meeting-Pipeline liefert speaker pro Segment, ohne Text semantisch umzuschreiben."
+      ],
+      "acceptance_criteria": [
+        "VOICE_DIARIZATION_BACKEND=none ist Default.",
+        "VOICE_TRANSCRIPTION_PIPELINE=meeting aktiviert Diarization nur, wenn Backend verfuegbar oder mock konfiguriert ist.",
+        "Unit-Test prueft speaker-Feld in Segmenten.",
+        "Fehlende optionale Diarization-Library bricht Transkription nicht, sondern erzeugt Warnung."
+      ]
+    },
+    {
+      "id": "vht-013",
+      "title": "Hub-Voice-Adapter und Exposure-Policy additiv erweitern",
+      "type": "backend/security",
+      "files_to_change": [
+        "agent/services/voice_provider.py",
+        "docs/backend.md"
+      ],
+      "tasks": [
+        "voice_provider.py soll pipeline/segments/confidence/warnings aus Runtime weiterreichen.",
+        "Capabilities-Endpunkt soll Pipeline-Faehigkeiten anzeigen: supported_pipelines, supported_backends, streaming_enabled, store_audio.",
+        "Exposure-Policy bleibt Hub-owned; Runtime darf keine Client-Policy selbst entscheiden.",
+        "Privacy-Felder behalten: Roh-Audio-Speicherung fail-closed."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Hub-Voice-Clients erhalten weiterhin provider/model/text/language/duration_ms/warnings.",
+        "Neue Felder sind additiv und optional.",
+        "Capability-Ausgabe unterscheidet zwischen configured und actually_available.",
+        "Tests mit Mock-Runtime pruefen, dass fehlende neue Felder nicht crashen."
+      ]
+    },
+    {
+      "id": "vht-014",
+      "title": "Task-Engine-Integration fuer Audio-Transkription klaeren",
+      "type": "backend/architecture",
+      "files_to_change": [
+        "agent/services/task_intent_router.py",
+        "agent/services/task_class_resolver.py",
+        "agent/services/task_engine_policy_gate.py",
+        "tests/test_task_engine.py",
+        "docs/task-engine-deterministic-hybrid-llm-policy.md"
+      ],
+      "tasks": [
+        "Neue task_kind/intents definieren: audio_transcribe, audio_command, audio_transcribe_with_postprocess.",
+        "audio_transcribe als hybrid klassifizieren: ASR ohne LLM moeglich, LLM-Postprocess optional.",
+        "audio_command je nach command-Auswertung ggf. llm_required oder policy-gated hybrid.",
+        "KNOWN_TOOLS/ToolScopeContract um voice_transcribe/voice_command ergaenzen.",
+        "Pipeline-Trace soll task_class=hybrid und handler_id/voice_provider sichtbar machen."
+      ],
+      "acceptance_criteria": [
+        "TestTaskIntentRouter erkennt task_kind='audio_transcribe' als hybrid.",
+        "TaskEnginePolicyGate bypassed LLM fuer audio_transcribe, solange kein required_capability write_file/shell_exec gesetzt ist.",
+        "audio_transcribe_with_postprocess zeigt hybrid, aber pipeline stage postprocess kann llm_used=true melden.",
+        "Strict unknown tool policy blockiert unbekannte Audio-Tools, erlaubt aber bekannte voice_transcribe/voice_command."
+      ]
+    },
+    {
+      "id": "vht-015",
+      "title": "Tests fuer Variantenmatrix erstellen",
+      "type": "tests",
+      "files_to_change": [
+        "tests/test_voice_runtime_mock_backend.py"
+      ],
+      "files_to_add": [
+        "tests/test_voice_runtime_pipeline_config.py",
+        "tests/test_voice_runtime_pipeline_variants.py",
+        "tests/test_voice_runtime_postprocessing.py",
+        "tests/test_voice_runtime_backends_optional.py"
+      ],
+      "tasks": [
+        "Parametrisierte Tests fuer simple, oldschool_light, whisper_cpp, meeting, confidence_rerun.",
+        "Fake-Backends fuer confidence und Segmentierung nutzen.",
+        "Keine echten Modelle in normalen Unit-Tests laden.",
+        "Live-Tests nur ueber RUN_LIVE_* Flags."
+      ],
+      "acceptance_criteria": [
+        "pytest tests/test_voice_runtime_* laeuft ohne externe Modelle.",
+        "Mock-Backend-Tests bleiben deterministisch.",
+        "Jede Pipeline-Variante hat mindestens einen gruenen Contract-Test.",
+        "Fehlende vosk/whisper.cpp/diarization Dependencies fuehren zu skipped oder fallback, nicht zu globalem Testfehler."
+      ]
+    },
+    {
+      "id": "vht-016",
+      "title": "Docker/Dependency-Profile fuer leichte und robuste Varianten trennen",
+      "type": "devops",
+      "files_to_change": [
+        "Dockerfile.voice-runtime",
+        "docker-compose.voice-runtime.yml",
+        "pyproject.toml"
+      ],
+      "tasks": [
+        "Optionale Extras definieren, z.B. voice-vosk, voice-whispercpp, voice-diarization.",
+        "Dockerfile so strukturieren, dass Default leicht bleibt und keine schweren Modelle automatisch zieht.",
+        "Modelle ueber Volumes/Paths mountbar machen.",
+        "Compose-Beispiele fuer mock, vosk-light und whisper-cpp lokal dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Default-Build funktioniert weiterhin ohne grosse Modell-Downloads.",
+        "VOICE_RUNTIME_MODEL_PATH kann als Volume gemountet werden.",
+        "Dokumentation zeigt mindestens drei Startvarianten: mock/dev, vosk/offline-light, whisper_cpp/robust.",
+        "CI verwendet mock/dev und bleibt schnell."
+      ]
+    },
+    {
+      "id": "vht-017",
+      "title": "Observability, Privacy und Audit fuer Transkription ergaenzen",
+      "type": "security/observability",
+      "files_to_change": [
+        "voice_runtime/routes.py",
+        "agent/services/voice_provider.py",
+        "docs/backend.md"
+      ],
+      "tasks": [
+        "Keine Roh-Audio-Logs.",
+        "Stattdessen Metadaten loggen: duration_ms, payload_size, pipeline, backend, warnings_count, trace_id.",
+        "VOICE_STORE_AUDIO=false als Default dokumentiert und getestet lassen.",
+        "Bei store_audio=true klare Warnung/Policy-Hinweis ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen, dass Transkriptionsantwort keine Audio-Bytes enthaelt.",
+        "Logs/Audit enthalten keine Roh-Audio-Payloads.",
+        "Privacy-Ausgabe zeigt store_audio und effective_audio_retention.",
+        "Dokumentation nennt Datenschutzgrenze explizit."
+      ]
+    },
+    {
+      "id": "vht-018",
+      "title": "Dokumentation und Beispiele fuer Nutzer",
+      "type": "documentation",
+      "files_to_change": [
+        "docs/backend.md",
+        ".env.example"
+      ],
+      "files_to_add": [
+        "docs/voice-runtime-hybrid-transcription.md",
+        "config/voice/example-glossary.json"
+      ],
+      "tasks": [
+        "Kurze Empfehlungsmatrix schreiben: schwache Hardware, robuste Transkription, Live, Meeting.",
+        "Beispiel-curl fuer /v1/voice/transcribe und Runtime-intern /v1/audio/transcriptions.",
+        "Beispiel-Env fuer jede Variante.",
+        "Warnung: LLM-Postkorrektur kann Transkript veraendern und muss streng begrenzt bleiben."
+      ],
+      "acceptance_criteria": [
+        "README/backend Einstieg verweist auf docs/voice-runtime-hybrid-transcription.md.",
+        "Jede Zielvariante aus target_variants ist dokumentiert.",
+        "Beispiele funktionieren mit Mock-Backend ohne externe Modelle.",
+        "Glossary-Beispiel ist valides JSON."
+      ]
+    }
+  ],
+  "non_goals": [
+    "Keine automatische Cloud-ASR-Anbindung ohne separate Policy und Secret-Behandlung.",
+    "Keine automatische Installation grosser Modellgewichte im Code.",
+    "Keine freie LLM-Zusammenfassung als Bestandteil der Rohtranskription.",
+    "Kein Speichern von Roh-Audio als Default.",
+    "Keine direkte Umgehung des Hub-Adapters durch Clients im normalen Betriebsmodus."
+  ],
+  "definition_of_done": [
+    "Voice Runtime kann mindestens simple/mock, oldschool_light/mock-vosk-fallback und whisper_cpp/mock-fallback als konfigurierbare Pipelines starten.",
+    "Alle neuen Felder sind additiv; bestehende Voice- und Task-Engine-Tests bleiben gruen.",
+    "Normale Unit-Tests benoetigen keine echten ASR-Modelle.",
+    "Pipeline-Ergebnisse enthalten nachvollziehbare stages, warnings und backend/model-Angaben.",
+    "LLM-Postkorrektur ist default-off und durch Tests gegen zu starke Umformulierung abgesichert.",
+    "Dokumentation erklaert Varianten, Env-Konfiguration, Datenschutzgrenzen und lokale Beispielstarts."
+  ],
+  "suggested_execution_order": [
+    "vht-001",
+    "vht-002",
+    "vht-003",
+    "vht-004",
+    "vht-007",
+    "vht-015",
+    "vht-005",
+    "vht-006",
+    "vht-008",
+    "vht-009",
+    "vht-010",
+    "vht-012",
+    "vht-013",
+    "vht-014",
+    "vht-016",
+    "vht-017",
+    "vht-018"
+  ]
+}
