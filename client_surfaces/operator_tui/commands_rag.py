@@ -36,8 +36,17 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
 
     endpoint = str(getattr(state, "endpoint", "") or "").rstrip("/") or "http://localhost:5000"
     retrieval_config: dict[str, object] = {}
-    for k in ("chat_retrieval_profile", "chat_retrieval_domain_hint", "chat_codecompass_trigger_mode",
-              "chat_code_questions_repo_first", "chat_use_codecompass"):
+    for k in (
+        "chat_retrieval_profile",
+        "chat_retrieval_domain_hint",
+        "chat_codecompass_trigger_mode",
+        "chat_code_questions_repo_first",
+        "chat_use_codecompass",
+        "chat_include_local_project",
+        "chat_include_wikipedia",
+        "chat_include_task_memory",
+        "chat_source_pack_id",
+    ):
         if k in eff:
             retrieval_config[k] = eff[k]
 
@@ -375,4 +384,3 @@ def handle_msg_command(args: list[str], state: OperatorState) -> CommandResult:
         state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"msg → {target_id}: {text[:40]}"),
         f"msg sent to {target_id}",
     )
-

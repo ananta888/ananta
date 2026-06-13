@@ -174,3 +174,25 @@ def test_trace_only_with_retrieval_config_override(client):
     data = json.loads(resp.data)
     prof = (data.get("rag_why") or {}).get("retrieval_profile") or {}
     assert str(prof.get("feature_flag") or "") == "repo_first"
+
+
+def test_trace_only_honors_source_scope_retrieval_overrides(client):
+    resp = client.post("/snake/ask", json={
+        "question": "Erklaere den lokalen Projektcode",
+        "trace_only": True,
+        "retrieval_config": {
+            "chat_retrieval_profile": "repo_first",
+            "chat_codecompass_trigger_mode": "force_repo_first",
+            "chat_use_codecompass": True,
+            "chat_include_local_project": False,
+            "chat_include_wikipedia": False,
+            "chat_include_task_memory": False,
+            "chat_source_pack_id": "local-project",
+        },
+    })
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    prof = (data.get("rag_why") or {}).get("retrieval_profile") or {}
+    assert str(prof.get("trigger_mode") or "") == "force_repo_first"
+    assert "repo" not in list(prof.get("source_types") or [])
+    assert any("repo" in str(w) for w in list(prof.get("warnings") or []))

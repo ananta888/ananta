@@ -33,6 +33,19 @@ _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
     "Artifacts: Dateien/Outputs erscheinen im Artifact-Panel.",
 )
 
+_SNAKE_ASK_RETRIEVAL_CONFIG_KEYS: tuple[str, ...] = (
+    "chat_retrieval_profile",
+    "chat_retrieval_domain_hint",
+    "chat_codecompass_trigger_mode",
+    "chat_code_questions_repo_first",
+    "chat_architecture_analysis_mode",
+    "chat_use_codecompass",
+    "chat_include_local_project",
+    "chat_include_wikipedia",
+    "chat_include_task_memory",
+    "chat_source_pack_id",
+)
+
 
 class ChatMessageFormatterMixin:
     """Mixin providing message formatting, streaming, and AI response methods.
@@ -339,25 +352,20 @@ class ChatMessageFormatterMixin:
                     try:
                         _configured_model = str(game.get("chat_backend_model") or "").strip()
                         _v2_dict = dict(build_result.worker_v2_payload)
+                        # Keep repository grounding in the Hub. Sending the
+                        # TUI-built context would make /snake/ask skip Hub RAG
+                        # and hide real workspace files from the answer path.
+                        _v2_dict["context"] = ""
                         if _configured_model:
                             _v2_dict["model"] = _configured_model
                         retrieval_config: dict[str, object] = {}
-                        for _cfg_key in (
-                            "chat_retrieval_profile",
-                            "chat_retrieval_domain_hint",
-                            "chat_codecompass_trigger_mode",
-                            "chat_code_questions_repo_first",
-                            "chat_architecture_analysis_mode",
-                            "chat_include_task_memory",
-                        ):
+                        for _cfg_key in _SNAKE_ASK_RETRIEVAL_CONFIG_KEYS:
                             if _cfg_key in game:
                                 _cfg_value = game.get(_cfg_key)
                                 if isinstance(_cfg_value, (str, bool)):
                                     retrieval_config[_cfg_key] = _cfg_value
                         if retrieval_config:
                             _v2_dict["retrieval_config"] = retrieval_config
-                        if str(retrieval_config.get("chat_architecture_analysis_mode") or "").strip().lower() == "full_scan":
-                            _v2_dict["context"] = ""
                         try:
                             _rk = int(game.get("chat_rag_top_k") or 0)
                             if _rk > 0:

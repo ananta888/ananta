@@ -51,6 +51,12 @@ _SNAKE_RETRIEVAL_CONFIG_KEYS = frozenset({
     "chat_retrieval_domain_hint",
     "chat_code_questions_repo_first",
     "chat_architecture_analysis_mode",
+    "chat_codecompass_trigger_mode",
+    "chat_use_codecompass",
+    "chat_include_local_project",
+    "chat_include_wikipedia",
+    "chat_include_task_memory",
+    "chat_source_pack_id",
 })
 
 
