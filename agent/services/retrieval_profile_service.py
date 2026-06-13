@@ -343,7 +343,7 @@ _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
     INTENT_CODE_EXPLANATION: (
         "wie funktioniert", "how does", "explain", "erklär", "erkläre",
-        "was macht", "was ist", "what does", "what is", "zeig mir", "show me", "implementiert",
+        "was macht", "what does", "zeig mir", "show me", "implementiert",
         "implemented", "code", "funktion", "function", "klasse", "class",
         "methode", "method", "modul", "module", "mechanismus", "mechanism",
         "datei", "file",
@@ -440,6 +440,9 @@ def classify_retrieval_intent(
     # tutorial_mode active + generic intent → tutorial help
     if bool(cfg.get("tutorial_mode")) and intent == INTENT_GENERIC_CHAT:
         intent = INTENT_TUTORIAL
+
+    if domain != DOMAIN_GENERIC and intent == INTENT_GENERIC_CHAT and any(marker in q for marker in ("was ist", "what is")):
+        intent = INTENT_CODE_EXPLANATION
 
     return domain, intent
 

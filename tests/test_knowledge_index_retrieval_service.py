@@ -179,6 +179,57 @@ def test_knowledge_index_retrieval_task_kind_architecture_boosts_docs(tmp_path):
     assert chunks[0].source == "docs/architecture.md"
 
 
+def test_knowledge_index_retrieval_codecompass_explanation_prefers_docs_anchor(tmp_path):
+    output_dir = tmp_path / "knowledge-index"
+    output_dir.mkdir()
+    (output_dir / "index.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "kind": "python_module",
+                        "file": "rag-helper/rag_helper/application/config_profiles.py",
+                        "name": "config_profiles",
+                        "content": "CodeCompass configuration profile implementation code",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "kind": "md_section",
+                        "file": "docs/system-komponenten.md",
+                        "title": "CodeCompass - Was ist CodeCompass?",
+                        "content": "CodeCompass ist das RAG-Indexierungs- und Retrieval-System von Ananta.",
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    repository = SimpleNamespace(
+        list_completed=lambda: [
+            SimpleNamespace(
+                id="idx-1",
+                artifact_id="artifact-1",
+                source_scope="artifact",
+                profile_name="default",
+                output_dir=str(output_dir),
+            )
+        ]
+    )
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
+
+    chunks = service.search(
+        "was ist CodeCompass",
+        top_k=2,
+        task_kind="research",
+        retrieval_intent="code_explanation_with_codecompass",
+    )
+
+    assert len(chunks) == 2
+    assert chunks[0].source == "docs/system-komponenten.md"
+    assert chunks[0].metadata["retrieval_score_breakdown"]["file_multiplier"] == 1.45
+
+
 def test_knowledge_index_retrieval_penalizes_duplicate_and_generated_records(tmp_path):
     output_dir = tmp_path / "knowledge-index"
     output_dir.mkdir()

@@ -117,6 +117,11 @@ class TestClassifyRetrievalIntent:
         assert domain == DOMAIN_CODECOMPASS
         assert intent == INTENT_CODE_EXPLANATION
 
+    def test_codecompass_what_is_question_is_explanation(self):
+        domain, intent = classify_retrieval_intent("was ist CodeCompass")
+        assert domain == DOMAIN_CODECOMPASS
+        assert intent == INTENT_CODE_EXPLANATION
+
     def test_worker_handoff_mechanism(self):
         domain, intent = classify_retrieval_intent(
             "wie ist der mechanismus damit ananta dies an die worker weitergibt"
