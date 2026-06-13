@@ -187,8 +187,10 @@ class OllamaStrategy(LLMStrategy):
     ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
+        if max_context_tokens is not None:
+            payload.setdefault("options", {})["num_ctx"] = int(max_context_tokens)
         if max_output_tokens is not None:
-            payload["options"] = {"num_predict": int(max_output_tokens)}
+            payload.setdefault("options", {})["num_predict"] = int(max_output_tokens)
         if temperature is not None:
             payload.setdefault("options", {})["temperature"] = float(temperature)
         if tools:
