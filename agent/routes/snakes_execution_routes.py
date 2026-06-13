@@ -475,6 +475,7 @@ def _append_room_ai_message(*, text: str) -> None:
 
 
 from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
+from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
 
 
 def _trace_feature_enabled() -> bool:
@@ -518,10 +519,32 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
             _answer_chars_limit = 6000
             try:
                 from agent.routes.ai_snake_config import _current_config
-                from agent.services.retrieval_profile_service import _is_full_scan_intent
+                from agent.services.retrieval_profile_service import _is_full_scan_intent, _is_rag_iterative_intent
                 _cfg = _current_config()
                 _answer_chars_limit = int(_cfg.get("chat_answer_chars", 6000))
-                if _is_full_scan_intent(prompt, "", _cfg):
+                if _is_rag_iterative_intent(_cfg):
+                    if rec:
+                        rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
+                                  summary="Iterative Datei-Analyse wird gestartet")
+                    t0 = time.time()
+                    answer, scan_trace = _worker_chat_rag_iterative(prompt, provider=provider, model=model)
+                    batches_done = scan_trace.get("batches_completed", 0)
+                    files_found = scan_trace.get("files_resolved", 0)
+                    scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien"
+                    if rec:
+                        rec.event("rag_iterative_completed", "RAG-Iterativ abgeschlossen",
+                                  status="completed" if answer else "failed",
+                                  summary=scan_summary, duration_ms=(time.time() - t0) * 1000,
+                                  details=scan_trace)
+                    if not answer:
+                        answer = "RAG-Iterativ ergab keine Antwort."
+                    if len(answer) > _answer_chars_limit:
+                        answer = answer[:_answer_chars_limit].rstrip() + "\n\n[gekürzt]"
+                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]")
+                    if store and trace_id:
+                        store.complete_trace(trace_id)
+                    return
+                elif _is_full_scan_intent(prompt, "", _cfg):
                     if rec:
                         rec.event("full_scan_detected", "Full-Scan erkannt", status="running",
                                   summary="Architektur-Analyse wird gestartet")
@@ -1075,11 +1098,23 @@ def snake_ask():
 
     try:
         from agent.routes.ai_snake_config import _current_config
-        from agent.services.retrieval_profile_service import _is_full_scan_intent
+        from agent.services.retrieval_profile_service import _is_full_scan_intent, _is_rag_iterative_intent
 
         _eff_cfg = _current_config()
         _eff_cfg.update(dict(retrieval_config_overrides or {}))
-        if _is_full_scan_intent(question, "", _eff_cfg):
+        if _is_rag_iterative_intent(_eff_cfg):
+            answer, worker_trace = _worker_chat_rag_iterative(question, provider=provider, model=model, limits=limits)
+            if answer:
+                batches_done = worker_trace.get("batches_completed", 0)
+                files_found = worker_trace.get("files_resolved", 0)
+                summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien"
+                if len(answer) > limits.answer_chars:
+                    answer = answer[:limits.answer_chars].rstrip() + "\n\n[gekuerzt]"
+                resp: dict[str, Any] = {"answer": answer, "path": "rag_iterative", "context_summary": summary, **domain_scope_info}
+                if debug:
+                    resp["trace"] = {"worker": worker_trace}
+                return jsonify(resp), 200
+        elif _is_full_scan_intent(question, "", _eff_cfg):
             answer, worker_trace = _worker_chat_full_scan(question, provider=provider, model=model, limits=limits, cancel_key="snake_ask")
             if answer:
                 files_found = worker_trace.get("files_found", 0)

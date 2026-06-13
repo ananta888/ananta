@@ -200,6 +200,12 @@ def _default_full_scan_budgets() -> dict[str, int]:
     }
 
 
+def _is_rag_iterative_intent(cfg: dict[str, Any]) -> bool:
+    """Return True when the user explicitly selected the rag_iterative mode."""
+    mode = str(cfg.get("chat_architecture_analysis_mode") or "").strip().lower()
+    return mode == "rag_iterative"
+
+
 def _is_full_scan_intent(query: str, intent: str, cfg: dict[str, Any]) -> bool:
     """Decide whether the active query should trigger the heavy architecture
     full_scan path.
