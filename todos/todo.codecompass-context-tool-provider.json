@@ -1,0 +1,1012 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-context-tool-provider",
+  "created": "2026-06-14",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "CodeCompass soll nicht nur als vorbereiteter Prompt-Anhang oder interner RAG-Baustein genutzt werden, sondern als versionierter, policy-gepruefter Tool-Provider fuer ananta-worker, OpenCode, ai-snake-chat, Hermes/Codex/Aider-Adapter und spaetere Worker-Backends verfuegbar sein.",
+  "goal": "Agenten koennen per Tool-Call gezielt strukturierte Context-Packages, Datei-Kandidaten, Symbol-/Dependency-Auskuenfte, Domain-Karten und Originaldatei-Auszüge anfordern. Der Hub/Context-Service validiert jede Anfrage, begrenzt Token/Bytes/Dateien, liefert Provenance und stellt sicher, dass CodeCompass Projektkarte/Suchindex bleibt, waehrend Originaldateien autoritative Quellen bleiben.",
+  "problem_statement": "In praktischen Tests mit Gemini waren die Antworten sehr gut, wenn nur CodeCompass-JSONL-Dateien als kompakte Projektkarte plus wenige aktuelle Arbeitsdateien uebergeben wurden. Dieses Muster soll in Ananta systematisch nutzbar werden: nicht als einmaliges Prompt-Building, sondern als Tool-Call, den Worker bei Bedarf erneut aufrufen koennen. Aktuell existieren ContextBundler, Retrieval-Policy-Filter, CodeCompass-Output-Reader, Worker-Contracts und ToolRegistry bereits teilweise, aber es fehlt ein klares, backend-neutrales Tool-Provider-API fuer CodeCompass-Kontextpakete.",
+  "non_goals": [
+    "Kein direkter Agent-zu-Agent- oder Worker-zu-Worker-Kontextaustausch.",
+    "Kein ungeprueftes Durchreichen kompletter JSONL-Dateien an externe Cloud-Modelle.",
+    "Kein Ersatz der Originaldateien durch CodeCompass-Records bei Codeaenderungen, Reviews oder belastbaren Erklaerungen.",
+    "Kein freier Repository-Zugriff fuer Worker ohne Hub-Policy, Workspace-Grenzen und Audit.",
+    "Keine implizite Erhoehung von Schreibrechten durch ein Read-/Context-Tool."
+  ],
+  "architecture_principles": [
+    "CodeCompass ist Projektkarte, Suchindex, Symbol-/Dependency-Graph und Kontext-Navigation, nicht die alleinige Wahrheit.",
+    "Originaldateien, Tests, Konfigurationen und explizit gelesene Artefakte bleiben autoritative Quellen.",
+    "Alle CodeCompass-Tool-Calls laufen ueber Hub/Context-Service und werden dort validiert, budgetiert und auditiert.",
+    "Worker erhalten ein begruendetes ContextPackage statt unstrukturierter Prompt-Masse.",
+    "Der Agent darf gezielt nach Kontext fragen; der Hub entscheidet deterministisch, was erlaubt und sinnvoll geliefert wird.",
+    "Default-Deny fuer Pfade ausserhalb des Workspace, Secrets, sensible Dateien, absolute Pfade und externe Cloud-Scope-Verletzungen.",
+    "Jede Auswahl muss Provenance enthalten: Quelle, Manifest-Hash, Record-Typ, Score, Reason, Policy-Entscheidung und ggf. Redaction-Status.",
+    "Token- und Byte-Budgets sind harte Grenzen, keine unverbindlichen Empfehlungen.",
+    "Rueckwaertskompatibilitaet zu worker_context_bundle.v1 und bestehenden WorkerExecutionContextContract-Payloads bleibt erhalten; neue Clients nutzen codecompass_context_package.v1."
+  ],
+  "source_review": {
+    "summary": "Der vorhandene Code hat bereits starke Grundlagen: ContextBundler baut worker_context_bundle.v1 mit Chunks, context_text, Retrieval-Trace, Context-Policy, Explainability, Budget und Policy-Filter-Metadaten. WorkerToolRegistry kennt ToolResult, ToolInvocationEnvelope, ResourceLimits und Default-Tools wie read_file/list_directory/propose_patch/run_tests/memory_read. Das archivierte Worker-Tool-Calling-Todo definiert bereits codecompass.search, codecompass.expand_graph und codecompass.architecture_query als Zieltools. Das archivierte CodeCompass-Worker-File-Handoff-Todo definiert CandidateFile/ContextFile/WorkerContextRequest/WorkerContextResponse als Zielvertraege, ist aber als erledigt archiviert und scheint im aktuell sichtbaren Code nicht als Suchergebnis fuer konkrete Modelle aufzutauchen. Dieses Todo schliesst die Luecke zwischen diesen Konzepten und einer echten Tool-Provider-Nutzung.",
+    "observed_source_files": [
+      {
+        "path": "agent/services/context_bundle_service.py",
+        "reason": "Baut worker_context_bundle.v1 mit Chunks, Context-Text, Retrieval-Trace, Context-Policy, Explainability, Budget, Compaction und Policy-Filter. Muss zum ContextPackage-Builder erweitert oder von diesem wiederverwendet werden."
+      },
+      {
+        "path": "worker/core/tool_registry.py",
+        "reason": "Definiert ToolResult, ResourceLimits, ToolInvocationEnvelope, WorkerToolEntry, WorkerToolRegistry und Default-Tools. Hier muessen codecompass.* Tools als read-only low-risk Tools registriert werden oder aus einem zentralen ToolCatalog eingebunden werden."
+      },
+      {
+        "path": "agent/services/retrieval_policy_filter_service.py",
+        "reason": "Filtert Retrieval-Chunks nach Scope/Policy. Muss auf CandidateFiles, ContextFiles, Graph-Auszüge und JSONL-Records angewandt werden."
+      },
+      {
+        "path": "agent/services/worker_contract_service.py",
+        "reason": "Baut Worker-Kontexte/Contracts. Muss ContextPackage-Refs und Tool-Catalog-Hinweise an Worker/Backends liefern."
+      },
+      {
+        "path": "agent/models.py",
+        "reason": "Zentraler Ort fuer Pydantic-/Contract-Modelle. Muss codecompass_context_package.v1, ToolRequest-/Response-Modelle oder vorhandene Modelle exportieren."
+      },
+      {
+        "path": "worker/retrieval/codecompass_output_reader.py",
+        "reason": "Liest CodeCompass-JSONL-Outputs und Provenance. Muss die Datenbasis fuer context.resolve/search/expand liefern."
+      },
+      {
+        "path": "agent/routes/codecompass_graph.py",
+        "reason": "Vorhandene Graph-/Node-/Expand-Endpunkte koennen als interne Basis fuer codecompass.expand_graph und architecture_query dienen."
+      },
+      {
+        "path": "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "reason": "Aktueller Chat-Kontextaufbau. Muss Tool-Capabilities und ContextPackage-Refs fuer ai-snake-chat ausgeben koennen statt alles nur in Prompt-Text zu giessen."
+      },
+      {
+        "path": "client_surfaces/operator_tui/chat_mixin.py",
+        "reason": "Einstiegspunkt fuer ai-snake-chat/Worker-Aufruf. Muss Context-Tool-Modus aktivieren und Resultate anzeigen/weiterreichen."
+      },
+      {
+        "path": "agent/common/sgpt.py",
+        "reason": "Aktueller ananta-worker/SGPT Pfad. Muss Tool-Call JSON-Protokoll fuer codecompass.* lesen und Hub-seitig ausfuehren lassen koennen."
+      },
+      {
+        "path": "agent/services/tool_routing_service.py",
+        "reason": "Backend-/Capability-Routing fuer sgpt/opencode/aider/codex/hermes. Muss Kontext-Tools provider-neutral bewerben und erlauben."
+      },
+      {
+        "path": "worker/core/hermes_adapter.py",
+        "reason": "Externer Backend-Adapter. Muss ContextPackage/ToolResult so uebergeben koennen, dass Hermes/OpenCode-artige Worker nicht unkontrolliert selbst suchen muessen."
+      },
+      {
+        "path": "todos/archiv/todo.ananta-worker-tool-calling-loop.json",
+        "reason": "Definiert bereits Zielrichtung: Worker fordert Tools beim Hub an; codecompass.search/expand_graph/architecture_query sind dort als initiale Read-only-Tools vorgesehen."
+      },
+      {
+        "path": "todos/archiv/todo.codecompass-worker-file-context-handoff.json",
+        "reason": "Definiert vorhandene Handoff-Idee mit CandidateFiles, ContextFiles und WorkerContextRequest/Response. Dieses Todo baut darauf auf und operationalisiert es als Tool-Provider."
+      },
+      {
+        "path": "todos/archiv/todo.codecompass-agent-runtime-instructions.json",
+        "reason": "Relevante Vorarbeit fuer Agenten-Instruktionen im CodeCompass-Kontext. Muss mit Tool-Call-Instruktionen abgeglichen werden."
+      },
+      {
+        "path": "todos/archiv/todo.codecompass-runtime-domain-scope.json",
+        "reason": "Domain-Scope-Vorarbeit. Context-Tools muessen domain_hint/domain_scope/selected_domain unterstuetzen."
+      }
+    ]
+  },
+  "tool_api_target": {
+    "schema": "codecompass_context_tools.v1",
+    "tools": [
+      {
+        "id": "codecompass.resolve_context",
+        "kind": "context_retrieval",
+        "risk_class": "low",
+        "capability_classes": ["code_read", "context_resolve", "codecompass_read"],
+        "description": "Erzeugt ein begruendetes, budgetiertes ContextPackage fuer eine Aufgabe, optional inklusive Arbeitsdateien und Originaldatei-Auszügen.",
+        "input_schema": {
+          "required": ["query"],
+          "properties": {
+            "query": {"type": "string"},
+            "task_kind": {"type": "string"},
+            "mode": {"type": "string", "enum_hint": ["explain", "implementation", "review", "test", "architecture", "debug"]},
+            "working_files": {"type": "array"},
+            "domain_hint": {"type": "string"},
+            "domain_scope": {"type": "string"},
+            "max_tokens": {"type": "integer"},
+            "max_files": {"type": "integer"},
+            "include_original_files": {"type": "boolean"},
+            "include_jsonl_records": {"type": "boolean"},
+            "include_graph": {"type": "boolean"},
+            "llm_scope": {"type": "string"}
+          }
+        },
+        "output_schema": "codecompass_context_package.v1"
+      },
+      {
+        "id": "codecompass.search_symbols",
+        "kind": "context_search",
+        "risk_class": "low",
+        "capability_classes": ["code_read", "codecompass_read"],
+        "description": "Sucht Symbol-, Datei-, Domain- und JSONL-Records mit Provenance und Scores.",
+        "input_schema": {
+          "required": ["query"],
+          "properties": {
+            "query": {"type": "string"},
+            "record_kinds": {"type": "array"},
+            "path_globs": {"type": "array"},
+            "domain_hint": {"type": "string"},
+            "limit": {"type": "integer"}
+          }
+        },
+        "output_schema": "codecompass_search_result.v1"
+      },
+      {
+        "id": "codecompass.expand_graph",
+        "kind": "graph_expansion",
+        "risk_class": "low",
+        "capability_classes": ["code_read", "codecompass_read", "graph_read"],
+        "description": "Expandiert von Dateien/Symbolen/Nodes ausgehend direkte Nachbarschaften, Abhaengigkeiten und Relation-Pfade.",
+        "input_schema": {
+          "required": ["seeds"],
+          "properties": {
+            "seeds": {"type": "array"},
+            "max_depth": {"type": "integer"},
+            "max_nodes": {"type": "integer"},
+            "relation_types": {"type": "array"},
+            "domain_scope": {"type": "string"}
+          }
+        },
+        "output_schema": "codecompass_graph_expansion.v1"
+      },
+      {
+        "id": "codecompass.get_file_context",
+        "kind": "file_context",
+        "risk_class": "low",
+        "capability_classes": ["code_read", "codecompass_read"],
+        "description": "Liefert policy-gepruefte Originaldatei-Auszüge fuer zuvor gefundene Kandidaten oder explizit angeforderte Arbeitsdateien.",
+        "input_schema": {
+          "required": ["paths"],
+          "properties": {
+            "paths": {"type": "array"},
+            "line_ranges": {"type": "array"},
+            "max_bytes_per_file": {"type": "integer"},
+            "max_total_bytes": {"type": "integer"},
+            "redaction_mode": {"type": "string"},
+            "reason": {"type": "string"}
+          }
+        },
+        "output_schema": "codecompass_file_context_result.v1"
+      },
+      {
+        "id": "codecompass.get_domain_map",
+        "kind": "domain_map",
+        "risk_class": "low",
+        "capability_classes": ["code_read", "codecompass_read", "domain_read"],
+        "description": "Gibt eine kompakte Domain-/Subsystem-Karte mit Entry-Points, Schluesseldateien und Grenzen zurueck.",
+        "input_schema": {
+          "properties": {
+            "domain_hint": {"type": "string"},
+            "include_files": {"type": "boolean"},
+            "include_edges": {"type": "boolean"},
+            "max_entries": {"type": "integer"}
+          }
+        },
+        "output_schema": "codecompass_domain_map.v1"
+      }
+    ],
+    "context_package_minimum_fields": [
+      "schema",
+      "package_id",
+      "query",
+      "task_kind",
+      "mode",
+      "created_at",
+      "manifest_hash",
+      "context_hash",
+      "budget",
+      "policy",
+      "candidate_files",
+      "context_files",
+      "jsonl_records",
+      "symbols",
+      "graph_edges",
+      "domain_map",
+      "retrieval_trace",
+      "selection_trace",
+      "why_this_context",
+      "denied_items",
+      "warnings"
+    ],
+    "context_package_example": {
+      "schema": "codecompass_context_package.v1",
+      "package_id": "ccpkg:example",
+      "query": "Permission-Pruefung im UserService erklaeren oder aendern",
+      "mode": "implementation",
+      "working_files": ["src/main/java/example/UserService.java"],
+      "candidate_files": [
+        {
+          "path": "src/main/java/example/UserService.java",
+          "score": 1.0,
+          "reason": "explicit_working_file",
+          "requires_read": true,
+          "source_output_kinds": ["user_input"]
+        },
+        {
+          "path": "src/main/java/example/PermissionInterceptor.java",
+          "score": 0.87,
+          "reason": "graph_neighbor_and_symbol_match",
+          "requires_read": true,
+          "source_output_kinds": ["graph_edges", "details"]
+        }
+      ],
+      "context_files": [],
+      "instructions": [
+        "Nutze CodeCompass als Projektkarte und die gelesenen Originaldateien als autoritative Quelle.",
+        "Wenn weitere Dateien noetig sind, rufe codecompass.get_file_context oder codecompass.expand_graph auf."
+      ]
+    }
+  },
+  "config_target": {
+    "keys": [
+      {
+        "key": "codecompass_context_tools.enabled",
+        "default": true,
+        "description": "Aktiviert CodeCompass als Tool-Provider fuer Worker/Chat/Adapter."
+      },
+      {
+        "key": "codecompass_context_tools.default_mode",
+        "default": "balanced",
+        "description": "compact/balanced/deep; bestimmt Default-Budget und Umfang."
+      },
+      {
+        "key": "codecompass_context_tools.max_files",
+        "default": 20,
+        "description": "Harte Obergrenze fuer CandidateFiles pro resolve_context."
+      },
+      {
+        "key": "codecompass_context_tools.max_original_files",
+        "default": 8,
+        "description": "Harte Obergrenze fuer gleichzeitig gelieferte Originaldatei-Auszüge."
+      },
+      {
+        "key": "codecompass_context_tools.max_total_bytes",
+        "default": 262144,
+        "description": "Harte Byte-Grenze fuer Originaldatei-Kontext pro Tool-Call."
+      },
+      {
+        "key": "codecompass_context_tools.max_tokens_compact",
+        "default": 4096,
+        "description": "Tokenbudget fuer kompakte Tool-Antworten."
+      },
+      {
+        "key": "codecompass_context_tools.max_tokens_balanced",
+        "default": 12000,
+        "description": "Tokenbudget fuer Standard-Kontextpakete."
+      },
+      {
+        "key": "codecompass_context_tools.max_tokens_deep",
+        "default": 32000,
+        "description": "Tokenbudget fuer Deep-Context, nur wenn explizit erlaubt."
+      },
+      {
+        "key": "codecompass_context_tools.external_cloud_policy",
+        "default": "metadata_only_unless_allowed",
+        "description": "Bei externen Modellen standardmaessig nur Metadaten/kompakte Auszüge, keine sensiblen Originalinhalte."
+      },
+      {
+        "key": "codecompass_context_tools.allow_raw_jsonl_records",
+        "default": false,
+        "description": "Raw JSONL nur explizit und budgetiert erlauben; Default sind normalisierte Records."
+      },
+      {
+        "key": "codecompass_context_tools.require_reason_for_file_context",
+        "default": true,
+        "description": "get_file_context braucht eine Begruendung fuer Audit und Missbrauchsschutz."
+      },
+      {
+        "key": "codecompass_context_tools.domain_scope_required_for_large_context",
+        "default": true,
+        "description": "Bei deep/full Context muss Domain-Scope oder Working-Files-Seed vorhanden sein."
+      }
+    ]
+  },
+  "milestones": [
+    {
+      "id": "CCTP-M1",
+      "title": "Ist-Zustand, Contracts und Kompatibilitaet klaeren",
+      "status": "todo",
+      "task_ids": ["CCTP-001", "CCTP-002", "CCTP-003", "CCTP-004"]
+    },
+    {
+      "id": "CCTP-M2",
+      "title": "ContextPackage-Modelle und CodeCompassContextService bauen",
+      "status": "todo",
+      "task_ids": ["CCTP-005", "CCTP-006", "CCTP-007", "CCTP-008"]
+    },
+    {
+      "id": "CCTP-M3",
+      "title": "ToolRegistry, Hub Policy und Worker-Tool-Loop integrieren",
+      "status": "todo",
+      "task_ids": ["CCTP-009", "CCTP-010", "CCTP-011", "CCTP-012"]
+    },
+    {
+      "id": "CCTP-M4",
+      "title": "ai-snake-chat, OpenCode und externe Adapter nutzbar machen",
+      "status": "todo",
+      "task_ids": ["CCTP-013", "CCTP-014", "CCTP-015", "CCTP-016"]
+    },
+    {
+      "id": "CCTP-M5",
+      "title": "Security, Budgets, Observability und Regressionstests absichern",
+      "status": "todo",
+      "task_ids": ["CCTP-017", "CCTP-018", "CCTP-019", "CCTP-020"]
+    },
+    {
+      "id": "CCTP-M6",
+      "title": "Dokumentation, Beispiele und Migration abschliessen",
+      "status": "todo",
+      "task_ids": ["CCTP-021", "CCTP-022", "CCTP-023", "CCTP-024"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCTP-001",
+      "title": "Vorhandene Context- und Tool-Contracts gegen echten Code abgleichen",
+      "type": "architecture-analysis",
+      "milestone": "CCTP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/context_bundle_service.py",
+        "agent/services/worker_contract_service.py",
+        "agent/models.py",
+        "worker/core/tool_registry.py",
+        "todos/archiv/todo.ananta-worker-tool-calling-loop.json",
+        "todos/archiv/todo.codecompass-worker-file-context-handoff.json"
+      ],
+      "acceptance_criteria": [
+        "Dokumentiert ist, welche vorhandenen Modelle und Bundles real im Code existieren und welche nur in archivierten Todos beschrieben wurden.",
+        "worker_context_bundle.v1 wird nicht ersetzt, sondern als kompatibler Alt-/Basisvertrag beschrieben.",
+        "Es ist klar dokumentiert, ob CandidateFile, ContextFile, WorkerContextRequest und WorkerContextResponse bereits als Code existieren oder neu/erneut eingefuehrt werden muessen.",
+        "Es gibt eine Tabelle Ist-Contract -> Soll-Contract -> Migrationspfad.",
+        "Keine Annahme bleibt unmarkiert: unklare Stellen werden als TODO/FOLLOWUP im Dokument gekennzeichnet."
+      ],
+      "test_expectations": [
+        "Docs-/Contract-Review prueft, dass alle genannten Dateien existieren oder als geplante Dateien markiert sind.",
+        "Ein Schema-Snapshot-Test stellt sicher, dass worker_context_bundle.v1 weiterhin erzeugt werden kann."
+      ]
+    },
+    {
+      "id": "CCTP-002",
+      "title": "Tool-Namensraum und Provider-Grenzen festlegen",
+      "type": "architecture-design",
+      "milestone": "CCTP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/architecture/codecompass-context-tool-provider.md",
+        "worker/core/tool_registry.py",
+        "agent/services/tool_routing_service.py"
+      ],
+      "acceptance_criteria": [
+        "Der Tool-Namensraum codecompass.* ist dokumentiert und kollidiert nicht mit repo.*, memory.*, test.*, shell.* oder externen Backend-Tools.",
+        "Read-only Kontexttools sind als low risk klassifiziert, solange sie keine Originalinhalte ausserhalb erlaubter Policy liefern.",
+        "get_file_context ist trotz read-only gesondert begrenzt, weil Originalquelltext sensibler ist als Symbol-/Graph-Metadaten.",
+        "Externe Backends wie OpenCode/Hermes/Codex/Aider erhalten keine direkten Dateisystemrechte durch codecompass.* Tools.",
+        "Die Dokumentation beschreibt, dass codecompass.* vom Hub ausgefuehrt wird und Worker nur ToolRequests stellen."
+      ],
+      "test_expectations": [
+        "Unit-Test prueft, dass codecompass.* Tools im Catalog auftauchen, aber keine filesystem_write/host_mutation Side Effects haben.",
+        "Policy-Test prueft, dass codecompass.* nicht als Ersatz fuer repo.write_file/apply_patch verwendet werden kann."
+      ]
+    },
+    {
+      "id": "CCTP-003",
+      "title": "ContextPackage-Schema codecompass_context_package.v1 definieren",
+      "type": "contract-model",
+      "milestone": "CCTP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/models.py",
+        "docs/schemas/codecompass_context_package.v1.schema.json",
+        "tests/baselines/schemas/codecompass_context_package.v1.json"
+      ],
+      "acceptance_criteria": [
+        "Schema enthaelt mindestens package_id, query, task_kind, mode, created_at, manifest_hash, context_hash, budget, policy, candidate_files, context_files, jsonl_records, symbols, graph_edges, domain_map, retrieval_trace, selection_trace, why_this_context, denied_items und warnings.",
+        "candidate_files enthalten path, score, reason, source_output_kinds, source_record_ids, matched_symbols, relation_path, requires_read, sensitivity, read_policy und provenance.",
+        "context_files enthalten path, content oder content_ref, sha256, byte_count, line_count, line_ranges, redaction_status, read_at und provenance.",
+        "jsonl_records sind normalisiert und budgetiert; raw_record ist optional und per Default deaktiviert.",
+        "Schema ist JSON-serialisierbar ohne Python-spezialtypen und fuer externe Worker stabil lesbar."
+      ],
+      "test_expectations": [
+        "Pydantic-/Schema-Test serialisiert Minimal- und Vollbeispiel.",
+        "Regressionstest prueft, dass unbekannte optionale Felder nicht alte Worker-Kontrakte brechen.",
+        "Baseline-Schema wird als Snapshot committed."
+      ]
+    },
+    {
+      "id": "CCTP-004",
+      "title": "Budget-, Scope- und Policy-Regeln fuer ContextPackages definieren",
+      "type": "policy-design",
+      "milestone": "CCTP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/config.py",
+        "agent/services/retrieval_policy_filter_service.py",
+        "docs/architecture/codecompass-context-tool-provider.md"
+      ],
+      "acceptance_criteria": [
+        "Konfigurierbare Obergrenzen fuer max_files, max_original_files, max_total_bytes, max_tokens_compact, max_tokens_balanced und max_tokens_deep existieren.",
+        "llm_scope beeinflusst, ob Originaldateien, Snippets, nur Metadaten oder gar nichts geliefert wird.",
+        "Deep/full Context erfordert working_files, domain_scope oder explizite Approval-/Policy-Freigabe.",
+        "Absolute Pfade, Pfad-Traversal, Symlinks ausserhalb des Workspace und Secret-Dateien werden blockiert oder redacted.",
+        "Policy-Entscheidungen werden im Package sichtbar, inklusive denied_items und reason_code."
+      ],
+      "test_expectations": [
+        "Policy-Test blockiert ../, absolute Pfade und Pfade ausserhalb workspace_root.",
+        "Budget-Test erzwingt harte Limits auch bei sehr grossen JSONL-/Repo-Daten.",
+        "External-cloud-Test liefert bei externem Scope nur erlaubte Metadaten/Snippets."
+      ]
+    },
+    {
+      "id": "CCTP-005",
+      "title": "CodeCompassContextService als zentrale Fassade einfuehren",
+      "type": "service-implementation",
+      "milestone": "CCTP-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/context_bundle_service.py",
+        "worker/retrieval/codecompass_output_reader.py",
+        "tests/agent/services/test_codecompass_context_service.py"
+      ],
+      "acceptance_criteria": [
+        "Neuer Service bietet resolve_context, search_symbols, expand_graph, get_file_context und get_domain_map als Python-Methoden.",
+        "Service nutzt vorhandene CodeCompass-Outputs ueber CodeCompassOutputReader statt JSONL-Parsing mehrfach zu duplizieren.",
+        "Service kann vorhandene ContextBundler-Logik wiederverwenden, ohne worker_context_bundle.v1 zu brechen.",
+        "Jede Methode gibt strukturierte Daten plus retrieval_trace/selection_trace zurueck.",
+        "Fehlende oder veraltete CodeCompass-Outputs fuehren zu diagnostischen Warnungen, nicht zu still falschem Kontext."
+      ],
+      "test_expectations": [
+        "Unit-Test mit Fixture-JSONL erzeugt deterministisch gleiche CandidateFiles.",
+        "Unit-Test prueft leere/missing JSONL-Dateien mit sauberem degraded Result.",
+        "Unit-Test prueft, dass working_files immer priorisiert werden, sofern Policy sie erlaubt."
+      ]
+    },
+    {
+      "id": "CCTP-006",
+      "title": "resolve_context Ranking und Kontext-Zusammenstellung bauen",
+      "type": "retrieval-implementation",
+      "milestone": "CCTP-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/context_bundle_service.py",
+        "tests/agent/services/test_codecompass_context_ranking.py"
+      ],
+      "acceptance_criteria": [
+        "working_files bekommen hoechste Prioritaet und werden als explicit_working_file begruendet.",
+        "Symboltreffer, Dateiname, Domain-Hint, Graph-Nachbarschaft, Tests und Config-Beziehungen tragen nachvollziehbar zum Score bei.",
+        "Mode beeinflusst Auswahl: explain bevorzugt Uebersicht/Entry-Points, implementation bevorzugt konkrete Source-/Testdateien, architecture bevorzugt Domain-/Graph-Map.",
+        "Deduplizierung verhindert doppelte Kandidaten aus mehreren JSONL-Quellen, erhaelt aber alle Provenance-Quellen.",
+        "Das Ergebnis enthaelt why_this_context mit kompakter Begruendung fuer Top-Kandidaten."
+      ],
+      "test_expectations": [
+        "Ranking-Test prueft, dass explizite Arbeitsdatei vor semantisch aehnlichem, aber nicht angegebenem Treffer steht.",
+        "Ranking-Test prueft Deduplizierung mit kombinierten source_output_kinds.",
+        "Mode-Test prueft unterschiedliche Auswahl fuer explain vs implementation."
+      ]
+    },
+    {
+      "id": "CCTP-007",
+      "title": "get_file_context sicher und zeilenbereichsfaehig implementieren",
+      "type": "file-context-implementation",
+      "milestone": "CCTP-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/workspace_file_service.py",
+        "agent/services/retrieval_policy_filter_service.py",
+        "tests/agent/services/test_codecompass_get_file_context.py"
+      ],
+      "acceptance_criteria": [
+        "Dateien werden nur innerhalb des erlaubten Workspace/Repo-Roots gelesen.",
+        "line_ranges, max_bytes_per_file und max_total_bytes werden hart eingehalten.",
+        "sha256, byte_count, line_count und redaction_status werden pro Datei berechnet.",
+        "Binary-/zu grosse Dateien werden mit denied/degraded Status statt kaputtem Text geliefert.",
+        "Secret-/Credential-Muster werden redacted oder blockiert, je nach Policy."
+      ],
+      "test_expectations": [
+        "Path-Traversal-Test fuer ../secret.txt wird blockiert.",
+        "Line-Range-Test liefert exakt gewuenschte Zeilen plus korrekte Metadaten.",
+        "Budget-Test kappt grosse Dateien deterministisch und setzt truncated=true.",
+        "Redaction-Test ersetzt erkannte Secrets und dokumentiert redaction_status."
+      ]
+    },
+    {
+      "id": "CCTP-008",
+      "title": "Domain-Map und Graph-Expansion fuer Tool-Antworten normalisieren",
+      "type": "graph-implementation",
+      "milestone": "CCTP-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "agent/routes/codecompass_graph.py",
+        "agent/services/codecompass_context_service.py",
+        "tests/agent/services/test_codecompass_graph_context.py"
+      ],
+      "acceptance_criteria": [
+        "expand_graph akzeptiert Seeds als path, symbol, node_id oder candidate_file_ref.",
+        "max_depth=0 wird gemaess Ananta-Semantik als vollstaendige erlaubte Analyse interpretiert, aber trotzdem durch max_nodes/max_bytes begrenzt.",
+        "Relationen enthalten source, target, relation_type, weight, reason und provenance.",
+        "get_domain_map liefert Entry-Points, Kern-Dateien, Test-Dateien, Config-Dateien und bekannte Grenzen einer Domain.",
+        "Graph-Antworten sind kompakt genug fuer ToolResults und muessen bei Bedarf paginieren/limitieren."
+      ],
+      "test_expectations": [
+        "Graph-Test expandiert von einer Arbeitsdatei zu direkten Nachbarn.",
+        "Depth-Test prueft max_depth 1/2/0 mit Limits.",
+        "Domain-Test prueft domain_hint Filterung und fallback bei unbekannter Domain."
+      ]
+    },
+    {
+      "id": "CCTP-009",
+      "title": "codecompass.* Tools in WorkerToolRegistry registrieren",
+      "type": "tool-registry",
+      "milestone": "CCTP-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "worker/core/tool_registry.py",
+        "tests/worker/core/test_tool_registry_codecompass_tools.py"
+      ],
+      "acceptance_criteria": [
+        "build_default_registry registriert codecompass.resolve_context, codecompass.search_symbols, codecompass.expand_graph, codecompass.get_file_context und codecompass.get_domain_map oder bindet sie aus einem zentralen Catalog ein.",
+        "Alle codecompass.* Tools haben risk_class low, solange sie read-only bleiben, und keine side_effects filesystem_write/host_mutation.",
+        "input_schema verlangt sinnvolle Pflichtfelder und begrenzt optionale Felder.",
+        "ResourceLimits sind pro Tool gesetzt und strenger fuer get_file_context als fuer reine Metadaten-Suche.",
+        "Capability-Catalog zeigt die Tools fuer Worker/Hub ohne interne Implementierungsdetails."
+      ],
+      "test_expectations": [
+        "Registry-Test findet alle codecompass.* Tools im Default-Catalog.",
+        "Validation-Test lehnt resolve_context ohne query ab.",
+        "Catalog-Test prueft, dass keine Secret-/Workspace-Interna in as_catalog_entry erscheinen."
+      ]
+    },
+    {
+      "id": "CCTP-010",
+      "title": "Hub-seitigen Tool Executor fuer CodeCompass anbinden",
+      "type": "tool-execution",
+      "milestone": "CCTP-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tool_routing_service.py",
+        "agent/services/codecompass_context_service.py",
+        "agent/services/worker_tool_execution_service.py",
+        "tests/agent/services/test_codecompass_tool_execution.py"
+      ],
+      "acceptance_criteria": [
+        "ToolRequest fuer codecompass.* wird vom Hub erkannt und an CodeCompassContextService delegiert.",
+        "ToolResult enthaelt tool_id, execution_id, success, stdout oder structured_payload, files_read, reason_code, truncated und duration_seconds.",
+        "Policy-Fehler liefern success=false plus reason_code, nicht Exceptions bis zum Worker.",
+        "ResourceLimitEnforcer oder aequivalente Grenzen werden vor Rueckgabe angewandt.",
+        "Audit-Log/Trace enthaelt request_id, task_id, worker_id, tool_id, argument_hash, policy_decision und context_hash."
+      ],
+      "test_expectations": [
+        "Executor-Test ruft resolve_context erfolgreich mit Fixture-Daten auf.",
+        "Denied-Test blockiert get_file_context fuer nicht erlaubten Pfad.",
+        "Truncation-Test setzt truncated=true bei Outputlimit."
+      ]
+    },
+    {
+      "id": "CCTP-011",
+      "title": "Worker-Tool-Loop fuer Context-Nachforderungen absichern",
+      "type": "worker-integration",
+      "milestone": "CCTP-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/common/sgpt.py",
+        "agent/services/worker_contract_service.py",
+        "worker/core/tool_registry.py",
+        "tests/agent/common/test_sgpt_codecompass_tool_loop.py"
+      ],
+      "acceptance_criteria": [
+        "Worker kann JSON-ToolRequest fuer codecompass.* ausgeben und bekommt ToolResult/Evidence in die naechste Iteration.",
+        "Worker darf bei fehlendem Kontext gezielt cannot_continue_without_context oder tool_request ausgeben, statt zu halluzinieren.",
+        "Tool-Loop hat max_iterations und max_context_tool_calls pro Aufgabe.",
+        "Wiederholte identische ToolCalls werden dedupliziert oder mit cached_result beantwortet.",
+        "Finale Antwort/Proposal muss angeben, welche ContextPackages/ToolResults verwendet wurden."
+      ],
+      "test_expectations": [
+        "Loop-Test simuliert LLM -> resolve_context -> get_file_context -> final_answer.",
+        "Max-Iteration-Test bricht sauber ab und liefert degraded Diagnose.",
+        "Duplicate-Test erkennt identische ToolCalls via argument_hash."
+      ]
+    },
+    {
+      "id": "CCTP-012",
+      "title": "WorkerExecutionContextContract um Context-Tool-Capabilities erweitern",
+      "type": "contract-integration",
+      "milestone": "CCTP-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/worker_contract_service.py",
+        "agent/models.py",
+        "tests/agent/services/test_worker_contract_codecompass_tools.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Worker-Contracts enthalten Tool-Catalog-Auszug fuer erlaubte codecompass.* Tools.",
+        "Optional initial_context_package_ref oder initial_context_package kann uebergeben werden.",
+        "Alt-Contracts ohne diese Felder bleiben valide.",
+        "Contract enthaelt klare Regel: CodeCompass-Tool nutzen, wenn Kontext fehlt, statt ungeprueft zu raten.",
+        "Capability-Liste unterscheidet code_read, context_resolve, graph_read, domain_read und file_context_read."
+      ],
+      "test_expectations": [
+        "Contract-Snapshot fuer alten Worker bleibt stabil.",
+        "Neuer Snapshot enthaelt codecompass.* Tools und ContextPackage-Ref.",
+        "Validation-Test prueft unbekannte Tool-Capability wird abgelehnt oder ignoriert mit Warnung."
+      ]
+    },
+    {
+      "id": "CCTP-013",
+      "title": "ai-snake-chat auf Context-Tool-Modus vorbereiten",
+      "type": "chat-integration",
+      "milestone": "CCTP-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "tests/client_surfaces/operator_tui/test_ai_snake_chat_codecompass_tools.py"
+      ],
+      "acceptance_criteria": [
+        "ai-snake-chat kann initial ein kompaktes ContextPackage statt grossem Fliesstext anfordern.",
+        "Chat-Prompt erklaert dem Modell kurz, welche codecompass.* Tools verfuegbar sind und wann sie zu nutzen sind.",
+        "Bei einfachen Erklaerfragen wird metadata-first geliefert; Originaldateien werden erst bei Bedarf oder working_files gelesen.",
+        "Antworten nennen konkrete Dateien/Symbole aus ContextPackage, wenn sie darauf basieren.",
+        "UI/TUI kann ToolCalls und ContextPackage-Zusammenfassung im Tracking-/Viewer-Modus anzeigen."
+      ],
+      "test_expectations": [
+        "PromptBuilder-Test enthaelt Tool-Instruktionen ohne komplettes JSONL zu duplizieren.",
+        "Chat-Flow-Test nutzt resolve_context und rendert ToolResult kompakt.",
+        "Regressionstest prueft, dass alter Chat ohne Tool-Modus weiter funktioniert."
+      ]
+    },
+    {
+      "id": "CCTP-014",
+      "title": "OpenCode/externen Worker-Adapter mit ContextPackage-Handoff versorgen",
+      "type": "external-backend-integration",
+      "milestone": "CCTP-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tool_routing_service.py",
+        "worker/core/hermes_adapter.py",
+        "docs/architecture/opencode-context-tool-handoff.md",
+        "tests/worker/core/test_external_backend_context_package.py"
+      ],
+      "acceptance_criteria": [
+        "OpenCode/Hermes/Codex/Aider-Backends erhalten ContextPackage oder ContextPackage-Ref in einem backend-neutralen Format.",
+        "Adapter koennen ToolRequests fuer codecompass.* zurueck an den Hub routen, sofern das Backend Tool-Loop unterstuetzt.",
+        "Wenn ein Backend kein Tool-Loop kann, wird ein einmaliges initiales ContextPackage als Prompt/Datei-Handoff geliefert.",
+        "Externe Backends erhalten nur den nach llm_scope erlaubten Umfang.",
+        "Kein Adapter liest eigenmaechtig Repo-Dateien ausserhalb der vom Hub erlaubten ContextFiles."
+      ],
+      "test_expectations": [
+        "Adapter-Test serialisiert ContextPackage fuer externes Backend.",
+        "No-tool-loop-Test faellt auf initial_context_package zurueck.",
+        "Scope-Test verhindert Originalfile-Weitergabe bei external_cloud_policy=metadata_only_unless_allowed."
+      ]
+    },
+    {
+      "id": "CCTP-015",
+      "title": "ContextPackage als Datei-/Artefakt-Handoff fuer grosse Kontexte unterstuetzen",
+      "type": "artifact-handoff",
+      "milestone": "CCTP-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/artifact_service.py",
+        "worker/core/hermes_adapter.py",
+        "tests/agent/services/test_context_package_artifact_handoff.py"
+      ],
+      "acceptance_criteria": [
+        "ContextPackages koennen inline oder als Artefakt-Ref uebergeben werden.",
+        "Artefakt enthaelt sha256/context_hash und kann vom Worker eindeutig referenziert werden.",
+        "Grosse Originaldatei-Auszüge werden in getrennte ContextFile-Artefakte ausgelagert, wenn Inline-Budget ueberschritten wird.",
+        "Artifact-Handoff ist read-only und laeuft ueber bestehende Artefakt-/Policy-Grenzen.",
+        "Aufraeum-/TTL-Regeln fuer temporaere ContextPackage-Artefakte sind dokumentiert."
+      ],
+      "test_expectations": [
+        "Artifact-Test erzeugt ContextPackage-Ref bei grossem Kontext.",
+        "Hash-Test erkennt veraenderten Artefaktinhalt.",
+        "TTL-/Cleanup-Test ist dokumentiert oder als pending markiert, falls Infrastruktur fehlt."
+      ]
+    },
+    {
+      "id": "CCTP-016",
+      "title": "ToolCalls im Tracking-/Viewer-Modus sichtbar machen",
+      "type": "observability-ui",
+      "milestone": "CCTP-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "client_surfaces/operator_tui/**",
+        "client_surfaces/operator_web/**",
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "tests/**/test_*tracking*viewer*.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder codecompass.* ToolCall wird mit Toolname, gekuerzten Argumenten, Status, Dauer, Ergebnisgroesse und Kontext-Hash angezeigt.",
+        "Vorherige ContextPackages/ToolResults bleiben im Viewer auswaehlbar, auch wenn die Generierung weitergelaufen ist.",
+        "Aktueller Denk-/Arbeitsprozess bleibt automatisch fokussiert, solange der Nutzer keinen alten Schritt auswaehlt.",
+        "Sensitive Inhalte werden in UI-Logs redacted; vollstaendige Inhalte nur ueber erlaubte Detailansicht.",
+        "Fehler/Denied-Entscheidungen werden verstaendlich angezeigt."
+      ],
+      "test_expectations": [
+        "Viewer-Test rendert resolve_context -> get_file_context -> final_answer als Timeline.",
+        "Selection-Test erlaubt Auswahl alter Schritte ohne Live-Fokus zu verlieren.",
+        "Redaction-Test zeigt keine Secrets in Tool-Argument-Vorschau."
+      ]
+    },
+    {
+      "id": "CCTP-017",
+      "title": "Security- und Policy-Tests fuer Context-Tools erweitern",
+      "type": "security-testing",
+      "milestone": "CCTP-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "tests/security/test_codecompass_context_tools_policy.py",
+        "agent/services/retrieval_policy_filter_service.py",
+        "agent/services/codecompass_context_service.py"
+      ],
+      "acceptance_criteria": [
+        "Testmatrix deckt workspace escape, secret files, binary files, huge files, raw_jsonl, external_cloud_scope, missing reason und excessive max_depth ab.",
+        "Jede Denial-Entscheidung hat stabilen reason_code.",
+        "Keine Exception leakt absolute Hostpfade oder Secrets in stderr/stdout.",
+        "Policy ist Default-Deny fuer unklare Sensitivity bei externem Scope.",
+        "Read-only Context-Tools koennen keine Schreib-/Shell-/Netzwerktools transitiv ausloesen."
+      ],
+      "test_expectations": [
+        "Security-Test-Suite laeuft ohne Netzwerkzugriff.",
+        "Property-/Fuzz-Test fuer path inputs deckt Traversal-Varianten ab.",
+        "Regressionstest prueft, dass get_file_context eine reason verlangt, falls Config es fordert."
+      ]
+    },
+    {
+      "id": "CCTP-018",
+      "title": "Token-/Byte-Budgetierung und Compaction fuer ContextPackages testen",
+      "type": "budget-testing",
+      "milestone": "CCTP-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/context_bundle_service.py",
+        "tests/agent/services/test_codecompass_context_budgets.py"
+      ],
+      "acceptance_criteria": [
+        "Budgets werden vor finaler ToolResult-Rueckgabe erzwungen, nicht nur beim Promptbau.",
+        "Compaction priorisiert working_files, hohe Scores, direkte Graph-Nachbarn und Tests vor generischen Treffern.",
+        "Bei Budgetueberschreitung bleiben Provenance und Denial-/Truncation-Hinweise erhalten.",
+        "ContextPackage enthaelt token_estimate und byte_count pro relevanter Sektion.",
+        "Verschiedene Profile compact/balanced/deep liefern nachvollziehbar unterschiedliche Groessen."
+      ],
+      "test_expectations": [
+        "Budget-Test mit vielen Fixture-Dateien bleibt unter max_total_bytes.",
+        "Compaction-Test bewahrt explicit_working_file trotz niedrigem Score.",
+        "Profile-Test prueft compact < balanced < deep im Umfang."
+      ]
+    },
+    {
+      "id": "CCTP-019",
+      "title": "Determinismus, Caching und Reproduzierbarkeit einbauen",
+      "type": "determinism",
+      "milestone": "CCTP-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/context_cache_service.py",
+        "tests/agent/services/test_codecompass_context_determinism.py"
+      ],
+      "acceptance_criteria": [
+        "Gleiche Query, gleiche working_files, gleicher Manifest-Hash und gleiche Config liefern gleiche Kandidatenreihenfolge.",
+        "ContextPackage-Hash beruecksichtigt relevante Eingaben, Manifest und Policy.",
+        "Cache wird invalidiert, wenn CodeCompass-Manifest oder Arbeitsdatei-Hash sich aendert.",
+        "Deduplizierte ToolCalls koennen aus Cache beantwortet werden und markieren cached_result=true.",
+        "Nichtdeterministische Zeitfelder beeinflussen keine Ranking- oder Context-Hashes."
+      ],
+      "test_expectations": [
+        "Determinismus-Test ruft resolve_context zweimal auf und vergleicht Kandidaten/Hashes.",
+        "Invalidation-Test aendert Manifest-Hash und erzwingt Neuberechnung.",
+        "Cache-Test erkennt gleichen argument_hash."
+      ]
+    },
+    {
+      "id": "CCTP-020",
+      "title": "End-to-End Regression fuer Chat und Worker erstellen",
+      "type": "e2e-testing",
+      "milestone": "CCTP-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "tests/e2e/test_ai_snake_chat_codecompass_context_tools.py",
+        "tests/e2e/test_ananta_worker_codecompass_tool_loop.py",
+        "tests/fixtures/codecompass/**"
+      ],
+      "acceptance_criteria": [
+        "E2E-Fixture simuliert ein kleines Projekt mit CodeCompass-JSONL, Arbeitsdatei, Testdatei und indirekter Dependency.",
+        "ai-snake-chat erklaert eine Komponente auf Basis resolve_context und nennt korrekte Dateien.",
+        "ananta-worker fordert bei Implementierungsaufgabe get_file_context nach, bevor er einen Patch vorschlaegt.",
+        "OpenCode-/externes Backend wird mindestens ueber Adapter-Contract oder Mock mit ContextPackage versorgt.",
+        "Fehlender Kontext fuehrt zu ToolRequest oder cannot_continue_without_context, nicht zu erfundener Datei."
+      ],
+      "test_expectations": [
+        "E2E-Test laeuft offline und ohne echte LLM-Abhaengigkeit ueber Mock-LLM/Scripted responses.",
+        "Snapshot prueft Timeline: resolve_context, get_file_context, final_answer/proposal.",
+        "Negative E2E prueft blockierten Pfad und saubere Fehlermeldung."
+      ]
+    },
+    {
+      "id": "CCTP-021",
+      "title": "Dokumentation fuer Entwickler und Agenten schreiben",
+      "type": "documentation",
+      "milestone": "CCTP-M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "docs/architecture/codecompass-context-tool-provider.md",
+        "docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md",
+        "AGENTS.md"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation erklaert kurz: CodeCompass als Projektkarte plus Originaldateien als Wahrheit.",
+        "Mermaid-Sequenzdiagramm zeigt User/Chat -> Worker -> ToolRequest -> Hub -> CodeCompassContextService -> ToolResult -> Antwort.",
+        "Beispiele zeigen resolve_context, search_symbols, expand_graph und get_file_context.",
+        "Agentenregeln sagen klar: bei fehlendem Kontext ToolCall stellen, nicht raten.",
+        "Security-Grenzen und externe Cloud-Scope-Regeln sind explizit beschrieben."
+      ],
+      "test_expectations": [
+        "Docs-Lint/Markdown-Test laeuft.",
+        "Beispiel-JSON ist valide und entspricht Schema.",
+        "Mermaid-Diagramm rendert ohne Syntaxfehler, falls entsprechender Test vorhanden ist."
+      ]
+    },
+    {
+      "id": "CCTP-022",
+      "title": "Beispiel-Prompts und Tool-Call-Guidelines fuer Worker erstellen",
+      "type": "prompt-contract",
+      "milestone": "CCTP-M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "docs/examples/codecompass-context-tool-prompts.md",
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "agent/services/worker_contract_service.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt kurze, robuste Instruktionen fuer Modelle mit und ohne natives Function Calling.",
+        "JSON-Protokoll-Beispiele zeigen tool_request, tool_result, final_answer und cannot_continue_without_context.",
+        "Prompts verlangen keine Chain-of-Thought-Ausgabe, sondern nur begruendete ToolRequests und nutzbare Evidence.",
+        "Beispiele sind deutsch/englisch-tauglich und vermeiden unnoetig lange Boilerplate.",
+        "PromptBuilder kann diese Guidelines einbinden, ohne jedes Mal alle Tool-Schemas voll auszuschreiben."
+      ],
+      "test_expectations": [
+        "Prompt-Snapshot bleibt unter definierter Zeichen-/Token-Grenze.",
+        "JSON-Beispiele sind valide.",
+        "Regressionstest prueft, dass alte PromptBuilder-Ausgabe ohne Tool-Modus moeglich bleibt."
+      ]
+    },
+    {
+      "id": "CCTP-023",
+      "title": "Migration von archivierten Todos und offenen Konzepten nachvollziehbar verlinken",
+      "type": "todo-consolidation",
+      "milestone": "CCTP-M6",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "target_files": [
+        "todos/todo.codecompass-context-tool-provider.json",
+        "todos/archiv/todo.ananta-worker-tool-calling-loop.json",
+        "todos/archiv/todo.codecompass-worker-file-context-handoff.json",
+        "todos/archiv/todo.codecompass-agent-runtime-instructions.json",
+        "todos/archiv/todo.codecompass-runtime-domain-scope.json"
+      ],
+      "acceptance_criteria": [
+        "Dieses Todo referenziert die relevanten archivierten Todos und erklaert, welche Punkte wiederverwendet werden.",
+        "Doppelte Aufgaben werden nicht blind neu implementiert, sondern gegen echten Code geprueft.",
+        "Erledigte Altziele werden als Grundlage markiert, nicht als Beweis fuer vorhandene Implementierung.",
+        "Offene Abweichungen bekommen konkrete Followup-Task-IDs.",
+        "Todo bleibt maschinenlesbares JSON."
+      ],
+      "test_expectations": [
+        "JSON-Validierung fuer dieses Todo besteht.",
+        "Optionaler Todo-Schema-Test akzeptiert neue Felder oder diese werden schema-konform angepasst."
+      ]
+    },
+    {
+      "id": "CCTP-024",
+      "title": "Abschlusskriterien und Demo-Szenario definieren",
+      "type": "release-readiness",
+      "milestone": "CCTP-M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "docs/demos/codecompass-context-tool-provider-demo.md",
+        "tests/e2e/test_ai_snake_chat_codecompass_context_tools.py",
+        "tests/e2e/test_ananta_worker_codecompass_tool_loop.py"
+      ],
+      "acceptance_criteria": [
+        "Demo zeigt den Gemini-Erfolgsfall als Ananta-Flow: CodeCompass-Projektkarte + konkrete Arbeitsdateien + Tool-Nachforderung.",
+        "Demo zeigt ai-snake-chat Erklaerung, ananta-worker Implementierungsaufgabe und externen Backend-Handoff.",
+        "Demo laeuft offline mit Fixture-Projekt und Mock-LLM.",
+        "Messpunkte enthalten Anzahl gelieferter Dateien, Token-/Byte-Schaetzung, genutzte Tools, Kontext-Hash und Policy-Entscheidungen.",
+        "Definition of Done verlangt erfolgreiche Unit-, Security- und E2E-Tests."
+      ],
+      "test_expectations": [
+        "Make-/Pytest-Ziel oder dokumentierter Testbefehl fuehrt relevante Tests aus.",
+        "Demo-Snapshot prueft erwartete ToolCall-Reihenfolge.",
+        "Abschlusscheck dokumentiert bekannte Restluecken."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "codecompass.* Tools sind im Tool-Catalog sichtbar und ueber Hub/Worker-Tool-Loop nutzbar.",
+    "resolve_context liefert ein codecompass_context_package.v1 mit CandidateFiles, Provenance, Budget, Policy und why_this_context.",
+    "get_file_context liest nur erlaubte Originaldateien/Zeilenbereiche und liefert Hashes, Groessen, Redaction-Status und Denials.",
+    "ai-snake-chat kann CodeCompass-Kontext per ToolCall nutzen und muss nicht alle JSONL-Dateien als Prompt-Text erhalten.",
+    "ananta-worker kann Kontext nachfordern, bevor er erklaert, reviewed oder Patches vorschlaegt.",
+    "OpenCode/Hermes/Codex/Aider-Adapter koennen mindestens initiale ContextPackages erhalten; ToolLoop-Faehigkeit ist separat erkennbar.",
+    "Alle Context-Tools sind policy-geprueft, budgetiert, auditiert und offline testbar.",
+    "Rueckwaertskompatibilitaet zu worker_context_bundle.v1 und vorhandenen Worker-Contracts ist durch Tests abgesichert.",
+    "Security-Tests fuer Pfadgrenzen, Secrets, externe Scopes und grosse Dateien bestehen.",
+    "Dokumentation enthaelt Architekturdiagramm, Tool-Beispiele, Prompt-Guidelines und Demo-Szenario."
+  ],
+  "open_questions": [
+    "Soll codecompass.resolve_context standardmaessig Originaldatei-Auszüge liefern oder nur CandidateFiles plus Tool-Hinweis fuer get_file_context? Empfehlung: Default nur CandidateFiles, working_files optional direkt lesen.",
+    "Soll Raw-JSONL jemals an externe Backends gegeben werden? Empfehlung: nur normalisierte Records; Raw nur local_only/debug.",
+    "Wo liegt langfristig der zentrale Tool-Catalog: worker/core/tool_registry.py oder agent/services/tool_catalog_service.py? Empfehlung: mittelfristig zentral im Hub, WorkerRegistry nur als lokale Sicht.",
+    "Wie wird OpenCode konkret angebunden, wenn es keinen Rueckkanal fuer ToolCalls hat? Empfehlung: initial ContextPackage + wrapper-gesteuerte Folgecalls."
+  ],
+  "notes": [
+    "Motivation: Gemini lieferte sehr gute Antworten mit CodeCompass-JSONL als kompakter Projektkarte plus wenigen aktuellen Java-Dateien. Dieses Muster soll reproduzierbar und policy-sicher als Tool-Provider in Ananta nutzbar werden.",
+    "Wichtig: Das Ziel ist weniger Kontext-Rauschen, nicht mehr. CodeCompass soll gezielt fuehren, welche Originaldateien wirklich gelesen werden muessen.",
+    "Dieses Todo baut bewusst auf den archivierten Todos ananta-worker-tool-calling-loop und codecompass-worker-file-context-handoff auf, macht daraus aber eine konkrete Tool-Provider-Aufgabe."
+  ]
+}
