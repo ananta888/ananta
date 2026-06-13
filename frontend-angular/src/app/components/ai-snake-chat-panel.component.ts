@@ -13,6 +13,7 @@ import {
 import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
+import { AiSnakeTraceViewerComponent } from './ai-snake-trace-viewer.component';
 import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
 import { ChatSessionsService } from '../services/chat-sessions.service';
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
@@ -20,7 +21,7 @@ import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, ChatSessionsPanelComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -79,6 +80,10 @@ import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history
       } @else if (tab === 'sessions') {
         <div class="settings-shell">
           <app-chat-sessions-panel />
+        </div>
+      } @else if (tab === 'trace') {
+        <div class="trace-shell">
+          <app-ai-snake-trace-viewer />
         </div>
       } @else if (tab === 'deprecated') {
         <div class="mode-shell">
@@ -214,6 +219,7 @@ import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history
       <div class="bottom-tabs">
         <button [class.active]="tab==='chat'" (click)="setTab('chat')">Chat</button>
         <button [class.active]="tab==='sessions'" (click)="setTab('sessions')">Sessions</button>
+        <button [class.active]="tab==='trace'" (click)="setTab('trace')" class="trace-tab-btn">Trace</button>
         <button [class.active]="tab==='login'" (click)="setTab('login')">AI-Snake</button>
         <button [class.active]="tab==='pair'" (click)="setTab('pair')">Pair Dev</button>
         <button [class.active]="tab==='mode'" (click)="setTab('mode')">Modus</button>
@@ -240,6 +246,7 @@ import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history
     .mode-tabs button { border: 1px solid #1a2d4a; color: #6b8ab8; background: transparent; }
     .mode-tabs button.active { color: #7fffd4; border-color: #7fffd4; background: #102238; }
     .settings-shell { flex: 1; min-height: 0; overflow: hidden; }
+    .trace-shell { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
     /* ── Chat-Switcher ── */
     .chat-switcher {
       display: flex; align-items: center; gap: 4px;
@@ -318,6 +325,8 @@ import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history
     }
     .bottom-tabs button { border: 1px solid #1a2d4a; color: #6b8ab8; background: transparent; padding: 4px 9px; cursor: pointer; }
     .bottom-tabs button.active { color: #7fffd4; border-color: #2a4070; background: #102238; }
+    .trace-tab-btn { border-color: #1a3a2a; color: #3a8a6a; }
+    .trace-tab-btn.active { color: #3accaa; border-color: #1a6a4a; background: #0a2018; }
     .error { color: #fb7185; font-size: 11px; padding: 6px 10px; border-top: 1px solid #4a1a1a; }
   `],
 })
@@ -343,8 +352,8 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   private historySub?: Subscription;
 
-  @Input() tab: 'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
-  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
+  @Input() tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
+  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
 
   get keycloakIssuer(): string {
     return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta-e2e'}`;
@@ -458,7 +467,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     this.sessions.activate(id);
   }
 
-  setTab(tab: 'chat' | 'sessions' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+  setTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
     this.tab = tab;
     this.tabChange.emit(tab);
   }

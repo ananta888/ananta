@@ -456,7 +456,16 @@ def _append_room_ai_message(*, text: str) -> None:
 from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
 
 
-def _spawn_ai_chat_reply(*, user_text: str) -> None:
+def _trace_feature_enabled() -> bool:
+    try:
+        from agent.routes.ai_snake_config import _current_config
+        cfg = _current_config()
+        return bool(cfg.get("ai_snake_trace_enabled", True))
+    except Exception:
+        return True
+
+
+def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
         return
@@ -464,28 +473,91 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
         return
 
     def _runner() -> None:
+        rec = None
+        store = None
+        trace_id = None
         try:
+            if _trace_feature_enabled():
+                from agent.routes.ai_snake_trace_store import get_trace_store, TraceRecorder
+                store = get_trace_store()
+                trace_id = store.new_trace(snake_id=snake_id)
+                rec = TraceRecorder(store, trace_id)
+                rec.event(
+                    "request_received", "Anfrage empfangen",
+                    status="completed",
+                    summary=f"Prompt: {prompt[:120]}{'\u2026' if len(prompt) > 120 else ''}",
+                )
+
             provider, model = _resolve_ai_snake_chat_provider()
+            if rec:
+                rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
+                          details={"provider": provider, "model": model})
 
             try:
                 from agent.routes.ai_snake_config import _current_config
                 from agent.services.retrieval_profile_service import _is_full_scan_intent
                 _cfg = _current_config()
                 if _is_full_scan_intent(prompt, "", _cfg):
+                    if rec:
+                        rec.event("full_scan_detected", "Full-Scan erkannt", status="running",
+                                  summary="Architektur-Analyse wird gestartet")
+                    t0 = time.time()
                     answer, scan_trace = _worker_chat_full_scan(prompt, provider=provider, model=model, cancel_key="room")
                     files_found = scan_trace.get("files_found", 0)
                     batches_done = scan_trace.get("batches_completed", 0)
                     scan_summary = f"full_scan: {batches_done} Batches, {files_found} Dateien"
+                    if rec:
+                        rec.event(
+                            "full_scan_batch_completed", "Full-Scan abgeschlossen",
+                            status="completed" if answer else "failed",
+                            summary=scan_summary,
+                            duration_ms=(time.time() - t0) * 1000,
+                            details={
+                                "files_found": files_found,
+                                "batches_completed": batches_done,
+                                "mode": scan_trace.get("mode"),
+                                "error": scan_trace.get("error"),
+                            },
+                        )
                     if not answer:
                         answer = "Full-Scan ergab keine Antwort."
                     if len(answer) > 5800:
                         answer = answer[:5800].rstrip() + "\n\n[gekuerzt]"
+                    if rec:
+                        rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
+                                  summary=f"{len(answer)} Zeichen")
                     _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]")
+                    if rec:
+                        rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
+                    if store and trace_id:
+                        store.complete_trace(trace_id)
                     return
             except Exception as exc:
                 logging.getLogger(__name__).debug("full_scan check failed, falling back: %s", exc)
 
+            if rec:
+                rec.event("retrieval_profile_selected", "Retrieval-Profil wird aufgel\u00f6st", status="running")
+
+            retrieval_start = time.time()
+            if rec:
+                rec.event("codecompass_retrieval_started", "CodeCompass Retrieval gestartet", status="running",
+                          input_preview=prompt[:300])
+
             grounded_prompt, has_context, context_summary, _domain_info = _build_grounded_snake_prompt(prompt)
+
+            retrieval_ms = (time.time() - retrieval_start) * 1000
+            if rec:
+                rec.event(
+                    "codecompass_retrieval_completed", "CodeCompass Retrieval abgeschlossen",
+                    status="completed" if has_context else "skipped",
+                    summary=context_summary,
+                    duration_ms=retrieval_ms,
+                    details={"has_context": has_context, "grounded_chars": len(grounded_prompt)},
+                )
+                rec.event("prompt_built", "Prompt aufgebaut", status="completed",
+                          summary=f"{len(grounded_prompt)} Zeichen",
+                          details={"context_summary": context_summary})
+
             q = prompt.lower()
             asks_for_concrete_local_facts = any(
                 token in q for token in (
@@ -493,8 +565,21 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
                 )
             )
             if asks_for_concrete_local_facts and not has_context:
+                if rec:
+                    rec.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
+                              summary="Kein Kontext verf\u00fcgbar f\u00fcr konkrete Fragen")
                 _append_room_ai_message(text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]")
+                if rec:
+                    rec.event("chat_message_written", "Hinweis in Raum geschrieben", status="completed")
+                if store and trace_id:
+                    store.complete_trace(trace_id)
                 return
+
+            llm_start = time.time()
+            if rec:
+                rec.event("llm_call_started", "LLM-Aufruf gestartet", status="running",
+                          details={"provider": provider, "model": model})
+
             answer = generate_text(
                 prompt=grounded_prompt,
                 provider=provider,
@@ -502,6 +587,13 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
                 timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
             )
+
+            llm_ms = (time.time() - llm_start) * 1000
+            if rec:
+                rec.event("llm_call_completed", "LLM-Aufruf abgeschlossen", status="completed",
+                          duration_ms=llm_ms,
+                          output_preview=str(answer or "")[:500])
+
             text = str(answer or "").strip()
             asked_for_link = any(token in prompt.lower() for token in ("link", "url", "quelle", "source"))
             if text and not asked_for_link:
@@ -511,9 +603,27 @@ def _spawn_ai_chat_reply(*, user_text: str) -> None:
             if not text:
                 text = "AI-Snake konnte gerade keine Antwort erzeugen."
             text = f"{text}\n\n[{context_summary}]"
+
+            if rec:
+                rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
+                          summary=f"{len(text)} Zeichen, Kontext angeh\u00e4ngt")
+
             _append_room_ai_message(text=text)
+
+            if rec:
+                rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
+            if store and trace_id:
+                store.complete_trace(trace_id)
+
         except Exception as exc:
             logging.getLogger(__name__).warning("ai-snake-chat-reply failed: %s", exc)
+            if rec and store and trace_id:
+                try:
+                    rec.event("failed", "Fehler bei der Antwortgenerierung", status="failed",
+                              error=str(exc)[:300])
+                    store.complete_trace(trace_id, status="failed")
+                except Exception:
+                    pass
             _append_room_ai_message(text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.")
 
     thread = threading.Thread(target=_runner, name="snake-chat-reply", daemon=True)
@@ -709,7 +819,7 @@ def chat_send(snake_id: str):
             _room_messages.append(msg)
             if len(_room_messages) > _MAX_ROOM_MSGS:
                 _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
-            _spawn_ai_chat_reply(user_text=text)
+            _spawn_ai_chat_reply(user_text=text, snake_id=snake_id)
     elif channel_type == "direct":
         target_ids = msg["target_ids"]
         if not target_ids:
@@ -997,3 +1107,70 @@ def snake_ask():
     except Exception as exc:
         logging.getLogger(__name__).warning("snake-ask failed: %s", exc)
         return jsonify({"error": f"LLM-Fehler: {str(exc)[:120]}"}), 503
+
+
+# ── Trace API ──────────────────────────────────────────────────────────────────
+
+
+@snakes_bp.route("/snakes/<snake_id>/chat/traces", methods=["GET"])
+def chat_traces_list(snake_id: str):
+    """GET /snakes/<id>/chat/traces -- Liste der Traces für diese Snake."""
+    snake = _snakes.get(snake_id)
+    if not snake:
+        return jsonify({"error": "Snake nicht gefunden"}), 404
+    try:
+        from agent.routes.ai_snake_trace_store import get_trace_store
+        store = get_trace_store()
+        limit = min(int(request.args.get("limit") or 20), 100)
+        traces = store.list_traces(snake_id=snake_id, limit=limit)
+        return jsonify({"traces": traces, "snake_id": snake_id}), 200
+    except Exception as exc:
+        logging.getLogger(__name__).warning("chat_traces_list failed: %s", exc)
+        return jsonify({"error": "Interner Fehler"}), 500
+
+
+@snakes_bp.route("/snakes/<snake_id>/chat/traces/<trace_id>", methods=["GET"])
+def chat_trace_detail(snake_id: str, trace_id: str):
+    """GET /snakes/<id>/chat/traces/<trace_id> -- Trace-Metadaten abrufen."""
+    snake = _snakes.get(snake_id)
+    if not snake:
+        return jsonify({"error": "Snake nicht gefunden"}), 404
+    try:
+        from agent.routes.ai_snake_trace_store import get_trace_store
+        store = get_trace_store()
+        trace = store.get_trace(trace_id)
+        if trace is None:
+            return jsonify({"error": "Trace nicht gefunden"}), 404
+        if trace.get("snake_id") and trace["snake_id"] != snake_id:
+            return jsonify({"error": "Trace gehört nicht zu dieser Snake"}), 403
+        return jsonify({"trace": trace}), 200
+    except Exception as exc:
+        logging.getLogger(__name__).warning("chat_trace_detail failed: %s", exc)
+        return jsonify({"error": "Interner Fehler"}), 500
+
+
+@snakes_bp.route("/snakes/<snake_id>/chat/traces/<trace_id>/events", methods=["GET"])
+def chat_trace_events(snake_id: str, trace_id: str):
+    """GET /snakes/<id>/chat/traces/<trace_id>/events?since_seq=0 -- Events inkrementell abrufen."""
+    snake = _snakes.get(snake_id)
+    if not snake:
+        return jsonify({"error": "Snake nicht gefunden"}), 404
+    try:
+        from agent.routes.ai_snake_trace_store import get_trace_store
+        store = get_trace_store()
+        trace = store.get_trace(trace_id)
+        if trace is None:
+            return jsonify({"error": "Trace nicht gefunden"}), 404
+        if trace.get("snake_id") and trace["snake_id"] != snake_id:
+            return jsonify({"error": "Trace gehört nicht zu dieser Snake"}), 403
+        since_seq = max(0, int(request.args.get("since_seq") or 0))
+        events = store.get_events(trace_id, since_seq=since_seq)
+        return jsonify({
+            "trace_id": trace_id,
+            "current_status": trace.get("status", "unknown"),
+            "latest_seq": trace.get("latest_seq", -1),
+            "events": events,
+        }), 200
+    except Exception as exc:
+        logging.getLogger(__name__).warning("chat_trace_events failed: %s", exc)
+        return jsonify({"error": "Interner Fehler"}), 500

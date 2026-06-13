@@ -30,6 +30,10 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     # Full-scan chat budget
     "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches", "chat_full_scan_timeout_s",
+    # Trace/Tracking Viewer
+    "ai_snake_trace_enabled", "ai_snake_trace_max_traces", "ai_snake_trace_max_events_per_trace",
+    "ai_snake_trace_ttl_seconds", "ai_snake_trace_stream_mode", "ai_snake_trace_redact_secrets",
+    "ai_snake_trace_max_preview_chars",
 })
 
 _DEFAULTS: dict[str, Any] = {
@@ -72,6 +76,14 @@ _DEFAULTS: dict[str, Any] = {
     "chat_full_scan_files_per_batch": 3,
     "chat_full_scan_parallel_batches": 1,
     "chat_full_scan_timeout_s": 1800,
+    # Trace/Tracking Viewer
+    "ai_snake_trace_enabled": True,
+    "ai_snake_trace_max_traces": 50,
+    "ai_snake_trace_max_events_per_trace": 500,
+    "ai_snake_trace_ttl_seconds": 86400,
+    "ai_snake_trace_stream_mode": "polling",
+    "ai_snake_trace_redact_secrets": True,
+    "ai_snake_trace_max_preview_chars": 4000,
 }
 
 _OPTIONS: dict[str, list[str]] = {
