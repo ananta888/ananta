@@ -43,6 +43,19 @@ def _loop_config(**overrides):
     return cfg
 
 
+def test_default_tool_loop_allows_codecompass_context_tools():
+    from agent.config_defaults import build_default_agent_config
+
+    allowed = set(build_default_agent_config()["ananta_worker_tool_loop"]["allowed_tools"])
+    assert {
+        "codecompass.resolve_context",
+        "codecompass.search_symbols",
+        "codecompass.expand_graph",
+        "codecompass.get_file_context",
+        "codecompass.get_domain_map",
+    }.issubset(allowed)
+
+
 # --- parser (AWTCL-009) -----------------------------------------------------
 
 

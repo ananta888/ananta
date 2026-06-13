@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass_context_package.v1.schema.json",
+  "title": "CodeCompass ContextPackage v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "package_id",
+    "query",
+    "task_kind",
+    "mode",
+    "created_at",
+    "manifest_hash",
+    "context_hash",
+    "budget",
+    "policy",
+    "candidate_files",
+    "context_files",
+    "jsonl_records",
+    "symbols",
+    "graph_edges",
+    "domain_map",
+    "retrieval_trace",
+    "selection_trace",
+    "why_this_context",
+    "denied_items",
+    "warnings"
+  ],
+  "properties": {
+    "schema": { "const": "codecompass_context_package.v1" },
+    "package_id": { "type": "string" },
+    "query": { "type": "string" },
+    "task_kind": { "type": "string" },
+    "mode": { "type": "string" },
+    "created_at": { "type": "number" },
+    "manifest_hash": { "type": "string" },
+    "context_hash": { "type": "string" },
+    "budget": { "type": "object" },
+    "policy": { "type": "object" },
+    "candidate_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "score", "reason", "source_output_kinds", "requires_read", "provenance"],
+        "properties": {
+          "candidate_id": { "type": "string" },
+          "path": { "type": "string" },
+          "score": { "type": "number" },
+          "reason": { "type": "string" },
+          "source_output_kinds": { "type": "array", "items": { "type": "string" } },
+          "source_record_ids": { "type": "array", "items": { "type": "string" } },
+          "matched_symbols": { "type": "array", "items": { "type": "string" } },
+          "relation_path": { "type": "array" },
+          "requires_read": { "type": "boolean" },
+          "sensitivity": { "type": "string" },
+          "read_policy": { "type": "string" },
+          "provenance": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "context_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "byte_count", "line_count", "redaction_status", "read_at", "provenance"],
+        "properties": {
+          "path": { "type": "string" },
+          "content": { "type": "string" },
+          "content_ref": { "type": "string" },
+          "sha256": { "type": "string" },
+          "byte_count": { "type": "integer" },
+          "line_count": { "type": "integer" },
+          "line_ranges": { "type": "array" },
+          "redaction_status": { "type": "string" },
+          "truncated": { "type": "boolean" },
+          "read_at": { "type": "number" },
+          "provenance": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "jsonl_records": { "type": "array" },
+    "symbols": { "type": "array" },
+    "graph_edges": { "type": "array" },
+    "domain_map": { "type": "object" },
+    "retrieval_trace": { "type": "object" },
+    "selection_trace": { "type": "array" },
+    "why_this_context": { "type": "array", "items": { "type": "string" } },
+    "denied_items": { "type": "array" },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

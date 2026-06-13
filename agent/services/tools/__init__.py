@@ -43,12 +43,24 @@ def execute_ananta_tool(
         if name == "codecompass.search":
             from agent.services.tools.codecompass_tools import codecompass_search
             return codecompass_search(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.resolve_context":
+            from agent.services.tools.codecompass_tools import codecompass_resolve_context
+            return codecompass_resolve_context(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.search_symbols":
+            from agent.services.tools.codecompass_tools import codecompass_search_symbols
+            return codecompass_search_symbols(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "codecompass.plan_context":
             from agent.services.tools.codecompass_tools import codecompass_plan_context
             return codecompass_plan_context(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "codecompass.expand_graph":
             from agent.services.tools.codecompass_tools import codecompass_expand_graph
             return codecompass_expand_graph(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.get_file_context":
+            from agent.services.tools.codecompass_tools import codecompass_get_file_context
+            return codecompass_get_file_context(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.get_domain_map":
+            from agent.services.tools.codecompass_tools import codecompass_get_domain_map
+            return codecompass_get_domain_map(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "codecompass.architecture_query":
             from agent.services.tools.codecompass_tools import codecompass_architecture_query
             return codecompass_architecture_query(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)

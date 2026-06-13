@@ -24,6 +24,149 @@ _MAX_SEARCH_LIMIT = 20
 _MAX_GRAPH_NODES = 40
 
 
+def codecompass_resolve_context(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return build_tool_result(
+            tool_name="codecompass.resolve_context", tool_call_id=tool_call_id, status="error", error="query_required"
+        )
+    from agent.services.codecompass_context_service import get_codecompass_context_service
+
+    package = get_codecompass_context_service().resolve_context(
+        query=query,
+        task_kind=str(args.get("task_kind") or "").strip() or None,
+        mode=str(args.get("mode") or "").strip() or None,
+        working_files=[str(item) for item in list(args.get("working_files") or [])],
+        domain_hint=str(args.get("domain_hint") or "").strip() or None,
+        domain_scope=str(args.get("domain_scope") or "").strip() or None,
+        max_tokens=args.get("max_tokens"),
+        max_files=args.get("max_files"),
+        include_original_files=bool(args.get("include_original_files", False)),
+        include_jsonl_records=bool(args.get("include_jsonl_records", False)),
+        include_graph=bool(args.get("include_graph", False)),
+        llm_scope=str(args.get("llm_scope") or "").strip() or None,
+        workspace_dir=workspace_dir,
+    )
+    return build_tool_result(
+        tool_name="codecompass.resolve_context",
+        tool_call_id=tool_call_id,
+        status="ok" if not package.get("reason_code") else "error",
+        data={"context_package": package},
+        warnings=list(package.get("warnings") or []),
+        error=str(package.get("reason_code") or "") or None,
+        max_total_chars=12000,
+    )
+
+
+def codecompass_search_symbols(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return build_tool_result(
+            tool_name="codecompass.search_symbols", tool_call_id=tool_call_id, status="error", error="query_required"
+        )
+    from agent.services.codecompass_context_service import get_codecompass_context_service
+
+    result = get_codecompass_context_service().search_symbols(
+        query=query,
+        record_kinds=[str(item) for item in list(args.get("record_kinds") or [])],
+        path_globs=[str(item) for item in list(args.get("path_globs") or [])],
+        domain_hint=str(args.get("domain_hint") or "").strip() or None,
+        limit=int(args.get("limit") or 20),
+    )
+    evidence = []
+    for record in list(result.get("records") or [])[:10]:
+        entry, _ = build_evidence_entry(
+            kind=EVIDENCE_KIND_RETRIEVAL_CHUNK,
+            path=str(record.get("path") or ""),
+            excerpt=str(record.get("excerpt") or record.get("symbol") or ""),
+            source="codecompass.search_symbols",
+            score=record.get("score"),
+            max_excerpt_chars=500,
+        )
+        evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.search_symbols",
+        tool_call_id=tool_call_id,
+        status="ok" if result.get("status") == "ok" else "degraded",
+        evidence=evidence,
+        data={"search_result": result},
+        warnings=list(result.get("warnings") or []),
+    )
+
+
+def codecompass_get_file_context(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    paths = [str(item) for item in list(args.get("paths") or []) if str(item or "").strip()]
+    if not paths:
+        return build_tool_result(
+            tool_name="codecompass.get_file_context", tool_call_id=tool_call_id, status="error", error="paths_required"
+        )
+    from agent.services.codecompass_context_service import get_codecompass_context_service
+
+    result = get_codecompass_context_service().get_file_context(
+        paths=paths,
+        line_ranges=[dict(item) for item in list(args.get("line_ranges") or []) if isinstance(item, dict)],
+        max_bytes_per_file=args.get("max_bytes_per_file"),
+        max_total_bytes=args.get("max_total_bytes"),
+        redaction_mode=str(args.get("redaction_mode") or "auto"),
+        reason=str(args.get("reason") or "").strip() or None,
+        workspace_dir=workspace_dir,
+    )
+    evidence = []
+    for row in list(result.get("context_files") or [])[:8]:
+        entry, _ = build_evidence_entry(
+            kind="file_context",
+            path=str(row.get("path") or ""),
+            excerpt=str(row.get("content") or ""),
+            source="codecompass.get_file_context",
+            max_excerpt_chars=800,
+        )
+        evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.get_file_context",
+        tool_call_id=tool_call_id,
+        status="ok" if result.get("status") == "ok" else "error",
+        evidence=evidence,
+        data={"file_context_result": result},
+        warnings=list(result.get("warnings") or []),
+        error=str(result.get("error") or "") or None,
+        max_total_chars=12000,
+    )
+
+
+def codecompass_get_domain_map(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    from agent.services.codecompass_context_service import get_codecompass_context_service
+
+    result = get_codecompass_context_service().get_domain_map(
+        domain_hint=str(args.get("domain_hint") or "").strip() or None,
+        include_files=bool(args.get("include_files", True)),
+        include_edges=bool(args.get("include_edges", False)),
+        max_entries=int(args.get("max_entries") or 20),
+    )
+    evidence = []
+    for row in list((result.get("domain_map") or {}).get("key_files") or [])[:10]:
+        entry, _ = build_evidence_entry(
+            kind="domain_file",
+            path=str(row.get("path") or ""),
+            excerpt=str(row.get("reason") or ""),
+            source="codecompass.get_domain_map",
+            score=row.get("score"),
+            max_excerpt_chars=300,
+        )
+        evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.get_domain_map",
+        tool_call_id=tool_call_id,
+        status="ok" if result.get("status") == "ok" else "degraded",
+        evidence=evidence,
+        data={"domain_map_result": result},
+        warnings=list(result.get("warnings") or []),
+    )
+
+
 def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
     args = arguments or {}
     query = str(args.get("query") or "").strip()
@@ -147,6 +290,9 @@ def _resolve_graph_store(arguments: dict[str, Any]):
 def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
     args = arguments or {}
     node = str(args.get("node") or "").strip()
+    if not node:
+        seeds = [str(seed).strip() for seed in list(args.get("seeds") or []) if str(seed).strip()]
+        node = seeds[0] if seeds else ""
     if not node:
         return build_tool_result(
             tool_name="codecompass.expand_graph", tool_call_id=tool_call_id, status="error", error="node_required"

@@ -34,6 +34,19 @@ def test_read_only_tool_allowed_without_approval():
     assert decision.risk_class == "read"
 
 
+def test_codecompass_context_tools_are_read_only_policy_allowed():
+    for tool_name in [
+        "codecompass.resolve_context",
+        "codecompass.search_symbols",
+        "codecompass.expand_graph",
+        "codecompass.get_file_context",
+        "codecompass.get_domain_map",
+    ]:
+        decision = _evaluate(tool_name, allowed_tools=[tool_name])
+        assert decision.decision == DECISION_ALLOW
+        assert decision.rule_id == "read_only_allowed"
+
+
 def test_tool_outside_allowed_scope_is_blocked():
     decision = _evaluate("repo.grep", allowed_tools=["codecompass.search"])
     assert decision.decision == DECISION_POLICY_BLOCKED

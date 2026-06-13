@@ -140,6 +140,31 @@ class TestWorkerToolRegistry:
         for tool_id in ["read_file", "propose_patch", "apply_patch", "run_shell", "run_tests"]:
             assert registry.is_registered(tool_id), f"{tool_id} missing from default registry"
 
+    def test_build_default_registry_has_codecompass_context_tools(self):
+        registry = build_default_registry()
+        for tool_id in [
+            "codecompass.resolve_context",
+            "codecompass.search_symbols",
+            "codecompass.expand_graph",
+            "codecompass.get_file_context",
+            "codecompass.get_domain_map",
+        ]:
+            entry = registry.get(tool_id)
+            assert entry is not None, f"{tool_id} missing from default registry"
+            assert entry.risk_class == "low"
+            assert "filesystem_write" not in entry.side_effects
+            assert "host_mutation" not in entry.side_effects
+
+    def test_codecompass_resolve_context_requires_query(self):
+        registry = build_default_registry()
+        env = ToolInvocationEnvelope(
+            execution_id="exec-1",
+            tool_id="codecompass.resolve_context",
+            arguments={},
+        )
+        errors = registry.validate_invocation(env)
+        assert any("query" in error for error in errors)
+
 
 # ── ToolInvocationEnvelope ────────────────────────────────────────────────────
 
