@@ -1,0 +1,1014 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ai-snake-chat-token-budget-context-guard-default-mode",
+  "created_at": "2026-06-13",
+  "status": "todo",
+  "purpose": "Verhindern, dass einfache Chat-Anfragen im ai-snake-chat unkontrolliert große Hidden-Kontexte, Tool-Schemas, RAG-/CodeCompass-Daten, alte History oder Fallback-Modelle mitschleppen. Default-Modus muss sicher, billig, deterministisch und budgetiert sein.",
+  "goal": "Ein normaler ai-snake-chat Request wie 'hallo' darf im Default-Modus keinen Projektkontext, keine Tool-Schemas, keine Repo-Analyse, keine Kompaktierung und keine vollständige History laden. Kontext, Tools und RAG werden nur nach expliziter, nachvollziehbarer und budgetierter Entscheidung aktiviert. Jede Anfrage erzeugt eine nachvollziehbare Token-/Kontext-Bilanz.",
+  "non_goals": [
+    "Keine vollständige semantische Absichtserkennung für beliebig verschleierte Aufgaben.",
+    "Keine automatische Freigabe großer Repo-Kontexte nur wegen unsicherer Heuristik.",
+    "Keine Optimierung auf maximale Modellintelligenz im Default-Modus.",
+    "Keine stillen Fallbacks auf teurere oder größere externe Modelle ohne Policy-Decision."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "default_mode_contract": {
+    "name": "safe_minimal_chat",
+    "must_hold": [
+      "Smalltalk, Begrüßungen, einfache Meta-Fragen und kurze allgemeine Fragen laufen ohne CodeCompass/RAG.",
+      "Tool-Schemas werden nicht in jeden LLM-Request injiziert.",
+      "History wird begrenzt und nicht automatisch vollständig mitgegeben.",
+      "Kompaktierung wird nur gestartet, wenn dafür ein eigenes Budget und ein konkreter Grund existiert.",
+      "Fallback-Modelle dürfen nicht stillschweigend den Kostenschutz umgehen.",
+      "Jeder Request bekommt eine ContextBudgetDecision mit Reason-Codes."
+    ],
+    "example_expected_behavior": {
+      "user_input": "hallo",
+      "expected": {
+        "intent_class": "smalltalk",
+        "include_project_context": false,
+        "include_codecompass_context": false,
+        "include_tool_schemas": false,
+        "include_full_history": false,
+        "allow_compaction": false,
+        "max_input_tokens": 1500,
+        "max_output_tokens": 500,
+        "allowed_model_tier": "cheap_or_local_chat"
+      }
+    }
+  },
+  "code_analysis_notes": {
+    "related_existing_files": [
+      "client_surfaces/operator_tui/chat_policy.py - vorhandene Default-Deny ChatAccessPolicy fuer boundary-crossing Actions; erweitern um Kontext-/Budget-Entscheidungen.",
+      "client_surfaces/operator_tui/chat_state.py - vorhandenes Channel-/Message-Modell; erweitern um Kontextmetadaten und Budget-Trace-Refs.",
+      "client_surfaces/operator_tui/chat_transport.py - Hub-Polling/Outbox; pruefen, dass keine grossen Chat-Payloads oder History unbemerkt versendet werden.",
+      "agent/services/routing_decision_service.py - vorhandene fallback_order Logic; erweitern um Kosten-/Budget-/Modell-Tier-Gates.",
+      "agent/services/worker_selection_policy_service.py - Worker-Auswahl; darf keine teuren/externen Worker ohne ContextBudgetDecision waehlen.",
+      "tests/test_tui_snake_chat_policy.py - Basis fuer neue Policy-Tests.",
+      "tests/test_tui_snake_chat_state.py - Basis fuer Chat-State/Budget-Trace Tests.",
+      "tests/test_snakes_chat_api.py - Basis fuer API-/Request-Flow Tests.",
+      "tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py - Basis fuer CodeCompass-Gating Tests."
+    ],
+    "current_relevant_strengths": [
+      "ChatPolicy arbeitet bereits mit Default-Deny fuer boundary-crossing Actions.",
+      "Audit-Log speichert laut bestehender Policy keinen vollstaendigen Nachrichtentext.",
+      "Channel-Typen und Visibility existieren bereits und koennen fuer Kontextfreigabe genutzt werden.",
+      "Heuristic Runtime/DecisionResult ist bereits als Richtung angelegt."
+    ],
+    "current_gaps_to_close": [
+      "Keine zentrale TokenBudgetPolicy fuer ai-snake-chat erkennbar.",
+      "Keine harte Trennung zwischen minimal_chat, project_chat, tool_enabled_chat und deep_analysis Modus.",
+      "Keine verpflichtende Request-Bilanz fuer system/history/tools/rag/user/output_budget.",
+      "Kein generisches Schema fuer ContextBudgetDecision und ContextAssemblyTrace.",
+      "Kein Default-Block gegen Tool-Schema-Injektion bei Smalltalk.",
+      "Kein generisches Kosten-/Provider-/Fallback-Gate fuer OpenRouter/Hermes/Ollama/LMStudio/andere Backends."
+    ]
+  },
+  "configuration_design": {
+    "new_config_section": "chat_context_budget",
+    "suggested_config_shape": {
+      "enabled": true,
+      "default_mode": "safe_minimal_chat",
+      "fail_closed": true,
+      "tokenizer": {
+        "strategy": "provider_estimate_with_local_fallback",
+        "fallback_chars_per_token": 4,
+        "safety_multiplier": 1.25
+      },
+      "modes": {
+        "safe_minimal_chat": {
+          "max_input_tokens": 1500,
+          "max_output_tokens": 500,
+          "max_history_tokens": 300,
+          "max_system_tokens": 500,
+          "max_tool_schema_tokens": 0,
+          "max_rag_context_tokens": 0,
+          "allow_codecompass": false,
+          "allow_tool_schemas": false,
+          "allow_compaction": false,
+          "allowed_model_tiers": [
+            "local_small",
+            "cheap_small"
+          ]
+        },
+        "project_chat": {
+          "max_input_tokens": 6000,
+          "max_output_tokens": 1200,
+          "max_history_tokens": 1000,
+          "max_system_tokens": 800,
+          "max_tool_schema_tokens": 0,
+          "max_rag_context_tokens": 2500,
+          "allow_codecompass": true,
+          "allow_tool_schemas": false,
+          "allow_compaction": false,
+          "allowed_model_tiers": [
+            "local_coder",
+            "cheap_coder"
+          ]
+        },
+        "tool_enabled_chat": {
+          "max_input_tokens": 9000,
+          "max_output_tokens": 1500,
+          "max_history_tokens": 1200,
+          "max_system_tokens": 1000,
+          "max_tool_schema_tokens": 1500,
+          "max_rag_context_tokens": 3000,
+          "allow_codecompass": true,
+          "allow_tool_schemas": true,
+          "allowed_tools_policy": "intent_scoped_allowlist",
+          "allow_compaction": false,
+          "allowed_model_tiers": [
+            "local_coder",
+            "cheap_coder",
+            "approved_external_coder"
+          ]
+        },
+        "deep_analysis": {
+          "requires_explicit_user_or_blueprint_trigger": true,
+          "max_input_tokens": 24000,
+          "max_output_tokens": 3000,
+          "max_history_tokens": 3000,
+          "max_system_tokens": 1200,
+          "max_tool_schema_tokens": 2500,
+          "max_rag_context_tokens": 12000,
+          "allow_codecompass": true,
+          "allow_tool_schemas": true,
+          "allow_compaction": true,
+          "allowed_model_tiers": [
+            "approved_external_reasoning",
+            "local_large"
+          ]
+        }
+      },
+      "intent_rules": {
+        "smalltalk": "safe_minimal_chat",
+        "generic_question": "safe_minimal_chat",
+        "explain_ananta_concept": "project_chat",
+        "find_files": "project_chat",
+        "analyze_existing_code": "project_chat",
+        "execute_safe_tool": "tool_enabled_chat",
+        "modify_code": "tool_enabled_chat",
+        "large_repo_analysis": "deep_analysis"
+      },
+      "hard_limits": {
+        "absolute_max_input_tokens_default": 10000,
+        "absolute_max_cost_per_request_eur_default": 0.02,
+        "block_if_estimate_missing": true,
+        "block_if_tool_schema_budget_unknown": true,
+        "block_if_provider_reports_unexpected_token_multiplier_gt": 3.0
+      },
+      "audit": {
+        "store_message_text": false,
+        "store_hashes": true,
+        "store_token_breakdown": true,
+        "store_selected_mode": true,
+        "store_provider_reported_usage": true,
+        "store_context_refs_only": true
+      }
+    }
+  },
+  "schemas_to_add": [
+    {
+      "path": "schemas/chat/context_budget_decision.v1.json",
+      "description": "Entscheidung, welcher Chat-Modus, welches Budget und welche Kontextquellen fuer einen Request erlaubt sind."
+    },
+    {
+      "path": "schemas/chat/context_assembly_trace.v1.json",
+      "description": "Nachweis, welche Kontextbestandteile tatsaechlich in den Request gelangt sind."
+    },
+    {
+      "path": "schemas/chat/token_usage_report.v1.json",
+      "description": "Normalisierte lokale Schaetzung plus Provider-Usage nach Antwort."
+    },
+    {
+      "path": "schemas/chat/model_tier_policy.v1.json",
+      "description": "Konfiguration fuer lokale, billige, externe und genehmigungspflichtige Modellklassen."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Default Contract und zentrale Konfiguration",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M02",
+      "title": "Intent-Gate und ContextBudgetDecision",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M03",
+      "title": "Context Assembly Guard",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M04",
+      "title": "Tool-Schema und Tool-Calling Schutz",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M05",
+      "title": "Model-/Provider-/Fallback-Kosten-Gate",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03",
+        "T05.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M06",
+      "title": "Audit, Telemetry und Debug-Transparenz",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03",
+        "T06.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M07",
+      "title": "Tests und Regression gegen Token-Explosion",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04",
+        "T07.05"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M08",
+      "title": "Dokumentation und Betriebsprofile",
+      "task_ids": [
+        "T08.01",
+        "T08.02",
+        "T08.03"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Define chat_context_budget config section",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Zentrale, generische Konfiguration fuer Chat-Kontextbudget, Modi, Token-Limits, RAG-Freigabe, Tool-Schema-Freigabe, Kompaktierung und Modell-Tiers einfuehren.",
+      "implementation_notes": [
+        "Konfiguration in bestehendes Config-System einhaengen, nicht hartkodieren.",
+        "Default enabled=true und fail_closed=true.",
+        "Modi: safe_minimal_chat, project_chat, tool_enabled_chat, deep_analysis.",
+        "Jeder Modus definiert eigene Budgets fuer system/history/tools/rag/user/output."
+      ],
+      "acceptance_criteria": [
+        "Eine fehlende chat_context_budget Config erzeugt sichere Defaults und keinen Crash.",
+        "safe_minimal_chat ist Default fuer ai-snake-chat.",
+        "allow_codecompass=false und allow_tool_schemas=false im safe_minimal_chat Default.",
+        "Konfiguration kann per JSON/Env/Blueprint ueberschrieben werden, ohne Source-Code zu aendern.",
+        "Ungueltige negative oder unrealistisch hohe Limits werden validiert und abgelehnt."
+      ],
+      "tests": [
+        "Config-Unit-Test fuer Defaultwerte.",
+        "Config-Unit-Test fuer Override pro Modus.",
+        "Validation-Test fuer negative und fehlende Werte."
+      ]
+    },
+    {
+      "id": "T01.02",
+      "title": "Add model tier policy",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Modellnutzung nicht nur nach Modellname, sondern nach Tier und Kostenklasse steuern: local_small, cheap_small, local_coder, cheap_coder, approved_external_coder, approved_external_reasoning.",
+      "implementation_notes": [
+        "Provider-Adapter duerfen Modellwahl nicht an der Policy vorbei durchsetzen.",
+        "Fallbacks muessen dieselbe Tier-Policy erfuellen.",
+        "Unbekannte Modelle sind im Default blockiert oder nur local_small, wenn explizit so konfiguriert."
+      ],
+      "acceptance_criteria": [
+        "safe_minimal_chat akzeptiert nur local_small oder cheap_small.",
+        "deep_analysis darf externe Reasoning-Modelle nur nutzen, wenn explizit freigegeben.",
+        "Ein stiller Fallback von local_small auf approved_external_reasoning ist technisch blockiert.",
+        "Provider-Name, Modell-Name und Tier werden im Trace gespeichert."
+      ],
+      "tests": [
+        "Fallback auf teures Modell wird im Default blockiert.",
+        "Explizit freigegebenes Modell wird akzeptiert.",
+        "Unbekanntes Modell erzeugt reason_code=model_tier_unknown."
+      ]
+    },
+    {
+      "id": "T01.03",
+      "title": "Add hard absolute request limits",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "Neben Modus-Limits absolute Notbremsen einfuehren, damit Konfigurationsfehler keine extrem grossen Requests erlauben.",
+      "implementation_notes": [
+        "absolute_max_input_tokens_default und absolute_max_cost_per_request_eur_default einfuehren.",
+        "Bei fehlender Kostenschaetzung im externen Provider-Modus blockieren.",
+        "Bei lokaler Nutzung Kostenlimit optional ignorieren, Tokenlimit aber weiter erzwingen."
+      ],
+      "acceptance_criteria": [
+        "Kein Request kann das absolute Input-Limit ueberschreiten.",
+        "Externe Requests ohne Kostenschaetzung werden bei block_if_estimate_missing=true blockiert.",
+        "Fehler erzeugen eine lokale Systemantwort statt trotzdem zu senden.",
+        "Blockierte Requests enthalten keine kompletten Prompt-Inhalte im Audit."
+      ],
+      "tests": [
+        "Request ueber absolutem Limit wird nicht an Provider gesendet.",
+        "Fehlende Kostenschaetzung blockiert externen Request.",
+        "Lokaler Request wird weiter nach Tokenlimit bewertet."
+      ]
+    },
+    {
+      "id": "T02.01",
+      "title": "Implement ChatIntentGate",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Vor jeder Kontextladung eine einfache, deterministische Intent-Klassifikation einfuehren. Ziel ist nicht perfekte Semantik, sondern sichere Default-Weiche.",
+      "implementation_notes": [
+        "Klassen: smalltalk, generic_question, explain_ananta_concept, find_files, analyze_existing_code, execute_safe_tool, modify_code, large_repo_analysis, unknown.",
+        "unknown faellt im Default auf safe_minimal_chat, nicht auf deep_analysis.",
+        "LLM-basierte Intent-Klassifikation ist optional und darf nur nach kleinem Budget laufen."
+      ],
+      "acceptance_criteria": [
+        "'hallo', 'servus', 'wie gehts' werden als smalltalk erkannt.",
+        "'gib mir alle dateien im hauptverzeichnis' wird als find_files erkannt, aber nicht automatisch als deep_analysis.",
+        "'analysiere Klasse X' wird als analyze_existing_code erkannt.",
+        "unknown aktiviert keinen CodeCompass-Kontext im Default.",
+        "Intent-Entscheidung liefert reason_codes und confidence."
+      ],
+      "tests": [
+        "Parametrisierte Intent-Tests fuer Smalltalk.",
+        "Intent-Test fuer find_files.",
+        "Intent-Test fuer analyze_existing_code.",
+        "Unknown-Test bleibt safe_minimal_chat."
+      ]
+    },
+    {
+      "id": "T02.02",
+      "title": "Add ContextBudgetDecision schema and service",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Jeder ai-snake-chat Request bekommt vor Kontextbau eine bindende ContextBudgetDecision.",
+      "implementation_notes": [
+        "Felder: request_id, intent_class, selected_mode, allowed_context_sources, budgets, denied_sources, reason_codes, model_tier_allowlist, created_at.",
+        "Decision muss immutable oder hashbar sein.",
+        "Context Assembly darf nur anhand dieser Decision arbeiten."
+      ],
+      "acceptance_criteria": [
+        "Ohne ContextBudgetDecision wird kein LLM-Request gebaut.",
+        "Decision fuer smalltalk enthaelt denied_sources: codecompass, rag, tool_schemas, full_history.",
+        "Decision fuer project_chat erlaubt nur begrenzte CodeCompass-Snippets, keine Tool-Schemas.",
+        "Decision-Hash wird im Request-Trace referenziert."
+      ],
+      "tests": [
+        "Service-Test: smalltalk -> safe_minimal_chat.",
+        "Service-Test: analyze_existing_code -> project_chat.",
+        "Fehlende Decision blockiert ContextAssembly."
+      ]
+    },
+    {
+      "id": "T02.03",
+      "title": "Integrate budget decision into existing ChatAccessPolicy",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Bestehende ChatPolicy nicht ersetzen, sondern um Kontext-/Budget-Actions erweitern.",
+      "implementation_notes": [
+        "Neue Actions: assemble_context, include_history, include_codecompass, include_tool_schema, compact_history, select_external_model.",
+        "Default fuer diese Actions ist deny, ausser ContextBudgetDecision erlaubt sie.",
+        "Bestehende Sensitive-Content-Pruefung bleibt erhalten."
+      ],
+      "acceptance_criteria": [
+        "include_codecompass wird fuer safe_minimal_chat denied.",
+        "include_tool_schema wird ohne tool_enabled_chat denied.",
+        "compact_history wird ohne allow_compaction denied.",
+        "Bestehende Tests fuer write_local/send_ai/share_context laufen weiter."
+      ],
+      "tests": [
+        "Erweiterte tests/test_tui_snake_chat_policy.py.",
+        "Regression: notes local-only bleibt unveraendert.",
+        "Regression: sensitive_content_blocked bleibt aktiv."
+      ]
+    },
+    {
+      "id": "T02.04",
+      "title": "Add explicit user/blueprint escalation path",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Von safe_minimal_chat zu project_chat/tool_enabled_chat/deep_analysis darf nur ueber klare Regeln eskaliert werden.",
+      "implementation_notes": [
+        "Explizite User-Trigger wie 'analysiere repo', 'nutze codecompass', 'ändere datei' erlauben hoehere Modi.",
+        "Blueprint kann Modus erlauben, aber nicht absolute Limits umgehen.",
+        "Optional ApprovalRequest fuer deep_analysis oder externe teure Modelle."
+      ],
+      "acceptance_criteria": [
+        "Smalltalk eskaliert nie automatisch.",
+        "Explizites 'nutze CodeCompass' kann project_chat aktivieren.",
+        "deep_analysis braucht requires_explicit_user_or_blueprint_trigger=true.",
+        "Alle Eskalationen haben reason_code=explicit_user_trigger oder blueprint_trigger."
+      ],
+      "tests": [
+        "Smalltalk keine Eskalation.",
+        "Expliziter CodeCompass-Trigger eskaliert.",
+        "Deep analysis ohne Trigger blockiert."
+      ]
+    },
+    {
+      "id": "T03.01",
+      "title": "Implement ContextAssemblyGuard",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "Zentrale Stelle, die final entscheidet, welche Prompt-Bestandteile wirklich in den Provider-Request gelangen.",
+      "implementation_notes": [
+        "Keine verstreute Prompt-Zusammenstellung mehr ohne Guard.",
+        "Guard prueft Decision, Tokenbudgets und Quelle jedes Context-Blocks.",
+        "Context-Block-Typen: system, developer, user, history, summary, codecompass, rag, tool_schema, tool_result, retrieved_file, compacted_history."
+      ],
+      "acceptance_criteria": [
+        "Alle ai-snake-chat LLM-Requests laufen durch ContextAssemblyGuard.",
+        "Nicht erlaubte Context-Block-Typen werden entfernt oder blockieren fail_closed.",
+        "Budgetueberschreitung fuehrt zu deterministischer Reduktion oder Blockierung nach Config.",
+        "Finaler Request enthaelt eine maschinenlesbare ContextAssemblyTrace."
+      ],
+      "tests": [
+        "Smalltalk Request enthaelt nur minimal system + aktuelle Usernachricht.",
+        "Tool-Schema wird bei safe_minimal_chat entfernt.",
+        "RAG-Kontext wird bei safe_minimal_chat entfernt.",
+        "Budgetueberschreitung wird reproduzierbar behandelt."
+      ]
+    },
+    {
+      "id": "T03.02",
+      "title": "Limit and classify chat history inclusion",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Chat-History darf nicht automatisch vollstaendig mitgeschickt werden. Auswahl nach Modus, Budget und Relevanz.",
+      "implementation_notes": [
+        "safe_minimal_chat: maximal wenige letzte Nachrichten oder gar keine History.",
+        "project_chat: begrenzte relevante History, keine alten grossen Codeblocks.",
+        "History-Blocks bekommen token_estimate und reason_code.",
+        "Alte Tool-Results nur mit expliziter Freigabe wieder einbauen."
+      ],
+      "acceptance_criteria": [
+        "Eine lange Chat-History erhoeht smalltalk Requests nicht ueber max_history_tokens.",
+        "Grosse Codeblocks aus alten Nachrichten werden nicht automatisch erneut mitgesendet.",
+        "History-Auswahl ist im Trace sichtbar.",
+        "Keine History-Kompaktierung bei safe_minimal_chat."
+      ],
+      "tests": [
+        "100 alte Nachrichten + 'hallo' bleibt unter safe_minimal_chat Budget.",
+        "Alter 20k-Codeblock wird nicht erneut gesendet.",
+        "History Trace enthaelt ausgewaehlte und verworfene Counts."
+      ]
+    },
+    {
+      "id": "T03.03",
+      "title": "Gate CodeCompass and RAG retrieval",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "CodeCompass/RAG darf nur laufen, wenn der Intent und die ContextBudgetDecision es erlauben.",
+      "implementation_notes": [
+        "Vor Retrieval pruefen, nicht erst danach abschneiden.",
+        "Retrieval-Queries speichern, aber keine kompletten Datei-Inhalte im Audit.",
+        "Erst Manifest/Refs/Symbole, Vollinhalt nur bei hohem Bedarf und Budget.",
+        "Default max_rag_context_tokens=0 im safe_minimal_chat."
+      ],
+      "acceptance_criteria": [
+        "'hallo' ruft CodeCompass/RAG gar nicht auf.",
+        "'was ist ananta?' kann ohne Repo-Kontext beantwortet werden, ausser explizit Projektkontext verlangt wird.",
+        "'welche Dateien passen zu CodeCompass?' ruft nur begrenztes Retrieval auf.",
+        "Vollstaendige Datei-Inhalte werden nie ohne Budgetentscheidung eingebaut."
+      ],
+      "tests": [
+        "Mock-CodeCompass wird bei smalltalk nicht aufgerufen.",
+        "Mock-CodeCompass wird bei find_files aufgerufen.",
+        "RAG-Kontext wird auf max_rag_context_tokens begrenzt.",
+        "No-good-match erzeugt keine erfundenen Datei-/Symbolnamen."
+      ]
+    },
+    {
+      "id": "T03.04",
+      "title": "Implement deterministic context reduction strategy",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Wenn Kontext zu gross ist, muss deterministisch reduziert werden, nicht durch beliebige Modell-Kompaktierung.",
+      "implementation_notes": [
+        "Reduktionsreihenfolge konfigurierbar: drop_full_history, drop_low_rank_rag, shrink_snippets, manifest_only, block_request.",
+        "Kompaktierung per LLM nur in Modi mit allow_compaction=true.",
+        "Jede Reduktion erzeugt reason_code und vorher/nachher Tokenwerte."
+      ],
+      "acceptance_criteria": [
+        "Gleicher Input erzeugt gleiche Reduktionsentscheidung.",
+        "LLM-Kompaktierung startet nie im safe_minimal_chat.",
+        "Wenn Reduktion nicht reicht, wird blockiert statt trotzdem zu senden.",
+        "Reduktionsschritte sind im Trace sichtbar."
+      ],
+      "tests": [
+        "Determinismus-Test fuer gleiche Inputs.",
+        "Compaction-denied Test im safe_minimal_chat.",
+        "Block-Test bei nicht reduzierbarem Oversize-Kontext."
+      ]
+    },
+    {
+      "id": "T04.01",
+      "title": "Make tool schema injection intent-scoped",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "Tool-Schemas duerfen nicht pauschal in jeden Chat-Request. Nur intent-scoped allowlist und Budget.",
+      "implementation_notes": [
+        "ToolRegistry liefert Schemas nach Toolgruppe und Intent.",
+        "safe_minimal_chat erlaubt 0 Tool-Schemas.",
+        "tool_enabled_chat erlaubt nur die konkret benoetigten Tools.",
+        "Bei zu grossen Tool-Schemas: kleinere Toolgruppe oder blockieren."
+      ],
+      "acceptance_criteria": [
+        "'hallo' enthaelt keine Tool-Schemas.",
+        "'liste hauptverzeichnis' enthaelt maximal sichere read-only Datei-/Shell-Toolbeschreibung oder fuehrt deterministisch ohne LLM aus, je nach Policy.",
+        "Tool-Schema Tokens werden separat gezaehlt.",
+        "Unbekannte Tools werden nicht automatisch eingebunden."
+      ],
+      "tests": [
+        "Smalltalk tool_schema_tokens=0.",
+        "Tool intent bekommt nur allowlisted Toolgruppe.",
+        "Oversized Tool-Schema wird blockiert."
+      ]
+    },
+    {
+      "id": "T04.02",
+      "title": "Support dual tool-calling paths safely",
+      "priority": "P1",
+      "risk": "high",
+      "status": "todo",
+      "description": "Da Ananta nicht nur offiziellen OpenAI-API Tool-Calling-Weg nutzt, muessen beide Wege dieselbe Budget-/Policy-Schicht erzwingen.",
+      "implementation_notes": [
+        "Offizieller Tool-Calling-Pfad und alternativer eigener Tool-Calling-Pfad gehen durch denselben ToolCallPolicyAdapter.",
+        "Kein Adapter darf direkt Provider-Payloads mit Tools bauen.",
+        "Tool-Resultate duerfen nicht automatisch als naechster Prompt-Vollkontext landen."
+      ],
+      "acceptance_criteria": [
+        "Beide Tool-Calling-Pfade nutzen ContextBudgetDecision.",
+        "Beide Pfade schreiben vergleichbare Token-/Tool-Traces.",
+        "Tool-Result Oversize wird vor erneutem LLM-Aufruf reduziert/blockiert.",
+        "Tests pruefen OpenAI-style und Ananta-style Tool-Calling separat."
+      ],
+      "tests": [
+        "OpenAI-style Toolcall Budget-Test.",
+        "Ananta-style Toolcall Budget-Test.",
+        "Tool-result feedback loop Oversize-Test."
+      ]
+    },
+    {
+      "id": "T04.03",
+      "title": "Prefer deterministic safe tools before LLM for trivial commands",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Einfache sichere Aufgaben wie Dateien im Hauptverzeichnis listen sollen nicht zwangsweise ueber grosses LLM/RAG laufen.",
+      "implementation_notes": [
+        "Intent execute_safe_tool/find_files kann deterministisch beantwortet werden, wenn Tool sicher und read-only ist.",
+        "LLM kann Entscheidung vorschlagen, aber Ausfuehrung und Ausgabe muessen nicht erneut ueber LLM laufen.",
+        "Policy: read-only, path-scoped, timeout, output-size-limit."
+      ],
+      "acceptance_criteria": [
+        "'gib mir alle dateien im hauptverzeichnis' kann ohne RAG und ohne grosses LLM beantwortet werden.",
+        "Toolausgabe wird auf max_tool_result_tokens/max_bytes begrenzt.",
+        "Unsichere Befehle bleiben blockiert oder approval_required.",
+        "Direkte Toolantwort hat eigenen Trace und keine Provider-Usage."
+      ],
+      "tests": [
+        "Deterministisches ls/find Mock ohne LLM.",
+        "Output-Limit Test.",
+        "Unsicherer Schreibbefehl wird blockiert."
+      ]
+    },
+    {
+      "id": "T05.01",
+      "title": "Normalize provider token estimates before send",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Vor dem Senden lokale Token-Schaetzung je Provider/Modell durchfuehren, mit Sicherheitsaufschlag.",
+      "implementation_notes": [
+        "ProviderTokenizer Interface einfuehren.",
+        "Fallback: chars_per_token + safety_multiplier.",
+        "Separat zaehlen: system, user, history, rag, tool_schema, tool_result.",
+        "Schaetzung wird gegen Budget geprueft."
+      ],
+      "acceptance_criteria": [
+        "Jeder externe Request hat preflight_token_estimate.",
+        "Fehlende Schaetzung blockiert, wenn block_if_estimate_missing=true.",
+        "Token-Breakdown ist im Trace enthalten.",
+        "Provider-spezifische Tokenizer koennen nachgeruestet werden."
+      ],
+      "tests": [
+        "Preflight estimate fuer einfachen Request.",
+        "Breakdown-Summen-Test.",
+        "Missing-estimator-block Test."
+      ]
+    },
+    {
+      "id": "T05.02",
+      "title": "Compare provider reported usage after response",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Nach Provider-Antwort reported usage mit lokaler Schaetzung vergleichen und Anomalien sichtbar machen.",
+      "implementation_notes": [
+        "reported_input_tokens, reported_output_tokens, cached_tokens, reasoning_tokens soweit vorhanden normalisieren.",
+        "unexpected_token_multiplier berechnen.",
+        "Bei Multiplikator > Config-Grenze Provider/Modell temporaer markieren oder warnen."
+      ],
+      "acceptance_criteria": [
+        "Provider-Usage wird gespeichert, wenn vorhanden.",
+        "510k/21-artige Ausreisser wuerden als Anomalie auffallen.",
+        "Anomalie fuehrt optional zu provider_rate_limit_protection oder block_if_unexpected_multiplier.",
+        "Keine Nachrichtentexte im Usage-Audit."
+      ],
+      "tests": [
+        "Normal usage kein Alarm.",
+        "3x+ Multiplikator erzeugt reason_code=unexpected_provider_usage.",
+        "Provider ohne Usage erzeugt known_unknown statt Crash."
+      ]
+    },
+    {
+      "id": "T05.03",
+      "title": "Block silent fallback and compaction cost leaks",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "Fallback, Kompaktierung, Zusammenfassung oder Retry duerfen nicht heimlich zusaetzliche teure Requests ausloesen.",
+      "implementation_notes": [
+        "Jeder Retry/Fallback/Compaction-Request bekommt eigene ContextBudgetDecision.",
+        "Retry-Zaehler und cumulative_tokens_per_user_request einfuehren.",
+        "Default: max_retries=0 oder 1 fuer safe_minimal_chat, compaction=false."
+      ],
+      "acceptance_criteria": [
+        "Ein 'hallo' erzeugt genau einen Provider-Request oder lokalen Direct-Response, keine Kompaktierung.",
+        "Fallback auf anderes Modell wird im Trace angezeigt.",
+        "Cumulative Token Budget pro User-Message wird erzwungen.",
+        "Retry nach Providerfehler kann nicht Budget ueberschreiten."
+      ],
+      "tests": [
+        "Smalltalk kein Compaction Call.",
+        "Fallback blockiert bei Tier-Verletzung.",
+        "Cumulative Budget stoppt Retry-Schleife."
+      ]
+    },
+    {
+      "id": "T05.04",
+      "title": "Provider rate-limit and quota awareness",
+      "priority": "P2",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Provider-Limits, Tagesquoten und OpenRouter-Free-Modell-Verhalten als Policy-Input nutzbar machen.",
+      "implementation_notes": [
+        "QuotaState Interface: remaining_requests, remaining_tokens, reset_at, provider_warning_state.",
+        "Wenn unbekannt, konservativ behandeln.",
+        "Freie Modelle duerfen nicht als unbegrenzt betrachtet werden."
+      ],
+      "acceptance_criteria": [
+        "QuotaState kann Providerdaten speichern oder unknown melden.",
+        "Bei niedrigem Restbudget wird kein deep_analysis gestartet.",
+        "UI/Debug zeigt Provider-Warnung ohne sensible Daten.",
+        "Fehlende Quota-Info fuehrt nicht zu unbegrenzter Nutzung."
+      ],
+      "tests": [
+        "Low quota blockiert deep_analysis.",
+        "Unknown quota bleibt konservativ.",
+        "Reset-Zeit wird korrekt verarbeitet, wenn vorhanden."
+      ]
+    },
+    {
+      "id": "T06.01",
+      "title": "Add ContextAssemblyTrace audit",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Fuer jeden Request nachvollziehbar speichern, welche Kontextarten eingebaut wurden und warum.",
+      "implementation_notes": [
+        "Trace speichert keine kompletten Texte, nur Hashes, Refs, Tokenzahlen, Quellen, Reason-Codes.",
+        "Trace-ID in ChatMessage oder Request-Metadaten referenzieren.",
+        "Audit bleibt lokal oder nach bestehender Policy."
+      ],
+      "acceptance_criteria": [
+        "Trace enthaelt selected_mode, intent_class, token_breakdown, included_sources, denied_sources.",
+        "Trace enthaelt keine vollstaendige Usernachricht und keine Secrets.",
+        "Trace kann fuer Debug angezeigt/exportiert werden.",
+        "Blockierte Requests erzeugen ebenfalls Trace."
+      ],
+      "tests": [
+        "Trace ohne message_text.",
+        "Smalltalk Trace zeigt denied codecompass/tool_schema.",
+        "Blocked Oversize Trace vorhanden."
+      ]
+    },
+    {
+      "id": "T06.02",
+      "title": "Expose compact debug summary in ai-snake-chat UI/API",
+      "priority": "P2",
+      "risk": "low",
+      "status": "todo",
+      "description": "Kurz sichtbar machen, warum ein Request klein/gross wurde: Modus, Kontextquellen, Token grob, Provider.",
+      "implementation_notes": [
+        "Keine Low-Level-Flut im normalen Chat.",
+        "Debug-Modus per Config oder Command aktivierbar.",
+        "Beispielausgabe: mode=safe_minimal_chat, input_est=120, rag=0, tools=0, model=local_small."
+      ],
+      "acceptance_criteria": [
+        "Debug-Ausgabe ist standardmaessig aus oder knapp.",
+        "Bei Aktivierung werden Budgetdaten sichtbar.",
+        "Keine Secrets und keine Vollprompts in Debug-Ausgabe.",
+        "API kann Trace-ID zur Detailabfrage liefern."
+      ],
+      "tests": [
+        "Debug off erzeugt keine Zusatzdetails.",
+        "Debug on zeigt Modus und Tokenbreakdown.",
+        "Secret-Redaction bleibt aktiv."
+      ]
+    },
+    {
+      "id": "T06.03",
+      "title": "Add token anomaly dashboard hooks",
+      "priority": "P3",
+      "risk": "low",
+      "status": "todo",
+      "description": "Spaeter im Web-Dashboard Token-Ausreisser anzeigen koennen, ohne jetzt Dashboard hart zu koppeln.",
+      "implementation_notes": [
+        "Event-Typen definieren: token_budget_blocked, unexpected_provider_usage, fallback_blocked, compaction_denied.",
+        "Event-Format generisch halten.",
+        "Keine direkte UI-Abhaengigkeit im Core."
+      ],
+      "acceptance_criteria": [
+        "Events werden strukturiert erzeugt.",
+        "Dashboard kann Events spaeter konsumieren.",
+        "Core funktioniert ohne Dashboard."
+      ],
+      "tests": [
+        "Event wird bei Oversize erzeugt.",
+        "Event wird bei Provider-Anomalie erzeugt.",
+        "Keine UI-Abhaengigkeit importiert."
+      ]
+    },
+    {
+      "id": "T06.04",
+      "title": "Add request cost ledger",
+      "priority": "P2",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Kosten und Token pro User-Request logisch zusammenfassen, inklusive interner Subrequests.",
+      "implementation_notes": [
+        "Ledger pro user_request_id.",
+        "Subrequests: main, retry, fallback, compaction, tool_decision.",
+        "Cumulative limits pro user_request_id."
+      ],
+      "acceptance_criteria": [
+        "Ein User-Request kann mehrere interne Requests korrekt summieren.",
+        "safe_minimal_chat hat sehr niedriges cumulative limit.",
+        "Ledger ist auditierbar ohne Volltexte.",
+        "Abbruch bei Budgetueberschreitung ist nachvollziehbar."
+      ],
+      "tests": [
+        "Mehrere Subrequests werden summiert.",
+        "Cumulative Limit blockiert weiteren Retry.",
+        "Ledger speichert keine Vollprompts."
+      ]
+    },
+    {
+      "id": "T07.01",
+      "title": "Regression test: hello must stay tiny",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "Expliziter Regressionstest fuer den Ausloeser: 'hallo' darf nie versteckt riesige Kontexte laden.",
+      "acceptance_criteria": [
+        "Input 'hallo' erzeugt selected_mode=safe_minimal_chat.",
+        "include_codecompass=false.",
+        "tool_schema_tokens=0.",
+        "rag_context_tokens=0.",
+        "history_tokens <= configured safe_minimal_chat.max_history_tokens.",
+        "total_input_tokens <= configured safe_minimal_chat.max_input_tokens.",
+        "allow_compaction=false."
+      ],
+      "tests": [
+        "tests/test_ai_snake_chat_token_budget.py::test_hello_stays_tiny"
+      ]
+    },
+    {
+      "id": "T07.02",
+      "title": "Regression test: long history does not leak into smalltalk",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "Lange vorherige Unterhaltung darf einen einfachen neuen Request nicht automatisch teuer machen.",
+      "acceptance_criteria": [
+        "Bei 100+ alten Nachrichten bleibt Smalltalk im safe_minimal_chat Budget.",
+        "Alte Tool-Results werden nicht erneut eingebaut.",
+        "Keine Kompaktierung wird gestartet.",
+        "Trace zeigt verworfene History-Anteile."
+      ],
+      "tests": [
+        "tests/test_ai_snake_chat_token_budget.py::test_long_history_does_not_leak_into_smalltalk"
+      ]
+    },
+    {
+      "id": "T07.03",
+      "title": "Regression test: tool schemas are not global",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "Sicherstellen, dass Tool-Schemas nicht pauschal in jeden Request eingebaut werden.",
+      "acceptance_criteria": [
+        "Smalltalk enthaelt keine Tools.",
+        "Generic question enthaelt keine Tools.",
+        "Tool-enabled Intent enthaelt nur allowlisted Tools.",
+        "Tool-Schema-Budget wird eingehalten."
+      ],
+      "tests": [
+        "tests/test_ai_snake_chat_tool_schema_budget.py"
+      ]
+    },
+    {
+      "id": "T07.04",
+      "title": "Regression test: CodeCompass only when allowed",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "description": "CodeCompass darf nicht aus Gewohnheit oder alten Defaults laufen.",
+      "acceptance_criteria": [
+        "Smalltalk ruft CodeCompass-Mock nicht auf.",
+        "Generic question ruft CodeCompass-Mock nicht auf.",
+        "Expliziter Projektkontext ruft CodeCompass-Mock auf.",
+        "CodeCompass-Ergebnis wird budgetiert und ggf. auf Manifest reduziert."
+      ],
+      "tests": [
+        "tests/test_ai_snake_chat_codecompass_gate.py"
+      ]
+    },
+    {
+      "id": "T07.05",
+      "title": "Regression test: provider anomaly detection",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "description": "Wenn Provider viel mehr Tokens abrechnet/meldet als lokal erwartet, muss das sichtbar werden.",
+      "acceptance_criteria": [
+        "Lokale Schaetzung 500 Tokens, Provider reported 2000 Tokens erzeugt Anomaly, wenn Grenzwert 3.0 ist.",
+        "Anomaly Event enthaelt Provider/Modell/Tier, aber keine Prompttexte.",
+        "Optionaler Schutz blockiert weitere Requests in gleicher Session/Provider-Kombination."
+      ],
+      "tests": [
+        "tests/test_ai_snake_chat_provider_usage_anomaly.py"
+      ]
+    },
+    {
+      "id": "T08.01",
+      "title": "Document default safe minimal chat behavior",
+      "priority": "P1",
+      "risk": "low",
+      "status": "todo",
+      "description": "Kurz dokumentieren, warum ai-snake-chat im Default bewusst keinen Repo-Kontext und keine Tools laedt.",
+      "acceptance_criteria": [
+        "README oder docs-Seite beschreibt safe_minimal_chat.",
+        "Beispiel 'hallo' wird erklaert.",
+        "Eskalationswege project_chat/tool_enabled_chat/deep_analysis werden knapp beschrieben.",
+        "Dokumentation nennt Default-Deny und Budget-Trace."
+      ],
+      "tests": [
+        "Docs-Link/Existenz pruefen, falls Docs-Tests vorhanden."
+      ]
+    },
+    {
+      "id": "T08.02",
+      "title": "Document provider cost pitfalls",
+      "priority": "P2",
+      "risk": "low",
+      "status": "todo",
+      "description": "Dokumentieren, dass externe Provider Tokens fuer Systemprompt, Tool-Schemas, History, Fallback, Kompaktierung und Hidden-Kontext zaehlen koennen.",
+      "acceptance_criteria": [
+        "Docs erklaeren token_breakdown Kategorien.",
+        "Docs erklaeren Provider-Usage vs lokale Schaetzung.",
+        "Docs warnen vor globalen Tool-Schemas und stillen Fallbacks.",
+        "Docs geben Debug-Kommandos oder Config-Beispiele."
+      ],
+      "tests": [
+        "Keine automatischen Tests erforderlich, aber Review-Kriterium."
+      ]
+    },
+    {
+      "id": "T08.03",
+      "title": "Add sample configs for local-first and external-cheap modes",
+      "priority": "P2",
+      "risk": "low",
+      "status": "todo",
+      "description": "Beispielkonfigurationen bereitstellen: strikt lokal, OpenRouter-cheap, mixed local-first mit Approval fuer teuer.",
+      "acceptance_criteria": [
+        "Sample local-first nutzt local_small/local_coder und blockiert externe Fallbacks.",
+        "Sample external-cheap setzt harte Kostenlimits.",
+        "Sample mixed erlaubt deep_analysis nur mit explizitem Trigger/Approval.",
+        "Samples sind syntaktisch valide JSON/YAML je bestehendem Config-Format."
+      ],
+      "tests": [
+        "Config-Samples werden in Config-Loader-Test geladen, wenn moeglich."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Ein einfacher Smalltalk-Request wie 'hallo' erzeugt im Default niemals CodeCompass/RAG/Tool-Schema/Compaction-Kontext.",
+    "Jeder LLM-Request im ai-snake-chat hat vor dem Senden eine ContextBudgetDecision.",
+    "Jeder LLM-Request im ai-snake-chat hat nach dem Zusammenbau eine ContextAssemblyTrace.",
+    "Alle Kontextquellen sind einzeln budgetiert und koennen separat deaktiviert werden.",
+    "Tool-Schemas werden intent-scoped und budgetiert eingebunden, nie global.",
+    "Fallbacks, Retries und Compaction zaehlen zum gleichen User-Request-Kostenbudget.",
+    "Provider reported usage wird, soweit vorhanden, normalisiert und mit lokaler Schaetzung verglichen.",
+    "Bei unklarer oder fehlender Budgetentscheidung gilt fail_closed.",
+    "Bestehende ChatPolicy-Sicherheitsregeln fuer notes/local-only/sensitive content bleiben erhalten.",
+    "Tests decken explizit Token-Explosion durch History, RAG, Tool-Schemas, Fallback und Provider-Anomalien ab."
+  ],
+  "recommended_implementation_order": [
+    "T01.01",
+    "T01.03",
+    "T02.01",
+    "T02.02",
+    "T03.01",
+    "T07.01",
+    "T03.02",
+    "T03.03",
+    "T04.01",
+    "T05.01",
+    "T05.03",
+    "T06.01",
+    "T07.02",
+    "T07.03",
+    "T07.04",
+    "T05.02",
+    "T07.05",
+    "T04.02",
+    "T04.03",
+    "T08.01",
+    "T08.02",
+    "T08.03"
+  ],
+  "definition_of_done": [
+    "Alle P0 Tasks sind implementiert und getestet.",
+    "Der Regressionstest test_hello_stays_tiny ist gruen.",
+    "ai-snake-chat zeigt oder speichert fuer jeden Request eine Budget-/Kontext-Bilanz ohne Vollprompt-Leak.",
+    "Default-Konfiguration verhindert Token-Explosion durch Tool-Schemas, RAG, History, Kompaktierung und Fallbacks.",
+    "Ein Entwickler kann per Config nachvollziehbar auf project_chat/tool_enabled_chat/deep_analysis eskalieren, ohne absolute Limits zu umgehen."
+  ]
+}
