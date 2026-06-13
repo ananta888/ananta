@@ -43,7 +43,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   configPanelOpen = false;
   sharePanelOpen = false;
   snakeChatPanelOpen = false;
-  snakeChatPanelTab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
+  snakeChatPanelTab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -815,7 +815,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     }
   }
 
-  openSnakeChatPanelTab(tab: 'chat' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
     this.snakeChatPanelTab = tab;
     this.snakeChatPanelOpen = true;
     this.configPanelOpen = false;

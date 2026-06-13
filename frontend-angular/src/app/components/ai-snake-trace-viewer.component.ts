@@ -6,363 +6,350 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
 } from '@angular/core';
-import { CommonModule, AsyncPipe } from '@angular/common';
+import { CommonModule, AsyncPipe, DecimalPipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AiSnakeTraceService, AiSnakeTraceEvent, AiSnakeTraceMeta } from '../services/ai-snake-trace.service';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 
-const PHASE_ICONS: Record<string, string> = {
-  request_received: '📥',
-  session_resolved: '🔑',
-  config_loaded: '⚙',
-  retrieval_profile_selected: '🎯',
-  domain_scope_resolved: '🗺',
-  codecompass_retrieval_started: '🔍',
-  codecompass_retrieval_completed: '✅',
-  full_scan_detected: '🔭',
-  full_scan_batch_started: '📦',
-  full_scan_batch_completed: '📦',
-  prompt_built: '📝',
-  llm_call_started: '🤖',
-  llm_token_delta: '💬',
-  llm_call_completed: '✅',
-  tool_call_requested: '🔧',
-  tool_call_started: '🔧',
-  tool_call_completed: '✅',
-  tool_call_failed: '❌',
-  answer_postprocessed: '✂',
-  chat_message_written: '💬',
-  cancel_requested: '⏹',
-  failed: '❌',
-  default: '◦',
+const PHASE_LABELS: Record<string, string> = {
+  request_received: 'Anfrage',
+  config_loaded: 'Konfiguration',
+  retrieval_profile_selected: 'Retrieval-Profil',
+  codecompass_retrieval_started: 'CodeCompass …',
+  codecompass_retrieval_completed: 'Dateien abgerufen',
+  full_scan_detected: 'Full-Scan',
+  full_scan_batch_started: 'Batch läuft',
+  full_scan_batch_completed: 'Full-Scan fertig',
+  prompt_built: 'Prompt gebaut',
+  llm_call_started: 'LLM läuft …',
+  llm_call_completed: 'LLM fertig',
+  answer_postprocessed: 'Antwort aufbereitet',
+  chat_message_written: 'Gesendet',
+  failed: 'Fehler',
 };
 
-const TOOL_PHASES = new Set([
-  'tool_call_requested',
-  'tool_call_started',
-  'tool_call_completed',
-  'tool_call_failed',
-]);
+const STATUS_DOT: Record<string, string> = {
+  completed: '●',
+  running: '◎',
+  failed: '✗',
+  skipped: '–',
+  pending: '○',
+  cancelled: '⊘',
+};
+
+interface ChunkMeta { path: string; source_type: string; score: number; }
 
 @Component({
   selector: 'app-ai-snake-trace-viewer',
   standalone: true,
-  imports: [CommonModule, AsyncPipe],
+  imports: [CommonModule, AsyncPipe, DecimalPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="trace-viewer">
+<div class="tv">
 
-      <!-- Header bar -->
-      <div class="trace-header">
-        @if (traceId) {
-          <span class="trace-id" title="{{ traceId }}">
-            Trace {{ traceId.slice(0, 8) }}…
-          </span>
-          <span class="trace-status" [class]="'st-' + (traceSvc.traceStatus$ | async)">
-            {{ (traceSvc.traceStatus$ | async) || '–' }}
-          </span>
-        } @else {
-          <span class="no-trace-hint">Kein aktiver Trace</span>
-        }
-        <span class="spacer"></span>
-        @if (!autoFollow && (traceSvc.traceEvents$ | async)?.length) {
-          <button class="live-btn" (click)="resumeAutoFollow()">▶ Live folgen</button>
-        }
-        @if (traceId) {
-          <button class="ghost-btn" (click)="clear()" title="Trace schließen">✕</button>
-        }
-      </div>
+  <!-- ── Kopfzeile ── -->
+  <div class="tv-head">
+    <span class="tv-title">Antwort-Trace</span>
+    @if (traceSvc.traceStatus$ | async; as st) {
+      <span class="tv-badge" [class]="'badge-' + st">{{ st }}</span>
+    }
+    <span class="spacer"></span>
+    @if (!autoFollow && events.length) {
+      <button class="btn-live" (click)="resumeFollow()">▶ Live</button>
+    }
+    @if (traceId) {
+      <button class="btn-ghost" (click)="clear()">✕</button>
+    }
+  </div>
 
-      <!-- No trace state -->
-      @if (!traceId) {
-        <div class="empty-state">
-          <div class="empty-icon">🔍</div>
-          <div class="empty-msg">Noch kein Trace.<br>Sende eine Nachricht um einen Antwortlauf zu starten.</div>
-          @if ((chatSvc.snakeId$ | async)) {
-            <button class="ghost-btn" (click)="loadHistory()">Letzte Traces laden</button>
-          }
-          @if (historyList.length) {
-            <div class="history-list">
-              @for (t of historyList; track t.trace_id) {
-                <div class="history-item" (click)="selectHistoricTrace(t.trace_id)">
-                  <span class="hi-icon">{{ t.status === 'completed' ? '✓' : t.status === 'failed' ? '✗' : '○' }}</span>
-                  <span class="hi-id">{{ t.trace_id.slice(0, 8) }}</span>
-                  <span class="hi-status" [class]="'st-' + t.status">{{ t.status }}</span>
-                  <span class="hi-count">{{ t.event_count }} Events</span>
-                </div>
-              }
-            </div>
-          }
-        </div>
+  <!-- ── Kein Trace ── -->
+  @if (!traceId) {
+    <div class="tv-empty">
+      <div class="tv-empty-icon">🔍</div>
+      <div class="tv-empty-msg">Noch kein Trace.<br>Sende eine Nachricht um den Ablauf zu sehen.</div>
+      @if (chatSvc.snakeId$ | async) {
+        <button class="btn-ghost" (click)="loadHistory()">Letzte Läufe laden</button>
       }
-
-      <!-- Main content: timeline + detail -->
-      @if (traceId && (traceSvc.traceEvents$ | async); as events) {
-        <div class="trace-body">
-          <!-- Timeline -->
-          <div class="timeline" #timelineEl>
-            @if (events.length === 0) {
-              <div class="tl-empty">Warte auf Events…</div>
-            }
-            @for (ev of events; track ev.event_id) {
-              <div
-                class="tl-event"
-                [class.tl-selected]="selectedEventId === ev.event_id"
-                [class.tl-running]="ev.status === 'running'"
-                [class.tl-failed]="ev.status === 'failed'"
-                [class.tl-tool]="isToolPhase(ev.phase)"
-                (click)="selectEvent(ev)"
-              >
-                <span class="tl-icon">{{ phaseIcon(ev.phase) }}</span>
-                <span class="tl-title">{{ ev.title }}</span>
-                <span class="tl-dur" *ngIf="ev.duration_ms != null">{{ ev.duration_ms | number:'1.0-0' }}ms</span>
-                <span class="tl-status-dot" [class]="'dot-' + ev.status"></span>
-              </div>
-            }
-          </div>
-
-          <!-- Detail panel -->
-          @if (selectedEvent) {
-            <div class="detail-panel">
-              <div class="dp-phase">{{ phaseIcon(selectedEvent.phase) }} {{ selectedEvent.phase }}</div>
-              <div class="dp-title">{{ selectedEvent.title }}</div>
-              <div class="dp-row">
-                <span class="dp-label">Status</span>
-                <span class="dp-val" [class]="'st-' + selectedEvent.status">{{ selectedEvent.status }}</span>
-              </div>
-              @if (selectedEvent.duration_ms != null) {
-                <div class="dp-row">
-                  <span class="dp-label">Dauer</span>
-                  <span class="dp-val">{{ selectedEvent.duration_ms | number:'1.0-0' }} ms</span>
-                </div>
-              }
-              @if (selectedEvent.summary) {
-                <div class="dp-summary">{{ selectedEvent.summary }}</div>
-              }
-              @if (selectedEvent.redaction_applied) {
-                <div class="dp-redact">🔒 Secrets wurden entfernt</div>
-              }
-              @if (selectedEvent.error) {
-                <div class="dp-error">{{ selectedEvent.error }}</div>
-              }
-
-              <!-- Input Preview -->
-              @if (selectedEvent.input_preview != null) {
-                <div class="dp-section">
-                  <button class="dp-toggle" (click)="toggleSection('input')">
-                    {{ openSections.input ? '▼' : '▶' }} Input Preview
-                  </button>
-                  @if (openSections.input) {
-                    <pre class="dp-pre">{{ formatPreview(selectedEvent.input_preview) }}</pre>
-                  }
-                </div>
-              }
-
-              <!-- Output Preview -->
-              @if (selectedEvent.output_preview != null) {
-                <div class="dp-section">
-                  <button class="dp-toggle" (click)="toggleSection('output')">
-                    {{ openSections.output ? '▼' : '▶' }} Output Preview
-                  </button>
-                  @if (openSections.output) {
-                    <pre class="dp-pre">{{ formatPreview(selectedEvent.output_preview) }}</pre>
-                  }
-                </div>
-              }
-
-              <!-- Details -->
-              @if (hasDetails(selectedEvent)) {
-                <div class="dp-section">
-                  <button class="dp-toggle" (click)="toggleSection('details')">
-                    {{ openSections.details ? '▼' : '▶' }} Details
-                  </button>
-                  @if (openSections.details) {
-                    <pre class="dp-pre">{{ formatPreview(selectedEvent.details) }}</pre>
-                  }
-                </div>
-              }
-
-              <!-- Tool Call Card -->
-              @if (isToolPhase(selectedEvent.phase)) {
-                <div class="tool-card">
-                  <div class="tc-label">Tool Call</div>
-                  @if (selectedEvent.details?.['tool']) {
-                    <div class="tc-row">
-                      <span class="tc-key">Tool</span>
-                      <span class="tc-val">{{ selectedEvent.details?.['tool'] }}</span>
-                    </div>
-                  }
-                  @if (selectedEvent.details?.['args']) {
-                    <div class="tc-row">
-                      <span class="tc-key">Args</span>
-                      <pre class="tc-pre">{{ formatPreview(selectedEvent.details?.['args']) }}</pre>
-                    </div>
-                  }
-                  <div class="tc-row">
-                    <span class="tc-key">Status</span>
-                    <span class="tc-val" [class]="'st-' + selectedEvent.status">{{ selectedEvent.status }}</span>
-                  </div>
-                  @if (selectedEvent.duration_ms != null) {
-                    <div class="tc-row">
-                      <span class="tc-key">Dauer</span>
-                      <span class="tc-val">{{ selectedEvent.duration_ms | number:'1.0-0' }} ms</span>
-                    </div>
-                  }
-                  @if (selectedEvent.output_preview != null) {
-                    <div class="tc-row">
-                      <span class="tc-key">Ergebnis</span>
-                      <pre class="tc-pre">{{ formatPreview(selectedEvent.output_preview) }}</pre>
-                    </div>
-                  }
-                  @if (selectedEvent.error) {
-                    <div class="tc-row tc-error">
-                      <span class="tc-key">Fehler</span>
-                      <span class="tc-val">{{ selectedEvent.error }}</span>
-                    </div>
-                  }
-                </div>
-              }
+      @if (historyList.length) {
+        <div class="hist-list">
+          @for (t of historyList; track t.trace_id) {
+            <div class="hist-row" (click)="openHistoric(t.trace_id)">
+              <span class="hist-dot" [class]="'badge-' + t.status">{{ STATUS_DOT[t.status] || '○' }}</span>
+              <span class="hist-id">{{ t.trace_id.slice(0,8) }}</span>
+              <span class="hist-st" [class]="'badge-' + t.status">{{ t.status }}</span>
+              <span class="hist-n">{{ t.event_count }} Events</span>
+              <span class="hist-ago">{{ ago(t.created_at) }}</span>
             </div>
           }
         </div>
       }
     </div>
+  }
+
+  <!-- ── Haupt-Inhalt ── -->
+  @if (traceId && events.length) {
+    <div class="tv-body">
+
+      <!-- Schritt-Leiste links -->
+      <div class="tv-steps">
+        @for (ev of events; track ev.event_id) {
+          <div class="step"
+               [class.step-sel]="sel?.event_id === ev.event_id"
+               [class.step-run]="ev.status === 'running'"
+               [class.step-fail]="ev.status === 'failed'"
+               (click)="pick(ev)">
+            <span class="step-dot" [class]="'dot-' + ev.status">{{ STATUS_DOT[ev.status] || '○' }}</span>
+            <span class="step-label">{{ PHASE_LABELS[ev.phase] || ev.title }}</span>
+            @if (ev.duration_ms != null) {
+              <span class="step-ms">{{ ev.duration_ms | number:'1.0-0' }}ms</span>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Detail rechts -->
+      <div class="tv-detail" *ngIf="sel">
+
+        <!-- Phasen-Header -->
+        <div class="det-phase">{{ sel.phase }}</div>
+        <div class="det-title">{{ sel.title }}</div>
+        <div class="det-meta">
+          <span class="badge-sm" [class]="'badge-' + sel.status">{{ sel.status }}</span>
+          @if (sel.duration_ms != null) {
+            <span class="det-dur">{{ sel.duration_ms | number:'1.0-0' }} ms</span>
+          }
+          @if (sel.redaction_applied) {
+            <span class="det-redact">🔒 gekürzt</span>
+          }
+        </div>
+
+        @if (sel.summary) {
+          <div class="det-summary">{{ sel.summary }}</div>
+        }
+        @if (sel.error) {
+          <div class="det-error">{{ sel.error }}</div>
+        }
+
+        <!-- ── Dateiliste (codecompass_retrieval_completed) ── -->
+        @if (sel.phase === 'codecompass_retrieval_completed' && chunks(sel).length) {
+          <div class="section">
+            <div class="sec-head" (click)="toggle('files')">
+              <span class="sec-arrow">{{ open.files ? '▼' : '▶' }}</span>
+              <span class="sec-name">Abgerufene Dateien</span>
+              <span class="sec-cnt">{{ chunks(sel).length }}</span>
+            </div>
+            @if (open.files) {
+              <div class="file-list">
+                @for (c of chunks(sel); track c.path) {
+                  <div class="file-row">
+                    <span class="file-type" [class]="'ft-' + c.source_type">{{ c.source_type }}</span>
+                    <span class="file-path">{{ c.path }}</span>
+                    <span class="file-score">{{ c.score | number:'1.2-3' }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ── Prompt-Inhalt (prompt_built / llm_call_started) ── -->
+        @if ((sel.phase === 'prompt_built' || sel.phase === 'llm_call_started') && promptText(sel)) {
+          <div class="section">
+            <div class="sec-head" (click)="toggle('prompt')">
+              <span class="sec-arrow">{{ open.prompt ? '▼' : '▶' }}</span>
+              <span class="sec-name">Prompt an LLM</span>
+              <span class="sec-cnt">{{ promptLen(sel) }} Zeichen</span>
+            </div>
+            @if (open.prompt) {
+              <pre class="code-block">{{ promptText(sel) }}</pre>
+            }
+          </div>
+        }
+
+        <!-- ── LLM-Antwort (llm_call_completed) ── -->
+        @if (sel.phase === 'llm_call_completed' && outputText(sel)) {
+          <div class="section">
+            <div class="sec-head" (click)="toggle('output')">
+              <span class="sec-arrow">{{ open.output ? '▼' : '▶' }}</span>
+              <span class="sec-name">Rohantwort LLM</span>
+              <span class="sec-cnt">{{ outputLen(sel) }} Zeichen</span>
+            </div>
+            @if (open.output) {
+              <pre class="code-block">{{ outputText(sel) }}</pre>
+            }
+          </div>
+        }
+
+        <!-- ── Details (generisch) ── -->
+        @if (hasDetails(sel)) {
+          <div class="section">
+            <div class="sec-head" (click)="toggle('details')">
+              <span class="sec-arrow">{{ open.details ? '▼' : '▶' }}</span>
+              <span class="sec-name">Details</span>
+            </div>
+            @if (open.details) {
+              <pre class="code-block">{{ fmt(detailsWithoutChunks(sel)) }}</pre>
+            }
+          </div>
+        }
+
+        <!-- ── Full-Scan Dateien ── -->
+        @if (sel.phase === 'full_scan_batch_completed') {
+          <div class="section">
+            <div class="sec-head" (click)="toggle('details')">
+              <span class="sec-arrow">{{ open.details ? '▼' : '▶' }}</span>
+              <span class="sec-name">Scan-Info</span>
+            </div>
+            @if (open.details) {
+              <pre class="code-block">{{ fmt(sel.details) }}</pre>
+            }
+          </div>
+        }
+
+      </div>
+    </div>
+  }
+
+  @if (traceId && !events.length) {
+    <div class="tv-wait">⏳ Warte auf erste Events…</div>
+  }
+
+</div>
   `,
   styles: [`
     :host { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
-    .trace-viewer {
+    .tv {
       display: flex; flex-direction: column; height: 100%; min-height: 0;
-      background: #080f1c; color: #c0d0e8; font-size: 11px; font-family: inherit;
+      background: #080f1c; color: #b8cce0; font-size: 11px; font-family: inherit;
     }
 
-    /* Header */
-    .trace-header {
-      display: flex; align-items: center; gap: 6px;
-      padding: 5px 8px; background: #0a1628; border-bottom: 1px solid #152040;
-      flex-shrink: 0;
+    /* Head */
+    .tv-head {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+      padding: 5px 8px; background: #0a1526; border-bottom: 1px solid #152040;
     }
-    .trace-id { color: #4a7aaa; font-size: 10px; }
-    .no-trace-hint { color: #2a4060; font-size: 10px; }
+    .tv-title { font-weight: 600; color: #7ab8d8; font-size: 11px; }
     .spacer { flex: 1; }
-    .live-btn {
-      background: #0a2030; border: 1px solid #1a5a7a; color: #3acccc;
+
+    /* Badges */
+    .tv-badge, .badge-sm { font-size: 9px; padding: 1px 5px; border-radius: 8px; border: 1px solid #1a2d4a; }
+    .badge-running  { color: #7fffd4; border-color: #1a5a3a; background: #061810; animation: pulse 1.2s infinite; }
+    .badge-completed { color: #3acc88; border-color: #1a4a2a; }
+    .badge-failed   { color: #fb7185; border-color: #4a1a1a; }
+    .badge-skipped  { color: #4a5a7a; border-color: #1a2a3a; }
+    .badge-idle, .badge-unknown { color: #2a4060; border-color: #1a2030; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .btn-live {
+      background: #061c14; border: 1px solid #1a5a3a; color: #3accaa;
       padding: 2px 7px; cursor: pointer; font-size: 10px; border-radius: 2px;
     }
-    .live-btn:hover { background: #0a3040; }
-    .ghost-btn {
-      background: transparent; border: 1px solid #1a2d4a; color: #4a6a9a;
+    .btn-ghost {
+      background: transparent; border: 1px solid #1a2d4a; color: #4a6a8a;
       padding: 2px 6px; cursor: pointer; font-size: 10px; border-radius: 2px;
     }
-    .ghost-btn:hover { color: #7fffd4; }
+    .btn-ghost:hover { color: #7fffd4; }
+    .btn-live:hover  { background: #0a2a1e; }
 
-    /* Status colours */
-    .st-running { color: #7fffd4; }
-    .st-completed { color: #3acc88; }
-    .st-failed { color: #fb7185; }
-    .st-pending { color: #4a6a9a; }
-    .st-skipped { color: #4a5a7a; }
-    .st-cancelled { color: #7a5a3a; }
-    .st-idle { color: #2a4060; }
-
-    /* Empty state */
-    .empty-state {
+    /* Empty */
+    .tv-empty {
       flex: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: flex-start; gap: 8px; padding: 20px 12px;
+      gap: 8px; padding: 24px 14px;
     }
-    .empty-icon { font-size: 22px; }
-    .empty-msg { color: #2a4060; text-align: center; line-height: 1.6; }
-    .history-list { width: 100%; display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
-    .history-item {
-      display: flex; gap: 6px; align-items: center; padding: 4px 6px;
-      background: #0a1628; border: 1px solid #152040; cursor: pointer; border-radius: 2px;
+    .tv-empty-icon { font-size: 24px; }
+    .tv-empty-msg { color: #2a4060; text-align: center; line-height: 1.7; }
+    .hist-list { width: 100%; display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+    .hist-row {
+      display: flex; gap: 6px; align-items: center;
+      padding: 4px 8px; background: #0a1628; border: 1px solid #152040;
+      cursor: pointer; border-radius: 2px;
     }
-    .history-item:hover { border-color: #2a4070; }
-    .hi-icon { font-size: 10px; width: 12px; }
-    .hi-id { color: #4a7aaa; }
-    .hi-status { font-size: 10px; }
-    .hi-count { margin-left: auto; color: #2a4060; }
+    .hist-row:hover { border-color: #2a4070; }
+    .hist-dot { font-size: 9px; width: 10px; }
+    .hist-id  { color: #3a6a9a; font-size: 10px; }
+    .hist-st  { font-size: 9px; }
+    .hist-n   { margin-left: auto; color: #2a4060; }
+    .hist-ago { color: #1a3050; font-size: 9px; }
 
-    /* Main body: timeline + detail */
-    .trace-body {
-      flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
-    }
+    /* Main body */
+    .tv-body { flex: 1; min-height: 0; display: flex; overflow: hidden; }
 
-    /* Timeline */
-    .timeline {
-      flex: 0 0 auto; max-height: 38%; overflow-y: auto;
-      border-bottom: 1px solid #152040; padding: 4px 0;
+    /* Steps column */
+    .tv-steps {
+      flex: 0 0 140px; overflow-y: auto; border-right: 1px solid #152040;
+      display: flex; flex-direction: column; padding: 4px 0;
     }
-    .tl-empty { color: #2a4060; padding: 10px 12px; }
-    .tl-event {
+    .step {
       display: flex; align-items: center; gap: 5px;
-      padding: 3px 8px; cursor: pointer; border-left: 2px solid transparent;
-      transition: background 0.1s;
+      padding: 4px 6px; cursor: pointer; border-left: 2px solid transparent;
+      user-select: none;
     }
-    .tl-event:hover { background: #0d1e34; }
-    .tl-selected { background: #0f2040; border-left-color: #2a6090; }
-    .tl-running { animation: pulse-bg 1.2s ease-in-out infinite; }
-    .tl-failed { border-left-color: #5a1a1a; }
-    .tl-tool { border-left-color: #2a3a1a; }
-    @keyframes pulse-bg { 0%, 100% { background: #091522; } 50% { background: #0d1e34; } }
-    .tl-icon { width: 14px; flex-shrink: 0; }
-    .tl-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tl-dur { color: #2a4a6a; font-size: 9px; flex-shrink: 0; }
-    .tl-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .dot-completed { background: #3acc88; }
-    .dot-running { background: #7fffd4; animation: blink 1s infinite; }
-    .dot-failed { background: #fb7185; }
-    .dot-pending { background: #2a4060; }
-    .dot-skipped { background: #2a3a5a; }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+    .step:hover { background: #0d1e34; }
+    .step-sel  { background: #0f2040; border-left-color: #2a6090; }
+    .step-run  { animation: step-blink 1s ease-in-out infinite; }
+    .step-fail { border-left-color: #5a1a1a; }
+    @keyframes step-blink { 0%,100% { background: #08121e; } 50% { background: #0d1e34; } }
+    .step-dot { font-size: 9px; width: 12px; flex-shrink: 0; }
+    .dot-completed { color: #3acc88; }
+    .dot-running   { color: #7fffd4; }
+    .dot-failed    { color: #fb7185; }
+    .dot-skipped   { color: #2a3a5a; }
+    .dot-pending   { color: #1a2a40; }
+    .step-label { flex: 1; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .step-ms { font-size: 9px; color: #2a4060; flex-shrink: 0; }
 
     /* Detail panel */
-    .detail-panel {
-      flex: 1; min-height: 0; overflow-y: auto;
-      padding: 8px 10px; display: flex; flex-direction: column; gap: 5px;
+    .tv-detail {
+      flex: 1; min-width: 0; overflow-y: auto;
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
     }
-    .dp-phase { color: #4a7aaa; font-size: 10px; }
-    .dp-title { color: #c0d0e8; font-size: 12px; font-weight: 500; }
-    .dp-row { display: flex; gap: 8px; align-items: baseline; }
-    .dp-label { color: #2a4060; width: 50px; flex-shrink: 0; }
-    .dp-val { color: #c0d0e8; }
-    .dp-summary { color: #8aadcc; background: #0a1628; padding: 4px 6px; border-radius: 2px; line-height: 1.5; }
-    .dp-redact { color: #7a5a2a; font-size: 10px; background: #1a1408; border: 1px solid #3a2a08; padding: 2px 6px; border-radius: 2px; }
-    .dp-error { color: #fb7185; background: #1a0a0a; border: 1px solid #4a1a1a; padding: 4px 6px; border-radius: 2px; white-space: pre-wrap; word-break: break-word; }
-    .dp-section { display: flex; flex-direction: column; gap: 3px; }
-    .dp-toggle {
-      background: transparent; border: none; color: #3a6a9a; cursor: pointer;
-      font-size: 10px; text-align: left; padding: 2px 0; font-family: inherit;
+    .det-phase { color: #2a5a7a; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .det-title { color: #c0d8f0; font-size: 12px; font-weight: 500; }
+    .det-meta  { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .det-dur   { color: #2a4060; font-size: 9px; }
+    .det-redact { color: #7a5a2a; font-size: 9px; background: #1a1206; border: 1px solid #3a2a06; padding: 1px 5px; border-radius: 8px; }
+    .det-summary { color: #8ab0cc; background: #0a1628; padding: 5px 7px; border-radius: 2px; line-height: 1.6; }
+    .det-error   { color: #fb7185; background: #1a0810; border: 1px solid #4a1020; padding: 5px 7px; border-radius: 2px; white-space: pre-wrap; word-break: break-word; }
+
+    /* Sections */
+    .section { display: flex; flex-direction: column; gap: 3px; }
+    .sec-head {
+      display: flex; align-items: center; gap: 5px; cursor: pointer;
+      padding: 3px 0; user-select: none;
     }
-    .dp-toggle:hover { color: #7fffd4; }
-    .dp-pre {
-      background: #060d18; border: 1px solid #1a2d4a; padding: 6px; border-radius: 2px;
-      font-family: monospace; font-size: 10px; white-space: pre-wrap; word-break: break-all;
-      color: #8ab8d8; max-height: 120px; overflow: auto; margin: 0;
+    .sec-head:hover .sec-name { color: #7fffd4; }
+    .sec-arrow { color: #2a5a7a; font-size: 9px; width: 10px; }
+    .sec-name  { color: #4a8ab0; font-size: 10px; font-weight: 500; }
+    .sec-cnt   { color: #2a4060; font-size: 9px; margin-left: auto; }
+
+    /* File list */
+    .file-list { display: flex; flex-direction: column; gap: 1px; max-height: 220px; overflow-y: auto; }
+    .file-row  {
+      display: flex; gap: 5px; align-items: center;
+      padding: 2px 4px; border-radius: 1px;
+    }
+    .file-row:hover { background: #0a1628; }
+    .file-type {
+      font-size: 8px; padding: 1px 4px; border-radius: 6px; flex-shrink: 0;
+      background: #0a1a28; border: 1px solid #1a3040; color: #3a7a9a;
+    }
+    .ft-source { border-color: #1a3a1a; background: #0a1808; color: #3a8a4a; }
+    .ft-docs   { border-color: #2a2a1a; background: #12100a; color: #8a7a3a; }
+    .ft-test   { border-color: #2a1a3a; background: #100a16; color: #7a4a9a; }
+    .file-path { flex: 1; color: #8ab0c8; font-size: 10px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-score { color: #2a4060; font-size: 9px; flex-shrink: 0; }
+
+    /* Code block */
+    .code-block {
+      background: #050c18; border: 1px solid #152040; padding: 7px 8px;
+      font-family: monospace; font-size: 10px; line-height: 1.5;
+      white-space: pre-wrap; word-break: break-word; color: #7aaac8;
+      max-height: 280px; overflow: auto; margin: 0; border-radius: 2px;
     }
 
-    /* Tool call card */
-    .tool-card {
-      background: #060d18; border: 1px solid #1a3a1a; border-radius: 3px;
-      padding: 6px 8px; display: flex; flex-direction: column; gap: 4px;
-    }
-    .tc-label { color: #3acc66; font-size: 10px; font-weight: 600; }
-    .tc-row { display: flex; gap: 8px; align-items: flex-start; }
-    .tc-key { color: #2a5a3a; width: 50px; flex-shrink: 0; }
-    .tc-val { color: #c0d0e8; }
-    .tc-pre {
-      flex: 1; background: #0a1410; border: 1px solid #1a3020; padding: 4px 6px;
-      font-family: monospace; font-size: 10px; white-space: pre-wrap; word-break: break-all;
-      color: #8acd98; max-height: 80px; overflow: auto; margin: 0; border-radius: 2px;
-    }
-    .tc-error .tc-key { color: #5a2a2a; }
-    .tc-error .tc-val { color: #fb7185; }
-
-    /* Trace status badge */
-    .trace-status {
-      font-size: 9px; padding: 1px 5px; border-radius: 10px;
-      background: #0d1a2a; border: 1px solid #1a2d4a;
-    }
+    /* Wait */
+    .tv-wait { padding: 20px; color: #2a4060; text-align: center; }
   `],
 })
 export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
@@ -370,62 +357,60 @@ export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
   readonly chatSvc = inject(AiSnakeChatService);
   private cdr = inject(ChangeDetectorRef);
 
-  selectedEventId: string | null = null;
-  selectedEvent: AiSnakeTraceEvent | null = null;
+  readonly PHASE_LABELS = PHASE_LABELS;
+  readonly STATUS_DOT = STATUS_DOT;
+
+  events: AiSnakeTraceEvent[] = [];
+  sel: AiSnakeTraceEvent | null = null;
   autoFollow = true;
   historyList: AiSnakeTraceMeta[] = [];
-  openSections = { input: false, output: true, details: false };
+  open = { files: true, prompt: false, output: true, details: false };
 
-  private eventsSub?: Subscription;
+  private sub?: Subscription;
 
-  get traceId(): string | null {
-    return this.traceSvc.activeTraceId$.value;
-  }
+  get traceId(): string | null { return this.traceSvc.activeTraceId$.value; }
 
   ngOnInit(): void {
-    this.eventsSub = this.traceSvc.traceEvents$.subscribe((events) => {
-      if (this.autoFollow && events.length > 0) {
-        const last = events[events.length - 1];
-        this.selectedEventId = last.event_id;
-        this.selectedEvent = last;
-        this.openSections = { input: false, output: true, details: false };
-      } else if (this.selectedEventId) {
-        const found = events.find((e) => e.event_id === this.selectedEventId);
-        if (found) this.selectedEvent = found;
+    this.sub = this.traceSvc.traceEvents$.subscribe((evs) => {
+      this.events = evs;
+      if (this.autoFollow && evs.length) {
+        const last = evs[evs.length - 1];
+        if (this.sel?.event_id !== last.event_id) {
+          this.sel = last;
+          this.open = { files: true, prompt: false, output: true, details: false };
+        }
+      } else if (this.sel) {
+        this.sel = evs.find(e => e.event_id === this.sel!.event_id) ?? this.sel;
       }
       this.cdr.markForCheck();
     });
   }
 
-  ngOnDestroy(): void {
-    this.eventsSub?.unsubscribe();
-  }
+  ngOnDestroy(): void { this.sub?.unsubscribe(); }
 
-  selectEvent(ev: AiSnakeTraceEvent): void {
-    this.selectedEventId = ev.event_id;
-    this.selectedEvent = ev;
+  pick(ev: AiSnakeTraceEvent): void {
+    this.sel = ev;
     this.autoFollow = false;
-    this.openSections = { input: false, output: true, details: false };
+    this.open = { files: true, prompt: false, output: true, details: false };
     this.cdr.markForCheck();
   }
 
-  resumeAutoFollow(): void {
+  resumeFollow(): void {
     this.autoFollow = true;
-    const events = this.traceSvc.traceEvents$.value;
-    if (events.length > 0) {
-      const last = events[events.length - 1];
-      this.selectedEventId = last.event_id;
-      this.selectedEvent = last;
-    }
+    if (this.events.length) this.sel = this.events[this.events.length - 1];
     this.cdr.markForCheck();
   }
 
   clear(): void {
     this.traceSvc.clearTrace();
-    this.selectedEventId = null;
-    this.selectedEvent = null;
+    this.sel = null;
     this.autoFollow = true;
     this.historyList = [];
+    this.cdr.markForCheck();
+  }
+
+  toggle(key: keyof typeof this.open): void {
+    this.open[key] = !this.open[key];
     this.cdr.markForCheck();
   }
 
@@ -436,36 +421,61 @@ export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  selectHistoricTrace(traceId: string): void {
-    this.traceSvc.loadTrace(traceId);
+  openHistoric(id: string): void {
+    this.traceSvc.loadTrace(id);
     this.historyList = [];
     this.autoFollow = false;
     this.cdr.markForCheck();
   }
 
-  phaseIcon(phase: string): string {
-    return PHASE_ICONS[phase] ?? PHASE_ICONS['default'];
+  chunks(ev: AiSnakeTraceEvent): ChunkMeta[] {
+    const raw = (ev.details as any)?.['chunks'];
+    if (!Array.isArray(raw)) return [];
+    return raw as ChunkMeta[];
   }
 
-  isToolPhase(phase: string): boolean {
-    return TOOL_PHASES.has(phase);
+  promptText(ev: AiSnakeTraceEvent): string {
+    const v = ev.phase === 'llm_call_started' ? ev.input_preview : ev.output_preview;
+    return typeof v === 'string' ? v : '';
+  }
+
+  promptLen(ev: AiSnakeTraceEvent): number {
+    return (ev.details as any)?.['prompt_chars'] ?? this.promptText(ev).length;
+  }
+
+  outputText(ev: AiSnakeTraceEvent): string {
+    const v = ev.output_preview;
+    return typeof v === 'string' ? v : '';
+  }
+
+  outputLen(ev: AiSnakeTraceEvent): number {
+    return this.outputText(ev).length;
   }
 
   hasDetails(ev: AiSnakeTraceEvent): boolean {
-    return ev.details != null && Object.keys(ev.details).length > 0;
+    if (!ev.details) return false;
+    const d = ev.details as Record<string, unknown>;
+    const keys = Object.keys(d).filter(k => k !== 'chunks');
+    return keys.length > 0;
   }
 
-  formatPreview(value: unknown): string {
-    if (value == null) return '';
-    if (typeof value === 'string') return value;
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
+  detailsWithoutChunks(ev: AiSnakeTraceEvent): unknown {
+    const d = { ...(ev.details as Record<string, unknown>) };
+    delete d['chunks'];
+    return d;
   }
 
-  toggleSection(key: 'input' | 'output' | 'details'): void {
-    this.openSections[key] = !this.openSections[key];
+  fmt(v: unknown): string {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+  }
+
+  ago(ts: number): string {
+    if (!ts) return '';
+    const s = Math.round(Date.now() / 1000 - ts);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    return `${Math.floor(s / 3600)}h`;
   }
 }
