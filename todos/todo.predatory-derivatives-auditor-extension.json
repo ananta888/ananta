@@ -1,0 +1,300 @@
+{
+  "id": "todo.predatory-derivatives-auditor-extension",
+  "title": "Predatory Derivatives Auditor: Wetten ohne legitimes Underlying, Schadensanreize und Finanzbrandstiftung erkennen",
+  "status": "open",
+  "priority": "high",
+  "extends": [
+    "todo.ziegler-finance-auditor",
+    "todo.monetative-money-auditor-extension"
+  ],
+  "goal": "Den Ziegler Finance Auditor um eine Analyse für spekulative Derivate, synthetische Exposure, Naked-Positionen und Finanzprodukte ohne legitimes ökonomisches Underlying erweitern. Das Modul soll erkennen, erklären und bewerten, wann Finanzprodukte eher Absicherung echter Risiken sind und wann sie Schadensanreize, Casino-Logik, Ausbeutung, Marktinstabilität oder Wetten auf fremden Schaden erzeugen.",
+  "core_metaphor": {
+    "insurance_analogy": "Ein legitimes Sicherungsgeschäft ähnelt einer Versicherung auf das eigene Haus. Problematisch wird es, wenn jemand das Haus des Nachbarn gegen Feuer versichert, obwohl es ihm nicht gehört, und dadurch ein finanzielles Interesse am Brand bekommt.",
+    "finance_translation": "Übertragen auf Finanzmärkte: Problematisch sind Produkte, bei denen Akteure ohne eigenes legitimes Underlying oder ohne Absicherungsbedarf auf den Ausfall, Preisverfall, Bankrott, Hunger, Wohnungsverlust oder Krisen anderer wetten können. Besonders gefährlich wird es, wenn sie zusätzlich Macht haben, den Schaden auszulösen, zu beschleunigen oder davon politisch/medial zu profitieren."
+  },
+  "non_goals": [
+    "Keine Anleitung zum Aufbau solcher Positionen",
+    "Keine Tradingstrategie",
+    "Keine Marktmanipulation",
+    "Keine konkrete Empfehlung für Short-, CDS-, Options- oder Derivatestrategien",
+    "Keine unbelegte Behauptung, ein konkreter Marktteilnehmer habe Schaden absichtlich verursacht",
+    "Keine pauschale Ablehnung aller Derivate, wenn sie nachvollziehbar echter Absicherung dienen",
+    "Keine juristische Einzelfallbewertung ohne Quellen"
+  ],
+  "normative_position": [
+    "Finanzprodukte ohne legitimes ökonomisches Interesse am Underlying sind besonders kritisch zu prüfen.",
+    "Naked Exposure auf fremden Schaden soll als demokratisch und menschenrechtlich problematisch markiert werden.",
+    "Derivate, die reale Absicherung ermöglichen, sind anders zu bewerten als reine Wetten auf Schaden.",
+    "Spekulation auf Grundbedürfnisse, Staatskrisen, Wohnraum, Nahrung, Energie oder Gesundheitsversorgung wiegt besonders schwer.",
+    "Je stärker das Produkt vom Schaden anderer profitiert, desto höher ist der structural_harm_score.",
+    "Je stärker der Akteur Einfluss auf den Eintritt des Schadens hat, desto höher ist der conflict_of_interest_score."
+  ],
+  "suggested_paths": [
+    "agent/modules/ziegler_auditor/derivatives_auditor.py",
+    "agent/modules/ziegler_auditor/naked_exposure.py",
+    "agent/modules/ziegler_auditor/insurable_interest.py",
+    "agent/modules/ziegler_auditor/conflict_of_interest.py",
+    "agent/modules/ziegler_auditor/tests/test_derivatives_auditor.py",
+    "agent/modules/ziegler_auditor/tests/test_naked_exposure.py",
+    "agent/modules/ziegler_auditor/tests/test_insurable_interest.py",
+    "prompts/predatory_derivatives_auditor.j2",
+    "docs/predatory_derivatives_auditor.md",
+    "tests/fixtures/predatory_derivatives_claims.json"
+  ],
+  "tasks": [
+    {
+      "id": "PD-001",
+      "title": "Derivate-Rahmen dokumentieren",
+      "description": "Dokumentiere die Unterscheidung zwischen legitimer Absicherung und destruktiver Wette auf fremden Schaden.",
+      "files": [
+        "docs/predatory_derivatives_auditor.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument erklärt die Haus-des-Nachbarn-Versicherungsanalogie.",
+        "Dokument erklärt den Unterschied zwischen Hedging, Spekulation, Naked Exposure und synthetischer Position.",
+        "Dokument benennt Schadensanreiz als zentrales moralisches und systemisches Problem.",
+        "Dokument grenzt sich von konkreten unbelegten Straftatbehauptungen ab.",
+        "Dokument enthält klare Position: reine Wetten auf fremden Schaden sollen als verbotswürdig markiert werden können."
+      ]
+    },
+    {
+      "id": "PD-002",
+      "title": "Insurable-Interest-Check modellieren",
+      "description": "Übertrage das Prinzip des versicherbaren Interesses auf Finanzprodukte: Hat der Akteur ein legitimes eigenes Risiko oder wettet er nur auf fremden Schaden?",
+      "files": [
+        "agent/modules/ziegler_auditor/insurable_interest.py",
+        "agent/modules/ziegler_auditor/models.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt ein Feld legitimate_underlying_interest mit yes, no, unclear.",
+        "Es gibt ein Feld underlying_relation: owns_asset, owes_debt, supplies_goods, needs_hedge, market_maker_inventory, synthetic_only, unrelated_bet, unknown.",
+        "Output erklärt, warum ein echtes Absicherungsinteresse vorliegt oder fehlt.",
+        "Fehlende Informationen führen zu unclear statt erfundener Sicherheit.",
+        "Tests prüfen mindestens 15 Beispiele mit und ohne legitimes Underlying."
+      ]
+    },
+    {
+      "id": "PD-003",
+      "title": "Naked-Exposure-Detector implementieren",
+      "description": "Erkenne Finanzprodukte, bei denen eine Partei ohne Eigentum, Schuldposition oder realen Absicherungsbedarf auf Ausfall, Preisverfall oder Krise wettet.",
+      "files": [
+        "agent/modules/ziegler_auditor/naked_exposure.py",
+        "agent/modules/ziegler_auditor/tests/test_naked_exposure.py"
+      ],
+      "acceptance_criteria": [
+        "Detector erkennt naked_cds_like_exposure, naked_short_like_exposure, synthetic_short_exposure, pure_price_bet und unrelated_damage_bet.",
+        "Output enthält naked_exposure_score von 0 bis 100.",
+        "Score wird aus nachvollziehbaren Flags gebildet.",
+        "Detector erzeugt keine Anleitung zum Aufbau solcher Positionen.",
+        "Tests enthalten CDS-ähnliche Claims, Short-Narrative, Optionen, synthetische ETFs und Wetten auf Staatsausfall."
+      ]
+    },
+    {
+      "id": "PD-004",
+      "title": "Schadensanreiz-Analyse bauen",
+      "description": "Bewerte, ob ein Finanzprodukt Akteuren ein Interesse am Eintritt eines Schadens gibt.",
+      "files": [
+        "agent/modules/ziegler_auditor/conflict_of_interest.py",
+        "agent/modules/ziegler_auditor/scoring.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält damage_incentive_score von 0 bis 100.",
+        "Analyse berücksichtigt Profit bei Ausfall, Preisverfall, Zahlungsunfähigkeit, Zwangsverkauf, Hunger, Wohnungsverlust, Energiekrise oder Staatskrise.",
+        "Output enthält damage_profit_mechanism als textliche Erklärung.",
+        "Je direkter der Gewinn vom Schaden abhängt, desto höher der Score.",
+        "Tests prüfen mindestens 20 Claims mit unterschiedlichen Schadensarten."
+      ]
+    },
+    {
+      "id": "PD-005",
+      "title": "Einfluss-auf-Schaden-Check ergänzen",
+      "description": "Bewerte, ob ein Akteur nicht nur vom Schaden profitiert, sondern diesen auch auslösen, beschleunigen, verstärken oder medial/politisch herbeireden könnte.",
+      "files": [
+        "agent/modules/ziegler_auditor/conflict_of_interest.py",
+        "agent/modules/ziegler_auditor/tests/test_conflict_of_interest.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält ability_to_influence_damage: none, weak, medium, strong, unknown.",
+        "Berücksichtigt werden Marktmacht, Informationsvorsprung, Rating-Einfluss, Medienmacht, politische Lobby, Kreditkündigung, Liefermacht und Short-and-distort-Risiko.",
+        "Bei konkreten Vorwürfen wird evidence_required ausgegeben.",
+        "Das Modul darf strukturelle Interessenkonflikte benennen, ohne Absicht zu behaupten.",
+        "Tests enthalten Beispiele mit hohem Profitinteresse, aber unbekannter Einflussmöglichkeit."
+      ]
+    },
+    {
+      "id": "PD-006",
+      "title": "Hedging-vs-Casino-Klassifikation implementieren",
+      "description": "Klassifiziere Derivate nach legitimer Absicherung, Liquiditätsfunktion, spekulativer Wette oder destruktiver Schadenswette.",
+      "files": [
+        "agent/modules/ziegler_auditor/derivatives_auditor.py",
+        "agent/modules/ziegler_auditor/tests/test_derivatives_auditor.py"
+      ],
+      "acceptance_criteria": [
+        "Kategorien enthalten legitimate_hedge, market_making_inventory_hedge, liquidity_service, speculative_bet, naked_damage_bet, predatory_derivative, unknown.",
+        "Ein Bauer, der Erntepreise absichert, wird anders bewertet als ein Fonds ohne Underlying, der auf Hunger-/Preisstress wettet.",
+        "Ein Unternehmen, das Wechselkursrisiken absichert, wird anders bewertet als reine FX-Zockerei mit Hebel.",
+        "Output enthält classification_reason.",
+        "Tests prüfen mindestens 30 Produkt-/Claim-Beispiele."
+      ]
+    },
+    {
+      "id": "PD-007",
+      "title": "Underlying-Reality-Check ergänzen",
+      "description": "Prüfe, ob ein Produkt reales Underlying, synthetisches Underlying, mehrfach gehebeltes Underlying oder gar kein nachvollziehbares Underlying hat.",
+      "files": [
+        "agent/modules/ziegler_auditor/derivatives_auditor.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält underlying_type: real_asset, debt_claim, commodity, index, synthetic_basket, derivative_on_derivative, no_clear_underlying, unknown.",
+        "Output enthält leverage_factor_note, falls Hebel oder Mehrfachverkettung erwähnt wird.",
+        "Derivative-on-derivative-Strukturen erhöhen complexity_score.",
+        "Intransparente Underlyings erhöhen opacity_score.",
+        "Analyse kann mehrfach synthetische Exposure als Risiko markieren."
+      ]
+    },
+    {
+      "id": "PD-008",
+      "title": "Verbotswürdigkeits-Heuristik definieren",
+      "description": "Erzeuge eine klare normative Bewertung, welche Finanzprodukte besonders regulierungs- oder verbotswürdig erscheinen.",
+      "files": [
+        "agent/modules/ziegler_auditor/scoring.py",
+        "agent/modules/ziegler_auditor/derivatives_auditor.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält ban_worthiness_score von 0 bis 100.",
+        "Score steigt bei fehlendem legitimen Underlying, Schadensanreiz, Grundbedürfnisbezug, Hebel, Intransparenz und systemischem Risiko.",
+        "Output enthält regulatory_recommendation: allow, restrict, require_underlying_interest, require_exchange_transparency, ban_naked_exposure, ban_predatory_structure, evidence_required.",
+        "Empfehlungen werden als politische/regulatorische Bewertung formuliert, nicht als Rechtsgutachten.",
+        "Tests prüfen, dass legitime Hedging-Fälle nicht pauschal verboten werden."
+      ]
+    },
+    {
+      "id": "PD-009",
+      "title": "Grundbedürfnis-Schutz für Derivate verschärfen",
+      "description": "Derivate auf Nahrung, Wasser, Wohnen, Energie und Gesundheit besonders streng bewerten.",
+      "files": [
+        "agent/modules/ziegler_auditor/speculation_auditor.py",
+        "agent/modules/ziegler_auditor/derivatives_auditor.py"
+      ],
+      "acceptance_criteria": [
+        "basic_needs_derivative_flag wird gesetzt, wenn das Underlying Grundbedürfnisse betrifft.",
+        "Naked Exposure auf Grundbedürfnisse erzeugt sehr hohen ban_worthiness_score.",
+        "Legitime Produzenten-/Verbraucherabsicherung bleibt möglich, wird aber von reiner Finanzspekulation getrennt.",
+        "Output erklärt die moralische Sonderstellung von Grundbedürfnissen.",
+        "Tests prüfen Nahrung, Wasser, Wohnen, Energie, Gesundheit."
+      ]
+    },
+    {
+      "id": "PD-010",
+      "title": "Systemrisiko- und Kettenreaktionsanalyse ergänzen",
+      "description": "Bewerte, ob ein Derivat durch Vernetzung, Hebel, Intransparenz oder Kontrahentenrisiko systemische Krisen verstärken kann.",
+      "files": [
+        "agent/modules/ziegler_auditor/derivatives_auditor.py",
+        "agent/modules/ziegler_auditor/tests/test_systemic_derivative_risk.py"
+      ],
+      "acceptance_criteria": [
+        "Output enthält systemic_risk_score von 0 bis 100.",
+        "Analyse berücksichtigt Hebel, OTC-Intransparenz, Kontrahentenketten, Margin Calls, Fire Sales, Konzentration und Bailout-Risiko.",
+        "Output benennt mögliche Kettenreaktionen.",
+        "Systemrisiko erhöht regulatory_recommendation.",
+        "Tests enthalten synthetische CDO-/CDS-ähnliche Strukturen, gehebelte ETFs und Margin-Call-Szenarien."
+      ]
+    },
+    {
+      "id": "PD-011",
+      "title": "Prompt für Predatory-Derivatives-Analyse erstellen",
+      "description": "Erstelle einen Prompt, der die Hausbrand-Analogie erkennt und Derivate nach Underlying, Absicherungsinteresse, Schadensanreiz und Verbotwürdigkeit analysiert.",
+      "files": [
+        "prompts/predatory_derivatives_auditor.j2",
+        "agent/modules/ziegler_auditor/prompts.py"
+      ],
+      "acceptance_criteria": [
+        "Prompt verlangt Trennung von Hedging, Spekulation, Naked Exposure und Schadenswette.",
+        "Prompt verbietet operative Trading- oder Manipulationsanleitungen.",
+        "Prompt verlangt explicit evidence_required bei konkreten Missbrauchsvorwürfen.",
+        "Prompt darf klare politische Sprache verwenden: verbotswürdig, Casino, Finanzbrandstiftung, Wette auf fremden Schaden.",
+        "Prompt fordert JSON-kompatible Antwortstruktur."
+      ]
+    },
+    {
+      "id": "PD-012",
+      "title": "Fixtures für Derivate- und Naked-Exposure-Claims anlegen",
+      "description": "Erstelle Testclaims zu CDS, Naked CDS, Shorts, Optionen, synthetischen Produkten, Rohstoffderivaten und Absicherungsgeschäften.",
+      "files": [
+        "tests/fixtures/predatory_derivatives_claims.json"
+      ],
+      "acceptance_criteria": [
+        "Mindestens 50 Beispielclaims vorhanden.",
+        "Enthält legitime Hedging-Fälle, Market-Making-Fälle, reine Spekulation, Naked Exposure, Grundbedürfnis-Spekulation und systemische Risiko-Beispiele.",
+        "Jeder Claim enthält erwartete Flags oder erwartete Kategorie.",
+        "Mindestens 15 Claims betreffen Produkte ohne legitimes Underlying-Interesse.",
+        "Mindestens 10 Claims betreffen Grundbedürfnisse."
+      ]
+    },
+    {
+      "id": "PD-013",
+      "title": "Integration in ZieglerAuditorService ergänzen",
+      "description": "Der bestehende ZieglerAuditorService soll Derivate-, CDS-, Short-, Options- und Naked-Exposure-Claims an das Predatory-Derivatives-Submodul routen können.",
+      "files": [
+        "agent/modules/ziegler_auditor/service.py",
+        "agent/task_classification.py",
+        "agent/task_config.json"
+      ],
+      "acceptance_criteria": [
+        "Claims zu Derivaten, Optionen, Futures, Swaps, CDS, Shorts, synthetischer Exposure oder Hebel werden zur Kategorie predatory_derivatives geroutet.",
+        "Bei deaktiviertem Submodul wird eine normale Ziegler-Finance-Analyse erzeugt.",
+        "Submodul ist read-only.",
+        "Keine Broker-, Trading- oder Zahlungsfunktion wird angebunden.",
+        "Routing ist dokumentiert."
+      ]
+    },
+    {
+      "id": "PD-014",
+      "title": "Dokumentation um Verbotsargumente erweitern",
+      "description": "Erkläre sauber, warum Produkte ohne legitimes Underlying und mit Schadensanreiz politisch/regulatorisch verbotswürdig sein können.",
+      "files": [
+        "docs/ziegler_auditor.md",
+        "docs/predatory_derivatives_auditor.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument enthält Abschnitt 'Finanzbrandstiftung und Wetten auf fremden Schaden'.",
+        "Dokument erklärt, warum fehlendes eigenes Risiko moralisch und systemisch problematisch ist.",
+        "Dokument enthält Beispiele: legitimer Hedge vs Naked CDS-ähnliche Wette, Ernteabsicherung vs Nahrungsmittelcasino, Wechselkursabsicherung vs Hebelzockerei.",
+        "Dokument enthält politische Forderung: require_underlying_interest oder Verbot nackter Schadenswetten.",
+        "Dokument enthält Hinweis, dass konkrete Absichts- oder Betrugsvorwürfe Evidenz benötigen."
+      ]
+    }
+  ],
+  "example_input": {
+    "claim": "Es sollte erlaubt sein, sich mit CDS gegen den Ausfall von Anleihen abzusichern, die man gar nicht besitzt. Das erhöht nur die Markteffizienz.",
+    "asset_type": "derivative",
+    "context": "naked credit default swap like exposure",
+    "requested_tone": "accusatory_grounded"
+  },
+  "example_output": {
+    "classification": [
+      "naked_damage_bet",
+      "missing_legitimate_underlying_interest",
+      "casino_like_market",
+      "potential_systemic_risk"
+    ],
+    "legitimate_underlying_interest": "no",
+    "underlying_relation": "unrelated_bet",
+    "damage_profit_mechanism": "Der Akteur profitiert vom Ausfall eines Schuldners, ohne selbst Gläubiger oder real abzusichernder Betroffener zu sein. Das ähnelt einer Versicherung auf fremdes Eigentum ohne eigenes Verlustrisiko.",
+    "naked_exposure_score": 95,
+    "damage_incentive_score": 90,
+    "ban_worthiness_score": 92,
+    "regulatory_recommendation": "ban_naked_exposure",
+    "legality_vs_legitimacy_note": "Selbst wenn eine solche Struktur legal handelbar ist, ist sie demokratisch und moralisch hochproblematisch: Sie schafft ein finanzielles Interesse am Schaden anderer.",
+    "ziegler_style_summary": "Das ist keine Versicherung mehr, sondern eine Brandwette auf das Haus des Nachbarn. Wer am Feuer verdient, sollte keinen Markt dafür bekommen."
+  },
+  "definition_of_done": [
+    "Derivate werden nicht pauschal verboten, sondern nach Underlying, Absicherungsinteresse, Schadensanreiz, Hebel, Intransparenz und Grundbedürfnisbezug bewertet.",
+    "Naked Exposure und Wetten auf fremden Schaden werden klar erkannt und als besonders verbotswürdig markiert.",
+    "Legitime Absicherung echter Risiken bleibt sauber unterscheidbar.",
+    "Grundbedürfnisbezogene Derivate werden besonders streng bewertet.",
+    "Das Modul erzeugt keine Tradingstrategien und keine operative Anleitung zum Aufbau solcher Positionen.",
+    "Konkrete Missbrauchs- oder Straftatvorwürfe werden nur mit Evidenz erlaubt.",
+    "Tests decken Hedging, Spekulation, Naked Exposure, Schadensanreiz, Systemrisiko und Guardrails ab."
+  ]
+}
