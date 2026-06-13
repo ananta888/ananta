@@ -159,6 +159,7 @@ testpaths = ["tests"]
 addopts = "-v"
 markers = [
     "integration: marks tests that validate cross-component integration behavior",
+    "manual_full_scan: marks full-repository LLM full_scan tests that are never run by default or in GitHub workflows",
 ]
 filterwarnings = [
     # Background planning threads use the test's in-memory SQLite session. When a test

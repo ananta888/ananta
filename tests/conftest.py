@@ -26,6 +26,18 @@ from tests_support import admin_login_token, reset_auth_state
 _TEST_DB_READY = False
 
 
+def pytest_collection_modifyitems(config, items):
+    del config
+    if str(os.environ.get("RUN_MANUAL_FULL_SCAN_TESTS") or "").strip().lower() in {"1", "true", "yes", "on"}:
+        return
+    skip_manual_full_scan = pytest.mark.skip(
+        reason="manual_full_scan tests require RUN_MANUAL_FULL_SCAN_TESTS=1 and are not run in GitHub workflows"
+    )
+    for item in items:
+        if "manual_full_scan" in item.keywords:
+            item.add_marker(skip_manual_full_scan)
+
+
 def _settings():
     from agent.config import settings
 
