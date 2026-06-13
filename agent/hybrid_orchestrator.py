@@ -223,6 +223,19 @@ class RepositoryMapEngine:
                     continue
                 if label in query_label or basename_label in query_label:
                     candidate_roots[root] = max(candidate_roots.get(root, 0), len(label))
+        # Apply configurable alias expansion: if a known alias keyword appears in the
+        # query label, treat the mapped path prefixes as if they were named in the query.
+        # Configured via settings.rag_path_focus_aliases (dict[str, list[str]]).
+        try:
+            aliases = dict(getattr(settings, "rag_path_focus_aliases", None) or {})
+        except Exception:
+            aliases = {}
+        for alias_keyword, alias_roots in aliases.items():
+            if alias_keyword in query_label:
+                for alias_root in list(alias_roots or []):
+                    alias_label = self._normalize_path_label(str(alias_root))
+                    if alias_root not in candidate_roots:
+                        candidate_roots[alias_root] = len(alias_label)
         if not candidate_roots:
             return None
         roots = sorted(candidate_roots, key=lambda item: (-candidate_roots[item], item))

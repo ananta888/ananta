@@ -277,6 +277,7 @@ class Settings(BaseSettings):
         default="de_to_en",
         validation_alias="RAG_QUERY_TRANSLATION_DIRECTIONS",
     )
+    rag_path_focus_aliases: dict = Field(default_factory=dict, validation_alias="RAG_PATH_FOCUS_ALIASES")
     rag_source_repo_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_REPO_ENABLED")
     rag_source_artifact_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_ARTIFACT_ENABLED")
     rag_source_task_memory_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_TASK_MEMORY_ENABLED")
