@@ -6,8 +6,7 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | Track | Scope role |
 | --- | --- | --- |
-| `todo.eclipse.json` | `eclipse_plugin_real_productization` | Eclipse runtime/productization backlog |
-| `todo.wiki-rag2.json` | `wiki_rag2_productionization` | Wiki ingestion/retrieval productionization backlog |
+| _None currently listed_ | _n/a_ | Active root-level OSS todo tracks should be added here only when the root file is intentionally restored as an active working-set backlog. |
 
 ## Deferred KRITIS / Enterprise-related scope
 
@@ -26,6 +25,8 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File reference | State | Evidence pointer |
 | --- | --- | --- |
+| `todo.eclipse.json` | Not present / inactive | Former Eclipse productization working-set reference; do not restore the root file unless a new active backlog is intentionally opened |
+| `todo.wiki-rag2.json` | Not present / inactive | Former Wiki RAG v2 productionization working-set reference; do not restore the root file unless a new active backlog is intentionally opened |
 | `todo.security.json` | Not present / inactive | `todo.json` analysis notes document stale reference cleanup |
 | `todo.ananta-worker.json` | Not present / inactive | `todo.json` analysis notes document stale reference cleanup |
 

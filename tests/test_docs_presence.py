@@ -43,7 +43,6 @@ def test_active_track_inventory_points_to_existing_track_files() -> None:
     inventory = (ROOT / "docs" / "status" / "active_and_completed_tracks.md").read_text(encoding="utf-8")
     active_section = _section(inventory, "Active OSS tracks (working set)")
     matches = TRACK_ROW_PATTERN.findall(active_section)
-    assert matches, "No active todo track rows found in active_and_completed_tracks.md"
 
     for file_name, expected_track in matches:
         payload = json.loads((ROOT / file_name).read_text(encoding="utf-8"))
@@ -60,5 +59,19 @@ def test_completed_documentation_track_is_archived_not_active() -> None:
     assert "| `todo.doc.json` |" not in active_section
     assert "| `todo.doc.json` | Completed and removed |" in completed_section
     assert not (ROOT / "todo.doc.json").exists()
-    assert "| `todo.eclipse.json` | `eclipse_plugin_real_productization` |" in active_section
-    assert "| `todo.wiki-rag2.json` | `wiki_rag2_productionization` |" in active_section
+
+
+def test_removed_root_todo_tracks_are_inactive_not_active() -> None:
+    inventory = (ROOT / "docs" / "status" / "active_and_completed_tracks.md").read_text(encoding="utf-8")
+    active_section = _section(inventory, "Active OSS tracks (working set)")
+    inactive_section = _section(inventory, "Removed / inactive legacy references")
+
+    removed_tracks = [
+        "todo.eclipse.json",
+        "todo.wiki-rag2.json",
+    ]
+
+    for file_name in removed_tracks:
+        assert f"| `{file_name}` |" not in active_section
+        assert f"| `{file_name}` | Not present / inactive |" in inactive_section
+        assert not (ROOT / file_name).exists()
