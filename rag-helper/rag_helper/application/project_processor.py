@@ -299,6 +299,8 @@ def process_project(
         all_relations=all_relations,
         manifest_files=manifest_files,
         limits=limits,
+        llm_narrative_endpoint=limits.llm_narrative_endpoint,
+        llm_narrative_model=limits.llm_narrative_model,
     )
     error_entries = aggregates["error_entries"]
     duplicate_report = aggregates["duplicate_report"]
@@ -309,6 +311,7 @@ def process_project(
     benchmark_report = aggregates["benchmark_report"]
     graph_nodes = aggregates["graph_nodes"]
     graph_edges = aggregates["graph_edges"]
+    component_catalog_markdown = aggregates.get("component_catalog_markdown")
 
     manifest = build_manifest_dict(
         root=root,
@@ -429,6 +432,7 @@ def process_project(
             compact_manifest_fn=lambda m: _compact_manifest(m, limits.manifest_output_mode),
             write_jsonl_fn=write_jsonl,
             manifest_extras=domain_discovery_extras,
+            component_catalog_markdown=component_catalog_markdown,
         )
 
     print(f"{'Dry-run fertig' if dry_run else 'Fertig'}: {out_dir}")

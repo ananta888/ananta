@@ -328,7 +328,9 @@ class TextFileExtractor:
                     })
                     relation_records.append({"from": class_id, "to": method_id, "type": "contains_method"})
 
+        module_docstring = ast.get_docstring(parsed) or ""
         names = [symbol["name"] for symbol in symbols]
+        _doc_prefix = f"{module_docstring[:200]} " if module_docstring else ""
         index_record = {
             "kind": "python_file",
             "file": rel_path,
@@ -337,9 +339,11 @@ class TextFileExtractor:
             "classes": classes[:50],
             "functions": functions[:50],
             "symbols": symbols[:50],
+            "module_docstring": module_docstring[:500] if module_docstring else None,
             "embedding_text": build_embedding_text(
                 self.embedding_text_mode,
                 (
+                    f"{_doc_prefix}"
                     f"Python file {rel_path}. "
                     f"Imports: {', '.join(imports[:20]) or 'none'}. "
                     f"Classes: {', '.join(item['name'] for item in classes[:20]) or 'none'}. "
@@ -347,6 +351,7 @@ class TextFileExtractor:
                     f"Methods {sum(len(item['methods']) for item in classes)}."
                 ),
                 (
+                    f"{_doc_prefix}"
                     f"Python {rel_path}. "
                     f"Classes {compact_list([item['name'] for item in classes], limit=6)}. "
                     f"Functions {compact_list([item['name'] for item in functions], limit=6)}."

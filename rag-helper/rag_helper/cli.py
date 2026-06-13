@@ -324,6 +324,16 @@ def run_cli(
         help="Erzeugt opt-in Descriptor-Vorschlaege unter domain_descriptor_suggestions/<id>/domain.json (CCDD-015)",
     )
     parser.add_argument(
+        "--llm-narrative-endpoint",
+        default=config_default("llm_narrative_endpoint"),
+        help="Optionale OpenAI-kompatible URL (z.B. http://localhost:1234) für LLM-gestützte Modul-Beschreibungen",
+    )
+    parser.add_argument(
+        "--llm-narrative-model",
+        default=config_default("llm_narrative_model"),
+        help="Modellname für LLM-Narrationen (optional, Default: 'default')",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         default=config_default("dry_run", False),
@@ -386,6 +396,8 @@ def run_cli(
         output_bundle_mode=args.output_bundle_mode,
         domain_discovery_mode=args.domain_discovery_mode,
         domain_descriptor_suggestions=args.domain_descriptor_suggestions,
+        llm_narrative_endpoint=args.llm_narrative_endpoint or None,
+        llm_narrative_model=args.llm_narrative_model or None,
     )
 
     if not root.exists() or not root.is_dir():

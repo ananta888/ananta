@@ -41,6 +41,8 @@ class ProcessingLimits:
     output_bundle_mode: str = "off"
     domain_discovery_mode: str = "off"
     domain_descriptor_suggestions: bool = False
+    llm_narrative_endpoint: str | None = None
+    llm_narrative_model: str | None = None
 
     def as_options(self) -> dict[str, int | str]:
         return {

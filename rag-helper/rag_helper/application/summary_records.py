@@ -1,18 +1,68 @@
 from __future__ import annotations
 
+import json
+import logging
+import urllib.error
+import urllib.request
 from collections import defaultdict
 from pathlib import PurePosixPath
+from typing import Any
 
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
+_log = logging.getLogger(__name__)
 
-def build_summary_records(index_records: list[dict], embedding_text_mode: str) -> tuple[list[dict], dict]:
+
+def _llm_narrative(module_area: str, docstrings: list[str], classes: list[str],
+                   functions: list[str], file_paths: list[str],
+                   endpoint: str, model: str | None) -> str | None:
+    """Call an OpenAI-compatible endpoint to generate a module narrative. Returns None on any error."""
+    doc_text = " ".join(d for d in docstrings if d)[:400]
+    symbols = ", ".join((classes + functions)[:15])
+    files_short = ", ".join(f.split("/")[-1] for f in file_paths[:8])
+    prompt = (
+        f"Beschreibe in 2-3 Sätzen auf Deutsch, was das Python-Modul '{module_area}' tut. "
+        f"Dateien: {files_short}. Klassen/Funktionen: {symbols}. "
+        f"Docstring-Hinweise: {doc_text or 'keine'}. "
+        "Antworte NUR mit den 2-3 Sätzen, kein JSON, keine Aufzählung."
+    )
+    payload = json.dumps({
+        "model": model or "default",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 150,
+        "temperature": 0.2,
+    }).encode()
+    try:
+        req = urllib.request.Request(
+            endpoint.rstrip("/") + "/v1/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+            return (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip() or None
+    except Exception as exc:
+        _log.debug("llm_narrative skipped for %s: %s", module_area, exc)
+        return None
+
+
+def build_summary_records(
+    index_records: list[dict],
+    embedding_text_mode: str,
+    llm_narrative_endpoint: str | None = None,
+    llm_narrative_model: str | None = None,
+) -> tuple[list[dict], dict]:
     summary_records = [
         *build_java_package_summaries(index_records, embedding_text_mode),
         *build_java_module_summaries(index_records, embedding_text_mode),
         *build_csharp_namespace_summaries(index_records, embedding_text_mode),
-        *build_python_module_summaries(index_records, embedding_text_mode),
+        *build_python_module_summaries(
+            index_records, embedding_text_mode,
+            llm_narrative_endpoint=llm_narrative_endpoint,
+            llm_narrative_model=llm_narrative_model,
+        ),
         *build_typescript_folder_summaries(index_records, embedding_text_mode),
         *build_build_file_summaries(index_records, embedding_text_mode),
     ]
@@ -211,7 +261,12 @@ def build_csharp_namespace_summaries(index_records: list[dict], embedding_text_m
     return summaries
 
 
-def build_python_module_summaries(index_records: list[dict], embedding_text_mode: str) -> list[dict]:
+def build_python_module_summaries(
+    index_records: list[dict],
+    embedding_text_mode: str,
+    llm_narrative_endpoint: str | None = None,
+    llm_narrative_model: str | None = None,
+) -> list[dict]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for record in index_records:
         if record.get("kind") != "python_file":
@@ -224,6 +279,7 @@ def build_python_module_summaries(index_records: list[dict], embedding_text_mode
         imports: list[str] = []
         class_names: list[str] = []
         function_names: list[str] = []
+        docstrings: list[str] = []
         method_count = 0
         import_count = 0
         for record in records:
@@ -239,7 +295,26 @@ def build_python_module_summaries(index_records: list[dict], embedding_text_mode
                 name = function_info.get("name")
                 if name:
                     function_names.append(name)
+            # Collect docstrings — prefer __init__.py, then any file
+            doc = record.get("module_docstring") or ""
+            if doc:
+                is_init = record["file"].endswith("__init__.py")
+                if is_init:
+                    docstrings.insert(0, doc)
+                else:
+                    docstrings.append(doc)
 
+        # Build narrative: LLM if configured, else best docstring, else nothing
+        narrative: str = ""
+        if llm_narrative_endpoint and (class_names or function_names):
+            narrative = _llm_narrative(
+                module_area, docstrings, class_names, function_names, file_paths,
+                llm_narrative_endpoint, llm_narrative_model,
+            ) or ""
+        if not narrative and docstrings:
+            narrative = docstrings[0][:300]
+
+        _narrative_prefix = f"{narrative} " if narrative else ""
         summaries.append({
             "kind": "python_module_summary",
             "id": f"python_module_summary:{safe_id(module_area)}",
@@ -249,9 +324,11 @@ def build_python_module_summaries(index_records: list[dict], embedding_text_mode
             "imports": imports[:50],
             "classes": class_names[:50],
             "functions": function_names[:50],
+            "narrative": narrative or None,
             "embedding_text": build_embedding_text(
                 embedding_text_mode,
                 (
+                    f"{_narrative_prefix}"
                     f"Python module area {module_area}. "
                     f"Files: {', '.join(file_paths[:20]) or 'none'}. "
                     f"Classes: {', '.join(class_names[:20]) or 'none'}. "
@@ -259,6 +336,7 @@ def build_python_module_summaries(index_records: list[dict], embedding_text_mode
                     f"Imports {import_count}. Methods {method_count}."
                 ),
                 (
+                    f"{_narrative_prefix}"
                     f"Python module area {module_area}. "
                     f"Files {len(file_paths)}. Classes {compact_list(class_names, limit=6)}. "
                     f"Functions {compact_list(function_names, limit=6)}."
@@ -440,3 +518,71 @@ def _module_area(rel_path: str) -> str:
 def _record_summary(record: dict) -> dict:
     summary = record.get("summary")
     return summary if isinstance(summary, dict) else {}
+
+
+def build_component_catalog_markdown(summary_records: list[dict]) -> str:
+    """Generate a human-readable component catalog from summary records.
+
+    Produces a Markdown document that describes every indexed module/folder
+    in plain language.  When the record carries a ``narrative`` (from docstring
+    extraction or LLM summarisation) it is shown first; otherwise the catalog
+    falls back to the structural statistics.  The file is written as
+    ``component-catalog.md`` in the CodeCompass output directory so it is
+    indexed like any other Markdown file on the next run.
+    """
+    lines: list[str] = [
+        "# CodeCompass Component Catalog",
+        "",
+        "Dieses Dokument wird automatisch von CodeCompass generiert.",
+        "Es beschreibt alle indizierten Module und Ordner des Projekts.",
+        "Fragen wie 'Was ist X?', 'Was tut Modul Y?', 'Erkläre Z' können",
+        "mithilfe dieses Dokuments beantwortet werden.",
+        "",
+    ]
+
+    by_kind: dict[str, list[dict]] = defaultdict(list)
+    for rec in summary_records:
+        by_kind[rec.get("kind", "unknown")].append(rec)
+
+    kind_labels = {
+        "python_module_summary": "## Python-Module",
+        "typescript_folder_summary": "## TypeScript-Ordner",
+        "java_package_summary": "## Java-Pakete",
+        "java_module_summary": "## Java-Module",
+        "csharp_namespace_summary": "## C#-Namespaces",
+        "build_file_summary": "## Build-Dateien",
+    }
+
+    for kind, label in kind_labels.items():
+        records = sorted(by_kind.get(kind, []), key=lambda r: r.get("module_area") or r.get("folder") or r.get("package") or "")
+        if not records:
+            continue
+        lines.append(label)
+        lines.append("")
+        for rec in records:
+            area = rec.get("module_area") or rec.get("folder") or rec.get("package") or rec.get("namespace") or "?"
+            narrative = rec.get("narrative") or ""
+            stats = rec.get("summary") or {}
+            file_count = stats.get("file_count", len(rec.get("files", [])))
+            class_count = stats.get("class_count", 0)
+            func_count = stats.get("function_count", 0)
+
+            lines.append(f"### `{area}`")
+            if narrative:
+                lines.append("")
+                lines.append(narrative)
+            lines.append("")
+            lines.append(
+                f"**Dateien:** {file_count} | "
+                f"**Klassen:** {class_count} | "
+                f"**Funktionen:** {func_count}"
+            )
+            top_classes = (rec.get("classes") or [])[:6]
+            if top_classes:
+                lines.append(f"**Schlüssel-Klassen:** {', '.join(str(c) for c in top_classes)}")
+            top_funcs = (rec.get("functions") or [])[:6]
+            if top_funcs:
+                lines.append(f"**Schlüssel-Funktionen:** {', '.join(str(f) for f in top_funcs)}")
+            lines.append("")
+
+    return "\n".join(lines)

@@ -39,7 +39,7 @@ from rag_helper.application.output_formats import (
 )
 from rag_helper.application.relation_compaction import compact_relation_records_by_file
 from rag_helper.application.specialized_chunkers import build_specialized_chunks
-from rag_helper.application.summary_records import build_summary_records
+from rag_helper.application.summary_records import build_component_catalog_markdown, build_summary_records
 from rag_helper.application.xml_overview import build_xml_overview_records
 
 
@@ -50,6 +50,8 @@ def compute_post_processing(
     all_relations: list[dict],
     manifest_files: list[dict],
     limits: Any,
+    llm_narrative_endpoint: str | None = None,
+    llm_narrative_model: str | None = None,
 ) -> dict:
     """Run all post-processing stages and return the aggregated payloads.
 
@@ -71,9 +73,13 @@ def compute_post_processing(
         )
     )
     summary_records, summary_stats = build_summary_records(
-        all_index, limits.embedding_text_mode
+        all_index,
+        limits.embedding_text_mode,
+        llm_narrative_endpoint=llm_narrative_endpoint,
+        llm_narrative_model=llm_narrative_model,
     )
     all_index.extend(summary_records)
+    component_catalog_markdown = build_component_catalog_markdown(summary_records)
     all_details.extend(specialized_details)
     all_relations.extend(specialized_relations)
     all_relations.extend(duplicate_relations)
@@ -122,6 +128,7 @@ def compute_post_processing(
         "benchmark_report": benchmark_report,
         "graph_nodes": graph_nodes,
         "graph_edges": graph_edges,
+        "component_catalog_markdown": component_catalog_markdown,
     }
 
 

@@ -50,6 +50,7 @@ def write_output_files(
     compact_manifest_fn,
     write_jsonl_fn,
     manifest_extras: dict | None = None,
+    component_catalog_markdown: str | None = None,
 ) -> list[str]:
     """Write all pipeline outputs and return the list of written file names.
 
@@ -60,6 +61,12 @@ def write_output_files(
     """
     ultra_mode = limits.output_compaction_mode in {"ultra", "ultra-rich"}
     written_output_files: list[str] = []
+
+    # Option 3: write auto-generated component catalog (indexed on next run)
+    if component_catalog_markdown:
+        catalog_path = out_dir / "component-catalog.md"
+        catalog_path.write_text(component_catalog_markdown, encoding="utf-8")
+        written_output_files.append("component-catalog.md")
     xsd_index_records = [
         record for record in all_index
         if str(record.get("kind") or "").startswith("xsd_")
