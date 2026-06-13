@@ -1,0 +1,399 @@
+{
+  "$schema": "../../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "unit-test-failures-2026-06-13",
+  "created": "2026-06-13",
+  "status": "todo",
+  "purpose": "Behebung aller fehlgeschlagenen Python Unit- und E2E-Tests aus dem Testlauf vom 2026-06-13. Gesamtergebnis: 94 FAILED + 31 ERRORS in 278 Tests.",
+  "goal": "Alle Unit- und E2E-Tests sollen gruen sein. Keine neuen Features, nur Fixes und Testanpassungen an geaenderte APIs.",
+  "non_goals": [
+    "Keine Angular-Tests in diesem Track.",
+    "Keine neuen Features oder Refactorings.",
+    "Keine Aenderung an live_compose oder isolierten Backend-Tests."
+  ],
+  "milestones": [
+    {
+      "id": "UTF-M1",
+      "title": "Kritische AttributeError / fehlende API-Attribute beheben",
+      "status": "todo",
+      "task_ids": ["UTF-001", "UTF-002", "UTF-003", "UTF-004"]
+    },
+    {
+      "id": "UTF-M2",
+      "title": "Auth-Fixture und HTTP-500-Fehler beheben",
+      "status": "todo",
+      "task_ids": ["UTF-005", "UTF-006"]
+    },
+    {
+      "id": "UTF-M3",
+      "title": "Fehlende Dateien und Schema-Divergenzen beheben",
+      "status": "todo",
+      "task_ids": ["UTF-007", "UTF-008", "UTF-009"]
+    },
+    {
+      "id": "UTF-M4",
+      "title": "Restliche Einzelfehler beheben",
+      "status": "todo",
+      "task_ids": ["UTF-010", "UTF-011", "UTF-012", "UTF-013", "UTF-014"]
+    },
+    {
+      "id": "UTF-M5",
+      "title": "E2E-Spezifische Fehler beheben",
+      "status": "todo",
+      "task_ids": ["UTF-015", "UTF-016"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "UTF-001",
+      "title": "Test-Fakes in test_retrieval_service.py um domain_scope-Parameter erweitern",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "affected_tests": 13,
+      "error": "TypeError: _FakeOrchestrator.get_relevant_context() got an unexpected keyword argument 'domain_scope'",
+      "root_cause": "Die echte get_relevant_context()-Signatur wurde um domain_scope erweitert (runtime domain scope Feature), aber die _FakeOrchestrator und _FakeRedactingOrchestrator Test-Doubles in test_retrieval_service.py wurden nicht synchronisiert.",
+      "target_files": [
+        "tests/test_retrieval_service.py"
+      ],
+      "acceptance_criteria": [
+        "_FakeOrchestrator.get_relevant_context() akzeptiert domain_scope als optionalen Keyword-Parameter.",
+        "_FakeRedactingOrchestrator.get_relevant_context() akzeptiert domain_scope ebenfalls.",
+        "Alle 13 test_retrieval_service Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-002",
+      "title": "agent.common.sgpt: fehlende Attribute shutil, resolve_ollama_model, probe_ollama_runtime, probe_lmstudio_runtime beheben",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "affected_tests": 17,
+      "error": "AttributeError: module 'agent.common.sgpt' has no attribute 'shutil' / 'resolve_ollama_model' / 'probe_ollama_runtime' / 'probe_lmstudio_runtime'",
+      "root_cause": "Tests mocken Symbole direkt auf agent.common.sgpt (z.B. monkeypatch.setattr(sgpt, 'shutil', ...)). Nach einem Refactoring sind diese Symbole entweder umgezogen oder nicht mehr als Modul-Level-Attribute sichtbar. Tests in test_codex_cli_backend.py, test_codex_cli_backend_preflight.py.",
+      "target_files": [
+        "tests/test_codex_cli_backend.py",
+        "tests/test_codex_cli_backend_preflight.py",
+        "agent/common/sgpt.py"
+      ],
+      "acceptance_criteria": [
+        "Entweder: agent.common.sgpt exportiert die gemockten Symbole wieder als Modul-Attribute.",
+        "Oder: Tests werden so angepasst, dass sie am richtigen Ort mocken.",
+        "Alle 17 betroffenen Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-003",
+      "title": "agent.common.sgpt: fehlendes Attribut _resolve_repo_root beheben",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "affected_tests": 5,
+      "error": "AttributeError: module 'agent.common.sgpt' has no attribute '_resolve_repo_root'",
+      "root_cause": "_resolve_repo_root wurde aus sgpt.py entfernt oder umgezogen. Tests in test_ananta_worker_architecture_full_scan.py und test_full_scan_context_overflow_fix.py mocken es.",
+      "target_files": [
+        "tests/test_ananta_worker_architecture_full_scan.py",
+        "tests/test_full_scan_context_overflow_fix.py",
+        "agent/common/sgpt.py"
+      ],
+      "acceptance_criteria": [
+        "_resolve_repo_root ist wieder auf dem gemockten Modul verfuegbar oder Tests mocken den korrekten Ort.",
+        "5 betroffene Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-004",
+      "title": "task_execution_service.get_shell: fehlendes Attribut beheben",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "affected_tests": 15,
+      "error": "AttributeError: module 'agent.services.task_execution_service' does not have the attribute 'get_shell'",
+      "root_cause": "get_shell wurde aus task_execution_service entfernt oder umbenannt. Tests in test_command_chain_execution_policy.py, test_opencode_command_chain_guardrails.py und tests/e2e/test_command_chain_execution_full_flow.py mocken dieses Attribut.",
+      "target_files": [
+        "tests/test_command_chain_execution_policy.py",
+        "tests/test_opencode_command_chain_guardrails.py",
+        "tests/e2e/test_command_chain_execution_full_flow.py",
+        "agent/services/task_execution_service.py"
+      ],
+      "acceptance_criteria": [
+        "get_shell ist wieder auf task_execution_service verfuegbar oder Tests mocken den korrekten Ort.",
+        "15 betroffene Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-005",
+      "title": "KeyError 'access_token' in Auth-Fixture beheben",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "affected_tests": 35,
+      "error": "KeyError: 'access_token'",
+      "root_cause": "Die Login-Antwort im Test-Fixture gibt kein 'access_token' mehr zurueck (oder unter anderem Key). Betrifft alle Tests, die sich via Fixture einloggen: test_admin_auth.py, test_llm_benchmarks_api.py und viele test_config_api.py Tests.",
+      "target_files": [
+        "tests/conftest.py",
+        "tests/test_admin_auth.py",
+        "tests/test_llm_benchmarks_api.py",
+        "tests/test_config_api.py"
+      ],
+      "acceptance_criteria": [
+        "Login-Fixture gibt access_token zurueck oder alle Tests greifen auf den richtigen Schluesselnamen zu.",
+        "Alle 35 betroffenen Tests laufen gruen.",
+        "Kein Hardcoded Token-Name an mehr als einer Stelle."
+      ]
+    },
+    {
+      "id": "UTF-006",
+      "title": "HTTP-500-Fehler in Auth/Policy-Endpoints beheben",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "affected_tests": 5,
+      "error": "assert 500 == 401 / assert 500 == 200 / assert 500 == 429 / assert 500 == 400",
+      "root_cause": "Endpoints in Admin-Auth, Policy-Bypass und IP-Banning werfen intern einen 500-Fehler statt den erwarteten Status. Vermutlich ein nicht abgefangener Exception in den Route-Handlern nach einem Refactoring. Tests: test_admin_auth.py (3), test_no_policy_bypass.py (2), test_banned_ip.py (1).",
+      "target_files": [
+        "agent/routes/admin_auth.py",
+        "agent/routes/tasks",
+        "agent/middleware"
+      ],
+      "acceptance_criteria": [
+        "Login, Account-Lockout und Rate-Limiting geben keinen 500 mehr.",
+        "Policy-Bypass-Tests erhalten 400 statt 500.",
+        "IP-Banning gibt 429 statt 500.",
+        "Alle 5 betroffenen Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-007",
+      "title": "Fehlende Todo-JSON-Dateien anlegen oder Testpfade korrigieren",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "affected_tests": 7,
+      "error": "FileNotFoundError: No such file or directory: todos/todo.operator-tui-three-way-flex-diff-ai-mode.json / todo.ananta-worker-fixup.json / todo.eclipse.json",
+      "root_cause": "Tests referenzieren Todo-Dateien, die entweder archiviert, umbenannt oder noch nicht erstellt wurden. test_planning_track_contract_service.py braucht todo.operator-tui-three-way-flex-diff-ai-mode.json, test_awf_worker_fixup_t031_t045.py braucht todo.ananta-worker-fixup.json, test_docs_presence.py braucht todo.eclipse.json.",
+      "target_files": [
+        "tests/test_planning_track_contract_service.py",
+        "tests/test_awf_worker_fixup_t031_t045.py",
+        "tests/test_docs_presence.py",
+        "todos/"
+      ],
+      "acceptance_criteria": [
+        "Entweder: fehlende Dateien werden als Stub angelegt.",
+        "Oder: Tests werden auf existierende Dateien umgezeigt.",
+        "7 betroffene Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-008",
+      "title": "agent.cli.prompt_inspect: fehlende CLI-Funktionen hinzufuegen",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "affected_tests": 9,
+      "error": "ImportError: cannot import name 'cmd_prompt_delegation_report' / 'cmd_prompt_task_report' / 'cmd_prompt_learning_report' / 'cmd_prompt_task_traces' from agent.cli.prompt_inspect; AttributeError: no attribute 'run_prompt_command'",
+      "root_cause": "Funktionen wurden aus prompt_inspect.py entfernt oder umbenannt. Tests in test_cli_prompt_inspect.py importieren diese direkt.",
+      "target_files": [
+        "agent/cli/prompt_inspect.py",
+        "tests/test_cli_prompt_inspect.py"
+      ],
+      "acceptance_criteria": [
+        "Entweder: Funktionen sind wieder in prompt_inspect.py vorhanden.",
+        "Oder: Tests importieren vom neuen Ort.",
+        "9 betroffene Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-009",
+      "title": "Service-Boundary-Verletzungen bereinigen",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "affected_tests": 1,
+      "error": "AssertionError: agent.services._task_scoped_domain_action imports agent.routes.tasks.orchestration_policy (und 4 weitere)",
+      "root_cause": "5 interne Service-Module importieren direkt aus agent.routes.tasks, was gegen die Architektur-Grenze verstosst. Diese wurden vermutlich durch das domain_scope / CCRDS-Feature eingefuehrt.",
+      "target_files": [
+        "agent/services/_task_scoped_domain_action.py",
+        "agent/services/_task_scoped_propose_orch.py",
+        "agent/services/_task_scoped_propose_single.py",
+        "agent/services/_task_scoped_step_orchestrator.py",
+        "agent/routes/tasks/orchestration_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Keine Service-Dateien importieren aus agent.routes.*.",
+        "Gemeinsam genutzte Policy-Logik in agent/services/ oder agent/common/ extrahiert.",
+        "test_current_service_boundaries_have_no_new_route_imports laeuft gruen."
+      ]
+    },
+    {
+      "id": "UTF-010",
+      "title": "evolution_service.get_mutation_gate_service wiederherstellen oder Test anpassen",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "affected_tests": 1,
+      "error": "AttributeError: 'module' object at agent.services.evolution_service has no attribute 'get_mutation_gate_service'",
+      "root_cause": "get_mutation_gate_service wurde aus evolution_service entfernt oder umstrukturiert.",
+      "target_files": [
+        "agent/services/evolution_service.py",
+        "tests/test_evolution_api.py"
+      ],
+      "acceptance_criteria": [
+        "Test laeuft gruen ohne get_mutation_gate_service Stub.",
+        "Mutation-Gate-Pruefung ist weiterhin testbar."
+      ]
+    },
+    {
+      "id": "UTF-011",
+      "title": "Flask App-Context in test_planning_context_compactor_integration.py reparieren",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "affected_tests": 2,
+      "error": "RuntimeError: Working outside of application context.",
+      "root_cause": "Test ruft Code auf, der Flask-App-Kontext benoetigt, ohne dass dieser im Test gesetzt ist. Fehlendes app.app_context() oder falsch konfiguriertes Fixture.",
+      "target_files": [
+        "tests/test_planning_context_compactor_integration.py"
+      ],
+      "acceptance_criteria": [
+        "Test verwendet app-Fixture oder app.app_context().",
+        "Beide Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-012",
+      "title": "Contract-Schema task_scoped_step_propose_response aktualisieren",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "affected_tests": 1,
+      "error": "AssertionError: Schema mismatches detected in: task_scoped_step_propose_response",
+      "root_cause": "Das API-Antwortschema fuer task_scoped_step_propose_response hat sich geaendert (vermutlich durch domain_scope-Feature oder CCRDS), aber die Contract-Schema-Datei wurde nicht aktualisiert.",
+      "target_files": [
+        "schemas/task_scoped_step_propose_response.json",
+        "tests/test_contract_schemas.py"
+      ],
+      "acceptance_criteria": [
+        "Contract-Schema stimmt mit der aktuellen API-Antwort ueberein.",
+        "test_verify_contract_schemas laeuft gruen."
+      ]
+    },
+    {
+      "id": "UTF-013",
+      "title": "RAG-Service Prompt-Format-Erwartung anpassen",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "affected_tests": 1,
+      "error": "AssertionError: assert 'Kontext:\\nselected context' in '...' (tatsaechlich enthalten: Quell-annotierter Kontext mit Metadata)",
+      "root_cause": "Das Prompt-Format des RAG-Service hat sich geaendert (Kontext-Chunks enthalten jetzt Quellen-Annotationen), der Test prueft noch das alte Format.",
+      "target_files": [
+        "tests/test_rag_service.py"
+      ],
+      "acceptance_criteria": [
+        "Test prueft das tatsaechliche aktuelle Prompt-Format.",
+        "test_rag_service_builds_grounded_prompt_from_retrieved_context laeuft gruen."
+      ]
+    },
+    {
+      "id": "UTF-014",
+      "title": "client_surfaces subprocess-Import und cancelled_goal-Guard-Assertion reparieren",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "affected_tests": 2,
+      "error": "client_thinness: subprocess-Import in git_read_tool.py und external_window_controller.py verletzt Client-Thinness-Grenze; cancelled_goal: assert None is not None",
+      "root_cause": "git_read_tool.py und external_window_controller.py importieren subprocess direkt statt ueber einen Service. Cancelled-Goal-Test erwartet einen non-None-Rueckgabewert, der Guard gibt aber None zurueck.",
+      "target_files": [
+        "client_surfaces/operator_tui/tools/git_read_tool.py",
+        "client_surfaces/operator_tui/windowing/external_window_controller.py",
+        "tests/test_cancelled_goal_task_execution_guard.py"
+      ],
+      "acceptance_criteria": [
+        "git_read_tool.py und external_window_controller.py importieren subprocess nicht mehr direkt.",
+        "Terminal-Guard gibt einen sinnvollen Wert zurueck wenn Elternziel terminal ist.",
+        "Beide Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-015",
+      "title": "E2E: LLM-Strategie-Erwartung anpassen (flexible_llm_normalization vs tool_calling_llm)",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "affected_tests": 3,
+      "error": "AssertionError: Expected tool_calling_llm strategy, got 'flexible_llm_normalization'",
+      "root_cause": "E2E-Tests erwarten tool_calling_llm als Strategie, der Propose-Flow waehlt aber jetzt flexible_llm_normalization. Entweder hat sich die Strategie-Selektion geaendert oder die Test-Erwartung ist zu streng.",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_api_smoke.py",
+        "tests/e2e/test_autopilot_new_project_llm_first.py",
+        "tests/e2e/test_autopilot_taskscoped_persist_execute_and_verified_completion.py"
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen auf die tatsaechlich verwendete oder eine akzeptable Strategie.",
+        "Oder: Strategie-Selektion wird so konfiguriert, dass tool_calling_llm wieder gewaehlt wird.",
+        "Alle 3 E2E-Tests laufen gruen."
+      ]
+    },
+    {
+      "id": "UTF-016",
+      "title": "E2E: public_rendezvous-Profil enthaelt Keycloak-URL",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "affected_tests": 2,
+      "error": "AssertionError: assert 'keycloak.ananta.de' not in 'https://keycloak.ananta.de/realms/ananta'",
+      "root_cause": "Das local/offline-Profil in public-rendezvous enthaelt noch eine externe Keycloak-URL. Tests pruefen, dass lokale und offline Profile keine public URLs haben.",
+      "target_files": [
+        "public-rendezvous/",
+        "tests/e2e/test_public_rendezvous_profile.py"
+      ],
+      "acceptance_criteria": [
+        "Local-Profil enthaelt keine keycloak.ananta.de URL.",
+        "Offline-Profil enthaelt kein Transport-Feld mit externer URL.",
+        "Beide Tests laufen gruen."
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 16,
+    "by_status": {
+      "todo": 16,
+      "in_progress": 0,
+      "completed": 0
+    },
+    "by_priority": {
+      "P0": 5,
+      "P1": 7,
+      "P2": 4
+    },
+    "total_affected_tests": 119,
+    "test_run_date": "2026-06-13",
+    "segfault_note": "Der Testlauf wurde bei ~75% durch einen Segfault in planning_timeout_service-Threads beendet. Die letzten ~25% der Tests wurden nicht ausgefuehrt. Die hier erfassten Fehler stammen aus den Tests die bis zum Segfault liefen.",
+    "notes": [
+      "P0-Tasks blockieren den meisten anderen Tests und sollten zuerst angegangen werden.",
+      "UTF-001 und UTF-004 sind vermutlich Folgen des domain_scope / CCRDS-Features (Commits 40aca29b2 / 455467b00).",
+      "UTF-005 (access_token KeyError) betrifft mindestens 35 Tests und hat hohe Hebelwirkung.",
+      "Der Segfault in planning_timeout_service ist ein separates Problem (Thread-Leak), aber kein Testfehler per se.",
+      "recommended_order: UTF-005 -> UTF-001 -> UTF-004 -> UTF-002 -> UTF-003 -> UTF-008 -> UTF-009 -> UTF-012 -> UTF-006 -> Rest"
+    ],
+    "recommended_order": ["UTF-005", "UTF-001", "UTF-004", "UTF-002", "UTF-003", "UTF-008", "UTF-009", "UTF-012", "UTF-006", "UTF-007", "UTF-010", "UTF-011", "UTF-013", "UTF-014", "UTF-015", "UTF-016"]
+  }
+}

@@ -35,7 +35,7 @@ def test_denied_later_segment_blocks_whole_chain_before_execution() -> None:
     service = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_deny_rm_risk),
     ):
         output, exit_code, _, _, _ = service._execute_shell_command_with_policy(
@@ -55,7 +55,7 @@ def test_or_chain_executes_fallback_only_after_failure() -> None:
     shell = _StubShell()
     shell.outputs = {"pytest": ("failed", 1), "echo failed": ("fallback", 0)}
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         output, exit_code, _, _, _ = service._execute_shell_command_with_policy(
@@ -75,7 +75,7 @@ def test_and_chain_skips_next_after_failure() -> None:
     shell = _StubShell()
     shell.outputs = {"pytest": ("failed", 1)}
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         _, exit_code, _, _, history = service._execute_shell_command_with_policy(
@@ -103,7 +103,7 @@ def test_execute_local_step_opencode_chain_not_blocked_by_preflight():
         cmd.split("; ", 1)[1]: ("World", 0),
     }
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         result = svc.execute_local_step(
@@ -131,7 +131,7 @@ def test_dangerous_second_segment_blocks_before_first_execution():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_deny_rm_risk),
     ):
         _, code, _, _, history = svc._execute_shell_command_with_policy(
@@ -158,7 +158,7 @@ def test_pipe_is_blocked():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         _, code, _, _, _ = svc._execute_shell_command_with_policy(
@@ -176,7 +176,7 @@ def test_command_substitution_is_blocked():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         _, code, _, _, _ = svc._execute_shell_command_with_policy(
@@ -194,7 +194,7 @@ def test_backtick_is_blocked():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         _, code, _, _, _ = svc._execute_shell_command_with_policy(
@@ -212,7 +212,7 @@ def test_pipeline_mode_requires_policy_allow_complex_shell_mode():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         result = svc.execute_local_step(
@@ -235,7 +235,7 @@ def test_pipeline_mode_allows_complex_shell_when_policy_enabled():
     shell = _StubShell()
     shell.outputs = {"cat a | grep x": ("ok", 0)}
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         result = svc.execute_local_step(

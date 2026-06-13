@@ -361,6 +361,18 @@
     },
     "TaskRoutingContract": {
       "properties": {
+        "deterministic_handler_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deterministic Handler Id"
+        },
         "effective_backend": {
           "anyOf": [
             {
@@ -481,6 +493,18 @@
           "default": null,
           "title": "Instance Id"
         },
+        "intent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intent"
+        },
         "live_terminal": {
           "anyOf": [
             {
@@ -494,6 +518,18 @@
           "default": null,
           "title": "Live Terminal"
         },
+        "llm_required": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Required"
+        },
         "max_hops": {
           "anyOf": [
             {
@@ -505,6 +541,92 @@
           ],
           "default": null,
           "title": "Max Hops"
+        },
+        "model_block_secret_context": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Block Secret Context"
+        },
+        "model_blocked_candidates": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Model Blocked Candidates",
+          "type": "array"
+        },
+        "model_cloud_allowed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Cloud Allowed"
+        },
+        "model_policy_decisions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Model Policy Decisions",
+          "type": "array"
+        },
+        "model_profile_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Profile Id"
+        },
+        "model_resolver_rank": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Resolver Rank"
+        },
+        "model_resolver_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Resolver Source"
+        },
+        "model_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Role"
         },
         "policy_classification_summary": {
           "anyOf": [
@@ -625,6 +747,18 @@
           ],
           "default": null,
           "title": "Session Turn Id"
+        },
+        "task_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Class"
         },
         "task_kind": {
           "anyOf": [

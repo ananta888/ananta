@@ -40,7 +40,7 @@ def test_chain_semantics_and_prevalidation() -> None:
         "python -c 'print(3)'": ("3", 0),
     }
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
         patch("agent.services.segment_preflight_validator.evaluate_execution_risk", side_effect=_allow_risk),
     ):
@@ -61,7 +61,7 @@ def test_denied_later_segment_prevents_earlier_execution() -> None:
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_deny_git_diff),
         patch("agent.services.segment_preflight_validator.evaluate_execution_risk", side_effect=_deny_git_diff),
     ):
@@ -95,7 +95,7 @@ def test_opencode_mini_project_semicolon_chain_completes() -> None:
         'python -c "from hello import greet; print(greet(\'World\'))"': ("World", 0),
     }
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         out, code, _, _, history = svc._execute_shell_command_with_policy(
@@ -120,7 +120,7 @@ def test_opencode_dangerous_variant_blocked_before_any_execution() -> None:
     shell = _StubShell()
     dangerous_cmd = "python hello.py; rm -rf /tmp/hello_output"
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_deny_rm),
     ):
         _, code, _, _, _ = svc._execute_shell_command_with_policy(
@@ -138,7 +138,7 @@ def test_sandbox_class_blocks_high_risk_wrapper_command() -> None:
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         _, code, _, _, _ = svc._execute_shell_command_with_policy(

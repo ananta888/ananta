@@ -16,7 +16,7 @@ from typing import Callable
 from flask import current_app, has_app_context
 
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
-from agent.routes.tasks.orchestration_policy import derive_required_capabilities
+from agent.services.worker_routing_policy_utils import derive_required_capabilities
 from agent.runtime_policy import normalize_task_kind
 from agent.services.worker_execution_profile_service import (
     normalize_worker_execution_profile,

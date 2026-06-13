@@ -14,7 +14,7 @@ class _Req:
         return {"prompt": self.prompt}
 
 
-def test_propose_uses_compactor_metadata(monkeypatch):
+def test_propose_uses_compactor_metadata(app, monkeypatch):
     svc = TaskScopedExecutionService()
     task = {"id": "t1", "goal_id": "g1", "description": "d", "status": "todo"}
 
@@ -67,7 +67,7 @@ def test_propose_uses_compactor_metadata(monkeypatch):
     assert out.status == "success"
 
 
-def test_propose_fail_closed_when_compaction_required(monkeypatch):
+def test_propose_fail_closed_when_compaction_required(app, monkeypatch):
     svc = TaskScopedExecutionService()
     task = {"id": "t1", "goal_id": "g1", "description": "d", "status": "todo"}
     monkeypatch.setattr(svc, "_require_task", lambda tid: task)

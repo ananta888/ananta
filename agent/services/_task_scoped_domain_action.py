@@ -417,7 +417,7 @@ from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.common.utils.structured_action_utils import extract_structured_action_fields
 from agent.models import TaskStepExecuteRequest
 from agent.research_backend import is_research_backend
-from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
+from agent.services.worker_routing_policy_utils import derive_required_capabilities, derive_research_specialization
 from agent.runtime_policy import normalize_task_kind, runtime_routing_config
 from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
 from agent.services.task_execution_policy_service import resolve_execution_policy

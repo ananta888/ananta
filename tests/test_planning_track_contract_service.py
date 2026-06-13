@@ -17,6 +17,7 @@ def _todo_track_payload() -> dict:
     file_path = (
         Path(__file__).resolve().parents[1]
         / "todos"
+        / "archiv"
         / "todo.operator-tui-three-way-flex-diff-ai-mode.json"
     )
     return json.loads(file_path.read_text(encoding="utf-8"))

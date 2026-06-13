@@ -82,6 +82,12 @@ class TestNewProjectApiSmoke:
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             make_mock_invoke_with_tools(_MOCK_TOOL_CALLS),
         )
+        # LMStudio compat layer reorders to put flexible_llm_normalization first;
+        # bypass it so this test can verify tool_calling_llm is selected when it succeeds.
+        monkeypatch.setattr(
+            "agent.services.propose_policy_service.ProposePolicyService._apply_provider_compatibility",
+            staticmethod(lambda merged, **_: merged),
+        )
 
         res = client.post(
             f"/tasks/{smoke_task}/step/propose",

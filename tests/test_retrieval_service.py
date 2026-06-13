@@ -20,7 +20,7 @@ class _FakeOrchestrator:
     def _redact(self, text: str) -> str:
         return text
 
-    def get_relevant_context(self, query: str) -> dict[str, object]:
+    def get_relevant_context(self, query: str, *, domain_scope=None) -> dict[str, object]:
         return {
             "query": query,
             "strategy": {"repository_map": 1},
@@ -43,7 +43,7 @@ class _FakeRedactingOrchestrator(_FakeOrchestrator):
     def _redact(self, text: str) -> str:
         return str(text or "").replace("sk-secret-token-1234567890", "[REDACTED]")
 
-    def get_relevant_context(self, query: str) -> dict[str, object]:
+    def get_relevant_context(self, query: str, *, domain_scope=None) -> dict[str, object]:
         return {
             "query": query,
             "strategy": {"repository_map": 1, "raw_query": "sk-secret-token-1234567890"},

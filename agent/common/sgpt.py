@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import time
@@ -53,8 +54,11 @@ from agent.common.sgpt_architecture_scan import (
     _is_architecture_full_scan_context,
     _load_source_file_batches,
     _read_research_context,
+    _resolve_repo_root,
     _run_architecture_full_scan,
 )
+from agent.llm_integration_ollama import probe_ollama_runtime, resolve_ollama_model
+from agent.llm_integration_lmstudio import probe_lmstudio_runtime
 
 log = logging.getLogger(__name__)
 

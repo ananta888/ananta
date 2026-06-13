@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Callable
 from flask import current_app, g, has_app_context, has_request_context
 
 from agent.llm_integration import normalize_llm_call_profile_entry
-from agent.routes.tasks.orchestration_policy import derive_required_capabilities
+from agent.services.worker_routing_policy_utils import derive_required_capabilities
 from agent.runtime_policy import normalize_task_kind
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
@@ -25,7 +25,7 @@ from agent.services.propose_policy_service import get_propose_policy_service
 from agent.services.service_registry import get_core_services
 from agent.services.propose_policy import get_task_kind_preset
 from agent.services.product_event_service import record_product_event
-from agent.routes.tasks.utils import update_local_task_status
+from agent.services.task_runtime_service import update_local_task_status
 
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse

@@ -24,14 +24,18 @@ def test_public_ananta_profile_has_correct_defaults():
     assert profile["oidc"]["pkce_required"] is True
 
 
-def test_local_profile_has_no_public_urls():
+def test_local_profile_has_no_public_urls(monkeypatch):
+    for key in ("ANANTA_OIDC_ISSUER", "ANANTA_OIDC_CLIENT_ID", "ANANTA_RENDEZVOUS_URL", "ANANTA_SIGNALING_URL"):
+        monkeypatch.delenv(key, raising=False)
     from client_surfaces.operator_tui.network_profile import get_profile
     profile = get_profile("local")
     assert "keycloak.ananta.de" not in (profile["oidc"].get("issuer") or "")
     assert "webrtc.ananta.de" not in (profile["rendezvous"].get("base_url") or "")
 
 
-def test_offline_profile_has_no_transport():
+def test_offline_profile_has_no_transport(monkeypatch):
+    for key in ("ANANTA_OIDC_ISSUER", "ANANTA_OIDC_CLIENT_ID", "ANANTA_RENDEZVOUS_URL", "ANANTA_SIGNALING_URL"):
+        monkeypatch.delenv(key, raising=False)
     from client_surfaces.operator_tui.network_profile import get_profile
     profile = get_profile("offline")
     assert not profile["rendezvous"]["transport_order"]

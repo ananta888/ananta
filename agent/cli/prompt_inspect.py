@@ -509,6 +509,224 @@ def cmd_prompt_trace_full(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prompt_delegation_report(args: argparse.Namespace) -> int:
+    from agent.cli_goals import _request, _api_data as _cli_api_data
+
+    goal_id = str(getattr(args, "goal_id", "") or "")
+    as_json = getattr(args, "json", False)
+
+    detail_res = _request("GET", f"/goals/{goal_id}/detail", timeout=30)
+    goal_detail: dict = _cli_api_data(detail_res) if detail_res and detail_res.status_code == 200 else {}
+    if not isinstance(goal_detail, dict):
+        goal_detail = {}
+
+    traces_res = _request("GET", f"/goals/{goal_id}/prompt-traces", params={"limit": 400}, timeout=30)
+    traces_payload: dict = _cli_api_data(traces_res) if traces_res and traces_res.status_code == 200 else {}
+    if not isinstance(traces_payload, dict):
+        traces_payload = {}
+
+    traces_grouped: dict = dict(traces_payload.get("traces") or {})
+    all_traces: list[dict] = []
+    for group in traces_grouped.values():
+        all_traces.extend(group if isinstance(group, list) else [])
+    traces_by_task: dict[str, list[dict]] = {}
+    for t in all_traces:
+        tid = str(t.get("task_id") or "")
+        traces_by_task.setdefault(tid, []).append(t)
+
+    tasks_raw = [t for t in list(goal_detail.get("tasks") or []) if isinstance(t, dict)]
+    task_rows = []
+    for task in tasks_raw:
+        tid = str(task.get("id") or "")
+        layers_raw = task.get("instruction_layers") or {}
+        layers = {
+            "selected_profile": layers_raw.get("selected_profile") if isinstance(layers_raw, dict) else None,
+            "selected_overlay": layers_raw.get("selected_overlay") if isinstance(layers_raw, dict) else None,
+            "template_compatibility": (layers_raw.get("template_compatibility") or {}) if isinstance(layers_raw, dict) else {},
+        }
+        task_traces = sorted(traces_by_task.get(tid, []), key=lambda x: float(x.get("created_at") or 0))
+        last_trace = task_traces[-1] if task_traces else {}
+        task_rows.append({
+            "task_id": tid,
+            "title": str(task.get("title") or ""),
+            "status": str(task.get("status") or ""),
+            "task_kind": str(task.get("task_kind") or ""),
+            "assigned_agent_url": str(task.get("assigned_agent_url") or ""),
+            "instruction_layers": layers,
+            "last_prompt_trace": {
+                "request_kind": str(last_trace.get("request_kind") or ""),
+                "provider": str(last_trace.get("provider") or ""),
+                "model": str(last_trace.get("model") or ""),
+                "prompt_hash": str(last_trace.get("prompt_hash_sha256") or ""),
+                "created_at": last_trace.get("created_at"),
+            },
+        })
+
+    report = {"goal_id": goal_id, "task_count": len(task_rows), "tasks": task_rows}
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False))
+    else:
+        print(f"Goal {goal_id}: {len(task_rows)} tasks")
+        for row in task_rows:
+            print(f"  {row['task_id']} [{row['status']}] last_trace={row['last_prompt_trace']['request_kind']}")
+    return 0
+
+
+def cmd_prompt_task_report(args: argparse.Namespace) -> int:
+    from agent.cli_goals import _request, _api_data as _cli_api_data
+
+    task_id = str(getattr(args, "task_id", "") or "")
+    as_json = getattr(args, "json", False)
+
+    task_res = _request("GET", f"/tasks/{task_id}", timeout=30)
+    task_detail: dict = _cli_api_data(task_res) if task_res and task_res.status_code == 200 else {}
+    if not isinstance(task_detail, dict):
+        task_detail = {}
+
+    svc = _get_trace_svc()
+    traces = svc.list_traces(task_id=task_id, limit=100) if task_id else []
+    llm_responses = _latest_llm_response_by_request_id()
+
+    trace_rows = []
+    for t in traces:
+        req_id = str(t.request_id or "")
+        log_entry = llm_responses.get(req_id) or {}
+        raw_response = str(log_entry.get("response") or "")
+        response_preview = raw_response[:200] if raw_response else ""
+        prompt_preview = str(t.final_prompt_redacted or "")[:200]
+        trace_rows.append({
+            "trace_id": t.trace_id,
+            "request_id": req_id,
+            "request_kind": str(t.request_kind or ""),
+            "provider": str(t.provider or ""),
+            "model": str(t.model or ""),
+            "prompt_preview_redacted": prompt_preview,
+            "response_preview": response_preview,
+            "created_at": t.created_at,
+            "success": t.success,
+        })
+
+    report = {
+        "task": {"task_id": str(task_detail.get("id") or task_id), **{k: v for k, v in task_detail.items() if k != "id"}},
+        "trace_count": len(trace_rows),
+        "traces": trace_rows,
+    }
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False))
+    else:
+        print(f"Task {task_id}: {len(trace_rows)} traces")
+    return 0
+
+
+def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
+    from agent.cli_goals import _request, _api_data as _cli_api_data
+
+    as_json = getattr(args, "json", False)
+
+    res = _request("GET", "/dashboard/read-model", timeout=30)
+    payload: dict = _cli_api_data(res) if res and res.status_code == 200 else {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    llm_cfg: dict = payload.get("llm_configuration") or {}
+    learning: dict = llm_cfg.get("planning_learning") or {}
+    overview: dict = learning.get("overview") or {}
+
+    def _val(d: Any, key: str) -> Any:
+        v = d.get(key)
+        if isinstance(v, dict):
+            return v.get("value")
+        return v
+
+    preferred_format = _val(overview, "preferred_output_format")
+    preferred_shape = _val(overview, "preferred_output_shape")
+
+    profiles_raw = list(learning.get("profiles") or [])
+    profiles = []
+    for p in profiles_raw:
+        if not isinstance(p, dict):
+            p = {}
+        ls: dict = p.get("learning_state") or {}
+        profiles.append({
+            "profile_name": str(p.get("profile_name") or ""),
+            "enabled": p.get("enabled"),
+            "provider": str(p.get("provider") or ""),
+            "model_family": str(p.get("model_family") or ""),
+            "learning_state": ls,
+            "observed_output_shape": str(ls.get("observed_output_shape") or ""),
+            "observed_output_format": str(ls.get("observed_output_format") or ""),
+            "preferred_output_format": str(preferred_format or ""),
+            "active_prompt_version_id": str(p.get("active_prompt_version_id") or ""),
+            "current_quality_score": p.get("current_quality_score"),
+            "trend_direction": str(p.get("trend_direction") or ""),
+            "current_candidate": p.get("current_candidate"),
+            "freeze": p.get("freeze"),
+            "metrics": p.get("metrics"),
+        })
+
+    report = {
+        "enabled": bool(learning.get("enabled")),
+        "candidate_count": int(learning.get("candidate_count") or 0),
+        "review_item_count": int(learning.get("review_item_count") or 0),
+        "policy": learning.get("policy") or {},
+        "overview": {
+            "preferred_output_shape": {"value": preferred_shape, **({} if not isinstance(overview.get("preferred_output_shape"), dict) else {k: v for k, v in overview["preferred_output_shape"].items() if k != "value"})},
+            "preferred_output_format": {"value": preferred_format, **({} if not isinstance(overview.get("preferred_output_format"), dict) else {k: v for k, v in overview["preferred_output_format"].items() if k != "value"})},
+            "state_counts": overview.get("state_counts") or {},
+        },
+        "profiles": profiles,
+    }
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False))
+    else:
+        print(f"Planning Learning: enabled={report['enabled']}, candidates={report['candidate_count']}")
+    return 0
+
+
+def cmd_prompt_task_traces(args: argparse.Namespace) -> int:
+    task_id = str(getattr(args, "task_id", "") or "")
+    goal_id = str(getattr(args, "goal_id", "") or "")
+    propose_only = bool(getattr(args, "propose_only", False))
+    as_json = getattr(args, "json", False)
+
+    svc = _get_trace_svc()
+    traces = svc.list_traces(task_id=task_id or None, goal_id=goal_id or None, limit=200)
+    if propose_only:
+        traces = [t for t in traces if _is_propose_like_request_kind(str(t.request_kind or ""))]
+
+    trace_rows = [
+        {
+            "trace_id": t.trace_id,
+            "request_id": str(t.request_id or ""),
+            "request_kind": str(t.request_kind or ""),
+            "provider": str(t.provider or ""),
+            "model": str(t.model or ""),
+            "created_at": t.created_at,
+            "success": t.success,
+        }
+        for t in traces
+    ]
+    report = {"task_id": task_id, "goal_id": goal_id, "trace_count": len(trace_rows), "traces": trace_rows}
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False))
+    else:
+        print(f"Task {task_id}: {len(trace_rows)} traces")
+    return 0
+
+
+def run_prompt_command(args: argparse.Namespace) -> int:
+    prompt_cmd = str(getattr(args, "prompt_cmd", "") or "")
+    if prompt_cmd == "task-inspect":
+        return cmd_prompt_task_report(args)
+    if prompt_cmd == "task-traces":
+        return cmd_prompt_task_traces(args)
+    if prompt_cmd == "learning-report":
+        return cmd_prompt_learning_report(args)
+    if prompt_cmd == "delegation-report":
+        return cmd_prompt_delegation_report(args)
+    return cmd_prompt_inspect(args)
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 

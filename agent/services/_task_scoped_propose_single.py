@@ -21,7 +21,7 @@ from flask import current_app
 from agent.common.utils.structured_action_utils import extract_structured_action_fields
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend
-from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
+from agent.services.worker_routing_policy_utils import derive_required_capabilities, derive_research_specialization
 from agent.runtime_policy import build_trace_record, normalize_task_kind, runtime_routing_config
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.native_worker_runtime_service import get_native_worker_runtime_service

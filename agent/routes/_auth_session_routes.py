@@ -40,6 +40,14 @@ def _shim():
     return _auth_shim
 
 
+def _repos():
+    return _shim()._repos()
+
+
+def _log():
+    return _shim()._log()
+
+
 def register_routes(auth_bp) -> None:
     """Attach the public session routes to the auth blueprint."""
 

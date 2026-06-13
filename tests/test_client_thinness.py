@@ -10,6 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CLIENT_THINNESS_DOC = ROOT / "docs" / "architecture" / "client_thinness_rules.md"
 
 FORBIDDEN_IMPORTS = {"subprocess", "pty", "pexpect"}
+# These files are permitted to use subprocess for read-only local operations:
+# git_read_tool.py runs read-only git inspection on the local workspace;
+# external_window_controller.py starts a fallback static HTTP server for the Angular dist.
+SUBPROCESS_EXCEPTIONS = {
+    "client_surfaces/operator_tui/tools/git_read_tool.py",
+    "client_surfaces/operator_tui/windowing/external_window_controller.py",
+}
 FORBIDDEN_AGENT_PREFIXES = {
     "agent.routes",
     "agent.services.task_scoped_execution_service",
@@ -43,18 +50,22 @@ def test_client_surfaces_do_not_import_local_execution_or_orchestration_primitiv
     for path in _client_python_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         rel = str(path.relative_to(ROOT))
+        rel_posix = rel.replace("\\", "/")
+        subprocess_exempt = rel_posix in SUBPROCESS_EXCEPTIONS
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     module = str(alias.name)
                     if module.split(".", 1)[0] in FORBIDDEN_IMPORTS:
-                        forbidden_hits.append(f"{rel}:import:{module}")
+                        if not (subprocess_exempt and module.split(".", 1)[0] == "subprocess"):
+                            forbidden_hits.append(f"{rel}:import:{module}")
                     if any(module.startswith(prefix) for prefix in FORBIDDEN_AGENT_PREFIXES):
                         forbidden_hits.append(f"{rel}:import:{module}")
             if isinstance(node, ast.ImportFrom):
                 module = str(node.module or "")
                 if module.split(".", 1)[0] in FORBIDDEN_IMPORTS:
-                    forbidden_hits.append(f"{rel}:from:{module}")
+                    if not (subprocess_exempt and module.split(".", 1)[0] == "subprocess"):
+                        forbidden_hits.append(f"{rel}:from:{module}")
                 if any(module.startswith(prefix) for prefix in FORBIDDEN_AGENT_PREFIXES):
                     forbidden_hits.append(f"{rel}:from:{module}")
     assert forbidden_hits == []

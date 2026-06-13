@@ -47,7 +47,7 @@ def test_opencode_command_string_python_semicolon_chain_allowed():
         'python -c "from hello import greet; print(greet(\'World\'))"': ("World", 0),
     }
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         _, code, _, _, history = svc._execute_shell_command_with_policy(
@@ -71,7 +71,7 @@ def test_opencode_python_c_quoted_semicolon_not_split():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         svc._execute_shell_command_with_policy(
@@ -92,7 +92,7 @@ def test_opencode_command_string_pipe_blocked():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         _, code, _, _, _ = svc._execute_shell_command_with_policy(
@@ -111,7 +111,7 @@ def test_opencode_tool_call_rm_segment_blocked_before_any_execution():
     svc = TaskExecutionService()
     shell = _StubShell()
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_deny_rm_risk),
     ):
         _, code, _, _, history = svc._execute_shell_command_with_policy(
@@ -138,7 +138,7 @@ def test_opencode_shell_execute_tool_call_with_pipe_blocked():
     shell = _StubShell()
     tool_calls = [{"name": "shell_execute", "args": {"command": "cat hello.py | grep def"}}]
     with (
-        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),
         patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
     ):
         try:

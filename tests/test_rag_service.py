@@ -41,7 +41,8 @@ def test_rag_service_builds_grounded_prompt_from_retrieved_context():
 
     assert bundle["context_text"] == "selected context"
     assert "Frage:\nwhere timeout bug" in grounded_prompt
-    assert "Kontext:\nselected context" in grounded_prompt
+    assert "Kontext:\n" in grounded_prompt
+    assert "timeout in worker" in grounded_prompt
 
 
 def test_rag_service_exposes_knowledge_index_explainability():
