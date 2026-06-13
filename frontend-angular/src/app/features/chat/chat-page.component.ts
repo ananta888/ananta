@@ -5,209 +5,224 @@ import { Subscription } from 'rxjs';
 import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../../services/chat-sessions.service';
 import { ChatHistoryService, ChatHistoryMessage } from '../../services/chat-history.service';
 import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
+import { AiSnakeTraceViewerComponent } from '../../components/ai-snake-trace-viewer.component';
+import { AiSnakeTraceService } from '../../services/ai-snake-trace.service';
 
 @Component({
   selector: 'app-chat-page',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, DatePipe, FormsModule],
+  imports: [CommonModule, AsyncPipe, DatePipe, FormsModule, AiSnakeTraceViewerComponent],
   template: `
-    <div class="chat-page">
+<div class="chat-page">
 
-      <!-- ── Sidebar: Session-Liste ── -->
-      <aside class="sidebar">
-        <div class="sidebar-head">
-          <span class="sidebar-title">AI Chats</span>
-          <button class="new-btn" (click)="showNew = !showNew" title="Neue Session">＋</button>
-        </div>
-
-        <div class="session-list">
-          @for (s of (svc.sessions$ | async) || []; track s.id) {
-            <button class="sess-item"
-                    [class.active]="s.id === selectedId"
-                    [class.is-current]="s.id === (svc.activeSessionId$ | async)"
-                    (click)="select(s)">
-              <span class="si-icon">{{ s.icon || '💬' }}</span>
-              <span class="si-body">
-                <span class="si-name">{{ s.name }}</span>
-                <span class="si-meta">{{ lastMessagePreview(s.id) }}</span>
-              </span>
-              @if (s.id === (svc.activeSessionId$ | async)) {
-                <span class="si-active-dot" title="Aktive Chat-Session">●</span>
-              }
-            </button>
-          }
-        </div>
-
-        @if (showNew) {
-          <div class="new-form">
-            <div class="nf-row">
-              <input [(ngModel)]="newIcon" maxlength="4" class="nf-icon" placeholder="💬" />
-              <input [(ngModel)]="newName" class="nf-name" placeholder="Name *"
-                     (keydown.enter)="createSession()" />
-            </div>
-            <label class="nf-label">Backend
-              <select [(ngModel)]="newBackend">
-                <option value="ananta-worker">ananta-worker</option>
-                <option value="opencode">opencode</option>
-                <option value="lmstudio">lmstudio</option>
-                <option value="hermes">hermes</option>
-              </select>
-            </label>
-            <label class="nf-label inline">
-              <input type="checkbox" [(ngModel)]="newCC" /> CodeCompass
-            </label>
-            <label class="nf-label">System-Prompt
-              <textarea rows="2" [(ngModel)]="newPrompt" placeholder="optional…"></textarea>
-            </label>
-            <div class="nf-actions">
-              <button class="btn-primary" (click)="createSession()" [disabled]="!newName.trim()">Anlegen</button>
-              <button class="btn-ghost" (click)="showNew = false">Abbrechen</button>
-            </div>
-          </div>
-        }
-      </aside>
-
-      <!-- ── Hauptbereich ── -->
-      <main class="main">
-        @if (!selected) {
-          <div class="empty">
-            <div class="empty-icon">💬</div>
-            <div>Session aus der Liste wählen oder neue anlegen.</div>
-          </div>
-        } @else {
-          <!-- Session-Header -->
-          <div class="sess-header">
-            <div class="sh-left">
-              <span class="sh-icon">{{ selected.icon || '💬' }}</span>
-              <div class="sh-title-block">
-                @if (editingName) {
-                  <input class="name-edit" [(ngModel)]="editNameVal"
-                         (keydown.enter)="saveName()" (keydown.escape)="editingName = false" />
-                  <button class="icon-btn" (click)="saveName()">✓</button>
-                  <button class="icon-btn" (click)="editingName = false">✕</button>
-                } @else {
-                  <span class="sh-name">{{ selected.name }}</span>
-                  <button class="icon-btn dim" (click)="startEditName()" title="Umbenennen">✎</button>
-                }
-                <span class="sh-meta">{{ sessBackend(selected) }}
-                  @if (sessCC(selected)) { <span class="cc-tag">CC</span> }
-                </span>
-              </div>
-            </div>
-            <div class="sh-actions">
-              @if (selected.id !== (svc.activeSessionId$ | async)) {
-                <button class="btn-activate" (click)="activateSelected()" title="Diese Session für den Chat aktivieren">
-                  ▶ Aktivieren
-                </button>
-              } @else {
-                <span class="active-badge">● Aktiv</span>
-              }
-              <button class="icon-btn danger" (click)="deleteSelected()"
-                      [disabled]="((svc.sessions$ | async) || []).length <= 1"
-                      title="Session löschen">✕</button>
-            </div>
-          </div>
-
-          <!-- Tabs: Nachrichten / Einstellungen -->
-          <div class="tabs">
-            <button [class.tab-active]="detailTab === 'messages'" (click)="detailTab = 'messages'">
-              Nachrichten ({{ messageCount() }})
-            </button>
-            <button [class.tab-active]="detailTab === 'settings'" (click)="detailTab = 'settings'">
-              Einstellungen
-            </button>
-          </div>
-
-          <!-- ── Nachrichten ── -->
-          @if (detailTab === 'messages') {
-            <div class="messages-area">
-              @if (messages().length === 0) {
-                <div class="no-msgs">
-                  <div>Keine Nachrichten für diese Session.</div>
-                  <div class="hint">
-                    Aktiviere die Session (▶) und sende eine Nachricht im Chat-Panel.<br>
-                    Nachrichten werden hier automatisch erscheinen.
-                  </div>
-                </div>
-              } @else {
-                <div class="msg-list">
-                  @for (m of messages(); track m.id) {
-                    <div class="msg-row" [class.msg-ai]="m.isAI" [class.msg-user]="!m.isAI">
-                      <span class="msg-sender">{{ m.isAI ? '🤖' : '👤' }} {{ m.senderId }}</span>
-                      <div class="msg-text">{{ m.text }}</div>
-                      <span class="msg-ts">{{ m.ts | date:'HH:mm' }}</span>
-                    </div>
-                  }
-                </div>
-                <div class="msg-footer">
-                  <button class="btn-ghost small" (click)="clearMessages()">Verlauf löschen</button>
-                </div>
-              }
-            </div>
-          }
-
-          <!-- ── Einstellungen ── -->
-          @if (detailTab === 'settings') {
-            <div class="settings-area">
-              <label class="sl">Backend
-                <select [ngModel]="sessBackend(selected)"
-                        (ngModelChange)="patchSetting('chat_backend', $event)">
-                  <option value="ananta-worker">ananta-worker</option>
-                  <option value="opencode">opencode</option>
-                  <option value="lmstudio">lmstudio</option>
-                  <option value="hermes">hermes</option>
-                </select>
-              </label>
-
-              <label class="sl">Retrieval-Profil
-                <select [ngModel]="getSetting('chat_retrieval_profile', 'auto')"
-                        (ngModelChange)="patchSetting('chat_retrieval_profile', $event)">
-                  <option value="auto">auto</option>
-                  <option value="code_first">code_first</option>
-                  <option value="none">none</option>
-                </select>
-              </label>
-
-              <label class="sl inline">
-                <input type="checkbox" [ngModel]="sessCC(selected)"
-                       (ngModelChange)="patchSetting('chat_use_codecompass', $event)" />
-                CodeCompass aktiv
-              </label>
-
-              <label class="sl inline">
-                <input type="checkbox"
-                       [ngModel]="getSettingBool('chat_code_questions_repo_first')"
-                       (ngModelChange)="patchSetting('chat_code_questions_repo_first', $event)" />
-                Code-Fragen: Repo bevorzugen
-              </label>
-
-              <label class="sl">System-Prompt
-                <textarea rows="5" [ngModel]="selected.system_prompt"
-                          (ngModelChange)="patchPromptDebounced($event)"
-                          placeholder="Leer = System-Standard"></textarea>
-              </label>
-
-              <div class="meta-block">
-                <span>ID: <code>{{ selected.id }}</code></span>
-                @if (selected.created_at) {
-                  <span>Erstellt: {{ selected.created_at * 1000 | date:'dd.MM.yy HH:mm' }}</span>
-                }
-              </div>
-            </div>
-          }
-        }
-      </main>
+  <!-- ══ 1: Session-Sidebar ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <span class="sidebar-title">AI Chats</span>
+      <button class="new-btn" (click)="showNew = !showNew" title="Neue Session">＋</button>
     </div>
+
+    <div class="session-list">
+      @for (s of (svc.sessions$ | async) || []; track s.id) {
+        <button class="sess-item"
+                [class.active]="s.id === selectedId"
+                [class.is-current]="s.id === (svc.activeSessionId$ | async)"
+                (click)="select(s)">
+          <span class="si-icon">{{ s.icon || '💬' }}</span>
+          <span class="si-body">
+            <span class="si-name">{{ s.name }}</span>
+            <span class="si-meta">{{ lastMessagePreview(s.id) }}</span>
+          </span>
+          @if (s.id === (svc.activeSessionId$ | async)) {
+            <span class="si-active-dot" title="Aktiv">●</span>
+          }
+        </button>
+      }
+    </div>
+
+    @if (showNew) {
+      <div class="new-form">
+        <div class="nf-row">
+          <input [(ngModel)]="newIcon" maxlength="4" class="nf-icon" placeholder="💬" />
+          <input [(ngModel)]="newName" class="nf-name" placeholder="Name *"
+                 (keydown.enter)="createSession()" />
+        </div>
+        <label class="nf-label">Backend
+          <select [(ngModel)]="newBackend">
+            <option value="ananta-worker">ananta-worker</option>
+            <option value="opencode">opencode</option>
+            <option value="lmstudio">lmstudio</option>
+            <option value="hermes">hermes</option>
+          </select>
+        </label>
+        <label class="nf-label inline">
+          <input type="checkbox" [(ngModel)]="newCC" /> CodeCompass
+        </label>
+        <label class="nf-label">System-Prompt
+          <textarea rows="2" [(ngModel)]="newPrompt" placeholder="optional…"></textarea>
+        </label>
+        <div class="nf-actions">
+          <button class="btn-primary" (click)="createSession()" [disabled]="!newName.trim()">Anlegen</button>
+          <button class="btn-ghost" (click)="showNew = false">Abbrechen</button>
+        </div>
+      </div>
+    }
+  </aside>
+
+  <!-- ══ 2: Nachrichten / Einstellungen ══ -->
+  <main class="main">
+    @if (!selected) {
+      <div class="empty">
+        <div class="empty-icon">💬</div>
+        <div>Session wählen oder neu anlegen.</div>
+      </div>
+    } @else {
+
+      <!-- Session-Header -->
+      <div class="sess-header">
+        <div class="sh-left">
+          <span class="sh-icon">{{ selected.icon || '💬' }}</span>
+          <div class="sh-title-block">
+            @if (editingName) {
+              <input class="name-edit" [(ngModel)]="editNameVal"
+                     (keydown.enter)="saveName()" (keydown.escape)="editingName = false" />
+              <button class="icon-btn" (click)="saveName()">✓</button>
+              <button class="icon-btn" (click)="editingName = false">✕</button>
+            } @else {
+              <span class="sh-name">{{ selected.name }}</span>
+              <button class="icon-btn dim" (click)="startEditName()" title="Umbenennen">✎</button>
+            }
+            <span class="sh-meta">{{ sessBackend(selected) }}
+              @if (sessCC(selected)) { <span class="cc-tag">CC</span> }
+            </span>
+          </div>
+        </div>
+        <div class="sh-actions">
+          @if (selected.id !== (svc.activeSessionId$ | async)) {
+            <button class="btn-activate" (click)="activateSelected()">▶ Aktivieren</button>
+          } @else {
+            <span class="active-badge">● Aktiv</span>
+          }
+          <button class="icon-btn danger" (click)="deleteSelected()"
+                  [disabled]="((svc.sessions$ | async) || []).length <= 1"
+                  title="Löschen">✕</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button [class.tab-active]="detailTab === 'messages'" (click)="detailTab = 'messages'">
+          Nachrichten ({{ messageCount() }})
+        </button>
+        <button [class.tab-active]="detailTab === 'settings'" (click)="detailTab = 'settings'">
+          Einstellungen
+        </button>
+      </div>
+
+      <!-- Nachrichten -->
+      @if (detailTab === 'messages') {
+        <div class="messages-area">
+          @if (messages().length === 0) {
+            <div class="no-msgs">
+              <div>Keine Nachrichten.</div>
+              <div class="hint">Aktiviere die Session (▶) und sende eine Nachricht im Chat-Panel.</div>
+            </div>
+          } @else {
+            <div class="msg-list">
+              @for (m of messages(); track m.id) {
+                <div class="msg-row" [class.msg-ai]="m.isAI" [class.msg-user]="!m.isAI">
+                  <div class="msg-header">
+                    <span class="msg-sender">{{ m.isAI ? '🤖' : '👤' }} {{ m.senderId }}</span>
+                    <span class="msg-ts">{{ m.ts | date:'HH:mm:ss' }}</span>
+                  </div>
+                  <div class="msg-text">{{ m.text }}</div>
+                </div>
+              }
+            </div>
+            <div class="msg-footer">
+              <button class="btn-ghost small" (click)="clearMessages()">Verlauf löschen</button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Einstellungen -->
+      @if (detailTab === 'settings') {
+        <div class="settings-area">
+          <label class="sl">Backend
+            <select [ngModel]="sessBackend(selected)"
+                    (ngModelChange)="patchSetting('chat_backend', $event)">
+              <option value="ananta-worker">ananta-worker</option>
+              <option value="opencode">opencode</option>
+              <option value="lmstudio">lmstudio</option>
+              <option value="hermes">hermes</option>
+            </select>
+          </label>
+          <label class="sl">Retrieval-Profil
+            <select [ngModel]="getSetting('chat_retrieval_profile', 'auto')"
+                    (ngModelChange)="patchSetting('chat_retrieval_profile', $event)">
+              <option value="auto">auto</option>
+              <option value="code_first">code_first</option>
+              <option value="none">none</option>
+            </select>
+          </label>
+          <label class="sl inline">
+            <input type="checkbox" [ngModel]="sessCC(selected)"
+                   (ngModelChange)="patchSetting('chat_use_codecompass', $event)" />
+            CodeCompass aktiv
+          </label>
+          <label class="sl inline">
+            <input type="checkbox"
+                   [ngModel]="getSettingBool('chat_code_questions_repo_first')"
+                   (ngModelChange)="patchSetting('chat_code_questions_repo_first', $event)" />
+            Code-Fragen: Repo bevorzugen
+          </label>
+          <label class="sl">System-Prompt
+            <textarea rows="6" [ngModel]="selected.system_prompt"
+                      (ngModelChange)="patchPromptDebounced($event)"
+                      placeholder="Leer = System-Standard"></textarea>
+          </label>
+          <div class="meta-block">
+            <span>ID: <code>{{ selected.id }}</code></span>
+            @if (selected.created_at) {
+              <span>Erstellt: {{ selected.created_at * 1000 | date:'dd.MM.yy HH:mm' }}</span>
+            }
+          </div>
+        </div>
+      }
+    }
+  </main>
+
+  <!-- ══ 3: Trace-Panel (immer sichtbar) ══ -->
+  <section class="trace-panel">
+    <div class="tp-head">
+      <span class="tp-title">Ablauf-Trace</span>
+      <span class="tp-sub">Was Ananta gerade tut — Dateien · Prompt · LLM</span>
+      @if (traceSvc.traceStatus$ | async; as st) {
+        <span class="tp-badge" [class]="'tbadge-' + st">{{ st }}</span>
+      }
+    </div>
+    <div class="tp-body">
+      <app-ai-snake-trace-viewer />
+    </div>
+    @if (!(traceSvc.activeTraceId$ | async)) {
+      <div class="tp-hint">
+        Schick eine Nachricht im Chat-Panel — der Ablauf erscheint hier in Echtzeit.
+      </div>
+    }
+  </section>
+
+</div>
   `,
   styles: [`
     :host { display: block; height: 100%; }
 
     .chat-page {
       display: grid;
-      grid-template-columns: 240px 1fr;
+      grid-template-columns: 220px 1fr 440px;
       height: calc(100vh - 120px);
       min-height: 400px;
-      border: 1px solid var(--border, #1a2d4a);
+      border: 1px solid #1a2d4a;
       border-radius: 6px;
       overflow: hidden;
       background: #0b1220;
@@ -219,8 +234,7 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
     .sidebar {
       border-right: 1px solid #1a2d4a;
       display: flex; flex-direction: column;
-      background: #09172a;
-      overflow: hidden;
+      background: #09172a; overflow: hidden;
     }
     .sidebar-head {
       display: flex; justify-content: space-between; align-items: center;
@@ -233,7 +247,6 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
       padding: 2px 8px; cursor: pointer; font-size: 16px; border-radius: 3px;
     }
     .new-btn:hover { background: #102238; }
-
     .session-list { flex: 1; overflow-y: auto; }
     .sess-item {
       width: 100%; display: flex; align-items: center; gap: 8px;
@@ -249,7 +262,6 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
     .si-meta { font-size: 10px; color: #4a6a9a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .si-active-dot { color: #7fffd4; font-size: 8px; flex-shrink: 0; }
 
-    /* ── New form in sidebar ── */
     .new-form {
       padding: 10px; border-top: 1px solid #1a2d4a; background: #08131f;
       flex-shrink: 0; display: flex; flex-direction: column; gap: 7px;
@@ -264,18 +276,17 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
     .nf-actions { display: flex; gap: 6px; }
 
     /* ── Main ── */
-    .main { display: flex; flex-direction: column; overflow: hidden; }
-
+    .main { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid #1a2d4a; }
     .empty {
       flex: 1; display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 10px; color: #3a5a8a; font-size: 13px;
     }
     .empty-icon { font-size: 36px; }
 
-    /* ── Session header ── */
     .sess-header {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 10px 14px; border-bottom: 1px solid #1a2d4a; background: #0d1e34; flex-shrink: 0;
+      padding: 10px 14px; border-bottom: 1px solid #1a2d4a;
+      background: #0d1e34; flex-shrink: 0;
     }
     .sh-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .sh-icon { font-size: 22px; flex-shrink: 0; }
@@ -287,39 +298,36 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
     .sh-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .active-badge { color: #7fffd4; font-size: 11px; }
 
-    /* ── Tabs ── */
     .tabs {
-      display: flex; gap: 0; border-bottom: 1px solid #1a2d4a; flex-shrink: 0;
-      background: #09172a;
+      display: flex; border-bottom: 1px solid #1a2d4a; flex-shrink: 0; background: #09172a;
     }
     .tabs button {
       padding: 7px 16px; border: none; background: transparent; color: #4a6a9a;
       cursor: pointer; font-size: 12px; border-bottom: 2px solid transparent;
+      font-family: inherit;
     }
     .tabs button:hover { color: #c8d8f8; }
     .tabs button.tab-active { color: #7fffd4; border-bottom-color: #7fffd4; }
 
-    /* ── Messages ── */
     .messages-area { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .no-msgs {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; color: #3a5a8a; font-size: 13px; padding: 20px; text-align: center;
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 10px; color: #3a5a8a; font-size: 13px; padding: 20px; text-align: center;
     }
     .hint { font-size: 11px; color: #2a4a6a; line-height: 1.5; }
-    .msg-list { flex: 1; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+    .msg-list { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
     .msg-row {
-      display: grid; gap: 2px;
-      padding: 6px 10px; border-radius: 4px;
-      border: 1px solid #152040;
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 8px 12px; border-radius: 5px; border: 1px solid #152040;
     }
     .msg-user { background: #0a1830; border-color: #1a2d4a; }
     .msg-ai   { background: #0a1c14; border-color: #1a3a25; }
-    .msg-sender { font-size: 10px; color: #4a6a9a; display: flex; justify-content: space-between; }
-    .msg-text { font-size: 12px; color: #c8d8f8; white-space: pre-wrap; word-break: break-word; }
-    .msg-ts { font-size: 10px; color: #2a4a6a; text-align: right; }
+    .msg-header { display: flex; justify-content: space-between; align-items: center; }
+    .msg-sender { font-size: 11px; color: #4a6a9a; font-weight: 500; }
+    .msg-ts     { font-size: 10px; color: #2a4a6a; }
+    .msg-text   { font-size: 12px; color: #c8d8f8; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
     .msg-footer { padding: 6px 14px; border-top: 1px solid #152040; flex-shrink: 0; }
 
-    /* ── Settings area ── */
     .settings-area {
       flex: 1; overflow-y: auto; padding: 14px 16px;
       display: flex; flex-direction: column; gap: 12px;
@@ -337,6 +345,32 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
     }
     .meta-block code { color: #6b9abf; background: #0a1830; padding: 1px 4px; border-radius: 2px; }
 
+    /* ══ Trace Panel ══ */
+    .trace-panel {
+      display: flex; flex-direction: column; overflow: hidden;
+      background: #080f1a;
+    }
+    .tp-head {
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+      padding: 9px 14px; background: #091525; border-bottom: 1px solid #152040;
+    }
+    .tp-title { font-size: 13px; font-weight: 600; color: #4a9acc; }
+    .tp-sub   { font-size: 10px; color: #2a4a6a; flex: 1; }
+    .tp-badge { font-size: 9px; padding: 2px 6px; border-radius: 8px; border: 1px solid #1a3a5a; }
+    .tbadge-running   { color: #7fffd4; border-color: #1a5a3a; background: #061810; animation: tp-pulse 1.2s infinite; }
+    .tbadge-completed { color: #3acc88; border-color: #1a4a2a; }
+    .tbadge-failed    { color: #fb7185; border-color: #4a1a1a; }
+    .tbadge-idle, .tbadge-unknown { color: #2a4060; border-color: #1a2030; }
+    @keyframes tp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .tp-body {
+      flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .tp-hint {
+      flex-shrink: 0; padding: 8px 14px;
+      font-size: 11px; color: #1e3558; border-top: 1px solid #0e1e30; text-align: center;
+    }
+
     /* ── Buttons ── */
     button { font-family: inherit; cursor: pointer; }
     .btn-primary { background: #102238; border: 1px solid #2a5090; color: #7fffd4; padding: 5px 10px; font-size: 12px; border-radius: 3px; }
@@ -347,7 +381,7 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
     .btn-ghost.small { padding: 3px 8px; font-size: 11px; }
     .btn-activate { background: #0a2a18; border: 1px solid #1a5030; color: #3affaa; padding: 4px 10px; font-size: 12px; border-radius: 3px; }
     .btn-activate:hover { background: #123a22; }
-    .icon-btn { background: transparent; border: none; color: #4a6a9a; padding: 2px 5px; font-size: 12px; border-radius: 2px; }
+    .icon-btn { background: transparent; border: none; color: #4a6a9a; padding: 2px 5px; font-size: 12px; border-radius: 2px; cursor: pointer; }
     .icon-btn:hover:not(:disabled) { color: #c8d8f8; }
     .icon-btn.dim { color: #2a4a6a; }
     .icon-btn.danger:hover:not(:disabled) { color: #fb7185; }
@@ -357,6 +391,7 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
 export class ChatPageComponent implements OnInit, OnDestroy {
   readonly svc = inject(ChatSessionsService);
   readonly history = inject(ChatHistoryService);
+  readonly traceSvc = inject(AiSnakeTraceService);
   private snakeSvc = inject(AiSnakeChatService);
 
   selected: ChatSession | null = null;
@@ -379,7 +414,6 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.svc.load();
     this.histSub = this.history.updated$.subscribe(() => {});
-    // Auto-select active session
     this.svc.sessions$.subscribe(sessions => {
       if (!this.selected && sessions.length > 0) {
         const activeId = this.svc.activeSessionId$.value;

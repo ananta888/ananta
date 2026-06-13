@@ -503,10 +503,12 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
                           details={"provider": provider, "model": model})
 
+            _answer_chars_limit = 6000
             try:
                 from agent.routes.ai_snake_config import _current_config
                 from agent.services.retrieval_profile_service import _is_full_scan_intent
                 _cfg = _current_config()
+                _answer_chars_limit = int(_cfg.get("chat_answer_chars", 6000))
                 if _is_full_scan_intent(prompt, "", _cfg):
                     if rec:
                         rec.event("full_scan_detected", "Full-Scan erkannt", status="running",
@@ -531,8 +533,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         )
                     if not answer:
                         answer = "Full-Scan ergab keine Antwort."
-                    if len(answer) > 5800:
-                        answer = answer[:5800].rstrip() + "\n\n[gekuerzt]"
+                    if len(answer) > _answer_chars_limit:
+                        answer = answer[:_answer_chars_limit].rstrip() + "\n\n[gekuerzt]"
                     if rec:
                         rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                                   summary=f"{len(answer)} Zeichen")
@@ -624,8 +626,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
             asked_for_link = any(token in prompt.lower() for token in ("link", "url", "quelle", "source"))
             if text and not asked_for_link:
                 text = text.replace("http://", "").replace("https://", "")
-            if len(text) > 2200:
-                text = text[:2200].rstrip() + "\n\n[gekuerzt]"
+            if len(text) > _answer_chars_limit:
+                text = text[:_answer_chars_limit].rstrip() + "\n\n[gekuerzt]"
             if not text:
                 text = "AI-Snake konnte gerade keine Antwort erzeugen."
             text = f"{text}\n\n[{context_summary}]"
