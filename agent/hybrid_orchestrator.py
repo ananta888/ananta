@@ -590,24 +590,35 @@ class RepositoryMapEngine:
                     }
                     continue
                 symbols = list(symbol_by_path.get(anchor_path) or [])
-                preview = ", ".join(symbols[:20])
-                if not preview:
-                    try:
-                        anchor_file = self.repo_root / anchor_path
-                        if not anchor_file.exists() or not anchor_file.is_file():
-                            continue
-                        preview = anchor_file.read_text(encoding="utf-8", errors="ignore")[:1200]
-                    except Exception:
-                        continue
+                symbol_summary = ", ".join(symbols[:20])
+                file_content: str | None = None
+                try:
+                    anchor_file = self.repo_root / anchor_path
+                    if anchor_file.exists() and anchor_file.is_file():
+                        file_content = anchor_file.read_text(encoding="utf-8", errors="ignore")[:2000]
+                except Exception:
+                    pass
+                if not file_content and not symbol_summary:
+                    continue
+                if file_content:
+                    content_parts = [anchor_path]
+                    if symbol_summary:
+                        content_parts.append(f"Symbols: {symbol_summary}")
+                    content_parts.append(file_content)
+                    chunk_content = "\n".join(content_parts)
+                else:
+                    chunk_content = f"{anchor_path}\nSymbols: {symbol_summary}"
+                is_alias = anchor_path in alias_anchor_set
                 candidates.append(
                     ContextChunk(
                         engine="repository_map",
                         source=anchor_path,
-                        content=f"{anchor_path}\nSymbols: {preview}",
+                        content=chunk_content,
                         score=effective_score,
                         metadata={
                             "symbol_count": str(len(symbols)),
                             "path_focus_anchor": str(path_focus.get("id") or ""),
+                            "alias_anchor": "true" if is_alias else "false",
                         },
                     )
                 )
@@ -1234,6 +1245,20 @@ class HybridOrchestrator:
             all_chunks, filter_stats = filter_chunks(
                 all_chunks, resolved_scope, repo_root=self.repo_root
             )
+
+        # Re-score alias anchor chunks using the global max score (across all engines).
+        # Alias anchors are injected during repo_engine.search() using only the repo-local
+        # max score, which is far below semantic search scores. After collecting all chunks
+        # we know the true global max and can give alias anchors a competitive score so
+        # they survive the context budget selection.
+        global_max_score = max((float(c.score or 0.0) for c in all_chunks), default=1.0)
+        try:
+            alias_boost = float(getattr(settings, "rag_path_focus_alias_anchor_boost", None) or 0.85)
+        except Exception:
+            alias_boost = 0.85
+        for chunk in all_chunks:
+            if dict(getattr(chunk, "metadata", {}) or {}).get("alias_anchor") == "true":
+                chunk.score = global_max_score * alias_boost
 
         best = self.context_manager.rerank(
             chunks=all_chunks,
