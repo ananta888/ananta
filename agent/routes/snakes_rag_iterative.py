@@ -40,9 +40,12 @@ def worker_chat_rag_iterative(
     model: str | None = None,
     limits: Any | None = None,
     rec: Any | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Iterative RAG: fetch relevant files, read fully, batch → LLM → synthesize."""
     trace: dict[str, Any] = {"mode": "rag_iterative"}
+    llm_history = [{"role": "system", "content": _SYSTEM_PROMPT}, *list(conversation_history or [])]
+    trace["conversation_history_messages"] = len(conversation_history or [])
 
     cfg = _current_config()
     timeout_s = max(60, min(7200, int(float(cfg.get("chat_ask_timeout_s") or 180))))
@@ -201,7 +204,7 @@ def worker_chat_rag_iterative(
                 prompt=batch_prompt,
                 provider=provider,
                 model=model,
-                history=[{"role": "system", "content": _SYSTEM_PROMPT}],
+                history=llm_history,
                 timeout=timeout_s,
             )
             text = str(raw or "").strip()
@@ -269,7 +272,7 @@ def worker_chat_rag_iterative(
             prompt=synthesis_prompt,
             provider=provider,
             model=model,
-            history=[{"role": "system", "content": _SYSTEM_PROMPT}],
+            history=llm_history,
             timeout=timeout_s,
         )
         final_answer = str(raw or "").strip()

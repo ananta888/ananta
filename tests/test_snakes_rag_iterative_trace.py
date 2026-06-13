@@ -42,13 +42,28 @@ def test_rag_iterative_trace_records_full_batch_prompt_before_recorder_limit(tmp
             as_dict=lambda: {},
         ),
     )
-    monkeypatch.setattr(mod, "generate_text", lambda **_kwargs: "batch answer")
+    captured_calls: list[dict] = []
+
+    def _fake_generate_text(**kwargs):
+        captured_calls.append(dict(kwargs))
+        return "batch answer"
+
+    monkeypatch.setattr(mod, "generate_text", _fake_generate_text)
 
     rec = _RecordingTrace()
-    answer, trace = mod.worker_chat_rag_iterative("was ist CodeCompass", rec=rec)
+    answer, trace = mod.worker_chat_rag_iterative(
+        "was ist CodeCompass",
+        rec=rec,
+        conversation_history=[{"role": "assistant", "content": "Vorherige Antwort"}],
+    )
 
     batch_event = next(event for event in rec.events if event["phase"] == "rag_iterative_batch_1")
     assert answer == "batch answer"
     assert trace["batches_completed"] == 1
+    assert trace["conversation_history_messages"] == 1
+    assert captured_calls[0]["history"] == [
+        {"role": "system", "content": mod._SYSTEM_PROMPT},
+        {"role": "assistant", "content": "Vorherige Antwort"},
+    ]
     assert len(batch_event["input_preview"]) > 800
     assert long_content[:900] in batch_event["input_preview"]

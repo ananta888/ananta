@@ -474,6 +474,38 @@ def _append_room_ai_message(*, text: str) -> None:
         _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
 
 
+def _build_room_conversation_history(
+    *,
+    snake_id: str | None,
+    current_text: str,
+    max_messages: int = 8,
+) -> list[dict[str, str]]:
+    """Return recent room messages before the current user turn for LLM history."""
+    current = str(current_text or "").strip()
+    current_idx: int | None = None
+    for idx in range(len(_room_messages) - 1, -1, -1):
+        msg = _room_messages[idx]
+        if (
+            str(msg.get("sender_id") or "") == str(snake_id or "")
+            and str(msg.get("sender_kind") or "") == "user"
+            and str(msg.get("text") or "").strip() == current
+        ):
+            current_idx = idx
+            break
+
+    prior_messages = _room_messages[:current_idx] if current_idx is not None else list(_room_messages)
+    history: list[dict[str, str]] = []
+    for msg in prior_messages[-max(1, int(max_messages)) :]:
+        text = str(msg.get("text") or "").strip()
+        if not text:
+            continue
+        sender_id = str(msg.get("sender_id") or "")
+        sender_kind = str(msg.get("sender_kind") or "")
+        role = "assistant" if sender_kind == "assistant" or sender_id == "ai-snake" else "user"
+        history.append({"role": role, "content": text[:2000]})
+    return history
+
+
 from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
 from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
 
@@ -515,9 +547,10 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 )
 
             provider, model = _resolve_ai_snake_chat_provider()
+            conversation_history = _build_room_conversation_history(snake_id=snake_id, current_text=prompt)
             if rec:
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
-                          details={"provider": provider, "model": model})
+                          details={"provider": provider, "model": model, "conversation_history_messages": len(conversation_history)})
 
             _answer_chars_limit = 6000
             try:
@@ -530,7 +563,13 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
                                   summary="Iterative Datei-Analyse wird gestartet")
                     t0 = time.time()
-                    answer, scan_trace = _worker_chat_rag_iterative(prompt, provider=provider, model=model, rec=rec)
+                    answer, scan_trace = _worker_chat_rag_iterative(
+                        prompt,
+                        provider=provider,
+                        model=model,
+                        rec=rec,
+                        conversation_history=conversation_history,
+                    )
                     batches_done = scan_trace.get("batches_completed", 0)
                     files_found = scan_trace.get("files_resolved", 0)
                     file_list = scan_trace.get("file_list") or []
@@ -556,7 +595,13 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         rec.event("full_scan_detected", "Full-Scan erkannt", status="running",
                                   summary="Architektur-Analyse wird gestartet")
                     t0 = time.time()
-                    answer, scan_trace = _worker_chat_full_scan(prompt, provider=provider, model=model, cancel_key="room")
+                    answer, scan_trace = _worker_chat_full_scan(
+                        prompt,
+                        provider=provider,
+                        model=model,
+                        cancel_key="room",
+                        conversation_history=conversation_history,
+                    )
                     files_found = scan_trace.get("files_found", 0)
                     batches_done = scan_trace.get("batches_completed", 0)
                     scan_summary = f"full_scan: {batches_done} Batches, {files_found} Dateien"
@@ -646,6 +691,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                               "model": model,
                               "prompt_chars": len(grounded_prompt),
                               "system_prompt_chars": len(_SNAKE_CHAT_PROMPT),
+                              "conversation_history_messages": len(conversation_history),
                           },
                           input_preview=grounded_prompt)
 
@@ -653,7 +699,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 prompt=grounded_prompt,
                 provider=provider,
                 model=model,
-                history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+                history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}, *conversation_history],
                 timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
             )
 

@@ -84,6 +84,42 @@ def test_send_room_message_empty_text_rejected(client):
     assert resp.status_code == 400
 
 
+def test_room_conversation_history_excludes_current_turn(client):
+    import agent.routes.snakes_execution_routes as ser
+    from agent.routes.snakes import _room_messages
+
+    s1 = _register(client, "ContextSnake")
+    _room_messages.extend(
+        [
+            {
+                "sender_id": s1["id"],
+                "sender_kind": "user",
+                "text": "Was ist CodeCompass?",
+            },
+            {
+                "sender_id": "ai-snake",
+                "sender_kind": "assistant",
+                "text": "CodeCompass ist das RAG-System.",
+            },
+            {
+                "sender_id": s1["id"],
+                "sender_kind": "user",
+                "text": "Und welche Komponenten gehoeren dazu?",
+            },
+        ]
+    )
+
+    history = ser._build_room_conversation_history(
+        snake_id=s1["id"],
+        current_text="Und welche Komponenten gehoeren dazu?",
+    )
+
+    assert history == [
+        {"role": "user", "content": "Was ist CodeCompass?"},
+        {"role": "assistant", "content": "CodeCompass ist das RAG-System."},
+    ]
+
+
 # ── Chat: local_only rejected ─────────────────────────────────────────────────
 
 

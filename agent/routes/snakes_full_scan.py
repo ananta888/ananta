@@ -39,6 +39,7 @@ def worker_chat_full_scan(
     model: str | None = None,
     limits: "Any | None" = None,
     cancel_key: str | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     cancel_event = threading.Event()
     if cancel_key:
@@ -74,7 +75,9 @@ def worker_chat_full_scan(
     else:
         effective_max_input_tokens = max(model_context_tokens - 256, 256)
 
+    llm_history = [{"role": "system", "content": _SNAKE_CHAT_PROMPT}, *list(conversation_history or [])]
     trace: dict[str, Any] = {"mode": "full_scan_chat"}
+    trace["conversation_history_messages"] = len(conversation_history or [])
     trace["model"] = model or ""
     trace["model_context_tokens"] = int(model_context_tokens)
     trace["max_input_tokens"] = int(effective_max_input_tokens)
@@ -191,7 +194,7 @@ def worker_chat_full_scan(
                 prompt=batch_prompt,
                 provider=provider,
                 model=model,
-                history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+                history=llm_history,
                 timeout=timeout_s,
             )
             if isinstance(answer, dict):
@@ -279,7 +282,7 @@ def worker_chat_full_scan(
             prompt=synthesis_prompt,
             provider=provider,
             model=model,
-            history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
+            history=llm_history,
             timeout=timeout_s,
         )
         final_answer = str(final_answer or "").strip()
