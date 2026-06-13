@@ -1,0 +1,393 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-webcrawler-external-adapter-provider",
+  "created": "2026-06-14",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Das bestehende Repository ananta-dev-solutions/ananta-webcrawler soll in Ananta integriert werden, ohne seine Funktionalitaet in Ananta nachzuimplementieren. Ananta soll den Webcrawler als externen, verwalteten Service starten, pruefen, konfigurieren und ueber Adapter ansprechen koennen.",
+  "goal": "Ananta kann den existierenden ananta-webcrawler dual verwenden: erstens als OpenAI-kompatiblen Backend-/Model-Provider wie Ollama/LM Studio/Hermes, zweitens als Webcrawler-/Browser-/Replay-Tool-Provider fuer Web-/API-Aufgaben. Die Integration erfolgt ueber Adapter, Healthchecks, Prozess-/Container-Management, Provider-Registry und Policy-Gates. Keine Kopie der Webcrawler-Implementierung in Ananta.",
+  "core_decision": "Der ananta-webcrawler bleibt ein eigenstaendiges externes Projekt/Runtime. Ananta implementiert nur Adapter, Client, Runtime-Manager, Routing, Policy, Audit und Konfiguration.",
+  "non_goals": [
+    "Keine Nachimplementierung von Recording, Replay, Playwright-Steuerung, Profilgenerator, SessionRefresh oder CredentialStore in Ananta.",
+    "Kein Import interner Python-Module aus dem Webcrawler-Repo als harte Laufzeitkopplung, ausser optional in Tests/Dev-Modus explizit erlaubt.",
+    "Kein direkter Browser-/Credential-Zugriff durch ananta-worker, opencode oder andere Worker.",
+    "Kein Vermischen mit CodeCompass; CodeCompass bleibt Code-/Projektkontext, Webcrawler bleibt Web-/Browser-/OpenAI-kompatibler Provider.",
+    "Kein automatisches Login, Klick, Formularsubmit oder Replay ohne passende Policy/Approval."
+  ],
+  "architecture_principles": [
+    "External-first: bestehendes Webcrawler-Repo starten/verwenden, nicht kopieren.",
+    "Adapter-first: Ananta spricht den Webcrawler ueber stabile HTTP/OpenAI-kompatible Endpoints und optionale Tool-Endpoints an.",
+    "Dual role: derselbe externe Service kann BackendProvider und ToolProvider sein.",
+    "Hub-controlled: Worker stellen Requests; Hub entscheidet Routing, Policy, Approval, Audit und ruft Adapter auf.",
+    "Model-Semantik beachten: beim Webcrawler bedeutet model in /v1/chat/completions Profil/Integration, nicht zwingend echtes LLM-Modell.",
+    "Fallback nur semantisch passend: Webcrawler darf Ollama/LM Studio nur fuer Web-/Profil-/Website-KI-Aufgaben ersetzen, nicht blind fuer lokale Code-Refactorings.",
+    "Credentials bleiben im Webcrawler-Service; Ananta bekommt nur Status, ToolResult, Audit-Metadaten und erlaubte Ergebnisdaten.",
+    "Deployment-neutral: lokal per Prozess, Docker Compose oder bereits laufender externer URL nutzbar.",
+    "Rueckwaertskompatibel: bestehende Provider wie ollama/lmstudio/openrouter/hermes bleiben unveraendert nutzbar."
+  ],
+  "integration_modes": [
+    {
+      "id": "external_url",
+      "description": "Ananta nutzt einen bereits laufenden ananta-webcrawler ueber base_url.",
+      "preferred_for": ["production", "separate deployment", "remote service"]
+    },
+    {
+      "id": "managed_process",
+      "description": "Ananta startet den Webcrawler aus einem konfigurierten lokalen Repo-Pfad als Subprozess/Service.",
+      "preferred_for": ["development", "single-machine setup"]
+    },
+    {
+      "id": "managed_docker_compose",
+      "description": "Ananta startet/stoppt/prueft den Webcrawler ueber Docker Compose oder bestehenden Container-Service.",
+      "preferred_for": ["reproducible local runtime", "saubere Isolation"]
+    },
+    {
+      "id": "disabled",
+      "description": "Adapter ist konfiguriert, aber nicht aktiv. Routing darf ihn nicht verwenden.",
+      "preferred_for": ["safe default", "CI", "Installationen ohne Webcrawler"]
+    }
+  ],
+  "provider_roles": [
+    {
+      "role": "backend_provider",
+      "provider_id": "ananta_webcrawler_openai",
+      "api_type": "openai_compatible",
+      "endpoints": ["/v1/models", "/v1/chat/completions"],
+      "model_semantics": "profile_name",
+      "usage": ["website_wrapped_ai", "web_profile_agent", "browser_replay_result", "fallback_for_missing_native_api", "planning_with_web_access"]
+    },
+    {
+      "role": "tool_provider",
+      "provider_id": "ananta_webcrawler_tools",
+      "api_type": "adapter_tool_provider",
+      "tool_namespace": "webcrawler.*",
+      "usage": ["fetch/search", "run_profile", "validate_profile", "record_flow", "get_execution_result", "list_profiles"]
+    }
+  ],
+  "target_config": {
+    "example": {
+      "providers": {
+        "ananta_webcrawler": {
+          "enabled": true,
+          "mode": "external_url",
+          "base_url": "http://127.0.0.1:8787/v1",
+          "api_key_env": "ANANTA_WEBCRAWLER_API_KEY",
+          "healthcheck_path": "/models",
+          "supports_streaming": true,
+          "supports_models_endpoint": true,
+          "model_semantics": "profile_name",
+          "roles": ["backend_provider", "tool_provider"],
+          "routing_tags": ["web", "browser", "replay", "website_ai", "external_api_wrapper"],
+          "fallback_policy": "semantic_match_only",
+          "policy_mode": "strict"
+        }
+      }
+    },
+    "required_keys": [
+      "enabled",
+      "mode",
+      "base_url or repo_path/docker_compose_service",
+      "roles",
+      "policy_mode",
+      "fallback_policy"
+    ],
+    "optional_keys": [
+      "api_key_env",
+      "startup_command",
+      "repo_path",
+      "python_executable",
+      "docker_compose_file",
+      "docker_compose_service",
+      "startup_timeout_seconds",
+      "healthcheck_path",
+      "models_cache_ttl_seconds",
+      "allowed_profiles",
+      "blocked_profiles",
+      "allow_recording",
+      "allow_login_actions",
+      "allow_write_like_actions",
+      "max_request_seconds",
+      "max_stream_seconds"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "AWCAP-001",
+      "title": "Bestehende Webcrawler-OpenAI-API als externen Contract dokumentieren",
+      "type": "contract-analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/integrations/ananta-webcrawler-external-adapter.md",
+        "agent/services/model_provider_registry.py",
+        "agent/services/tool_routing_service.py"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation beschreibt explizit: ananta-webcrawler wird extern verwendet und nicht in Ananta nachimplementiert.",
+        "OpenAI-kompatible Endpoints /v1/models und /v1/chat/completions sind als Adapter-Contract beschrieben.",
+        "Dokumentation erklaert, dass model beim Webcrawler ein Profil-/Integrationsname ist.",
+        "Streaming, non-streaming, tool_results und Fehlerfaelle sind beschrieben.",
+        "Grenze zu CodeCompass ist klar dokumentiert."
+      ],
+      "test_expectations": [
+        "Docs enthalten Beispiel fuer /v1/models und /v1/chat/completions.",
+        "Keine Dokumentation behauptet, dass Ananta Playwright/Replay intern nachbauen soll."
+      ]
+    },
+    {
+      "id": "AWCAP-002",
+      "title": "AnantaWebcrawlerProviderConfig einfuehren",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/config.py",
+        "config/*.json",
+        "tests/agent/test_webcrawler_provider_config.py"
+      ],
+      "acceptance_criteria": [
+        "Konfiguration unterstuetzt external_url, managed_process, managed_docker_compose und disabled.",
+        "base_url, api_key_env, roles, policy_mode, fallback_policy und Healthcheck sind konfigurierbar.",
+        "Safe Default ist disabled oder external_url ohne Autostart, wenn kein expliziter Repo-/Container-Pfad gesetzt ist.",
+        "allowed_profiles/blocked_profiles koennen Routing und Toolnutzung begrenzen.",
+        "Fehlkonfiguration liefert klare Diagnose statt stilles Ignorieren."
+      ],
+      "test_expectations": [
+        "Config-Test validiert Minimalbeispiel external_url.",
+        "Config-Test lehnt managed_process ohne repo_path/startup_command ab.",
+        "Config-Test prueft Default-Werte fuer policy_mode und fallback_policy."
+      ]
+    },
+    {
+      "id": "AWCAP-003",
+      "title": "WebcrawlerRuntimeManager fuer externen Service bauen",
+      "type": "runtime-management",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/webcrawler_runtime_manager.py",
+        "tests/agent/services/test_webcrawler_runtime_manager.py"
+      ],
+      "acceptance_criteria": [
+        "RuntimeManager kann bereits laufenden Service per Healthcheck pruefen.",
+        "managed_process startet konfigurierten Befehl im Webcrawler-Repo-Pfad, ohne Code zu kopieren.",
+        "managed_docker_compose kann optional docker compose up/ps/down fuer konfigurierten Service ausfuehren, wenn explizit erlaubt.",
+        "Startup wartet bis Healthcheck erfolgreich ist oder timeout erreicht wird.",
+        "Stop/Restart ist getrennt von normalem Chat-/ToolCall und braucht passende Policy."
+      ],
+      "test_expectations": [
+        "Mock-Test prueft Healthcheck success/failure.",
+        "Mock-Test prueft Startup-Timeout.",
+        "Test stellt sicher, dass kein Webcrawler-Code in Ananta importiert wird."
+      ]
+    },
+    {
+      "id": "AWCAP-004",
+      "title": "OpenAI-kompatiblen WebcrawlerBackendProvider implementieren",
+      "type": "backend-provider",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/openai_compatible_provider.py",
+        "agent/services/webcrawler_backend_provider.py",
+        "agent/services/model_provider_registry.py",
+        "tests/agent/services/test_webcrawler_backend_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Provider ruft /v1/models ab und mapped Profile als verfuegbare Backend-Modelle.",
+        "Provider ruft /v1/chat/completions fuer non-streaming und streaming auf.",
+        "Provider behandelt tool_results aus der Webcrawler-Antwort als strukturierte Evidence/Diagnostics.",
+        "Provider unterscheidet HTTP-Fehler 404 Profil fehlt, 409 Draft-Profil, 422 invalid profile und 5xx execution failed.",
+        "Provider ist austauschbar wie Ollama/LM Studio/OpenRouter/Hermes im Routing nutzbar."
+      ],
+      "test_expectations": [
+        "HTTP-Mock-Test fuer /models.",
+        "HTTP-Mock-Test fuer /chat/completions non-streaming.",
+        "Streaming-Test verarbeitet SSE Chunks und DONE.",
+        "Fehler-Test mapped 404/409/422/500 auf stabile reason_codes."
+      ]
+    },
+    {
+      "id": "AWCAP-005",
+      "title": "Webcrawler als ToolProvider ueber Adapter bereitstellen",
+      "type": "tool-provider",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": [
+        "agent/services/webcrawler_tool_provider.py",
+        "worker/core/tool_registry.py",
+        "agent/services/tool_routing_service.py",
+        "tests/agent/services/test_webcrawler_tool_provider.py"
+      ],
+      "acceptance_criteria": [
+        "webcrawler.list_profiles liefert Profile aus /v1/models plus Status/Success-Rate, sofern vorhanden.",
+        "webcrawler.run_profile fuehrt ein Profil ueber OpenAI-kompatible ChatCompletion oder spezifischen Adapterpfad aus.",
+        "webcrawler.get_profile_status prueft Draft/validated/blocked und Health.",
+        "Optionale Tools record_flow/validate_profile/publish_profile sind getrennt und nur aktiv, wenn Config/Policy sie erlaubt.",
+        "ToolProvider delegiert an externen Service und implementiert keine Browserlogik selbst."
+      ],
+      "test_expectations": [
+        "Tool-Catalog-Test zeigt webcrawler.* nur, wenn Rolle tool_provider aktiviert ist.",
+        "Policy-Test blockiert record_flow, wenn allow_recording=false.",
+        "RunProfile-Test nutzt externen Client-Mock statt lokaler Implementierung."
+      ]
+    },
+    {
+      "id": "AWCAP-006",
+      "title": "Routing-Regeln fuer duale Nutzung definieren",
+      "type": "routing-policy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tool_routing_service.py",
+        "agent/services/model_routing_service.py",
+        "docs/integrations/ananta-webcrawler-routing.md",
+        "tests/agent/services/test_webcrawler_routing_policy.py"
+      ],
+      "acceptance_criteria": [
+        "WebcrawlerBackendProvider wird fuer web/browser/replay/website_ai/external_api_wrapper Tasks bevorzugt.",
+        "Normale Codeaufgaben gehen nicht automatisch an Webcrawler, ausser User/Blueprint waehlt ein passendes Profil explizit.",
+        "Fallback auf Webcrawler ist semantic_match_only und niemals blind global.",
+        "Planning darf Webcrawler nutzen, wenn Webdaten oder Website-KI benoetigt werden.",
+        "Routing-Diagnose erklaert, warum Webcrawler gewaehlt oder ausgeschlossen wurde."
+      ],
+      "test_expectations": [
+        "Routing-Test waehlt Webcrawler fuer Website-/Web-KI-Aufgabe.",
+        "Routing-Test waehlt nicht Webcrawler fuer lokale Java-Refactoring-Aufgabe.",
+        "Fallback-Test prueft semantische Profilpassung."
+      ]
+    },
+    {
+      "id": "AWCAP-007",
+      "title": "Security-Policy fuer Webcrawler-Aktionen anbinden",
+      "type": "security-policy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": [
+        "agent/services/webcrawler_policy_service.py",
+        "agent/services/approval_policy_service.py",
+        "tests/security/test_webcrawler_adapter_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Reine Lese-/Such-/Fetch-Aktionen sind von Login/Klick/Formularsubmit/Replay mit Nebenwirkung getrennt.",
+        "Login-/Credential-/Session-Aktionen brauchen explizite Policy und ggf. Approval.",
+        "Schreibartige Website-Aktionen, Bestellungen, Buchungen, Posts, Deletes oder Formularsubmits werden high/critical eingestuft.",
+        "Ananta speichert keine Webcrawler-Credentials und loggt keine Cookies/Tokens/Passwoerter.",
+        "Jede Ausfuehrung enthaelt Auditdaten: profile, endpoint, mode, action, policy_decision, duration, success/failure."
+      ],
+      "test_expectations": [
+        "Security-Test blockiert Login ohne Freigabe.",
+        "Security-Test redacted API-Key und sensitive args in Logs.",
+        "Approval-Test verlangt Approval fuer schreibartige Website-Aktion."
+      ]
+    },
+    {
+      "id": "AWCAP-008",
+      "title": "Ananta-worker und ai-snake-chat koennen WebcrawlerBackendProvider nutzen",
+      "type": "worker-chat-integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/worker_contract_service.py",
+        "client_surfaces/operator_tui/chat_prompt_builder.py",
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "tests/e2e/test_ai_snake_chat_webcrawler_backend.py"
+      ],
+      "acceptance_criteria": [
+        "ai-snake-chat kann per Provider-Auswahl ein Webcrawler-Profil als Backend nutzen.",
+        "ananta-worker kann WebcrawlerBackendProvider fuer passende Taskarten als Backend/Fallback verwenden.",
+        "ToolResults/Diagnostics des Webcrawlers werden im Chat/Tracking-Viewer sichtbar.",
+        "Bei nicht verfuegbarem Webcrawler gibt es klare Meldung und optionalen Fallback auf anderen Provider.",
+        "Prompt/Contract erklaert nicht faelschlich, dass Webcrawler ein allgemeines lokales LLM ist."
+      ],
+      "test_expectations": [
+        "E2E-Mock prueft Chat -> WebcrawlerBackendProvider -> Antwort.",
+        "Failure-Test prueft Webcrawler down -> sauberer Fallback/Fehler.",
+        "Tracking-Test zeigt Profile, ActionResult und Duration."
+      ]
+    },
+    {
+      "id": "AWCAP-009",
+      "title": "Deployment- und Dev-Workflow dokumentieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "docs/integrations/ananta-webcrawler-external-adapter.md",
+        "docs/setup/ananta-webcrawler-provider.md",
+        ".env.example"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation zeigt external_url Setup mit bereits laufendem Webcrawler.",
+        "Dokumentation zeigt managed_process Setup mit lokalem Repo-Pfad, ohne Code zu kopieren.",
+        "Dokumentation zeigt optional Docker-Compose Setup.",
+        "Dokumentation erklaert API-Key, Policy-Mode, Profile, /models und /chat/completions.",
+        "Troubleshooting fuer Webcrawler down, draft profile, invalid profile, API key wrong und timeout ist enthalten."
+      ],
+      "test_expectations": [
+        "Beispiel-Konfig ist JSON/YAML-valide.",
+        "Keine Secrets in .env.example.",
+        "Docs nennen klar das externe Repo ananta-dev-solutions/ananta-webcrawler als Quelle."
+      ]
+    },
+    {
+      "id": "AWCAP-010",
+      "title": "Offline-Testbarkeit mit Mock-Webcrawler sicherstellen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "tests/fixtures/mock_webcrawler_server.py",
+        "tests/e2e/test_webcrawler_external_adapter_provider.py",
+        "tests/agent/services/test_webcrawler_backend_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Tests brauchen keinen echten Browser und kein echtes Webcrawler-Repo.",
+        "Mock-Server bildet /v1/models, /v1/chat/completions, Streaming und typische Fehler ab.",
+        "Adapter-Tests laufen offline in CI.",
+        "Separate Integrationstests fuer echtes Webcrawler-Repo sind optional markiert und standardmaessig deaktiviert.",
+        "Mock-Antworten enthalten tool_results, damit Evidence/Diagnostics getestet werden."
+      ],
+      "test_expectations": [
+        "pytest ohne externe Services besteht.",
+        "Optionaler Integrationstest kann per Env-Flag ANANTA_WEBCRAWLER_INTEGRATION_TEST=1 aktiviert werden.",
+        "Mock-Server deckt non-streaming und streaming ab."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Ananta kann einen extern laufenden ananta-webcrawler per Healthcheck erkennen und ueber base_url nutzen.",
+    "Ananta kann den Webcrawler optional als managed_process oder managed_docker_compose starten, ohne dessen Code nachzuimplementieren.",
+    "Webcrawler ist als OpenAI-kompatibler BackendProvider registrierbar und nutzt /v1/models sowie /v1/chat/completions.",
+    "Webcrawler ist optional als ToolProvider mit webcrawler.* Tools registrierbar.",
+    "Routing nutzt Webcrawler nur fuer passende Web-/Website-/Profil-/Replay-Aufgaben oder explizite Auswahl.",
+    "Fallback auf Webcrawler ist semantisch begrenzt und ersetzt Ollama/LM Studio nicht blind fuer Codeaufgaben.",
+    "Security-Policy trennt Lesen von Login/Klick/Formularsubmit/schreibartigen Aktionen.",
+    "Credentials bleiben im Webcrawler-Service und werden nicht in Ananta gespeichert oder geloggt.",
+    "Tests laufen offline mit Mock-Webcrawler; echte Integrationstests sind optional.",
+    "Dokumentation beschreibt klar: externes Repo verwenden, nicht nachimplementieren."
+  ],
+  "open_questions": [
+    "Soll Ananta managed_process wirklich starten duerfen oder ist external_url plus Docker Compose sicherer als erster MVP? Empfehlung: MVP external_url, danach managed_docker_compose, managed_process zuletzt.",
+    "Soll webcrawler.* ToolProvider im ersten Schritt nur list_profiles/run_profile/status anbieten? Empfehlung: ja, Recording/Publish spaeter und approval-pflichtig.",
+    "Wie werden Webcrawler-Profile in Ananta-Blueprints referenziert: als model_id, provider_model oder profile_id? Empfehlung: provider_id + model/profile_id getrennt speichern.",
+    "Soll der Webcrawler fuer Planning genutzt werden duerfen, wenn der Planner externe Webdaten braucht? Empfehlung: ja, aber nur read-only/Profile-Run ohne schreibartige Aktionen."
+  ],
+  "notes": [
+    "Der Webcrawler ist fachlich dual: Webcrawler/Browser/Replay und OpenAI-kompatibler Backend-/Model-Provider.",
+    "Die Integration gehoert in Provider-/Adapter-/Runtime-Management, nicht in CodeCompass und nicht direkt in Worker.",
+    "MVP sollte klein starten: external_url + /models + /chat/completions + Routing + Security-Grundregeln."
+  ]
+}
