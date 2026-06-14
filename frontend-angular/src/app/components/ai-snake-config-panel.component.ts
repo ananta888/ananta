@@ -60,6 +60,8 @@ const FIELDS: ConfigField[] = [
     options: ['0', '5', '10', '15', '20', '30'] },
   { key: 'rag_iterative_catalog_chars', label: 'RAG-Iterativ: Katalog-Zeichen (component-catalog.md)', group: 'Kontext / RAG', type: 'choice',
     options: ['5000', '10000', '20000', '30000', '40000', '60000'] },
+  { key: 'rag_iterative_tool_chars_per_file', label: 'RAG-Iterativ: Zeichen pro Datei (Tool-Call)', group: 'Kontext / RAG', type: 'choice',
+    options: ['4000', '8000', '15000', '20000', '40000', '80000'] },
   { key: 'chat_full_scan_source_only', label: 'Full-Scan: Nur Quellcode', group: 'Kontext / RAG', type: 'bool' },
   { key: 'chat_full_scan_max_batches', label: 'Full-Scan: Max. Batches', group: 'Kontext / RAG', type: 'choice',
     options: ['2', '4', '6', '8', '12', '16'] },

@@ -214,20 +214,19 @@ def run_rag_chat_tool_loop(
                 parts.append(f"[{role}]\n{content[:max_chars]}")
         return "\n\n---\n\n".join(parts)
 
-    def _full_prompt(msgs: list[dict], max_chars_per_msg: int = 10000) -> str:
-        """Format ALL messages as sent to the LLM — used for the trace viewer."""
+    def _full_prompt(msgs: list[dict]) -> str:
+        """Format ALL messages exactly as sent to the LLM — no truncation."""
         parts = []
         for i, m in enumerate(msgs):
             role = str(m.get("role") or "")
             content = str(m.get("content") or "")
-            # Assistant messages may carry tool_calls instead of text content
             if not content and m.get("tool_calls"):
                 tc_names = [
                     str((tc.get("function") or {}).get("name") or "?")
                     for tc in m["tool_calls"]
                 ]
                 tc_args = [
-                    str((tc.get("function") or {}).get("arguments") or "")[:200]
+                    str((tc.get("function") or {}).get("arguments") or "")
                     for tc in m["tool_calls"]
                 ]
                 content = "\n".join(
@@ -235,11 +234,9 @@ def run_rag_chat_tool_loop(
                     for name, args in zip(tc_names, tc_args)
                 )
             if content:
-                truncated = len(content) > max_chars_per_msg
-                snippet = content[:max_chars_per_msg]
-                suffix = f"\n... [{len(content):,} Zeichen gesamt, abgeschnitten nach {max_chars_per_msg:,}]" if truncated else ""
-                parts.append(f"[{role} #{i+1}]\n{snippet}{suffix}")
-        return "\n\n" + ("=" * 60) + "\n\n".join(parts)
+                parts.append(f"[{role} #{i+1}]\n{content}")
+        sep = "\n\n" + "=" * 60 + "\n\n"
+        return sep.join(parts)
 
     def _total_context_chars(msgs: list[dict]) -> int:
         return sum(len(str(m.get("content") or "")) for m in msgs)
