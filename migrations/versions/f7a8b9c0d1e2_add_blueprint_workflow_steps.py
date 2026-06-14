@@ -54,7 +54,7 @@ def upgrade() -> None:
         sa.Column("produces", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("consumes", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("depends_on", sa.JSON(), nullable=False, server_default="[]"),
-        sa.Column("gate", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("gate", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("checks", sa.JSON(), nullable=False, server_default="{}"),
         sa.Column("failure_policy", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("required_capabilities", sa.JSON(), nullable=False, server_default="[]"),
