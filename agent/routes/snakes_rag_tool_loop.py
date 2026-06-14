@@ -200,13 +200,23 @@ def run_rag_chat_tool_loop(
         return sum(len(str(m.get("content") or "")) for m in msgs)
 
     def _parse_file_sections(user_content: str) -> list[dict[str, Any]]:
-        """Parse '### path\\n```lang\\ncontent\\n```' blocks → list of {path, chars}."""
+        """Parse the '=== Verfügbare Dateien ===' block → list of {path, score}."""
         import re
-        sections = re.split(r"\n### ", "\n" + user_content)
+        marker = "=== Verfügbare Dateien"
+        idx = user_content.find(marker)
+        if idx < 0:
+            # Fallback: old format with ### file blocks
+            sections = re.split(r"\n### ", "\n" + user_content)
+            return [{"path": s.partition("\n")[0].strip(), "chars": len(s.partition("\n")[2])}
+                    for s in sections[1:]]
+        block_start = user_content.find("\n", idx) + 1
+        block_end = user_content.find("\n\n", block_start)
+        block = user_content[block_start:block_end if block_end > 0 else block_start + 4000]
         result = []
-        for sec in sections[1:]:
-            head, _, body = sec.partition("\n")
-            result.append({"path": head.strip(), "chars": len(body)})
+        for line in block.splitlines():
+            m = re.match(r"\s*\d+\.\s+(.+?)\s+\(relevanz:\s*([\d.]+)\)", line)
+            if m:
+                result.append({"path": m.group(1).strip(), "score": float(m.group(2))})
         return result
 
     # --- Pre-loop: log initial context summary and write context dump file ---
@@ -241,7 +251,8 @@ def run_rag_chat_tool_loop(
                 "context_dump": "data/last_llm_context.txt",
             },
             input_preview="\n".join(
-                f"{s['path']}  ({s['chars']:,} Zeichen)" for s in _file_sections
+                "{}.  {}  (relevanz: {})".format(i, s["path"], s.get("score", s.get("chars", "?")))
+                for i, s in enumerate(_file_sections, 1)
             ) or "(keine Dateien)",
         )
 
@@ -266,6 +277,14 @@ def run_rag_chat_tool_loop(
         _prompt_text = _input_preview(current_messages)
 
         if rec:
+            # First call: show complete initial context (catalog + file list + instructions)
+            # Subsequent calls: short preview of the incremental messages only
+            if llm_call_count == 1:
+                _sys = str((current_messages[0] or {}).get("content") or "")
+                _usr = str((current_messages[-1] or {}).get("content") or "")
+                _trace_preview = f"[system]\n{_sys}\n\n---\n\n[user]\n{_usr}"
+            else:
+                _trace_preview = _input_preview(current_messages, max_chars=4000)
             rec.event(
                 f"tool_loop_llm_{llm_call_count}",
                 label,
@@ -276,7 +295,7 @@ def run_rag_chat_tool_loop(
                     "use_tools": use_tools,
                     "context_chars": _ctx_chars,
                 },
-                input_preview=_input_preview(current_messages, max_chars=4000),
+                input_preview=_trace_preview,
             )
 
         _log_kwargs: dict[str, Any] = dict(

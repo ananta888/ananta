@@ -306,8 +306,12 @@ def worker_chat_rag_iterative(
             + _catalog_section
             + "\n"
             + _file_list_section
-            + "\n\nLade die für deine Antwort relevanten Dateien mit read_file() nach. "
-            "Falls du weitere Dateien suchen möchtest, nutze search_codebase()."
+            + "\n\n"
+            "Anweisung:\n"
+            "1. Lies die relevantesten Dateien aus der obigen Liste mit read_file() — "
+            "mindestens 3, bevor du antwortest.\n"
+            "2. Nutze search_codebase() NUR um Dateien zu finden, die NICHT in der Liste stehen.\n"
+            "3. Beantworte die Frage erst nachdem du die Dateien gelesen hast."
         )
 
         available_files = [ch["source"] for ch in chunks]
