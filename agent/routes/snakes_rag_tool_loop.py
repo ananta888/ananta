@@ -155,6 +155,7 @@ def run_rag_chat_tool_loop(
     model: str | None,
     repo_root: _pl.Path,
     max_tool_calls: int = 0,
+    max_search_calls: int = 0,
     max_chars_per_file: int = 8000,
     timeout: int = 180,
     rec: Any | None = None,
@@ -187,8 +188,8 @@ def run_rag_chat_tool_loop(
 
     from agent.llm_integration import _runtime_api_key, _runtime_provider_urls
 
-    # 0 or negative = unlimited (capped at 50 to prevent infinite loops)
-    _effective_max = max_tool_calls if max_tool_calls > 0 else 50
+    # 0 = truly unlimited; the loop still exits when the model stops calling tools
+    _effective_max = max_tool_calls if max_tool_calls > 0 else 0
     max_tool_calls = _effective_max
 
     trace: dict[str, Any] = {
@@ -196,7 +197,8 @@ def run_rag_chat_tool_loop(
         "tool_calls_made": 0,
         "tools_used": [],
         "evidence": [],
-        "max_tool_calls_effective": max_tool_calls,
+        "max_tool_calls_effective": max_tool_calls if max_tool_calls > 0 else "unlimited",
+        "max_search_calls_effective": max_search_calls if max_search_calls > 0 else "unlimited",
     }
 
     urls = _runtime_provider_urls()
@@ -499,7 +501,7 @@ def run_rag_chat_tool_loop(
                 )
             return "", trace
 
-        use_tools = tool_call_count < max_tool_calls and not force_final_next
+        use_tools = (max_tool_calls == 0 or tool_call_count < max_tool_calls) and not force_final_next
         llm_call_count += 1
         payload: dict[str, Any] = {
             "model": model or "auto",
@@ -756,7 +758,7 @@ def run_rag_chat_tool_loop(
                         "[Suche bereits ausgefuehrt. Nutze die bestehende Evidenz, "
                         "lies eine konkrete Datei aus der Trefferliste oder antworte abschliessend.]"
                     )
-                elif search_call_count > 3:
+                elif max_search_calls > 0 and search_call_count > max_search_calls:
                     result = (
                         "[Suchlimit erreicht. Nutze die vorhandene Dateiliste und Evidenz; "
                         "lies bei Bedarf eine konkrete Datei oder antworte abschliessend.]"
@@ -816,10 +818,15 @@ def run_rag_chat_tool_loop(
                     input_preview=evidence_text,
                 )
 
-        if iteration_search_calls and not iteration_read_calls and search_call_count >= 2:
+        if (
+            iteration_search_calls
+            and not iteration_read_calls
+            and max_search_calls > 0
+            and search_call_count >= max_search_calls
+        ):
             force_final_next = True
 
-        if tool_call_count >= max_tool_calls:
+        if max_tool_calls > 0 and tool_call_count >= max_tool_calls:
             _replace_or_append_evidence_message(
                 _evidence_prompt()
                 + "\n\nBitte gib jetzt deine abschliessende Antwort auf Basis aller gesammelten Informationen."

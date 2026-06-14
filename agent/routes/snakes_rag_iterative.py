@@ -178,6 +178,38 @@ def _expand_via_symbol_graph(
     return added
 
 
+def _filter_catalog_to_relevant_modules(catalog_text: str, source_paths: list[str]) -> str:
+    """Keep only catalog sections whose module is a parent/sibling of retrieved sources."""
+    import re as _re
+
+    top_prefixes: set[str] = set()
+    for src in source_paths:
+        normalized = src.replace("\\", "/").replace("-", "_")
+        parts = normalized.split("/")
+        if parts:
+            top_prefixes.add(parts[0])
+            if len(parts) > 1:
+                top_prefixes.add(".".join(parts[:2]))
+
+    def _relevant(module_name: str) -> bool:
+        mn = module_name.replace("-", "_")
+        top = mn.split(".")[0]
+        return top in top_prefixes or any(
+            mn == p or mn.startswith(p + ".") or p.startswith(mn + ".")
+            for p in top_prefixes
+        )
+
+    parts = _re.split(r"(?=\n### `)", catalog_text)
+    if len(parts) <= 1:
+        return catalog_text
+    kept = [parts[0]]
+    for section in parts[1:]:
+        m = _re.match(r"\n### `([^`]+)`", section)
+        if m and _relevant(m.group(1)):
+            kept.append(section)
+    return "".join(kept) if len(kept) > 1 else catalog_text
+
+
 _SYSTEM_PROMPT = (
     "Du bist ein Code-Assistent fuer Quellcode-Fragen.\n"
     "Regeln (streng):\n"
@@ -316,13 +348,17 @@ def worker_chat_rag_iterative(
             cfg.get("rag_iterative_max_tool_calls") if cfg.get("rag_iterative_max_tool_calls") is not None
             else _cfg_settings.rag_iterative_max_tool_calls
         ))
+        _max_search_calls = max(0, int(
+            cfg.get("rag_iterative_max_search_calls") if cfg.get("rag_iterative_max_search_calls") is not None
+            else _cfg_settings.rag_iterative_max_search_calls
+        ))
         _tool_chars_per_file = max(4000, min(200000, int(
             cfg.get("rag_iterative_tool_chars_per_file") if cfg.get("rag_iterative_tool_chars_per_file") is not None
             else _cfg_settings.rag_iterative_tool_chars_per_file
         )))
         _catalog_max_chars = max(5000, min(60000, int(
             cfg.get("rag_iterative_catalog_chars") if cfg.get("rag_iterative_catalog_chars") is not None
-            else getattr(_cfg_settings, "rag_iterative_catalog_chars", 20000)
+            else getattr(_cfg_settings, "rag_iterative_catalog_chars", 12000)
         )))
         _summarize_reads_cfg = cfg.get("rag_iterative_summarize_reads")
         _summarize_reads = (
@@ -356,9 +392,12 @@ def worker_chat_rag_iterative(
         _catalog_path = repo_root / "rag-helper" / "out" / "component-catalog.md"
         if _catalog_path.exists():
             _catalog_text = _catalog_path.read_text(encoding="utf-8", errors="replace")
+            _catalog_text = _filter_catalog_to_relevant_modules(
+                _catalog_text, [ch["source"] for ch in chunks]
+            )
             _truncated = len(_catalog_text) > _catalog_max_chars
             _catalog_section = (
-                "=== CodeCompass Codebase-Übersicht ===\n"
+                "=== CodeCompass Codebase-Übersicht (relevante Module) ===\n"
                 + _catalog_text[:_catalog_max_chars]
                 + ("\n[... abgeschnitten nach {:,} Zeichen ...]\n".format(_catalog_max_chars) if _truncated else "\n")
             )
@@ -381,8 +420,8 @@ def worker_chat_rag_iterative(
             max_lines_per_snippet=_symbol_max_lines,
         )
         _symbol_context_section = format_symbol_context_section(_symbol_snippets)
-        _pack_min_files = 0 if _symbol_snippets else _initial_min_files
-        _pack_max_files = 0 if _symbol_snippets else _initial_max_files
+        _pack_min_files = 2 if _symbol_snippets else _initial_min_files
+        _pack_max_files = 4 if _symbol_snippets else _initial_max_files
         _context_pack = build_rag_context_pack(
             chunks=chunks,
             repo_root=repo_root,
@@ -410,8 +449,18 @@ def worker_chat_rag_iterative(
             + "\n".join(_file_list_lines)
         )
 
+        _first_unread = next(
+            (ch["source"] for ch in chunks if ch["source"] not in _packed_paths),
+            None,
+        )
+        _first_read_hint = (
+            "\nNaechster Schritt: Beginne mit read_file('{}') — lies diese Datei als erstes.".format(
+                _first_unread
+            )
+            if _first_unread else ""
+        )
         _symbol_instruction = (
-            "1. Nutze zuerst den Symbol-Kontext oben; er ist praeziser als ganze Dateien.\n"
+            "1. Nutze den Symbol-Kontext oben als Einstieg; er zeigt die wichtigsten Stellen.\n"
             if _symbol_context_section else
             "1. Lies zuerst die relevantesten Dateien aus der Dateiliste (nach Relevanz sortiert).\n"
         )
@@ -432,6 +481,7 @@ def worker_chat_rag_iterative(
             "oder versuche die naechste Datei aus der Liste — gib NICHT auf.\n"
             "5. Nutze search_codebase() NUR fuer Begriffe die NICHT in der Dateiliste stehen.\n"
             "6. Jede Folgeaktion muss an den bisherigen Recherche-Stand anschliessen."
+            + _first_read_hint
         )
 
         available_files = [ch["source"] for ch in chunks]
@@ -481,6 +531,7 @@ def worker_chat_rag_iterative(
             model=model,
             repo_root=repo_root,
             max_tool_calls=max_tool_calls,
+            max_search_calls=_max_search_calls,
             max_chars_per_file=_tool_chars_per_file,
             timeout=timeout_s,
             rec=rec,

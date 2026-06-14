@@ -35,7 +35,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_full_scan_chars_per_file", "chat_full_scan_max_input_tokens",
     # RAG-Iterativ / Tool-Call Loop
     "rag_iterative_tool_calls_enabled",
-    "rag_iterative_max_tool_calls", "rag_iterative_import_depth", "rag_iterative_symbol_expand_max",
+    "rag_iterative_max_tool_calls", "rag_iterative_max_search_calls",
+    "rag_iterative_import_depth", "rag_iterative_symbol_expand_max",
     "rag_iterative_catalog_chars", "rag_iterative_tool_chars_per_file",
     "rag_iterative_summarize_reads", "rag_iterative_summary_chars",
     "rag_iterative_initial_min_files", "rag_iterative_initial_max_files",
@@ -94,6 +95,7 @@ _DEFAULTS: dict[str, Any] = {
     # RAG-Iterativ / Tool-Call Loop
     "rag_iterative_tool_calls_enabled": True,
     "rag_iterative_max_tool_calls": 0,
+    "rag_iterative_max_search_calls": 0,
     "rag_iterative_import_depth": 0,
     "rag_iterative_symbol_expand_max": 0,
     "rag_iterative_catalog_chars": 20000,
