@@ -545,6 +545,8 @@ def run_rag_chat_tool_loop(
                     "iteration": _iteration,
                     "messages": len(current_messages),
                     "use_tools": use_tools,
+                    "tool_call_mode": "native_api" if use_tools else "disabled",
+                    "registered_tools": [t["function"]["name"] for t in _CHAT_TOOLS] if use_tools else [],
                     "context_chars": _ctx_chars,
                 },
                 input_preview=_full_prompt(current_messages),
@@ -666,9 +668,10 @@ def run_rag_chat_tool_loop(
             if textual_tool_request:
                 rec.event(
                     f"tool_loop_llm_{llm_call_count}_textual_tool_request",
-                    "Textueller Tool-Request im Modelltext erkannt",
+                    "Textueller Tool-Request im Modelltext erkannt (Fallback-Pfad)",
                     status="blocked" if (not use_tools or finish_reason == "stop" or not tool_calls) else "warning",
                     details={
+                        "tool_call_mode": "textual_fallback",
                         "finish_reason": finish_reason,
                         "use_tools": use_tools,
                         "tool_calls_requested": tc_names,
