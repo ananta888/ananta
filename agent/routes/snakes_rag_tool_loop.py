@@ -256,6 +256,7 @@ def run_rag_chat_tool_loop(
             f"Datei: {path}\n"
             f"```\n{content[:12000]}\n```\n\n"
             f"Extrahiere AUSSCHLIESSLICH die Informationen aus dieser Datei, die zur Frage direkt relevant sind. "
+            f"Nenne konkrete Symbole, Funktionen, Klassen und Zeilenbezuege. "
             f"Maximal {max_summary_chars} Zeichen. "
             f"Falls nichts relevant: '[nicht relevant]'."
         )
@@ -344,10 +345,11 @@ def run_rag_chat_tool_loop(
                 f"{idx}. {item['path']} ({item.get('source')}{score_txt})\n"
                 f"   {item.get('summary')}"
             )
+        q_hint = f" Beantworte dann konkret: {question[:200]}" if question else ""
         lines.append(
             "Wenn noch Informationen fehlen, lies gezielt eine weitere Datei, die eine offene Frage klaert. "
-            "Nutze search_codebase nur fuer neue Begriffe oder Pfade, die in der Evidenz noch nicht abgedeckt sind. "
-            "Wenn die Evidenz reicht, antworte abschliessend."
+            "Nutze search_codebase nur fuer voellig neue Begriffe, die in keiner Evidenz-Datei erwaehnt sind. "
+            f"Wenn die Evidenz reicht, antworte jetzt abschliessend.{q_hint}"
         )
         return "\n".join(lines)
 
@@ -667,7 +669,7 @@ def run_rag_chat_tool_loop(
                     "role": "user",
                     "content": (
                         "Der letzte Text war ein Tool-Aufruf. Tool-Aufrufe sind jetzt nicht mehr erlaubt. "
-                        "Gib eine normale finale Antwort in Deutsch auf Basis des vorhandenen Kontexts. "
+                        "Gib eine normale finale Antwort auf Basis des vorhandenen Kontexts. "
                         "Erwaehne keine TOOL_REQUEST-Bloecke und kein JSON."
                     ),
                 })
@@ -814,7 +816,7 @@ def run_rag_chat_tool_loop(
                     input_preview=evidence_text,
                 )
 
-        if iteration_search_calls and not iteration_read_calls and search_call_count >= 3:
+        if iteration_search_calls and not iteration_read_calls and search_call_count >= 2:
             force_final_next = True
 
         if tool_call_count >= max_tool_calls:

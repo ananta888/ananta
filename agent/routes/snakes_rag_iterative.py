@@ -179,14 +179,14 @@ def _expand_via_symbol_graph(
 
 
 _SYSTEM_PROMPT = (
-    "Du bist AI-Snake im Ananta Hub.\n"
+    "Du bist ein Code-Assistent fuer Quellcode-Fragen.\n"
     "Regeln (streng):\n"
     "1) Antworte nur auf Basis des bereitgestellten Kontexts und der Nutzerfrage.\n"
     "2) Erfinde keine Produkte, URLs, Features, Befehle oder Fakten.\n"
     "3) Wenn Informationen fehlen oder unsicher sind, sage explizit: "
     "\"Unklar, bitte Kontext pruefen\".\n"
     "4) Gib keine externen Links aus, ausser der Nutzer hat explizit danach gefragt.\n"
-    "5) Halte Antworten kurz, konkret, technisch nutzbar, auf Deutsch.\n"
+    "5) Halte Antworten kurz, konkret, technisch nutzbar.\n"
     "6) Wenn Schrittfolge noetig ist, gib maximal 5 nummerierte Schritte.\n"
 )
 
@@ -410,6 +410,11 @@ def worker_chat_rag_iterative(
             + "\n".join(_file_list_lines)
         )
 
+        _symbol_instruction = (
+            "1. Nutze zuerst den Symbol-Kontext oben; er ist praeziser als ganze Dateien.\n"
+            if _symbol_context_section else
+            "1. Lies zuerst die relevantesten Dateien aus der Dateiliste (nach Relevanz sortiert).\n"
+        )
         user_message = (
             "Frage: {}\n\n".format(question)
             + ("{}\n\n".format(budget_instruction) if budget_instruction else "")
@@ -420,13 +425,13 @@ def worker_chat_rag_iterative(
             + _file_list_section
             + "\n\n"
             "Anweisung:\n"
-            "1. Nutze zuerst den CodeCompass Symbol-/Graph-Kontext; er ist präziser als ganze Dateien.\n"
-            "2. Die als 'bereits im Initialkontext' markierten Top-Treffer gelten als gelesen.\n"
-            "3. Nutze EXAKT die Pfade wie in der Dateiliste angegeben (z.B. 'worker/retrieval/...' nicht 'agent/services/...').\n"
+            + _symbol_instruction
+            + "2. Die als 'bereits im Initialkontext' markierten Top-Treffer gelten als gelesen.\n"
+            "3. Nutze EXAKT die Pfade wie in der Dateiliste angegeben.\n"
             "4. Wenn eine Datei nicht gefunden wird: Nutze den im Fehler angezeigten korrekten Pfad, "
-            "oder versuche die nächste Datei aus der Liste — gib NICHT auf.\n"
-            "5. Nutze search_codebase() NUR für Dateien die NICHT in der Liste stehen.\n"
-            "6. Jede Folgeaktion muss an den bisherigen Recherche-Stand anschließen."
+            "oder versuche die naechste Datei aus der Liste — gib NICHT auf.\n"
+            "5. Nutze search_codebase() NUR fuer Begriffe die NICHT in der Dateiliste stehen.\n"
+            "6. Jede Folgeaktion muss an den bisherigen Recherche-Stand anschliessen."
         )
 
         available_files = [ch["source"] for ch in chunks]
