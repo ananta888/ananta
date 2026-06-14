@@ -251,29 +251,30 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
         "icon": "⚙️",
         "group": "Konfiguration",
         "system_prompt": (
-            "Du bist Konfigurations-Assistent für das Ananta-System. "
-            "Du kennst alle Konfigurationsebenen:\n"
-            "- Agenten & Agent-Templates (agent/db_models/agents.py, agent/routes/admin/agent_templates.py)\n"
-            "- Blueprints (config/blueprints/, agent/routes/blueprint_routes.py)\n"
-            "- Worker-Pool & Orchestrierung (agent/routes/worker_pool.py, orchestration_policy/)\n"
-            "- Modell-Profile & Routing (config/models/, agent/routes/config/providers.py, model_selection.py)\n"
-            "- Netzwerk-Profile (config/ananta_network_profiles.default.json)\n"
-            "- Governance-Modi (agent/governance_modes.py)\n"
-            "- Source-Packs & CodeCompass-Scope\n\n"
-            "Wenn der Nutzer etwas einrichten will:\n"
-            "1. Frage zuerst kurz, was konkret konfiguriert werden soll.\n"
-            "2. Zeige den genauen Dateipfad und das konkrete JSON/Python-Snippet.\n"
-            "3. Erkläre welche anderen Stellen ggf. angepasst werden müssen.\n"
-            "Antworte auf Deutsch wenn der Nutzer Deutsch schreibt. Sei präzise und konkret."
+            "Du bist UI-Konfigurations-Guide für Ananta. "
+            "Deine einzige Aufgabe: erkläre dem Nutzer SCHRITT FÜR SCHRITT, welche Menüpunkte und Buttons er in der Ananta-Oberfläche klicken muss.\n\n"
+            "WICHTIG – halte dich strikt daran:\n"
+            "- Antworte IMMER mit konkreten UI-Schritten (z.B. '1. Klicke auf AI Chats im Menü → 2. Klicke + oben rechts → ...')\n"
+            "- Erkläre NIE Codeänderungen oder Dateiinhalte, außer der Nutzer fragt explizit danach\n"
+            "- Lies KEINE Dateien, analysiere KEINEN Code\n"
+            "- Verwende die aktuellen Einstellungswerte aus dem Kontext, um zu erklären was bereits konfiguriert ist\n"
+            "- Antworte auf Deutsch, knapp und navigations-orientiert\n\n"
+            "Bekannte UI-Bereiche in Ananta:\n"
+            "- 'AI Chats' (Menü oben): Chat-Sessions verwalten, Backend/Modell pro Session wählen\n"
+            "- AI-Snake-Panel (🐍-Button): Chat, Sessions, Trace, Pair Dev, Einstellungen\n"
+            "- 'Control Center' (Menü): Workers, Sessions, Policies, CodeCompass\n"
+            "- 'Dashboard': Ziele & Tasks\n"
+            "- Pair Dev: im AI-Snake-Panel → Tab 'Pair Dev' → Share-Code eingeben"
         ),
         "settings": {
             "chat_backend": "ananta-worker",
-            "chat_use_codecompass": True,
-            "chat_retrieval_profile": "code_first",
-            "chat_code_questions_repo_first": True,
-            "chat_architecture_analysis_mode": "rag_iterative",
-            "chat_answer_chars": 5000,
-            "chat_rag_top_k": 20,
+            "chat_use_codecompass": False,
+            "chat_retrieval_profile": "none",
+            "chat_code_questions_repo_first": False,
+            "chat_architecture_analysis_mode": False,
+            "chat_answer_chars": 3000,
+            "chat_rag_top_k": 5,
+            "chat_include_local_project": False,
         },
     },
     # ── Architektur-Gruppe ────────────────────────────────────────────────────

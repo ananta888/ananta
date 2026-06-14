@@ -99,15 +99,15 @@
               <button type="button" class="mini-footer-btn share-btn" (click)="toggleSharePanel()" [class.active]="sharePanelOpen" title="Session Sharing">
                 ⇄ Share
               </button>
-              <button type="button" class="mini-footer-btn snake-chat-btn" (click)="toggleSnakeChatPanel()" [class.active]="snakeChatPanelOpen" title="AI-Snake Chat">
+              <button type="button" class="mini-footer-btn snake-chat-btn" (click)="toggleSnakeChatPanel()" [class.active]="snakeChatPanelOpen" title="AI-Snake Chat" data-waypoint="assistant.snake-chat-btn">
                 💬 Snake Chat
               </button>
               <div class="snake-chat-tabs" aria-label="AI-Snake Chat Tabs">
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'chat'" (click)="openSnakeChatPanelTab('chat')">Chat</button>
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'login'" (click)="openSnakeChatPanelTab('login')">AI-Snake</button>
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'pair'" (click)="openSnakeChatPanelTab('pair')">Pair Dev</button>
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'mode'" (click)="openSnakeChatPanelTab('mode')">Modus</button>
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'settings'" (click)="openSnakeChatPanelTab('settings')">Einstellungen</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'chat'" (click)="openSnakeChatPanelTab('chat')" data-waypoint="assistant.tab-chat">Chat</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'login'" (click)="openSnakeChatPanelTab('login')" data-waypoint="assistant.tab-ai-snake">AI-Snake</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'pair'" (click)="openSnakeChatPanelTab('pair')" data-waypoint="assistant.tab-pair-dev">Pair Dev</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'mode'" (click)="openSnakeChatPanelTab('mode')" data-waypoint="assistant.tab-mode">Modus</button>
+                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'settings'" (click)="openSnakeChatPanelTab('settings')" data-waypoint="assistant.tab-settings">Einstellungen</button>
               </div>
               <button type="button" class="mini-footer-btn config-btn" (click)="toggleConfigPanel()" [class.active]="configPanelOpen" title="AI-Snake Konfiguration">
                 ⚙

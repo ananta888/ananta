@@ -230,13 +230,13 @@ import { ChatMessageComponent } from './chat-message.component';
         </div>
       }
       <div class="bottom-tabs">
-        <button [class.active]="tab==='chat'" (click)="setTab('chat')">Chat</button>
-        <button [class.active]="tab==='sessions'" (click)="setTab('sessions')">Sessions</button>
-        <button [class.active]="tab==='trace'" (click)="setTab('trace')" class="trace-tab-btn">Trace</button>
-        <button [class.active]="tab==='login'" (click)="setTab('login')">AI-Snake</button>
-        <button [class.active]="tab==='pair'" (click)="setTab('pair')">Pair Dev</button>
-        <button [class.active]="tab==='mode'" (click)="setTab('mode')">Modus</button>
-        <button [class.active]="tab==='settings'" (click)="setTab('settings')">Einstellungen</button>
+        <button [class.active]="tab==='chat'" (click)="setTab('chat')" data-waypoint="snake.tab-chat">Chat</button>
+        <button [class.active]="tab==='sessions'" (click)="setTab('sessions')" data-waypoint="snake.tab-sessions">Sessions</button>
+        <button [class.active]="tab==='trace'" (click)="setTab('trace')" class="trace-tab-btn" data-waypoint="snake.tab-trace">Trace</button>
+        <button [class.active]="tab==='login'" (click)="setTab('login')" data-waypoint="snake.tab-ai-snake">AI-Snake</button>
+        <button [class.active]="tab==='pair'" (click)="setTab('pair')" data-waypoint="snake.tab-pair">Pair Dev</button>
+        <button [class.active]="tab==='mode'" (click)="setTab('mode')" data-waypoint="snake.tab-mode">Modus</button>
+        <button [class.active]="tab==='settings'" (click)="setTab('settings')" data-waypoint="snake.tab-settings">Einstellungen</button>
       </div>
       @if (svc.error$ | async; as e) {
         @if (e) { <div class="error">{{ e }}</div> }

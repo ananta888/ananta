@@ -676,7 +676,15 @@ def _read_ananta_settings_summary() -> str:
 
 _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
     (
-        ["chat", "session", "konversation", "gespräch", "chats", "gesprach"],
+        ["pair", "pair dev", "pair-dev", "pairdev", "pari", "pari-dev", "pairing", "share session", "share-session", "zusammen", "kollaboration"],
+        [
+            {"waypoint": "assistant.snake-chat-btn", "bubble": "'Snake Chat' öffnen (💬 unten rechts)", "delay_ms": 3000},
+            {"waypoint": "assistant.tab-pair-dev", "bubble": "Tab 'Pair Dev' wählen", "delay_ms": 3000},
+            {"waypoint": "snake.tab-pair", "bubble": "Hier Pair-Dev-Session starten oder beitreten", "delay_ms": 4000},
+        ],
+    ),
+    (
+        ["chat session", "neue session", "new session", "konversation anlegen", "chat anlegen"],
         [
             {"waypoint": "nav.chats", "bubble": "Zum Bereich 'AI Chats' navigieren", "delay_ms": 2500},
             {"waypoint": "chat.new-session", "bubble": "Mit '+' neue Chat-Session anlegen", "delay_ms": 3000},
@@ -686,7 +694,7 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
         ],
     ),
     (
-        ["modell", "model", "provider", "llm", "openai", "lmstudio", "hermes"],
+        ["modell", "model", "provider", "llm", "openai", "lmstudio", "hermes", "backend wechseln", "backend ändern"],
         [
             {"waypoint": "nav.chats", "bubble": "Zum Chat-Bereich navigieren", "delay_ms": 2000},
             {"waypoint": "chat.settings-tab", "bubble": "Einstellungen der aktiven Session öffnen", "delay_ms": 3000},
@@ -701,7 +709,7 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
         ],
     ),
     (
-        ["blueprint", "vorlage", "template", "plan"],
+        ["blueprint", "vorlage", "template"],
         [
             {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
             {"waypoint": "cc.sessions", "bubble": "Sessions-Verwaltung öffnen", "delay_ms": 3000},
@@ -720,6 +728,14 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
             {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
             {"waypoint": "cc.codecompass", "bubble": "CodeCompass-Verwaltung öffnen", "delay_ms": 3000},
             {"waypoint": "chat.retrieval-profile", "bubble": "Retrieval-Profil in Session-Einstellungen", "delay_ms": 3500},
+        ],
+    ),
+    (
+        ["einstellungen", "settings", "konfigurieren", "konfiguration", "einrichten", "setup"],
+        [
+            {"waypoint": "assistant.snake-chat-btn", "bubble": "'Snake Chat' öffnen (💬 unten rechts)", "delay_ms": 2500},
+            {"waypoint": "assistant.tab-settings", "bubble": "Tab 'Einstellungen' öffnen", "delay_ms": 3000},
+            {"waypoint": "snake.tab-settings", "bubble": "Hier Snake-Chat-Einstellungen anpassen", "delay_ms": 3500},
         ],
     ),
 ]
