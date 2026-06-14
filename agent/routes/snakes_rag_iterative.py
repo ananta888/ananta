@@ -253,6 +253,20 @@ def worker_chat_rag_iterative(
         trace["error"] = f"retrieval_failed: {exc}"
         return "", trace
 
+    # Filter out raw CodeCompass data files — large machine-readable JSONL/JSON blobs
+    # that are useless for the LLM (component-catalog.md is loaded separately as overview).
+    _CODECOMPASS_DATA_FILES = {
+        "rag-helper/out/context.jsonl",
+        "rag-helper/out/details.jsonl",
+        "rag-helper/out/embedding.jsonl",
+        "rag-helper/out/graph_edges.jsonl",
+        "rag-helper/out/graph_nodes.jsonl",
+        "rag-helper/out/index.jsonl",
+        "rag-helper/out/manifest.json",
+        "rag-helper/out/relations.jsonl",
+        "rag-helper/out/component-catalog.md",  # already included as catalog overview
+    }
+    chunks = [ch for ch in chunks if ch["source"] not in _CODECOMPASS_DATA_FILES]
     trace["rag_chunks_found"] = len(chunks)
     if not chunks:
         trace["error"] = "no_rag_chunks"
