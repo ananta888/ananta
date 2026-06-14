@@ -35,6 +35,15 @@ _DATA_EXTRA_SKIP_DIRS = frozenset({
     ".rag", "project-workspaces", "venv", ".venv", "myvenv",
 })
 
+# Directories to skip in the os.walk fallback for CODE files (when git is unavailable).
+# Must exclude node_modules/dist/etc. to avoid hitting max_files before reaching source dirs.
+_CODE_EXTRA_SKIP_DIRS = frozenset({
+    "node_modules", ".git", "__pycache__", "dist", "build",
+    ".eggs", ".tox", ".cache", "ananta.egg-info",
+    "ci-artifacts", "project-workspaces", "venv", ".venv", "myvenv",
+    "test-results.root-owned.backup.1780499293",
+})
+
 
 def tracked_code_files(*, repo_root: Path, code_extensions: set[str], max_files: int) -> list[Path]:
     data_exts = _DATA_EXTENSIONS & code_extensions
@@ -62,7 +71,7 @@ def tracked_code_files(*, repo_root: Path, code_extensions: set[str], max_files:
 
     if not git_ok:
         # Full os.walk fallback when git is unavailable
-        excluded_dirs = _configured_exclude_dirs()
+        excluded_dirs = _configured_exclude_dirs() | _CODE_EXTRA_SKIP_DIRS
         for current_root, dirs, file_names in os.walk(repo_root):
             dirs[:] = [d for d in dirs if d not in excluded_dirs]
             for name in file_names:

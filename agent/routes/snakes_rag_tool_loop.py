@@ -187,15 +187,18 @@ def run_rag_chat_tool_loop(
     llm_call_count = 0
     last_content = ""
 
-    def _input_preview(msgs: list[dict]) -> str:
+    def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
         """Format last user/system messages as readable preview."""
         parts = []
         for m in msgs[-4:]:
             role = str(m.get("role") or "")
             content = str(m.get("content") or "")
             if content:
-                parts.append(f"[{role}]\n{content[:2000]}")
+                parts.append(f"[{role}]\n{content[:max_chars]}")
         return "\n\n---\n\n".join(parts)
+
+    def _total_context_chars(msgs: list[dict]) -> int:
+        return sum(len(str(m.get("content") or "")) for m in msgs)
 
     for _iteration in range(max_tool_calls + 2):
         use_tools = tool_call_count < max_tool_calls
@@ -208,21 +211,34 @@ def run_rag_chat_tool_loop(
             payload["tools"] = _CHAT_TOOLS
             payload["tool_choice"] = "auto"
 
+        _ctx_chars = _total_context_chars(current_messages)
         label = (
-            f"LLM-Call {llm_call_count} (Tool-Loop, {len(current_messages)} Msgs)"
+            f"LLM-Call {llm_call_count} (Tool-Loop, {len(current_messages)} Msgs, ~{_ctx_chars//1000}K Zeichen)"
             if use_tools else
-            f"LLM-Call {llm_call_count} (Finale Antwort)"
+            f"LLM-Call {llm_call_count} (Finale Antwort, ~{_ctx_chars//1000}K Zeichen)"
         )
+
+        # For the first call log the full initial user message (up to 80K chars) so the
+        # complete context sent to the LLM is visible; subsequent calls use the short preview.
+        if llm_call_count == 1:
+            _prompt_text = _input_preview(current_messages, max_chars=80000)
+        else:
+            _prompt_text = _input_preview(current_messages)
+
         if rec:
             rec.event(
                 f"tool_loop_llm_{llm_call_count}",
                 label,
                 status="running",
-                details={"iteration": _iteration, "messages": len(current_messages), "use_tools": use_tools},
-                input_preview=_input_preview(current_messages),
+                details={
+                    "iteration": _iteration,
+                    "messages": len(current_messages),
+                    "use_tools": use_tools,
+                    "context_chars": _ctx_chars,
+                },
+                input_preview=_input_preview(current_messages, max_chars=4000),
             )
 
-        _prompt_text = _input_preview(current_messages)
         _log_kwargs: dict[str, Any] = dict(
             event="llm_call_start",
             provider=provider,
@@ -230,6 +246,7 @@ def run_rag_chat_tool_loop(
             prompt=_prompt_text,
             tool_loop_call=llm_call_count,
             history_len=len(current_messages),
+            context_chars=_ctx_chars,
         )
         if llm_call_count == 1 and initial_files:
             _log_kwargs["initial_files"] = initial_files

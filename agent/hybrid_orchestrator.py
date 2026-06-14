@@ -105,7 +105,7 @@ class RepositoryMapEngine:
     def __init__(
         self,
         repo_root: str | Path,
-        max_files: int = 4000,
+        max_files: int = 8000,
         max_symbols_per_file: int = 80,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
