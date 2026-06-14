@@ -131,25 +131,29 @@ def _background_threads_disabled() -> bool:
     )
 
 
-def _resolve_ai_snake_chat_provider() -> tuple[str, str | None]:
+def _resolve_ai_snake_chat_provider() -> tuple[str, str | None, str | None]:
     provider = "lmstudio"
     model: str | None = None
+    api_base: str | None = None
     try:
         from agent.routes.ai_snake_config import _current_config
 
         cfg = _current_config()
-        backend = str(cfg.get("chat_backend") or "").strip().lower()
-        fallback = str(cfg.get("chat_backend_fallback") or "").strip().lower()
         configured_model = str(cfg.get("chat_backend_model") or "").strip() or None
+        configured_api_base = str(cfg.get("chat_backend_api_base") or "").strip() or None
         if configured_model:
             model = configured_model
-        if backend == "lmstudio":
-            provider = "lmstudio"
-        elif backend in {"ananta-worker", "opencode", "hermes"}:
-            provider = "lmstudio" if fallback in {"", "none", "lmstudio"} else "lmstudio"
+
+        _openai_models = ("gpt-4", "gpt-3.5", "gpt-4o", "o1", "o3")
+        is_openai_model = any(model.startswith(m) for m in _openai_models) if model else False
+        is_openai_url = configured_api_base and "openai.com" in configured_api_base.lower()
+
+        if is_openai_url or is_openai_model:
+            provider = "openai"
+            api_base = configured_api_base
     except Exception:
         pass
-    return provider, model
+    return provider, model, api_base
 
 
 def _snake_retrieval_config_overrides(body: dict[str, Any]) -> dict[str, Any]:
@@ -671,7 +675,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                     summary=f"Prompt: {_prompt_preview}",
                 )
 
-            provider, model = _resolve_ai_snake_chat_provider()
+            provider, model, api_base = _resolve_ai_snake_chat_provider()
             conversation_history = _build_room_conversation_history(snake_id=snake_id, current_text=prompt)
             if rec:
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
@@ -884,6 +888,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 ),
                 provider=provider,
                 model=model,
+                base_url=api_base,
                 history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}, *conversation_history],
                 timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
             )
@@ -1006,6 +1011,7 @@ def _worker_propose(
     grounded_prompt: str,
     model: str | None,
     *,
+    provider: str = "lmstudio",
     limits: SnakeAskLimits | None = None,
     retrieval_profile_trace: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
@@ -1025,7 +1031,7 @@ def _worker_propose(
     trace["model_resolved"] = resolved_model
     payload: dict[str, Any] = {
         "prompt": grounded_prompt,
-        "provider": "lmstudio",
+        "provider": provider,
         "temperature": 0.3,
         "max_context_chars": effective_limits.context_chars,
         "answer_chars": effective_limits.answer_chars,
@@ -1079,7 +1085,7 @@ def _worker_propose(
     text = _fit_answer_to_chars(
         text,
         limit=effective_limits.answer_chars,
-        provider="lmstudio",
+        provider=provider,
         model=resolved_model,
         timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
         overflow_policy=effective_limits.answer_overflow_policy,
@@ -1358,7 +1364,7 @@ def snake_ask():
         "never_truncate_answers": limits.never_truncate_answers,
     }
 
-    provider, hub_model = _resolve_ai_snake_chat_provider()
+    provider, hub_model, api_base = _resolve_ai_snake_chat_provider()
     model = request_model or hub_model
 
     try:
