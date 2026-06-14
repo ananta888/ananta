@@ -169,7 +169,7 @@ _DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
     "chat_retrieval_profile": "auto",
     "chat_code_questions_repo_first": True,
     "chat_architecture_analysis_mode": False,
-    "chat_max_tokens": 1024,
+    "chat_max_tokens": 4000,
     "chat_answer_chars": 1800,
     "chat_answer_overflow_policy": "allow",
     "chat_never_truncate_answers": True,
@@ -204,7 +204,7 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
             "chat_use_codecompass": True,
             "chat_retrieval_profile": "code_first",
             "chat_code_questions_repo_first": True,
-            "chat_architecture_analysis_mode": False,
+            "chat_architecture_analysis_mode": "rag_iterative",
         },
     },
     {

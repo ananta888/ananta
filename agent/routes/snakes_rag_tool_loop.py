@@ -560,6 +560,8 @@ def run_rag_chat_tool_loop(
             tool_loop_call=llm_call_count,
             history_len=len(current_messages),
             context_chars=_ctx_chars,
+            tool_call_mode="native_api" if use_tools else "disabled",
+            registered_tools=[t["function"]["name"] for t in _CHAT_TOOLS] if use_tools else [],
         )
         if llm_call_count == 1 and initial_files:
             _log_kwargs["initial_files"] = initial_files
