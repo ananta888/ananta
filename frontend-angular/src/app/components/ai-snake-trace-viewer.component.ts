@@ -24,6 +24,16 @@ const PHASE_LABELS: Record<string, string> = {
   rag_iterative_synthesis_done: 'Synthese fertig',
   rag_iterative_tool_loop_start: 'Tool-Loop',
   rag_iterative_tool_loop_done: 'Tool-Loop fertig',
+  tool_loop_llm_1: 'LLM-Call 1',
+  tool_loop_llm_2: 'LLM-Call 2',
+  tool_loop_llm_3: 'LLM-Call 3',
+  tool_loop_llm_4: 'LLM-Call 4',
+  tool_loop_llm_5: 'LLM-Call 5',
+  tool_loop_llm_1_done: 'LLM-Call 1 fertig',
+  tool_loop_llm_2_done: 'LLM-Call 2 fertig',
+  tool_loop_llm_3_done: 'LLM-Call 3 fertig',
+  tool_loop_llm_4_done: 'LLM-Call 4 fertig',
+  tool_loop_llm_5_done: 'LLM-Call 5 fertig',
   full_scan_detected: 'Full-Scan',
   full_scan_batch_started: 'Batch läuft',
   full_scan_batch_completed: 'Full-Scan fertig',
@@ -522,7 +532,8 @@ export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
       || phase === 'rag_iterative_synthesis_done'
       || phase === 'rag_iterative_tool_loop_start'
       || phase === 'rag_iterative_tool_loop_done'
-      || phase.startsWith('tool_call_');
+      || phase.startsWith('tool_call_')
+      || phase.startsWith('tool_loop_llm_');
   }
 
   hasDetails(ev: AiSnakeTraceEvent): boolean {
@@ -561,6 +572,17 @@ export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
       const fn = (ev.details as Record<string, unknown>)?.['function'];
       if (typeof fn === 'string') return fn;
       return ev.title || ev.phase;
+    }
+    if (ev.phase.startsWith('tool_loop_llm_')) {
+      const d = ev.details as Record<string, unknown>;
+      const done = ev.phase.endsWith('_done');
+      const n = ev.phase.replace('tool_loop_llm_', '').replace('_done', '');
+      if (done) {
+        const tcs = d?.['tool_calls_requested'];
+        if (Array.isArray(tcs) && tcs.length) return `LLM ${n} → ${(tcs as string[]).join(', ')}`;
+        return `LLM ${n} fertig`;
+      }
+      return `LLM-Call ${n}`;
     }
     return PHASE_LABELS[ev.phase] || ev.title;
   }
