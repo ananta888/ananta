@@ -10,7 +10,7 @@ import json
 import logging
 import pathlib as _pl
 import re
-from typing import Any
+from typing import Any, Callable
 
 from agent.utils import log_llm_entry
 from agent.services.snake_chat_cancellation import is_chat_cancelled
@@ -157,6 +157,7 @@ def run_rag_chat_tool_loop(
     max_tool_calls: int = 0,
     max_search_calls: int = 0,
     max_chars_per_file: int = 8000,
+    config_provider: Callable[[], dict[str, Any]] | None = None,
     timeout: int = 180,
     rec: Any | None = None,
     initial_files: list[str] | None = None,
@@ -500,6 +501,20 @@ def run_rag_chat_tool_loop(
                     details=trace,
                 )
             return "", trace
+
+        if config_provider is not None:
+            try:
+                _live = config_provider()
+                _new_max_tc = max(0, int(_live.get("rag_iterative_max_tool_calls") or 0))
+                _new_max_sc = max(0, int(_live.get("rag_iterative_max_search_calls") or 0))
+                if _new_max_tc != max_tool_calls:
+                    max_tool_calls = _new_max_tc
+                    trace["max_tool_calls_effective"] = max_tool_calls if max_tool_calls > 0 else "unlimited"
+                if _new_max_sc != max_search_calls:
+                    max_search_calls = _new_max_sc
+                    trace["max_search_calls_effective"] = max_search_calls if max_search_calls > 0 else "unlimited"
+            except Exception:
+                pass
 
         use_tools = (max_tool_calls == 0 or tool_call_count < max_tool_calls) and not force_final_next
         llm_call_count += 1

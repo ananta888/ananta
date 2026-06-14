@@ -533,6 +533,7 @@ def worker_chat_rag_iterative(
             max_tool_calls=max_tool_calls,
             max_search_calls=_max_search_calls,
             max_chars_per_file=_tool_chars_per_file,
+            config_provider=_current_config,
             timeout=timeout_s,
             rec=rec,
             initial_files=available_files,

@@ -197,7 +197,16 @@ def _save(data: dict[str, Any]) -> None:
 
 def _current_config() -> dict[str, Any]:
     stored = _load()
-    return {k: stored.get(k, _DEFAULTS.get(k)) for k in _SCHEMA_KEYS}
+    base = {k: stored.get(k, _DEFAULTS.get(k)) for k in _SCHEMA_KEYS}
+    active_id = str(stored.get("chat_active_session_id") or "").strip()
+    if active_id:
+        for session in (stored.get("chat_sessions") or []):
+            if str(session.get("id") or "") == active_id:
+                for k, v in (session.get("settings") or {}).items():
+                    if k in _SCHEMA_KEYS:
+                        base[k] = v
+                break
+    return base
 
 
 @ai_snake_config_bp.route("/ai-snake/config", methods=["GET"])
