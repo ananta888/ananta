@@ -92,7 +92,7 @@ _DEFAULTS: dict[str, Any] = {
     "ai_snake_trace_ttl_seconds": 86400,
     "ai_snake_trace_stream_mode": "polling",
     "ai_snake_trace_redact_secrets": True,
-    "ai_snake_trace_max_preview_chars": 12000,
+    "ai_snake_trace_max_preview_chars": 200000,
 }
 
 _OPTIONS: dict[str, list[str]] = {
