@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
-
 class _RecordingTrace:
     def __init__(self) -> None:
         self.events: list[dict] = []
@@ -17,31 +14,31 @@ def test_rag_iterative_trace_records_full_batch_prompt_before_recorder_limit(tmp
     long_content = "CodeCompass ist das RAG-Indexierungs- und Retrieval-System von Ananta. " * 40
     source.write_text(long_content, encoding="utf-8")
 
-    class _FakeRagService:
-        def build_execution_context(self, *_args, **_kwargs):
-            return {
-                "chunks": [
-                    {
-                        "source": "docs/system-komponenten.md",
-                        "metadata": {"file_path": "docs/system-komponenten.md"},
-                    }
-                ]
-            }, ""
-
     from agent.routes import snakes_rag_iterative as mod
 
-    monkeypatch.setattr(mod, "_current_config", lambda: {"chat_full_scan_chars_per_file": 20_000})
+    monkeypatch.setattr(
+        mod,
+        "_current_config",
+        lambda: {
+            "chat_full_scan_chars_per_file": 20_000,
+            "rag_iterative_tool_calls_enabled": False,
+        },
+    )
     monkeypatch.setattr(mod._cfg_settings, "rag_repo_root", str(tmp_path), raising=False)
     monkeypatch.setattr(mod, "lookup_model_context_tokens", lambda _model: 16_000)
-    monkeypatch.setattr("agent.services.rag_service.get_rag_service", lambda: _FakeRagService())
-    monkeypatch.setattr(
-        "agent.services.retrieval_profile_service.resolve_profile",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            retrieval_intent="code_explanation_with_codecompass",
-            source_types=["artifact", "repo"],
-            as_dict=lambda: {},
-        ),
-    )
+
+    class _Chunk:
+        source = "docs/system-komponenten.md"
+        score = 99.0
+
+    class _FakeRepositoryMapEngine:
+        def __init__(self, _repo_root):
+            pass
+
+        def search(self, *_args, **_kwargs):
+            return [_Chunk()]
+
+    monkeypatch.setattr("agent.hybrid_orchestrator.RepositoryMapEngine", _FakeRepositoryMapEngine)
     captured_calls: list[dict] = []
 
     def _fake_generate_text(**kwargs):

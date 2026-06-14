@@ -38,6 +38,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "rag_iterative_max_tool_calls", "rag_iterative_import_depth", "rag_iterative_symbol_expand_max",
     "rag_iterative_catalog_chars", "rag_iterative_tool_chars_per_file",
     "rag_iterative_summarize_reads", "rag_iterative_summary_chars",
+    "rag_iterative_initial_min_files", "rag_iterative_initial_max_files",
     # Trace/Tracking Viewer
     "ai_snake_trace_enabled", "ai_snake_trace_max_traces", "ai_snake_trace_max_events_per_trace",
     "ai_snake_trace_ttl_seconds", "ai_snake_trace_stream_mode", "ai_snake_trace_redact_secrets",
@@ -99,6 +100,8 @@ _DEFAULTS: dict[str, Any] = {
     "rag_iterative_tool_chars_per_file": 20000,
     "rag_iterative_summarize_reads": False,
     "rag_iterative_summary_chars": 600,
+    "rag_iterative_initial_min_files": 3,
+    "rag_iterative_initial_max_files": 8,
     # Trace/Tracking Viewer
     "ai_snake_trace_enabled": True,
     "ai_snake_trace_max_traces": 50,
@@ -139,6 +142,8 @@ _OPTIONS: dict[str, list[str]] = {
     "chat_full_scan_timeout_s": ["300", "600", "900", "1200", "1800", "3600"],
     "chat_full_scan_chars_per_file": ["300", "600", "1200", "2000", "3500"],
     "chat_full_scan_max_input_tokens": ["auto", "1500", "3000", "6000", "12000", "24000"],
+    "rag_iterative_initial_min_files": ["0", "1", "2", "3", "4", "5"],
+    "rag_iterative_initial_max_files": ["3", "5", "8", "10", "12", "16"],
 }
 
 _BOOL_KEYS = frozenset(k for k, v in _DEFAULTS.items() if isinstance(v, bool))

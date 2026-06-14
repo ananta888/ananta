@@ -295,6 +295,8 @@ class Settings(BaseSettings):
     rag_iterative_tool_chars_per_file: int = Field(default=20000, validation_alias="RAG_ITERATIVE_TOOL_CHARS_PER_FILE")
     rag_iterative_summarize_reads: bool = Field(default=False, validation_alias="RAG_ITERATIVE_SUMMARIZE_READS")
     rag_iterative_summary_chars: int = Field(default=600, validation_alias="RAG_ITERATIVE_SUMMARY_CHARS")
+    rag_iterative_initial_min_files: int = Field(default=3, validation_alias="RAG_ITERATIVE_INITIAL_MIN_FILES")
+    rag_iterative_initial_max_files: int = Field(default=8, validation_alias="RAG_ITERATIVE_INITIAL_MAX_FILES")
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(

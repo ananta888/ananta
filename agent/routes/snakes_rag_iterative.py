@@ -19,6 +19,7 @@ import ast as _ast
 from agent.config import lookup_model_context_tokens, settings as _cfg_settings
 from agent.llm_integration import generate_text
 from agent.routes.ai_snake_config import _current_config
+from agent.services.rag_context_packer import build_rag_context_pack, format_packed_files_section
 
 _log = logging.getLogger(__name__)
 
@@ -305,6 +306,14 @@ def worker_chat_rag_iterative(
             cfg.get("rag_iterative_summary_chars") if cfg.get("rag_iterative_summary_chars") is not None
             else getattr(_cfg_settings, "rag_iterative_summary_chars", 600)
         )))
+        _initial_min_files = max(0, min(5, int(
+            cfg.get("rag_iterative_initial_min_files") if cfg.get("rag_iterative_initial_min_files") is not None
+            else getattr(_cfg_settings, "rag_iterative_initial_min_files", 3)
+        )))
+        _initial_max_files = max(_initial_min_files, min(16, int(
+            cfg.get("rag_iterative_initial_max_files") if cfg.get("rag_iterative_initial_max_files") is not None
+            else getattr(_cfg_settings, "rag_iterative_initial_max_files", 8)
+        )))
 
         # Load CodeCompass component catalog as codebase overview
         _catalog_section = ""
@@ -318,9 +327,36 @@ def worker_chat_rag_iterative(
                 + ("\n[... abgeschnitten nach {:,} Zeichen ...]\n".format(_catalog_max_chars) if _truncated else "\n")
             )
 
-        # Build scored file list (no file contents — LLM fetches what it needs)
+        _context_budget_chars = max_input_tokens * 4
+        _history_chars = sum(len(str(m.get("content") or "")) for m in llm_history)
+        _reserved_chars = (
+            _history_chars
+            + len(question)
+            + len(budget_instruction)
+            + len(_catalog_section)
+            + 6000  # file list, instructions, message framing
+            + max(4000, int(_context_budget_chars * 0.10))
+        )
+        _context_pack = build_rag_context_pack(
+            chunks=chunks,
+            repo_root=repo_root,
+            context_budget_chars=_context_budget_chars,
+            reserved_chars=_reserved_chars,
+            max_chars_per_file=_tool_chars_per_file,
+            min_initial_files=_initial_min_files,
+            max_initial_files=_initial_max_files,
+        )
+        _packed_files_section = format_packed_files_section(_context_pack)
+
+        # Build scored file list; files already packed into the prompt are marked as read.
+        _packed_paths = set(_context_pack.included_paths)
         _file_list_lines = [
-            "{:3d}. {}  (relevanz: {:.1f})".format(i, ch["source"], ch.get("score", 0))
+            "{:3d}. {}  (relevanz: {:.1f}{})".format(
+                i,
+                ch["source"],
+                ch.get("score", 0),
+                ", bereits im Initialkontext" if ch["source"] in _packed_paths else "",
+            )
             for i, ch in enumerate(chunks, 1)
         ]
         _file_list_section = (
@@ -333,15 +369,17 @@ def worker_chat_rag_iterative(
             + ("{}\n\n".format(budget_instruction) if budget_instruction else "")
             + _catalog_section
             + "\n"
+            + (_packed_files_section + "\n\n" if _packed_files_section else "")
             + _file_list_section
             + "\n\n"
             "Anweisung:\n"
-            "1. Lies mindestens 3 der relevantesten Dateien mit read_file() bevor du antwortest.\n"
-            "2. Nutze EXAKT die Pfade wie in der Dateiliste angegeben (z.B. 'worker/retrieval/...' nicht 'agent/services/...').\n"
-            "3. Wenn eine Datei nicht gefunden wird: Nutze den im Fehler angezeigten korrekten Pfad, "
+            "1. Die als 'bereits im Initialkontext' markierten Top-Treffer gelten als gelesen.\n"
+            "2. Nutze diese Dateien zuerst als Evidenz und lies weitere Dateien nur, wenn offene Fragen bleiben.\n"
+            "3. Nutze EXAKT die Pfade wie in der Dateiliste angegeben (z.B. 'worker/retrieval/...' nicht 'agent/services/...').\n"
+            "4. Wenn eine Datei nicht gefunden wird: Nutze den im Fehler angezeigten korrekten Pfad, "
             "oder versuche die nächste Datei aus der Liste — gib NICHT auf.\n"
-            "4. Nutze search_codebase() NUR für Dateien die NICHT in der Liste stehen.\n"
-            "5. Beantworte die Frage erst nachdem du Dateien gelesen hast."
+            "5. Nutze search_codebase() NUR für Dateien die NICHT in der Liste stehen.\n"
+            "6. Jede Folgeaktion muss an den bisherigen Recherche-Stand anschließen."
         )
 
         available_files = [ch["source"] for ch in chunks]
@@ -356,6 +394,10 @@ def worker_chat_rag_iterative(
                 status="running",
                 details={
                     "available_files": available_files,
+                    "initial_context_files": _context_pack.included_paths,
+                    "initial_context_file_budget_chars": _context_pack.file_budget_chars,
+                    "initial_context_used_file_chars": _context_pack.used_file_chars,
+                    "initial_context_reserved_chars": _context_pack.reserved_chars,
                     "catalog_chars": len(_catalog_section),
                     "catalog_loaded": _catalog_path.exists(),
                     "max_tool_calls": max_tool_calls,
@@ -377,9 +419,24 @@ def worker_chat_rag_iterative(
             question=question,
             summarize_reads=_summarize_reads,
             max_summary_chars=_summary_chars,
+            initial_evidence=[
+                {
+                    "path": item.path,
+                    "summary": (
+                        f"Initialer CodeCompass-Treffer, {item.inclusion}, "
+                        f"{item.chars_included}/{item.chars_read} Zeichen im Prompt."
+                    ),
+                    "score": item.score,
+                    "source": "initial_context",
+                }
+                for item in _context_pack.included_files
+            ],
         )
         trace["tool_loop"] = tl_trace
         trace["available_files"] = available_files
+        trace["initial_context_files"] = _context_pack.included_paths
+        trace["initial_context_file_budget_chars"] = _context_pack.file_budget_chars
+        trace["initial_context_used_file_chars"] = _context_pack.used_file_chars
         trace["catalog_chars"] = len(_catalog_section)
         if rec:
             rec.event(

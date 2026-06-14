@@ -156,6 +156,7 @@ def run_rag_chat_tool_loop(
     question: str = "",
     summarize_reads: bool = False,
     max_summary_chars: int = 600,
+    initial_evidence: list[dict[str, Any]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
     Agentic loop: send messages to LLM, handle tool calls, return final answer.
@@ -170,6 +171,7 @@ def run_rag_chat_tool_loop(
         timeout: HTTP timeout per LLM call in seconds.
         rec: Optional trace recorder.
         initial_files: List of file paths included in initial context (for logging).
+        initial_evidence: Files already packed into the initial prompt.
 
     Returns:
         (final_answer_text, trace_dict)
@@ -186,6 +188,7 @@ def run_rag_chat_tool_loop(
         "mode": "tool_loop",
         "tool_calls_made": 0,
         "tools_used": [],
+        "evidence": [],
         "max_tool_calls_effective": max_tool_calls,
     }
 
@@ -207,6 +210,20 @@ def run_rag_chat_tool_loop(
     llm_call_count = 0
     last_content = ""
     _already_read: dict[str, str] = {}  # path → content, to prevent re-reading the same file
+    _evidence: dict[str, dict[str, Any]] = {}
+    for item in initial_evidence or []:
+        path = str(item.get("path") or "").strip()
+        if not path:
+            continue
+        summary = str(item.get("summary") or "").strip()
+        _evidence[path] = {
+            "path": path,
+            "summary": summary or "Datei wurde im Initialkontext bereitgestellt.",
+            "score": item.get("score"),
+            "source": item.get("source") or "initial_context",
+            "chars": item.get("chars"),
+        }
+        _already_read[path] = f"[Datei '{path}' ist bereits im Initialkontext enthalten.]\n{_evidence[path]['summary']}"
 
     def _summarize_file(path: str, content: str) -> str:
         """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
@@ -238,6 +255,44 @@ def run_rag_chat_tool_loop(
         except Exception as _exc:
             _log.debug("summarize_file failed for %s: %s", path, _exc)
         return content  # fallback: full content
+
+    def _remember_file(path: str, content: str, *, source: str, score: Any = None) -> None:
+        compact = content.strip()
+        if len(compact) > max_summary_chars:
+            compact = compact[:max_summary_chars] + f"\n... [Evidence gekuerzt nach {max_summary_chars} Zeichen]"
+        _evidence[path] = {
+            "path": path,
+            "summary": compact,
+            "score": score,
+            "source": source,
+            "chars": len(content),
+        }
+        trace["evidence"] = list(_evidence.values())
+
+    def _evidence_prompt() -> str:
+        if not _evidence:
+            return ""
+        lines = [
+            "Recherche-Stand fuer die naechste Aktion:",
+            "Bereits gelesene oder im Initialkontext bereitgestellte Dateien:",
+        ]
+        for idx, item in enumerate(_evidence.values(), 1):
+            score = item.get("score")
+            score_txt = f", relevanz: {float(score):.1f}" if isinstance(score, int | float) else ""
+            lines.append(
+                f"{idx}. {item['path']} ({item.get('source')}{score_txt})\n"
+                f"   {item.get('summary')}"
+            )
+        lines.append(
+            "Wenn noch Informationen fehlen, lies gezielt eine weitere Datei, die eine offene Frage klaert. "
+            "Wenn die Evidenz reicht, antworte abschliessend."
+        )
+        return "\n".join(lines)
+
+    for item in initial_evidence or []:
+        path = str(item.get("path") or "").strip()
+        if path and path in _evidence:
+            trace["evidence"] = list(_evidence.values())
 
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
         """Short preview of the last 4 messages — for log entries only."""
@@ -476,11 +531,7 @@ def run_rag_chat_tool_loop(
             if fn_name == "read_file":
                 _req_path = str(args.get("path") or "").strip()
                 if _req_path in _already_read:
-                    result = (
-                        f"[Datei '{_req_path}' wurde bereits gelesen — "
-                        f"der Inhalt ist bereits im Kontext. "
-                        f"Bitte eine andere Datei aus der Liste auswählen oder search_codebase() nutzen.]"
-                    )
+                    result = _already_read[_req_path]
                 else:
                     result = _dispatch_tool(
                         fn_name, args,
@@ -488,7 +539,6 @@ def run_rag_chat_tool_loop(
                         max_chars_per_file=max_chars_per_file,
                     )
                     if not result.startswith("[Fehler"):
-                        _already_read[_req_path] = result
                         if summarize_reads:
                             _raw_chars = len(result)
                             if rec:
@@ -507,6 +557,8 @@ def run_rag_chat_tool_loop(
                                     details={"path": _req_path, "raw_chars": _raw_chars, "summary_chars": len(result)},
                                     output_preview=result,
                                 )
+                        _already_read[_req_path] = result
+                        _remember_file(_req_path, result, source="tool_read")
             else:
                 result = _dispatch_tool(
                     fn_name, args,
@@ -541,10 +593,28 @@ def run_rag_chat_tool_loop(
                 "content": result,
             })
 
+        evidence_text = _evidence_prompt()
+        if evidence_text and tool_calls and tool_call_count < max_tool_calls:
+            current_messages.append({
+                "role": "user",
+                "content": evidence_text,
+            })
+            if rec:
+                rec.event(
+                    "tool_loop_evidence_memory",
+                    f"Recherche-Stand aktualisiert ({len(_evidence)} Datei(en))",
+                    status="completed",
+                    details={"files": list(_evidence.keys())},
+                    input_preview=evidence_text,
+                )
+
         if tool_call_count >= max_tool_calls:
             current_messages.append({
                 "role": "user",
-                "content": "Bitte gib jetzt deine abschließende Antwort auf Basis aller gesammelten Informationen.",
+                "content": (
+                    _evidence_prompt()
+                    + "\n\nBitte gib jetzt deine abschliessende Antwort auf Basis aller gesammelten Informationen."
+                ),
             })
 
     return last_content, trace
