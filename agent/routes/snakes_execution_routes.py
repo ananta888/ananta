@@ -694,13 +694,22 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         rec=rec,
                         conversation_history=conversation_history,
                     )
-                    batches_done = scan_trace.get("batches_completed", 0)
-                    files_found = scan_trace.get("files_resolved", 0)
-                    file_list = scan_trace.get("file_list") or []
-                    file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
-                    if len(file_list) > 6:
-                        file_names += f" +{len(file_list) - 6}"
-                    scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
+                    _tl = scan_trace.get("tool_loop") or {}
+                    if _tl or scan_trace.get("available_files"):
+                        _avail = scan_trace.get("available_files") or []
+                        _tc_made = _tl.get("tool_calls_made", 0)
+                        file_names = ", ".join(str(p).split("/")[-1] for p in _avail[:6])
+                        if len(_avail) > 6:
+                            file_names += f" +{len(_avail) - 6}"
+                        scan_summary = f"rag_iterative: {_tc_made} Tool-Calls, {len(_avail)} Dateien verfügbar" + (f" ({file_names})" if file_names else "")
+                    else:
+                        batches_done = scan_trace.get("batches_completed", 0)
+                        files_found = scan_trace.get("files_resolved", 0)
+                        file_list = scan_trace.get("file_list") or []
+                        file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
+                        if len(file_list) > 6:
+                            file_names += f" +{len(file_list) - 6}"
+                        scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
                     if rec:
                         rec.event("rag_iterative_completed", "RAG-Iterativ abgeschlossen",
                                   status="completed" if answer else "failed",
@@ -1326,13 +1335,22 @@ def snake_ask():
         if _is_rag_iterative_intent(_eff_cfg):
             answer, worker_trace = _worker_chat_rag_iterative(question, provider=provider, model=model, limits=limits)
             if answer:
-                batches_done = worker_trace.get("batches_completed", 0)
-                files_found = worker_trace.get("files_resolved", 0)
-                file_list = worker_trace.get("file_list") or []
-                file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
-                if len(file_list) > 6:
-                    file_names += f" +{len(file_list) - 6}"
-                summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
+                _tl = worker_trace.get("tool_loop") or {}
+                if _tl or worker_trace.get("available_files"):
+                    _avail = worker_trace.get("available_files") or []
+                    _tc_made = _tl.get("tool_calls_made", 0)
+                    file_names = ", ".join(str(p).split("/")[-1] for p in _avail[:6])
+                    if len(_avail) > 6:
+                        file_names += f" +{len(_avail) - 6}"
+                    summary = f"rag_iterative: {_tc_made} Tool-Calls, {len(_avail)} Dateien verfügbar" + (f" ({file_names})" if file_names else "")
+                else:
+                    batches_done = worker_trace.get("batches_completed", 0)
+                    files_found = worker_trace.get("files_resolved", 0)
+                    file_list = worker_trace.get("file_list") or []
+                    file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
+                    if len(file_list) > 6:
+                        file_names += f" +{len(file_list) - 6}"
+                    summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
                 answer = _fit_answer_to_chars(
                     answer,
                     limit=limits.answer_chars,

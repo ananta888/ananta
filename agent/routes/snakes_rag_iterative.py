@@ -308,10 +308,12 @@ def worker_chat_rag_iterative(
             + _file_list_section
             + "\n\n"
             "Anweisung:\n"
-            "1. Lies die relevantesten Dateien aus der obigen Liste mit read_file() — "
-            "mindestens 3, bevor du antwortest.\n"
-            "2. Nutze search_codebase() NUR um Dateien zu finden, die NICHT in der Liste stehen.\n"
-            "3. Beantworte die Frage erst nachdem du die Dateien gelesen hast."
+            "1. Lies mindestens 3 der relevantesten Dateien mit read_file() bevor du antwortest.\n"
+            "2. Nutze EXAKT die Pfade wie in der Dateiliste angegeben (z.B. 'worker/retrieval/...' nicht 'agent/services/...').\n"
+            "3. Wenn eine Datei nicht gefunden wird: Nutze den im Fehler angezeigten korrekten Pfad, "
+            "oder versuche die nächste Datei aus der Liste — gib NICHT auf.\n"
+            "4. Nutze search_codebase() NUR für Dateien die NICHT in der Liste stehen.\n"
+            "5. Beantworte die Frage erst nachdem du Dateien gelesen hast."
         )
 
         available_files = [ch["source"] for ch in chunks]

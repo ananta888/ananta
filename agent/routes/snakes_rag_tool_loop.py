@@ -79,7 +79,24 @@ def _resolve_file(path: str, repo_root: _pl.Path) -> _pl.Path | None:
 def _tool_read_file(path: str, repo_root: _pl.Path, max_chars: int) -> str:
     resolved = _resolve_file(path.strip(), repo_root)
     if resolved is None:
-        return f"[Fehler: Datei nicht gefunden: {path}]"
+        # Try to find the file by name anywhere in the repo
+        filename = _pl.Path(path.strip()).name
+        candidates: list[str] = []
+        _skip = {"__pycache__", ".git", ".claude", "node_modules", "dist", ".venv", "venv"}
+        try:
+            for p in repo_root.rglob(filename):
+                if p.is_file() and not any(part in _skip for part in p.parts):
+                    candidates.append(str(p.relative_to(repo_root)))
+                    if len(candidates) >= 3:
+                        break
+        except Exception:
+            pass
+        hint = (
+            f"\n[Korrekter Pfad: nutze read_file('{candidates[0]}') — "
+            f"Datei gefunden unter: {', '.join(candidates)}]"
+            if candidates else ""
+        )
+        return f"[Fehler: Datei nicht gefunden: {path}]{hint}"
     try:
         content = resolved.read_text(encoding="utf-8", errors="replace")
         if len(content) > max_chars:
