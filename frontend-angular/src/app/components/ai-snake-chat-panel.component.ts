@@ -17,11 +17,12 @@ import { AiSnakeTraceViewerComponent } from './ai-snake-trace-viewer.component';
 import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
 import { ChatSessionsService } from '../services/chat-sessions.service';
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
+import { ChatMessageComponent } from './chat-message.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -195,7 +196,9 @@ import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history
             @for (m of chatMessages(); track m.id) {
               <div class="msg" [class.msg-ai]="m.isAI">
                 <span class="msg-who">{{ m.isAI ? '🤖' : '👤' }}</span>
-                <span class="msg-body">{{ m.text }}</span>
+                <span class="msg-body">
+                  <app-chat-message [text]="m.text" />
+                </span>
               </div>
             }
             @if (svc.awaitingReply$ | async) {

@@ -263,7 +263,8 @@
     "ai_visual_use_codecompass": true,
     "chat_summary_update_every_turns": 1,
     "input_history_max_entries": 100,
-    "chat_backend": "ananta-worker"
+    "chat_backend": "ananta-worker",
+    "rag_iterative_summarize_reads": true
   },
-  "_updated_at": 1781453625.7832477
+  "_updated_at": 1781454141.6090243
 }
