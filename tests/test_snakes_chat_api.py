@@ -212,7 +212,7 @@ def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(ser, "_pick_worker_for_ask", lambda: ("http://worker.test", "tok"))
     monkeypatch.setattr(ser, "_resolve_lmstudio_model_for_worker", lambda model: model)
-    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
+    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
 
     def _fake_forward(worker_url, path, payload, token=None):
         captured["worker_url"] = worker_url
@@ -260,7 +260,7 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
-    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
+    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
 
     def _fake_generate_text(**kwargs):
         captured_calls.append(dict(kwargs))
@@ -299,7 +299,7 @@ def test_snake_ask_summarizes_overlong_hub_answer_before_truncating(client, monk
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
-    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model"))
+    monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
 
     def _fake_generate_text(**kwargs):
         calls.append(dict(kwargs))
