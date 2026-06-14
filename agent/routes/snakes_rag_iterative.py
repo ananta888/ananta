@@ -229,7 +229,10 @@ def worker_chat_rag_iterative(
         return "", trace
 
     # --- Step 2b: Python import-graph expansion (optional) ---
-    import_depth = max(0, int(_cfg_settings.rag_iterative_import_depth))
+    import_depth = max(0, int(
+        cfg.get("rag_iterative_import_depth") if cfg.get("rag_iterative_import_depth") is not None
+        else _cfg_settings.rag_iterative_import_depth
+    ))
     if import_depth > 0:
         before = len(file_entries)
         file_entries = _expand_python_imports(
@@ -243,11 +246,18 @@ def worker_chat_rag_iterative(
         trace["files_after_expansion"] = len(file_entries)
 
     # --- Step 2c: Tool-call loop (optional, replaces batch+synthesis when enabled) ---
-    tool_calls_enabled = bool(_cfg_settings.rag_iterative_tool_calls_enabled)
+    _tc_enabled_cfg = cfg.get("rag_iterative_tool_calls_enabled")
+    if _tc_enabled_cfg is None:
+        tool_calls_enabled = bool(_cfg_settings.rag_iterative_tool_calls_enabled)
+    else:
+        tool_calls_enabled = str(_tc_enabled_cfg).lower() not in {"false", "0", "off", "no", ""}
     if tool_calls_enabled:
         from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
 
-        max_tool_calls = max(0, int(_cfg_settings.rag_iterative_max_tool_calls))
+        max_tool_calls = max(0, int(
+            cfg.get("rag_iterative_max_tool_calls") if cfg.get("rag_iterative_max_tool_calls") is not None
+            else _cfg_settings.rag_iterative_max_tool_calls
+        ))
         # Build context block from all resolved files (truncated to fit)
         file_blocks = []
         for e in file_entries:
