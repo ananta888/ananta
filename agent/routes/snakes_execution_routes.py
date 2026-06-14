@@ -649,6 +649,91 @@ def _trace_feature_enabled() -> bool:
         return True
 
 
+# ── Ananta-Settings guided tour ───────────────────────────────────────────────
+
+def _read_ananta_settings_summary() -> str:
+    """Return a short human-readable summary of the current user settings."""
+    try:
+        from client_surfaces.operator_tui.config.user_config_manager import get_manager
+        s = get_manager().load()
+        active_sid = str(s.get("chat_active_session_id") or "")
+        sessions = s.get("chat_sessions") or []
+        active_sess = next((x for x in sessions if str(x.get("id") or "") == active_sid), None)
+        sess_cfg = (active_sess or {}).get("settings") or {}
+        backend = str(sess_cfg.get("chat_backend") or s.get("chat_backend") or "unbekannt")
+        model = str(sess_cfg.get("chat_backend_model") or s.get("chat_backend_model") or "unbekannt")
+        return (
+            f"Aktive Chat-Session: {active_sid or '(keine)'}\n"
+            f"Backend: {backend}\n"
+            f"Modell: {model}\n"
+            f"Sessions gesamt: {len(sessions)}\n"
+            f"CodeCompass: {'an' if sess_cfg.get('chat_use_codecompass', s.get('chat_use_codecompass')) else 'aus'}\n"
+            f"Retrieval-Profil: {sess_cfg.get('chat_retrieval_profile') or s.get('chat_retrieval_profile') or 'auto'}"
+        )
+    except Exception as exc:
+        return f"(Einstellungen nicht lesbar: {exc})"
+
+
+_ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
+    (
+        ["chat", "session", "konversation", "gespräch", "chats", "gesprach"],
+        [
+            {"waypoint": "nav.chats", "bubble": "Zum Bereich 'AI Chats' navigieren", "delay_ms": 2500},
+            {"waypoint": "chat.new-session", "bubble": "Mit '+' neue Chat-Session anlegen", "delay_ms": 3000},
+            {"waypoint": "chat.settings-tab", "bubble": "Tab 'Einstellungen' öffnen", "delay_ms": 3000},
+            {"waypoint": "chat.backend-select", "bubble": "Hier Backend auswählen (z.B. ananta-worker)", "delay_ms": 3500},
+            {"waypoint": "chat.system-prompt", "bubble": "System-Prompt für diese Session eingeben", "delay_ms": 4000},
+        ],
+    ),
+    (
+        ["modell", "model", "provider", "llm", "openai", "lmstudio", "hermes"],
+        [
+            {"waypoint": "nav.chats", "bubble": "Zum Chat-Bereich navigieren", "delay_ms": 2000},
+            {"waypoint": "chat.settings-tab", "bubble": "Einstellungen der aktiven Session öffnen", "delay_ms": 3000},
+            {"waypoint": "chat.backend-select", "bubble": "Hier Backend/Modell für die Session wechseln", "delay_ms": 4000},
+        ],
+    ),
+    (
+        ["worker", "agent", "worker pool", "workerpool"],
+        [
+            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
+            {"waypoint": "cc.workers", "bubble": "Worker-Pool öffnen — hier alle Agenten", "delay_ms": 3500},
+        ],
+    ),
+    (
+        ["blueprint", "vorlage", "template", "plan"],
+        [
+            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
+            {"waypoint": "cc.sessions", "bubble": "Sessions-Verwaltung öffnen", "delay_ms": 3000},
+        ],
+    ),
+    (
+        ["policy", "richtlinie", "approval", "genehmigung", "freigabe"],
+        [
+            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
+            {"waypoint": "cc.policies", "bubble": "Policy-Genehmigungen öffnen", "delay_ms": 3000},
+        ],
+    ),
+    (
+        ["codecompass", "rag", "retrieval", "code compass"],
+        [
+            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
+            {"waypoint": "cc.codecompass", "bubble": "CodeCompass-Verwaltung öffnen", "delay_ms": 3000},
+            {"waypoint": "chat.retrieval-profile", "bubble": "Retrieval-Profil in Session-Einstellungen", "delay_ms": 3500},
+        ],
+    ),
+]
+
+
+def _build_ui_guide(prompt: str) -> dict | None:
+    """Return a guide dict for the UI if the prompt matches a known topic."""
+    q = str(prompt or "").lower()
+    for keywords, steps in _ANANTA_UI_GUIDE_MAP:
+        if any(kw in q for kw in keywords):
+            return {"steps": steps}
+    return None
+
+
 def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
@@ -682,12 +767,14 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
                           details={"provider": provider, "model": model, "conversation_history_messages": len(conversation_history)})
 
-            # Resolve active session's system_prompt
+            # Resolve active session's system_prompt and ID
             _active_session_prompt: str | None = None
+            _active_session_id: str = ""
             try:
                 from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr2
                 _stored2 = _get_mgr2().load()
                 _active_sid2 = str(_stored2.get("chat_active_session_id") or "").strip()
+                _active_session_id = _active_sid2
                 if _active_sid2:
                     for _sess2 in (_stored2.get("chat_sessions") or []):
                         if str(_sess2.get("id") or "") == _active_sid2:
@@ -695,6 +782,20 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                             break
             except Exception:
                 pass
+
+            # Ananta-Settings session: enrich prompt with current settings context
+            _original_prompt = prompt
+            if _active_session_id == "ananta-settings":
+                _settings_ctx = _read_ananta_settings_summary()
+                prompt = f"[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
+
+            # Compute guide suffix for ananta-settings session (used below in all emit paths)
+            import json as _json
+            _guide_suffix = ""
+            if _active_session_id == "ananta-settings":
+                _guide = _build_ui_guide(_original_prompt)
+                if _guide:
+                    _guide_suffix = f"\n\n__GUIDE__:{_json.dumps(_guide, ensure_ascii=False)}"
 
             _answer_chars_limit = _chat_answer_chars_limit()
             try:
@@ -760,7 +861,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         overflow_policy=_answer_overflow_policy(),
                         never_truncate=_chat_never_truncate_answers(),
                     )
-                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]")
+                    _append_room_ai_message(text=f"{answer}{_guide_suffix}\n\n[{scan_summary}]")
                     if store and trace_id:
                         store.complete_trace(trace_id)
                     return
@@ -811,7 +912,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                     if rec:
                         rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                                   summary=f"{len(answer)} Zeichen")
-                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]")
+                    _append_room_ai_message(text=f"{answer}{_guide_suffix}\n\n[{scan_summary}]")
                     if rec:
                         rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
                     if store and trace_id:
@@ -922,7 +1023,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                           summary=f"{len(text)} Zeichen, Kontext angeh\u00e4ngt")
 
-            _append_room_ai_message(text=text)
+            _append_room_ai_message(text=f"{text}{_guide_suffix}")
 
             if rec:
                 rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")

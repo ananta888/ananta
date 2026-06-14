@@ -6,6 +6,8 @@ import { AiSnakeChatService, SnakeParticipant } from '../services/ai-snake-chat.
 import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { ShareSessionService, ShareParticipant } from '../services/share-session.service';
 import { WebrtcCursorService } from '../services/webrtc-cursor.service';
+import { SnakeGuideService, GuideStep } from '../services/snake-guide.service';
+import { UiWaypointService } from '../services/ui-waypoint.service';
 
 // ── Physics ──────────────────────────────────────────────────────────────────
 const NUM_SEGS    = 22;
@@ -13,6 +15,7 @@ const SEG_DIST    = 13;   // px between segments
 const OWN_SPEED   = 7;    // px/frame: own snake → cursor
 const PAIR_SPEED  = 7;    // px/frame: pair-dev snake → remote cursor
 const AUTO_SPEED  = 2.8;  // px/frame: AI-room snakes (autonomous)
+const GUIDE_SPEED = 5.5;  // px/frame: guided tour snake → waypoint
 const GOAL_MARGIN = 70;
 
 // ── Color palette for pair-dev peers ─────────────────────────────────────────
@@ -36,6 +39,7 @@ interface SnakeState {
   color: string;
   isOwn: boolean;
   isPairDev: boolean;    // true = cursor-following via WebRTC
+  isGuide: boolean;      // true = waypoint-guided tour snake
   segs: Seg[];
   tx: number;            // current movement target in viewport px
   ty: number;
@@ -58,11 +62,13 @@ interface Bubble { text: string; born: number; }
 export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cvs') canvasRef!: ElementRef<HTMLCanvasElement>;
 
-  private chat    = inject(AiSnakeChatService);
-  private overlay = inject(SnakeOverlayService);
-  private share   = inject(ShareSessionService);
+  private chat     = inject(AiSnakeChatService);
+  private overlay  = inject(SnakeOverlayService);
+  private share    = inject(ShareSessionService);
+  private guide    = inject(SnakeGuideService);
+  private waypoint = inject(UiWaypointService);
   // Injecting activates the cursor-broadcast loop as a side-effect
-  private _cursor = inject(WebrtcCursorService);
+  private _cursor  = inject(WebrtcCursorService);
 
   private ctx!: CanvasRenderingContext2D;
   private snakes: SnakeState[] = [];
@@ -73,6 +79,16 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   private seenMsgIds = new Set<string>();
   private rafId = 0;
   private subs: Subscription[] = [];
+
+  // ── Guided tour state ──────────────────────────────────────────────────────
+  private guideSnake: SnakeState | null = null;
+  private guideQueue: GuideStep[] = [];
+  private guidePendingBubble: string | null = null;
+  private guidePendingDelay = 2500;
+  private guideBubbleShown = false;
+  private guideBubbles: Bubble[] = [];
+  private guideStepTimer: ReturnType<typeof setTimeout> | null = null;
+  private guideArriveTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -115,7 +131,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       }),
     );
 
-    // AI message bubbles
+    // AI message bubbles (strip __GUIDE__ suffix so overlay bubble is clean)
     this.subs.push(
       this.chat.messages$.subscribe(msgs => {
         for (const m of msgs) {
@@ -125,12 +141,20 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
                        m.sender_id?.includes('tutor');
           if (!isAi) continue;
           this.seenMsgIds.add(m.id);
-          const text = (m.text || '').replace(/\n/g, ' ').slice(0, 60) +
-                       ((m.text || '').length > 60 ? '…' : '');
+          let rawText = m.text || '';
+          const gi = rawText.indexOf('\n\n__GUIDE__:');
+          if (gi >= 0) rawText = rawText.slice(0, gi);
+          const text = rawText.replace(/\n/g, ' ').slice(0, 60) +
+                       (rawText.length > 60 ? '…' : '');
           this.bubbles.push({ text, born: performance.now() });
           if (this.bubbles.length > 3) this.bubbles.shift();
         }
       }),
+    );
+
+    // Guided tour
+    this.subs.push(
+      this.guide.play$.subscribe(steps => this.startGuide(steps)),
     );
 
     this.rafId = requestAnimationFrame(() => this.loop());
@@ -139,6 +163,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     cancelAnimationFrame(this.rafId);
     this.subs.forEach(s => s.unsubscribe());
+    this.endGuide();
   }
 
   // ── Canvas ──────────────────────────────────────────────────────────────────
@@ -151,7 +176,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
 
   // ── Snake management ────────────────────────────────────────────────────────
 
-  private spawnSnake(id: string, label: string, color: string, isOwn: boolean, isPairDev: boolean): SnakeState {
+  private spawnSnake(id: string, label: string, color: string, isOwn: boolean, isPairDev: boolean, isGuide = false): SnakeState {
     const cx = isOwn
       ? this.mouseX
       : GOAL_MARGIN + Math.random() * (window.innerWidth  - GOAL_MARGIN * 2);
@@ -162,7 +187,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     const segs: Seg[] = [];
     for (let i = 0; i < NUM_SEGS; i++) segs.push({ x: cx - i * SEG_DIST * 0.6, y: cy });
 
-    const s: SnakeState = { id, label, color, isOwn, isPairDev, segs, tx: cx, ty: cy, goalX: cx, goalY: cy };
+    const s: SnakeState = { id, label, color, isOwn, isPairDev, isGuide, segs, tx: cx, ty: cy, goalX: cx, goalY: cy };
     this.snakes.push(s);
     return s;
   }
@@ -220,7 +245,8 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
         const remote = this.overlay.remoteCursors$.value.get(snake.id);
         if (remote) { snake.tx = remote.x; snake.ty = remote.y; }
         else this.stepAutonomousGoal(snake, W, H);
-      } else {
+      } else if (!snake.isGuide) {
+        // Guide snake goal is set externally — don't randomize
         this.stepAutonomousGoal(snake, W, H);
       }
 
@@ -229,12 +255,18 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       const dx = snake.tx - head.x;
       const dy = snake.ty - head.y;
       const dist = Math.hypot(dx, dy);
-      const speed = snake.isOwn ? OWN_SPEED : (snake.isPairDev ? PAIR_SPEED : AUTO_SPEED);
+      const speed = snake.isOwn ? OWN_SPEED
+        : snake.isPairDev ? PAIR_SPEED
+        : snake.isGuide   ? GUIDE_SPEED
+        : AUTO_SPEED;
       if (dist > 0.5) {
         const step = Math.min(speed, dist);
         head.x += (dx / dist) * step;
         head.y += (dy / dist) * step;
       }
+
+      // Guide-snake arrival check
+      if (snake.isGuide) this.checkGuideArrival();
 
       // Pull body segments
       for (let i = 1; i < snake.segs.length; i++) {
@@ -249,6 +281,14 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
           cur.y -= sdy * pull;
         }
       }
+    }
+  }
+
+  private checkGuideArrival(): void {
+    if (!this.guideSnake || !this.guidePendingBubble || this.guideBubbleShown) return;
+    const h = this.guideSnake.segs[0];
+    if (Math.hypot(h.x - this.guideSnake.goalX, h.y - this.guideSnake.goalY) < 30) {
+      this.onGuideArrived();
     }
   }
 
@@ -273,6 +313,8 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
 
     const own = this.snakes.find(s => s.isOwn);
     if (own) this.drawBubbles(ctx, c, own.segs[0]);
+
+    if (this.guideSnake) this.drawGuideBubbles(ctx, c, this.guideSnake.segs[0]);
   }
 
   private drawSnake(ctx: CanvasRenderingContext2D, snake: SnakeState): void {
@@ -368,6 +410,109 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(b.text, bx, by - bh / 2, bw - 12);
+    }
+    ctx.globalAlpha  = 1;
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // ── Guided tour ─────────────────────────────────────────────────────────────
+
+  private startGuide(steps: GuideStep[]): void {
+    this.endGuide();
+    this.guideQueue = [...steps];
+    this.guideSnake = this.spawnSnake('__guide__', '⚙️', '#ffd700', false, false, true);
+    this.advanceGuide();
+  }
+
+  private advanceGuide(): void {
+    if (!this.guideQueue.length) { this.endGuide(); return; }
+    const step = this.guideQueue.shift()!;
+    const pos = this.waypoint.resolve(step.waypoint);
+    if (this.guideSnake) {
+      const tx = pos?.x ?? (GOAL_MARGIN + Math.random() * (window.innerWidth  - GOAL_MARGIN * 2));
+      const ty = pos?.y ?? (GOAL_MARGIN + Math.random() * (window.innerHeight - GOAL_MARGIN * 2));
+      this.guideSnake.goalX = tx;
+      this.guideSnake.goalY = ty;
+      this.guideSnake.tx    = tx;
+      this.guideSnake.ty    = ty;
+    }
+    this.guidePendingBubble = step.bubble;
+    this.guidePendingDelay  = step.delay_ms ?? 2500;
+    this.guideBubbleShown   = false;
+    // Fallback: show bubble after 4s even if snake didn't arrive yet
+    if (this.guideArriveTimer) clearTimeout(this.guideArriveTimer);
+    this.guideArriveTimer = setTimeout(() => {
+      if (!this.guideBubbleShown) this.onGuideArrived();
+    }, 4000);
+  }
+
+  private onGuideArrived(): void {
+    if (this.guideBubbleShown || !this.guidePendingBubble) return;
+    this.guideBubbleShown = true;
+    if (this.guideArriveTimer) { clearTimeout(this.guideArriveTimer); this.guideArriveTimer = null; }
+    this.guideBubbles.push({ text: this.guidePendingBubble, born: performance.now() });
+    if (this.guideBubbles.length > 2) this.guideBubbles.shift();
+    if (this.guideStepTimer) clearTimeout(this.guideStepTimer);
+    this.guideStepTimer = setTimeout(() => {
+      this.guidePendingBubble = null;
+      this.guideBubbleShown   = false;
+      this.advanceGuide();
+    }, this.guidePendingDelay);
+  }
+
+  private endGuide(): void {
+    if (this.guideStepTimer)  { clearTimeout(this.guideStepTimer);  this.guideStepTimer  = null; }
+    if (this.guideArriveTimer){ clearTimeout(this.guideArriveTimer); this.guideArriveTimer = null; }
+    if (this.guideSnake) {
+      this.snakes = this.snakes.filter(s => s.id !== '__guide__');
+      this.guideSnake = null;
+    }
+    this.guideQueue         = [];
+    this.guideBubbles       = [];
+    this.guidePendingBubble = null;
+    this.guideBubbleShown   = false;
+  }
+
+  private drawGuideBubbles(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, head: Seg): void {
+    const now = performance.now();
+    this.guideBubbles = this.guideBubbles.filter(b => now - b.born < 5000);
+    for (let bi = 0; bi < this.guideBubbles.length; bi++) {
+      const b    = this.guideBubbles[bi];
+      const fade = Math.max(0, 1 - (now - b.born) / 5000);
+      ctx.font   = '12px monospace';
+      const tw   = ctx.measureText(b.text).width;
+      const bw   = tw + 22;
+      const bh   = 24;
+      const bx   = Math.max(bw / 2 + 6, Math.min(canvas.width - bw / 2 - 6, head.x));
+      const by   = Math.max(bh + 6, head.y - 36 - bi * 30);
+
+      // Gold bubble
+      ctx.globalAlpha = fade * 0.92;
+      ctx.fillStyle   = '#1a1200';
+      this.rrect(ctx, bx - bw / 2, by - bh, bw, bh, 5);
+      ctx.fill();
+
+      ctx.globalAlpha = fade * 0.9;
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+
+      // Pointer triangle down to snake head
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle   = '#ffd700';
+      ctx.beginPath();
+      ctx.moveTo(bx - 5, by);
+      ctx.lineTo(bx + 5, by);
+      ctx.lineTo(bx, by + 7);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.globalAlpha  = fade;
+      ctx.fillStyle    = '#ffe066';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.text, bx, by - bh / 2, bw - 16);
     }
     ctx.globalAlpha  = 1;
     ctx.textAlign    = 'left';

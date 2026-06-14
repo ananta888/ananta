@@ -71,7 +71,7 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
             @for (group of navGroups(user.role); track group.label) {
               <span class="nav-group-label">{{ group.label }}</span>
               @for (item of group.items; track item.path) {
-                <a [routerLink]="item.path" (click)="closeMobileNav()">{{ item.label }}</a>
+                <a [routerLink]="item.path" (click)="closeMobileNav()" [attr.data-waypoint]="'nav.' + item.path">{{ item.label }}</a>
                 @if (shell.mode() === 'advanced' && item.expertOnly) {
                   <span class="nav-expert-label">Experte</span>
                 }
