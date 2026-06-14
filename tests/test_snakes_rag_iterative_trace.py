@@ -118,3 +118,72 @@ def test_rag_iterative_tool_mode_filters_generated_codecompass_outputs(tmp_path,
     assert answer == "answer"
     assert captured["initial_files"] == ["agent/codecompass_context.py"]
     assert trace["available_files"] == ["agent/codecompass_context.py"]
+
+
+def test_rag_iterative_tool_mode_prefers_symbol_context_over_full_files(tmp_path, monkeypatch):
+    source = tmp_path / "agent" / "codecompass_context.py"
+    source.parent.mkdir()
+    source.write_text(
+        "\n".join([
+            "class CodeCompassContext:",
+            "    def plan_context(self):",
+            "        return 'symbol-level context'",
+            "",
+            "    def read_full_file(self):",
+            "        return 'should not be initially packed'",
+        ]),
+        encoding="utf-8",
+    )
+    details = tmp_path / "rag-helper" / "out" / "details_by_kind" / "python_method.jsonl"
+    details.parent.mkdir(parents=True)
+    details.write_text(
+        '{"kind":"python_method","file":"agent/codecompass_context.py","id":"method:plan","name":"plan_context","line":2,"class_name":"CodeCompassContext"}\n',
+        encoding="utf-8",
+    )
+
+    from agent.routes import snakes_rag_iterative as mod
+
+    monkeypatch.setattr(
+        mod,
+        "_current_config",
+        lambda: {
+            "chat_full_scan_chars_per_file": 20_000,
+            "rag_iterative_tool_calls_enabled": True,
+            "rag_iterative_initial_min_files": 1,
+            "rag_iterative_initial_max_files": 2,
+            "rag_iterative_symbol_context_max_snippets": 4,
+        },
+    )
+    monkeypatch.setattr(mod._cfg_settings, "rag_repo_root", str(tmp_path), raising=False)
+    monkeypatch.setattr(mod, "lookup_model_context_tokens", lambda _model: 16_000)
+
+    class _Chunk:
+        source = "agent/codecompass_context.py"
+        score = 90.0
+
+    class _FakeRepositoryMapEngine:
+        def __init__(self, _repo_root):
+            pass
+
+        def search(self, *_args, **_kwargs):
+            return [_Chunk()]
+
+    captured: dict = {}
+
+    def _fake_tool_loop(**kwargs):
+        captured.update(kwargs)
+        return "answer", {"tool_calls_made": 0}
+
+    monkeypatch.setattr("agent.hybrid_orchestrator.RepositoryMapEngine", _FakeRepositoryMapEngine)
+    monkeypatch.setattr("agent.routes.snakes_rag_tool_loop.run_rag_chat_tool_loop", _fake_tool_loop)
+
+    answer, trace = mod.worker_chat_rag_iterative("plan context")
+
+    prompt = str(captured["messages"][-1]["content"])
+    assert answer == "answer"
+    assert "=== CodeCompass Symbol-/Graph-Kontext ===" in prompt
+    assert "def plan_context" in prompt
+    assert "=== Bereits gelesene CodeCompass-Top-Treffer ===" not in prompt
+    assert captured["initial_evidence"] == []
+    assert trace["initial_context_files"] == []
+    assert trace["symbol_context_refs"][0]["symbol"] == "plan_context"

@@ -25,6 +25,10 @@ from agent.services.rag_context_packer import (
     packed_file_memory_summary,
     should_skip_initial_pack,
 )
+from agent.services.codecompass_symbol_context_service import (
+    build_codecompass_symbol_context,
+    format_symbol_context_section,
+)
 from agent.services.snake_chat_cancellation import is_chat_cancelled
 
 _log = logging.getLogger(__name__)
@@ -338,6 +342,14 @@ def worker_chat_rag_iterative(
             cfg.get("rag_iterative_initial_max_files") if cfg.get("rag_iterative_initial_max_files") is not None
             else getattr(_cfg_settings, "rag_iterative_initial_max_files", 8)
         )))
+        _symbol_max_snippets = max(0, min(24, int(
+            cfg.get("rag_iterative_symbol_context_max_snippets") if cfg.get("rag_iterative_symbol_context_max_snippets") is not None
+            else getattr(_cfg_settings, "rag_iterative_symbol_context_max_snippets", 8)
+        )))
+        _symbol_max_lines = max(5, min(160, int(
+            cfg.get("rag_iterative_symbol_context_max_lines") if cfg.get("rag_iterative_symbol_context_max_lines") is not None
+            else getattr(_cfg_settings, "rag_iterative_symbol_context_max_lines", 80)
+        )))
 
         # Load CodeCompass component catalog as codebase overview
         _catalog_section = ""
@@ -361,14 +373,24 @@ def worker_chat_rag_iterative(
             + 6000  # file list, instructions, message framing
             + max(4000, int(_context_budget_chars * 0.10))
         )
+        _symbol_snippets = build_codecompass_symbol_context(
+            repo_root=repo_root,
+            query=question,
+            ranked_sources=chunks,
+            max_snippets=_symbol_max_snippets,
+            max_lines_per_snippet=_symbol_max_lines,
+        )
+        _symbol_context_section = format_symbol_context_section(_symbol_snippets)
+        _pack_min_files = 0 if _symbol_snippets else _initial_min_files
+        _pack_max_files = 0 if _symbol_snippets else _initial_max_files
         _context_pack = build_rag_context_pack(
             chunks=chunks,
             repo_root=repo_root,
             context_budget_chars=_context_budget_chars,
-            reserved_chars=_reserved_chars,
+            reserved_chars=_reserved_chars + len(_symbol_context_section),
             max_chars_per_file=_tool_chars_per_file,
-            min_initial_files=_initial_min_files,
-            max_initial_files=_initial_max_files,
+            min_initial_files=_pack_min_files,
+            max_initial_files=_pack_max_files,
         )
         _packed_files_section = format_packed_files_section(_context_pack)
 
@@ -393,12 +415,13 @@ def worker_chat_rag_iterative(
             + ("{}\n\n".format(budget_instruction) if budget_instruction else "")
             + _catalog_section
             + "\n"
+            + (_symbol_context_section + "\n\n" if _symbol_context_section else "")
             + (_packed_files_section + "\n\n" if _packed_files_section else "")
             + _file_list_section
             + "\n\n"
             "Anweisung:\n"
-            "1. Die als 'bereits im Initialkontext' markierten Top-Treffer gelten als gelesen.\n"
-            "2. Nutze diese Dateien zuerst als Evidenz und lies weitere Dateien nur, wenn offene Fragen bleiben.\n"
+            "1. Nutze zuerst den CodeCompass Symbol-/Graph-Kontext; er ist präziser als ganze Dateien.\n"
+            "2. Die als 'bereits im Initialkontext' markierten Top-Treffer gelten als gelesen.\n"
             "3. Nutze EXAKT die Pfade wie in der Dateiliste angegeben (z.B. 'worker/retrieval/...' nicht 'agent/services/...').\n"
             "4. Wenn eine Datei nicht gefunden wird: Nutze den im Fehler angezeigten korrekten Pfad, "
             "oder versuche die nächste Datei aus der Liste — gib NICHT auf.\n"
@@ -419,6 +442,17 @@ def worker_chat_rag_iterative(
                 details={
                     "available_files": available_files,
                     "initial_context_files": _context_pack.included_paths,
+                    "symbol_context_refs": [
+                        {
+                            "path": item.path,
+                            "symbol": item.symbol,
+                            "kind": item.kind,
+                            "line_start": item.line_start,
+                            "line_end": item.line_end,
+                            "source": item.source,
+                        }
+                        for item in _symbol_snippets
+                    ],
                     "initial_context_file_budget_chars": _context_pack.file_budget_chars,
                     "initial_context_used_file_chars": _context_pack.used_file_chars,
                     "initial_context_reserved_chars": _context_pack.reserved_chars,
@@ -459,6 +493,18 @@ def worker_chat_rag_iterative(
         trace["tool_loop"] = tl_trace
         trace["available_files"] = available_files
         trace["initial_context_files"] = _context_pack.included_paths
+        trace["symbol_context_refs"] = [
+            {
+                "path": item.path,
+                "symbol": item.symbol,
+                "kind": item.kind,
+                "line_start": item.line_start,
+                "line_end": item.line_end,
+                "source": item.source,
+                "relation": item.relation,
+            }
+            for item in _symbol_snippets
+        ]
         trace["initial_context_file_budget_chars"] = _context_pack.file_budget_chars
         trace["initial_context_used_file_chars"] = _context_pack.used_file_chars
         trace["catalog_chars"] = len(_catalog_section)
