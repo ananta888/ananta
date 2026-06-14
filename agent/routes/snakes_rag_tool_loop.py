@@ -188,7 +188,6 @@ def run_rag_chat_tool_loop(
     last_content = ""
 
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
-        """Format last user/system messages as readable preview."""
         parts = []
         for m in msgs[-4:]:
             role = str(m.get("role") or "")
@@ -199,6 +198,52 @@ def run_rag_chat_tool_loop(
 
     def _total_context_chars(msgs: list[dict]) -> int:
         return sum(len(str(m.get("content") or "")) for m in msgs)
+
+    def _parse_file_sections(user_content: str) -> list[dict[str, Any]]:
+        """Parse '### path\\n```lang\\ncontent\\n```' blocks → list of {path, chars}."""
+        import re
+        sections = re.split(r"\n### ", "\n" + user_content)
+        result = []
+        for sec in sections[1:]:
+            head, _, body = sec.partition("\n")
+            result.append({"path": head.strip(), "chars": len(body)})
+        return result
+
+    # --- Pre-loop: log initial context summary and write context dump file ---
+    _initial_user_content = str((current_messages[-1] or {}).get("content") or "")
+    _ctx_total_chars = _total_context_chars(current_messages)
+    _file_sections = _parse_file_sections(_initial_user_content) if initial_files else []
+
+    # Write full initial context to dump file (overwrites each run for easy inspection)
+    try:
+        from agent.utils import get_data_dir
+        _dump_path = _pl.Path(get_data_dir()) / "last_llm_context.txt"
+        _dump_path.write_text(_initial_user_content, encoding="utf-8")
+    except Exception as _dump_exc:
+        _log.debug("context dump failed: %s", _dump_exc)
+
+    log_llm_entry(
+        event="tool_loop_context_summary",
+        provider=provider,
+        model=model or "auto",
+        total_context_chars=_ctx_total_chars,
+        initial_files_count=len(initial_files or []),
+        file_sections=_file_sections,
+    )
+    if rec:
+        rec.event(
+            "tool_loop_initial_context",
+            f"Initialer Kontext: {len(initial_files or [])} Dateien, {_ctx_total_chars:,} Zeichen",
+            status="info",
+            details={
+                "files": _file_sections,
+                "total_context_chars": _ctx_total_chars,
+                "context_dump": "data/last_llm_context.txt",
+            },
+            input_preview="\n".join(
+                f"{s['path']}  ({s['chars']:,} Zeichen)" for s in _file_sections
+            ) or "(keine Dateien)",
+        )
 
     for _iteration in range(max_tool_calls + 2):
         use_tools = tool_call_count < max_tool_calls
@@ -218,12 +263,7 @@ def run_rag_chat_tool_loop(
             f"LLM-Call {llm_call_count} (Finale Antwort, ~{_ctx_chars//1000}K Zeichen)"
         )
 
-        # For the first call log the full initial user message (up to 80K chars) so the
-        # complete context sent to the LLM is visible; subsequent calls use the short preview.
-        if llm_call_count == 1:
-            _prompt_text = _input_preview(current_messages, max_chars=80000)
-        else:
-            _prompt_text = _input_preview(current_messages)
+        _prompt_text = _input_preview(current_messages)
 
         if rec:
             rec.event(

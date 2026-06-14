@@ -291,6 +291,7 @@ class Settings(BaseSettings):
     rag_iterative_tool_calls_enabled: bool = Field(default=True, validation_alias="RAG_ITERATIVE_TOOL_CALLS_ENABLED")
     rag_iterative_max_tool_calls: int = Field(default=0, validation_alias="RAG_ITERATIVE_MAX_TOOL_CALLS")
     rag_iterative_symbol_expand_max: int = Field(default=0, validation_alias="RAG_ITERATIVE_SYMBOL_EXPAND_MAX")
+    rag_iterative_catalog_chars: int = Field(default=20000, validation_alias="RAG_ITERATIVE_CATALOG_CHARS")
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(

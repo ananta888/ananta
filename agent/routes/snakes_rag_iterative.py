@@ -258,7 +258,103 @@ def worker_chat_rag_iterative(
         trace["error"] = "no_rag_chunks"
         return "", trace
 
-    # --- Step 2: Resolve full file paths and read complete content ---
+    # --- Step 2: Mode check — tool-call path vs. batch path ---
+    _tc_enabled_cfg = cfg.get("rag_iterative_tool_calls_enabled")
+    if _tc_enabled_cfg is None:
+        tool_calls_enabled = bool(_cfg_settings.rag_iterative_tool_calls_enabled)
+    else:
+        tool_calls_enabled = str(_tc_enabled_cfg).lower() not in {"false", "0", "off", "no", ""}
+
+    if tool_calls_enabled:
+        # --- Tool-call mode: send catalog overview + ranked file list; LLM loads what it needs ---
+        from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+        max_tool_calls = max(0, int(
+            cfg.get("rag_iterative_max_tool_calls") if cfg.get("rag_iterative_max_tool_calls") is not None
+            else _cfg_settings.rag_iterative_max_tool_calls
+        ))
+        _catalog_max_chars = max(5000, min(60000, int(
+            cfg.get("rag_iterative_catalog_chars") if cfg.get("rag_iterative_catalog_chars") is not None
+            else getattr(_cfg_settings, "rag_iterative_catalog_chars", 20000)
+        )))
+
+        # Load CodeCompass component catalog as codebase overview
+        _catalog_section = ""
+        _catalog_path = repo_root / "rag-helper" / "out" / "component-catalog.md"
+        if _catalog_path.exists():
+            _catalog_text = _catalog_path.read_text(encoding="utf-8", errors="replace")
+            _truncated = len(_catalog_text) > _catalog_max_chars
+            _catalog_section = (
+                "=== CodeCompass Codebase-Übersicht ===\n"
+                + _catalog_text[:_catalog_max_chars]
+                + ("\n[... abgeschnitten nach {:,} Zeichen ...]\n".format(_catalog_max_chars) if _truncated else "\n")
+            )
+
+        # Build scored file list (no file contents — LLM fetches what it needs)
+        _file_list_lines = [
+            "{:3d}. {}  (relevanz: {:.1f})".format(i, ch["source"], ch.get("score", 0))
+            for i, ch in enumerate(chunks, 1)
+        ]
+        _file_list_section = (
+            "=== Verfügbare Dateien ({} gefunden, nach Relevanz) ===\n".format(len(chunks))
+            + "\n".join(_file_list_lines)
+        )
+
+        user_message = (
+            "Frage: {}\n\n".format(question)
+            + ("{}\n\n".format(budget_instruction) if budget_instruction else "")
+            + _catalog_section
+            + "\n"
+            + _file_list_section
+            + "\n\nLade die für deine Antwort relevanten Dateien mit read_file() nach. "
+            "Falls du weitere Dateien suchen möchtest, nutze search_codebase()."
+        )
+
+        available_files = [ch["source"] for ch in chunks]
+        messages = list(llm_history) + [{"role": "user", "content": user_message}]
+
+        if rec:
+            rec.event(
+                "rag_iterative_tool_loop_start",
+                "Tool-Loop: {:,} Zeichen Katalog + {} Dateien verfügbar".format(
+                    len(_catalog_section), len(chunks)
+                ),
+                status="running",
+                details={
+                    "available_files": available_files,
+                    "catalog_chars": len(_catalog_section),
+                    "catalog_loaded": _catalog_path.exists(),
+                    "max_tool_calls": max_tool_calls,
+                    "model": model,
+                    "provider": provider,
+                },
+            )
+
+        final_answer, tl_trace = run_rag_chat_tool_loop(
+            messages=messages,
+            provider=provider,
+            model=model,
+            repo_root=repo_root,
+            max_tool_calls=max_tool_calls,
+            max_chars_per_file=max_chars_per_file,
+            timeout=timeout_s,
+            rec=rec,
+            initial_files=available_files,
+        )
+        trace["tool_loop"] = tl_trace
+        trace["available_files"] = available_files
+        trace["catalog_chars"] = len(_catalog_section)
+        if rec:
+            rec.event(
+                "rag_iterative_tool_loop_done",
+                "Tool-Loop abgeschlossen ({} Tool-Calls)".format(tl_trace.get("tool_calls_made", 0)),
+                status="completed" if final_answer else "failed",
+                details=tl_trace,
+                output_preview=final_answer[:500] if final_answer else None,
+            )
+        return final_answer, trace
+
+    # --- Batch mode: resolve and read all file contents upfront ---
     file_entries: list[dict[str, Any]] = []
     seen_sources: set[str] = set()
 
@@ -269,10 +365,8 @@ def worker_chat_rag_iterative(
             continue
         seen_sources.add(source)
 
-        # Resolve absolute or repo-relative path
         candidate = _pl.Path(source) if source.startswith("/") else repo_root / source
         if not candidate.exists() or not candidate.is_file():
-            # Try stripping /app prefix (Docker path)
             if source.startswith("/app/"):
                 candidate = repo_root / source[5:]
             if not candidate.exists() or not candidate.is_file():
@@ -294,7 +388,7 @@ def worker_chat_rag_iterative(
         trace["error"] = "no_files_resolved"
         return "", trace
 
-    # --- Step 2b: Python import-graph expansion (optional) ---
+    # --- Step 2b: Python import-graph expansion ---
     import_depth = max(0, int(
         cfg.get("rag_iterative_import_depth") if cfg.get("rag_iterative_import_depth") is not None
         else _cfg_settings.rag_iterative_import_depth
@@ -302,16 +396,13 @@ def worker_chat_rag_iterative(
     if import_depth > 0:
         before = len(file_entries)
         file_entries = _expand_python_imports(
-            file_entries,
-            repo_root,
-            depth=import_depth,
-            max_chars_per_file=max_chars_per_file,
-            seen_sources=seen_sources,
+            file_entries, repo_root,
+            depth=import_depth, max_chars_per_file=max_chars_per_file, seen_sources=seen_sources,
         )
         trace["import_expansion_added"] = len(file_entries) - before
         trace["files_after_expansion"] = len(file_entries)
 
-    # --- Step 2c: Symbol-graph expansion (follow method-call references, optional) ---
+    # --- Step 2c: Symbol-graph expansion ---
     _sym_max = max(0, int(
         cfg.get("rag_iterative_symbol_expand_max") if cfg.get("rag_iterative_symbol_expand_max") is not None
         else _cfg_settings.rag_iterative_symbol_expand_max
@@ -320,84 +411,14 @@ def worker_chat_rag_iterative(
         _before_sym = len(file_entries)
         try:
             file_entries = _expand_via_symbol_graph(
-                file_entries,
-                _engine,
-                repo_root,
-                max_extra=_sym_max,
-                seen_sources=seen_sources,
-                max_chars_per_file=max_chars_per_file,
+                file_entries, _engine, repo_root,
+                max_extra=_sym_max, seen_sources=seen_sources, max_chars_per_file=max_chars_per_file,
             )
             trace["symbol_expansion_added"] = len(file_entries) - _before_sym
             trace["files_after_symbol_expansion"] = len(file_entries)
         except Exception as _sym_exc:
             _log.debug("symbol_graph_expand failed: %s", _sym_exc)
             trace["symbol_expansion_error"] = str(_sym_exc)
-
-    # --- Step 2d: Tool-call loop (optional, replaces batch+synthesis when enabled) ---
-    _tc_enabled_cfg = cfg.get("rag_iterative_tool_calls_enabled")
-    if _tc_enabled_cfg is None:
-        tool_calls_enabled = bool(_cfg_settings.rag_iterative_tool_calls_enabled)
-    else:
-        tool_calls_enabled = str(_tc_enabled_cfg).lower() not in {"false", "0", "off", "no", ""}
-    if tool_calls_enabled:
-        from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
-
-        max_tool_calls = max(0, int(
-            cfg.get("rag_iterative_max_tool_calls") if cfg.get("rag_iterative_max_tool_calls") is not None
-            else _cfg_settings.rag_iterative_max_tool_calls
-        ))
-        # Build context block from all resolved files (truncated to fit)
-        file_blocks = []
-        for e in file_entries:
-            file_blocks.append(f"### {e['path']}\n```{e['lang']}\n{e['content']}\n```")
-        context_text = "\n\n".join(file_blocks)
-
-        user_message = (
-            f"Frage: {question}\n\n"
-            + (f"{budget_instruction}\n\n" if budget_instruction else "")
-            + f"Initialer Kontext ({len(file_entries)} Datei(en) aus CodeCompass):\n\n"
-            + context_text
-            + "\n\nBeantworte die Frage. Falls du weitere Dateien benötigst, "
-            + "nutze die verfügbaren Tools (read_file, search_codebase)."
-        )
-
-        messages = list(llm_history) + [{"role": "user", "content": user_message}]
-
-        if rec:
-            rec.event(
-                "rag_iterative_tool_loop_start",
-                f"Tool-Loop: {len(file_entries)} Datei(en), max {max_tool_calls} Tool-Calls",
-                status="running",
-                details={
-                    "files": [e["path"] for e in file_entries],
-                    "max_tool_calls": max_tool_calls,
-                    "model": model,
-                    "provider": provider,
-                },
-            )
-
-        final_answer, tl_trace = run_rag_chat_tool_loop(
-            messages=messages,
-            provider=provider,
-            model=model,
-            repo_root=repo_root,
-            max_tool_calls=max_tool_calls,
-            max_chars_per_file=max_chars_per_file,
-            timeout=timeout_s,
-            rec=rec,
-            initial_files=[e["path"] for e in file_entries],
-        )
-        trace["tool_loop"] = tl_trace
-        trace["file_list"] = [e["path"] for e in file_entries]
-        if rec:
-            rec.event(
-                "rag_iterative_tool_loop_done",
-                f"Tool-Loop abgeschlossen ({tl_trace.get('tool_calls_made', 0)} Tool-Calls)",
-                status="completed" if final_answer else "failed",
-                details=tl_trace,
-                output_preview=final_answer[:500] if final_answer else None,
-            )
-        return final_answer, trace
 
     # --- Step 3: Estimate tokens and split into batches ---
     framing_overhead = 200  # system prompt + question + batch header
