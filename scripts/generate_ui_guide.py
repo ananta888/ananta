@@ -107,7 +107,8 @@ def extract_waypoints() -> list[dict]:
 
 _SKIP_ROUTE_FILES = {"_auth_test_routes.py", "_auth_mfa_routes.py", "blender_client_surface.py"}
 _INCLUDE_PREFIXES = ("/api/", "/chat", "/snake", "/sessions", "/goals", "/workers",
-                     "/policies", "/codecompass", "/model", "/routing", "/health", "/config")
+                     "/policies", "/codecompass", "/model", "/routing", "/health", "/config",
+                     "/teams/", "/templates", "/blueprints", "/snakes")
 
 
 def extract_api_routes() -> list[dict]:
@@ -145,7 +146,46 @@ def extract_api_routes() -> list[dict]:
     return sorted(unique, key=lambda r: r["path"])
 
 
-# ── 5. DEFAULT_SESSIONS from chat_state.py ────────────────────────────────────
+# ── 5. Feature documentation index (docs/*.md) ────────────────────────────────
+
+# Docs files whose first heading describes a concrete user-facing feature.
+# Grouped loosely by topic prefix.
+_FEATURE_DOC_TOPICS: dict[str, list[str]] = {
+    "Blueprint": ["blueprint", "standard-blueprints"],
+    "Vorlagen / Templates": ["template-authoring", "template-role-overlay", "template-variable"],
+    "Worker": ["worker-contract", "worker-directory", "worker-extension", "worker-routing"],
+    "CodeCompass": ["codecompass", "codecompass-architecture", "codecompass-domain"],
+    "Instruction Layers": ["instruction-layer"],
+    "Pair Dev / Sharing": ["operator-tui-shared-sessions"],
+    "Auto-Planner": ["auto-planner"],
+    "API": ["hub-api", "api-goal", "api-auth"],
+    "Policies": ["context_access_policy", "planning-agent-governance"],
+    "LLM / Routing": ["llm-routing", "llm-provider-config", "llm-observability", "ollama-model-routing"],
+}
+
+
+def extract_feature_docs() -> dict[str, list[dict]]:
+    """Return {topic: [{filename, title, excerpt}]} for known feature docs."""
+    docs_dir = REPO_ROOT / "docs"
+    result: dict[str, list[dict]] = {}
+    for topic, prefixes in _FEATURE_DOC_TOPICS.items():
+        entries = []
+        for f in sorted(docs_dir.glob("*.md")):
+            if any(f.stem.startswith(p) or f.stem == p for p in prefixes):
+                text = _read(f)
+                # first H1 or H2
+                title_m = re.search(r"^#{1,2}\s+(.+)$", text, re.MULTILINE)
+                title = title_m.group(1).strip() if title_m else f.stem
+                # first non-heading non-empty line as excerpt
+                lines = [ln for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
+                excerpt = lines[0].strip()[:120] if lines else ""
+                entries.append({"file": f.name, "title": title, "excerpt": excerpt})
+        if entries:
+            result[topic] = entries
+    return result
+
+
+# ── 6. DEFAULT_SESSIONS from chat_state.py ────────────────────────────────────
 
 def extract_sessions() -> list[dict]:
     try:
@@ -196,6 +236,7 @@ def render(
     waypoints: list[dict],
     api_routes: list[dict],
     sessions: list[dict],
+    feature_docs: dict[str, list[dict]] | None = None,
     live_cfg: dict | None = None,
 ) -> str:
     lines: list[str] = [
@@ -261,6 +302,17 @@ def render(
             lines.append(f"- {s['icon']} **{s['name']}** (`{s['id']}`): {s['system_prompt_excerpt']}…")
         lines.append("")
 
+    # ── Feature Documentation Index ──
+    if feature_docs:
+        lines += ["## Feature-Dokumentation (docs/)", ""]
+        lines.append("Folgende Dokumentationsdateien beschreiben die wichtigsten Features:")
+        lines.append("")
+        for topic, entries in sorted(feature_docs.items()):
+            lines.append(f"### {topic}")
+            for e in entries:
+                lines.append(f"- **{e['title']}** (`{e['file']}`): {e['excerpt']}")
+            lines.append("")
+
     # ── Live Config ──
     if live_cfg:
         lines += ["## Aktuelle Konfiguration (live)", ""]
@@ -304,9 +356,10 @@ def generate(out_path: Path = OUTPUT_DEFAULT, include_live: bool = False) -> Pat
     waypoints = extract_waypoints()
     api_routes = extract_api_routes()
     sessions = extract_sessions()
+    feature_docs = extract_feature_docs()
     live_cfg = extract_live_config() if include_live else None
 
-    md = render(nav_items, cc_routes, waypoints, api_routes, sessions, live_cfg)
+    md = render(nav_items, cc_routes, waypoints, api_routes, sessions, feature_docs, live_cfg)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(md, encoding="utf-8")
     return out_path

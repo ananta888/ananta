@@ -164,7 +164,7 @@ _CONFIG_TOOLS = [
 # ── Tool implementations ──────────────────────────────────────────────────────
 
 def _grep_ui_search(query: str) -> list[str]:
-    """Keyword search over the UI guide + Angular routing/component files."""
+    """Keyword search over docs/, the UI guide, and Angular routing/component files."""
     results: list[str] = []
     q_lower = query.lower()
     keywords = [w for w in re.split(r"\W+", q_lower) if len(w) > 2]
@@ -173,13 +173,33 @@ def _grep_ui_search(query: str) -> list[str]:
         tl = text.lower()
         return sum(tl.count(kw) for kw in keywords)
 
-    # UI guide — section-by-section
+    # All docs/*.md files (feature documentation) — searched first, section-by-section
+    docs_dir = _REPO_ROOT / "docs"
+    if docs_dir.exists():
+        # collect top hits across all markdown files
+        doc_hits: list[tuple[str, int, str]] = []  # (label, score, text)
+        for doc_file in sorted(docs_dir.glob("*.md")):
+            text = doc_file.read_text(encoding="utf-8", errors="replace")
+            file_score = _score(text)
+            if file_score == 0:
+                continue
+            # split into sections, pick best section per file
+            sections = re.split(r"\n(?=##)", text)
+            best = max(sections, key=_score)
+            best_score = _score(best)
+            if best_score > 0:
+                doc_hits.append((f"docs/{doc_file.name}", best_score, best.strip()[:1200]))
+        # return top 3 doc hits
+        for label, sc, snippet in sorted(doc_hits, key=lambda x: -x[1])[:3]:
+            results.append(f"[{label}, score={sc}]\n{snippet}")
+
+    # Generated UI guide — section-by-section
     if _UI_GUIDE_PATH.exists():
         guide_text = _UI_GUIDE_PATH.read_text(encoding="utf-8", errors="replace")
         sections = re.split(r"\n(?=##)", guide_text)
         scored = sorted(((s, _score(s)) for s in sections if _score(s) > 0), key=lambda x: -x[1])
-        for sec, sc in scored[:3]:
-            results.append(f"[UI-Guide, score={sc}]\n{sec.strip()[:1200]}")
+        for sec, sc in scored[:2]:
+            results.append(f"[UI-Guide, score={sc}]\n{sec.strip()[:1000]}")
 
     # Angular routing files
     angular_src = _REPO_ROOT / "frontend-angular" / "src"
@@ -189,7 +209,7 @@ def _grep_ui_search(query: str) -> list[str]:
             if _score(text) > 0:
                 lines = [ln for ln in text.splitlines() if any(kw in ln.lower() for kw in keywords)]
                 if lines:
-                    results.append(f"[{f.name}]\n" + "\n".join(lines[:25]))
+                    results.append(f"[{f.name}]\n" + "\n".join(lines[:20]))
 
     # Angular components with data-waypoints
     for f in sorted(angular_src.rglob("*.ts")):
@@ -200,7 +220,7 @@ def _grep_ui_search(query: str) -> list[str]:
             lines = [ln for ln in text.splitlines()
                      if any(kw in ln.lower() for kw in keywords) or "data-waypoint" in ln]
             if lines:
-                results.append(f"[{f.name}]\n" + "\n".join(lines[:20]))
+                results.append(f"[{f.name}]\n" + "\n".join(lines[:15]))
 
     return results
 
