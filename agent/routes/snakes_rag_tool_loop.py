@@ -211,19 +211,6 @@ def run_rag_chat_tool_loop(
     last_content = ""
     _already_read: dict[str, str] = {}  # path → content, to prevent re-reading the same file
     _evidence: dict[str, dict[str, Any]] = {}
-    for item in initial_evidence or []:
-        path = str(item.get("path") or "").strip()
-        if not path:
-            continue
-        summary = str(item.get("summary") or "").strip()
-        _evidence[path] = {
-            "path": path,
-            "summary": summary or "Datei wurde im Initialkontext bereitgestellt.",
-            "score": item.get("score"),
-            "source": item.get("source") or "initial_context",
-            "chars": item.get("chars"),
-        }
-        _already_read[path] = f"[Datei '{path}' ist bereits im Initialkontext enthalten.]\n{_evidence[path]['summary']}"
 
     def _summarize_file(path: str, content: str) -> str:
         """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
@@ -269,11 +256,49 @@ def run_rag_chat_tool_loop(
         }
         trace["evidence"] = list(_evidence.values())
 
+    def _register_initial_evidence() -> None:
+        for idx, item in enumerate(initial_evidence or [], 1):
+            path = str(item.get("path") or "").strip()
+            if not path:
+                continue
+            content = str(item.get("content") or "").strip()
+            fallback_summary = str(item.get("summary") or "").strip()
+            summary = fallback_summary or "Datei wurde im Initialkontext bereitgestellt."
+            if summarize_reads and content:
+                if rec:
+                    rec.event(
+                        f"initial_context_{idx}_summarize",
+                        f"Initialkontext zusammenfassen: {path}",
+                        status="running",
+                        details={"path": path, "raw_chars": len(content)},
+                    )
+                summary = _summarize_file(path, content)
+                if rec:
+                    rec.event(
+                        f"initial_context_{idx}_summarize",
+                        f"Initialkontext zusammengefasst: {path}",
+                        status="completed",
+                        details={"path": path, "raw_chars": len(content), "summary_chars": len(summary)},
+                        output_preview=summary,
+                    )
+            _evidence[path] = {
+                "path": path,
+                "summary": summary,
+                "score": item.get("score"),
+                "source": item.get("source") or "initial_context",
+                "chars": item.get("chars") or len(content),
+            }
+            _already_read[path] = f"[Datei '{path}' ist bereits im Initialkontext enthalten.]\n{summary}"
+        trace["evidence"] = list(_evidence.values())
+
+    _register_initial_evidence()
+
     def _evidence_prompt() -> str:
         if not _evidence:
             return ""
         lines = [
-            "Recherche-Stand fuer die naechste Aktion:",
+            "Recherche-Stand fuer die naechste LLM-Aktion:",
+            "Verwende diese fragebezogenen Zusammenfassungen als Arbeitsgedaechtnis.",
             "Bereits gelesene oder im Initialkontext bereitgestellte Dateien:",
         ]
         for idx, item in enumerate(_evidence.values(), 1):
@@ -285,14 +310,10 @@ def run_rag_chat_tool_loop(
             )
         lines.append(
             "Wenn noch Informationen fehlen, lies gezielt eine weitere Datei, die eine offene Frage klaert. "
+            "Nutze search_codebase nur fuer neue Begriffe oder Pfade, die in der Evidenz noch nicht abgedeckt sind. "
             "Wenn die Evidenz reicht, antworte abschliessend."
         )
         return "\n".join(lines)
-
-    for item in initial_evidence or []:
-        path = str(item.get("path") or "").strip()
-        if path and path in _evidence:
-            trace["evidence"] = list(_evidence.values())
 
     def _compact_initial_packed_context() -> None:
         """Remove bulky initial packed file bodies from follow-up LLM calls."""

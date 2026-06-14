@@ -427,6 +427,8 @@ def worker_chat_rag_iterative(
                 {
                     "path": item.path,
                     "summary": packed_file_memory_summary(item, max_chars=_summary_chars),
+                    "content": item.content,
+                    "chars": item.chars_included,
                     "score": item.score,
                     "source": "initial_context",
                 }
