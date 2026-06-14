@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ShareSessionService, ShareParticipant } from '../services/share-session.service';
 import { HubApiCoreService } from '../services/hub-api-core.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
+import { ChatMessageComponent } from './chat-message.component';
 
 type PanelView = 'home' | 'create' | 'join' | 'active';
 type MainTab = 'share' | 'groups';
@@ -26,7 +27,7 @@ interface PairGroupMember {
 @Component({
   selector: 'app-ai-snake-share-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChatMessageComponent],
   template: `
     <div class="share-panel">
       <div class="share-header">
@@ -201,7 +202,7 @@ interface PairGroupMember {
               @for (msg of state.messages; track msg.id) {
                 <div class="share-msg" [class.own]="isOwnMessage(msg.sender_id)">
                   <span class="share-msg-sender">{{ msg.sender_id }}</span>
-                  <span class="share-msg-text">{{ msg.text }}</span>
+                  <span class="share-msg-text"><app-chat-message [text]="msg.text" /></span>
                 </div>
               }
               @if (!state.messages.length) {

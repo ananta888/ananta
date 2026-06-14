@@ -7,11 +7,12 @@ import { ChatHistoryService, ChatHistoryMessage } from '../../services/chat-hist
 import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
 import { AiSnakeTraceViewerComponent } from '../../components/ai-snake-trace-viewer.component';
 import { AiSnakeTraceService } from '../../services/ai-snake-trace.service';
+import { ChatMessageComponent } from '../../components/chat-message.component';
 
 @Component({
   selector: 'app-chat-page',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, DatePipe, FormsModule, AiSnakeTraceViewerComponent],
+  imports: [CommonModule, AsyncPipe, DatePipe, FormsModule, AiSnakeTraceViewerComponent, ChatMessageComponent],
   template: `
 <div class="chat-page">
 
@@ -135,7 +136,7 @@ import { AiSnakeTraceService } from '../../services/ai-snake-trace.service';
                     <span class="msg-sender">{{ m.isAI ? '🤖' : '👤' }} {{ m.senderId }}</span>
                     <span class="msg-ts">{{ m.ts | date:'HH:mm:ss' }}</span>
                   </div>
-                  <div class="msg-text">{{ m.text }}</div>
+                  <div class="msg-text"><app-chat-message [text]="m.text" /></div>
                 </div>
               }
             </div>

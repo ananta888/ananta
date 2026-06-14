@@ -8,7 +8,7 @@ type Segment = TextSeg | MermaidSeg;
 
 function parseSegments(text: string): Segment[] {
   const segs: Segment[] = [];
-  const re = /```mermaid\r?\n([\s\S]*?)```/g;
+  const re = /```\s*mermaid[^\n]*\r?\n([\s\S]*?)```/gi;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
