@@ -36,7 +36,7 @@ class ModelProfile:
     supports_tools: bool = False
     supports_json: bool = False
     supports_streaming: bool = True
-    context_tokens: int = 4096
+    context_tokens: int = 32768
     max_output_tokens: int = 2048
     timeout_seconds: int = 120
     temperature: float = 0.2

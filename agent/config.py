@@ -50,11 +50,11 @@ class Settings(BaseSettings):
     # matched against the model id. Override via env: LMSTUDIO_MODEL_CONTEXTS='{"phi-3.5-mini":4096}'
     lmstudio_model_contexts: str = Field(
         default=(
-            '{"phi-3.5-mini":4096,"phi-3-mini":4096,"phi-3":4096,'
+            '{"phi-3.5-mini":32768,"phi-3-mini":32768,"phi-3":32768,'
             '"llama-3.2-1b":131072,"llama-3.2-3b":131072,"llama-3.1-8b":131072,'
-            '"llama-3.1-70b":131072,"llama-3-8b":8192,"llama-3-70b":8192,'
+            '"llama-3.1-70b":131072,"llama-3-8b":32768,"llama-3-70b":32768,'
             '"qwen2.5-3b":32768,"qwen2.5-7b":32768,"qwen2.5-coder":32768,'
-            '"gemma-4-e4b":8192,"gemma-2":8192,'
+            '"gemma-4-e4b":32768,"gemma-2":32768,'
             '"mistral-7b":32768,"mixtral-8x7b":32768,"command-r":131072}'
         ),
         validation_alias="LMSTUDIO_MODEL_CONTEXTS",
