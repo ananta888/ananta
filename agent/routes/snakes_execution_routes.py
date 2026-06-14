@@ -964,7 +964,15 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("codecompass_retrieval_started", "CodeCompass Retrieval gestartet", status="running",
                           input_preview=prompt)
 
-            grounded_prompt, has_context, context_summary, _domain_info, chunk_meta = _build_grounded_snake_prompt(prompt)
+            # For ananta-settings: skip all RAG retrieval, answer directly from session system prompt
+            if _active_session_id == "ananta-settings":
+                grounded_prompt = prompt
+                has_context = False
+                context_summary = "ananta-settings: kein RAG"
+                _domain_info = {}
+                chunk_meta = []
+            else:
+                grounded_prompt, has_context, context_summary, _domain_info, chunk_meta = _build_grounded_snake_prompt(prompt)
 
             retrieval_ms = (time.time() - retrieval_start) * 1000
             if rec:
@@ -992,7 +1000,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                     "konkret", "datei", "dateien", "artefakt", "artefakte", "welche", "verfuegbar", "verf\u00fcgbar"
                 )
             )
-            if asks_for_concrete_local_facts and not has_context:
+                        # Skip the "no-context" short-circuit for ananta-settings (it intentionally has no RAG)
+            if asks_for_concrete_local_facts and not has_context and _active_session_id != "ananta-settings":
                 if rec:
                     rec.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
                               summary="Kein Kontext verf\u00fcgbar f\u00fcr konkrete Fragen")
@@ -1003,6 +1012,9 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                     store.complete_trace(trace_id)
                 return
 
+            # Use the active session's system prompt when set, otherwise fall back to the snake default
+            _effective_system_prompt = _active_session_prompt or _SNAKE_CHAT_PROMPT
+
             llm_start = time.time()
             if rec:
                 rec.event("llm_call_started", "LLM-Aufruf gestartet", status="running",
@@ -1011,7 +1023,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                               "provider": provider,
                               "model": model,
                               "prompt_chars": len(grounded_prompt),
-                              "system_prompt_chars": len(_SNAKE_CHAT_PROMPT),
+                              "system_prompt_chars": len(_effective_system_prompt),
                               "conversation_history_messages": len(conversation_history),
                           },
                           input_preview=grounded_prompt)
@@ -1025,7 +1037,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 provider=provider,
                 model=model,
                 base_url=api_base,
-                history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}, *conversation_history],
+                history=[{"role": "system", "content": _effective_system_prompt}, *conversation_history],
                 timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
             )
 
