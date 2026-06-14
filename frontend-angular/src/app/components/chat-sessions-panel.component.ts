@@ -3,6 +3,8 @@ import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../services/chat-sessions.service';
 
+interface SessionGroup { name: string; sessions: ChatSession[]; }
+
 @Component({
   selector: 'app-chat-sessions-panel',
   standalone: true,
@@ -10,110 +12,198 @@ import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../servi
   template: `
     <div class="sessions-panel">
 
-      <!-- ── Session list ── -->
+      <!-- ── Session list grouped ── -->
       <div class="list">
-        @for (s of (svc.sessions$ | async) || []; track s.id) {
-          <div class="session-row" [class.active]="s.id === (svc.activeSessionId$ | async)">
+        @for (grp of computeGroups((svc.sessions$ | async) || []); track grp.name) {
+          @if (grp.name) {
+            <div class="group-header">{{ grp.name }}</div>
+          }
+          @for (s of grp.sessions; track s.id) {
+            <div class="session-row" [class.active]="s.id === (svc.activeSessionId$ | async)"
+                 [class.grouped]="!!grp.name">
 
-            @if (editingId === s.id) {
-              <!-- Rename inline -->
-              <input class="name-input" [(ngModel)]="editName"
-                     (keydown.enter)="saveEdit(s)" (keydown.escape)="cancelEdit()" />
-              <button class="icon-btn ok" (click)="saveEdit(s)" title="Speichern">✓</button>
-              <button class="icon-btn"    (click)="cancelEdit()"  title="Abbrechen">✕</button>
-            } @else {
-              <!-- Session name button → activate -->
-              <button class="session-btn" (click)="activate(s)"
-                      title="Session aktivieren (wird beim Chatten benutzt)">
-                <span class="sess-icon">{{ s.icon || '💬' }}</span>
-                <span class="sess-name">{{ s.name }}</span>
-                @if (s.id === (svc.activeSessionId$ | async)) {
-                  <span class="active-dot" title="Aktiv">●</span>
-                }
-              </button>
-
-              <!-- Gear → toggle settings panel -->
-              <button class="icon-btn cfg" [class.cfg-open]="expandedId === s.id"
-                      (click)="toggleSettings(s)" title="Einstellungen">⚙</button>
-              <!-- Rename -->
-              <button class="icon-btn" (click)="startEdit(s)" title="Umbenennen">✎</button>
-              <!-- Delete -->
-              <button class="icon-btn del"
-                      (click)="confirmDelete(s)"
-                      [disabled]="((svc.sessions$ | async) || []).length <= 1"
-                      title="Session löschen">✕</button>
-            }
-          </div>
-
-          <!-- ── Per-session settings panel (opened with ⚙) ── -->
-          @if (expandedId === s.id && editingId !== s.id) {
-            <div class="cfg-panel">
-              <div class="cfg-hint">Änderungen werden sofort gespeichert.</div>
-
-              <label class="cfg-label">Backend
-                <select [ngModel]="getStr(s, 'chat_backend', 'ananta-worker')"
-                        (ngModelChange)="patchSetting(s, 'chat_backend', $event)">
-                  <option value="ananta-worker">ananta-worker</option>
-                  <option value="opencode">opencode</option>
-                  <option value="lmstudio">lmstudio</option>
-                  <option value="hermes">hermes</option>
-                </select>
-              </label>
-
-              <label class="cfg-label">Retrieval-Profil
-                <select [ngModel]="getStr(s, 'chat_retrieval_profile', 'auto')"
-                        (ngModelChange)="patchSetting(s, 'chat_retrieval_profile', $event)">
-                  <option value="auto">auto</option>
-                  <option value="code_first">code_first</option>
-                  <option value="none">none</option>
-                </select>
-              </label>
-
-              <label class="cfg-label inline">
-                <input type="checkbox"
-                       [ngModel]="getBool(s, 'chat_use_codecompass')"
-                       (ngModelChange)="patchSetting(s, 'chat_use_codecompass', $event)" />
-                CodeCompass aktiv
-              </label>
-
-              <label class="cfg-label inline">
-                <input type="checkbox"
-                       [ngModel]="getBool(s, 'chat_code_questions_repo_first')"
-                       (ngModelChange)="patchSetting(s, 'chat_code_questions_repo_first', $event)" />
-                Code-Fragen: Repo bevorzugen
-              </label>
-
-              <label class="cfg-label">
-                System-Prompt
-                <textarea rows="4"
-                          [ngModel]="s.system_prompt"
-                          (ngModelChange)="patchPromptDebounced(s, $event)"
-                          placeholder="Leer = Standard-Prompt des Systems"></textarea>
-              </label>
-
-              <button class="close-cfg-btn" (click)="expandedId = ''">Schließen ▲</button>
+              @if (editingId === s.id) {
+                <input class="name-input" [(ngModel)]="editName"
+                       (keydown.enter)="saveEdit(s)" (keydown.escape)="cancelEdit()" />
+                <button class="icon-btn ok" (click)="saveEdit(s)" title="Speichern">✓</button>
+                <button class="icon-btn"    (click)="cancelEdit()"  title="Abbrechen">✕</button>
+              } @else {
+                <button class="session-btn" (click)="activate(s)">
+                  <span class="sess-icon">{{ s.icon || '💬' }}</span>
+                  <span class="sess-name">{{ s.name }}</span>
+                  @if (s.id === (svc.activeSessionId$ | async)) {
+                    <span class="active-dot">●</span>
+                  }
+                  @if (deltaCount(s) > 0) {
+                    <span class="delta-badge" title="{{ deltaCount(s) }} Einstellung(en) überschrieben">{{ deltaCount(s) }}</span>
+                  }
+                </button>
+                <button class="icon-btn cfg" [class.cfg-open]="expandedId === s.id"
+                        (click)="toggleSettings(s)" title="Einstellungen">⚙</button>
+                <button class="icon-btn" (click)="startEdit(s)" title="Umbenennen">✎</button>
+                <button class="icon-btn del"
+                        (click)="confirmDelete(s)"
+                        [disabled]="((svc.sessions$ | async) || []).length <= 1"
+                        title="Session löschen">✕</button>
+              }
             </div>
+
+            <!-- ── Per-session settings panel ── -->
+            @if (expandedId === s.id && editingId !== s.id) {
+              <div class="cfg-panel" [class.cfg-grouped]="!!grp.name">
+                <div class="cfg-hint">
+                  Nur abweichende Werte werden gespeichert.
+                  <span class="cfg-hint-badge">{{ deltaCount(s) }} Override(s)</span>
+                </div>
+
+                <!-- Backend -->
+                <div class="cfg-row">
+                  <label class="cfg-label">Backend</label>
+                  <select [ngModel]="getStr(s, 'chat_backend', 'ananta-worker')"
+                          (ngModelChange)="patchSetting(s, 'chat_backend', $event)">
+                    <option value="ananta-worker">ananta-worker</option>
+                    <option value="opencode">opencode</option>
+                    <option value="lmstudio">lmstudio</option>
+                    <option value="hermes">hermes</option>
+                  </select>
+                  <span class="delta-dot" [class.on]="isOverride(s,'chat_backend')"
+                        (click)="resetSetting(s,'chat_backend')"
+                        [title]="isOverride(s,'chat_backend') ? 'Zurücksetzen auf Standard' : 'Standard'"
+                  >{{ isOverride(s,'chat_backend') ? '●' : '○' }}</span>
+                </div>
+
+                <!-- RAG-Modus -->
+                <div class="cfg-row">
+                  <label class="cfg-label">RAG-Modus</label>
+                  <select [ngModel]="getStr(s, 'chat_architecture_analysis_mode', '')"
+                          (ngModelChange)="patchSetting(s, 'chat_architecture_analysis_mode', $event || false)">
+                    <option value="">aus</option>
+                    <option value="rag_iterative">rag_iterative</option>
+                  </select>
+                  <span class="delta-dot" [class.on]="isOverride(s,'chat_architecture_analysis_mode')"
+                        (click)="resetSetting(s,'chat_architecture_analysis_mode')"
+                        [title]="isOverride(s,'chat_architecture_analysis_mode') ? 'Zurücksetzen' : 'Standard'"
+                  >{{ isOverride(s,'chat_architecture_analysis_mode') ? '●' : '○' }}</span>
+                </div>
+
+                <!-- Retrieval-Profil -->
+                <div class="cfg-row">
+                  <label class="cfg-label">Retrieval</label>
+                  <select [ngModel]="getStr(s, 'chat_retrieval_profile', 'auto')"
+                          (ngModelChange)="patchSetting(s, 'chat_retrieval_profile', $event)">
+                    <option value="auto">auto</option>
+                    <option value="code_first">code_first</option>
+                    <option value="repo_first">repo_first</option>
+                    <option value="none">none</option>
+                  </select>
+                  <span class="delta-dot" [class.on]="isOverride(s,'chat_retrieval_profile')"
+                        (click)="resetSetting(s,'chat_retrieval_profile')"
+                        [title]="isOverride(s,'chat_retrieval_profile') ? 'Zurücksetzen' : 'Standard'"
+                  >{{ isOverride(s,'chat_retrieval_profile') ? '●' : '○' }}</span>
+                </div>
+
+                <!-- Antwort-Zeichen -->
+                <div class="cfg-row">
+                  <label class="cfg-label">Antwort-Zeichen</label>
+                  <input type="number" min="500" max="20000" step="500"
+                         [ngModel]="getNum(s, 'chat_answer_chars', 1800)"
+                         (ngModelChange)="patchSetting(s, 'chat_answer_chars', +$event)" />
+                  <span class="delta-dot" [class.on]="isOverride(s,'chat_answer_chars')"
+                        (click)="resetSetting(s,'chat_answer_chars')"
+                        [title]="isOverride(s,'chat_answer_chars') ? 'Zurücksetzen' : 'Standard'"
+                  >{{ isOverride(s,'chat_answer_chars') ? '●' : '○' }}</span>
+                </div>
+
+                <!-- Max Tokens -->
+                <div class="cfg-row">
+                  <label class="cfg-label">Max. Tokens</label>
+                  <input type="number" min="512" max="16000" step="512"
+                         [ngModel]="getNum(s, 'chat_max_tokens', 4000)"
+                         (ngModelChange)="patchSetting(s, 'chat_max_tokens', +$event)" />
+                  <span class="delta-dot" [class.on]="isOverride(s,'chat_max_tokens')"
+                        (click)="resetSetting(s,'chat_max_tokens')"
+                        [title]="isOverride(s,'chat_max_tokens') ? 'Zurücksetzen' : 'Standard'"
+                  >{{ isOverride(s,'chat_max_tokens') ? '●' : '○' }}</span>
+                </div>
+
+                <!-- Checkboxen -->
+                <div class="cfg-checkboxes">
+                  <label class="cfg-check" [class.overridden]="isOverride(s,'chat_use_codecompass')">
+                    <input type="checkbox"
+                           [ngModel]="getBool(s, 'chat_use_codecompass')"
+                           (ngModelChange)="patchSetting(s, 'chat_use_codecompass', $event)" />
+                    CodeCompass
+                    <span class="delta-dot-inline" [class.on]="isOverride(s,'chat_use_codecompass')"
+                          (click)="$event.preventDefault(); resetSetting(s,'chat_use_codecompass')"
+                    >{{ isOverride(s,'chat_use_codecompass') ? '●' : '○' }}</span>
+                  </label>
+                  <label class="cfg-check" [class.overridden]="isOverride(s,'chat_code_questions_repo_first')">
+                    <input type="checkbox"
+                           [ngModel]="getBool(s, 'chat_code_questions_repo_first')"
+                           (ngModelChange)="patchSetting(s, 'chat_code_questions_repo_first', $event)" />
+                    Repo bevorzugen
+                    <span class="delta-dot-inline" [class.on]="isOverride(s,'chat_code_questions_repo_first')"
+                          (click)="$event.preventDefault(); resetSetting(s,'chat_code_questions_repo_first')"
+                    >{{ isOverride(s,'chat_code_questions_repo_first') ? '●' : '○' }}</span>
+                  </label>
+                  <label class="cfg-check" [class.overridden]="isOverride(s,'chat_include_wikipedia')">
+                    <input type="checkbox"
+                           [ngModel]="getBool(s, 'chat_include_wikipedia')"
+                           (ngModelChange)="patchSetting(s, 'chat_include_wikipedia', $event)" />
+                    Wikipedia
+                    <span class="delta-dot-inline" [class.on]="isOverride(s,'chat_include_wikipedia')"
+                          (click)="$event.preventDefault(); resetSetting(s,'chat_include_wikipedia')"
+                    >{{ isOverride(s,'chat_include_wikipedia') ? '●' : '○' }}</span>
+                  </label>
+                </div>
+
+                <!-- Group -->
+                <div class="cfg-row">
+                  <label class="cfg-label">Gruppe</label>
+                  <input type="text" [ngModel]="s.group || ''"
+                         (ngModelChange)="patchGroup(s, $event)"
+                         placeholder="(keine Gruppe)" />
+                </div>
+
+                <!-- System-Prompt -->
+                <label class="cfg-label-block">
+                  System-Prompt
+                  <textarea rows="4"
+                            [ngModel]="s.system_prompt"
+                            (ngModelChange)="patchPromptDebounced(s, $event)"
+                            placeholder="Leer = Standard-Prompt des Systems"></textarea>
+                </label>
+
+                @if (deltaCount(s) > 0) {
+                  <button class="reset-all-btn" (click)="resetAllSettings(s)">
+                    ↩ Alle Overrides zurücksetzen ({{ deltaCount(s) }})
+                  </button>
+                }
+                <button class="close-cfg-btn" (click)="expandedId = ''">Schließen ▲</button>
+              </div>
+            }
           }
         }
       </div>
 
-      <!-- ── "New session" toggle ── -->
+      <!-- ── New session form ── -->
       <div class="bottom-bar">
         <button class="new-btn" (click)="showNew = !showNew">
           {{ showNew ? '▲ Abbrechen' : '＋ Neue Session' }}
         </button>
       </div>
 
-      <!-- ── New session form ── -->
       @if (showNew) {
         <div class="new-form">
           <div class="new-form-row">
             <input [(ngModel)]="newIcon" placeholder="🤖" maxlength="4" class="icon-field" />
-            <input [(ngModel)]="newName" placeholder="Name der Session *" class="name-field"
+            <input [(ngModel)]="newName" placeholder="Name *" class="name-field"
                    (keydown.enter)="createNew()" />
           </div>
-
-          <label class="cfg-label">Backend
+          <div class="new-form-row">
+            <input [(ngModel)]="newGroup" placeholder="Gruppe (optional)" class="group-field" />
+          </div>
+          <label class="cfg-label-block">Backend
             <select [(ngModel)]="newBackend">
               <option value="ananta-worker">ananta-worker</option>
               <option value="opencode">opencode</option>
@@ -121,17 +211,14 @@ import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../servi
               <option value="hermes">hermes</option>
             </select>
           </label>
-
-          <label class="cfg-label inline">
+          <label class="cfg-label-block inline">
             <input type="checkbox" [(ngModel)]="newCodeCompass" /> CodeCompass aktiv
           </label>
-
-          <label class="cfg-label">
+          <label class="cfg-label-block">
             System-Prompt (optional)
             <textarea rows="3" [(ngModel)]="newPrompt"
-                      placeholder="z.B. Du bist ein Python-Experte. Antworte auf Deutsch."></textarea>
+                      placeholder="z.B. Antworte nur mit Mermaid-Diagrammen."></textarea>
           </label>
-
           <button class="create-btn" (click)="createNew()" [disabled]="!newName.trim()">
             Session anlegen
           </button>
@@ -147,16 +234,25 @@ import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../servi
     :host { display: block; }
     .sessions-panel { display: flex; flex-direction: column; }
 
+    /* ── Groups ── */
+    .group-header {
+      padding: 4px 10px 2px;
+      font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: #3a6a9a; background: #07111e; border-bottom: 1px solid #0f2035;
+      user-select: none;
+    }
+
     /* ── Session rows ── */
     .list { display: flex; flex-direction: column; }
     .session-row {
       display: flex; align-items: center; gap: 3px;
       padding: 2px 6px; border-bottom: 1px solid #152040;
     }
+    .session-row.grouped { padding-left: 14px; }
     .session-row.active { background: #0e2038; }
 
     .session-btn {
-      flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+      flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px;
       background: transparent; border: none; color: #c8d8f8; padding: 6px 4px;
       cursor: pointer; text-align: left; font-size: 12px; border-radius: 2px;
     }
@@ -166,6 +262,10 @@ import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../servi
     .sess-icon { font-size: 13px; flex-shrink: 0; }
     .sess-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .active-dot { color: #7fffd4; font-size: 7px; flex-shrink: 0; }
+    .delta-badge {
+      background: #0a2a3a; border: 1px solid #1a5a7a; color: #3aacca;
+      font-size: 9px; padding: 1px 4px; border-radius: 8px; flex-shrink: 0;
+    }
 
     /* ── Icon buttons ── */
     .icon-btn {
@@ -187,22 +287,63 @@ import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../servi
 
     /* ── Per-session config panel ── */
     .cfg-panel {
-      padding: 8px 10px 10px;
-      background: #08131f;
+      padding: 8px 10px 10px; background: #08131f;
       border-bottom: 1px solid #1a3050;
-      display: flex; flex-direction: column; gap: 7px;
+      display: flex; flex-direction: column; gap: 6px;
     }
-    .cfg-hint { font-size: 10px; color: #3a6a9a; margin-bottom: 2px; }
-    .cfg-label {
+    .cfg-panel.cfg-grouped { padding-left: 18px; }
+    .cfg-hint {
+      font-size: 10px; color: #3a6a9a; display: flex; align-items: center; gap: 6px;
+    }
+    .cfg-hint-badge {
+      background: #0a2a3a; border: 1px solid #1a4a6a; color: #3a8aaa;
+      font-size: 9px; padding: 1px 5px; border-radius: 8px;
+    }
+
+    /* ── Setting row: label + control + delta dot ── */
+    .cfg-row {
+      display: grid; grid-template-columns: 90px 1fr 16px; gap: 5px; align-items: center;
+    }
+    .cfg-label { font-size: 11px; color: #6b8ab8; white-space: nowrap; }
+    .cfg-label-block {
       display: flex; flex-direction: column; gap: 3px;
       font-size: 11px; color: #6b8ab8;
     }
-    .cfg-label.inline { flex-direction: row; align-items: center; gap: 7px; color: #c8d8f8; }
-    select, textarea {
+    .cfg-label-block.inline { flex-direction: row; align-items: center; gap: 7px; color: #c8d8f8; }
+
+    select, input[type="text"], input[type="number"], textarea {
       background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8;
-      padding: 4px 6px; font-family: inherit; font-size: 11px; border-radius: 2px;
+      padding: 3px 5px; font-family: inherit; font-size: 11px; border-radius: 2px;
     }
     textarea { resize: vertical; }
+
+    /* ── Delta dot: ○ inherited, ● overridden ── */
+    .delta-dot {
+      color: #2a4a6a; font-size: 11px; cursor: pointer; user-select: none;
+      justify-self: center; transition: color 0.15s;
+    }
+    .delta-dot.on { color: #3aacca; }
+    .delta-dot.on:hover { color: #fb7185; }
+
+    /* ── Checkboxes with inline delta dot ── */
+    .cfg-checkboxes { display: flex; flex-direction: column; gap: 4px; }
+    .cfg-check {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: #c8d8f8; cursor: pointer;
+    }
+    .cfg-check.overridden { color: #a8c8f0; }
+    .delta-dot-inline {
+      color: #2a4a6a; font-size: 10px; cursor: pointer; margin-left: auto;
+    }
+    .delta-dot-inline.on { color: #3aacca; }
+    .delta-dot-inline.on:hover { color: #fb7185; }
+
+    .reset-all-btn {
+      background: #0a1a2a; border: 1px solid #1a3a5a; color: #3a8aaa;
+      padding: 3px 8px; cursor: pointer; font-size: 10px; border-radius: 2px;
+      align-self: flex-start;
+    }
+    .reset-all-btn:hover { color: #fb7185; border-color: #4a1a1a; }
     .close-cfg-btn {
       background: transparent; border: 1px solid #1a2d4a; color: #4a6a9a;
       padding: 3px 8px; cursor: pointer; font-size: 10px; align-self: flex-end;
@@ -219,15 +360,13 @@ import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../servi
     .new-btn:hover { color: #c8d8f8; border-color: #2a4070; }
 
     .new-form {
-      padding: 10px;
-      background: #08131f;
-      border-top: 1px solid #1a2d4a;
-      display: flex; flex-direction: column; gap: 8px;
+      padding: 10px; background: #08131f; border-top: 1px solid #1a2d4a;
+      display: flex; flex-direction: column; gap: 7px;
     }
     .new-form-row { display: flex; gap: 6px; }
-    .icon-field { width: 46px; flex-shrink: 0; background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8; padding: 4px 6px; font-size: 13px; border-radius: 2px; }
-    .name-field { flex: 1; background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8; padding: 4px 6px; font-size: 12px; font-family: inherit; border-radius: 2px; }
-    .name-field::placeholder { color: #3a5a8a; }
+    .icon-field { width: 46px; flex-shrink: 0; }
+    .name-field { flex: 1; }
+    .group-field { flex: 1; }
     .create-btn {
       background: #102238; border: 1px solid #2a5090; color: #7fffd4;
       padding: 6px 10px; cursor: pointer; font-size: 12px; border-radius: 2px;
@@ -248,14 +387,39 @@ export class ChatSessionsPanelComponent implements OnInit {
 
   newName = '';
   newIcon = '💬';
+  newGroup = '';
   newPrompt = '';
   newBackend = 'ananta-worker';
   newCodeCompass = true;
 
   private promptDebounce: ReturnType<typeof setTimeout> | null = null;
+  private groupDebounce: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.svc.load();
+  }
+
+  computeGroups(sessions: ChatSession[]): SessionGroup[] {
+    const map = new Map<string, ChatSession[]>();
+    for (const s of sessions) {
+      const g = s.group || '';
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(s);
+    }
+    const result: SessionGroup[] = [];
+    if (map.has('')) result.push({ name: '', sessions: map.get('')! });
+    for (const [name, list] of [...map.entries()].filter(([k]) => k).sort((a, b) => a[0].localeCompare(b[0]))) {
+      result.push({ name, sessions: list });
+    }
+    return result;
+  }
+
+  deltaCount(s: ChatSession): number {
+    return Object.keys(s.settings_delta || {}).length;
+  }
+
+  isOverride(s: ChatSession, key: string): boolean {
+    return key in (s.settings_delta || {});
   }
 
   activate(s: ChatSession): void {
@@ -279,9 +443,7 @@ export class ChatSessionsPanelComponent implements OnInit {
     this.editingId = '';
   }
 
-  cancelEdit(): void {
-    this.editingId = '';
-  }
+  cancelEdit(): void { this.editingId = ''; }
 
   createNew(): void {
     const name = this.newName.trim();
@@ -289,6 +451,7 @@ export class ChatSessionsPanelComponent implements OnInit {
     const payload: CreateSessionPayload = {
       name,
       icon: this.newIcon || '💬',
+      group: this.newGroup.trim(),
       system_prompt: this.newPrompt,
       settings: {
         chat_backend: this.newBackend,
@@ -298,6 +461,7 @@ export class ChatSessionsPanelComponent implements OnInit {
     this.svc.create(payload);
     this.newName = '';
     this.newIcon = '💬';
+    this.newGroup = '';
     this.newPrompt = '';
     this.newBackend = 'ananta-worker';
     this.newCodeCompass = true;
@@ -311,7 +475,13 @@ export class ChatSessionsPanelComponent implements OnInit {
   }
 
   getStr(s: ChatSession, key: string, fallback: string): string {
-    return String(s.settings?.[key] ?? fallback);
+    const v = s.settings?.[key];
+    return v === false || v === null || v === undefined ? fallback : String(v);
+  }
+
+  getNum(s: ChatSession, key: string, fallback: number): number {
+    const v = s.settings?.[key];
+    return typeof v === 'number' ? v : fallback;
   }
 
   getBool(s: ChatSession, key: string): boolean {
@@ -319,7 +489,25 @@ export class ChatSessionsPanelComponent implements OnInit {
   }
 
   patchSetting(s: ChatSession, key: string, value: unknown): void {
-    this.svc.update(s.id, { settings: { ...s.settings, [key]: value } });
+    this.svc.update(s.id, { settings: { [key]: value } });
+  }
+
+  resetSetting(s: ChatSession, key: string): void {
+    if (!this.isOverride(s, key)) return;
+    this.svc.update(s.id, { settings: { [key]: null } });
+  }
+
+  resetAllSettings(s: ChatSession): void {
+    const nulls: Record<string, null> = {};
+    for (const k of Object.keys(s.settings_delta || {})) nulls[k] = null;
+    if (Object.keys(nulls).length) this.svc.update(s.id, { settings: nulls });
+  }
+
+  patchGroup(s: ChatSession, value: string): void {
+    if (this.groupDebounce) clearTimeout(this.groupDebounce);
+    this.groupDebounce = setTimeout(() => {
+      this.svc.update(s.id, { group: value.trim() });
+    }, 600);
   }
 
   patchPromptDebounced(s: ChatSession, value: string): void {

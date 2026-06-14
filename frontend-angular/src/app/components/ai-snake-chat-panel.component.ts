@@ -15,7 +15,7 @@ import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { AiSnakeTraceViewerComponent } from './ai-snake-trace-viewer.component';
 import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
-import { ChatSessionsService } from '../services/chat-sessions.service';
+import { ChatSessionsService, ChatSession } from '../services/chat-sessions.service';
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
 import { ChatMessageComponent } from './chat-message.component';
 
@@ -156,8 +156,18 @@ import { ChatMessageComponent } from './chat-message.component';
             <select class="sess-select"
                     [ngModel]="sessions.activeSessionId$ | async"
                     (ngModelChange)="switchSession($event)">
-              @for (s of (sessions.sessions$ | async) || []; track s.id) {
-                <option [value]="s.id">{{ s.icon || '💬' }} {{ s.name }}</option>
+              @for (grp of sessionGroups(); track grp.name) {
+                @if (grp.name) {
+                  <optgroup [label]="grp.name">
+                    @for (s of grp.sessions; track s.id) {
+                      <option [value]="s.id">{{ s.icon || '💬' }} {{ s.name }}</option>
+                    }
+                  </optgroup>
+                } @else {
+                  @for (s of grp.sessions; track s.id) {
+                    <option [value]="s.id">{{ s.icon || '💬' }} {{ s.name }}</option>
+                  }
+                }
               }
             </select>
             <button class="new-chat-btn" (click)="newChatMode = !newChatMode" title="Neuen Chat anlegen">＋</button>
@@ -468,6 +478,22 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   switchSession(id: string): void {
     this.sessions.activate(id);
+  }
+
+  sessionGroups(): Array<{ name: string; sessions: ChatSession[] }> {
+    const all = this.sessions.sessions$.value || [];
+    const map = new Map<string, ChatSession[]>();
+    for (const s of all) {
+      const g = s.group || '';
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(s);
+    }
+    const result: Array<{ name: string; sessions: ChatSession[] }> = [];
+    if (map.has('')) result.push({ name: '', sessions: map.get('')! });
+    for (const [name, list] of [...map.entries()].filter(([k]) => k).sort((a, b) => a[0].localeCompare(b[0]))) {
+      result.push({ name, sessions: list });
+    }
+    return result;
   }
 
   setTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {

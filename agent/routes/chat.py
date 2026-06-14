@@ -35,7 +35,9 @@ def _save_chat(chat: dict[str, Any]) -> None:
 @chat_bp.route("/sessions", methods=["GET"])
 def list_chat_sessions():
     chat = _load_chat()
-    return jsonify([s.copy() for s in get_sessions(chat)])
+    sessions = get_sessions(chat)
+    _save_chat(chat)  # persist any newly added default sessions / backfilled fields
+    return jsonify([s.copy() for s in sessions])
 
 
 @chat_bp.route("/sessions", methods=["POST"])
@@ -58,6 +60,7 @@ def create_chat_session():
         name=name,
         system_prompt=data.get("system_prompt", ""),
         icon=data.get("icon", "💬"),
+        group=data.get("group", ""),
         settings=data.get("settings") or {},
     )
     add_session(chat, new_session)
@@ -92,6 +95,8 @@ def update_chat_session(session_id: str):
         session["system_prompt"] = data["system_prompt"]
     if "icon" in data:
         session["icon"] = data["icon"]
+    if "group" in data:
+        session["group"] = str(data["group"] or "")
     if "settings" in data and isinstance(data["settings"], dict):
         update_session_settings(chat, session_id, data["settings"])
 

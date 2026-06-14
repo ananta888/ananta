@@ -185,14 +185,15 @@ _DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
     "chat_include_task_memory": True,
 }
 
-# Built-in sessions — these are the three templates the user gets
-# out of the box. They cover the most common use cases; the user can
-# create more via :new-session or the Angular UI.
+# Built-in sessions — these are the templates the user gets out of the box.
+# Settings here are DELTAS only — keys that differ from _DEFAULT_SESSION_SETTINGS.
+# make_session() merges them with the defaults so the full settings dict is stored.
 DEFAULT_SESSIONS: list[dict[str, Any]] = [
     {
         "id": "code-help",
         "name": "Code-Help",
         "icon": "💻",
+        "group": "",
         "system_prompt": (
             "You are a focused code assistant for the Ananta project. "
             "When answering, prefer concrete file paths, function names, "
@@ -211,6 +212,7 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
         "id": "writing-coach",
         "name": "Schreib-Coach",
         "icon": "✍️",
+        "group": "",
         "system_prompt": (
             "You are a writing coach. Help the user clarify their thinking, "
             "structure their arguments, and improve their prose. Do not "
@@ -230,6 +232,7 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
         "id": "general",
         "name": "Allgemein",
         "icon": "💬",
+        "group": "",
         "system_prompt": (
             "You are a helpful, friendly AI assistant. Use the project's "
             "CodeCompass context when it seems relevant, but don't force it. "
@@ -239,6 +242,92 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
             "chat_backend": "ananta-worker",
             "chat_use_codecompass": True,
             "chat_retrieval_profile": "auto",
+        },
+    },
+    # ── Architektur-Gruppe ────────────────────────────────────────────────────
+    {
+        "id": "arch-overview",
+        "name": "Architektur-Überblick",
+        "icon": "🏗️",
+        "group": "Architektur",
+        "system_prompt": (
+            "Du bist Architekt des Ananta-Projekts. Der Nutzer beschreibt welchen Teil "
+            "des Systems er visualisieren will.\n"
+            "Antworte IMMER mit einem Mermaid-Diagramm (flowchart TD oder graph LR).\n"
+            "Nutze ausschließlich reale Komponenten, Dateinamen und Module aus dem "
+            "bereitgestellten Quellcode-Kontext.\n"
+            "Schreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. "
+            "Kein weiterer Text danach."
+        ),
+        "settings": {
+            "chat_architecture_analysis_mode": "rag_iterative",
+            "chat_retrieval_profile": "code_first",
+            "chat_answer_chars": 5000,
+            "chat_use_codecompass": True,
+            "chat_code_questions_repo_first": True,
+        },
+    },
+    {
+        "id": "arch-classes",
+        "name": "Klassen & Interfaces",
+        "icon": "🔷",
+        "group": "Architektur",
+        "system_prompt": (
+            "Du bist Architekt. Der Nutzer nennt einen Bereich oder eine Komponente.\n"
+            "Antworte IMMER mit einem Mermaid classDiagram.\n"
+            "Zeige Klassen, Interfaces, Vererbung und wichtige Methoden/Felder "
+            "aus dem Quellcode-Kontext. Nutze reale Klassennamen.\n"
+            "Schreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. "
+            "Kein weiterer Text danach."
+        ),
+        "settings": {
+            "chat_architecture_analysis_mode": "rag_iterative",
+            "chat_retrieval_profile": "code_first",
+            "chat_answer_chars": 5000,
+            "chat_use_codecompass": True,
+            "chat_code_questions_repo_first": True,
+        },
+    },
+    {
+        "id": "arch-sequence",
+        "name": "Sequenz & Abläufe",
+        "icon": "↔️",
+        "group": "Architektur",
+        "system_prompt": (
+            "Du bist Architekt. Der Nutzer beschreibt einen Ablauf oder Prozess.\n"
+            "Antworte IMMER mit einem Mermaid sequenceDiagram.\n"
+            "Verwende reale Komponenten, Services und Funktionen als Akteure. "
+            "Zeige den tatsächlichen Ablauf aus dem Quellcode-Kontext.\n"
+            "Schreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. "
+            "Kein weiterer Text danach."
+        ),
+        "settings": {
+            "chat_architecture_analysis_mode": "rag_iterative",
+            "chat_retrieval_profile": "code_first",
+            "chat_answer_chars": 5000,
+            "chat_use_codecompass": True,
+            "chat_code_questions_repo_first": True,
+        },
+    },
+    {
+        "id": "arch-deps",
+        "name": "Abhängigkeiten",
+        "icon": "🔗",
+        "group": "Architektur",
+        "system_prompt": (
+            "Du bist Architekt. Der Nutzer nennt ein Modul oder eine Komponente.\n"
+            "Antworte IMMER mit einem Mermaid graph LR Diagramm.\n"
+            "Zeige Import- und Abhängigkeitsbeziehungen zwischen Modulen. "
+            "Nutze subgraph für Pakete/Namespaces. Verwende reale Datei- und Modulnamen.\n"
+            "Schreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. "
+            "Kein weiterer Text danach."
+        ),
+        "settings": {
+            "chat_architecture_analysis_mode": "rag_iterative",
+            "chat_retrieval_profile": "code_first",
+            "chat_answer_chars": 5000,
+            "chat_use_codecompass": True,
+            "chat_code_questions_repo_first": True,
         },
     },
 ]
@@ -251,37 +340,37 @@ def make_session(
     system_prompt: str = "",
     settings: dict[str, Any] | None = None,
     icon: str = "💬",
+    group: str = "",
 ) -> dict[str, Any]:
     """Create a new chat session. Settings are merged over the default
     session settings so a session can override individual fields without
-    having to repeat the whole defaults table."""
-    # Start from a fresh copy of the defaults so each session has its
-    # own settings dict (no shared references that would let sessions
-    # accidentally clobber each other).
+    having to repeat the whole defaults table.
+
+    Both the full merged ``settings`` and the raw ``settings_delta`` (only
+    the explicitly provided keys) are stored so the frontend can tell which
+    values are session-specific overrides vs. inherited defaults."""
     import copy as _copy
+    settings_delta: dict[str, Any] = {
+        k: v for k, v in (settings or {}).items() if v is not None
+    }
     merged_settings = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS)
-    if settings:
-        for k, v in settings.items():
-            if v is not None:
-                merged_settings[k] = v
+    for k, v in settings_delta.items():
+        merged_settings[k] = v
     return {
         "id": str(session_id),
         "name": str(name or session_id),
         "icon": str(icon or "💬"),
+        "group": str(group or ""),
         "system_prompt": str(system_prompt or ""),
         "settings": merged_settings,
+        "settings_delta": settings_delta,
         "created_at": time.time(),
         "updated_at": time.time(),
     }
 
 
 def default_sessions() -> list[dict[str, Any]]:
-    """Return a fresh list of the built-in default sessions. Each session
-    is built via `make_session`, which means its settings dict starts
-    from a full copy of the default session settings — not just the
-    overrides. Without this, a session created from a DEFAULT_SESSIONS
-    entry would be missing keys like `chat_max_tokens` or
-    `chat_history_turns` that the rest of the chat pipeline expects."""
+    """Return a fresh list of the built-in default sessions."""
     return [
         make_session(
             session_id=str(s.get("id") or ""),
@@ -289,9 +378,23 @@ def default_sessions() -> list[dict[str, Any]]:
             system_prompt=str(s.get("system_prompt") or ""),
             settings=dict(s.get("settings") or {}),
             icon=str(s.get("icon") or "💬"),
+            group=str(s.get("group") or ""),
         )
         for s in DEFAULT_SESSIONS
     ]
+
+
+def _ensure_settings_delta(session: dict[str, Any]) -> None:
+    """Backfill ``settings_delta`` for sessions created before this field
+    existed. Computed by comparing stored settings against the session
+    defaults — any key whose value differs is considered an explicit override."""
+    if "settings_delta" not in session:
+        stored = dict(session.get("settings") or {})
+        session["settings_delta"] = {
+            k: v for k, v in stored.items()
+            if k not in _DEFAULT_SESSION_SETTINGS
+            or _DEFAULT_SESSION_SETTINGS.get(k) != v
+        }
 
 
 # ── Session registry inside chat_state ───────────────────────────────────────
@@ -303,11 +406,40 @@ def default_sessions() -> list[dict[str, Any]]:
 def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the list of session dicts. Always non-empty — returns the
     default sessions if the chat state has none yet (legacy / freshly
-    initialised)."""
+    initialised).
+
+    Also handles two migration tasks transparently:
+    - Backfills ``settings_delta`` for sessions that pre-date that field.
+    - Appends any built-in default sessions that are missing (e.g. newly
+      added architecture sessions) so users get them automatically."""
     sessions = chat.get("ai_sessions")
     if not isinstance(sessions, list) or not sessions:
         sessions = default_sessions()
         chat["ai_sessions"] = sessions
+        return sessions
+
+    # Backfill settings_delta + group for legacy sessions
+    for s in sessions:
+        if isinstance(s, dict):
+            _ensure_settings_delta(s)
+            if "group" not in s:
+                s["group"] = ""
+
+    # Add missing built-in sessions (e.g. new architecture sessions)
+    existing_ids = {str((s or {}).get("id") or "") for s in sessions}
+    for default_sess in DEFAULT_SESSIONS:
+        sess_id = str(default_sess.get("id") or "")
+        if sess_id and sess_id not in existing_ids:
+            sessions.append(make_session(
+                session_id=sess_id,
+                name=str(default_sess.get("name") or sess_id),
+                system_prompt=str(default_sess.get("system_prompt") or ""),
+                settings=dict(default_sess.get("settings") or {}),
+                icon=str(default_sess.get("icon") or "💬"),
+                group=str(default_sess.get("group") or ""),
+            ))
+
+    chat["ai_sessions"] = sessions
     return sessions
 
 
@@ -540,16 +672,31 @@ def update_session_settings(
     session_id: str,
     settings: dict[str, Any],
 ) -> bool:
-    """Merge new settings into a session. Existing settings are preserved
-    for keys that are not in the update."""
+    """Merge new settings into a session.
+
+    Values set to ``None`` are treated as "reset to default" — the key is
+    removed from ``settings_delta`` and the default value from
+    ``_DEFAULT_SESSION_SETTINGS`` is restored in ``settings``.  All other
+    values are added to both ``settings`` and ``settings_delta``."""
+    import copy as _copy
     session = get_session(chat, session_id)
     if session is None:
         return False
+    _ensure_settings_delta(session)
+    delta = dict(session.get("settings_delta") or {})
     current = dict(session.get("settings") or {})
     for k, v in (settings or {}).items():
-        if v is not None:
+        if v is None:
+            delta.pop(k, None)
+            if k in _DEFAULT_SESSION_SETTINGS:
+                current[k] = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS[k])
+            else:
+                current.pop(k, None)
+        else:
+            delta[k] = v
             current[k] = v
     session["settings"] = current
+    session["settings_delta"] = delta
     session["updated_at"] = time.time()
     chat["updated_at"] = time.time()
     return True

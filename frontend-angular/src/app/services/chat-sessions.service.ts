@@ -7,8 +7,10 @@ export interface ChatSession {
   id: string;
   name: string;
   icon: string;
+  group: string;
   system_prompt: string;
   settings: Record<string, unknown>;
+  settings_delta: Record<string, unknown>;
   created_at?: number;
   updated_at?: number;
 }
@@ -17,6 +19,7 @@ export interface CreateSessionPayload {
   id?: string;
   name: string;
   icon?: string;
+  group?: string;
   system_prompt?: string;
   settings?: Record<string, unknown>;
 }
@@ -85,7 +88,7 @@ export class ChatSessionsService {
     });
   }
 
-  update(sessionId: string, patch: Partial<Pick<ChatSession, 'name' | 'icon' | 'system_prompt' | 'settings'>>): void {
+  update(sessionId: string, patch: Partial<Pick<ChatSession, 'name' | 'icon' | 'group' | 'system_prompt' | 'settings'>>): void {
     const url = this.hubUrl;
     if (!url) return;
     this.core.patch<ChatSession>(`${url}/api/chat/sessions/${sessionId}`, patch, url).subscribe({
