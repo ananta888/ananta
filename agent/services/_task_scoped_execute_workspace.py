@@ -123,7 +123,7 @@ def run_execute_workspace_path(
                 native_runtime_payload=(proposal_meta.get("worker_context", {}).get("native_runtime") if isinstance(proposal_meta.get("worker_context", {}).get("native_runtime"), dict) else {}),
                 agent_cfg=agent_cfg,
             )
-            from agent.services.task_scoped_execution_service import LocalExecutionResult
+            from agent.services.task_execution_context_builder import LocalExecutionResult
             execution_run = LocalExecutionResult(
                 output=str(native_execution.get("output") or ""),
                 exit_code=int(native_execution.get("exit_code") or 1),
