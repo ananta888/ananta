@@ -203,6 +203,7 @@ def run_rag_chat_tool_loop(
     tool_call_count = 0
     llm_call_count = 0
     last_content = ""
+    _already_read: dict[str, str] = {}  # path → content, to prevent re-reading the same file
 
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
         """Short preview of the last 4 messages — for log entries only."""
@@ -438,11 +439,28 @@ def run_rag_chat_tool_loop(
                 args = {}
 
             _log.debug("tool_loop: calling %s(%s)", fn_name, args)
-            result = _dispatch_tool(
-                fn_name, args,
-                repo_root=repo_root,
-                max_chars_per_file=max_chars_per_file,
-            )
+            if fn_name == "read_file":
+                _req_path = str(args.get("path") or "").strip()
+                if _req_path in _already_read:
+                    result = (
+                        f"[Datei '{_req_path}' wurde bereits gelesen — "
+                        f"der Inhalt ist bereits im Kontext. "
+                        f"Bitte eine andere Datei aus der Liste auswählen oder search_codebase() nutzen.]"
+                    )
+                else:
+                    result = _dispatch_tool(
+                        fn_name, args,
+                        repo_root=repo_root,
+                        max_chars_per_file=max_chars_per_file,
+                    )
+                    if not result.startswith("[Fehler"):
+                        _already_read[_req_path] = result
+            else:
+                result = _dispatch_tool(
+                    fn_name, args,
+                    repo_root=repo_root,
+                    max_chars_per_file=max_chars_per_file,
+                )
 
             trace["tools_used"].append({
                 "iteration": _iteration,

@@ -654,7 +654,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 from agent.routes.ai_snake_trace_store import get_trace_store, TraceRecorder
                 from agent.routes.ai_snake_config import _current_config as _trc_cfg
                 _trc_settings = _trc_cfg()
-                _max_preview = int(_trc_settings.get("ai_snake_trace_max_preview_chars") or 12000)
+                _max_preview = int(_trc_settings.get("ai_snake_trace_max_preview_chars") or 200000)
                 store = get_trace_store()
                 trace_id = store.new_trace(snake_id=snake_id)
                 rec = TraceRecorder(store, trace_id, max_preview_chars=_max_preview)
