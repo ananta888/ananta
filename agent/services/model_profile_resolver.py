@@ -5,18 +5,19 @@ Deterministic resolver: given routing context + loaded profiles, returns
 the best-matching ModelProfile with full decision trace.
 
 Precedence ranks (0 = highest):
-  0  security_policy         — hard block (secrets + cloud blocked)
-  1  task_override_map       — per-task explicit override from config
-  2  blueprint_rule          — blueprint-specific routing rule
-  3  template_rule           — template-specific routing rule
-  4  team_rule               — team-scoped routing rule
-  5  risk_class_rule         — risk_class routing rule
-  6  model_role_rule         — generic role→profile rule
-  7  global_routing_config   — global provider/model setting
-  8  env_override            — env var MODEL_PROFILE or MODEL_OVERRIDE_ID
-  9  user_runtime_override   — runtime user-supplied profile_id
- 10  capability_match        — best capability-matched profile
- 11  legacy_default          — DEFAULT_PROVIDER / DEFAULT_MODEL fallback
+  0   security_policy           — hard block (secrets + cloud blocked)
+  1   request_runtime_override  — explicit per-request model from caller
+  2   task_override_map         — per-task explicit override from config
+  3   blueprint_rule            — blueprint-specific routing rule
+  4   template_rule             — template-specific routing rule
+  5   team_rule                 — team-scoped routing rule
+  6   risk_class_rule           — risk_class routing rule
+  7   model_role_rule           — generic role→profile rule
+  8   user_runtime_override     — runtime user-supplied profile_id
+  9   global_master_default     — ANANTA_MASTER_LLM_* / DEFAULT_* env default
+  10  env_override              — env var MODEL_PROFILE or MODEL_OVERRIDE_ID
+  11  capability_match          — best capability-matched profile
+  12  legacy_fallback_chain     — fallback chain from routing rules
 """
 from __future__ import annotations
 
@@ -51,6 +52,7 @@ class RoutingContext:
     task_kind: str | None = None
     risk_class: str | None = None
     context_text: str = ""
+    request_profile_id: str | None = None
     user_profile_id: str | None = None
     env_profile_id: str | None = None
     requires_tools: bool = False
@@ -188,7 +190,22 @@ class ModelProfileResolver:
     """
     Deterministic, traceable profile resolver.
 
-    Evaluation order: rank 0 (security hard-block) → rank 1-11 (first match wins).
+    Evaluation order: rank 0 (security hard-block) → rank 1-12 (first match wins).
+
+    Precedence (AMR-022):
+      0   security_policy
+      1   request_runtime_override
+      2   task_override_map
+      3   blueprint_rule
+      4   template_rule
+      5   team_rule
+      6   risk_class_rule
+      7   model_role_rule
+      8   user_runtime_override
+      9   global_master_default
+      10  env_override
+      11  capability_match
+      12  legacy_fallback_chain
     """
 
     def __init__(
@@ -199,6 +216,7 @@ class ModelProfileResolver:
         health_cache: ProviderHealthCache | None = None,
         benchmark_profile_order: list[str] | None = None,
         benchmark_metadata: dict[str, Any] | None = None,
+        master_default_profile: ModelProfile | None = None,
     ):
         self._by_id: dict[str, ModelProfile] = {p.profile_id: p for p in profiles if p.enabled}
         self._all_enabled: list[ModelProfile] = [p for p in profiles if p.enabled]
@@ -211,6 +229,7 @@ class ModelProfileResolver:
             if str(profile_id or "").strip()
         ]
         self._benchmark_metadata = dict(benchmark_metadata or {})
+        self._master_default = master_default_profile
 
     def resolve(self, ctx: RoutingContext) -> ResolutionResult:
         decisions: list[ResolutionDecision] = []
@@ -249,73 +268,107 @@ class ModelProfileResolver:
             decisions.append(ResolutionDecision(rank, source, pid, True, "accepted"))
             return prof
 
-        # rank 1: task_kind override
+        def _try_profile(rank: int, source: str, prof: ModelProfile | None) -> ModelProfile | None:
+            if prof is None:
+                decisions.append(ResolutionDecision(rank, source, None, False, "no_candidate"))
+                return None
+            pid = prof.profile_id
+            allowed, reason = self.security.is_allowed(prof, ctx.context_text)
+            if not allowed:
+                blocked.append((pid, reason))
+                decisions.append(ResolutionDecision(rank, source, pid, False, reason))
+                return None
+            cap_ok, cap_reason = self._capability_check(prof, ctx)
+            if not cap_ok:
+                decisions.append(ResolutionDecision(rank, source, pid, False, cap_reason))
+                return None
+            if not self.health.is_available(prof.provider_id):
+                decisions.append(
+                    ResolutionDecision(
+                        rank, source, pid, False,
+                        f"provider_health:unavailable:{prof.provider_id}",
+                    )
+                )
+                return None
+            decisions.append(ResolutionDecision(rank, source, pid, True, "accepted"))
+            return prof
+
+        # rank 1: request_runtime_override — explicit per-request override
+        prof = _try(1, "request_runtime_override", ctx.request_profile_id)
+        if prof:
+            return ResolutionResult(prof, decisions, blocked, 1, "request_runtime_override")
+
+        # rank 2: task_override_map (task_kind)
         pid = self.rules.task_overrides.get(ctx.task_kind or "")
-        prof = _try(1, "task_override_map", pid)
+        prof = _try(2, "task_override_map", pid)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 1, "task_override_map")
+            return ResolutionResult(prof, decisions, blocked, 2, "task_override_map")
 
-        # rank 2: blueprint
+        # rank 3: blueprint
         pid = self.rules.blueprint_rules.get(ctx.blueprint_id or "")
-        prof = _try(2, "blueprint_rule", pid)
+        prof = _try(3, "blueprint_rule", pid)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 2, "blueprint_rule")
+            return ResolutionResult(prof, decisions, blocked, 3, "blueprint_rule")
 
-        # rank 3: template
+        # rank 4: template
         pid = self.rules.template_rules.get(ctx.template_id or "")
-        prof = _try(3, "template_rule", pid)
+        prof = _try(4, "template_rule", pid)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 3, "template_rule")
+            return ResolutionResult(prof, decisions, blocked, 4, "template_rule")
 
-        # rank 4: team
+        # rank 5: team
         pid = self.rules.team_rules.get(ctx.team_id or "")
-        prof = _try(4, "team_rule", pid)
+        prof = _try(5, "team_rule", pid)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 4, "team_rule")
+            return ResolutionResult(prof, decisions, blocked, 5, "team_rule")
 
-        # rank 5: risk_class
+        # rank 6: risk_class
         pid = self.rules.risk_class_rules.get(ctx.risk_class or "")
-        prof = _try(5, "risk_class_rule", pid)
+        prof = _try(6, "risk_class_rule", pid)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 5, "risk_class_rule")
+            return ResolutionResult(prof, decisions, blocked, 6, "risk_class_rule")
 
-        # rank 6: model_role
+        # rank 7: model_role
         pid = self.rules.role_rules.get(ctx.model_role)
-        prof = _try(6, "model_role_rule", pid)
+        prof = _try(7, "model_role_rule", pid)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 6, "model_role_rule")
+            return ResolutionResult(prof, decisions, blocked, 7, "model_role_rule")
 
-        # rank 7: global routing config
+        # rank 8: user_runtime_override — user's configured preference
+        prof = _try(8, "user_runtime_override", ctx.user_profile_id)
+        if prof:
+            return ResolutionResult(prof, decisions, blocked, 8, "user_runtime_override")
+
+        # rank 9: global_master_default — routing-rules global_profile_id, then env-based master
         pid = self.rules.global_profile_id
-        prof = _try(7, "global_routing_config", pid)
+        if pid:
+            prof = _try(9, "global_routing_config", pid)
+            if prof:
+                return ResolutionResult(prof, decisions, blocked, 9, "global_routing_config")
+        prof = _try_profile(9, "global_master_default", self._master_default)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 7, "global_routing_config")
+            return ResolutionResult(prof, decisions, blocked, 9, "global_master_default")
 
-        # rank 8: env var
+        # rank 10: env_override (MODEL_PROFILE / MODEL_OVERRIDE_ID)
         env_pid = ctx.env_profile_id or os.environ.get("MODEL_PROFILE") or os.environ.get("MODEL_OVERRIDE_ID")
-        prof = _try(8, "env_override", env_pid)
+        prof = _try(10, "env_override", env_pid)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 8, "env_override")
+            return ResolutionResult(prof, decisions, blocked, 10, "env_override")
 
-        # rank 9: user runtime override
-        prof = _try(9, "user_runtime_override", ctx.user_profile_id)
-        if prof:
-            return ResolutionResult(prof, decisions, blocked, 9, "user_runtime_override")
-
-        # rank 10: capability match — best enabled profile for requested role
+        # rank 11: capability_match — best enabled profile for requested role
         prof = self._capability_match(ctx, decisions, blocked)
         if prof:
-            return ResolutionResult(prof, decisions, blocked, 10, "capability_match")
+            return ResolutionResult(prof, decisions, blocked, 11, "capability_match")
 
-        # rank 11: fallback chain
+        # rank 12: legacy_fallback_chain
         for pid in self.rules.fallback_chain:
-            prof = _try(11, "legacy_fallback_chain", pid)
+            prof = _try(12, "legacy_fallback_chain", pid)
             if prof:
-                return ResolutionResult(prof, decisions, blocked, 11, "legacy_fallback_chain")
+                return ResolutionResult(prof, decisions, blocked, 12, "legacy_fallback_chain")
 
         # exhausted
         decisions.append(
-            ResolutionDecision(11, "no_fallback", None, False, "no_usable_profile_found")
+            ResolutionDecision(12, "no_fallback", None, False, "no_usable_profile_found")
         )
         return ResolutionResult(None, decisions, blocked, None, None)
 
@@ -355,7 +408,7 @@ class ModelProfileResolver:
             )
             decisions.append(
                 ResolutionDecision(
-                    10,
+                    11,
                     "benchmark_profile_ranking",
                     candidates[0].profile_id if candidates else None,
                     True,
@@ -368,23 +421,23 @@ class ModelProfileResolver:
             if not allowed:
                 blocked.append((prof.profile_id, reason))
                 decisions.append(
-                    ResolutionDecision(10, "capability_match", prof.profile_id, False, reason)
+                    ResolutionDecision(11, "capability_match", prof.profile_id, False, reason)
                 )
                 continue
             cap_ok, cap_reason = self._capability_check(prof, ctx)
             if not cap_ok:
                 decisions.append(
-                    ResolutionDecision(10, "capability_match", prof.profile_id, False, cap_reason)
+                    ResolutionDecision(11, "capability_match", prof.profile_id, False, cap_reason)
                 )
                 continue
             if not self.health.is_available(prof.provider_id):
                 decisions.append(
-                    ResolutionDecision(10, "capability_match", prof.profile_id, False,
+                    ResolutionDecision(11, "capability_match", prof.profile_id, False,
                                        f"provider_health:unavailable:{prof.provider_id}")
                 )
                 continue
             decisions.append(
-                ResolutionDecision(10, "capability_match", prof.profile_id, True, "best_capability_match")
+                ResolutionDecision(11, "capability_match", prof.profile_id, True, "best_capability_match")
             )
             return prof
         return None

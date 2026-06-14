@@ -45,14 +45,14 @@ def test_task_routing_contract_has_model_profile_fields():
         model_profile_id="local-coder",
         model_role="coder",
         model_resolver_source="blueprint_rule",
-        model_resolver_rank=2,
+        model_resolver_rank=3,
         model_policy_decisions=["accepted"],
         model_blocked_candidates=[],
         model_cloud_allowed=False,
         model_block_secret_context=False,
     )
     assert c.model_profile_id == "local-coder"
-    assert c.model_resolver_rank == 2
+    assert c.model_resolver_rank == 3
     assert c.model_cloud_allowed is False
 
 

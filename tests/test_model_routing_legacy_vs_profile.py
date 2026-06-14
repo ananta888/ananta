@@ -101,7 +101,7 @@ def test_resolver_uses_first_profile_via_capability_match():
         _local_profile("profile-a"),
         _local_profile("profile-b"),
     ]
-    # No rules configured → falls through to capability_match (rank 10)
+    # No rules configured → falls through to capability_match (rank 11)
     resolver = ModelProfileResolver(profiles=profiles, routing_rules=RoutingRules())
     result = resolver.resolve(RoutingContext())
     assert result.profile is not None
@@ -119,7 +119,7 @@ def test_resolver_global_rule_sets_winner():
     result = resolver.resolve(RoutingContext())
     assert result.profile.profile_id == "profile-b"
     assert result.final_source == "global_routing_config"
-    assert result.final_rank == 7
+    assert result.final_rank == 9
 
 
 def test_resolver_role_rule_beats_global():
@@ -135,7 +135,7 @@ def test_resolver_role_rule_beats_global():
     result = resolver.resolve(RoutingContext(model_role="expert"))
     assert result.profile.profile_id == "expert"
     assert result.final_source == "model_role_rule"
-    assert result.final_rank == 6
+    assert result.final_rank == 7
 
 
 # ── Profile resolver with legacy fallback ────────────────────────────────────
@@ -263,11 +263,11 @@ def test_resolution_result_carries_source_rank():
 
     r1 = resolver.resolve(RoutingContext(model_role="expert"))
     assert r1.final_source == "model_role_rule"
-    assert r1.final_rank == 6
+    assert r1.final_rank == 7
 
     r2 = resolver.resolve(RoutingContext())
     assert r2.final_source == "global_routing_config"
-    assert r2.final_rank == 7
+    assert r2.final_rank == 9
 
 
 def test_resolution_result_carries_decisions():

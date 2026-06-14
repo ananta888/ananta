@@ -122,26 +122,61 @@ class ModelInvocationService:
                 from pathlib import Path
                 from agent.services.model_profile_loader import ModelProfileLoader
                 from agent.services.model_profile_resolver import ModelProfileResolver, SecurityPolicyChecker, RoutingRules
+                from agent.services.model_master_default_service import get_global_master_default_service
 
                 profiles_path_env = os.environ.get("MODEL_PROFILES_PATH", "").strip()
                 if not profiles_path_env:
                     return None
                 path = Path(profiles_path_env)
                 if not path.exists():
+                    logger.info("model_invocation: MODEL_PROFILES_PATH %s not found", path)
                     return None
                 result = ModelProfileLoader().load_file(path)
                 if not result.ok or not result.profiles:
                     logger.warning("model_invocation: profile load errors: %s", result.errors)
                     return None
+
+                logger.info("model_invocation: loaded %d profiles from %s", len(result.profiles), path)
+
+                # Load routing rules
+                routing_rules = RoutingRules()
+                routing_path_str = (
+                    os.environ.get("MODEL_ROUTING_PATH", "").strip()
+                    or os.environ.get("ANANTA_MODEL_ROUTING_PATH", "").strip()
+                )
+                if routing_path_str:
+                    rp = Path(routing_path_str)
+                    if rp.exists():
+                        try:
+                            raw_routing = json.loads(rp.read_text(encoding="utf-8"))
+                            if isinstance(raw_routing, dict):
+                                routing_rules = RoutingRules.from_dict(raw_routing)
+                                logger.info("model_invocation: loaded routing rules from %s", rp)
+                        except Exception as exc:
+                            logger.warning("model_invocation: routing parse failed for %s: %s — using empty rules", rp, exc)
+                    else:
+                        logger.info("model_invocation: MODEL_ROUTING_PATH %s not found — using empty rules", rp)
+                else:
+                    logger.debug("model_invocation: no MODEL_ROUTING_PATH set — using empty rules")
+
+                # Load global master default
+                master_svc = get_global_master_default_service()
+                master_profile = master_svc.get_master_profile()
+
                 resolver = ModelProfileResolver(
                     profiles=result.profiles,
                     security_policy=SecurityPolicyChecker(),
+                    routing_rules=routing_rules,
+                    master_default_profile=master_profile,
                 )
                 _PROFILE_RESOLVER_CACHE = resolver
-                logger.info(
-                    "model_invocation: loaded %d profiles from %s",
-                    len(result.profiles), path,
-                )
+
+                if master_profile:
+                    logger.info(
+                        "model_invocation: global master default active: provider=%s model=%s",
+                        master_profile.provider_id, master_profile.model,
+                    )
+
                 # AMR-020: log deprecation warning if legacy env vars are still set
                 import os as _os
                 if _os.environ.get("DEFAULT_PROVIDER") or _os.environ.get("DEFAULT_MODEL"):
@@ -286,6 +321,7 @@ class ModelInvocationService:
     ) -> dict:
         """POST chat/completions and return parsed JSON response."""
         resolved_profile = None
+        resolution_info: dict[str, Any] = {}
         if routing_ctx is not None:
             try:
                 resolver = cls._get_resolver()
@@ -293,16 +329,36 @@ class ModelInvocationService:
                     result = resolver.resolve(routing_ctx)
                     if result.ok:
                         resolved_profile = result.profile
+                        resolution_info = {
+                            "profile_id": result.profile.profile_id,
+                            "resolution_source": result.final_source,
+                            "resolution_rank": result.final_rank,
+                        }
+                        accepted = [d for d in result.decisions if d.accepted]
+                        if accepted:
+                            resolution_info["resolution_decision"] = accepted[-1].reason
                         logger.debug(
-                            "model_invocation: resolver picked %s via %s",
+                            "model_invocation: resolver picked %s via %s (rank=%s)",
                             result.profile.profile_id,
                             result.final_source,
+                            result.final_rank,
                         )
                     else:
+                        blocked_reasons = [r for _, r in result.blocked_candidates]
+                        resolution_info = {
+                            "resolution_source": "none",
+                            "resolution_fallback_reason": "no_profile_resolved",
+                            "blocked_candidates": blocked_reasons,
+                        }
                         logger.warning(
-                            "model_invocation: resolver returned no profile, using legacy path"
+                            "model_invocation: resolver returned no profile (blocked=%s), using legacy path",
+                            blocked_reasons,
                         )
             except Exception as exc:
+                resolution_info = {
+                    "resolution_source": "error",
+                    "resolution_fallback_reason": f"resolver_error:{exc}",
+                }
                 logger.warning("model_invocation: resolver failed: %s — using legacy path", exc)
 
         if resolved_profile is not None:
@@ -323,6 +379,8 @@ class ModelInvocationService:
             # override model if explicitly passed and non-auto
             if model and model != "auto":
                 effective_model = model
+            if not resolution_info.get("resolution_source"):
+                resolution_info["resolution_source"] = "legacy_provider_info"
 
         if timeout is None:
             timeout = 120
@@ -498,6 +556,8 @@ class ModelInvocationService:
                     if prompt_trace is not None:
                         meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
                     meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [profile]
+                    if resolution_info:
+                        meta["resolution_info"] = dict(resolution_info)
                     payload["metadata"] = meta
                 return payload
             except Exception as exc:
@@ -539,6 +599,7 @@ class ModelInvocationService:
             tools=tools,
             model=model,
             timeout=kwargs.get("timeout"),
+            routing_ctx=kwargs.get("routing_ctx"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") or {}
@@ -577,7 +638,8 @@ class ModelInvocationService:
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
         response = cls._make_chat_call(
-            messages, response_format={"type": "json_object"}, model=model
+            messages, response_format={"type": "json_object"}, model=model,
+            routing_ctx=kwargs.get("routing_ctx"),
         )
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
@@ -595,6 +657,7 @@ class ModelInvocationService:
             response_format={"type": "json_object"},
             model=model,
             timeout=kwargs.get("timeout"),
+            routing_ctx=kwargs.get("routing_ctx"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}
@@ -615,7 +678,10 @@ class ModelInvocationService:
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(messages, model=model)
+        response = cls._make_chat_call(
+            messages, model=model,
+            routing_ctx=kwargs.get("routing_ctx"),
+        )
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
 
@@ -625,7 +691,10 @@ class ModelInvocationService:
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(messages, model=model, timeout=kwargs.get("timeout"))
+        response = cls._make_chat_call(
+            messages, model=model, timeout=kwargs.get("timeout"),
+            routing_ctx=kwargs.get("routing_ctx"),
+        )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}

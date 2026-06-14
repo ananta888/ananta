@@ -137,3 +137,74 @@ def test_resolve_propose_timeout_prefers_calibrated_when_higher(tmp_path, monkey
     }
     timeout = resolve_propose_llm_timeout_seconds(effective_config=cfg, task_kind="coding")
     assert timeout > 120
+
+
+def test_make_chat_call_with_routing_ctx_includes_resolution_info(monkeypatch) -> None:
+    """AMR-019: routing_ctx passed to make_chat_call produces resolution_info in metadata."""
+    from agent.services.model_profile_loader import ModelProfile
+    from agent.services.model_profile_resolver import (
+        ModelProfileResolver,
+        RoutingContext,
+        RoutingRules,
+        SecurityPolicyChecker,
+    )
+    import agent.services.model_invocation_service as svc_mod
+
+    profile = ModelProfile(
+        profile_id="test-local",
+        provider_id="ollama",
+        model="qwen:7b",
+        local=True,
+        cloud=False,
+    )
+    resolver = ModelProfileResolver(
+        profiles=[profile],
+        security_policy=SecurityPolicyChecker(),
+        routing_rules=RoutingRules(),
+    )
+
+    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
+    svc_mod._PROFILE_RESOLVER_CACHE = None
+
+    captured: dict = {}
+
+    def _fake_post(url, json, headers, timeout):  # noqa: ANN001
+        captured["url"] = url
+        captured["body"] = dict(json or {})
+        return SimpleNamespace(
+            status_code=200,
+            json=lambda: {
+                "choices": [{"message": {"content": "routed ok", "tool_calls": []}, "finish_reason": "stop"}],
+                "usage": {},
+                "model": "qwen:7b",
+            },
+        )
+
+    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_get_settings",
+        classmethod(
+            lambda cls: SimpleNamespace(
+                default_provider="lmstudio",
+                default_model="auto",
+                lmstudio_url="http://localhost:1234/v1",
+                ollama_url="http://localhost:11434/api/generate",
+                openai_url="https://api.openai.com/v1",
+                openai_api_key=None,
+                mock_url="http://mock",
+                llm_invoke_timeout_seconds=120,
+            )
+        ),
+    )
+
+    ctx = RoutingContext(request_profile_id="test-local")
+    result = ModelInvocationService.invoke_result(prompt="hello", routing_ctx=ctx)
+
+    assert "resolution_info" in result.get("metadata", {}), (
+        f"Expected resolution_info in metadata, got: {result.get('metadata', {})}"
+    )
+    ri = result["metadata"]["resolution_info"]
+    assert ri["profile_id"] == "test-local"
+    assert ri["resolution_source"] == "request_runtime_override"
+    assert ri["resolution_rank"] == 1
