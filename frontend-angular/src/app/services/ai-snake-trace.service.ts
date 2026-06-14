@@ -73,6 +73,8 @@ export class AiSnakeTraceService implements OnDestroy {
 
   private onReplyStarted(): void {
     this.sinceSeq = 0;
+    this.activeTraceId$.next(null);
+    this.traceEvents$.next([]);
     this.stopPoll();
     // Fast poll while reply is generating
     this.pollTimer = setInterval(() => this.pollLatestTrace(), 1200);
