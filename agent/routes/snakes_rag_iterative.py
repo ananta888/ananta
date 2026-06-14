@@ -308,6 +308,7 @@ def worker_chat_rag_iterative(
             max_chars_per_file=max_chars_per_file,
             timeout=timeout_s,
             rec=rec,
+            initial_files=[e["path"] for e in file_entries],
         )
         trace["tool_loop"] = tl_trace
         trace["file_list"] = [e["path"] for e in file_entries]

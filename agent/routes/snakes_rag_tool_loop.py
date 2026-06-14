@@ -135,6 +135,7 @@ def run_rag_chat_tool_loop(
     max_chars_per_file: int = 8000,
     timeout: int = 180,
     rec: Any | None = None,
+    initial_files: list[str] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
     Agentic loop: send messages to LLM, handle tool calls, return final answer.
@@ -148,6 +149,7 @@ def run_rag_chat_tool_loop(
         max_chars_per_file: Max characters to return per file read.
         timeout: HTTP timeout per LLM call in seconds.
         rec: Optional trace recorder.
+        initial_files: List of file paths included in initial context (for logging).
 
     Returns:
         (final_answer_text, trace_dict)
@@ -221,7 +223,7 @@ def run_rag_chat_tool_loop(
             )
 
         _prompt_text = _input_preview(current_messages)
-        log_llm_entry(
+        _log_kwargs: dict[str, Any] = dict(
             event="llm_call_start",
             provider=provider,
             model=model or "auto",
@@ -229,6 +231,10 @@ def run_rag_chat_tool_loop(
             tool_loop_call=llm_call_count,
             history_len=len(current_messages),
         )
+        if llm_call_count == 1 and initial_files:
+            _log_kwargs["initial_files"] = initial_files
+            _log_kwargs["initial_files_count"] = len(initial_files)
+        log_llm_entry(**_log_kwargs)
 
         try:
             resp = requests.post(endpoint, json=payload, headers=headers, timeout=timeout)
