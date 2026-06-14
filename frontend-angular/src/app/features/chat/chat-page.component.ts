@@ -20,24 +20,29 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
   <aside class="sidebar">
     <div class="sidebar-head">
       <span class="sidebar-title">AI Chats</span>
-      <button class="new-btn" (click)="showNew = !showNew" title="Neue Session">＋</button>
+      <button class="new-btn" (click)="showNew = !showNew" title="Neue Session" data-waypoint="chat.new-session">＋</button>
     </div>
 
     <div class="session-list">
-      @for (s of (svc.sessions$ | async) || []; track s.id) {
-        <button class="sess-item"
-                [class.active]="s.id === selectedId"
-                [class.is-current]="s.id === (svc.activeSessionId$ | async)"
-                (click)="select(s)">
-          <span class="si-icon">{{ s.icon || '💬' }}</span>
-          <span class="si-body">
-            <span class="si-name">{{ s.name }}</span>
-            <span class="si-meta">{{ lastMessagePreview(s.id) }}</span>
-          </span>
-          @if (s.id === (svc.activeSessionId$ | async)) {
-            <span class="si-active-dot" title="Aktiv">●</span>
-          }
-        </button>
+      @for (group of groupedSessions(); track group.name) {
+        @if (group.name) {
+          <div class="sess-group-head">{{ group.name }}</div>
+        }
+        @for (s of group.sessions; track s.id) {
+          <button class="sess-item"
+                  [class.active]="s.id === selectedId"
+                  [class.is-current]="s.id === (svc.activeSessionId$ | async)"
+                  (click)="select(s)">
+            <span class="si-icon">{{ s.icon || '💬' }}</span>
+            <span class="si-body">
+              <span class="si-name">{{ s.name }}</span>
+              <span class="si-meta">{{ lastMessagePreview(s.id) }}</span>
+            </span>
+            @if (s.id === (svc.activeSessionId$ | async)) {
+              <span class="si-active-dot" title="Aktiv">●</span>
+            }
+          </button>
+        }
       }
     </div>
 
@@ -112,10 +117,10 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
 
       <!-- Tabs -->
       <div class="tabs">
-        <button [class.tab-active]="detailTab === 'messages'" (click)="detailTab = 'messages'">
+        <button [class.tab-active]="detailTab === 'messages'" (click)="detailTab = 'messages'" data-waypoint="chat.messages-tab">
           Nachrichten ({{ messageCount() }})
         </button>
-        <button [class.tab-active]="detailTab === 'settings'" (click)="detailTab = 'settings'">
+        <button [class.tab-active]="detailTab === 'settings'" (click)="detailTab = 'settings'" data-waypoint="chat.settings-tab">
           Einstellungen
         </button>
       </div>
@@ -150,7 +155,7 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
       <!-- Einstellungen -->
       @if (detailTab === 'settings') {
         <div class="settings-area">
-          <label class="sl">Backend
+          <label class="sl" data-waypoint="chat.backend-select">Backend
             <select [ngModel]="sessBackend(selected)"
                     (ngModelChange)="patchSetting('chat_backend', $event)">
               <option value="ananta-worker">ananta-worker</option>
@@ -159,7 +164,7 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
               <option value="hermes">hermes</option>
             </select>
           </label>
-          <label class="sl">Retrieval-Profil
+          <label class="sl" data-waypoint="chat.retrieval-profile">Retrieval-Profil
             <select [ngModel]="getSetting('chat_retrieval_profile', 'auto')"
                     (ngModelChange)="patchSetting('chat_retrieval_profile', $event)">
               <option value="auto">auto</option>
@@ -178,7 +183,7 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
                    (ngModelChange)="patchSetting('chat_code_questions_repo_first', $event)" />
             Code-Fragen: Repo bevorzugen
           </label>
-          <label class="sl">System-Prompt
+          <label class="sl" data-waypoint="chat.system-prompt">System-Prompt
             <textarea rows="6" [ngModel]="selected.system_prompt"
                       (ngModelChange)="patchPromptDebounced($event)"
                       placeholder="Leer = System-Standard"></textarea>
@@ -249,6 +254,13 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
     }
     .new-btn:hover { background: #102238; }
     .session-list { flex: 1; overflow-y: auto; }
+    .sess-group-head {
+      padding: 5px 10px 3px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #2a4a6a;
+      border-bottom: 1px solid #0e1e2e;
+      background: #09172a;
+    }
     .sess-item {
       width: 100%; display: flex; align-items: center; gap: 8px;
       padding: 8px 10px; border: none; background: transparent;
@@ -491,6 +503,23 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
   clearMessages(): void {
     if (this.selectedId) this.history.clearSession(this.selectedId);
+  }
+
+  groupedSessions(): Array<{ name: string; sessions: ChatSession[] }> {
+    const all = this.svc.sessions$.value;
+    const grouped = new Map<string, ChatSession[]>();
+    for (const s of all) {
+      const g = s.group || '';
+      if (!grouped.has(g)) grouped.set(g, []);
+      grouped.get(g)!.push(s);
+    }
+    const result: Array<{ name: string; sessions: ChatSession[] }> = [];
+    const ungrouped = grouped.get('');
+    if (ungrouped?.length) result.push({ name: '', sessions: ungrouped });
+    for (const [name, sessions] of grouped) {
+      if (name) result.push({ name, sessions });
+    }
+    return result;
   }
 
   lastMessagePreview(sessionId: string): string {

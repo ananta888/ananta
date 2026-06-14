@@ -244,6 +244,38 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
             "chat_retrieval_profile": "auto",
         },
     },
+    # ── Konfiguration-Gruppe ─────────────────────────────────────────────────
+    {
+        "id": "ananta-settings",
+        "name": "Ananta-Konfig",
+        "icon": "⚙️",
+        "group": "Konfiguration",
+        "system_prompt": (
+            "Du bist Konfigurations-Assistent für das Ananta-System. "
+            "Du kennst alle Konfigurationsebenen:\n"
+            "- Agenten & Agent-Templates (agent/db_models/agents.py, agent/routes/admin/agent_templates.py)\n"
+            "- Blueprints (config/blueprints/, agent/routes/blueprint_routes.py)\n"
+            "- Worker-Pool & Orchestrierung (agent/routes/worker_pool.py, orchestration_policy/)\n"
+            "- Modell-Profile & Routing (config/models/, agent/routes/config/providers.py, model_selection.py)\n"
+            "- Netzwerk-Profile (config/ananta_network_profiles.default.json)\n"
+            "- Governance-Modi (agent/governance_modes.py)\n"
+            "- Source-Packs & CodeCompass-Scope\n\n"
+            "Wenn der Nutzer etwas einrichten will:\n"
+            "1. Frage zuerst kurz, was konkret konfiguriert werden soll.\n"
+            "2. Zeige den genauen Dateipfad und das konkrete JSON/Python-Snippet.\n"
+            "3. Erkläre welche anderen Stellen ggf. angepasst werden müssen.\n"
+            "Antworte auf Deutsch wenn der Nutzer Deutsch schreibt. Sei präzise und konkret."
+        ),
+        "settings": {
+            "chat_backend": "ananta-worker",
+            "chat_use_codecompass": True,
+            "chat_retrieval_profile": "code_first",
+            "chat_code_questions_repo_first": True,
+            "chat_architecture_analysis_mode": "rag_iterative",
+            "chat_answer_chars": 5000,
+            "chat_rag_top_k": 20,
+        },
+    },
     # ── Architektur-Gruppe ────────────────────────────────────────────────────
     {
         "id": "arch-overview",

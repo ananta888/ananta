@@ -2,6 +2,9 @@ import { Injectable, inject, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Subscription } from 'rxjs';
 import { AiSnakeChatService, SnakeChatMessage } from './ai-snake-chat.service';
 import { ChatSessionsService } from './chat-sessions.service';
+import { SnakeGuideService } from './snake-guide.service';
+
+const GUIDE_MARKER = '\n\n__GUIDE__:';
 
 export interface ChatHistoryMessage {
   id: string;
@@ -19,6 +22,7 @@ const MAX_PER_SESSION = 200;
 export class ChatHistoryService implements OnDestroy {
   private snake = inject(AiSnakeChatService);
   private sessions = inject(ChatSessionsService);
+  private guide = inject(SnakeGuideService);
 
   private store: Record<string, ChatHistoryMessage[]> = {};
   private knownIds = new Set<string>();
@@ -62,11 +66,25 @@ export class ChatHistoryService implements OnDestroy {
     for (const m of msgs) {
       if (this.knownIds.has(m.id)) continue;
       this.knownIds.add(m.id);
+
+      let text = m.text ?? '';
+      const guideIdx = text.indexOf(GUIDE_MARKER);
+      if (guideIdx >= 0) {
+        const guideJson = text.slice(guideIdx + GUIDE_MARKER.length);
+        text = text.slice(0, guideIdx);
+        try {
+          const guide = JSON.parse(guideJson);
+          if (Array.isArray(guide?.steps) && guide.steps.length) {
+            this.guide.play(guide.steps);
+          }
+        } catch { /* malformed guide JSON — skip */ }
+      }
+
       const entry: ChatHistoryMessage = {
         id: m.id,
         sessionId,
         senderId: m.sender_id,
-        text: m.text,
+        text,
         ts: m.created_at || Date.now(),
         isAI: m.sender_id?.startsWith('ai') || m.sender_id?.startsWith('tutor') || m.sender_id?.includes('snake'),
       };
