@@ -251,13 +251,15 @@ def run_rag_chat_tool_loop(
         """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
         if _cancelled():
             return "[Abgebrochen]"
-        if not question or len(content) < 800:
+        if not question or len(content) < 200:
             return content  # too short to bother summarizing
         q = question[:300]
+        # Cap input at 5000 chars to keep the summarization call fast
+        content_for_summary = content[:5000]
         summary_prompt = (
             f"Frage: {q}\n\n"
             f"Datei: {path}\n"
-            f"```\n{content[:12000]}\n```\n\n"
+            f"```\n{content_for_summary}\n```\n\n"
             f"Extrahiere AUSSCHLIESSLICH die Informationen aus dieser Datei, die zur Frage direkt relevant sind. "
             f"Nenne konkrete Symbole, Funktionen, Klassen und Zeilenbezuege. "
             f"Maximal {max_summary_chars} Zeichen. "
@@ -269,7 +271,7 @@ def run_rag_chat_tool_loop(
                 endpoint,
                 json={"model": model or "auto", "messages": [{"role": "user", "content": summary_prompt}]},
                 headers=headers,
-                timeout=min(timeout, 60),
+                timeout=min(timeout, 120),
             )
             resp.raise_for_status()
             if _cancelled():
@@ -280,8 +282,8 @@ def run_rag_chat_tool_loop(
             if summary:
                 return f"[Zusammenfassung von {path}]\n{summary[:max_summary_chars]}"
         except Exception as _exc:
-            _log.debug("summarize_file failed for %s: %s", path, _exc)
-        return content  # fallback: full content
+            _log.warning("summarize_file failed for %s: %s", path, _exc)
+        return content[:max_summary_chars]  # fallback: truncated raw content
 
     def _remember_file(path: str, content: str, *, source: str, score: Any = None) -> None:
         compact = content.strip()
