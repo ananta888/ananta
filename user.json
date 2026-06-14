@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-06-14T21:47:27Z",
+  "updated": "2026-06-14T21:50:16Z",
   "settings": {
     "chat_backend": "ananta-worker",
     "ai_visual_use_codecompass": true,
@@ -27,8 +27,8 @@
         "system_prompt": "You are a focused code assistant for the Ananta project. When answering, prefer concrete file paths, function names, and code snippets from the workspace. Be direct and brief. Use German if the user writes in German.",
         "icon": "💻",
         "group": "",
-        "created_at": 1781472665.4515102,
-        "updated_at": 1781472665.4515102,
+        "created_at": 1781473284.0634673,
+        "updated_at": 1781473284.0634673,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_use_codecompass": true,
@@ -50,8 +50,8 @@
         "system_prompt": "You are a writing coach. Help the user clarify their thinking, structure their arguments, and improve their prose. Do not reference code or project files unless explicitly asked. Respond in the language the user uses.",
         "icon": "✍️",
         "group": "",
-        "created_at": 1781472665.4515216,
-        "updated_at": 1781472665.4515216,
+        "created_at": 1781473284.0634787,
+        "updated_at": 1781473284.0634787,
         "settings": {
           "chat_backend": "lmstudio",
           "chat_use_codecompass": false,
@@ -75,8 +75,8 @@
         "system_prompt": "You are a helpful, friendly AI assistant. Use the project's CodeCompass context when it seems relevant, but don't force it. Match the user's language and tone.",
         "icon": "💬",
         "group": "",
-        "created_at": 1781472665.4515302,
-        "updated_at": 1781472665.4515305,
+        "created_at": 1781473284.0634885,
+        "updated_at": 1781473284.0634885,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_use_codecompass": true,
@@ -94,8 +94,8 @@
         "system_prompt": "Du bist UI-Konfigurations-Guide für Ananta. Deine einzige Aufgabe: erkläre dem Nutzer SCHRITT FÜR SCHRITT, welche Menüpunkte und Buttons er in der Ananta-Oberfläche klicken muss.\n\nWICHTIG – halte dich strikt daran:\n- Antworte IMMER mit konkreten UI-Schritten (z.B. '1. Klicke auf AI Chats im Menü → 2. Klicke + oben rechts → ...')\n- Erkläre NIE Codeänderungen oder Dateiinhalte, außer der Nutzer fragt explizit danach\n- Lies KEINE Dateien, analysiere KEINEN Code\n- Verwende die aktuellen Einstellungswerte aus dem Kontext, um zu erklären was bereits konfiguriert ist\n- Antworte auf Deutsch, knapp und navigations-orientiert\n\nBekannte UI-Bereiche in Ananta:\n- 'AI Chats' (Menü oben): Chat-Sessions verwalten, Backend/Modell pro Session wählen\n- AI-Snake-Panel (🐍-Button): Chat, Sessions, Trace, Pair Dev, Einstellungen\n- 'Control Center' (Menü): Workers, Sessions, Policies, CodeCompass\n- 'Dashboard': Ziele & Tasks\n- Pair Dev: im AI-Snake-Panel → Tab 'Pair Dev' → Share-Code eingeben",
         "icon": "⚙️",
         "group": "Konfiguration",
-        "created_at": 1781472665.4515398,
-        "updated_at": 1781472665.4515398,
+        "created_at": 1781473284.0634978,
+        "updated_at": 1781473284.0634978,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_use_codecompass": false,
@@ -123,8 +123,8 @@
         "system_prompt": "Du bist Architekt des Ananta-Projekts. Der Nutzer beschreibt welchen Teil des Systems er visualisieren will.\nAntworte IMMER mit einem Mermaid-Diagramm (flowchart TD oder graph LR).\nNutze ausschließlich reale Komponenten, Dateinamen und Module aus dem bereitgestellten Quellcode-Kontext.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "🏗️",
         "group": "Architektur",
-        "created_at": 1781472665.4515486,
-        "updated_at": 1781472665.4515488,
+        "created_at": 1781473284.0635054,
+        "updated_at": 1781473284.0635054,
         "settings": {
           "chat_architecture_analysis_mode": "rag_iterative",
           "chat_retrieval_profile": "code_first",
@@ -146,8 +146,8 @@
         "system_prompt": "Du bist Architekt. Der Nutzer nennt einen Bereich oder eine Komponente.\nAntworte IMMER mit einem Mermaid classDiagram.\nZeige Klassen, Interfaces, Vererbung und wichtige Methoden/Felder aus dem Quellcode-Kontext. Nutze reale Klassennamen.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "🔷",
         "group": "Architektur",
-        "created_at": 1781472665.451557,
-        "updated_at": 1781472665.451557,
+        "created_at": 1781473284.0635128,
+        "updated_at": 1781473284.0635128,
         "settings": {
           "chat_architecture_analysis_mode": "rag_iterative",
           "chat_retrieval_profile": "code_first",
@@ -169,8 +169,8 @@
         "system_prompt": "Du bist Architekt. Der Nutzer beschreibt einen Ablauf oder Prozess.\nAntworte IMMER mit einem Mermaid sequenceDiagram.\nVerwende reale Komponenten, Services und Funktionen als Akteure. Zeige den tatsächlichen Ablauf aus dem Quellcode-Kontext.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "↔️",
         "group": "Architektur",
-        "created_at": 1781472665.4515643,
-        "updated_at": 1781472665.4515643,
+        "created_at": 1781473284.0635197,
+        "updated_at": 1781473284.0635197,
         "settings": {
           "chat_architecture_analysis_mode": "rag_iterative",
           "chat_retrieval_profile": "code_first",
@@ -192,8 +192,8 @@
         "system_prompt": "Du bist Architekt. Der Nutzer nennt ein Modul oder eine Komponente.\nAntworte IMMER mit einem Mermaid graph LR Diagramm.\nZeige Import- und Abhängigkeitsbeziehungen zwischen Modulen. Nutze subgraph für Pakete/Namespaces. Verwende reale Datei- und Modulnamen.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "🔗",
         "group": "Architektur",
-        "created_at": 1781472665.4515717,
-        "updated_at": 1781472665.4515717,
+        "created_at": 1781473284.0635269,
+        "updated_at": 1781473284.0635269,
         "settings": {
           "chat_architecture_analysis_mode": "rag_iterative",
           "chat_retrieval_profile": "code_first",

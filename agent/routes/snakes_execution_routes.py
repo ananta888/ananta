@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import sys
 import threading
 import time
 import uuid
@@ -651,8 +652,19 @@ def _trace_feature_enabled() -> bool:
 
 # ── Ananta-Settings guided tour ───────────────────────────────────────────────
 
+def _ensure_ui_guide(force: bool = False) -> str:
+    """Return the UI guide markdown, generating/refreshing as needed."""
+    try:
+        from agent.routes.snakes_ananta_config_tool_loop import ensure_ui_guide
+        return ensure_ui_guide(force=force)
+    except Exception as exc:
+        logging.getLogger(__name__).warning("UI guide unavailable: %s", exc)
+        return ""
+
+
 def _read_ananta_settings_summary() -> str:
-    """Return a short human-readable summary of the current user settings."""
+    """Return current live settings + the UI guide (generated on demand)."""
+    parts: list[str] = []
     try:
         from client_surfaces.operator_tui.config.user_config_manager import get_manager
         s = get_manager().load()
@@ -662,16 +674,36 @@ def _read_ananta_settings_summary() -> str:
         sess_cfg = (active_sess or {}).get("settings") or {}
         backend = str(sess_cfg.get("chat_backend") or s.get("chat_backend") or "unbekannt")
         model = str(sess_cfg.get("chat_backend_model") or s.get("chat_backend_model") or "unbekannt")
-        return (
-            f"Aktive Chat-Session: {active_sid or '(keine)'}\n"
-            f"Backend: {backend}\n"
-            f"Modell: {model}\n"
-            f"Sessions gesamt: {len(sessions)}\n"
-            f"CodeCompass: {'an' if sess_cfg.get('chat_use_codecompass', s.get('chat_use_codecompass')) else 'aus'}\n"
-            f"Retrieval-Profil: {sess_cfg.get('chat_retrieval_profile') or s.get('chat_retrieval_profile') or 'auto'}"
-        )
+        cc_on = bool(sess_cfg.get("chat_use_codecompass", s.get("chat_use_codecompass")))
+        profile = sess_cfg.get("chat_retrieval_profile") or s.get("chat_retrieval_profile") or "auto"
+
+        sess_lines = []
+        for sx in sessions:
+            sid = str(sx.get("id") or "")
+            sname = str(sx.get("name") or sid)
+            scfg = sx.get("settings") or {}
+            sb = str(scfg.get("chat_backend") or "")
+            sm = str(scfg.get("chat_backend_model") or "")
+            sess_lines.append(f"  - {sname} ({sid}): backend={sb or '(global)'} model={sm or '(global)'}")
+
+        parts.append("\n".join([
+            "## Aktuelle Ananta-Einstellungen (live)",
+            f"- Aktive Session: {active_sid or '(keine)'}",
+            f"- Standard-Backend: {backend}",
+            f"- Standard-Modell: {model}",
+            f"- CodeCompass: {'an' if cc_on else 'aus'}",
+            f"- Retrieval-Profil: {profile}",
+            f"- Konfigurierte Chat-Sessions ({len(sessions)}):",
+            *sess_lines,
+        ]))
     except Exception as exc:
-        return f"(Einstellungen nicht lesbar: {exc})"
+        parts.append(f"(Live-Einstellungen nicht lesbar: {exc})")
+
+    guide = _ensure_ui_guide()
+    if guide:
+        parts.append(guide)
+
+    return "\n\n".join(parts)
 
 
 _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
@@ -837,6 +869,49 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 elif _active_session_settings:
                     _cfg = {**_cfg, **_active_session_settings}
                 _answer_chars_limit = _chat_answer_chars_limit()
+
+                # ananta-settings: dedicated config tool loop (search_ui_docs, read_ananta_config, get_hub_*)
+                if _active_session_id == "ananta-settings":
+                    from agent.routes.snakes_ananta_config_tool_loop import run_ananta_config_tool_loop
+                    if rec:
+                        rec.event("ananta_config_tool_loop_start", "Ananta-Konfig Tool-Loop gestartet",
+                                  status="running", summary="Konfigurations-Guide mit Tool-Calling aktiv")
+                    _t0_cfg = time.time()
+                    _cancel_keys_cfg = ["room"] + ([snake_id] if snake_id else [])
+                    _cancel_event_cfg = register_chat_cancel(_cancel_keys_cfg)
+                    try:
+                        _cfg_messages = [
+                            {"role": "system", "content": _active_session_prompt or _SNAKE_CHAT_PROMPT},
+                            *conversation_history,
+                            {"role": "user", "content": prompt},
+                        ]
+                        _cfg_answer, _cfg_trace = run_ananta_config_tool_loop(
+                            messages=_cfg_messages,
+                            provider=provider,
+                            model=model,
+                            api_base=api_base,
+                            max_tool_calls=8,
+                            timeout=120,
+                            cancel_event=_cancel_event_cfg,
+                        )
+                    finally:
+                        unregister_chat_cancel(_cancel_keys_cfg, _cancel_event_cfg)
+                    _tc_made = _cfg_trace.get("tool_calls_made", 0)
+                    _tools_str = ", ".join(_cfg_trace.get("tools_used") or []) or "–"
+                    _cfg_summary = f"ananta-config: {_tc_made} Tool-Calls [{_tools_str}]"
+                    if rec:
+                        rec.event("ananta_config_tool_loop_done", "Ananta-Konfig Tool-Loop abgeschlossen",
+                                  status="completed" if _cfg_answer else "failed",
+                                  summary=_cfg_summary,
+                                  duration_ms=(time.time() - _t0_cfg) * 1000,
+                                  details=_cfg_trace)
+                    if not _cfg_answer:
+                        _cfg_answer = "Keine Antwort vom Konfigurations-Guide."
+                    _append_room_ai_message(text=f"{_cfg_answer}{_guide_suffix}\n\n[{_cfg_summary}]")
+                    if store and trace_id:
+                        store.complete_trace(trace_id)
+                    return
+
                 if _is_rag_iterative_intent(_cfg):
                     if rec:
                         rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
@@ -964,15 +1039,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("codecompass_retrieval_started", "CodeCompass Retrieval gestartet", status="running",
                           input_preview=prompt)
 
-            # For ananta-settings: skip all RAG retrieval, answer directly from session system prompt
-            if _active_session_id == "ananta-settings":
-                grounded_prompt = prompt
-                has_context = False
-                context_summary = "ananta-settings: kein RAG"
-                _domain_info = {}
-                chunk_meta = []
-            else:
-                grounded_prompt, has_context, context_summary, _domain_info, chunk_meta = _build_grounded_snake_prompt(prompt)
+            grounded_prompt, has_context, context_summary, _domain_info, chunk_meta = _build_grounded_snake_prompt(prompt)
 
             retrieval_ms = (time.time() - retrieval_start) * 1000
             if rec:
