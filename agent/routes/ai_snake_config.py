@@ -33,6 +33,11 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches", "chat_full_scan_timeout_s",
     "chat_full_scan_chars_per_file", "chat_full_scan_max_input_tokens",
+    # RAG-Iterativ / Tool-Call Loop
+    "rag_iterative_tool_calls_enabled",
+    "rag_iterative_max_tool_calls", "rag_iterative_import_depth", "rag_iterative_symbol_expand_max",
+    "rag_iterative_catalog_chars", "rag_iterative_tool_chars_per_file",
+    "rag_iterative_summarize_reads", "rag_iterative_summary_chars",
     # Trace/Tracking Viewer
     "ai_snake_trace_enabled", "ai_snake_trace_max_traces", "ai_snake_trace_max_events_per_trace",
     "ai_snake_trace_ttl_seconds", "ai_snake_trace_stream_mode", "ai_snake_trace_redact_secrets",
@@ -85,6 +90,15 @@ _DEFAULTS: dict[str, Any] = {
     "chat_full_scan_timeout_s": 1800,
     "chat_full_scan_chars_per_file": 600,
     "chat_full_scan_max_input_tokens": "auto",
+    # RAG-Iterativ / Tool-Call Loop
+    "rag_iterative_tool_calls_enabled": True,
+    "rag_iterative_max_tool_calls": 0,
+    "rag_iterative_import_depth": 0,
+    "rag_iterative_symbol_expand_max": 0,
+    "rag_iterative_catalog_chars": 20000,
+    "rag_iterative_tool_chars_per_file": 20000,
+    "rag_iterative_summarize_reads": False,
+    "rag_iterative_summary_chars": 600,
     # Trace/Tracking Viewer
     "ai_snake_trace_enabled": True,
     "ai_snake_trace_max_traces": 50,
