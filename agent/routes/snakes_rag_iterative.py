@@ -23,6 +23,7 @@ from agent.services.rag_context_packer import (
     build_rag_context_pack,
     format_packed_files_section,
     packed_file_memory_summary,
+    should_skip_initial_pack,
 )
 from agent.services.snake_chat_cancellation import is_chat_cancelled
 
@@ -286,7 +287,11 @@ def worker_chat_rag_iterative(
         "rag-helper/out/relations.jsonl",
         "rag-helper/out/component-catalog.md",  # already included as catalog overview
     }
-    chunks = [ch for ch in chunks if ch["source"] not in _CODECOMPASS_DATA_FILES]
+    chunks = [
+        ch for ch in chunks
+        if ch["source"] not in _CODECOMPASS_DATA_FILES
+        and not should_skip_initial_pack(str(ch.get("source") or ""))
+    ]
     trace["rag_chunks_found"] = len(chunks)
     if not chunks:
         trace["error"] = "no_rag_chunks"

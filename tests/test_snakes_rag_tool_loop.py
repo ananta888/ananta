@@ -155,12 +155,15 @@ def test_tool_loop_compacts_initial_packed_files_for_followup_llm_call(tmp_path,
 
     assert answer == "final answer"
     assert trace["initial_context_compacted_for_followups"] is True
-    first_prompt = str(posted_payloads[0]["messages"][0]["content"])
+    first_prompt = "\n".join(str(msg.get("content") or "") for msg in posted_payloads[0]["messages"])
     second_prompt = "\n".join(str(msg.get("content") or "") for msg in posted_payloads[1]["messages"])
-    assert "FULL_INITIAL_FILE_BODY" in first_prompt
+    assert "FULL_INITIAL_FILE_BODY" not in first_prompt
+    assert "Initial file summary" in first_prompt
+    assert "Bereits gelesene CodeCompass-Top-Treffer (kompakt)" in first_prompt
     assert "FULL_INITIAL_FILE_BODY" not in second_prompt
     assert "Bereits gelesene CodeCompass-Top-Treffer (kompakt)" in second_prompt
     assert "Initial file summary" in second_prompt
+    assert first_prompt.count("Recherche-Stand fuer die naechste LLM-Aktion") == 1
     assert second_prompt.count("Recherche-Stand fuer die naechste LLM-Aktion") == 1
 
 
@@ -250,6 +253,10 @@ def test_tool_loop_uses_llm_summary_for_initial_evidence_followup(tmp_path, monk
 
     assert answer == "final answer"
     assert trace["evidence"][0]["summary"] == "[Zusammenfassung von agent/initial.py]\nLLM summary for initial evidence"
+    first_main_payload = next(payload for payload in posted_payloads if payload.get("tools"))
+    first_main_prompt = "\n".join(str(msg.get("content") or "") for msg in first_main_payload["messages"])
+    assert "RAW_INITIAL_CONTEXT" not in first_main_prompt
+    assert "LLM summary for initial evidence" in first_main_prompt
     followup_prompt = "\n".join(str(msg.get("content") or "") for msg in posted_payloads[-1]["messages"])
     assert "RAW_INITIAL_CONTEXT" not in followup_prompt
     assert "LLM summary for initial evidence" in followup_prompt

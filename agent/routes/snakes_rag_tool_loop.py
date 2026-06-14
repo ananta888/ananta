@@ -309,8 +309,6 @@ def run_rag_chat_tool_loop(
             _already_read[path] = f"[Datei '{path}' ist bereits im Initialkontext enthalten.]\n{summary}"
         trace["evidence"] = list(_evidence.values())
 
-    _register_initial_evidence()
-
     def _evidence_prompt() -> str:
         if not _evidence:
             return ""
@@ -369,6 +367,10 @@ def run_rag_chat_tool_loop(
             return
         current_messages[:] = [msg for msg in current_messages if not _is_evidence_message(msg)]
         current_messages.append({"role": "user", "content": evidence_text})
+
+    _register_initial_evidence()
+    _compact_initial_packed_context()
+    _replace_or_append_evidence_message(_evidence_prompt())
 
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
         """Short preview of the last 4 messages — for log entries only."""
