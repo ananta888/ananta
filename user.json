@@ -263,6 +263,8 @@
     "chat_backend_fallback": "none",
     "chat_include_local_project": true,
     "chat_summary_update_every_turns": 1,
-    "chat_answer_chars": 12000
-  }
+    "chat_answer_chars": 12000,
+    "rag_iterative_summarize_reads": true
+  },
+  "_updated_at": 1781444384.5749695
 }

@@ -15,6 +15,14 @@ class _FakeResponse:
         return self._payload
 
 
+class _RecordingTrace:
+    def __init__(self) -> None:
+        self.events: list[dict] = []
+
+    def event(self, phase: str, title: str, **kwargs) -> None:
+        self.events.append({"phase": phase, "title": title, **kwargs})
+
+
 def test_tool_loop_adds_evidence_memory_to_followup_llm_call(tmp_path, monkeypatch):
     source = tmp_path / "agent" / "example.py"
     source.parent.mkdir()
@@ -343,3 +351,123 @@ def test_tool_loop_cancel_event_stops_before_llm_call(tmp_path, monkeypatch):
 
     assert answer == ""
     assert trace["cancelled"] is True
+
+
+def test_tool_loop_rejects_textual_tool_request_as_final_answer(tmp_path, monkeypatch):
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setattr(
+        "agent.llm_integration._runtime_provider_urls",
+        lambda: {"lmstudio": "http://llm.test/v1"},
+    )
+    monkeypatch.setattr("agent.llm_integration._runtime_api_key", lambda _provider: "")
+
+    posted_payloads: list[dict] = []
+
+    def _fake_post(_endpoint, *, json=None, **_kwargs):
+        posted_payloads.append(copy.deepcopy(dict(json or {})))
+        if len(posted_payloads) == 1:
+            return _FakeResponse({
+                "choices": [{
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": '[TOOL_REQUEST]\n{"name":"search_codebase","arguments":{"query":"x"}}\n[END_TOOL_REQUEST]',
+                    },
+                }]
+            })
+        return _FakeResponse({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": "final normal answer"},
+            }]
+        })
+
+    monkeypatch.setattr("requests.post", _fake_post)
+
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{"role": "user", "content": "Frage: erklaere x"}],
+        provider="lmstudio",
+        model="test-model",
+        repo_root=tmp_path,
+        max_tool_calls=0,
+    )
+
+    assert answer == "final normal answer"
+    assert trace["rejected_final_tool_request"] is True
+    assert "tools" not in posted_payloads[1]
+    assert "Tool-Aufrufe sind jetzt nicht mehr erlaubt" in posted_payloads[1]["messages"][-1]["content"]
+
+
+def test_tool_loop_records_textual_tool_request_trace_event(tmp_path, monkeypatch):
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setattr(
+        "agent.llm_integration._runtime_provider_urls",
+        lambda: {"lmstudio": "http://llm.test/v1"},
+    )
+    monkeypatch.setattr("agent.llm_integration._runtime_api_key", lambda _provider: "")
+
+    def _fake_post(_endpoint, *, json=None, **_kwargs):
+        messages = list((json or {}).get("messages") or [])
+        if len(messages) == 1:
+            return _FakeResponse({
+                "choices": [{
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": '[TOOL_REQUEST]\n{"name":"search_codebase","arguments":{"query":"agent/x.py"}}\n[END_TOOL_REQUEST]',
+                    },
+                }]
+            })
+        return _FakeResponse({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": "final normal answer"},
+            }]
+        })
+
+    monkeypatch.setattr("requests.post", _fake_post)
+    rec = _RecordingTrace()
+
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{"role": "user", "content": "Frage: erklaere x"}],
+        provider="lmstudio",
+        model="test-model",
+        repo_root=tmp_path,
+        max_tool_calls=0,
+        rec=rec,
+    )
+
+    event = next(item for item in rec.events if item["phase"] == "tool_loop_llm_1_textual_tool_request")
+    assert answer == "final normal answer"
+    assert trace["rejected_final_tool_request"] is True
+    assert event["status"] == "blocked"
+    assert "[TOOL_REQUEST]" in event["output_preview"]
+
+
+def test_search_codebase_filters_generated_codecompass_outputs(tmp_path, monkeypatch):
+    from agent.routes.snakes_rag_tool_loop import _tool_search_codebase
+
+    class _Chunk:
+        def __init__(self, source: str, score: float) -> None:
+            self.source = source
+            self.score = score
+
+    class _FakeRepositoryMapEngine:
+        def __init__(self, _repo_root):
+            pass
+
+        def build(self):
+            return None
+
+        def search(self, *_args, **_kwargs):
+            return [
+                _Chunk("rag-helper/out/index_by_kind/python_file.jsonl", 100.0),
+                _Chunk("agent/real.py", 90.0),
+            ]
+
+    monkeypatch.setattr("agent.hybrid_orchestrator.RepositoryMapEngine", _FakeRepositoryMapEngine)
+
+    result = _tool_search_codebase("codecompass", 8, tmp_path)
+
+    assert "agent/real.py" in result
+    assert "rag-helper/out/index_by_kind/python_file.jsonl" not in result

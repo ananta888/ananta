@@ -461,6 +461,12 @@ def worker_chat_rag_iterative(
                     "max_tool_calls": max_tool_calls,
                     "model": model,
                     "provider": provider,
+                    "summarize_reads": _summarize_reads,
+                    "initial_summary_mode": (
+                        "skipped_symbol_context_primary"
+                        if _symbol_snippets
+                        else "enabled" if _summarize_reads and _context_pack.included_files else "not_applicable"
+                    ),
                 },
             )
 
@@ -505,6 +511,12 @@ def worker_chat_rag_iterative(
             }
             for item in _symbol_snippets
         ]
+        trace["summarize_reads"] = _summarize_reads
+        trace["initial_summary_mode"] = (
+            "skipped_symbol_context_primary"
+            if _symbol_snippets
+            else "enabled" if _summarize_reads and _context_pack.included_files else "not_applicable"
+        )
         trace["initial_context_file_budget_chars"] = _context_pack.file_budget_chars
         trace["initial_context_used_file_chars"] = _context_pack.used_file_chars
         trace["catalog_chars"] = len(_catalog_section)

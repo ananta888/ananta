@@ -9,10 +9,12 @@ from __future__ import annotations
 import json
 import logging
 import pathlib as _pl
+import re
 from typing import Any
 
 from agent.utils import log_llm_entry
 from agent.services.snake_chat_cancellation import is_chat_cancelled
+from agent.services.rag_context_packer import should_skip_initial_pack
 
 _log = logging.getLogger(__name__)
 
@@ -112,7 +114,10 @@ def _tool_search_codebase(query: str, max_results: int, repo_root: _pl.Path) -> 
         from agent.hybrid_orchestrator import RepositoryMapEngine
         engine = RepositoryMapEngine(repo_root)
         engine.build()
-        chunks = engine.search(query, top_k=max(1, min(max_results, 20)))
+        chunks = [
+            ch for ch in engine.search(query, top_k=max(1, min(max_results * 3, 40)))
+            if not should_skip_initial_pack(str(ch.source or ""))
+        ][:max(1, min(max_results, 20))]
         if not chunks:
             return "[Keine Treffer für diese Suche]"
         lines = [f"- {ch.source}  (score: {ch.score:.1f})" for ch in chunks]
@@ -216,6 +221,8 @@ def run_rag_chat_tool_loop(
     _evidence: dict[str, dict[str, Any]] = {}
     search_call_count = 0
     force_final_next = False
+    final_repair_attempts = 0
+    last_non_tool_content = ""
 
     def _cancelled() -> bool:
         if not is_chat_cancelled(cancel_event):
@@ -223,6 +230,19 @@ def run_rag_chat_tool_loop(
         trace["cancelled"] = True
         trace["error"] = "cancelled"
         return True
+
+    def _looks_like_tool_request(text: str) -> bool:
+        value = str(text or "").strip()
+        if not value:
+            return False
+        lowered = value.lower()
+        if "[tool_request]" in lowered or "[end_tool_request]" in lowered:
+            return True
+        if re.search(r'"(?:name|tool_name)"\s*:\s*"(?:read_file|search_codebase)"', value):
+            return True
+        if re.search(r'"tool_calls"\s*:', value):
+            return True
+        return False
 
     def _summarize_file(path: str, content: str) -> str:
         """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
@@ -569,6 +589,9 @@ def run_rag_chat_tool_loop(
         content = str(msg.get("content") or "").strip()
         tool_calls = list(msg.get("tool_calls") or [])
         last_content = content or last_content
+        textual_tool_request = _looks_like_tool_request(content)
+        if content and not textual_tool_request:
+            last_non_tool_content = content
 
         _tc_names_log = [
             str((tc.get("function") or {}).get("name") or "?") for tc in tool_calls
@@ -600,6 +623,46 @@ def run_rag_chat_tool_loop(
                 },
                 output_preview=content if content else (f"→ Tool-Calls: {tc_names}" if tc_names else None),
             )
+            if textual_tool_request:
+                rec.event(
+                    f"tool_loop_llm_{llm_call_count}_textual_tool_request",
+                    "Textueller Tool-Request im Modelltext erkannt",
+                    status="blocked" if (not use_tools or finish_reason == "stop" or not tool_calls) else "warning",
+                    details={
+                        "finish_reason": finish_reason,
+                        "use_tools": use_tools,
+                        "tool_calls_requested": tc_names,
+                    },
+                    output_preview=content,
+                )
+
+        if (not tool_calls or finish_reason == "stop" or not use_tools) and textual_tool_request:
+            trace["rejected_final_tool_request"] = True
+            trace["rejected_final_tool_request_preview"] = content[:500]
+            final_repair_attempts += 1
+            if final_repair_attempts <= 2:
+                force_final_next = True
+                current_messages.append({
+                    "role": "user",
+                    "content": (
+                        "Der letzte Text war ein Tool-Aufruf. Tool-Aufrufe sind jetzt nicht mehr erlaubt. "
+                        "Gib eine normale finale Antwort in Deutsch auf Basis des vorhandenen Kontexts. "
+                        "Erwaehne keine TOOL_REQUEST-Bloecke und kein JSON."
+                    ),
+                })
+                if rec:
+                    rec.event(
+                        f"tool_loop_llm_{llm_call_count}_rejected_tool_request",
+                        "Finale Antwort war ein Tool-Aufruf und wird wiederholt",
+                        status="running",
+                        details={"finish_reason": finish_reason, "preview": content[:500]},
+                    )
+                continue
+            fallback = last_non_tool_content or (
+                "Unklar, bitte Kontext pruefen. Das Modell hat statt einer finalen Antwort erneut einen Tool-Aufruf ausgegeben."
+            )
+            trace["final_finish_reason"] = "rejected_tool_request_fallback"
+            return fallback, trace
 
         if not tool_calls or finish_reason == "stop" or not use_tools:
             trace["final_finish_reason"] = finish_reason
